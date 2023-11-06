@@ -1,11 +1,11 @@
 {
-	"id": "ddc_my-plugin",
+	"id": "my-plugin",
 	"name": "Plugin Template",
 	"version": "0.0.1",
 	"minAppVersion": "1.00.0",
 	"description": "This template is created by Dale de Silva. More info and tutorials here.",
 	"author": "Dale de Silva",
-	"authorUrl": "https://ublik-om.net",
-	"fundingUrl": "https://twitter.com/daledesilva",
+	"authorUrl": "https://designdebt.club",
+	"fundingUrl": "https://ko-fi.com/daledesilva",
 	"isDesktopOnly": false
 }

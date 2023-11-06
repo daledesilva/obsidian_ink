@@ -40,7 +40,7 @@ export default class KeepPlugin extends Plugin {
 		await this.loadSettings();
 		
 		// this.addCommand({
-		// 	id: 'ublik-om_import-google-keep-jsons',
+		// 	id: 'ddc_import-google-keep-jsons',
 		// 	name: 'Import backup from Google Keep',
 		// 	callback: () => {
 		// 		new StartImportModal(this).open();

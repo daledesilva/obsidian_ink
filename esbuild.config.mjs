@@ -15,7 +15,20 @@ const renamePlugin = () => ({
 			try {
 				fs.renameSync('./dist/main.css', './dist/styles.css');
 			} catch (e) {
-				console.error('Failed to rename file:', e);
+				console.error('Failed to main.css to styles.css file:', e);
+			}
+		});
+	},
+});
+
+const copyManifestPlugin = () => ({
+	name: 'copy-manifest-plugin',
+	setup(build) {
+		build.onEnd(async () => {
+			try {
+				fs.copyFileSync('./manifest.json', './dist/manifest.json');
+			} catch (e) {
+				console.error('Failed to copy manifest.json to dist:', e);
 			}
 		});
 	},
@@ -66,16 +79,18 @@ esbuild.build({
 		}),
 		copy({
 		  resolveFrom: 'cwd',	// Returns name of current working directory
-		  assets: {
-			from: ['./src/static/**/*'],
-			to: ['./dist'],
-		  },
+			assets: {
+				from: ['./src/static/**/*'],
+				to: ['./dist'],
+			},
 		}),
 		
+		// Enables manifest.json to live in root as that's the Obsidian expects in a repository, and this copies it to dist on build
+		copyManifestPlugin(),
 		// Renames main.css to styles.css as that's what obsidian expects
 		renamePlugin(),
 
-	  ],
+	],
 }).catch(() => process.exit(1));
 
 

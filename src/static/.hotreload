@@ -1,0 +1,13 @@
+// The existence of this file indiciates the plugin should be reloaded automatically on change provided you have Hot Relead plguin installed in Obsidian.
+// The Hot Reload plugin can be installed from here: https://github.com/pjeby/hot-reload
+
+// This file isn't copied into dist automatically, you should copy it manually.
+// This prevents it from being included in releases by default.
+
+Also, set up a symbolic link in the obsidian vaul's plugins directory to your plugin's dist folder so it automatically get's published there while developing.
+The hotlink will then handle the auto reloading of it.
+ln -s /abs-path/to/original /path/to/link
+
+ln -s <drag in dist folder for abs ref> ../
+
+The plugin directory is in the obsidian vault. On mac, press cmd + shift + . to see hidden files and folders)

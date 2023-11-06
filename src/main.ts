@@ -59,19 +59,20 @@ export default class KeepPlugin extends Plugin {
 
 
 
+		console.log('-----registerEditorExtension');
 		this.registerEditorExtension([
-			transientMarkExtension(),
-			persistentMarkExtension(),
-			// inlineWidgetStateFieldExtension(),
-			inlineWidgetPluginExtension(),
-			replacingWidgetExtension(),
+			// transientMarkExtension(),
+			// persistentMarkExtension(),
+			// // inlineWidgetStateFieldExtension(),
+			// inlineWidgetPluginExtension(),
+			// replacingWidgetExtension(),
 			// lineExtension(),
-			blockWidgetExtension(),
+			// blockWidgetExtension(),
 			blockWidgetReactExtension(),
 		]);
 
 
-		registerMarkdownBlockWidget(this);
+		// registerMarkdownBlockWidget(this);
 
 
 	}

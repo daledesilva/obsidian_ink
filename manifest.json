@@ -1,9 +1,9 @@
 {
-	"id": "my-plugin",
-	"name": "Plugin Template",
+	"id": "handwrite",
+	"name": "Handwrite",
 	"version": "0.0.1",
 	"minAppVersion": "1.00.0",
-	"description": "This template is created by Dale de Silva. More info and tutorials here.",
+	"description": "Handwrite creates a whiteboard specifically tailored for handwriting. Enjoy a smooth experience on tablets and easily move words and paragraphs around. This plugin is built on top of the open source tldraw framework.",
 	"author": "Dale de Silva",
 	"authorUrl": "https://designdebt.club",
 	"fundingUrl": "https://ko-fi.com/daledesilva",

@@ -18,6 +18,8 @@ import * as React from "react";
 import * as ReactDom from "react-dom";
 import { createRoot, Root } from "react-dom/client";
 import { BlockWidgetReactApp } from './block-widget-react-app';
+import { Tldraw } from '@tldraw/tldraw'
+import '@tldraw/tldraw/tldraw.css'
 
 
 // Import scss file so that compiler adds it.

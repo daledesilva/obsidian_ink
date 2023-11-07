@@ -11,7 +11,7 @@ import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 
 import {registerMarkdownBlockWidget } from './extensions/example-decorations/widgets/markdown-block-widget-react';
 
-
+import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -68,12 +68,13 @@ export default class KeepPlugin extends Plugin {
 			// replacingWidgetExtension(),
 			// lineExtension(),
 			// blockWidgetExtension(),
-			blockWidgetReactExtension(),
+			// blockWidgetReactExtension(),
 		]);
 
 
 		// registerMarkdownBlockWidget(this);
-
+		
+		registerHandwritingEmbed(this);
 
 	}
 

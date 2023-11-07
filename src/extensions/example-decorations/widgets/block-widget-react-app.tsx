@@ -1,5 +1,7 @@
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Editor, TLGeoShape, TLShapePartial, Tldraw, createShapeId } from '@tldraw/tldraw'
+import '@tldraw/tldraw/tldraw.css'
 
 // Import scss file so that compiler adds it.
 // This is instead of injecting it using EditorView.baseTheme
@@ -8,29 +10,78 @@ import './block-widget.scss';
 
 
 export const BlockWidgetReactApp = () => {
-  const [title, setTitle] = useState('React Based Block Widget');
+  	const [title, setTitle] = useState('React Based Block Widget');
 
-  return <>
-    <div
-      className = 'block-widget external-styling'  // Incorporate classnames module
-      >
-      
-      <h2>
-        {title}
-      </h2>
 
-      <p>
-        This is a react based block widget placed in a static position at the top of hte document.
-      </p>
+	const handleMount = (editor: Editor) => {
 
-      <button
-        onClick = {() => setTitle('Changed Title')}
-        >
-        Change Title
-      </button>
+    
+		// // Create a shape id
+		const id = createShapeId('hello')
 
-    </div>
-  </>;
+		// // Create a shape
+		editor.createShapes<TLGeoShape>([
+			{
+				id,
+				type: 'geo',
+				x: 128 + Math.random() * 500,
+				y: 128 + Math.random() * 500,
+				props: {
+					geo: 'rectangle',
+					w: 100,
+					h: 100,
+					dash: 'draw',
+					color: 'blue',
+					size: 'm',
+				},
+			},
+		])
+
+		// // Get the created shape
+		const shape = editor.getShape<TLGeoShape>(id)!
+
+		const shapeUpdate: TLShapePartial<TLGeoShape> = {
+			id,
+			type: 'geo',
+			props: {
+				w: shape.props.h * 2,
+				text: 'hello world!',
+			},
+		}
+
+		// Update the shape
+		editor.updateShapes([shapeUpdate])
+
+		// Zoom the camera to fit both shapes
+		editor.zoomToFit()
+
+
+		editor.updateInstanceState({
+			// isReadonly: true,
+			// canMoveCamera: false,
+			// isToolLocked: true,
+		
+			// isDebugMode: false,
+			isGridMode: true,
+		})
+	}
+
+
+
+	return <>
+		<div
+			className = 'block-widget external-styling'
+			style = {{
+			// position: 'fixed',
+			// inset: 0
+			height: '500px'
+		}}>
+			<Tldraw
+				// hideUi = {true}
+				onMount = {handleMount}
+			/>
+		</div>
+	</>;
 };
 
 

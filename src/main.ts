@@ -1,16 +1,6 @@
-import { fileSyntax } from 'esbuild-sass-plugin/lib/utils';
-import { App, DataWriteOptions, Editor, MarkdownView, MarkdownViewModeType, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder, Vault } from 'obsidian';
+import { MarkdownViewModeType, Notice, Plugin } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
-import { replacingWidgetExtension } from './extensions/example-decorations/widgets/replacing-widget';
-import { transientMarkExtension } from './extensions/example-decorations/mark-decorations/transient-mark';
-import { inlineWidgetPluginExtension } from './extensions/example-decorations/widgets/inline-widget-plugin';
-import { persistentMarkExtension } from './extensions/example-decorations/mark-decorations/persistent-mark';
-import { blockWidgetExtension } from './extensions/example-decorations/widgets/block-widget';
-import { blockWidgetReactExtension } from './extensions/example-decorations/widgets/block-widget-react';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
-
-import {registerMarkdownBlockWidget } from './extensions/example-decorations/widgets/markdown-block-widget-react';
-
 import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
 
 
@@ -39,42 +29,29 @@ export default class KeepPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		
-		// this.addCommand({
-		// 	id: 'ddc_import-google-keep-jsons',
-		// 	name: 'Import backup from Google Keep',
-		// 	callback: () => {
-		// 		new StartImportModal(this).open();
-		// 	}
-		// });
+		this.addCommand({
+			id: 'ddc_embed-handwritten-file',
+			name: 'Insert existing handwritten section',
+			callback: () => {}
+		});
+		this.addCommand({
+			id: 'ddc_create-handwritten-section',
+			name: 'Insert new handwritten section',
+			callback: () => {}
+		});
 
 		
-		// This adds a settings tab so the user can configure various aspects of the plugin
+		// TODO: Convert this to registerSettingsTab
 		this.addSettingTab(new MySettingsTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		// this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-		// 	console.log('click', evt);
-		// });
-
-
-
-		console.log('-----registerEditorExtension');
-		this.registerEditorExtension([
-			// transientMarkExtension(),
-			// persistentMarkExtension(),
-			// // inlineWidgetStateFieldExtension(),
-			// inlineWidgetPluginExtension(),
-			// replacingWidgetExtension(),
-			// lineExtension(),
-			// blockWidgetExtension(),
-			// blockWidgetReactExtension(),
-		]);
-
-
-		// registerMarkdownBlockWidget(this);
 		
 		registerHandwritingEmbed(this);
+
+		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
+		// // Using this function will automatically remove the event listener when this plugin is disabled.
+		// // this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
+		// // 	console.log('click', evt);
+		// // });
+		
 
 	}
 
@@ -87,15 +64,15 @@ export default class KeepPlugin extends Plugin {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+	// async saveSettings() {
+	// 	await this.saveData(this.settings);
+	// }
 
-	async resetSettings() {
-		this.settings = JSON.parse( JSON.stringify(DEFAULT_SETTINGS) );
-		this.saveSettings();
-		new Notice('Plugin settings reset');
-	}
+	// async resetSettings() {
+	// 	this.settings = JSON.parse( JSON.stringify(DEFAULT_SETTINGS) );
+	// 	this.saveSettings();
+	// 	new Notice('Plugin settings reset');
+	// }
 }
 
 

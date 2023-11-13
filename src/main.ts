@@ -2,6 +2,9 @@ import { MarkdownViewModeType, Notice, Plugin } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
+import insertExistingFile from './commands/insert-existing-file';
+import insertNewFile from './commands/insert-new-file';
+import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView } from './views/handwriting-view';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -11,7 +14,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 
 
 
-export default class KeepPlugin extends Plugin {
+export default class HandwritePlugin extends Plugin {
 	settings: PluginSettings;
 
 	// Function came from Notion like tables code
@@ -32,13 +35,33 @@ export default class KeepPlugin extends Plugin {
 		this.addCommand({
 			id: 'ddc_embed-handwritten-file',
 			name: 'Insert existing handwritten section',
-			callback: () => {}
+			callback: () => insertExistingFile(this)
 		});
 		this.addCommand({
 			id: 'ddc_create-handwritten-section',
 			name: 'Insert new handwritten section',
-			callback: () => {}
+			callback: () => insertNewFile(this)
 		});
+
+
+		this.registerView(
+			HANDWRITING_VIEW_TYPE,
+			(leaf) => new HandwritingView(leaf)
+		);
+	
+		this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
+			activateHandwritingView(this, ViewPosition.replacement);
+		});
+		this.addRibbonIcon("dice", "Handwriting View (New tab)", () => {
+			activateHandwritingView(this, ViewPosition.tab);
+		});
+		this.addRibbonIcon("dice", "Handwriting View (Split right)", () => {
+			activateHandwritingView(this, ViewPosition.verticalSplit);
+		});
+		this.addRibbonIcon("dice", "Handwriting View (Split bottom)", () => {
+			activateHandwritingView(this, ViewPosition.horizontalSplit);
+		});
+
 
 		
 		// TODO: Convert this to registerSettingsTab

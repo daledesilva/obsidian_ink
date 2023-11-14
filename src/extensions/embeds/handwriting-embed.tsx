@@ -2,7 +2,6 @@ import { Editor, Store, StoreSnapshot, TLGeoShape, TLRecord, TLShapePartial, Tld
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TFile, } from "obsidian";
 import * as React from "react";
-import { useState } from "react";
 import { Root, createRoot } from "react-dom/client";
 
 

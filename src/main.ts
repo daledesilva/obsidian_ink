@@ -46,7 +46,7 @@ export default class HandwritePlugin extends Plugin {
 
 		this.registerView(
 			HANDWRITING_VIEW_TYPE,
-			(leaf) => new HandwritingView(leaf)
+			(leaf) => new HandwritingView(leaf, this)
 		);
 	
 		this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {

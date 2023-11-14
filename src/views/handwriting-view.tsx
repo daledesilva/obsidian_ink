@@ -1,4 +1,7 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { Editor, Tldraw } from "@tldraw/tldraw";
+import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
+import * as React from "react";
+import { Root, createRoot } from "react-dom/client";
 import HandwritePlugin from "src/main";
 
 ////////
@@ -14,8 +17,12 @@ export enum ViewPosition {
 
 
 export class HandwritingView extends ItemView {
-    constructor(leaf: WorkspaceLeaf) {
+    root: Root;
+    plugin: HandwritePlugin;
+
+    constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
         super(leaf);
+        this.plugin = plugin;
     }
 
     getViewType() {
@@ -23,19 +30,67 @@ export class HandwritingView extends ItemView {
     }
 
     getDisplayText() {
-        return "Handwriten note";
+        return "Handwritten note";
     }
 
     async onOpen() {
-        const container = this.containerEl.children[1];
-        container.empty();
-        container.createEl("h4", { text: "Example view" });
+        const bodyEl = this.containerEl.children[1];
+
+        const sourcePath = `Handwriting/7-nov-2021.byhand.md`;
+
+        const v = this.plugin.app.vault;
+		const fileRef = v.getAbstractFileByPath(sourcePath)
+		if( !(fileRef instanceof TFile) ) {
+			console.error(`File not found.`);
+			return;
+		}
+		const sourceJson = await v.cachedRead(fileRef as TFile);
+
+        const rootEl = bodyEl.createEl("div");
+		this.root = createRoot(rootEl);
+		this.root.render(
+			<ReactApp
+				sourceJson = {sourceJson}
+			/>
+		);
+		bodyEl.replaceWith(rootEl);
     }
 
     async onClose() {
         // Nothing to clean up.
     }
 }
+
+
+
+
+const ReactApp = (props: {sourceJson: string}) => {
+	// const assetUrls = getAssetUrlsByMetaUrl();
+
+	const handleMount = (editor: Editor) => {
+		editor.zoomToFit()
+		editor.updateInstanceState({
+			// isDebugMode: false,
+		})
+	}
+
+    return <>
+		<div
+			style = {{
+                position: 'absolute',
+				width: '100%',
+				height: '100%'
+			}}
+		>
+			<Tldraw
+				snapshot = {JSON.parse(props.sourceJson)}
+				onMount = {handleMount}
+				// assetUrls = {assetUrls}
+			/>
+		</div>
+	</>;
+	
+};
 
 
 

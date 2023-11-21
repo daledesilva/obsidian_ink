@@ -1,10 +1,10 @@
-import { Editor, Tldraw } from "@tldraw/tldraw";
+import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 
 ///////
 ///////
 
-export function TldrawPageEditor (props: {sourceJsonStr: string}) {
+export function TldrawPageEditor (props: {existingData: SerializedStore<TLRecord>}) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 
 	const handleMount = (editor: Editor) => {
@@ -21,7 +21,7 @@ export function TldrawPageEditor (props: {sourceJsonStr: string}) {
 			}}
 		>
 			<Tldraw
-				snapshot = {JSON.parse(props.sourceJsonStr)}
+				snapshot = {props.existingData}	// REVIEW: Check what's causing this snapshot error
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 			/>

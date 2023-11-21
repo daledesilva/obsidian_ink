@@ -1,9 +1,10 @@
-import { Editor, Tldraw } from "@tldraw/tldraw";
+import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import { ItemView, TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import HandwritePlugin from "src/main";
 import TldrawPageEditor from 'src/tldraw/tldraw-page-editor';
+import { PageData, buildPageFile } from "src/utils/page-file";
 
 ////////
 ////////
@@ -30,7 +31,7 @@ export function registerHandwritingView (plugin: HandwritePlugin) {
 export class HandwritingView extends TextFileView {
     root: null | Root;
     plugin: HandwritePlugin;
-    liveData: string;
+    liveTldrawData: SerializedStore<TLRecord>;
 
     constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
         super(leaf);
@@ -45,9 +46,10 @@ export class HandwritingView extends TextFileView {
         return this.file?.basename || "Handwritten note";
     }
     
-    // This provides the data from the file for placing into the view (upon loading)
-    async setViewData(data: string, clear: boolean): Promise<void> {
-        this.liveData = data;
+    // This provides the data from the file for placing into the view (Called when file is opening)
+    async setViewData(fileContents: string, clear: boolean): Promise<void> {
+        const pageData = JSON.parse(fileContents) as PageData;
+        this.liveTldrawData = pageData.tldraw;
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
@@ -58,14 +60,16 @@ export class HandwritingView extends TextFileView {
 
 		this.root.render(
             <TldrawPageEditor
-                sourceJsonStr = {this.liveData}
+                existingData = {this.liveTldrawData}
 			/>
         );
     }
     
-    // This allows you to return the data you want to save (upon closing)
+    // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData(): string {
-        return this.liveData;
+        const tldrawData = this.liveTldrawData;
+        const fileContents = buildPageFile(tldrawData as SerializedStore<TLRecord>)
+        return fileContents;
     }
 
     // This allows you to clear the view before a new file is opened of of the same type in the same leaf?????

@@ -1,5 +1,5 @@
 import { Editor, Tldraw } from "@tldraw/tldraw";
-import { ItemView, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import HandwritePlugin from "src/main";
@@ -17,9 +17,20 @@ export enum ViewPosition {
 }
 
 
-export class HandwritingView extends ItemView {
-    root: Root;
+
+export function registerHandwritingView (plugin: HandwritePlugin) {
+    plugin.registerView(
+        HANDWRITING_VIEW_TYPE,
+        (leaf) => new HandwritingView(leaf, this)
+    );
+    plugin.registerExtensions(['byhand'], HANDWRITING_VIEW_TYPE);
+}
+
+
+export class HandwritingView extends TextFileView {
+    root: null | Root;
     plugin: HandwritePlugin;
+    liveData: string;
 
     constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
         super(leaf);
@@ -31,35 +42,41 @@ export class HandwritingView extends ItemView {
     }
 
     getDisplayText() {
-        return "Handwritten note";
+        return this.file?.basename || "Handwritten note";
     }
+    
+    // This provides the data from the file for placing into the view (upon loading)
+    async setViewData(data: string, clear: boolean): Promise<void> {
+        this.liveData = data;
 
-    async onOpen() {
-        const bodyEl = this.containerEl.children[1];
+        const viewContent = this.containerEl.children[1];
+        viewContent.setAttr('style', 'padding: 0;');
+		
+        // If the view hasn't been initiated, create the React root // REVIEW: This seems to create a too many renders issue
+        // if(!this.root) this.root = createRoot(viewContent);
+        this.root = createRoot(viewContent);
 
-        const sourcePath = `Handwriting/7-nov-2021.byhand.md`;
-
-        const v = this.plugin.app.vault;
-		const fileRef = v.getAbstractFileByPath(sourcePath)
-		if( !(fileRef instanceof TFile) ) {
-			console.error(`File not found.`);
-			return;
-		}
-		const sourceJson = await v.cachedRead(fileRef as TFile);
-
-        const rootEl = bodyEl.createEl("div");
-		this.root = createRoot(rootEl);
 		this.root.render(
-			<TldrawPageEditor
-				sourceJson = {sourceJson}
+            <TldrawPageEditor
+                sourceJsonStr = {this.liveData}
 			/>
-		);
-		bodyEl.replaceWith(rootEl);
+        );
+    }
+    
+    // This allows you to return the data you want to save (upon closing)
+    getViewData(): string {
+        return this.liveData;
     }
 
-    async onClose() {
-        // Nothing to clean up.
+    // This allows you to clear the view before a new file is opened of of the same type in the same leaf?????
+    clear(): void {
+        console.log('clear being called');
     }
+    
+    // onPaneMenu()
+
+    // onResize()
+
 }
 
 

@@ -4,7 +4,7 @@ import * as React from "react";
 ///////
 ///////
 
-export function TldrawPageEditor (props: {sourceJson: string}) {
+export function TldrawPageEditor (props: {sourceJsonStr: string}) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 
 	const handleMount = (editor: Editor) => {
@@ -17,13 +17,11 @@ export function TldrawPageEditor (props: {sourceJson: string}) {
 	return <>
 		<div
 			style = {{
-                position: 'absolute',
-				width: '100%',
 				height: '100%'
 			}}
 		>
 			<Tldraw
-				snapshot = {JSON.parse(props.sourceJson)}
+				snapshot = {JSON.parse(props.sourceJsonStr)}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 			/>

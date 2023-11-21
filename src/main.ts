@@ -1,10 +1,10 @@
-import { MarkdownViewModeType, Notice, Plugin } from 'obsidian';
+import { MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
 import insertExistingFile from './commands/insert-existing-file';
 import insertNewFile from './commands/insert-new-file';
-import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView } from './views/handwriting-view';
+import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView, registerHandwritingView } from './views/handwriting-view';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -44,11 +44,13 @@ export default class HandwritePlugin extends Plugin {
 		});
 
 
-		this.registerView(
-			HANDWRITING_VIEW_TYPE,
-			(leaf) => new HandwritingView(leaf, this)
-		);
+		
+
+		registerHandwritingView(this);
+		registerHandwritingEmbed(this);
 	
+		
+
 		this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
 			activateHandwritingView(this, ViewPosition.replacement);
 		});
@@ -67,7 +69,6 @@ export default class HandwritePlugin extends Plugin {
 		// TODO: Convert this to registerSettingsTab
 		this.addSettingTab(new MySettingsTab(this.app, this));
 		
-		registerHandwritingEmbed(this);
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
@@ -97,5 +98,6 @@ export default class HandwritePlugin extends Plugin {
 	// 	new Notice('Plugin settings reset');
 	// }
 }
+
 
 

@@ -4,13 +4,24 @@ import * as React from "react";
 ///////
 ///////
 
-export function TldrawPageEditor (props: {existingData: SerializedStore<TLRecord>}) {
+export function TldrawPageEditor (props: {
+	existingData: SerializedStore<TLRecord>,
+	uid: string,
+	save: Function,
+}) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
+	console.log(props.uid)
 
 	const handleMount = (editor: Editor) => {
 		editor.zoomToFit()
 		editor.updateInstanceState({
 			// isDebugMode: false,
+		})
+		editor.store.listen((entry) => {
+			// console.log('entry', entry);
+			// entry // { changes, source }
+			const contents = JSON.stringify( editor.store.getSnapshot() );
+			props.save(contents);
 		})
 	}
 
@@ -21,7 +32,9 @@ export function TldrawPageEditor (props: {existingData: SerializedStore<TLRecord
 			}}
 		>
 			<Tldraw
-				snapshot = {props.existingData}	// REVIEW: Check what's causing this snapshot error
+				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
+				snapshot = {props.existingData}	// NOTE: Check what's causing this snapshot error??
+				// persistenceKey = {props.uid}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 			/>

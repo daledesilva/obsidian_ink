@@ -39,13 +39,14 @@ export class HandwritingView extends TextFileView {
     }
 
     saveFile(contents: string) {
-        // console.log('this.data', this.data);
-        // this.requestSave();
-        // this.save();
-        // this.data = contents;
 
-        // this.liveTldrawData = JSON.parse(contents) as SerializedStore<TLRecord>;
-        // console.log('this.liveTldrawData', this.liveTldrawData);
+        console.log('this.data', this.data); // returns undefined
+        this.data = contents;   // Uncaught TypeError: Cannot add property data, object is not extensible
+
+        this.liveTldrawData = JSON.parse(contents) as SerializedStore<TLRecord>;    // Uncaught TypeError: Cannot add property liveTldrawData, object is not extensible
+        console.log('this.liveTldrawData', this.liveTldrawData);    // returns undefined but works fine in setViewData
+
+        this.requestSave(); // Says doesn't exist
     }
 
     getViewType() {
@@ -57,7 +58,7 @@ export class HandwritingView extends TextFileView {
     }
     
     // This provides the data from the file for placing into the view (Called when file is opening)
-    async setViewData(fileContents: string, clear: boolean): Promise<void> {
+    setViewData(fileContents: string, clear: boolean) {
         const pageData = JSON.parse(fileContents) as PageData;
         this.liveTldrawData = pageData.tldraw;
 
@@ -104,49 +105,49 @@ export class HandwritingView extends TextFileView {
 
 
 
-// export async function activateHandwritingView(plugin: HandwritePlugin, position: ViewPosition = ViewPosition.replacement) {
-// 	switch(position) {
-//         case ViewPosition.replacement:      activateReplacementView(plugin); break;
-//         case ViewPosition.tab:              activateTabView(plugin); break;
-//         case ViewPosition.verticalSplit:    activateSplitView(plugin, 'horizontal'); break;
-//         case ViewPosition.horizontalSplit:  activateSplitView(plugin, 'vertical'); break;
-//         default: activateReplacementView(plugin); break;
-//     }
-//     console.log('DONE')
-//     console.log(position)
-// }
+export async function activateHandwritingView(plugin: HandwritePlugin, position: ViewPosition = ViewPosition.replacement) {
+	switch(position) {
+        case ViewPosition.replacement:      activateReplacementView(plugin); break;
+        case ViewPosition.tab:              activateTabView(plugin); break;
+        case ViewPosition.verticalSplit:    activateSplitView(plugin, 'horizontal'); break;
+        case ViewPosition.horizontalSplit:  activateSplitView(plugin, 'vertical'); break;
+        default: activateReplacementView(plugin); break;
+    }
+    console.log('DONE')
+    console.log(position)
+}
 
-// async function activateReplacementView(plugin: HandwritePlugin) {
-//     let { workspace }  = plugin.app;
-// 	let leaf = workspace.getLeaf();
-//     await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
-//     workspace.revealLeaf(leaf);
-// }
-// async function activateTabView(plugin: HandwritePlugin) {
-//     let { workspace }  = plugin.app;
+async function activateReplacementView(plugin: HandwritePlugin) {
+    let { workspace }  = plugin.app;
+	let leaf = workspace.getLeaf();
+    await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
+    workspace.revealLeaf(leaf);
+}
+async function activateTabView(plugin: HandwritePlugin) {
+    let { workspace }  = plugin.app;
 	
-//     let leaf: WorkspaceLeaf | null = null;
-// 	let leaves = workspace.getLeavesOfType(HANDWRITING_VIEW_TYPE);
+    let leaf: WorkspaceLeaf | null = null;
+	let leaves = workspace.getLeavesOfType(HANDWRITING_VIEW_TYPE);
 
-//     // This code finds if it alread existing in a tab and uses that first.
-// 	// if (leaves.length > 0) {
-// 	// 	// A leaf with our view already exists, use that
-// 	// 	leaf = leaves[0];
-// 	// } else {
-// 		// Our view could not be found in the workspace
-// 		leaf = workspace.getLeaf(true);
-// 		await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
-// 	// }
+    // This code finds if it alread existing in a tab and uses that first.
+	// if (leaves.length > 0) {
+	// 	// A leaf with our view already exists, use that
+	// 	leaf = leaves[0];
+	// } else {
+		// Our view could not be found in the workspace
+		leaf = workspace.getLeaf(true);
+		await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
+	// }
 
-//     workspace.revealLeaf(leaf);
-// }
-// async function activateSplitView(plugin: HandwritePlugin, direction: 'horizontal' | 'vertical') {
-//     let { workspace }  = plugin.app;
+    workspace.revealLeaf(leaf);
+}
+async function activateSplitView(plugin: HandwritePlugin, direction: 'horizontal' | 'vertical') {
+    let { workspace }  = plugin.app;
     
-//     let leaf: null | WorkspaceLeaf;
-//     direction == 'vertical' ?   leaf = workspace.getLeaf('split', 'vertical') : 
-//                                 leaf = workspace.getLeaf('split', 'horizontal');
+    let leaf: null | WorkspaceLeaf;
+    direction == 'vertical' ?   leaf = workspace.getLeaf('split', 'vertical') : 
+                                leaf = workspace.getLeaf('split', 'horizontal');
 
-//     await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
-//     workspace.revealLeaf(leaf);
-// }
+    await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
+    workspace.revealLeaf(leaf);
+}

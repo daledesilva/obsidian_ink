@@ -1,5 +1,5 @@
 import { SerializedStore, TLRecord } from "@tldraw/tldraw";
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import HandwritePlugin from "src/main";
@@ -31,41 +31,37 @@ export function registerHandwritingView (plugin: HandwritePlugin) {
 export class HandwritingView extends TextFileView {
     root: null | Root;
     plugin: HandwritePlugin;
-    liveTldrawData: SerializedStore<TLRecord>;
+    liveTldrawData: SerializedStore<TLRecord> = {};
 
     constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
-    saveFile(contents: string) {
-
-        console.log('this.data', this.data); // returns undefined
-        this.data = contents;   // Uncaught TypeError: Cannot add property data, object is not extensible
-
-        this.liveTldrawData = JSON.parse(contents) as SerializedStore<TLRecord>;    // Uncaught TypeError: Cannot add property liveTldrawData, object is not extensible
-        console.log('this.liveTldrawData', this.liveTldrawData);    // returns undefined but works fine in setViewData
-
-        this.requestSave(); // Says doesn't exist
+    buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
+        console.log('Grabbing Tldraw data from:', this.file?.basename);
+        this.liveTldrawData = tldrawData;
+        this.requestSave();
     }
 
-    getViewType() {
+    getViewType(): string {
         return HANDWRITING_VIEW_TYPE;
     }
 
-    getDisplayText() {
+    getDisplayText = () => {
         return this.file?.basename || "Handwritten note";
     }
     
     // This provides the data from the file for placing into the view (Called when file is opening)
-    setViewData(fileContents: string, clear: boolean) {
+    setViewData = (fileContents: string, clear: boolean) => {
+        console.log('loading data from:', this.file?.basename);
         const pageData = JSON.parse(fileContents) as PageData;
         this.liveTldrawData = pageData.tldraw;
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
 		
-        // If the view hasn't been initiated, create the React root // REVIEW: This seems to create a too many renders issue
+        // Create the React root only if the view hasn't been initiated // REVIEW: This seems to create a too many renders issue
         // if(!this.root) this.root = createRoot(viewContent);
         this.root = createRoot(viewContent);
 
@@ -73,23 +69,23 @@ export class HandwritingView extends TextFileView {
             <TldrawPageEditor
                 existingData = {this.liveTldrawData}
                 uid = {this.file.path}
-                save = {this.saveFile}
+                save = {this.buildPageAndSave}
 			/>
         );
     }
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
-    getViewData(): string {
-        console.log('running GET VIEW DATA');
-        const tldrawData = this.liveTldrawData;
-        const fileContents = buildPageFile(tldrawData as SerializedStore<TLRecord>)
+    getViewData = (): string => {
+        console.log('Saving data to:', this.file?.basename);
+        const fileContents = buildPageFile(this.liveTldrawData);
         return fileContents;
     }
 
-    // This allows you to clear the view before a new file is opened of of the same type in the same leaf?????
-    clear(): void {
+    // This allows you to clear the view before a new file is opened of the same type in the same leaf?????
+    clear = (): void => {
         console.log('clear being called');
     }
+
     
     // onPaneMenu()
 

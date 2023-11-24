@@ -10,7 +10,6 @@ export function TldrawPageEditor (props: {
 	save: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	console.log(props.uid)
 
 	const handleMount = (editor: Editor) => {
 		editor.zoomToFit()
@@ -20,7 +19,7 @@ export function TldrawPageEditor (props: {
 		editor.store.listen((entry) => {
 			// console.log('entry', entry);
 			// entry // { changes, source }
-			const contents = JSON.stringify( editor.store.getSnapshot() );
+			const contents = editor.store.getSnapshot();
 			props.save(contents);
 		})
 	}
@@ -28,7 +27,7 @@ export function TldrawPageEditor (props: {
 	return <>
 		<div
 			style = {{
-				height: '100%'
+				height: '100%',
 			}}
 		>
 			<Tldraw

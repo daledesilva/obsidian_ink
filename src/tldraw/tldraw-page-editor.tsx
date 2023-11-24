@@ -20,6 +20,7 @@ export function TldrawPageEditor (props: {
 			// console.log('entry', entry);
 			// entry // { changes, source }
 			const contents = editor.store.getSnapshot();
+			console.log('Got snapshot from', props.uid);
 			props.save(contents);
 		})
 	}

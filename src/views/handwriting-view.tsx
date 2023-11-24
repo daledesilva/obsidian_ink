@@ -61,10 +61,10 @@ export class HandwritingView extends TextFileView {
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
 		
-        // Create the React root only if the view hasn't been initiated // REVIEW: This seems to create a too many renders issue
-        // if(!this.root) this.root = createRoot(viewContent);
+        // If a new handwriting file is opening in the same leaf, then clear the old one
+        if(this.root) this.clear();
+        
         this.root = createRoot(viewContent);
-
 		this.root.render(
             <TldrawPageEditor
                 existingData = {this.liveTldrawData}
@@ -81,9 +81,10 @@ export class HandwritingView extends TextFileView {
         return fileContents;
     }
 
-    // This allows you to clear the view before a new file is opened of the same type in the same leaf?????
+    // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
-        console.log('clear being called');
+        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that old files can save data into new ones)
+        this.root?.unmount();
     }
 
     

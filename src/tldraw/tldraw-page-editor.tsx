@@ -19,8 +19,8 @@ export function TldrawPageEditor (props: {
 		editor.store.listen((entry) => {
 			// console.log('entry', entry);
 			// entry // { changes, source }
+			// REVIEW: Mouse moves fire this too, so it would be good to filter this to only save if it's a save-worthy change
 			const contents = editor.store.getSnapshot();
-			console.log('Got snapshot from', props.uid);
 			props.save(contents);
 		})
 	}

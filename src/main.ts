@@ -2,9 +2,10 @@ import { MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
-import insertExistingFile from './commands/insert-existing-file';
-import insertNewFile from './commands/insert-new-file';
+import insertExistingInkNote from './commands/insert-existing-handwritten-note';
+import insertNewHandwrittenNote from './commands/insert-new-handwritten-note';
 import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView, registerHandwritingView } from './views/handwriting-view';
+import createNewHandwrittenNote from './commands/create-new-handwritten-note';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -32,15 +33,25 @@ export default class HandwritePlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		
+
+		// Add global actions
+		this.addCommand({
+			id: 'ddc_create-handwritten-note',
+			name: 'Create new handwritten note',
+			callback: () => createNewHandwrittenNote(this)
+		});
+		
+
+		// Add markdown note actions
 		this.addCommand({
 			id: 'ddc_embed-handwritten-file',
 			name: 'Insert existing handwritten section',
-			callback: () => insertExistingFile(this)
+			callback: () => insertExistingInkNote(this)
 		});
 		this.addCommand({
 			id: 'ddc_create-handwritten-section',
 			name: 'Insert new handwritten section',
-			callback: () => insertNewFile(this)
+			callback: () => insertNewHandwrittenNote(this)
 		});
 
 

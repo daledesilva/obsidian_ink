@@ -2,7 +2,7 @@ import HandwritePlugin from "src/main";
 
 
 
-const insertNewFile = (plugin: HandwritePlugin) => {
+const insertNewHandwrittenNote = (plugin: HandwritePlugin) => {
     console.log("```handwriting-embed Handwriting/7-nov-2021.writing```");
 }
 
@@ -24,4 +24,4 @@ const insertNewFile = (plugin: HandwritePlugin) => {
 // drawing
 
 
-export default insertNewFile;
+export default insertNewHandwrittenNote;

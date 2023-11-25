@@ -24,7 +24,7 @@ export function registerHandwritingView (plugin: HandwritePlugin) {
         HANDWRITING_VIEW_TYPE,
         (leaf) => new HandwritingView(leaf, this)
     );
-    plugin.registerExtensions(['byhand'], HANDWRITING_VIEW_TYPE);
+    plugin.registerExtensions(['writing'], HANDWRITING_VIEW_TYPE);
 }
 
 
@@ -39,7 +39,6 @@ export class HandwritingView extends TextFileView {
     }
 
     buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
-        console.log('Grabbing Tldraw data from:', this.file?.basename);
         this.liveTldrawData = tldrawData;
         this.requestSave();
     }
@@ -54,7 +53,6 @@ export class HandwritingView extends TextFileView {
     
     // This provides the data from the file for placing into the view (Called when file is opening)
     setViewData = (fileContents: string, clear: boolean) => {
-        console.log('loading data from:', this.file?.basename);
         const pageData = JSON.parse(fileContents) as PageData;
         this.liveTldrawData = pageData.tldraw;
 
@@ -76,7 +74,6 @@ export class HandwritingView extends TextFileView {
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData = (): string => {
-        console.log('Saving data to:', this.file?.basename);
         const fileContents = buildPageFile(this.liveTldrawData);
         return fileContents;
     }

@@ -1,9 +1,10 @@
-import { Editor, Store, StoreSnapshot, TLGeoShape, TLRecord, TLShapePartial, Tldraw, createShapeId, createTLStore, parseTldrawJsonFile } from "@tldraw/tldraw";
+import { Editor, SerializedStore, Store, StoreSnapshot, TLGeoShape, TLRecord, TLShapePartial, Tldraw, createShapeId, createTLStore, parseTldrawJsonFile } from "@tldraw/tldraw";
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TFile, } from "obsidian";
+import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TAbstractFile, TFile, debounce, } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import TldrawPagePreview from 'src/tldraw/tldraw-page-preview';
+import { PageData, buildPageFile } from "src/utils/page-file";
+import TldrawEmbedEditor from "src/tldraw/tldraw-embed-editor";
 
 
 
@@ -29,8 +30,9 @@ class HandwritingEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
 	plugin: Plugin;
 	sourcePath: string;
-	viewMode: MarkdownViewModeType;
 	root: Root;
+	fileRef: TFile | null;
+	debouncedSaveEmbeddedFile = debounce(this.saveEmbeddedFile, 1000, true)
 
 	constructor(
 		el: HTMLElement,
@@ -44,27 +46,43 @@ class HandwritingEmbedWidget extends MarkdownRenderChild {
 	}
 
 
+	buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
+		this.debouncedSaveEmbeddedFile(tldrawData);
+    }
+
+
 	async onload() {
 		const v = this.plugin.app.vault;
-		const fileRef = v.getAbstractFileByPath(this.sourcePath)
-		if( !(fileRef instanceof TFile) ) {
+		this.fileRef = v.getAbstractFileByPath(this.sourcePath) as TFile;
+		if( !(this.fileRef instanceof TFile) ) {
 			console.error(`File not found.`);
 			return;
 		}
-		const sourceJson = await v.cachedRead(fileRef as TFile);
+		const fileContents = await v.cachedRead(this.fileRef as TFile);
+		const pageData = JSON.parse(fileContents) as PageData;
 
-		const rootEl = this.el.createEl("div");
-		this.root = createRoot(rootEl);
+		this.root = createRoot(this.el);
 		this.root.render(
-			<TldrawPagePreview
-				sourceJson = {sourceJson}
+            <TldrawEmbedEditor
+                existingData = {pageData.tldraw}
+                uid = {this.fileRef.path}
+                save = {this.buildPageAndSave}
 			/>
-		);
-		this.el.children[0].replaceWith(rootEl);
+        );
 	}
 
 	async onunload() {
 		this.root.unmount();
+	}
+
+	// Helper functions
+	///////////////////
+
+	saveEmbeddedFile(tldrawData: SerializedStore<TLRecord>) {
+		if(!this.fileRef) return;
+		console.log('saving!!!');
+		const fileContents = buildPageFile(tldrawData);
+		this.plugin.app.vault.modify(this.fileRef, fileContents);
 	}
 
 }

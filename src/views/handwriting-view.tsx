@@ -3,7 +3,7 @@ import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import HandwritePlugin from "src/main";
-import TldrawPageEditor from 'src/tldraw/tldraw-page-editor';
+import TldrawViewEditor from 'src/tldraw/tldraw-view-editor';
 import { PageData, buildPageFile } from "src/utils/page-file";
 
 ////////
@@ -53,6 +53,8 @@ export class HandwritingView extends TextFileView {
     
     // This provides the data from the file for placing into the view (Called when file is opening)
     setViewData = (fileContents: string, clear: boolean) => {
+        if(!this.file) return;
+        
         const pageData = JSON.parse(fileContents) as PageData;
         this.liveTldrawData = pageData.tldraw;
 
@@ -64,7 +66,7 @@ export class HandwritingView extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawPageEditor
+            <TldrawViewEditor
                 existingData = {this.liveTldrawData}
                 uid = {this.file.path}
                 save = {this.buildPageAndSave}
@@ -99,24 +101,45 @@ export class HandwritingView extends TextFileView {
 
 
 
-export async function activateHandwritingView(plugin: HandwritePlugin, position: ViewPosition = ViewPosition.replacement) {
-	switch(position) {
-        case ViewPosition.replacement:      activateReplacementView(plugin); break;
-        case ViewPosition.tab:              activateTabView(plugin); break;
-        case ViewPosition.verticalSplit:    activateSplitView(plugin, 'horizontal'); break;
-        case ViewPosition.horizontalSplit:  activateSplitView(plugin, 'vertical'); break;
-        default: activateReplacementView(plugin); break;
+
+
+export async function openInkFile(plugin: HandwritePlugin, fileRef: TFile, position: ViewPosition = ViewPosition.replacement) {
+    switch(position) {
+        case ViewPosition.replacement:      activateReplacementView(plugin, fileRef); break;
+        case ViewPosition.tab:              activateTabView(plugin, fileRef); break;
+        case ViewPosition.verticalSplit:    activateSplitView(plugin, fileRef, 'horizontal'); break;
+        case ViewPosition.horizontalSplit:  activateSplitView(plugin, fileRef, 'vertical'); break;
+        default: activateReplacementView(plugin, fileRef); break;
     }
-    console.log('DONE')
-    console.log(position)
 }
 
-async function activateReplacementView(plugin: HandwritePlugin) {
+
+
+
+// Old, probably not necessary
+
+
+// export async function activateHandwritingView(plugin: HandwritePlugin, position: ViewPosition = ViewPosition.replacement) {
+// 	switch(position) {
+//         case ViewPosition.replacement:      activateReplacementView(plugin); break;
+//         case ViewPosition.tab:              activateTabView(plugin); break;
+//         case ViewPosition.verticalSplit:    activateSplitView(plugin, 'horizontal'); break;
+//         case ViewPosition.horizontalSplit:  activateSplitView(plugin, 'vertical'); break;
+//         default: activateReplacementView(plugin); break;
+//     }
+//     console.log('DONE')
+//     console.log(position)
+// }
+
+
+
+async function activateReplacementView(plugin: HandwritePlugin, fileRef: TFile) {
     let { workspace }  = plugin.app;
 	let leaf = workspace.getLeaf();
-    await leaf.setViewState({ type: HANDWRITING_VIEW_TYPE, active: true });
-    workspace.revealLeaf(leaf);
+    await leaf.openFile(fileRef);
 }
+
+
 async function activateTabView(plugin: HandwritePlugin) {
     let { workspace }  = plugin.app;
 	

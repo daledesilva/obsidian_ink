@@ -4,7 +4,7 @@ import * as React from "react";
 ///////
 ///////
 
-export function TldrawPageEditor (props: {
+export function TldrawViewEditor (props: {
 	existingData: SerializedStore<TLRecord>,
 	uid: string,
 	save: Function,
@@ -14,7 +14,7 @@ export function TldrawPageEditor (props: {
 	const handleMount = (editor: Editor) => {
 		editor.zoomToFit()
 		editor.updateInstanceState({
-			// isDebugMode: false,
+			isDebugMode: false,
 		})
 		editor.store.listen((entry) => {
 			// console.log('entry', entry);
@@ -43,7 +43,7 @@ export function TldrawPageEditor (props: {
 	
 };
 
-export default TldrawPageEditor;
+export default TldrawViewEditor;
 
 
 

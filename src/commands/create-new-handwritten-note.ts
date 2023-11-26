@@ -30,7 +30,8 @@ const createNewHandwrittenNote = async (plugin: HandwritePlugin) => {
 		pathAndVersionedBasename = pathAndBasename + ' (' + version + ')';
     }	
 
-    plugin.app.vault.create(pathAndVersionedBasename + '.writing', fileContents);
+    const noteRef = await plugin.app.vault.create(pathAndVersionedBasename + '.writing', fileContents);
+    return noteRef;
 }
 
 

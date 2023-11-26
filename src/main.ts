@@ -1,10 +1,10 @@
-import { MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
+import { Editor, MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
 import insertExistingInkNote from './commands/insert-existing-handwritten-note';
 import insertNewHandwrittenNote from './commands/insert-new-handwritten-note';
-import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView, registerHandwritingView } from './views/handwriting-view';
+import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView, openInkFile, registerHandwritingView } from './views/handwriting-view';
 import createNewHandwrittenNote from './commands/create-new-handwritten-note';
 
 
@@ -38,20 +38,23 @@ export default class HandwritePlugin extends Plugin {
 		this.addCommand({
 			id: 'ddc_create-handwritten-note',
 			name: 'Create new handwritten note',
-			callback: () => createNewHandwrittenNote(this)
+			callback: async () => {
+				const fileRef = await createNewHandwrittenNote(this);
+				openInkFile(this, fileRef);
+			}
 		});
 		
 
 		// Add markdown note actions
-		this.addCommand({
-			id: 'ddc_embed-handwritten-file',
-			name: 'Insert existing handwritten section',
-			callback: () => insertExistingInkNote(this)
-		});
+		// this.addCommand({
+		// 	id: 'ddc_embed-handwritten-file',
+		// 	name: 'Insert existing handwritten section',
+		// 	editorCallback: (editor: Editor) => insertExistingInkNote(this, editor);
+		// });
 		this.addCommand({
 			id: 'ddc_create-handwritten-section',
 			name: 'Insert new handwritten section',
-			callback: () => insertNewHandwrittenNote(this)
+			editorCallback: (editor: Editor) => insertNewHandwrittenNote(this, editor)
 		});
 
 
@@ -62,12 +65,13 @@ export default class HandwritePlugin extends Plugin {
 	
 		
 
-		this.addRibbonIcon("pencil", "New handwritten note", () => {
-			createNewHandwrittenNote(this)
+		this.addRibbonIcon("pencil", "New handwritten note", async () => {
+			const fileRef = await createNewHandwrittenNote(this);
+			openInkFile(this, fileRef);
 		});
 
 		// this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
-		// 	activateHandwritingView(this, ViewPosition.replacement);
+			// activateHandwritingView(this, ViewPosition.replacement);
 		// });
 		// this.addRibbonIcon("dice", "Handwriting View (New tab)", () => {
 		// 	activateHandwritingView(this, ViewPosition.tab);

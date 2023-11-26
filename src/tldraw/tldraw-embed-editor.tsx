@@ -1,9 +1,16 @@
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
-import { useRef, useEffect } from "react";
+import { useRef, useState } from "react";
 
 ///////
 ///////
+
+enum tool {
+	nothing,
+	select,
+	draw,
+	eraser,
+  }
 
 export function TldrawEmbedEditor (props: {
 	existingData: SerializedStore<TLRecord>,
@@ -13,26 +20,38 @@ export function TldrawEmbedEditor (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<Editor|null>(null);
+	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 
 	const handleMount = (editor: Editor) => {
 		editorRef.current = editor;
-		applyPostMountSettings(editor);
 		zoomToPageWidth(editor);
 		fitEmbedToContent(editor);
-		editor.setCurrentTool('draw');
+		activateDrawTool();
 		initListeners(editor);
+		applyPostMountSettings(editor);
 	}
+
+	console.log('rerendering');
 
 	return <>
 		<div className = 'ink_embed-controls'>
-			<button onClick={activateSelectTool}>
-				Select
+			<button
+				onClick = {activateDrawTool}
+				disabled = {activeTool===tool.draw}
+				>
+				Write
 			</button>
-			<button onClick={activatePenTool}>
-				Pen
-			</button>
-			<button onClick={activateEraserTool}>
+			<button
+				onClick = {activateEraserTool}
+				disabled = {activeTool===tool.eraser}
+				>
 				Eraser
+			</button>
+			<button
+				onClick = {activateSelectTool}
+				disabled = {activeTool===tool.select}
+				>
+				Select
 			</button>
 		</div>
 		<div
@@ -59,7 +78,7 @@ export function TldrawEmbedEditor (props: {
 		editor.updateInstanceState({
 			isDebugMode: false,
 			// isGridMode: false,
-			// canMoveCamera: false,
+			canMoveCamera: false,
 		})
 	}
 
@@ -67,8 +86,8 @@ export function TldrawEmbedEditor (props: {
 		const pageBounds = editor.currentPageBounds;
 		if(pageBounds) {
 			// REVIEW: This manipulations are a hack because I don't know how to get it to zoom exactly to the bounds rather than adding buffer
-			pageBounds.x /= 4;
-			pageBounds.y /= 4;
+			pageBounds.x /= 3.5;
+			pageBounds.y *= 2.3;
 			pageBounds.w /= 2;
 			pageBounds.h /= 2;
 			editor.zoomToBounds(pageBounds);
@@ -99,17 +118,23 @@ export function TldrawEmbedEditor (props: {
 		})
 	}
 
-	function activateSelectTool(editor: Editor) {
+	function activateSelectTool() {
 		if(!editorRef.current) return;
 		editorRef.current.setCurrentTool('select');
+		setActiveTool(tool.select);
+		console.log('set active tool to select');
 	}
-	function activatePenTool() {
+	function activateDrawTool() {
 		if(!editorRef.current) return;
 		editorRef.current.setCurrentTool('draw');
+		setActiveTool(tool.draw);
+		console.log('set active tool to draw');
 	}
 	function activateEraserTool() {
 		if(!editorRef.current) return;
 		editorRef.current.setCurrentTool('eraser');
+		setActiveTool(tool.eraser);
+		console.log('set active tool to eraser');
 	}
 	
 };

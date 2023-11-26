@@ -23,11 +23,18 @@ export function TldrawEmbedEditor (props: {
 		initListeners(editor);
 	}
 
-	useEffect(() => {
-		
-	}, []);
-
 	return <>
+		<div className = 'ink_embed-controls'>
+			<button onClick={activateSelectTool}>
+				Select
+			</button>
+			<button onClick={activatePenTool}>
+				Pen
+			</button>
+			<button onClick={activateEraserTool}>
+				Eraser
+			</button>
+		</div>
 		<div
 			ref = {embedContainerRef}
 			style = {{
@@ -40,7 +47,7 @@ export function TldrawEmbedEditor (props: {
 				// persistenceKey = {props.uid}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
-				// hideUi = {true}
+				hideUi = {true}
 			/>
 		</div>
 	</>;
@@ -90,6 +97,19 @@ export function TldrawEmbedEditor (props: {
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
 		})
+	}
+
+	function activateSelectTool(editor: Editor) {
+		if(!editorRef.current) return;
+		editorRef.current.setCurrentTool('select');
+	}
+	function activatePenTool() {
+		if(!editorRef.current) return;
+		editorRef.current.setCurrentTool('draw');
+	}
+	function activateEraserTool() {
+		if(!editorRef.current) return;
+		editorRef.current.setCurrentTool('eraser');
 	}
 	
 };

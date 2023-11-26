@@ -1,9 +1,9 @@
 {
-	"id": "handwrite",
-	"name": "Handwrite",
+	"id": "ink",
+	"name": "ink",
 	"version": "0.0.1",
 	"minAppVersion": "1.00.0",
-	"description": "Handwrite creates a whiteboard specifically tailored for handwriting. Enjoy a smooth experience on tablets and easily move words and paragraphs around. This plugin is built on top of the open source tldraw framework.",
+	"description": "Handwrite creates features specifically tailored for handwriting. Enjoy a smooth experience on tablets and easily move words and paragraphs around. This plugin is built on top of the open source tldraw framework.",
 	"author": "Dale de Silva",
 	"authorUrl": "https://designdebt.club",
 	"fundingUrl": "https://ko-fi.com/daledesilva",

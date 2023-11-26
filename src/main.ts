@@ -62,18 +62,22 @@ export default class HandwritePlugin extends Plugin {
 	
 		
 
-		this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
-			activateHandwritingView(this, ViewPosition.replacement);
+		this.addRibbonIcon("pencil", "New handwritten note", () => {
+			createNewHandwrittenNote(this)
 		});
-		this.addRibbonIcon("dice", "Handwriting View (New tab)", () => {
-			activateHandwritingView(this, ViewPosition.tab);
-		});
-		this.addRibbonIcon("dice", "Handwriting View (Split right)", () => {
-			activateHandwritingView(this, ViewPosition.verticalSplit);
-		});
-		this.addRibbonIcon("dice", "Handwriting View (Split bottom)", () => {
-			activateHandwritingView(this, ViewPosition.horizontalSplit);
-		});
+
+		// this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
+		// 	activateHandwritingView(this, ViewPosition.replacement);
+		// });
+		// this.addRibbonIcon("dice", "Handwriting View (New tab)", () => {
+		// 	activateHandwritingView(this, ViewPosition.tab);
+		// });
+		// this.addRibbonIcon("dice", "Handwriting View (Split right)", () => {
+		// 	activateHandwritingView(this, ViewPosition.verticalSplit);
+		// });
+		// this.addRibbonIcon("dice", "Handwriting View (Split bottom)", () => {
+		// 	activateHandwritingView(this, ViewPosition.horizontalSplit);
+		// });
 
 
 		

@@ -10,30 +10,9 @@ const defaultHandwritingTldrawStore = {
         "page:3qj9EtNgqSCW_6knX2K9_": {
             "meta": {},
             "id": "page:3qj9EtNgqSCW_6knX2K9_",
-            "name": "Page 1",
+            "name": "Handwritten Note",
             "index": "a1",
             "typeName": "page"
-        },
-        "page:page2": {
-            "meta": {},
-            "id": "page:page2",
-            "name": "Page",
-            "index": "a3",
-            "typeName": "page"
-        },
-        "asset:imageAssetA": {
-            "type": "image",
-            "props": {
-                "w": 1200,
-                "h": 800,
-                "name": "",
-                "isAnimated": false,
-                "mimeType": "png",
-                "src": ""
-            },
-            "meta": {},
-            "id": "asset:imageAssetA",
-            "typeName": "asset"
         },
         "shape:Xdg4TZIvnoIkc73NuvaJd": {
             "x": 0,
@@ -49,7 +28,7 @@ const defaultHandwritingTldrawStore = {
                 "geo": "rectangle",
                 "color": "grey",
                 "labelColor": "black",
-                "fill": "solid",
+                "fill": "none",
                 "dash": "draw",
                 "size": "s",
                 "font": "draw",
@@ -76,7 +55,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a2",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -84,7 +63,7 @@ const defaultHandwritingTldrawStore = {
                 "start": {
                     "type": "point",
                     "x": 15.443454877939201,
-                    "y": 3.070234780687814e-13
+                    "y": 0
                 },
                 "end": {
                     "type": "point",
@@ -111,7 +90,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a3",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -146,7 +125,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a4",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -181,7 +160,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a5",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -216,7 +195,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a6",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -251,7 +230,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a7",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -286,7 +265,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a8",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",
@@ -321,7 +300,7 @@ const defaultHandwritingTldrawStore = {
             "index": "a9",
             "props": {
                 "dash": "dotted",
-                "size": "s",
+                "size": "m",
                 "fill": "none",
                 "color": "black",
                 "labelColor": "black",

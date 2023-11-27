@@ -7,9 +7,9 @@ import { useRef, useState } from "react";
 
 enum tool {
 	nothing,
-	select,
-	draw,
-	eraser,
+	select = 'select',
+	draw = 'draw',
+	eraser = 'eraser',
   }
 
 export function TldrawEmbedEditor (props: {
@@ -120,21 +120,21 @@ export function TldrawEmbedEditor (props: {
 
 	function activateSelectTool() {
 		if(!editorRef.current) return;
-		editorRef.current.setCurrentTool('select');
+		editorRef.current.setCurrentTool(tool.select);
 		setActiveTool(tool.select);
-		console.log('set active tool to select');
+		console.log('set active tool to ', tool.select);
 	}
 	function activateDrawTool() {
 		if(!editorRef.current) return;
-		editorRef.current.setCurrentTool('draw');
+		editorRef.current.setCurrentTool(tool.draw);
 		setActiveTool(tool.draw);
-		console.log('set active tool to draw');
+		console.log('set active tool to ', tool.select);
 	}
 	function activateEraserTool() {
 		if(!editorRef.current) return;
-		editorRef.current.setCurrentTool('eraser');
+		editorRef.current.setCurrentTool(tool.eraser);
 		setActiveTool(tool.eraser);
-		console.log('set active tool to eraser');
+		console.log('set active tool to ', tool.eraser);
 	}
 	
 };

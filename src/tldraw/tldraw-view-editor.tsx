@@ -1,5 +1,7 @@
-import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
+import { Editor, SerializedStore, TLEventInfo, TLRecord, TLUiEventHandler, Tldraw, UiEvent } from "@tldraw/tldraw";
 import * as React from "react";
+import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
+import { preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
 
 ///////
 ///////
@@ -10,6 +12,8 @@ export function TldrawViewEditor (props: {
 	save: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
+	const containerRef = useRef<HTMLDivElement>(null)
+	const [outputLog, setOutputLog] = React.useState('');
 
 	const handleMount = (editor: Editor) => {
 		editor.zoomToFit()
@@ -23,10 +27,13 @@ export function TldrawViewEditor (props: {
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
 		})
+
+		preventTldrawCanvasesCausingObsidianGestures();
 	}
 
 	return <>
 		<div
+			
 			style = {{
 				height: '100%',
 			}}
@@ -38,6 +45,19 @@ export function TldrawViewEditor (props: {
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 			/>
+			<div
+				className = 'output-log'
+				style = {{
+					position: 'absolute',
+					bottom: 0,
+					right: '50%',
+					zIndex: 10000,
+					backgroundColor: '#000',
+					padding: '0.5em 1em'
+				}}
+				>
+				{outputLog}
+			</div>
 		</div>
 	</>;
 	

@@ -32,6 +32,9 @@ export default class HandwritePlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+
+		// this.app.emulateMobile(false);
 		
 
 		// Add global actions

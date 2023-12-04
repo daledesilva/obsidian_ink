@@ -1,3 +1,4 @@
+import { Editor } from "@tldraw/tldraw";
 
 export function preventTldrawCanvasesCausingObsidianGestures() {
     const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
@@ -12,4 +13,24 @@ export function preventTldrawCanvasesCausingObsidianGestures() {
     // 	console.log(e);
     // 	setOutputLog(str);
     // });
+}
+
+
+export function initCamera(editor: Editor) {
+    let canvasWidth = editor.getContainer().innerWidth
+    let containerMargin = 0;
+    let containerWidth = 2000;
+    let visibleWidth = containerWidth + 2 * containerMargin;
+    const zoom = canvasWidth / visibleWidth;
+
+    // REVIEW: These are currently hard coded to a specific page position
+    let x = containerMargin;
+    let y = 100;//containerMargin * 2;
+    
+    // editor.zoomToFit()
+    editor.setCamera({
+        x: x,
+        y: y,
+        z: zoom
+    })
 }

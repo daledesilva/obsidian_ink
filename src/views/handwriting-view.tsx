@@ -1,4 +1,4 @@
-import { SerializedStore, TLRecord } from "@tldraw/tldraw";
+import { SerializedStore, TLRecord, TLUiOverrides, Editor } from "@tldraw/tldraw";
 import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";

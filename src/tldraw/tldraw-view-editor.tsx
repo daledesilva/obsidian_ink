@@ -1,13 +1,25 @@
-import { Editor, SerializedStore, TLEventInfo, TLRecord, TLUiEventHandler, Tldraw, UiEvent } from "@tldraw/tldraw";
+import { Editor, SerializedStore, TLEventInfo, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem } from "@tldraw/tldraw";
 import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
-import { preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
+import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
 import HandwritingContainer from "./shapes/handwriting-container"
 
 ///////
 ///////
 
-const MyCustomShapes = [HandwritingContainer]
+const MyCustomShapes = [HandwritingContainer];
+
+const myOverrides: TLUiOverrides = {
+	toolbar(_app, toolbar, { tools }) {
+		const reducedToolbar = [
+			toolbar[0],
+			toolbar[2],
+			toolbar[3]
+		]
+		return reducedToolbar;
+	},
+}
+
 
 export function TldrawViewEditor (props: {
 	existingData: SerializedStore<TLRecord>,
@@ -19,12 +31,19 @@ export function TldrawViewEditor (props: {
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 
 	const handleMount = (editor: Editor) => {
-		editor.zoomToFit()
+
+		// const allRecords = editor.store.allRecords();
+		// const containers = allRecords.filter( (record: any) => {
+		// 	return record?.type === 'handwriting-container'
+		// })
+		// if(!containers.length) {
+		// 	editor.createShapes([{ type: 'handwriting-container' }]);
+		// }
+
+		initCamera(editor);
 		editor.updateInstanceState({
 			isDebugMode: false,
 		})
-
-		editor.createShapes([{ type: 'handwriting-container' }])
 
 		editor.store.listen((entry) => {
 			// console.log('entry', entry);
@@ -32,6 +51,9 @@ export function TldrawViewEditor (props: {
 			// REVIEW: Mouse moves fire this too, so it would be good to filter this to only save if it's a save-worthy change
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
+			if(containerRef.current) {
+				console.log('containerRef.innerWidth', containerRef.current.innerWidth);
+			}
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
@@ -39,7 +61,7 @@ export function TldrawViewEditor (props: {
 
 	return <>
 		<div
-			
+			ref = {containerRef}
 			style = {{
 				height: '100%',
 			}}
@@ -51,6 +73,7 @@ export function TldrawViewEditor (props: {
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 				shapeUtils = {MyCustomShapes}
+				overrides = {myOverrides}
 			/>
 			<div
 				className = 'output-log'

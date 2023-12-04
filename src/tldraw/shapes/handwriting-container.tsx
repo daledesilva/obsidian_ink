@@ -1,4 +1,4 @@
-import { Rectangle2d, SVGContainer, TLBaseShape, TLOnResizeHandler, resizeBox } from '@tldraw/tldraw';
+import { Rectangle2d, SVGContainer, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
 import { HTMLContainer, ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 
@@ -7,21 +7,22 @@ import * as React from 'react';
 //////////
 
 
-type HandwritingContainer = TLBaseShape<'handwriting-container', { w: number; h: number }>
+type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y: number, w: number; h: number }>
+
+const startingPageHeight = 500;
+const pageWidth = 2000;
+const lineHeight = 150;
 
 
 export default class HandwritingContainerUtil extends ShapeUtil<HandwritingContainer> {
 	static override type = 'handwriting-container' as const
 
 	getDefaultProps(): HandwritingContainer['props'] {
-
-		// canEdit: false,
-		// canBind: false,
-		// hideRotateHandle: true,
-
 		return {
-			w: 100,
-			h: 100,
+			x: 0,
+			y: 0,
+			w: pageWidth,
+			h: startingPageHeight,
 		}
 	}
 
@@ -29,11 +30,47 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 		return new Rectangle2d({
 			width: shape.props.w,
 			height: shape.props.h,
-			isFilled: true,	// Controls whether you can select the shape by clicking the inside (Not whether it's visibly filled)
+			isFilled: false,	// Controls whether you can select the shape by clicking the inside (Not whether it's visibly filled)
 		})
 	}
 
+	// Don't let arrows lor lines bind one of their ends to it
+	override canBind = (shape: HandwritingContainer) => false
+
+	// Prevent rotating the container
+	override hideRotateHandle = (shape: HandwritingContainer) => true
+	
+	// Prevent moving the container
+	onTranslate: TLOnTranslateHandler<HandwritingContainer> = (initShape, newShape) => {
+		return initShape;
+	}
+	
+		// Prevent resizing horizontally
+	onResize: TLOnResizeHandler<HandwritingContainer> = (shape, info) => {
+		return resizeBox(shape, info, {
+			minWidth: pageWidth,
+			maxWidth: pageWidth,
+			minHeight: startingPageHeight,
+			maxHeight: 50000
+		});
+	}
+
 	component(shape: HandwritingContainer) {
+		const numberOfLines = Math.floor(shape.props.h / lineHeight);
+		const margin = 0.05 * shape.props.w;
+		// this.hideRotateHandle(shape);
+		this.isAspectRatioLocked(shape);
+
+		const lines = Array.from({ length: numberOfLines }, (_, index) => (
+		<line
+				key = {index}
+				x1 = {margin}
+				y1 = {(index+1) * lineHeight}
+				x2 = {shape.props.w - margin}
+				y2 = {(index+1) * lineHeight}
+				stroke = {'rgba(127.5, 127.5, 127.5, 0.3)'}
+			/>
+		));
 		return <SVGContainer>
 			<rect
 				width = {shape.props.w}
@@ -41,20 +78,17 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 				rx = {20}
 				ry = {20}
 				style = {{
-					stroke: 'rgba(127.5, 127.5, 127.5, 1)',
+					stroke: 'rgba(127.5, 127.5, 127.5, 0.2)',
 					fill: 'rgba(127.5, 127.5, 127.5, 0.01)',
 				}}
 			/>
+			{lines}
 		</SVGContainer>
-		
-		// return <HTMLContainer>Hello</HTMLContainer>
 	}
 
 	indicator(shape: HandwritingContainer) {
 		return <>
 			<rect
-				// width = {shape.props.w}
-				// height = {shape.props.h}
 				width = {shape.props.w}
 				height = {shape.props.h}
 				rx = {20}
@@ -63,23 +97,4 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 		</>
 	}
 
-	override onResize: TLOnResizeHandler<HandwritingContainer> = (shape, info) => {
-		return resizeBox(shape, info)
-	}
-
-	onResizeEnd = (initial: HandwritingContainer, current: HandwritingContainer) => {
-		console.log('initial', initial);
-		console.log('current', current);
-
-		// editor.updateShapes<MyShapeWithMeta>([
-		// 	{
-		// 		id: myGeoShape.id,
-		// 		type: 'geo',
-		// 		meta: {
-		// 			createdBy: 'Steve',
-		// 		},
-		// 	},
-		// ])
-		// current.props.w;
-	}
 }

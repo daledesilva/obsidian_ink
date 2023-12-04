@@ -20,3 +20,12 @@
         }
     }
 }
+
+
+
+
+// Hide the color palette and anything else that shows up there
+// REVIEW: This should probably be done with JS on the component so that it can be turned on at certain times if necessary
+.tlui-style-panel__wrapper {
+    visibility: hidden;
+}

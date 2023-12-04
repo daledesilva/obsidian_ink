@@ -10,14 +10,24 @@ import HandwritingContainer from "./shapes/handwriting-container"
 const MyCustomShapes = [HandwritingContainer];
 
 const myOverrides: TLUiOverrides = {
-	toolbar(_app, toolbar, { tools }) {
+	toolbar(editor: Editor, toolbar, { tools }) {
 		const reducedToolbar = [
 			toolbar[0],
 			toolbar[2],
 			toolbar[3]
-		]
+		];
+		console.log('reducedToolbar', reducedToolbar);
 		return reducedToolbar;
 	},
+	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
+	// 	console.log('actionsMenu', actionsMenu);
+	// 	// const reducedToolbar = [
+	// 	// 	toolbar[0],
+	// 	// 	toolbar[2],
+	// 	// 	toolbar[3]
+	// 	// ]
+	// 	return actionsMenu;
+	// }
 }
 
 
@@ -57,6 +67,7 @@ export function TldrawViewEditor (props: {
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
+		editor.setCurrentTool('draw')
 	}
 
 	return <>
@@ -75,7 +86,7 @@ export function TldrawViewEditor (props: {
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
 			/>
-			<div
+			{/* <div
 				className = 'output-log'
 				style = {{
 					position: 'absolute',
@@ -87,9 +98,9 @@ export function TldrawViewEditor (props: {
 					padding: '0.5em 1em'
 				}}
 				>
-					<p>Output Log:</p>
+				<p>Output Log:</p>
 				{outputLog}
-			</div>
+			</div> */}
 		</div>
 	</>;
 	

@@ -68,7 +68,8 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 				y1 = {(index+1) * lineHeight}
 				x2 = {shape.props.w - margin}
 				y2 = {(index+1) * lineHeight}
-				stroke = {'rgba(127.5, 127.5, 127.5, 0.3)'}
+				stroke = {'rgba(127.5, 127.5, 127.5, 0.6)'}
+				strokeWidth = '1px'
 			/>
 		));
 		return <SVGContainer>
@@ -77,10 +78,9 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 				height = {shape.props.h}
 				rx = {20}
 				ry = {20}
-				style = {{
-					stroke: 'rgba(127.5, 127.5, 127.5, 0.2)',
-					fill: 'rgba(127.5, 127.5, 127.5, 0.01)',
-				}}
+				stroke = 'rgba(127.5, 127.5, 127.5, 0.2)'
+				strokeWidth = '1px'
+				fill = 'rgba(127.5, 127.5, 127.5, 0.02)'
 			/>
 			{lines}
 		</SVGContainer>

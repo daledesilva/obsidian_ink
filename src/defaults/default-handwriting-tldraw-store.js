@@ -28,7 +28,7 @@ const defaultHandwritingTldrawStore = {
                 "x": 0,
                 "y": 0,
                 "w": 2000,
-                "h": 691.6792184714503
+                "h": 700
             },
             "id": "shape:D1Z_TKiRzddprdxe__U1R",
             "typeName": "shape"

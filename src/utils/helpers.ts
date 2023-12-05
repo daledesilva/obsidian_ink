@@ -25,7 +25,7 @@ export function initCamera(editor: Editor) {
 
     // REVIEW: These are currently hard coded to a specific page position
     let x = containerMargin;
-    let y = 100;//containerMargin * 2;
+    let y = 200;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
     
     // editor.zoomToFit()
     editor.setCamera({

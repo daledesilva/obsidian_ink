@@ -1,8 +1,9 @@
-import { Editor, SerializedStore, TLEventInfo, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, SerializedStore, TLEventInfo, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem } from "@tldraw/tldraw";
 import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
 import HandwritingContainer from "./shapes/handwriting-container"
+import { debounce } from "obsidian";
 
 ///////
 ///////
@@ -16,7 +17,6 @@ const myOverrides: TLUiOverrides = {
 			toolbar[2],
 			toolbar[3]
 		];
-		console.log('reducedToolbar', reducedToolbar);
 		return reducedToolbar;
 	},
 	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
@@ -56,14 +56,13 @@ export function TldrawViewEditor (props: {
 		})
 
 		editor.store.listen((entry) => {
-			// console.log('entry', entry);
-			// entry // { changes, source }
-			// REVIEW: Mouse moves fire this too, so it would be good to filter this to only save if it's a save-worthy change
+			if(!containsCompleteContentChanges(entry)) return;
+			console.log('update');
+			console.log('entry', JSON.parse(JSON.stringify(entry)));
+
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
-			if(containerRef.current) {
-				console.log('containerRef.innerWidth', containerRef.current.innerWidth);
-			}
+			writingPostProcess(entry, editor);			
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
@@ -111,3 +110,36 @@ export default TldrawViewEditor;
 
 
 
+
+// Use this to run optimisations after a short delay
+const writingPostProcess = debounce( (entry: HistoryEntry<TLRecord>, editor: Editor) => {
+	
+	const addedIds = Object.keys(entry.changes.added);
+	if(addedIds.length) {
+		const anId = addedIds[0];
+
+		const allShapes = editor.currentPageShapes;
+		allShapes.forEach( (record: TLShape) => {
+			if(record.id == anId) return;
+			if(record.type != 'draw') return;
+			editor.updateShape({
+				id: record.id,
+				type: record.type,
+				opacity: 0,
+			})
+		})
+	}
+	
+
+
+}, 2000, true)
+
+function containsCompleteContentChanges(entry: HistoryEntry<TLRecord>): boolean {
+	if(Object.keys(entry.changes.added).length) {
+		return true;
+	}
+	if(Object.keys(entry.changes.removed).length) {
+		return true;
+	}
+	return false;
+}

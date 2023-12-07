@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, SerializedStore, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, RecordType, SerializedStore, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
 import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
@@ -60,9 +60,7 @@ export function TldrawViewEditor (props: {
 		})
 
 		editor.store.listen((entry) => {
-			if(!containsCompleteContentChanges(entry)) return;
-			console.log('update');
-			console.log('entry', JSON.parse(JSON.stringify(entry)));
+			if(containsIncompleteDrawShapes(entry)) return;	// TODO: Rewrite this to simply check if entry only contains mouse movement. Also write one that checks if entry only contains camera movement
 
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
@@ -117,29 +115,25 @@ export default TldrawViewEditor;
 
 // Use this to run optimisations after a short delay
 const writingPostProcess = debounce( (entry: HistoryEntry<TLRecord>, editor: Editor) => {
+	console.log('Running writingPostProcess');
 	
 	// editor.batch( () => {
+		
+		const completeShapes = getCompleteShapes(editor);
+		const stashPage = getOrCreateStash(editor);
+		
+		let olderShapes: TLShape[] = [];
+		let recentCount = 300;	// Allows the last 20 strokes to stay
 
-	
-		const addedIds = Object.keys(entry.changes.added);
-		if(addedIds.length) {
-			const anId = addedIds[0];
+		for(let i=0; i<=completeShapes.length-recentCount; i++) {
+			const record = completeShapes[i];
+			if(record.type != 'draw') return;
 
-			const allShapes = editor.currentPageShapes;
-			const stashPage = getOrCreateStash(editor);
-
-			let oldShapes: TLShape[] = [];
-
-			allShapes.forEach( (record: TLShape) => {
-				if(record.id == anId) return;
-				if(record.type != 'draw') return;
-				
-				oldShapes.push(record as TLShape);
-			})
-
-			editor.moveShapesToPage(oldShapes, stashPage.id);
-			editor.setCurrentPage(editor.pages[0]);
+			olderShapes.push(record as TLShape);
 		}
+
+		editor.moveShapesToPage(olderShapes, stashPage.id);
+		editor.setCurrentPage(editor.pages[0]);
 
 	// })
 	
@@ -200,12 +194,61 @@ function getStashShapes(editor: Editor): TLShape[] | undefined {
 
 
 
-function containsCompleteContentChanges(entry: HistoryEntry<TLRecord>): boolean {
-	if(Object.keys(entry.changes.added).length) {
-		return true;
+function containsIncompleteDrawShapes(entry: HistoryEntry<TLRecord>): boolean {
+
+	const addedRecords = Object.values(entry.changes.added);
+	const updatedRecords = Object.values(entry.changes.updated);
+	const removedRecords = Object.values(entry.changes.removed);
+	if(addedRecords.length) {
+		if(arrayContainsIncompleteDrawShape(addedRecords)) return false;
 	}
-	if(Object.keys(entry.changes.removed).length) {
-		return true;
+	if(updatedRecords.length) {
+		if(tupleArrayContainsIncompleteDrawShape(updatedRecords)) return false;
+	}
+	if(removedRecords.length) {
+		if(arrayContainsIncompleteDrawShape(removedRecords)) return false;
+	}
+	return true;
+}
+
+function arrayContainsIncompleteDrawShape(records: TLRecord[]) : boolean {
+	for(let i=0; i<records.length; i++) {
+		const record = records[i];
+		if(record.typeName == 'shape' && record.type == 'draw') {
+			if(record.props.isComplete === false) return true;
+		}
 	}
 	return false;
+}
+
+function tupleArrayContainsIncompleteDrawShape(records: [from: TLRecord, to: TLRecord][]) : boolean {
+	for(let i=0; i<records.length; i++) {
+		const recordFinalState = records[i][1];
+		if(recordFinalState.typeName == 'shape' && recordFinalState.type == 'draw') {
+			if(recordFinalState.props.isComplete === false) return true;
+		}
+	}
+	return false;
+}
+
+
+
+function getCompleteShapes(editor: Editor) {
+	const allShapes = editor.currentPageShapes;
+	let completeShapes: TLShape[] = [];
+	for(let i=0; i<allShapes.length; i++) {
+		const shape = allShapes[i];
+		if(shape.props.isComplete === true) completeShapes.push(shape);
+	}
+	return completeShapes;
+}
+
+function getIncompleteShapes(editor: Editor) {
+	const allShapes = editor.currentPageShapes;
+	let incompleteShapes: TLShape[] = [];
+	for(let i=0; i<allShapes.length; i++) {
+		const shape = allShapes[i];
+		if(shape.props.isComplete === false) incompleteShapes.push(shape);
+	}
+	return incompleteShapes;
 }

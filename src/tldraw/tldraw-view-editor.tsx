@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, SerializedStore, TLEventInfo, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, SerializedStore, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
 import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
@@ -9,6 +9,8 @@ import { debounce } from "obsidian";
 ///////
 
 const MyCustomShapes = [HandwritingContainer];
+
+let hiddenShapes: TLShape[] = [];
 
 const myOverrides: TLUiOverrides = {
 	toolbar(editor: Editor, toolbar, { tools }) {
@@ -40,6 +42,7 @@ export function TldrawViewEditor (props: {
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 
+
 	const handleMount = (editor: Editor) => {
 
 		// const allRecords = editor.store.allRecords();
@@ -49,7 +52,7 @@ export function TldrawViewEditor (props: {
 		// if(!containers.length) {
 		// 	editor.createShapes([{ type: 'handwriting-container' }]);
 		// }
-		turnOnAllShapes(editor);
+		unstashAllShapes(editor);
 
 		initCamera(editor);
 		editor.updateInstanceState({
@@ -63,7 +66,7 @@ export function TldrawViewEditor (props: {
 
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
-			// writingPostProcess(entry, editor);			
+			writingPostProcess(entry, editor);
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
@@ -115,45 +118,85 @@ export default TldrawViewEditor;
 // Use this to run optimisations after a short delay
 const writingPostProcess = debounce( (entry: HistoryEntry<TLRecord>, editor: Editor) => {
 	
-	const addedIds = Object.keys(entry.changes.added);
-	if(addedIds.length) {
-		const anId = addedIds[0];
+	// editor.batch( () => {
 
-		const allShapes = editor.currentPageShapes;
-		allShapes.forEach( (record: TLShape) => {
-			if(record.id == anId) return;
-			if(record.type != 'draw') return;
-			editor.updateShape({
-				id: record.id,
-				type: record.type,
+	
+		const addedIds = Object.keys(entry.changes.added);
+		if(addedIds.length) {
+			const anId = addedIds[0];
 
-				// Attempts to stop them being processed. They don't work.
-				// TODO: Another option is to change their type somehow to a custom type that doesn't display?
-				opacity: 0,
-				isLocked: true,
-				// visibility: 'hidden',	// Not supported
+			const allShapes = editor.currentPageShapes;
+			const stashPage = getOrCreateStash(editor);
+
+			let oldShapes: TLShape[] = [];
+
+			allShapes.forEach( (record: TLShape) => {
+				if(record.id == anId) return;
+				if(record.type != 'draw') return;
+				
+				oldShapes.push(record as TLShape);
 			})
-		})
-	}
+
+			editor.moveShapesToPage(oldShapes, stashPage.id);
+			editor.setCurrentPage(editor.pages[0]);
+		}
+
+	// })
 	
 }, 2000, true)
 
 
+
 // Use this to run optimisations after a short delay
-const turnOnAllShapes = (editor: Editor) => {
-	
-	const allShapes = editor.currentPageShapes;
-	allShapes.forEach( (record: TLShape) => {
-		if(record.type != 'draw') return;
-		editor.updateShape({
-			id: record.id,
-			type: record.type,
-			opacity: 1,
-			isLocked: false,
-		})
-	})
+const unstashAllShapes = (editor: Editor) => {
+	// console.log('hiddenShapes', hiddenShapes);
+	// editor.createShapes( hiddenShapes.splice(0));
+
+	// const allShapes = editor.currentPageShapes;
+	// allShapes.forEach( (record: TLShape) => {
+	// 	if(record.type != 'draw') return;
+	// 	editor.updateShape({
+	// 		id: record.id,
+	// 		type: record.type,
+	// 		opacity: 1,
+	// 		isLocked: false,
+	// 	})
+	// })
+
+	const stashShapes = getStashShapes(editor);
+	// if(!stashShapes) return;
+
 	
 }
+
+
+
+function getOrCreateStash(editor: Editor): TLPage {
+	let page = editor.getPage('page:stash' as TLPageId);
+	if(!page) {
+		let testPage = editor.createPage({id: 'page:stash' as TLPageId});
+		// console.log('testPage', testPage);
+		page = editor.getPage('page:stash' as TLPageId)!;
+	}
+	return page;
+}
+
+function getStashShapes(editor: Editor): TLShape[] | undefined {
+	const stashPage = editor.getPage('page:stash' as TLPageId);
+	if(!stashPage) return;
+
+	let allStashShapes: TLShape[] | undefined;
+	editor.batch( () => {
+		const curPageId = editor.currentPageId;
+		editor.setCurrentPage(stashPage);
+		allStashShapes = editor.currentPageShapes;
+		editor.moveShapesToPage(allStashShapes, curPageId);
+		editor.setCurrentPage(curPageId);
+	})
+
+	return allStashShapes;
+}
+
 
 
 

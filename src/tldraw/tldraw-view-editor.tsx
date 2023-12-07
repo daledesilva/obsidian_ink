@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, SerializedStore, TLEventInfo, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, SerializedStore, TLEventInfo, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
 import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
@@ -49,6 +49,7 @@ export function TldrawViewEditor (props: {
 		// if(!containers.length) {
 		// 	editor.createShapes([{ type: 'handwriting-container' }]);
 		// }
+		turnOnAllShapes(editor);
 
 		initCamera(editor);
 		editor.updateInstanceState({
@@ -62,7 +63,7 @@ export function TldrawViewEditor (props: {
 
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
-			writingPostProcess(entry, editor);			
+			// writingPostProcess(entry, editor);			
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
@@ -125,14 +126,36 @@ const writingPostProcess = debounce( (entry: HistoryEntry<TLRecord>, editor: Edi
 			editor.updateShape({
 				id: record.id,
 				type: record.type,
+
+				// Attempts to stop them being processed. They don't work.
+				// TODO: Another option is to change their type somehow to a custom type that doesn't display?
 				opacity: 0,
+				isLocked: true,
+				// visibility: 'hidden',	// Not supported
 			})
 		})
 	}
 	
-
-
 }, 2000, true)
+
+
+// Use this to run optimisations after a short delay
+const turnOnAllShapes = (editor: Editor) => {
+	
+	const allShapes = editor.currentPageShapes;
+	allShapes.forEach( (record: TLShape) => {
+		if(record.type != 'draw') return;
+		editor.updateShape({
+			id: record.id,
+			type: record.type,
+			opacity: 1,
+			isLocked: false,
+		})
+	})
+	
+}
+
+
 
 function containsCompleteContentChanges(entry: HistoryEntry<TLRecord>): boolean {
 	if(Object.keys(entry.changes.added).length) {

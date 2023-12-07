@@ -60,7 +60,10 @@ export function TldrawViewEditor (props: {
 		})
 
 		editor.store.listen((entry) => {
-			if(containsIncompleteDrawShapes(entry)) return;	// TODO: Rewrite this to simply check if entry only contains mouse movement. Also write one that checks if entry only contains camera movement
+			// Check if only containers mouse movement // clear timeout and return
+			// Check if only camera movement // clear timeout and return
+			// Actually, make the above containsNonContentUpdates(entry)  (ie. mouse, camera, or both only)
+			if(containsIncompleteDrawShapes(entry)) return; // and clear timeout
 
 			const contents = editor.store.getSnapshot();
 			props.save(contents);
@@ -123,7 +126,7 @@ const writingPostProcess = debounce( (entry: HistoryEntry<TLRecord>, editor: Edi
 		const stashPage = getOrCreateStash(editor);
 		
 		let olderShapes: TLShape[] = [];
-		let recentCount = 300;	// Allows the last 20 strokes to stay
+		let recentCount = 300;	// The number of recent strokes to keep visible
 
 		for(let i=0; i<=completeShapes.length-recentCount; i++) {
 			const record = completeShapes[i];
@@ -195,23 +198,17 @@ function getStashShapes(editor: Editor): TLShape[] | undefined {
 
 
 function containsIncompleteDrawShapes(entry: HistoryEntry<TLRecord>): boolean {
-
 	const addedRecords = Object.values(entry.changes.added);
 	const updatedRecords = Object.values(entry.changes.updated);
 	const removedRecords = Object.values(entry.changes.removed);
-	if(addedRecords.length) {
-		if(arrayContainsIncompleteDrawShape(addedRecords)) return false;
-	}
-	if(updatedRecords.length) {
-		if(tupleArrayContainsIncompleteDrawShape(updatedRecords)) return false;
-	}
-	if(removedRecords.length) {
-		if(arrayContainsIncompleteDrawShape(removedRecords)) return false;
-	}
+	if(arrayContainsIncompleteDrawShape(addedRecords)) return false;
+	if(tupleArrayContainsIncompleteDrawShape(updatedRecords)) return false;
+	if(arrayContainsIncompleteDrawShape(removedRecords)) return false;
 	return true;
 }
 
 function arrayContainsIncompleteDrawShape(records: TLRecord[]) : boolean {
+	if(!records) return false;
 	for(let i=0; i<records.length; i++) {
 		const record = records[i];
 		if(record.typeName == 'shape' && record.type == 'draw') {
@@ -222,6 +219,7 @@ function arrayContainsIncompleteDrawShape(records: TLRecord[]) : boolean {
 }
 
 function tupleArrayContainsIncompleteDrawShape(records: [from: TLRecord, to: TLRecord][]) : boolean {
+	if(!records) return false;
 	for(let i=0; i<records.length; i++) {
 		const recordFinalState = records[i][1];
 		if(recordFinalState.typeName == 'shape' && recordFinalState.type == 'draw') {

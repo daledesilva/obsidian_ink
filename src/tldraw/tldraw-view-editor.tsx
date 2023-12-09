@@ -71,13 +71,14 @@ export function TldrawViewEditor (props: {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
-					unstashOldShapes(editor);
-					justProcessedRef.current = true;
+					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
+					// unstashOldShapes(editor);
+					// justProcessedRef.current = true;
 					break;
 
 				case Activity.DrawingStarted:
 					clearTimeout(postProcessTimeoutRef.current);
-					// stashOldShapes(editor);	// NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke
+					// stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
 					break;
 
 				case Activity.DrawingContinued:
@@ -85,7 +86,7 @@ export function TldrawViewEditor (props: {
 					break;
 
 				case Activity.DrawingCompleted:
-					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly
+					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					writingPostProcesses(entry, editor);
 					break;
 
@@ -252,7 +253,10 @@ function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 function getOrCreateStash(editor: Editor): TLPage {
 	let page = editor.getPage('page:stash' as TLPageId);
 	if(!page) {
-		let testPage = editor.createPage({id: 'page:stash' as TLPageId});
+		let testPage = editor.createPage({
+			id: 'page:stash' as TLPageId,
+			name: 'Stash'
+		});
 		page = editor.getPage('page:stash' as TLPageId)!;
 	}
 	return page;

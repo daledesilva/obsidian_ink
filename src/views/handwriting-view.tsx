@@ -40,8 +40,7 @@ export class HandwritingView extends TextFileView {
 
     buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
         this.liveTldrawData = tldrawData;
-        this.requestSave();
-        // this.save(false)
+        this.save(false);
     }
 
     getViewType(): string {

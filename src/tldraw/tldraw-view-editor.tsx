@@ -41,18 +41,13 @@ export function TldrawViewEditor (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerRef = useRef<HTMLDivElement>(null)
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
+	const postProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const justProcessedRef = useRef<boolean>(false);
 
 
 	const handleMount = (editor: Editor) => {
 
-		// const allRecords = editor.store.allRecords();
-		// const containers = allRecords.filter( (record: any) => {
-		// 	return record?.type === 'handwriting-container'
-		// })
-		// if(!containers.length) {
-		// 	editor.createShapes([{ type: 'handwriting-container' }]);
-		// }
-		unstashAllShapes(editor);
+		unstashOldShapes(editor);
 
 		initCamera(editor);
 		editor.updateInstanceState({
@@ -60,51 +55,98 @@ export function TldrawViewEditor (props: {
 		})
 
 		editor.store.listen((entry) => {
-			const activity = getActivityType(entry);
-			let contents: StoreSnapshot<TLRecord>;
 
+			// Bail if this listener fired because again of changes made in the listener itself
+			if(justProcessedRef.current) {
+				console.log('just processed');
+				justProcessedRef.current = false;
+				return;
+			}
+
+			const activity = getActivityType(entry);
 			switch(activity) {
-				case Activity.PointerMove:
-					console.log('Pointer Move');
-					return;
-				case Activity.AutoCameraMove:
-				case Activity.ManualCameraMove:
-					console.log('Camera Move');
-					// Clear timeout
-					// Bring back shapes
+				case Activity.PointerMoved:
+					// TODO: Consider whether things are being erased
 					break;
+
+				case Activity.CameraMovedAutomatically:
+				case Activity.CameraMovedManually:
+					unstashOldShapes(editor);
+					justProcessedRef.current = true;
+					break;
+
 				case Activity.DrawingStarted:
-					console.log('Drawing Started');
-					// clear timeout
-					// Hide shapes
+					clearTimeout(postProcessTimeoutRef.current);
+					// stashOldShapes(editor);	// NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke
 					break;
-				case Activity.DrawingProgressing:
-					console.log('Drawing Progressing');
-					// clear timeout
-					return;
-				case Activity.DrawingComplete:
-					console.log('Drawing Complete');
-					contents = editor.store.getSnapshot();
-					props.save(contents);
+
+				case Activity.DrawingContinued:
+					clearTimeout(postProcessTimeoutRef.current);
+					break;
+
+				case Activity.DrawingCompleted:
+					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly
 					writingPostProcesses(entry, editor);
 					break;
-				case Activity.DrawingRemoved:
-					console.log('Drawing Removed');
-					contents = editor.store.getSnapshot();
-					props.save(contents);
-					writingPostProcesses(entry, editor);
+
+				case Activity.DrawingErased:
+					saveContent(editor);
 					break;
+
 				default:
-					console.log('Activity not recognised.');
-					console.log('activity', activity);
-					console.log('entry', JSON.parse(JSON.stringify(entry)) );
+					// console.log('Activity not recognised.');
+					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
 			
+		}, {
+			source: 'user',	// Local changes
+			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
-		editor.setCurrentTool('draw')
+		editor.setCurrentTool('draw');
+
+		return () => {
+			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
+			clearTimeout(postProcessTimeoutRef.current);
+		};
 	}
+
+
+	
+
+
+	// Use this to run optimisations after a short delay
+	const writingPostProcesses = (entry: HistoryEntry<TLRecord>, editor: Editor) => {
+		clearTimeout(postProcessTimeoutRef.current);
+		
+		postProcessTimeoutRef.current = setTimeout( () => {
+			console.log('Running writingPostProcesses');
+	
+			// Bring all writing back to main canvas
+			unstashOldShapes(editor);
+
+			// Save content
+			saveContent(editor);			
+
+			// Take screenshot for embed preview & OCR
+	
+			// Optimise writing by moving old writing off canvas
+			stashOldShapes(editor);
+
+			justProcessedRef.current = true;
+		}, 2000)
+		
+	};
+
+
+	const saveContent = (editor: Editor) => {
+		const contents = editor.store.getSnapshot();
+		props.save(contents);
+	}
+
+
+
 
 	return <>
 		<div
@@ -148,124 +190,61 @@ export default TldrawViewEditor;
 
 
 
-// Use this to run optimisations after a short delay
-const writingPostProcesses = debounce( (entry: HistoryEntry<TLRecord>, editor: Editor) => {
-	console.log('Running writingPostProcesses');
 
 
-	// Bring all writing back to main canvas
 
-	// Save content
 
-	// Take screenshot for embed preview & OCR
-
-	// Optimise writing by moving old writing off canvas
-	///////////
+const stashOldShapes = (editor: Editor) => {
 	// editor.batch( () => {
 		
-		const completeShapes = getCompleteShapes(editor);
-		const stashPage = getOrCreateStash(editor);
-		
-		let olderShapes: TLShape[] = [];
-		let recentCount = 300;	// The number of recent strokes to keep visible
+	const completeShapes = getCompleteShapes(editor);
+	const stashPage = getOrCreateStash(editor);
+	
+	let olderShapes: TLShape[] = [];
+	let recentCount = 300;	// The number of recent strokes to keep visible
 
-		for(let i=0; i<=completeShapes.length-recentCount; i++) {
-			const record = completeShapes[i];
-			if(record.type != 'draw') return;
+	// TODO: Order isn't guaranteed. Need to order by vertical position first
+	for(let i=0; i<=completeShapes.length-recentCount; i++) {
+		const record = completeShapes[i];
+		if(record.type != 'draw') return;
 
-			olderShapes.push(record as TLShape);
-		}
+		olderShapes.push(record as TLShape);
+	}
 
-		editor.moveShapesToPage(olderShapes, stashPage.id);
-		editor.setCurrentPage(editor.pages[0]);
+	editor.moveShapesToPage(olderShapes, stashPage.id);
+	editor.setCurrentPage(editor.pages[0]);
 
 	// })
-	
-}, 2000, true)
-
-
-
-// Use this to run optimisations after a short delay
-const unstashAllShapes = (editor: Editor) => {
-	// console.log('hiddenShapes', hiddenShapes);
-	// editor.createShapes( hiddenShapes.splice(0));
-
-	// const allShapes = editor.currentPageShapes;
-	// allShapes.forEach( (record: TLShape) => {
-	// 	if(record.type != 'draw') return;
-	// 	editor.updateShape({
-	// 		id: record.id,
-	// 		type: record.type,
-	// 		opacity: 1,
-	// 		isLocked: false,
-	// 	})
-	// })
-
-	const stashShapes = getStashShapes(editor);
-	// if(!stashShapes) return;
-
-	
 }
 
 
 
 enum Activity {
-	PointerMove,
-	ManualCameraMove,
-	AutoCameraMove,
+	PointerMoved,
+	CameraMovedManually,
+	CameraMovedAutomatically,
 	DrawingStarted,
-	DrawingProgressing,
-	DrawingComplete,
-	DrawingRemoved,
+	DrawingContinued,
+	DrawingCompleted,
+	DrawingErased,
+	ErasingContinued,
 	Unclassified,
 }
 
 
 function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
-
-	if( isOnlyMouseMove(entry) ) {
-		return Activity.PointerMove;
-	}
-
-	// Check if camera and pointer move
-	if( isCameraMove(entry) ) {
-		return Activity.ManualCameraMove;
-	};
+	const activitySummary = getActivitySummary(entry);
 	
-	// If only camera move
-	// if( ) {
-	// 	return Activity.AutoCameraMove;
-	// };
+	if(activitySummary.drawShapesCompleted) return Activity.DrawingCompleted;	// Note, this overules everything else
+	if(activitySummary.drawShapesStarted) return Activity.DrawingStarted;
+	if(activitySummary.drawShapesContinued) return Activity.DrawingContinued;
+	if(activitySummary.drawShapesRemoved) return Activity.DrawingErased;
 
-	const getUpdatedSummary(entry);
-
-
-	// If any drawing was completed, report complete, even if started at the same time
-	if( Object.keys(entry.changes.updated).length ) {
-		// TODO: Check if everything is marked as isComplete
-		return Activity.DrawingComplete;
-	}
-
-	// If anything was added but not yet completed, report added
-	if( Object.keys(entry.changes.added).length ) {
-		console.log('entry.changes.added', entry.changes.added);
-		// TODO: Should check that it's not complete - if it is, report complete instead
-		return Activity.DrawingStarted;
-	}
-
-	// If anything's been updated and not yet completed
-	// if( containsIncompleteDrawShapes(entry) ) {
-	// Pointer will be in updated list, so more than 2 items means updated shape records
-	if( Object.keys(entry.changes.updated).length > 1 ) {
-		return Activity.DrawingProgressing;
-	}
-
-	// If anything was removed (Assumed to never overlap with the othersobs)
-	if( Object.keys(entry.changes.removed).length ) {
-		console.log('entry.changes.removed', entry.changes.removed);
-		// TODO: Should check if this is a draw shape
-		return Activity.DrawingRemoved;
-	}
+	if(activitySummary.cameraMoved && activitySummary.pointerMoved) return Activity.CameraMovedManually;
+	if(activitySummary.cameraMoved && !activitySummary.pointerMoved) return Activity.CameraMovedAutomatically;
+	
+	if(activitySummary.pointerScribbled) return Activity.ErasingContinued;
+	if(activitySummary.pointerMoved) return Activity.PointerMoved;
 
 	return Activity.Unclassified;
 }
@@ -279,7 +258,7 @@ function getOrCreateStash(editor: Editor): TLPage {
 	return page;
 }
 
-function getStashShapes(editor: Editor): TLShape[] | undefined {
+function unstashOldShapes(editor: Editor): TLShape[] | undefined {
 	const stashPage = editor.getPage('page:stash' as TLPageId);
 	if(!stashPage) return;
 
@@ -298,76 +277,11 @@ function getStashShapes(editor: Editor): TLShape[] | undefined {
 
 
 
-function containsIncompleteDrawShapes(entry: HistoryEntry<TLRecord>): boolean {
-	const addedRecords = Object.values(entry.changes.added);
-	const updatedRecords = Object.values(entry.changes.updated);
-	// const removedRecords = Object.values(entry.changes.removed);
-	if(arrayContainsIncompleteDrawShape(addedRecords)) return true;
-	if(tupleArrayContainsIncompleteDrawShape(updatedRecords)) return true;
-	// if(arrayContainsIncompleteDrawShape(removedRecords)) return true;
-	return false;
-}
-
-function arrayContainsIncompleteDrawShape(records: TLRecord[]) : boolean {
-	if(!records) return false;
-	for(let i=0; i<records.length; i++) {
-		const record = records[i];
-		if(record.typeName == 'shape' && record.type == 'draw') {
-			if(record.props.isComplete === false) return true;
-		}
-	}
-	return false;
-}
-
-function tupleArrayContainsIncompleteDrawShape(records: [from: TLRecord, to: TLRecord][]) : boolean {
-	if(!records) return false;
-	for(let i=0; i<records.length; i++) {
-		const recordFinalState = records[i][1];
-		if(recordFinalState.typeName == 'shape' && recordFinalState.type == 'draw') {
-			if(recordFinalState.props.isComplete === false) return true;
-		}
-	}
-	return false;
-}
-
-function tupleContainsNonMouseRecords(records: [from: TLRecord, to: TLRecord][]) : boolean {
-	if(!records) return false;
-	for(let i=0; i<records.length; i++) {
-		const recordFinalState = records[i][1];
-		if(recordFinalState.typeName != 'pointer') {
-			return true;
-		}
-	}
-	return false;
-}
-
-function tupleContainsNonCameraRecords(records: [from: TLRecord, to: TLRecord][]) : boolean {
-	if(!records) return false;
-	let hasCamera = false;
-
-	for(let i=0; i<records.length; i++) {
-		const recordFinalState = records[i][1];
-		if(recordFinalState.typeName != 'camera' && recordFinalState.typeName != 'pointer') {
-			return true;	// It's a non camera move record
-		}
-		if(recordFinalState.typeName === 'camera') {
-			hasCamera = true;
-		}
-	}
-	if(hasCamera) {
-		// It's a camera move and nothing else
-		return false;
-	} else {
-		// It's just a pointer move
-		return true;
-	}
-}
-
-
 
 function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	const summary = {
 		pointerMoved: false,
+		pointerScribbled: false,
 		cameraMoved: false,
 		drawShapesStarted: 0,
 		drawShapesContinued: 0,
@@ -398,6 +312,12 @@ function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 				} else {
 					summary.drawShapesContinued += 1;
 				}
+			} else if(recordFinalState.typeName == 'pointer') {
+				summary.pointerMoved = true;
+			} else if(recordFinalState.typeName == 'camera') {
+				summary.cameraMoved = true;
+			} else if(recordFinalState.typeName == 'instance') {
+				if(recordFinalState.scribble) summary.pointerScribbled = true;
 			}
 		}
 	}
@@ -425,6 +345,12 @@ function getCompleteShapes(editor: Editor) {
 		const shape = allShapes[i];
 		if(shape.props.isComplete === true) completeShapes.push(shape);
 	}
+
+	// Order according to y position
+	completeShapes.sort((a, b) => {
+		return a.y - b.y
+	});
+
 	return completeShapes;
 }
 
@@ -437,24 +363,3 @@ function getIncompleteShapes(editor: Editor) {
 	}
 	return incompleteShapes;
 }
-
-function isCameraMove(entry: HistoryEntry<TLRecord>): boolean {
-	const addedRecords = Object.values(entry.changes.added);
-	const updatedRecords = Object.values(entry.changes.updated);
-	const removedRecords = Object.values(entry.changes.removed);
-	if(addedRecords.length) return false;
-	if(removedRecords.length) return false;
-	if(tupleContainsNonCameraRecords(updatedRecords)) return false;
-	return true;
-}
-
-function isOnlyMouseMove(entry: HistoryEntry<TLRecord>): boolean {
-	const addedRecords = Object.values(entry.changes.added);
-	const updatedRecords = Object.values(entry.changes.updated);
-	const removedRecords = Object.values(entry.changes.removed);
-	if(addedRecords.length) return false;
-	if(removedRecords.length) return false;
-	if(tupleContainsNonMouseRecords(updatedRecords)) return false;
-	return true;
-}
-

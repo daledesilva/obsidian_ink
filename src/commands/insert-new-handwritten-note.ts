@@ -1,16 +1,15 @@
 import HandwritePlugin from "src/main";
 import createNewHandwrittenNote from "./create-new-handwritten-note";
 import { Editor } from "obsidian";
+import { buildEmbed } from "src/utils/embed";
 
 
 
 const insertNewHandwrittenNote = async (plugin: HandwritePlugin, editor: Editor) => {
     const fileRef = await createNewHandwrittenNote(plugin);
 
-    let embedStr = "";
-    embedStr += "\n```handwriting-embed";
-    embedStr += "\n" + fileRef.path;
-    embedStr += "\n```";
+    
+    let embedStr = buildEmbed(fileRef.path);
 
     editor.replaceRange( embedStr, editor.getCursor() );
 }

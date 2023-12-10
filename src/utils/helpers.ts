@@ -16,7 +16,7 @@ export function preventTldrawCanvasesCausingObsidianGestures() {
 }
 
 
-export function initCamera(editor: Editor) {
+export function initCamera(editor: Editor, topMarginPx) {
     let canvasWidth = editor.getContainer().innerWidth
     let containerMargin = 0;
     let containerWidth = 2000;
@@ -25,7 +25,7 @@ export function initCamera(editor: Editor) {
 
     // REVIEW: These are currently hard coded to a specific page position
     let x = containerMargin;
-    let y = 200;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
+    let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
     
     // editor.zoomToFit()
     editor.setCamera({

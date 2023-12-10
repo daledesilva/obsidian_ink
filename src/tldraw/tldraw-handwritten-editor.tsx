@@ -3,7 +3,7 @@ import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
 import HandwritingContainer from "./shapes/handwriting-container"
-import { MenuBar } from "./menu-bar/menu-bar";
+import { MENUBAR_HEIGHT_PX, MenuBar } from "./menu-bar/menu-bar";
 
 
 ///////
@@ -46,6 +46,7 @@ export function TldrawHandwrittenEditor (props: {
 	filepath: string,
 	save: Function,
 	embedded?: boolean,
+	resizeContainer?: (pxHeight: number) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -78,18 +79,25 @@ export function TldrawHandwrittenEditor (props: {
 		if(!editor) return;
 		openInkFileByFilepath(props.plugin, props.filepath);
 	}
-
+	
+	
 
 	const handleMount = (_editor: Editor) => {
 		setEditor(_editor);
 
 		unstashOldShapes(_editor);
 
-		initCamera(_editor);
+		initCamera(_editor, MENUBAR_HEIGHT_PX);
 		_editor.updateInstanceState({
 			isDebugMode: false,
-			// canMoveCamera: false,
+			canMoveCamera: false,
 		})
+
+		if(props.embedded) {
+			_editor.updateInstanceState({ canMoveCamera: false })
+		}
+
+		resizeContainer(_editor);
 
 		_editor.store.listen((entry) => {
 
@@ -124,11 +132,13 @@ export function TldrawHandwrittenEditor (props: {
 
 				case Activity.DrawingCompleted:
 					saveContent(_editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					embedPostProcess(_editor);
 					writingPostProcesses(entry, _editor);
 					break;
 
 				case Activity.DrawingErased:
 					saveContent(_editor);
+					embedPostProcess(_editor);
 					break;
 
 				default:
@@ -141,6 +151,8 @@ export function TldrawHandwrittenEditor (props: {
 			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
+		
+
 		preventTldrawCanvasesCausingObsidianGestures();
 		_editor.setCurrentTool('draw');
 
@@ -151,6 +163,23 @@ export function TldrawHandwrittenEditor (props: {
 	}
 
 
+
+	const embedPostProcess = (editor: Editor) => {
+		resizeContainer(editor);
+	}
+
+
+	const resizeContainer = (editor: Editor) => {
+		if(!props.resizeContainer) return;
+
+		const embedBounds = editor.viewportScreenBounds;
+		const contentBounds = editor.currentPageBounds;
+		if(contentBounds) {
+			const contentRatio = contentBounds.w / (contentBounds.h + (MENUBAR_HEIGHT_PX*1.5));
+			const embedHeight = embedBounds.w / contentRatio;
+			props.resizeContainer(embedHeight);
+		}
+	}
 	
 
 

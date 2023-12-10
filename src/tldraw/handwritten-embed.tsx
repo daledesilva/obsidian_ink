@@ -28,7 +28,6 @@ export function HandwrittenEmbed (props: {
 	const handleMount = (editor: Editor) => {
 		// editorRef.current = editor;
 		// zoomToPageWidth(editor);
-		// fitEmbedToContent(editor);
 		// activateDrawTool();
 		// initListeners(editor);
 		// applyPostMountSettings(editor);
@@ -75,6 +74,7 @@ export function HandwrittenEmbed (props: {
                 filepath = {props.filepath}
                 save = {props.save}
 				embedded
+				resizeContainer = {resizeEmbed}
 			/>
 		</div>
 	</>;
@@ -105,44 +105,10 @@ export function HandwrittenEmbed (props: {
 		}
 	}
 
-	function fitEmbedToContent(editor: Editor) {
-		const embedBounds = editor.viewportScreenBounds;
-		const contentBounds = editor.currentPageBounds;
-		if(contentBounds) {
-			const contentRatio = contentBounds.w / contentBounds.h
-			const embedHeight = embedBounds.w / contentRatio;
-			if(embedContainerRef.current) {
-				embedContainerRef.current.style.height = embedHeight + 'px';
-			}
+	function resizeEmbed(pxHeight: number) {
+		if(embedContainerRef.current) {
+			embedContainerRef.current.style.height = pxHeight + 'px';
 		}
-	}
-
-	function initListeners(editor: Editor) {
-		editor.store.listen((entry) => {
-			// REVIEW: Mouse moves fire this too, so it would be good to filter this to only save if it's a save-worthy change
-			fitEmbedToContent(editor);
-			const contents = editor.store.getSnapshot();
-			props.save(contents);
-		})
-	}
-
-	function activateSelectTool() {
-		if(!editorRef.current) return;
-		editorRef.current.setCurrentTool(tool.select);
-		setActiveTool(tool.select);
-		console.log('set active tool to ', tool.select);
-	}
-	function activateDrawTool() {
-		if(!editorRef.current) return;
-		editorRef.current.setCurrentTool(tool.draw);
-		setActiveTool(tool.draw);
-		console.log('set active tool to ', tool.select);
-	}
-	function activateEraserTool() {
-		if(!editorRef.current) return;
-		editorRef.current.setCurrentTool(tool.eraser);
-		setActiveTool(tool.eraser);
-		console.log('set active tool to ', tool.eraser);
 	}
 	
 };

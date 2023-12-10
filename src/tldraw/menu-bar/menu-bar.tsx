@@ -9,6 +9,8 @@ import { Editor } from "obsidian";
 
 //////////
 
+export const MENUBAR_HEIGHT_PX = 200;
+
 export function MenuBar (props: {
     onUndoClick: React.MouseEventHandler<HTMLButtonElement>,
     onRedoClick: React.MouseEventHandler<HTMLButtonElement>,

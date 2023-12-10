@@ -6,6 +6,7 @@ import { Root, createRoot } from "react-dom/client";
 import { PageData, buildPageFile } from "src/utils/page-file";
 import { HandwrittenEmbedData } from "src/utils/embed";
 import { HandwrittenEmbed } from "src/tldraw/handwritten-embed";
+import HandwritePlugin from "src/main";
 
 ////////
 ////////
@@ -25,14 +26,14 @@ export function registerHandwritingEmbed(plugin: Plugin) {
 
 class HandwrittenEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
-	plugin: Plugin;
+	plugin: HandwritePlugin;
 	filepath: string;
 	root: Root;
 	fileRef: TFile | null;
 
 	constructor(
 		el: HTMLElement,
-		plugin: Plugin,
+		plugin: HandwritePlugin,
 		filepath: string,
 	) {
 		super(el);
@@ -46,7 +47,6 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 		const v = this.plugin.app.vault;
 		this.fileRef = v.getAbstractFileByPath(this.filepath) as TFile;
 		
-		console.log('this.fileRef', this.fileRef);
 		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
 			// TODO: This is added, but is not visible
 			const containerEl = this.el.createDiv();
@@ -60,6 +60,7 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 		this.root = createRoot(this.el);
 		this.root.render(
             <HandwrittenEmbed
+				plugin = {this.plugin}
                 existingData = {pageData.tldraw}
                 filepath = {this.fileRef.path}
                 save = {this.saveLinkedFile}

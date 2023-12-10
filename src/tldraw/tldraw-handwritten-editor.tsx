@@ -10,6 +10,9 @@ import { MenuBar } from "./menu-bar/menu-bar";
 ///////
 
 import './tldraw-handwritten-editor.scss';
+import HandwritePlugin from "src/main";
+import { TFile } from "obsidian";
+import { openInkFileByFilepath } from "src/utils/open-file";
 
 const MyCustomShapes = [HandwritingContainer];
 
@@ -37,6 +40,7 @@ const myOverrides: TLUiOverrides = {
 
 
 export function TldrawHandwrittenEditor (props: {
+	plugin: HandwritePlugin,
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
@@ -71,7 +75,7 @@ export function TldrawHandwrittenEditor (props: {
 	function open() {
 		if(!editor) return;
 		console.log('open');
-
+		openInkFileByFilepath(props.plugin, props.filepath);
 	}
 
 

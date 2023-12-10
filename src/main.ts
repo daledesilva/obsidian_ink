@@ -4,7 +4,7 @@ import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
 import insertExistingInkNote from './commands/insert-existing-handwritten-note';
 import insertNewHandwrittenNote from './commands/insert-new-handwritten-note';
-import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, activateHandwritingView, openInkFile, registerHandwritingView } from './views/handwriting-view';
+import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, registerHandwritingView } from './views/handwriting-view';
 import createNewHandwrittenNote from './commands/create-new-handwritten-note';
 
 

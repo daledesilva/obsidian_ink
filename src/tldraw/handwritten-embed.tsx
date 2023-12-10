@@ -2,6 +2,7 @@ import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
+import HandwritePlugin from "src/main";
 
 ///////
 ///////
@@ -14,6 +15,7 @@ enum tool {
 }
 
 export function HandwrittenEmbed (props: {
+	plugin: HandwritePlugin,
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
@@ -68,6 +70,7 @@ export function HandwrittenEmbed (props: {
 				hideUi = {true}
 			/> */}
 			<TldrawHandwrittenEditor
+				plugin = {props.plugin}
                 existingData = {props.existingData}
                 filepath = {props.filepath}
                 save = {props.save}

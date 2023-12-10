@@ -15,7 +15,7 @@ export function MenuBar (props: {
     onSelectClick: React.MouseEventHandler<HTMLButtonElement>,
     onDrawClick: React.MouseEventHandler<HTMLButtonElement>,
     onEraseClick: React.MouseEventHandler<HTMLButtonElement>,
-    onOpenClick: React.MouseEventHandler<HTMLButtonElement>,
+    onOpenClick: React.MouseEventHandler<HTMLButtonElement> | false | undefined,
 }) {
 	
 	return <>
@@ -38,7 +38,9 @@ export function MenuBar (props: {
 			<div
                 className = 'ink_other-menu'
             >
-                <button onClick={props.onOpenClick}>Open</button>
+                {props.onOpenClick && (
+                    <button onClick={props.onOpenClick}>Open</button>
+                )}
             </div>
 		</div>
 	</>;

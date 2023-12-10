@@ -39,11 +39,13 @@ const myOverrides: TLUiOverrides = {
 }
 
 
+
 export function TldrawHandwrittenEditor (props: {
 	plugin: HandwritePlugin,
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
+	embedded?: boolean,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -74,7 +76,6 @@ export function TldrawHandwrittenEditor (props: {
 	}
 	function open() {
 		if(!editor) return;
-		console.log('open');
 		openInkFileByFilepath(props.plugin, props.filepath);
 	}
 
@@ -209,7 +210,7 @@ export function TldrawHandwrittenEditor (props: {
 				onSelectClick = {activateSelectTool}
 				onDrawClick = {activateDrawTool}
 				onEraseClick = {activateEraseTool}
-				onOpenClick = {open}
+				onOpenClick = {props.embedded && open}
 			/>
 			{/* <div
 				className = 'output-log'

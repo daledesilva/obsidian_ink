@@ -74,6 +74,7 @@ export function HandwrittenEmbed (props: {
                 existingData = {props.existingData}
                 filepath = {props.filepath}
                 save = {props.save}
+				embedded
 			/>
 		</div>
 	</>;

@@ -2,6 +2,7 @@ import { SerializedStore, TLRecord, TLUiOverrides, Editor } from "@tldraw/tldraw
 import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
+import { WRITE_FILE_EXT } from "src/constants";
 import HandwritePlugin from "src/main";
 import TldrawHandwrittenEditor from "src/tldraw/tldraw-handwritten-editor";
 import { PageData, buildPageFile } from "src/utils/page-file";
@@ -24,7 +25,7 @@ export function registerHandwritingView (plugin: HandwritePlugin) {
         HANDWRITING_VIEW_TYPE,
         (leaf) => new HandwritingView(leaf, this)
     );
-    plugin.registerExtensions(['writing'], HANDWRITING_VIEW_TYPE);
+    plugin.registerExtensions([WRITE_FILE_EXT], HANDWRITING_VIEW_TYPE);
 }
 
 

@@ -49,12 +49,12 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 	async onload() {
 		const v = this.plugin.app.vault;
 		this.fileRef = v.getAbstractFileByPath(this.filepath) as TFile;
-		if( !(this.fileRef instanceof TFile) ) {
-			this.root.render(
-				<div>
-					<p>Handwriting ink file not found</p>
-				</div>
-			);
+		
+		console.log('this.fileRef', this.fileRef);
+		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
+			// TODO: This is added, but is not visible
+			const containerEl = this.el.createDiv();
+			containerEl.createEl('p', 'Handwriting ink file not found.')
 			return;
 		}
 

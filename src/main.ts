@@ -49,11 +49,11 @@ export default class HandwritePlugin extends Plugin {
 		
 
 		// Add markdown note actions
-		// this.addCommand({
-		// 	id: 'ddc_embed-handwritten-file',
-		// 	name: 'Insert existing handwritten section',
-		// 	editorCallback: (editor: Editor) => insertExistingInkNote(this, editor);
-		// });
+		this.addCommand({
+			id: 'ddc_embed-handwritten-file',
+			name: 'Insert existing handwritten section',
+			editorCallback: (editor: Editor) => insertExistingInkNote(this, editor)
+		});
 		this.addCommand({
 			id: 'ddc_create-handwritten-section',
 			name: 'Insert new handwritten section',

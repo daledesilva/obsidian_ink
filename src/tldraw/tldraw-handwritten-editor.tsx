@@ -33,7 +33,7 @@ const myOverrides: TLUiOverrides = {
 }
 
 
-export function TldrawViewEditor (props: {
+export function TldrawHandwrittenEditor (props: {
 	existingData: SerializedStore<TLRecord>,
 	uid: string,
 	save: Function,
@@ -142,8 +142,8 @@ export function TldrawViewEditor (props: {
 
 
 	const saveContent = (editor: Editor) => {
-		const contents = editor.store.getSnapshot();
-		props.save(contents);
+		const tldrawData = editor.store.getSnapshot();
+		props.save(tldrawData);
 	}
 
 
@@ -185,7 +185,7 @@ export function TldrawViewEditor (props: {
 	
 };
 
-export default TldrawViewEditor;
+export default TldrawHandwrittenEditor;
 
 
 

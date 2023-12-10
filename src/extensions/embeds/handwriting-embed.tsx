@@ -4,7 +4,8 @@ import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TAbstractFile, TFile
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { PageData, buildPageFile } from "src/utils/page-file";
-import TldrawEmbedEditor from "src/tldraw/tldraw-embed-editor";
+import { HandwrittenEmbedData } from "src/utils/embed";
+import { HandwrittenEmbed } from "src/tldraw/handwritten-embed";
 
 
 
@@ -16,57 +17,56 @@ import './handwriting-embed.scss';
 
 export function registerHandwritingEmbed(plugin: Plugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
-		'handwriting-embed',
+		'handwritten-ink',
 		(source, el, ctx) => {
-			const sourcePath = source.trim();
-			if(sourcePath) {
-				ctx.addChild(new HandwritingEmbedWidget(el, plugin, sourcePath));
+			const embedJson = JSON.parse(source) as HandwrittenEmbedData;
+			if(embedJson.filepath) {
+				ctx.addChild(new HandwrittenEmbedWidget(el, plugin, embedJson.filepath));
 			}
 		}
 	);
 }
 
-class HandwritingEmbedWidget extends MarkdownRenderChild {
+class HandwrittenEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
 	plugin: Plugin;
-	sourcePath: string;
+	filepath: string;
 	root: Root;
 	fileRef: TFile | null;
-	debouncedSaveEmbeddedFile = debounce(this.saveEmbeddedFile, 1000, true)
 
 	constructor(
 		el: HTMLElement,
 		plugin: Plugin,
-		sourcePath: string,
+		filepath: string,
 	) {
 		super(el);
 		this.el = el;
 		this.plugin = plugin;
-		this.sourcePath = sourcePath;
+		this.filepath = filepath;
 	}
-
-
-	buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
-		this.debouncedSaveEmbeddedFile(tldrawData);
-    }
 
 
 	async onload() {
 		const v = this.plugin.app.vault;
-		this.fileRef = v.getAbstractFileByPath(this.sourcePath) as TFile;
+		this.fileRef = v.getAbstractFileByPath(this.filepath) as TFile;
 		if( !(this.fileRef instanceof TFile) ) {
-			console.error(`File not found.`);
+			this.root.render(
+				<div>
+					<p>Handwriting ink file not found</p>
+				</div>
+			);
 			return;
 		}
-		const fileContents = await v.cachedRead(this.fileRef as TFile);
+
+		const fileContents = await v.cachedRead(this.fileRef as TFile);	// REVIEW: This shouldn't be cached read
 		const pageData = JSON.parse(fileContents) as PageData;
 
 		this.root = createRoot(this.el);
 		this.root.render(
-            <TldrawEmbedEditor
+            <HandwrittenEmbed
                 existingData = {pageData.tldraw}
                 uid = {this.fileRef.path}
-                save = {this.buildPageAndSave}
+                save = {this.saveLinkedFile}
 			/>
         );
 	}
@@ -78,11 +78,11 @@ class HandwritingEmbedWidget extends MarkdownRenderChild {
 	// Helper functions
 	///////////////////
 
-	saveEmbeddedFile(tldrawData: SerializedStore<TLRecord>) {
+	saveLinkedFile = async (tldrawData: SerializedStore<TLRecord>) => {
 		if(!this.fileRef) return;
-		console.log('saving!!!');
 		const fileContents = buildPageFile(tldrawData);
-		this.plugin.app.vault.modify(this.fileRef, fileContents);
+		await this.plugin.app.vault.modify(this.fileRef, fileContents);
+		console.log('...Saved');
 	}
 
 }

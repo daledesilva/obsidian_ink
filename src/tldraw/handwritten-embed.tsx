@@ -1,6 +1,7 @@
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
+import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
 
 ///////
 ///////
@@ -10,9 +11,9 @@ enum tool {
 	select = 'select',
 	draw = 'draw',
 	eraser = 'eraser',
-  }
+}
 
-export function TldrawEmbedEditor (props: {
+export function HandwrittenEmbed (props: {
 	existingData: SerializedStore<TLRecord>,
 	uid: string,
 	save: Function,
@@ -23,19 +24,17 @@ export function TldrawEmbedEditor (props: {
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 
 	const handleMount = (editor: Editor) => {
-		editorRef.current = editor;
-		zoomToPageWidth(editor);
-		fitEmbedToContent(editor);
-		activateDrawTool();
-		initListeners(editor);
-		applyPostMountSettings(editor);
+		// editorRef.current = editor;
+		// zoomToPageWidth(editor);
+		// fitEmbedToContent(editor);
+		// activateDrawTool();
+		// initListeners(editor);
+		// applyPostMountSettings(editor);
 	}
 
-	console.log('rerendering');
-
 	return <>
-		<div className = 'ink_embed-controls'>
-			<button
+		{/* <div className = 'ink_embed-controls'> */}
+			{/* <button
 				onClick = {activateDrawTool}
 				disabled = {activeTool===tool.draw}
 				>
@@ -53,20 +52,25 @@ export function TldrawEmbedEditor (props: {
 				>
 				Select
 			</button>
-		</div>
+		</div> */}
 		<div
 			ref = {embedContainerRef}
 			style = {{
 				height: '400px',
 			}}
 		>
-			<Tldraw
+			{/* <Tldraw
 				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {props.existingData}	// NOTE: Check what's causing this snapshot error??
 				// persistenceKey = {props.uid}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 				hideUi = {true}
+			/> */}
+			<TldrawHandwrittenEditor
+                existingData = {props.existingData}
+                uid = {props.uid}
+                save = {props.save}
 			/>
 		</div>
 	</>;
@@ -139,7 +143,7 @@ export function TldrawEmbedEditor (props: {
 	
 };
 
-export default TldrawEmbedEditor;
+export default HandwrittenEmbed;
 
 
 

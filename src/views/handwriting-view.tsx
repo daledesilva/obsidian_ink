@@ -3,7 +3,7 @@ import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import HandwritePlugin from "src/main";
-import TldrawViewEditor from 'src/tldraw/tldraw-view-editor';
+import TldrawHandwrittenEditor from "src/tldraw/tldraw-handwritten-editor";
 import { PageData, buildPageFile } from "src/utils/page-file";
 
 ////////
@@ -31,7 +31,7 @@ export function registerHandwritingView (plugin: HandwritePlugin) {
 export class HandwritingView extends TextFileView {
     root: null | Root;
     plugin: HandwritePlugin;
-    liveTldrawData: SerializedStore<TLRecord> = {};
+    tldrawData: SerializedStore<TLRecord> = {};
 
     constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
         super(leaf);
@@ -39,7 +39,7 @@ export class HandwritingView extends TextFileView {
     }
 
     buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
-        this.liveTldrawData = tldrawData;
+        this.tldrawData = tldrawData;
         this.save(false);
     }
 
@@ -56,7 +56,7 @@ export class HandwritingView extends TextFileView {
         if(!this.file) return;
         
         const pageData = JSON.parse(fileContents) as PageData;
-        this.liveTldrawData = pageData.tldraw;
+        this.tldrawData = pageData.tldraw;
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
@@ -66,8 +66,8 @@ export class HandwritingView extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawViewEditor
-                existingData = {this.liveTldrawData}
+            <TldrawHandwrittenEditor
+                existingData = {this.tldrawData}
                 uid = {this.file.path}
                 save = {this.buildPageAndSave}
 			/>
@@ -76,7 +76,7 @@ export class HandwritingView extends TextFileView {
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData = (): string => {
-        const fileContents = buildPageFile(this.liveTldrawData);
+        const fileContents = buildPageFile(this.tldrawData);
         return fileContents;
     }
 

@@ -4,7 +4,7 @@
 
 const EMBED_VERSION = '0.0.1';
 
-type embedData = {
+export type HandwrittenEmbedData = {
 	embedVersion: string;
 	filepath: string;
 	transcript: string;
@@ -15,7 +15,7 @@ type embedData = {
 ///////
 
 export const buildEmbed = (filepath: string, transcript: string = '') => {
-	let embedContent: embedData = {
+	let embedContent: HandwrittenEmbedData = {
 		embedVersion: EMBED_VERSION,
 		filepath,
 		transcript,

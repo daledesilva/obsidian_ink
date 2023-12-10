@@ -1,8 +1,8 @@
-import { Editor, HistoryEntry, RecordType, SerializedStore, StoreSnapshot, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, RecordType, SerializedStore, StoreSnapshot, TLDrawShape, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor } from "@tldraw/tldraw";
 import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
-import HandwritingContainer from "./shapes/handwriting-container"
+import HandwritingContainer, { LINE_HEIGHT } from "./shapes/handwriting-container"
 import { MENUBAR_HEIGHT_PX, MenuBar } from "./menu-bar/menu-bar";
 
 
@@ -46,7 +46,7 @@ export function TldrawHandwrittenEditor (props: {
 	filepath: string,
 	save: Function,
 	embedded?: boolean,
-	resizeContainer?: (pxHeight: number) => void,
+	resizeEmbedContainer?: (pxHeight: number) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerRef = useRef<HTMLDivElement>(null)
@@ -96,7 +96,7 @@ export function TldrawHandwrittenEditor (props: {
 			_editor.updateInstanceState({ canMoveCamera: false })
 		}
 
-		resizeContainer(_editor);
+		resizeEmbedContainer(_editor);
 
 		_editor.store.listen((entry) => {
 
@@ -131,12 +131,14 @@ export function TldrawHandwrittenEditor (props: {
 
 				case Activity.DrawingCompleted:
 					saveContent(_editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					resizeWritingContainer(_editor);
 					embedPostProcess(_editor);
 					writingPostProcesses(entry, _editor);
 					break;
 
 				case Activity.DrawingErased:
 					saveContent(_editor);
+					resizeWritingContainer(_editor);
 					embedPostProcess(_editor);
 					break;
 
@@ -164,22 +166,59 @@ export function TldrawHandwrittenEditor (props: {
 
 
 	const embedPostProcess = (editor: Editor) => {
-		resizeContainer(editor);
+		resizeEmbedContainer(editor);
 	}
 
 
-	const resizeContainer = (editor: Editor) => {
-		if(!props.resizeContainer) return;
+	const resizeEmbedContainer = (editor: Editor) => {
+		if(!props.resizeEmbedContainer) return;
 
 		const embedBounds = editor.viewportScreenBounds;
 		const contentBounds = editor.currentPageBounds;
 		if(contentBounds) {
 			const contentRatio = contentBounds.w / (contentBounds.h + (MENUBAR_HEIGHT_PX*1.5));
 			const embedHeight = embedBounds.w / contentRatio;
-			props.resizeContainer(embedHeight);
+			props.resizeEmbedContainer(embedHeight);
 		}
 	}
 	
+
+	const resizeWritingContainer = (editor: Editor) => {
+		let contentBounds = getWritingBounds(editor);
+		
+		// Can't do it this way because the change in pages causes the camera to jump around
+		// editor.batch( () => {
+		//	const stashPage = getOrCreateStash(editor);
+
+		// 	// Move writing container off main page so it's not considered in height
+		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], stashPage.id);
+		// 	editor.setCurrentPage(editor.pages[0]);
+	
+		// 	// Get height of leftover content
+		// 	contentBounds = editor.currentPageBounds;
+	
+		// 	// Move writing container back to main page
+		// 	editor.setCurrentPage(stashPage.id);
+		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], editor.pages[0].id);
+		// 	editor.setCurrentPage(editor.pages[0]);
+		// })
+
+		if(!contentBounds) return;
+		
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+		})		
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: true,
+			props: {
+				h: Math.max(700, contentBounds.h + LINE_HEIGHT*2),
+			}
+		})		
+	}
 
 
 	// Use this to run optimisations after a short delay
@@ -416,6 +455,53 @@ function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 
 
 
+// TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
+// Then again, I should parent them to it anyway, in which case it could just check it's descendants.
+function getWritingBounds(editor: Editor): Box2d {
+	const allBounds = new Box2d(100000, 100000);	// x and y overlay high so the first shape overrides it
+
+	const allShapes = editor.currentPageShapes;
+
+	allShapes.forEach( (shape) => {
+		if(shape.type != 'draw') return;
+		const drawShape = shape as TLDrawShape;
+		if(!drawShape.props.isComplete) return;
+
+		const shapeBounds = editor.getShapePageBounds(drawShape)
+		if(!shapeBounds) return;
+
+		const allLeftEdge = allBounds.x;
+		const allRightEdge = allBounds.x + allBounds.w;
+		const allTopEdge = allBounds.y;
+		const allBottomEdge = allBounds.y + allBounds.h;
+		
+		const shapeLeftEdge = shapeBounds.x;
+		const shapeRightEdge = shapeBounds.x + shapeBounds.w;
+		const shapeTopEdge = shapeBounds.y;
+		const shapeBottomEdge = shapeBounds.y + shapeBounds.h;
+
+		if(shapeLeftEdge < allLeftEdge) {
+			allBounds.x = shapeLeftEdge;
+		}
+		if(shapeRightEdge > allRightEdge) {
+			allBounds.w = allRightEdge - allBounds.x;
+		}
+		if(shapeTopEdge < allTopEdge) {
+			allBounds.y = shapeTopEdge;
+		}
+		if(shapeBottomEdge > allBottomEdge) {
+			allBounds.h = shapeBottomEdge - allBounds.y;
+		}
+	})
+
+	// Add gap from above text if user chose not to start on first line.
+	allBounds.h += allBounds.y;
+	allBounds.y = 0;
+
+	return allBounds;
+}
+
+
 
 function getCompleteShapes(editor: Editor) {
 	const allShapes = editor.currentPageShapes;
@@ -442,3 +528,4 @@ function getIncompleteShapes(editor: Editor) {
 	}
 	return incompleteShapes;
 }
+

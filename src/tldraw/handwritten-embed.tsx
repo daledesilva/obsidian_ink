@@ -74,7 +74,7 @@ export function HandwrittenEmbed (props: {
                 filepath = {props.filepath}
                 save = {props.save}
 				embedded
-				resizeContainer = {resizeEmbed}
+				resizeEmbedContainer = {resizeEmbed}
 			/>
 		</div>
 	</>;

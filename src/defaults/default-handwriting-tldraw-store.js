@@ -14,11 +14,11 @@ const defaultHandwritingTldrawStore = {
             "index": "a1",
             "typeName": "page"
         },
-        "shape:D1Z_TKiRzddprdxe__U1R": {
+        "shape:primary_container": {
             "x": 0,
             "y": 0,
             "rotation": 0,
-            "isLocked": false,
+            "isLocked": true,
             "opacity": 1,
             "meta": {},
             "type": "handwriting-container",
@@ -30,7 +30,7 @@ const defaultHandwritingTldrawStore = {
                 "w": 2000,
                 "h": 700
             },
-            "id": "shape:D1Z_TKiRzddprdxe__U1R",
+            "id": "shape:primary_container",
             "typeName": "shape"
         }
     },

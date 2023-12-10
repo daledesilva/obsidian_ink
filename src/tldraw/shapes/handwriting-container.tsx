@@ -11,7 +11,7 @@ type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y:
 
 const startingPageHeight = 500;
 const pageWidth = 2000;
-const lineHeight = 150;
+export const LINE_HEIGHT = 150;
 
 
 export default class HandwritingContainerUtil extends ShapeUtil<HandwritingContainer> {
@@ -56,7 +56,7 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 	}
 
 	component(shape: HandwritingContainer) {
-		const numberOfLines = Math.floor(shape.props.h / lineHeight);
+		const numberOfLines = Math.floor(shape.props.h / LINE_HEIGHT);
 		const margin = 0.05 * shape.props.w;
 		// this.hideRotateHandle(shape);
 		this.isAspectRatioLocked(shape);
@@ -65,9 +65,9 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 		<line
 				key = {index}
 				x1 = {margin}
-				y1 = {(index+1) * lineHeight}
+				y1 = {(index+1) * LINE_HEIGHT}
 				x2 = {shape.props.w - margin}
-				y2 = {(index+1) * lineHeight}
+				y2 = {(index+1) * LINE_HEIGHT}
 				stroke = {'rgba(127.5, 127.5, 127.5, 0.6)'}
 				strokeWidth = '1px'
 			/>

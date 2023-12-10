@@ -7,10 +7,7 @@ import { buildEmbed } from "src/utils/embed";
 
 const insertNewHandwrittenNote = async (plugin: HandwritePlugin, editor: Editor) => {
     const fileRef = await createNewHandwrittenNote(plugin);
-
-    
     let embedStr = buildEmbed(fileRef.path);
-
     editor.replaceRange( embedStr, editor.getCursor() );
 }
 

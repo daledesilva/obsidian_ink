@@ -90,7 +90,6 @@ export function TldrawHandwrittenEditor (props: {
 		initCamera(_editor, MENUBAR_HEIGHT_PX);
 		_editor.updateInstanceState({
 			isDebugMode: false,
-			canMoveCamera: false,
 		})
 
 		if(props.embedded) {

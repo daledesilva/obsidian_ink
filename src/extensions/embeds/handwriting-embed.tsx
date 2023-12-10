@@ -61,7 +61,7 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 		this.root.render(
             <HandwrittenEmbed
                 existingData = {pageData.tldraw}
-                uid = {this.fileRef.path}
+                filepath = {this.fileRef.path}
                 save = {this.saveLinkedFile}
 			/>
         );

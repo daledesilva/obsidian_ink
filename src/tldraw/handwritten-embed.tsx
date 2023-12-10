@@ -15,7 +15,7 @@ enum tool {
 
 export function HandwrittenEmbed (props: {
 	existingData: SerializedStore<TLRecord>,
-	uid: string,
+	filepath: string,
 	save: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -62,14 +62,14 @@ export function HandwrittenEmbed (props: {
 			{/* <Tldraw
 				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {props.existingData}	// NOTE: Check what's causing this snapshot error??
-				// persistenceKey = {props.uid}
+				// persistenceKey = {props.filepath}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 				hideUi = {true}
 			/> */}
 			<TldrawHandwrittenEditor
                 existingData = {props.existingData}
-                uid = {props.uid}
+                filepath = {props.filepath}
                 save = {props.save}
 			/>
 		</div>

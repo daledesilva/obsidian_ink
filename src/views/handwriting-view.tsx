@@ -69,7 +69,7 @@ export class HandwritingView extends TextFileView {
 		this.root.render(
             <TldrawHandwrittenEditor
                 existingData = {this.tldrawData}
-                uid = {this.file.path}
+                filepath = {this.file.path}
                 save = {this.buildPageAndSave}
 			/>
         );

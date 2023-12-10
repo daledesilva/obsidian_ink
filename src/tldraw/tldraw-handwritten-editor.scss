@@ -6,30 +6,6 @@
 /////////
 
 
-.tlui-layout__bottom {
-    display: none;
-}
-
-// Hide the tool palettes
-// ie. colour palette
-.tlui-style-panel__wrapper {
-    display: none;
-}
-
-
-// Hide the hamburger menu
-// ie. File menu, export, embed, etc.
-.tlui-menu__trigger {
-    display: none;
-}
-
-// Hide the page dropdown
-.tlui-page-menu__trigger {
-    display: none;
-}
-
-// Hide the overflow tools
-//ie. Alignment, rotate, group, etc.
-.tlui-menu__trigger {
-    display: none;
+.tl-background {
+    background: none;
 }

@@ -3,7 +3,8 @@ import * as React from "react";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
 import HandwritingContainer from "./shapes/handwriting-container"
-import { debounce } from "obsidian";
+import { MenuBar } from "./menu-bar/menu-bar";
+
 
 ///////
 ///////
@@ -37,7 +38,7 @@ const myOverrides: TLUiOverrides = {
 
 export function TldrawHandwrittenEditor (props: {
 	existingData: SerializedStore<TLRecord>,
-	uid: string,
+	filepath: string,
 	save: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -45,18 +46,47 @@ export function TldrawHandwrittenEditor (props: {
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 	const postProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const justProcessedRef = useRef<boolean>(false);
+	const [editor, setEditor] = React.useState<Editor>();
+
+	function undo() {
+		if(!editor) return;
+		editor.undo();
+	}
+	function redo() {
+		if(!editor) return;
+		editor.redo();
+	}
+	function activateSelectTool() {
+		if(!editor) return;
+		editor.setCurrentTool('select');
+	}
+	function activateDrawTool() {
+		if(!editor) return;
+		editor.setCurrentTool('draw');
+	}
+	function activateEraseTool() {
+		if(!editor) return;
+		editor.setCurrentTool('eraser');
+	}
+	function open() {
+		if(!editor) return;
+		console.log('open');
+
+	}
 
 
-	const handleMount = (editor: Editor) => {
+	const handleMount = (_editor: Editor) => {
+		setEditor(_editor);
 
-		unstashOldShapes(editor);
+		unstashOldShapes(_editor);
 
-		initCamera(editor);
-		editor.updateInstanceState({
+		initCamera(_editor);
+		_editor.updateInstanceState({
 			isDebugMode: false,
+			// canMoveCamera: false,
 		})
 
-		editor.store.listen((entry) => {
+		_editor.store.listen((entry) => {
 
 			// Bail if this listener fired because again of changes made in the listener itself
 			if(justProcessedRef.current) {
@@ -74,13 +104,13 @@ export function TldrawHandwrittenEditor (props: {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
-					// unstashOldShapes(editor);
+					// unstashOldShapes(_editor);
 					// justProcessedRef.current = true;
 					break;
 
 				case Activity.DrawingStarted:
 					clearTimeout(postProcessTimeoutRef.current);
-					// stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
+					// stashOldShapes(_editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
 					break;
 
 				case Activity.DrawingContinued:
@@ -88,12 +118,12 @@ export function TldrawHandwrittenEditor (props: {
 					break;
 
 				case Activity.DrawingCompleted:
-					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
-					writingPostProcesses(entry, editor);
+					saveContent(_editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					writingPostProcesses(entry, _editor);
 					break;
 
 				case Activity.DrawingErased:
-					saveContent(editor);
+					saveContent(_editor);
 					break;
 
 				default:
@@ -107,7 +137,7 @@ export function TldrawHandwrittenEditor (props: {
 		})
 
 		preventTldrawCanvasesCausingObsidianGestures();
-		editor.setCurrentTool('draw');
+		_editor.setCurrentTool('draw');
 
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
@@ -156,16 +186,26 @@ export function TldrawHandwrittenEditor (props: {
 			ref = {containerRef}
 			style = {{
 				height: '100%',
+				position: 'relative'
 			}}
 		>
 			<Tldraw
 				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {props.existingData}	// NOTE: Check what's causing this snapshot error??
-				// persistenceKey = {props.uid}
+				// persistenceKey = {props.filepath}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
+				hideUi
+			/>
+			<MenuBar
+				onUndoClick = {undo}
+				onRedoClick = {redo}
+				onSelectClick = {activateSelectTool}
+				onDrawClick = {activateDrawTool}
+				onEraseClick = {activateEraseTool}
+				onOpenClick = {open}
 			/>
 			{/* <div
 				className = 'output-log'

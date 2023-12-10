@@ -8,6 +8,8 @@ import { debounce } from "obsidian";
 ///////
 ///////
 
+import './tldraw-handwritten-editor.scss';
+
 const MyCustomShapes = [HandwritingContainer];
 
 let hiddenShapes: TLShape[] = [];

@@ -7,12 +7,8 @@ import { PageData, buildPageFile } from "src/utils/page-file";
 import { HandwrittenEmbedData } from "src/utils/embed";
 import { HandwrittenEmbed } from "src/tldraw/handwritten-embed";
 
-
-
-// Import scss file so that compiler adds it.
-// This is instead of injecting it using EditorView.baseTheme
-// This allow syou to write scss in an external file and have it refresh during dev better.
-import './handwriting-embed.scss';
+////////
+////////
 
 
 export function registerHandwritingEmbed(plugin: Plugin) {

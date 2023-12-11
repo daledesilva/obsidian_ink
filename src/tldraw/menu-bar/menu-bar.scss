@@ -13,11 +13,33 @@
     flex-direction: row;
     justify-content: space-between;
 
+    button {
+        opacity: 0.5;
+        color: rgba(127.5, 127.5, 127.5, 0.5);
+        &:hover {
+            opacity: 1;
+            color: #FFF;
+        }
+        &:disabled {
+            opacity: 1;
+            color: #FFF;
+            &:hover {
+                background-color: var(--interactive-normal);
+                box-shadow: var(--input-shadow);
+            }
+        }
+    }
 }
 
 .ink_quick-menu {
     display: flex;
     flex-direction: row;
+
+    button {
+        &:disabled {
+            visibility: hidden;
+        }
+    }
 }
 
 .ink_tool-menu {

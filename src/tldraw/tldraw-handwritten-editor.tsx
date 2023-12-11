@@ -15,6 +15,11 @@ import { TFile } from "obsidian";
 import { openInkFileByFilepath } from "src/utils/open-file";
 
 const MyCustomShapes = [HandwritingContainer];
+export enum tool {
+	select = 'select',
+	draw = 'draw',
+	eraser = 'eraser',
+}
 
 let hiddenShapes: TLShape[] = [];
 
@@ -53,29 +58,42 @@ export function TldrawHandwrittenEditor (props: {
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 	const postProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const justProcessedRef = useRef<boolean>(false);
-	const [editor, setEditor] = React.useState<Editor>();
+	const editorRef = useRef<Editor>();
+	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
+	const [canUndo, setCanUndo] = React.useState<boolean>(false);
+	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
 	function undo() {
+		const editor = editorRef.current
 		if(!editor) return;
 		editor.undo();
 	}
 	function redo() {
+		const editor = editorRef.current
 		if(!editor) return;
 		editor.redo();
 	}
 	function activateSelectTool() {
+		const editor = editorRef.current
 		if(!editor) return;
 		editor.setCurrentTool('select');
+		setCurTool(tool.select);
+		
 	}
 	function activateDrawTool() {
+		const editor = editorRef.current
 		if(!editor) return;
 		editor.setCurrentTool('draw');
+		setCurTool(tool.draw);
 	}
 	function activateEraseTool() {
+		const editor = editorRef.current
 		if(!editor) return;
 		editor.setCurrentTool('eraser');
+		setCurTool(tool.eraser);
 	}
 	function open() {
+		const editor = editorRef.current
 		if(!editor) return;
 		openInkFileByFilepath(props.plugin, props.filepath);
 	}
@@ -83,7 +101,7 @@ export function TldrawHandwrittenEditor (props: {
 	
 
 	const handleMount = (_editor: Editor) => {
-		setEditor(_editor);
+		editorRef.current = _editor;
 
 		unstashOldShapes(_editor);
 
@@ -99,6 +117,9 @@ export function TldrawHandwrittenEditor (props: {
 		resizeEmbedContainer(_editor);
 
 		_editor.store.listen((entry) => {
+
+			setCanUndo(_editor.canUndo);
+			setCanRedo(_editor.canRedo);
 
 			// Bail if this listener fired because again of changes made in the listener itself
 			if(justProcessedRef.current) {
@@ -141,7 +162,7 @@ export function TldrawHandwrittenEditor (props: {
 					resizeWritingContainer(_editor);
 					embedPostProcess(_editor);
 					break;
-
+					
 				default:
 					// console.log('Activity not recognised.');
 					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
@@ -152,10 +173,11 @@ export function TldrawHandwrittenEditor (props: {
 			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
-		
 
 		preventTldrawCanvasesCausingObsidianGestures();
-		_editor.setCurrentTool('draw');
+		activateDrawTool();
+
+		
 
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
@@ -188,36 +210,38 @@ export function TldrawHandwrittenEditor (props: {
 		
 		// Can't do it this way because the change in pages causes the camera to jump around
 		// editor.batch( () => {
-		//	const stashPage = getOrCreateStash(editor);
-
-		// 	// Move writing container off main page so it's not considered in height
-		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], stashPage.id);
-		// 	editor.setCurrentPage(editor.pages[0]);
-	
-		// 	// Get height of leftover content
-		// 	contentBounds = editor.currentPageBounds;
-	
-		// 	// Move writing container back to main page
-		// 	editor.setCurrentPage(stashPage.id);
-		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], editor.pages[0].id);
-		// 	editor.setCurrentPage(editor.pages[0]);
-		// })
-
-		if(!contentBounds) return;
-		
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
-			isLocked: false,
-		})		
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
-			isLocked: true,
-			props: {
-				h: Math.max(700, contentBounds.h + LINE_HEIGHT*2),
-			}
-		})		
+			//	const stashPage = getOrCreateStash(editor);
+			
+			// 	// Move writing container off main page so it's not considered in height
+			// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], stashPage.id);
+			// 	editor.setCurrentPage(editor.pages[0]);
+			
+			// 	// Get height of leftover content
+			// 	contentBounds = editor.currentPageBounds;
+			
+			// 	// Move writing container back to main page
+			// 	editor.setCurrentPage(stashPage.id);
+			// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], editor.pages[0].id);
+			// 	editor.setCurrentPage(editor.pages[0]);
+			// })
+			
+		editor.batch( () => {
+			if(!contentBounds) return;
+			
+			editor.updateShape({
+				id: 'shape:primary_container' as TLShapeId,
+				type: 'handwriting-container',
+				isLocked: false,
+			})		
+			editor.updateShape({
+				id: 'shape:primary_container' as TLShapeId,
+				type: 'handwriting-container',
+				isLocked: true,
+				props: {
+					h: Math.max(700, contentBounds.h + LINE_HEIGHT*2),
+				}
+			})		
+		})
 	}
 
 
@@ -272,6 +296,9 @@ export function TldrawHandwrittenEditor (props: {
 				hideUi
 			/>
 			<MenuBar
+				canUndo = {canUndo}
+				canRedo = {canRedo}
+				curTool = {curTool}
 				onUndoClick = {undo}
 				onRedoClick = {redo}
 				onSelectClick = {activateSelectTool}

@@ -14,8 +14,7 @@
     justify-content: space-between;
 
     button {
-        opacity: 0.5;
-        color: rgba(127.5, 127.5, 127.5, 0.5);
+        color: rgba(127.5, 127.5, 127.5, 0.7);
         &:hover {
             opacity: 1;
             color: #FFF;
@@ -30,6 +29,7 @@
         }
     }
 }
+
 
 .ink_quick-menu {
     display: flex;

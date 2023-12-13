@@ -54,7 +54,9 @@ export function TldrawHandwrittenEditor (props: {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	const containerRef = useRef<HTMLDivElement>(null)
+	const scrollContainerElRef = useRef<HTMLDivElement>(null);
+	const blockElRef = useRef<HTMLDivElement>(null)
+	const menuBarElRef = useRef<HTMLDivElement>(null);
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 	const postProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const justProcessedRef = useRef<boolean>(false);
@@ -101,25 +103,28 @@ export function TldrawHandwrittenEditor (props: {
 	
 
 	const handleMount = (_editor: Editor) => {
-		editorRef.current = _editor;
+		const editor = editorRef.current = _editor;
 
-		unstashOldShapes(_editor);
+		unstashOldShapes(editor);
 
-		initCamera(_editor, MENUBAR_HEIGHT_PX);
-		_editor.updateInstanceState({
+		initCamera(editor, MENUBAR_HEIGHT_PX);
+		editor.updateInstanceState({
 			isDebugMode: false,
 		})
 
 		if(props.embedded) {
-			_editor.updateInstanceState({ canMoveCamera: false })
+			editor.updateInstanceState({ canMoveCamera: false })
 		}
 
-		resizeEmbedContainer(_editor);
+		resizeEmbedContainer(editor);
 
-		_editor.store.listen((entry) => {
+		initScrollHandler();
 
-			setCanUndo(_editor.canUndo);
-			setCanRedo(_editor.canRedo);
+
+		editor.store.listen((entry) => {
+
+			setCanUndo(editor.canUndo);
+			setCanRedo(editor.canRedo);
 
 			// Bail if this listener fired because again of changes made in the listener itself
 			if(justProcessedRef.current) {
@@ -137,13 +142,13 @@ export function TldrawHandwrittenEditor (props: {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
-					// unstashOldShapes(_editor);
+					// unstashOldShapes(editor);
 					// justProcessedRef.current = true;
 					break;
 
 				case Activity.DrawingStarted:
 					clearTimeout(postProcessTimeoutRef.current);
-					// stashOldShapes(_editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
+					// stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
 					break;
 
 				case Activity.DrawingContinued:
@@ -151,16 +156,16 @@ export function TldrawHandwrittenEditor (props: {
 					break;
 
 				case Activity.DrawingCompleted:
-					saveContent(_editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
-					resizeWritingContainer(_editor);
-					embedPostProcess(_editor);
-					writingPostProcesses(entry, _editor);
+					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					resizeWritingContainer(editor);
+					embedPostProcess(editor);
+					writingPostProcesses(entry, editor);
 					break;
 
 				case Activity.DrawingErased:
-					saveContent(_editor);
-					resizeWritingContainer(_editor);
-					embedPostProcess(_editor);
+					saveContent(editor);
+					resizeWritingContainer(editor);
+					embedPostProcess(editor);
 					break;
 					
 				default:
@@ -182,6 +187,7 @@ export function TldrawHandwrittenEditor (props: {
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			clearTimeout(postProcessTimeoutRef.current);
+			cleanUpScrollHandler();
 		};
 	}
 
@@ -203,6 +209,34 @@ export function TldrawHandwrittenEditor (props: {
 			props.resizeEmbedContainer(embedHeight);
 		}
 	}
+
+	const initScrollHandler = () => {
+		const menuBarEl = menuBarElRef.current;
+		const scrollEl = menuBarEl?.closest(".cm-scroller");
+		scrollEl?.addEventListener('scroll', handleScrolling);
+	}
+	const cleanUpScrollHandler = () => {
+		const scrollEl = scrollContainerElRef.current;
+		scrollEl?.removeEventListener('scroll', handleScrolling);
+	}
+
+	const handleScrolling = (e: Event): void => {
+        const scrollEl = e.target as HTMLDivElement;
+        const pageScrollY = scrollEl.scrollTop;
+
+		const menuBarEl = menuBarElRef.current;
+		const blockEl = blockElRef.current;
+		if(!menuBarEl) return;
+		if(!blockEl) return;
+
+		let blockPosY = blockEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
+		const blockOffsetY = blockPosY;// - pageScrollY;
+
+		const scrolledOffTopEdge = blockOffsetY < 0;
+		if(scrolledOffTopEdge) {
+			menuBarEl.style.top = Math.abs(blockOffsetY) + 'px';
+		}
+    }
 	
 
 	const resizeWritingContainer = (editor: Editor) => {
@@ -279,7 +313,7 @@ export function TldrawHandwrittenEditor (props: {
 
 	return <>
 		<div
-			ref = {containerRef}
+			ref = {blockElRef}
 			style = {{
 				height: '100%',
 				position: 'relative'
@@ -296,6 +330,7 @@ export function TldrawHandwrittenEditor (props: {
 				hideUi
 			/>
 			<MenuBar
+				ref = {menuBarElRef}
 				canUndo = {canUndo}
 				canRedo = {canRedo}
 				curTool = {curTool}

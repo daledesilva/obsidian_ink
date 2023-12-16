@@ -212,6 +212,23 @@ export function TldrawHandwrittenEditor(props: {
 		}
 	}
 
+
+	// const resizeContainerIfEmbed = (editor: Editor) => {
+	// 	if (!props.embedded) return;
+
+	// 	console.log('resizingContainer');
+	// 	const embedBounds = editor.viewportScreenBounds;
+	// 	const contentBounds = editor.currentPageBounds;
+	// 	console.log('resizingContainer');
+	// 	if (contentBounds) {
+	// 		const contentRatio = contentBounds.w / (contentBounds.h + (MENUBAR_HEIGHT_PX * 1.5));
+	// 		const embedHeight = embedBounds.w / contentRatio;
+	// 		if(blockElRef.current) {
+	// 			blockElRef.current.style.height = embedHeight + 'px';
+	// 		}
+	// 	}
+	// }
+
 	const initScrollHandler = () => {
 		const menuBarEl = menuBarElRef.current;
 		const scrollEl = menuBarEl?.closest(".cm-scroller");

@@ -8,6 +8,8 @@ import HandwritePlugin from "src/main";
 ///////
 
 import "./handwritten-embed.scss";
+import { PageData } from "src/utils/page-file";
+import { HandwrittenEmbedData } from "src/utils/embed";
 
 enum tool {
 	nothing,
@@ -19,7 +21,7 @@ enum tool {
 export function HandwrittenEmbed (props: {
 	plugin: HandwritePlugin,
 	existingData: SerializedStore<TLRecord>,
-	filepath: string,
+	embedData: HandwrittenEmbedData,
 	save: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -32,21 +34,14 @@ export function HandwrittenEmbed (props: {
 			ref = {embedContainerRef}
 			className = 'ink_handwritten-embed'
 			style = {{
-				height: '400px',
+				// height: '400px',
 			}}
 		>
-			{/* <Tldraw
-				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
-				snapshot = {props.existingData}	// NOTE: Check what's causing this snapshot error??
-				// persistenceKey = {props.filepath}
-				onMount = {handleMount}
-				// assetUrls = {assetUrls}
-				hideUi = {true}
-			/> */}
+			{/* <img src={props.existingData.previewUri}/> */}
 			<TldrawHandwrittenEditor
 				plugin = {props.plugin}
                 existingData = {props.existingData}
-                filepath = {props.filepath}
+                filepath = {props.embedData.filepath}
                 save = {props.save}
 				embedded
 				resizeEmbedContainer = {resizeEmbed}

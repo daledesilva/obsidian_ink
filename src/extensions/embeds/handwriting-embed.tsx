@@ -16,9 +16,9 @@ export function registerHandwritingEmbed(plugin: Plugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		'handwritten-ink',
 		(source, el, ctx) => {
-			const embedJson = JSON.parse(source) as HandwrittenEmbedData;
-			if(embedJson.filepath) {
-				ctx.addChild(new HandwrittenEmbedWidget(el, plugin, embedJson.filepath));
+			const embedData = JSON.parse(source) as HandwrittenEmbedData;
+			if(embedData.filepath) {
+				ctx.addChild(new HandwrittenEmbedWidget(el, plugin, embedData));
 			}
 		}
 	);
@@ -27,25 +27,25 @@ export function registerHandwritingEmbed(plugin: Plugin) {
 class HandwrittenEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
 	plugin: HandwritePlugin;
-	filepath: string;
+	embedData: HandwrittenEmbedData;
 	root: Root;
 	fileRef: TFile | null;
 
 	constructor(
 		el: HTMLElement,
 		plugin: HandwritePlugin,
-		filepath: string,
+		embedData: HandwrittenEmbedData,
 	) {
 		super(el);
 		this.el = el;
 		this.plugin = plugin;
-		this.filepath = filepath;
+		this.embedData = embedData;
 	}
 
 
 	async onload() {
 		const v = this.plugin.app.vault;
-		this.fileRef = v.getAbstractFileByPath(this.filepath) as TFile;
+		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
 		
 		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
 			// TODO: This is added, but is not visible
@@ -54,15 +54,15 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 			return;
 		}
 
-		const fileContents = await v.cachedRead(this.fileRef as TFile);	// REVIEW: This shouldn't be cached read
-		const pageData = JSON.parse(fileContents) as PageData;
+		const pageDataStr = await v.cachedRead(this.fileRef as TFile);	// REVIEW: This shouldn't be cached read
+		const pageData = JSON.parse(pageDataStr) as PageData;
 
 		this.root = createRoot(this.el);
 		this.root.render(
             <HandwrittenEmbed
 				plugin = {this.plugin}
-                existingData = {pageData.tldraw}
-                filepath = {this.fileRef.path}
+				existingData = {pageData.tldraw}
+                embedData = {this.embedData}
                 save = {this.saveLinkedFile}
 			/>
         );

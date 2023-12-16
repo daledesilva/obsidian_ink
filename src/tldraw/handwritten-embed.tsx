@@ -7,6 +7,8 @@ import HandwritePlugin from "src/main";
 ///////
 ///////
 
+import "./handwritten-embed.scss";
+
 enum tool {
 	nothing,
 	select = 'select',
@@ -25,37 +27,10 @@ export function HandwrittenEmbed (props: {
 	const editorRef = useRef<Editor|null>(null);
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 
-	const handleMount = (editor: Editor) => {
-		// editorRef.current = editor;
-		// zoomToPageWidth(editor);
-		// activateDrawTool();
-		// initListeners(editor);
-		// applyPostMountSettings(editor);
-	}
-
 	return <>
-		{/* <div className = 'ink_embed-controls'> */}
-			{/* <button
-				onClick = {activateDrawTool}
-				disabled = {activeTool===tool.draw}
-				>
-				Write
-			</button>
-			<button
-				onClick = {activateEraserTool}
-				disabled = {activeTool===tool.eraser}
-				>
-				Eraser
-			</button>
-			<button
-				onClick = {activateSelectTool}
-				disabled = {activeTool===tool.select}
-				>
-				Select
-			</button>
-		</div> */}
 		<div
 			ref = {embedContainerRef}
+			className = 'ink_handwritten-embed'
 			style = {{
 				height: '400px',
 			}}

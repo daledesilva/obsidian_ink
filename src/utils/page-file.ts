@@ -9,6 +9,7 @@ type Metadata = {
 	pluginVersion: string;
 	tldrawVersion: string;
 	previewIsLightMode?: boolean;
+	transcript?: string;
 };
 
 export type PageData = {

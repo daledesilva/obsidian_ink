@@ -118,10 +118,8 @@ export function TldrawHandwrittenEditor(props: {
 			editor.updateInstanceState({ canMoveCamera: false })
 		}
 
-		resizeEmbedContainer(editor);
-
+		resizeContainerIfEmbed(editor);
 		initScrollHandler();
-
 
 		editor.store.listen((entry) => {
 
@@ -185,7 +183,6 @@ export function TldrawHandwrittenEditor(props: {
 		activateDrawTool();
 
 
-
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			clearTimeout(postProcessTimeoutRef.current);
@@ -196,38 +193,24 @@ export function TldrawHandwrittenEditor(props: {
 
 
 	const embedPostProcess = (editor: Editor) => {
-		resizeEmbedContainer(editor);
+		resizeContainerIfEmbed(editor);
 	}
 
 
-	const resizeEmbedContainer = (editor: Editor) => {
-		if (!props.resizeEmbedContainer) return;
+	const resizeContainerIfEmbed = (editor: Editor) => {
+		if (!props.embedded) return;
 
 		const embedBounds = editor.viewportScreenBounds;
 		const contentBounds = editor.currentPageBounds;
+
 		if (contentBounds) {
 			const contentRatio = contentBounds.w / (contentBounds.h + (MENUBAR_HEIGHT_PX * 1.5));
 			const embedHeight = embedBounds.w / contentRatio;
-			props.resizeEmbedContainer(embedHeight);
+			if(blockElRef.current) {
+				blockElRef.current.style.height = embedHeight + 'px';
+			}
 		}
 	}
-
-
-	// const resizeContainerIfEmbed = (editor: Editor) => {
-	// 	if (!props.embedded) return;
-
-	// 	console.log('resizingContainer');
-	// 	const embedBounds = editor.viewportScreenBounds;
-	// 	const contentBounds = editor.currentPageBounds;
-	// 	console.log('resizingContainer');
-	// 	if (contentBounds) {
-	// 		const contentRatio = contentBounds.w / (contentBounds.h + (MENUBAR_HEIGHT_PX * 1.5));
-	// 		const embedHeight = embedBounds.w / contentRatio;
-	// 		if(blockElRef.current) {
-	// 			blockElRef.current.style.height = embedHeight + 'px';
-	// 		}
-	// 	}
-	// }
 
 	const initScrollHandler = () => {
 		const menuBarEl = menuBarElRef.current;

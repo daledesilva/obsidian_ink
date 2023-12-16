@@ -37,15 +37,14 @@ export function HandwrittenEmbed (props: {
 				// height: '400px',
 			}}
 		>
-			{/* <img src={props.existingData.previewUri}/> */}
-			<TldrawHandwrittenEditor
+			<img src={props.pageData.previewUri}/>
+			{/* <TldrawHandwrittenEditor
 				plugin = {props.plugin}
                 existingData = {props.pageData.tldraw}
-                filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open
+                filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
                 save = {props.save}
 				embedded
-				resizeEmbedContainer = {resizeEmbed}
-			/>
+			/> */}
 		</div>
 	</>;
 
@@ -72,12 +71,6 @@ export function HandwrittenEmbed (props: {
 		} else {
 			console.log('zooming to FIT')
 			editor.zoomToFit();
-		}
-	}
-
-	function resizeEmbed(pxHeight: number) {
-		if(embedContainerRef.current) {
-			embedContainerRef.current.style.height = pxHeight + 'px';
 		}
 	}
 	

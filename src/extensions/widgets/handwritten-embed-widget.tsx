@@ -54,7 +54,7 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 			return;
 		}
 
-		const pageDataStr = await v.cachedRead(this.fileRef as TFile);	// REVIEW: This shouldn't be cached read
+		const pageDataStr = await v.read(this.fileRef as TFile);
 		const pageData = JSON.parse(pageDataStr) as PageData;
 
 		this.root = createRoot(this.el);

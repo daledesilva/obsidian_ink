@@ -12,7 +12,7 @@ import HandwritePlugin from "src/main";
 ////////
 
 
-export function registerHandwritingEmbed(plugin: Plugin) {
+export function registerHandwritingEmbed(plugin: HandwritePlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		'handwritten-ink',
 		(source, el, ctx) => {
@@ -61,8 +61,8 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 		this.root.render(
             <HandwrittenEmbed
 				plugin = {this.plugin}
-				existingData = {pageData.tldraw}
-                embedData = {this.embedData}
+                filepath = {this.embedData.filepath}
+				pageData = {pageData}
                 save = {this.saveLinkedFile}
 			/>
         );

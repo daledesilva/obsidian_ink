@@ -1,7 +1,7 @@
 import { Editor, MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
-import {registerHandwritingEmbed} from './extensions/embeds/handwriting-embed'
+import {registerHandwritingEmbed} from './extensions/widgets/handwritten-embed-widget'
 import insertExistingInkNote from './commands/insert-existing-handwritten-note';
 import insertNewHandwrittenNote from './commands/insert-new-handwritten-note';
 import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, registerHandwritingView } from './views/handwriting-view';

@@ -20,8 +20,8 @@ enum tool {
 
 export function HandwrittenEmbed (props: {
 	plugin: HandwritePlugin,
-	existingData: SerializedStore<TLRecord>,
-	embedData: HandwrittenEmbedData,
+	pageData: PageData,
+	filepath: string,
 	save: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -40,8 +40,8 @@ export function HandwrittenEmbed (props: {
 			{/* <img src={props.existingData.previewUri}/> */}
 			<TldrawHandwrittenEditor
 				plugin = {props.plugin}
-                existingData = {props.existingData}
-                filepath = {props.embedData.filepath}
+                existingData = {props.pageData.tldraw}
+                filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open
                 save = {props.save}
 				embedded
 				resizeEmbedContainer = {resizeEmbed}

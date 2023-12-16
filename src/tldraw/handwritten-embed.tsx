@@ -1,15 +1,15 @@
+import "./handwritten-embed.scss";
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
 import HandwritePlugin from "src/main";
-
-///////
-///////
-
-import "./handwritten-embed.scss";
 import { PageData } from "src/utils/page-file";
 import { HandwrittenEmbedData } from "src/utils/embed";
+import ReadonlyMenuBar from "./readonly-menu-bar/readonly-menu-bar";
+
+///////
+///////
 
 enum tool {
 	nothing,
@@ -97,20 +97,19 @@ function HandwrittenEmbedPreview (props: {
 }) {
 
 	return <div>
-		<img src={props.base64Image}/>
-		<div
-            className = 'ink_write_menu-bar'
-        >
-            <div
-                className='ink_other-menu'
-            >
-                <button
-					onClick = {() => props.onEditClick()}
-				>
-					Edit
-				</button>
-            </div>
-        </div>
+		<img
+			src = {props.base64Image}
+			style = {{
+				width: '100%'
+			}}
+		/>
+		<ReadonlyMenuBar
+			onEditClick = {() => props.onEditClick()}
+		/>
 	</div>
 
 };
+
+
+
+

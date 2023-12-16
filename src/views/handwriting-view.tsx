@@ -33,15 +33,17 @@ export class HandwritingView extends TextFileView {
     root: null | Root;
     plugin: HandwritePlugin;
     tldrawData: SerializedStore<TLRecord> = {};
+    previewImageUri: string | null;
 
     constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
-    buildPageAndSave = (tldrawData: SerializedStore<TLRecord>) => {
+    saveFile = (tldrawData: SerializedStore<TLRecord>, previewImageUri: string | null = null) => {
         this.tldrawData = tldrawData;
-        this.save(false);
+        this.previewImageUri = previewImageUri;
+        this.save(false);   // this called getViewData
     }
 
     getViewType(): string {
@@ -71,14 +73,14 @@ export class HandwritingView extends TextFileView {
                 plugin = {this.plugin}
                 existingData = {this.tldrawData}
                 filepath = {this.file.path}
-                save = {this.buildPageAndSave}
+                save = {this.saveFile}
 			/>
         );
     }
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData = (): string => {
-        const fileContents = buildPageFile(this.tldrawData);
+        const fileContents = buildPageFile(this.tldrawData, this.previewImageUri);
         return fileContents;
     }
 

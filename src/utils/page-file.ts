@@ -6,23 +6,25 @@ import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 ///////
 
 type Metadata = {
-	'plugin-version': string;
-	'tldraw-version': string;
+	pluginVersion: string;
+	tldrawVersion: string;
+	previewIsLightMode?: boolean;
 };
 
 export type PageData = {
 	meta: Metadata;
 	tldraw: SerializedStore<TLRecord>;
+	previewUri?: string;
 };
 
 // Primary functions
 ///////
 
-export const buildPageFile = (tldrawData: SerializedStore<TLRecord>) => {
+export const buildPageFile = (tldrawData: SerializedStore<TLRecord>, pngDataUri: string | null) => {
 	let str = '';
 	// str += buildFrontMatter();
 	// str += '\n';
-	str += buildBody(tldrawData);
+	str += buildBody(tldrawData, pngDataUri);
 	return str;
 };
 
@@ -38,15 +40,17 @@ export const buildPageFile = (tldrawData: SerializedStore<TLRecord>) => {
 // 	return str;
 // };
 
-const buildBody = (tldrawData: SerializedStore<TLRecord>): string => {
+const buildBody = (tldrawData: SerializedStore<TLRecord>, previewUri: string | null): string => {
 
 	let bodyData: PageData = {
 		meta: {
-			'plugin-version': PLUGIN_VERSION,
-			'tldraw-version': TLDRAW_VERSION,
+			pluginVersion: PLUGIN_VERSION,
+			tldrawVersion: TLDRAW_VERSION,
 		},
 		tldraw: tldrawData,
 	}
+	if(previewUri) bodyData.previewUri = previewUri;
+	if(previewUri) bodyData.meta.previewIsLightMode = false;	// TODO: Need to dynamically fetch this from Obsidian or tlDraw
 
 	return JSON.stringify(bodyData, null, '\t');
 };

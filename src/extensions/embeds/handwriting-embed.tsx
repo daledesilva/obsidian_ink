@@ -75,9 +75,9 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 	// Helper functions
 	///////////////////
 
-	saveLinkedFile = async (tldrawData: SerializedStore<TLRecord>) => {
+	saveLinkedFile = async (tldrawData: SerializedStore<TLRecord>, pngDataUri: string | null = null) => {
 		if(!this.fileRef) return;
-		const fileContents = buildPageFile(tldrawData);
+		const fileContents = buildPageFile(tldrawData, pngDataUri);
 		await this.plugin.app.vault.modify(this.fileRef, fileContents);
 		console.log('...Saved');
 	}

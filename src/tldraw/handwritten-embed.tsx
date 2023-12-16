@@ -28,6 +28,7 @@ export function HandwrittenEmbed (props: {
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<Editor|null>(null);
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
+	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
 	return <>
 		<div
@@ -37,14 +38,23 @@ export function HandwrittenEmbed (props: {
 				// height: '400px',
 			}}
 		>
-			<img src={props.pageData.previewUri}/>
-			{/* <TldrawHandwrittenEditor
-				plugin = {props.plugin}
-                existingData = {props.pageData.tldraw}
-                filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
-                save = {props.save}
-				embedded
-			/> */}
+			{(!isEditMode && props.pageData.previewUri) ? (
+				<HandwrittenEmbedPreview
+					base64Image = {props.pageData.previewUri}
+					onEditClick = {() => {
+						console.log('going to edit mode');
+						setIsEditMode(true)
+					}}
+				/>
+			) : (
+				<TldrawHandwrittenEditor
+					plugin = {props.plugin}
+					existingData = {props.pageData.tldraw}
+					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					save = {props.save}
+					embedded
+				/>
+			)}
 		</div>
 	</>;
 
@@ -81,3 +91,26 @@ export default HandwrittenEmbed;
 
 
 
+function HandwrittenEmbedPreview (props: {
+	base64Image: string,
+	onEditClick: Function,
+}) {
+
+	return <div>
+		<img src={props.base64Image}/>
+		<div
+            className = 'ink_write_menu-bar'
+        >
+            <div
+                className='ink_other-menu'
+            >
+                <button
+					onClick = {() => props.onEditClick()}
+				>
+					Edit
+				</button>
+            </div>
+        </div>
+	</div>
+
+};

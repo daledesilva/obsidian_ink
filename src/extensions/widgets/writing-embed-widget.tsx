@@ -49,9 +49,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
 		
 		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
-			// TODO: This is added, but is not visible
-			const containerEl = this.el.createDiv();
-			containerEl.createEl('p', 'Writing ink file not found.')
+			this.el.createEl('p').textContent = 'Ink writing file not found.';
 			return;
 		}
 

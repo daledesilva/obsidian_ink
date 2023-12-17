@@ -16,7 +16,6 @@ interface MenuBarProps {
     onSelectClick: React.MouseEventHandler<HTMLButtonElement>,
     onDrawClick: React.MouseEventHandler<HTMLButtonElement>,
     onEraseClick: React.MouseEventHandler<HTMLButtonElement>,
-    onOpenClick: React.MouseEventHandler<HTMLButtonElement> | false | undefined,
 }
 
 export const WritingMenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((props, ref) => {
@@ -67,9 +66,7 @@ export const WritingMenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((pr
             <div
                 className='ink_other-menu'
             >
-                {props.onOpenClick && (
-                    <button onClick={props.onOpenClick}>Open</button>
-                )}
+                
             </div>
         </div>
     </>;

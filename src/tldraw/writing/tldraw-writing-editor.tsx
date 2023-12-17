@@ -97,11 +97,7 @@ export function TldrawWritingEditor(props: {
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
-	function open() {
-		const editor = editorRef.current
-		if (!editor) return;
-		openInkFileByFilepath(props.plugin, props.filepath);
-	}
+	
 
 
 
@@ -380,7 +376,6 @@ export function TldrawWritingEditor(props: {
 				onSelectClick={activateSelectTool}
 				onDrawClick={activateDrawTool}
 				onEraseClick={activateEraseTool}
-				onOpenClick={props.embedded && open}
 			/>
 			{/* <div
 				className = 'output-log'

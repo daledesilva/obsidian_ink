@@ -5,8 +5,8 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { PageData, buildPageFile } from "src/utils/page-file";
 import { HandwrittenEmbedData } from "src/utils/embed";
-import { HandwrittenEmbed } from "src/tldraw/handwritten-embed";
 import HandwritePlugin from "src/main";
+import HandwrittenEmbed from "src/tldraw/write/handwritten-embed";
 
 ////////
 ////////

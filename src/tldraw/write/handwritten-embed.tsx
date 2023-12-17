@@ -3,10 +3,9 @@ import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
-import HandwritePlugin from "src/main";
-import { PageData } from "src/utils/page-file";
-import { HandwrittenEmbedData } from "src/utils/embed";
-import ReadonlyMenuBar from "./readonly-menu-bar/readonly-menu-bar";
+import HandwritePlugin from "../../main";
+import { PageData } from "../../utils/page-file";
+import ReadonlyMenuBar from "../readonly-menu-bar/readonly-menu-bar";
 
 ///////
 ///////
@@ -91,10 +90,10 @@ export default HandwrittenEmbed;
 
 
 
-function HandwrittenEmbedPreview (props: {
+const HandwrittenEmbedPreview: React.FC<{ 
 	base64Image: string,
 	onEditClick: Function,
-}) {
+}> = (props) => {
 
 	return <div>
 		<img

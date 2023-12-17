@@ -1,13 +1,12 @@
 import * as React from "react";
-
+import { App, Editor, MarkdownView, Plugin } from "obsidian";
+import { tool } from "../write/tldraw-handwritten-editor";
+import HandwritePlugin from "../../main";
 
 //////////
 //////////
 
 import "./menu-bar.scss";
-import { App, Editor, MarkdownView, Plugin } from "obsidian";
-import { tool } from "../tldraw-handwritten-editor";
-import HandwritePlugin from "src/main";
 
 //////////
 

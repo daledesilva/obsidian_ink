@@ -1,19 +1,19 @@
-import { Box2d, Editor, HistoryEntry, RecordType, SerializedStore, StoreSnapshot, TLDrawShape, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor, useExportAs } from "@tldraw/tldraw";
-import * as React from "react";
-import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
-import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/helpers";
-import HandwritingContainer, { LINE_HEIGHT } from "./shapes/handwriting-container"
-import { MENUBAR_HEIGHT_PX, MenuBar } from "./menu-bar/menu-bar";
-import { Canvg } from 'canvg';
-
-
-///////
-///////
-
 import './tldraw-handwritten-editor.scss';
-import HandwritePlugin from "src/main";
+import { Box2d, Editor, HistoryEntry, RecordType, SerializedStore, StoreSnapshot, TLDrawShape, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor, useExportAs } from "@tldraw/tldraw";
+import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
+import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
+import HandwritingContainer, { LINE_HEIGHT } from "../shapes/handwriting-container"
+import { MENUBAR_HEIGHT_PX, MenuBar } from "../menu-bar/menu-bar";
+import { Canvg } from 'canvg';
+import HandwritePlugin from "../../main";
 import { TFile } from "obsidian";
-import { openInkFileByFilepath } from "src/utils/open-file";
+import { openInkFileByFilepath } from "../../utils/open-file";
+import * as React from "react";
+
+
+///////
+///////
+
 
 const MyCustomShapes = [HandwritingContainer];
 export enum tool {

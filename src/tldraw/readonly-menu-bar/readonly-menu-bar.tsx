@@ -7,9 +7,9 @@ import "./readonly-menu-bar.scss";
 
 //////////
 
-export function ReadonlyMenuBar (props: {
+export const ReadonlyMenuBar: React.FC<{
 	onEditClick: Function,
-}) {
+}> = (props) => {
 
 	return <>
 		<div

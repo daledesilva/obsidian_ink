@@ -4,7 +4,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_EXT } from "src/constants";
 import HandwritePlugin from "src/main";
-import TldrawHandwrittenEditor from "src/tldraw/tldraw-handwritten-editor";
+import TldrawHandwrittenEditor from "src/tldraw/write/tldraw-handwritten-editor";
 import { PageData, buildPageFile } from "src/utils/page-file";
 
 ////////

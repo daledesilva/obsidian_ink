@@ -47,7 +47,7 @@ const myOverrides: TLUiOverrides = {
 
 
 
-export function TldrawHandwrittenEditor(props: {
+export function TldrawWritingEditor(props: {
 	plugin: InkPlugin,
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
@@ -402,7 +402,7 @@ export function TldrawHandwrittenEditor(props: {
 
 };
 
-export default TldrawHandwrittenEditor;
+export default TldrawWritingEditor;
 
 
 

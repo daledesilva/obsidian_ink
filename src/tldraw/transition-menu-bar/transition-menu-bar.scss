@@ -1,12 +1,12 @@
 
 
-.ink_readonly_menu-bar {
+.ink_transition_menu-bar {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     z-index: 1000;
-    margin: 8px var(--file-margins);
+    margin: 4px;//8px var(--file-margins);
 
     display: flex;
     flex-direction: row;

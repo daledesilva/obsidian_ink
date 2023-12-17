@@ -1,11 +1,11 @@
-import "./drawing-embed.scss";
+import "./handwritten-embed.scss";
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
-import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
-import InkPlugin from "../../main";
+import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
+import HandwritePlugin from "../../main";
 import { PageData } from "../../utils/page-file";
-import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
+import ReadonlyMenuBar from "../transition-menu-bar/transition-menu-bar";
 
 ///////
 ///////
@@ -17,8 +17,8 @@ enum tool {
 	eraser = 'eraser',
 }
 
-export function DrawingEmbed (props: {
-	plugin: InkPlugin,
+export function HandwrittenEmbed (props: {
+	plugin: HandwritePlugin,
 	pageData: PageData,
 	filepath: string,
 	save: Function,
@@ -32,13 +32,13 @@ export function DrawingEmbed (props: {
 	return <>
 		<div
 			ref = {embedContainerRef}
-			className = 'ink_drawing-embed'
+			className = 'ink_handwritten-embed'
 			style = {{
-				height: isEditMode ? '600px' : 'auto',
+				// height: '400px',
 			}}
 		>
 			{(!isEditMode && props.pageData.previewUri) ? (
-				<DrawingEmbedPreview
+				<HandwrittenEmbedPreview
 					base64Image = {props.pageData.previewUri}
 					onEditClick = {() => {
 						console.log('going to edit mode');
@@ -46,7 +46,7 @@ export function DrawingEmbed (props: {
 					}}
 				/>
 			) : (
-				<TldrawDrawingEditor
+				<TldrawHandwrittenEditor
 					plugin = {props.plugin}
 					existingData = {props.pageData.tldraw}
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
@@ -54,11 +54,6 @@ export function DrawingEmbed (props: {
 					embedded
 				/>
 			)}
-			<TransitionMenuBar
-				isEditMode = {isEditMode}
-				onEditClick = {() => setIsEditMode(true)}
-				onFreezeClick = {() => setIsEditMode(false)}
-			/>
 		</div>
 	</>;
 
@@ -90,12 +85,12 @@ export function DrawingEmbed (props: {
 	
 };
 
-export default DrawingEmbed;
+export default HandwrittenEmbed;
 
 
 
 
-const DrawingEmbedPreview: React.FC<{ 
+const HandwrittenEmbedPreview: React.FC<{ 
 	base64Image: string,
 	onEditClick: Function,
 }> = (props) => {
@@ -106,6 +101,9 @@ const DrawingEmbedPreview: React.FC<{
 			style = {{
 				width: '100%'
 			}}
+		/>
+		<ReadonlyMenuBar
+			onEditClick = {() => props.onEditClick()}
 		/>
 	</div>
 

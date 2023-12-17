@@ -2,10 +2,10 @@ import "./writing-embed.scss";
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
-import TldrawHandwrittenEditor from "./tldraw-writing-editor";
+import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
-import ReadonlyMenuBar from "../readonly-menu-bar/readonly-menu-bar";
+import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 
 ///////
 ///////
@@ -46,7 +46,7 @@ export function HandwrittenEmbed (props: {
 					}}
 				/>
 			) : (
-				<TldrawHandwrittenEditor
+				<TldrawWritingEditor
 					plugin = {props.plugin}
 					existingData = {props.pageData.tldraw}
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
@@ -54,6 +54,11 @@ export function HandwrittenEmbed (props: {
 					embedded
 				/>
 			)}
+			<TransitionMenuBar
+				isEditMode = {isEditMode}
+				onEditClick = {() => setIsEditMode(true)}
+				onFreezeClick = {() => setIsEditMode(false)}
+			/>
 		</div>
 	</>;
 
@@ -101,9 +106,6 @@ const HandwrittenEmbedPreview: React.FC<{
 			style = {{
 				width: '100%'
 			}}
-		/>
-		<ReadonlyMenuBar
-			onEditClick = {() => props.onEditClick()}
 		/>
 	</div>
 

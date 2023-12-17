@@ -6,6 +6,7 @@ import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
+import { openInkFileByFilepath } from "src/utils/open-file";
 
 ///////
 ///////
@@ -25,8 +26,6 @@ export function HandwrittenEmbed (props: {
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
-	const editorRef = useRef<Editor|null>(null);
-	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
 	return <>
@@ -55,6 +54,7 @@ export function HandwrittenEmbed (props: {
 				/>
 			)}
 			<TransitionMenuBar
+				onOpenClick = {() => openInkFileByFilepath(props.plugin, props.filepath)}
 				isEditMode = {isEditMode}
 				onEditClick = {() => setIsEditMode(true)}
 				onFreezeClick = {() => setIsEditMode(false)}

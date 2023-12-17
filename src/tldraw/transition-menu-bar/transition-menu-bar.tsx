@@ -8,6 +8,7 @@ import "./transition-menu-bar.scss";
 //////////
 
 export const TransitionMenuBar: React.FC<{
+	onOpenClick: Function,
 	isEditMode: boolean,
 	onEditClick: Function,
 	onFreezeClick: Function,
@@ -17,6 +18,11 @@ export const TransitionMenuBar: React.FC<{
 		<div
             className = 'ink_transition_menu-bar'
         >
+            <button
+                onClick = {() => props.onOpenClick()}
+            >
+                Open
+            </button>
             {props.isEditMode ? (
                 <button
                     onClick = {() => props.onFreezeClick()}

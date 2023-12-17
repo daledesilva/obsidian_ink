@@ -6,6 +6,7 @@ import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
+import { openInkFileByFilepath } from "src/utils/open-file";
 
 ///////
 ///////
@@ -29,6 +30,7 @@ export function DrawingEmbed (props: {
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -40,10 +42,6 @@ export function DrawingEmbed (props: {
 			{(!isEditMode && props.pageData.previewUri) ? (
 				<DrawingEmbedPreview
 					base64Image = {props.pageData.previewUri}
-					onEditClick = {() => {
-						console.log('going to edit mode');
-						setIsEditMode(true)
-					}}
 				/>
 			) : (
 				<TldrawDrawingEditor
@@ -55,6 +53,7 @@ export function DrawingEmbed (props: {
 				/>
 			)}
 			<TransitionMenuBar
+				onOpenClick = {() => openInkFileByFilepath(props.plugin, props.filepath)}
 				isEditMode = {isEditMode}
 				onEditClick = {() => setIsEditMode(true)}
 				onFreezeClick = {() => setIsEditMode(false)}
@@ -97,7 +96,6 @@ export default DrawingEmbed;
 
 const DrawingEmbedPreview: React.FC<{ 
 	base64Image: string,
-	onEditClick: Function,
 }> = (props) => {
 
 	return <div>

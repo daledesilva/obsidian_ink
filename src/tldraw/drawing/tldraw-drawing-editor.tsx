@@ -6,7 +6,6 @@ import HandwritingContainer, { LINE_HEIGHT } from "../writing-shapes/writing-con
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import { Canvg } from 'canvg';
 import InkPlugin from "../../main";
-import { openInkFileByFilepath } from "../../utils/open-file";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX } from 'src/constants';
 
@@ -96,11 +95,7 @@ export function TldrawDrawingEditor(props: {
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
-	function open() {
-		const editor = editorRef.current
-		if (!editor) return;
-		openInkFileByFilepath(props.plugin, props.filepath);
-	}
+	
 
 
 

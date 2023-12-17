@@ -32,7 +32,7 @@ export function DrawingEmbed (props: {
 	return <>
 		<div
 			ref = {embedContainerRef}
-			className = 'ink_writing-embed'
+			className = 'ink_drawing-embed'
 			style = {{
 				height: '400px',
 			}}

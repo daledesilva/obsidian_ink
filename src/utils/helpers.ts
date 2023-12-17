@@ -16,7 +16,7 @@ export function preventTldrawCanvasesCausingObsidianGestures() {
 }
 
 
-export function initWritingCamera(editor: Editor, topMarginPx: number) {
+export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
     let canvasWidth = editor.getContainer().innerWidth
     let containerMargin = 0;
     let containerWidth = 2000;

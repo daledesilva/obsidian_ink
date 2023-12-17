@@ -110,7 +110,12 @@ export function TldrawHandwrittenEditor(props: {
 
 		unstashOldShapes(editor);
 
-		initWritingCamera(editor, MENUBAR_HEIGHT_PX);
+		if(props.embedded) {
+			initWritingCamera(editor);
+		} else {
+			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
+		}
+
 		editor.updateInstanceState({
 			isDebugMode: false,
 		})

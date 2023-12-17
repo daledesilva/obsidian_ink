@@ -2,6 +2,8 @@
 ///////
 ///////
 
+import { DRAW_EMBED_KEY, WRITE_EMBED_KEY } from "src/constants";
+
 const WRITING_EMBED_VERSION = '0.0.1';
 
 export type WritingEmbedData = {
@@ -22,7 +24,7 @@ export const buildWritingEmbed = (filepath: string, transcript: string = '') => 
 	}
 
 	let embedStr = "";
-    embedStr += "\n```handwritten-ink";
+    embedStr += "\n```" + WRITE_EMBED_KEY;
     embedStr += "\n" + JSON.stringify(embedContent, null, '\t');
     embedStr += "\n```";
 
@@ -50,7 +52,7 @@ export const buildDrawingEmbed = (filepath: string, transcript: string = '') => 
 	}
 
 	let embedStr = "";
-    embedStr += "\n```handdrawn-ink";
+    embedStr += "\n```" + DRAW_EMBED_KEY;
     embedStr += "\n" + JSON.stringify(embedContent, null, '\t');
     embedStr += "\n```";
 

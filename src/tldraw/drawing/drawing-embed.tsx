@@ -7,6 +7,7 @@ import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFileByFilepath } from "src/utils/open-file";
+import { TFile } from "obsidian";
 
 ///////
 ///////
@@ -29,6 +30,7 @@ export function DrawingEmbed (props: {
 	const editorRef = useRef<Editor|null>(null);
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
 
 
 	return <>
@@ -39,14 +41,14 @@ export function DrawingEmbed (props: {
 				height: isEditMode ? '600px' : 'auto',
 			}}
 		>
-			{(!isEditMode && props.pageData.previewUri) ? (
+			{(!isEditMode && curPageData.previewUri) ? (
 				<DrawingEmbedPreview
-					base64Image = {props.pageData.previewUri}
+					base64Image = {curPageData.previewUri}
 				/>
 			) : (
 				<TldrawDrawingEditor
 					plugin = {props.plugin}
-					existingData = {props.pageData.tldraw}
+					existingData = {curPageData.tldraw}
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
 					save = {props.save}
 					embedded
@@ -55,14 +57,31 @@ export function DrawingEmbed (props: {
 			<TransitionMenuBar
 				onOpenClick = {() => openInkFileByFilepath(props.plugin, props.filepath)}
 				isEditMode = {isEditMode}
-				onEditClick = {() => setIsEditMode(true)}
-				onFreezeClick = {() => setIsEditMode(false)}
+				onEditClick = { async () => {
+					const newPageData = await refreshPageData();
+					setIsEditMode(true);
+					setCurPageData(newPageData);
+				}}
+				onFreezeClick = { async () => {
+					const newPageData = await refreshPageData();
+					setIsEditMode(false);
+					setCurPageData(newPageData);
+				}}
 			/>
 		</div>
 	</>;
 
 	// Helper functions
 	///////////////////
+
+	async function refreshPageData(): Promise<PageData> {
+		const v = props.plugin.app.vault;
+		const file = v.getAbstractFileByPath(props.filepath);
+		if(!(file instanceof TFile)) return props.pageData;
+		const pageDataStr = await v.read(file);
+		const pageData = JSON.parse(pageDataStr) as PageData;
+		return pageData;
+	}
 
 	function applyPostMountSettings(editor: Editor) {
 		editor.updateInstanceState({

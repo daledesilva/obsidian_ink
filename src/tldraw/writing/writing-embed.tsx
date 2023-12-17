@@ -7,6 +7,7 @@ import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFileByFilepath } from "src/utils/open-file";
+import { TFile } from "obsidian";
 
 ///////
 ///////
@@ -27,6 +28,7 @@ export function HandwrittenEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
 
 	return <>
 		<div
@@ -36,18 +38,14 @@ export function HandwrittenEmbed (props: {
 				// height: '400px',
 			}}
 		>
-			{(!isEditMode && props.pageData.previewUri) ? (
+			{(!isEditMode && curPageData.previewUri) ? (
 				<HandwrittenEmbedPreview
-					base64Image = {props.pageData.previewUri}
-					onEditClick = {() => {
-						console.log('going to edit mode');
-						setIsEditMode(true)
-					}}
+					base64Image = {curPageData.previewUri}
 				/>
 			) : (
 				<TldrawWritingEditor
 					plugin = {props.plugin}
-					existingData = {props.pageData.tldraw}
+					existingData = {curPageData.tldraw}
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
 					save = {props.save}
 					embedded
@@ -56,14 +54,31 @@ export function HandwrittenEmbed (props: {
 			<TransitionMenuBar
 				onOpenClick = {() => openInkFileByFilepath(props.plugin, props.filepath)}
 				isEditMode = {isEditMode}
-				onEditClick = {() => setIsEditMode(true)}
-				onFreezeClick = {() => setIsEditMode(false)}
+				onEditClick = { async () => {
+					const newPageData = await refreshPageData();
+					setIsEditMode(true);
+					setCurPageData(newPageData);
+				}}
+				onFreezeClick = { async () => {
+					const newPageData = await refreshPageData();
+					setIsEditMode(false);
+					setCurPageData(newPageData);
+				}}
 			/>
 		</div>
 	</>;
 
 	// Helper functions
 	///////////////////
+
+	async function refreshPageData(): Promise<PageData> {
+		const v = props.plugin.app.vault;
+		const file = v.getAbstractFileByPath(props.filepath);
+		if(!(file instanceof TFile)) return props.pageData;
+		const pageDataStr = await v.read(file);
+		const pageData = JSON.parse(pageDataStr) as PageData;
+		return pageData;
+	}
 
 	function applyPostMountSettings(editor: Editor) {
 		editor.updateInstanceState({
@@ -97,7 +112,6 @@ export default HandwrittenEmbed;
 
 const HandwrittenEmbedPreview: React.FC<{ 
 	base64Image: string,
-	onEditClick: Function,
 }> = (props) => {
 
 	return <div>

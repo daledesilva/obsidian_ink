@@ -1,14 +1,14 @@
 import { App, Editor, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { buildWritingEmbed } from "src/utils/embed";
+import { buildDrawingEmbed, buildWritingEmbed } from "src/utils/embed";
 
 
 
 export const insertExistingDrawingFile = (plugin: InkPlugin, editor: Editor) => {
     // const fileRef = await createNewHandwrittenNote(plugin);
     new SelectHandwritingFileModal(plugin.app, (filepath) => {
-        let embedStr = buildWritingEmbed(filepath);
+        let embedStr = buildDrawingEmbed(filepath);
         editor.replaceRange( embedStr, editor.getCursor() );
     }).open();
     

@@ -1,10 +1,12 @@
 import { SerializedStore, TLRecord, TLUiOverrides, Editor } from "@tldraw/tldraw";
-import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
+import { Menu, TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import TldrawHandwrittenEditor from "src/tldraw/writing/tldraw-writing-editor";
+import { convertWriteFileToDraw } from "src/utils/file-manipulation";
+import { openInkFile } from "src/utils/open-file";
 import { PageData, buildPageFile } from "src/utils/page-file";
 
 ////////
@@ -23,7 +25,7 @@ export enum ViewPosition {
 export function registerWritingView (plugin: InkPlugin) {
     plugin.registerView(
         WRITING_VIEW_TYPE,
-        (leaf) => new WritingView(leaf, this)
+        (leaf) => new WritingView(leaf, plugin)
     );
     plugin.registerExtensions([WRITE_FILE_EXT], WRITING_VIEW_TYPE);
 }
@@ -91,7 +93,18 @@ export class WritingView extends TextFileView {
     }
 
     
-    // onPaneMenu()
+    onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
+        menu.addItem((item) => {
+            item.setTitle('Convert to Drawing');
+            item.setSection('action');
+            item.onClick( async () => {
+                if(!this.file) return;
+                await convertWriteFileToDraw(this.plugin, this.file);
+                openInkFile(this.plugin, this.file);
+            })
+        })
+        super.onPaneMenu(menu, source);
+    }
 
     // onResize()
 

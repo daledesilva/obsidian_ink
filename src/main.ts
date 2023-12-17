@@ -9,6 +9,9 @@ import insertNewDrawingFile from './commands/insert-new-drawing-file';
 import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
 import { registerDrawingView } from './views/drawing-view';
 import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
+import createNewWritingFile from './commands/create-new-writing-file';
+import { openInkFile } from './utils/open-file';
+import createNewDrawingFile from './commands/create-new-drawing-file';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -41,22 +44,22 @@ export default class InkPlugin extends Plugin {
 		
 
 		// Add global actions
-		// this.addCommand({
-		// 	id: 'ddc_create-writing-file',
-		// 	name: 'Create new handwritten note',
-		// 	callback: async () => {
-		// 		const fileRef = await createNewWritingFile(this);
-		// 		openInkFile(this, fileRef);
-		// 	}
-		// });
-		// this.addCommand({
-		// 	id: 'ddc_create-drawing-file',
-		// 	name: 'Create new drawing',
-		// 	callback: async () => {
-		// 		const fileRef = await createNewDrawingFile(this);
-		// 		openInkFile(this, fileRef);
-		// 	}
-		// });
+		this.addCommand({
+			id: 'ddc_create-writing-file',
+			name: 'Create new handwritten note',
+			callback: async () => {
+				const fileRef = await createNewWritingFile(this);
+				openInkFile(this, fileRef);
+			}
+		});
+		this.addCommand({
+			id: 'ddc_create-drawing-file',
+			name: 'Create new drawing',
+			callback: async () => {
+				const fileRef = await createNewDrawingFile(this);
+				openInkFile(this, fileRef);
+			}
+		});
 		
 
 		// Add markdown note actions
@@ -92,10 +95,14 @@ export default class InkPlugin extends Plugin {
 	
 		
 
-		// this.addRibbonIcon("pencil", "New handwritten note", async () => {
-		// 	const fileRef = await createNewWritingFile(this);
-		// 	openInkFile(this, fileRef);
-		// });
+		this.addRibbonIcon("pencil", "New handwritten note", async () => {
+			const fileRef = await createNewWritingFile(this);
+			openInkFile(this, fileRef);
+		});
+		this.addRibbonIcon("pencil", "New hand drawn note", async () => {
+			const fileRef = await createNewDrawingFile(this);
+			openInkFile(this, fileRef);
+		});
 
 		// this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
 			// activateHandwritingView(this, ViewPosition.replacement);

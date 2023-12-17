@@ -1,5 +1,5 @@
 import { SerializedStore, TLRecord, TLUiOverrides, Editor } from "@tldraw/tldraw";
-import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
+import { Menu, MenuItem, TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
@@ -92,7 +92,16 @@ export class DrawingView extends TextFileView {
     }
 
     
-    // onPaneMenu()
+    // onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
+    //     menu.addItem((item) => {
+    //         item.setTitle('Convert to Write file');
+    //         item.setSection('action');
+    //         item.onClick( () => {
+    //             console.log('clicked');
+    //         })
+    //     })
+    //     super.onPaneMenu(menu, source);
+    // }
 
     // onResize()
 

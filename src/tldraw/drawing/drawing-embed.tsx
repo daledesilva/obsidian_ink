@@ -34,7 +34,7 @@ export function DrawingEmbed (props: {
 			ref = {embedContainerRef}
 			className = 'ink_drawing-embed'
 			style = {{
-				height: '400px',
+				height: isEditMode ? '600px' : 'auto',
 			}}
 		>
 			{(!isEditMode && props.pageData.previewUri) ? (

@@ -1,6 +1,55 @@
 
 
-// TODO: Can't do this until I can pass through the scrolling
-.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ink_writing-embed) {
+
+.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ink_drawing-embed) {
+    // Extend through page horizontal margin
     margin: 0 calc(-1 * var(--file-margins)) !important;
+
+    // Allo menus to be visible outside of block
+    overflow: visible;
+    clip: unset;
+    contain: none !important;
+
+    .tl-container {
+        overflow: visible;
+        clip: unset;
+        contain: none !important;
+        
+        .tlui-layout {
+            overflow: visible;
+            clip: unset;
+            contain: none !important;
+
+            .tlui-button.tlui-menu__trigger {
+                display: none;
+            }
+            
+            .tlui-navigation-zone {
+                display: none;
+            }
+            
+            .tlui-help-menu {
+                display: none;
+            }
+            
+            
+            .tlui-layout__top {
+                grid-row: 1;
+                position: absolute;
+                top: 0;
+                right: 0;
+                translate: 0 -100%;
+            }
+            .tlui-layout__bottom {
+                grid-row: 1;
+                position: absolute;
+                top: 0;
+                left: 50%;
+                translate: -50% -100%;
+            }
+        }
+    }
 }
+
+
+

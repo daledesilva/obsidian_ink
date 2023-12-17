@@ -4,37 +4,38 @@ import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TAbstractFile, TFile
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { PageData, buildPageFile } from "src/utils/page-file";
-import { HandwrittenEmbedData } from "src/utils/embed";
+import { WritingEmbedData as WritingEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
 import HandwrittenEmbed from "src/tldraw/writing/writing-embed";
+import { WRITE_EMBED_KEY } from "src/constants";
 
 ////////
 ////////
 
 
-export function registerHandwritingEmbed(plugin: InkPlugin) {
+export function registerWritingEmbed(plugin: InkPlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
-		'handwritten-ink',
+		WRITE_EMBED_KEY,
 		(source, el, ctx) => {
-			const embedData = JSON.parse(source) as HandwrittenEmbedData;
+			const embedData = JSON.parse(source) as WritingEmbedData;
 			if(embedData.filepath) {
-				ctx.addChild(new HandwrittenEmbedWidget(el, plugin, embedData));
+				ctx.addChild(new WritingEmbedWidget(el, plugin, embedData));
 			}
 		}
 	);
 }
 
-class HandwrittenEmbedWidget extends MarkdownRenderChild {
+class WritingEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
 	plugin: InkPlugin;
-	embedData: HandwrittenEmbedData;
+	embedData: WritingEmbedData;
 	root: Root;
 	fileRef: TFile | null;
 
 	constructor(
 		el: HTMLElement,
 		plugin: InkPlugin,
-		embedData: HandwrittenEmbedData,
+		embedData: WritingEmbedData,
 	) {
 		super(el);
 		this.el = el;
@@ -50,7 +51,7 @@ class HandwrittenEmbedWidget extends MarkdownRenderChild {
 		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
 			// TODO: This is added, but is not visible
 			const containerEl = this.el.createDiv();
-			containerEl.createEl('p', 'Handwriting ink file not found.')
+			containerEl.createEl('p', 'Writing ink file not found.')
 			return;
 		}
 

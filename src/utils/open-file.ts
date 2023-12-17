@@ -1,6 +1,6 @@
 import { TFile } from "obsidian";
 import InkPlugin from "src/main";
-import { ViewPosition } from "src/views/handwriting-view";
+import { ViewPosition } from "src/views/writing-view";
 
 
 

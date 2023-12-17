@@ -1,15 +1,14 @@
 import { Editor, MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
-import {registerHandwritingEmbed} from './extensions/widgets/handwritten-embed-widget'
+import {registerWritingEmbed} from './extensions/widgets/writing-embed-widget'
 import insertExistingWritingFile from './commands/insert-existing-writing-file';
 import insertNewWritingFile from './commands/insert-new-writing-file';
-import { registerHandwritingView } from './views/handwriting-view';
-import createNewWritingFile from './commands/create-new-writing-file';
-import { openInkFile } from './utils/open-file';
-import createNewDrawingFile from './commands/create-new-drawing-file';
+import { registerWritingView } from './views/writing-view';
 import insertNewDrawingFile from './commands/insert-new-drawing-file';
 import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
+import { registerDrawingView } from './views/drawing-view';
+import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -85,15 +84,18 @@ export default class InkPlugin extends Plugin {
 
 		
 
-		registerHandwritingView(this);
-		registerHandwritingEmbed(this);
+		registerWritingView(this);
+		registerWritingEmbed(this);
+
+		registerDrawingView(this);
+		registerDrawingEmbed(this);
 	
 		
 
-		this.addRibbonIcon("pencil", "New handwritten note", async () => {
-			const fileRef = await createNewWritingFile(this);
-			openInkFile(this, fileRef);
-		});
+		// this.addRibbonIcon("pencil", "New handwritten note", async () => {
+		// 	const fileRef = await createNewWritingFile(this);
+		// 	openInkFile(this, fileRef);
+		// });
 
 		// this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
 			// activateHandwritingView(this, ViewPosition.replacement);

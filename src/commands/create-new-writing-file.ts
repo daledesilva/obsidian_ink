@@ -1,7 +1,7 @@
-import { createTLStore } from "@tldraw/tldraw";
 import InkPlugin from "src/main";
 import { buildPageFile } from "src/utils/page-file";
 import defaultSnapshot from "src/defaults/default-handwriting-tldraw-store";
+import { FOLDER_NAME } from "src/constants";
 
 
 
@@ -21,7 +21,7 @@ const createNewWritingFile = async (plugin: InkPlugin) => {
     let filename = date.getFullYear() + '.' + date.getMonth() + '.' + date.getDate() + ' - ' + hours + '.' + minutes + suffix;
     const fileContents = buildPageFile(defaultSnapshot);
 
-    const pathAndBasename = 'Handwriting/' + filename;
+    const pathAndBasename = FOLDER_NAME + '/' + filename;
     let version = 1;
     let pathAndVersionedBasename = pathAndBasename;
 

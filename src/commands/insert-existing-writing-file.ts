@@ -1,14 +1,14 @@
 import { App, Editor, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { buildEmbed } from "src/utils/embed";
+import { buildWritingEmbed } from "src/utils/embed";
 
 
 
 export const insertExistingWritingFile = (plugin: InkPlugin, editor: Editor) => {
     // const fileRef = await createNewHandwrittenNote(plugin);
     new SelectHandwritingFileModal(plugin.app, (filepath) => {
-        let embedStr = buildEmbed(filepath);
+        let embedStr = buildWritingEmbed(filepath);
         editor.replaceRange( embedStr, editor.getCursor() );
     }).open();
     
@@ -25,12 +25,12 @@ export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
 
     getItems(): TFile[] {
         const allFiles = this.app.vault.getFiles();
-        const handwrittenFiles: TFile[] = [];
+        const files: TFile[] = [];
         for(let i=0; i<allFiles.length; i++) {
             const file = allFiles[i];
-            if(file.extension === WRITE_FILE_EXT) handwrittenFiles.push(file);
+            if(file.extension === WRITE_FILE_EXT) files.push(file);
         }
-        return handwrittenFiles;
+        return files;
     }
 
     getItemText(file: TFile): string {

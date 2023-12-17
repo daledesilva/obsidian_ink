@@ -2,7 +2,7 @@ import { SerializedStore, TLRecord, TLUiOverrides, Editor } from "@tldraw/tldraw
 import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { WRITE_FILE_EXT } from "src/constants";
+import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import TldrawHandwrittenEditor from "src/tldraw/writing/tldraw-writing-editor";
 import { PageData, buildPageFile } from "src/utils/page-file";
@@ -10,7 +10,7 @@ import { PageData, buildPageFile } from "src/utils/page-file";
 ////////
 ////////
 
-export const HANDWRITING_VIEW_TYPE = "handwriting-view";
+export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 export enum ViewPosition {
     replacement,
     tab,
@@ -20,16 +20,16 @@ export enum ViewPosition {
 
 
 
-export function registerHandwritingView (plugin: InkPlugin) {
+export function registerDrawingView (plugin: InkPlugin) {
     plugin.registerView(
-        HANDWRITING_VIEW_TYPE,
-        (leaf) => new HandwritingView(leaf, this)
+        DRAWING_VIEW_TYPE,
+        (leaf) => new DrawingView(leaf, this)
     );
-    plugin.registerExtensions([WRITE_FILE_EXT], HANDWRITING_VIEW_TYPE);
+    plugin.registerExtensions([DRAW_FILE_EXT], DRAWING_VIEW_TYPE);
 }
 
 
-export class HandwritingView extends TextFileView {
+export class DrawingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     tldrawData: SerializedStore<TLRecord> = {};
@@ -47,7 +47,7 @@ export class HandwritingView extends TextFileView {
     }
 
     getViewType(): string {
-        return HANDWRITING_VIEW_TYPE;
+        return DRAWING_VIEW_TYPE;
     }
 
     getDisplayText = () => {

@@ -1,4 +1,4 @@
-import './tldraw-handwritten-editor.scss';
+import './tldraw-drawing-editor.scss';
 import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";

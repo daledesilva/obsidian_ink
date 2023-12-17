@@ -2,9 +2,9 @@
 ///////
 ///////
 
-const EMBED_VERSION = '0.0.1';
+const WRITING_EMBED_VERSION = '0.0.1';
 
-export type HandwrittenEmbedData = {
+export type WritingEmbedData = {
 	embedVersion: string;
 	filepath: string;
 	transcript: string;
@@ -14,15 +14,43 @@ export type HandwrittenEmbedData = {
 // Primary functions
 ///////
 
-export const buildEmbed = (filepath: string, transcript: string = '') => {
-	let embedContent: HandwrittenEmbedData = {
-		embedVersion: EMBED_VERSION,
+export const buildWritingEmbed = (filepath: string, transcript: string = '') => {
+	let embedContent: WritingEmbedData = {
+		embedVersion: WRITING_EMBED_VERSION,
 		filepath,
 		transcript,
 	}
 
 	let embedStr = "";
     embedStr += "\n```handwritten-ink";
+    embedStr += "\n" + JSON.stringify(embedContent, null, '\t');
+    embedStr += "\n```";
+
+	return embedStr;
+};
+
+//////////
+//////////
+
+const DRAWING_EMBED_VERSION = '0.0.1';
+
+export type DrawingEmbedData = {
+	embedVersion: string;
+	filepath: string;
+};
+
+
+// Primary functions
+///////
+
+export const buildDrawingEmbed = (filepath: string, transcript: string = '') => {
+	let embedContent: DrawingEmbedData = {
+		embedVersion: DRAWING_EMBED_VERSION,
+		filepath,
+	}
+
+	let embedStr = "";
+    embedStr += "\n```handdrawn-ink";
     embedStr += "\n" + JSON.stringify(embedContent, null, '\t');
     embedStr += "\n```";
 

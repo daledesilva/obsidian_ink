@@ -1,4 +1,4 @@
-import "./handwritten-embed.scss";
+import "./drawing-embed.scss";
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";

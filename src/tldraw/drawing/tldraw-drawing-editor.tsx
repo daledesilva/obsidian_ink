@@ -112,6 +112,7 @@ export function TldrawDrawingEditor(props: {
 		initDrawingCamera(editor);
 		editor.updateInstanceState({
 			isDebugMode: false,
+			isGridMode: true,
 		})
 
 		if (props.embedded) {

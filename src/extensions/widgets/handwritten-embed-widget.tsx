@@ -5,14 +5,14 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { PageData, buildPageFile } from "src/utils/page-file";
 import { HandwrittenEmbedData } from "src/utils/embed";
-import HandwritePlugin from "src/main";
-import HandwrittenEmbed from "src/tldraw/write/handwritten-embed";
+import InkPlugin from "src/main";
+import HandwrittenEmbed from "src/tldraw/writing/writing-embed";
 
 ////////
 ////////
 
 
-export function registerHandwritingEmbed(plugin: HandwritePlugin) {
+export function registerHandwritingEmbed(plugin: InkPlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		'handwritten-ink',
 		(source, el, ctx) => {
@@ -26,14 +26,14 @@ export function registerHandwritingEmbed(plugin: HandwritePlugin) {
 
 class HandwrittenEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
-	plugin: HandwritePlugin;
+	plugin: InkPlugin;
 	embedData: HandwrittenEmbedData;
 	root: Root;
 	fileRef: TFile | null;
 
 	constructor(
 		el: HTMLElement,
-		plugin: HandwritePlugin,
+		plugin: InkPlugin,
 		embedData: HandwrittenEmbedData,
 	) {
 		super(el);

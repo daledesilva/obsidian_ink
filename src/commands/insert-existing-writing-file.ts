@@ -1,11 +1,11 @@
 import { App, Editor, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { WRITE_FILE_EXT } from "src/constants";
-import HandwritePlugin from "src/main";
+import InkPlugin from "src/main";
 import { buildEmbed } from "src/utils/embed";
 
 
 
-export const insertExistingInkNote = (plugin: HandwritePlugin, editor: Editor) => {
+export const insertExistingWritingFile = (plugin: InkPlugin, editor: Editor) => {
     // const fileRef = await createNewHandwrittenNote(plugin);
     new SelectHandwritingFileModal(plugin.app, (filepath) => {
         let embedStr = buildEmbed(filepath);
@@ -43,4 +43,4 @@ export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
 }
 
 
-export default insertExistingInkNote;
+export default insertExistingWritingFile;

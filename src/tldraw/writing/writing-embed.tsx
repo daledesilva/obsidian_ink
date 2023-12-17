@@ -1,9 +1,9 @@
-import "./handwritten-embed.scss";
+import "./writing-embed.scss";
 import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
-import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
-import HandwritePlugin from "../../main";
+import TldrawHandwrittenEditor from "./tldraw-writing-editor";
+import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import ReadonlyMenuBar from "../readonly-menu-bar/readonly-menu-bar";
 
@@ -18,7 +18,7 @@ enum tool {
 }
 
 export function HandwrittenEmbed (props: {
-	plugin: HandwritePlugin,
+	plugin: InkPlugin,
 	pageData: PageData,
 	filepath: string,
 	save: Function,
@@ -32,7 +32,7 @@ export function HandwrittenEmbed (props: {
 	return <>
 		<div
 			ref = {embedContainerRef}
-			className = 'ink_handwritten-embed'
+			className = 'ink_writing-embed'
 			style = {{
 				// height: '400px',
 			}}

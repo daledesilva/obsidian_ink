@@ -1,14 +1,15 @@
-import './tldraw-handwritten-editor.scss';
+import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, RecordType, SerializedStore, StoreSnapshot, TLDrawShape, TLEventInfo, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiEventHandler, TLUiOverrides, Tldraw, UiEvent, toolbarItem, useEditor, useExportAs } from "@tldraw/tldraw";
 import { useCallback, useRef, PointerEventHandler, useEffect } from "react";
 import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
-import HandwritingContainer, { LINE_HEIGHT } from "../shapes/handwriting-container"
-import { MENUBAR_HEIGHT_PX, MenuBar } from "../menu-bar/menu-bar";
+import HandwritingContainer, { LINE_HEIGHT } from "../writing-shapes/writing-container"
+import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import { Canvg } from 'canvg';
-import HandwritePlugin from "../../main";
+import InkPlugin from "../../main";
 import { TFile } from "obsidian";
 import { openInkFileByFilepath } from "../../utils/open-file";
 import * as React from "react";
+import { MENUBAR_HEIGHT_PX } from 'src/constants';
 
 
 ///////
@@ -47,7 +48,7 @@ const myOverrides: TLUiOverrides = {
 
 
 export function TldrawHandwrittenEditor(props: {
-	plugin: HandwritePlugin,
+	plugin: InkPlugin,
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
@@ -159,7 +160,7 @@ export function TldrawHandwrittenEditor(props: {
 					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					resizeWritingContainer(editor);
 					embedPostProcess(editor);
-					writingPostProcesses(entry, editor);
+					inputPostProcesses(entry, editor);
 					break;
 
 				case Activity.DrawingErased:
@@ -282,7 +283,7 @@ export function TldrawHandwrittenEditor(props: {
 
 
 	// Use this to run optimisations after a short delay
-	const writingPostProcesses = (entry: HistoryEntry<TLRecord>, editor: Editor) => {
+	const inputPostProcesses = (entry: HistoryEntry<TLRecord>, editor: Editor) => {
 		clearTimeout(postProcessTimeoutRef.current);
 
 		postProcessTimeoutRef.current = setTimeout(() => {
@@ -364,7 +365,7 @@ export function TldrawHandwrittenEditor(props: {
 				overrides={myOverrides}
 				hideUi
 			/>
-			<MenuBar
+			<WritingMenuBar
 				ref={menuBarElRef}
 				canUndo={canUndo}
 				canRedo={canRedo}

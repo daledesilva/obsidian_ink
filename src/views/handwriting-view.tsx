@@ -3,8 +3,8 @@ import { TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_EXT } from "src/constants";
-import HandwritePlugin from "src/main";
-import TldrawHandwrittenEditor from "src/tldraw/write/tldraw-handwritten-editor";
+import InkPlugin from "src/main";
+import TldrawHandwrittenEditor from "src/tldraw/writing/tldraw-writing-editor";
 import { PageData, buildPageFile } from "src/utils/page-file";
 
 ////////
@@ -20,7 +20,7 @@ export enum ViewPosition {
 
 
 
-export function registerHandwritingView (plugin: HandwritePlugin) {
+export function registerHandwritingView (plugin: InkPlugin) {
     plugin.registerView(
         HANDWRITING_VIEW_TYPE,
         (leaf) => new HandwritingView(leaf, this)
@@ -31,11 +31,11 @@ export function registerHandwritingView (plugin: HandwritePlugin) {
 
 export class HandwritingView extends TextFileView {
     root: null | Root;
-    plugin: HandwritePlugin;
+    plugin: InkPlugin;
     tldrawData: SerializedStore<TLRecord> = {};
     previewImageUri: string | null;
 
-    constructor(leaf: WorkspaceLeaf, plugin: HandwritePlugin) {
+    constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
         this.plugin = plugin;
     }

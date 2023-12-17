@@ -2,11 +2,14 @@ import { Editor, MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obs
 import { PluginSettings } from 'src/types/PluginSettings';
 import { MySettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerHandwritingEmbed} from './extensions/widgets/handwritten-embed-widget'
-import insertExistingInkNote from './commands/insert-existing-handwritten-note';
-import insertNewHandwrittenNote from './commands/insert-new-handwritten-note';
-import { HANDWRITING_VIEW_TYPE, HandwritingView, ViewPosition, registerHandwritingView } from './views/handwriting-view';
-import createNewHandwrittenNote from './commands/create-new-handwritten-note';
+import insertExistingWritingFile from './commands/insert-existing-writing-file';
+import insertNewWritingFile from './commands/insert-new-writing-file';
+import { registerHandwritingView } from './views/handwriting-view';
+import createNewWritingFile from './commands/create-new-writing-file';
 import { openInkFile } from './utils/open-file';
+import createNewDrawingFile from './commands/create-new-drawing-file';
+import insertNewDrawingFile from './commands/insert-new-drawing-file';
+import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -16,7 +19,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 
 
 
-export default class HandwritePlugin extends Plugin {
+export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
 
 	// Function came from Notion like tables code
@@ -39,26 +42,44 @@ export default class HandwritePlugin extends Plugin {
 		
 
 		// Add global actions
-		this.addCommand({
-			id: 'ddc_create-handwritten-note',
-			name: 'Create new handwritten note',
-			callback: async () => {
-				const fileRef = await createNewHandwrittenNote(this);
-				openInkFile(this, fileRef);
-			}
-		});
+		// this.addCommand({
+		// 	id: 'ddc_create-writing-file',
+		// 	name: 'Create new handwritten note',
+		// 	callback: async () => {
+		// 		const fileRef = await createNewWritingFile(this);
+		// 		openInkFile(this, fileRef);
+		// 	}
+		// });
+		// this.addCommand({
+		// 	id: 'ddc_create-drawing-file',
+		// 	name: 'Create new drawing',
+		// 	callback: async () => {
+		// 		const fileRef = await createNewDrawingFile(this);
+		// 		openInkFile(this, fileRef);
+		// 	}
+		// });
 		
 
 		// Add markdown note actions
 		this.addCommand({
-			id: 'ddc_embed-handwritten-file',
-			name: 'Insert existing handwritten section',
-			editorCallback: (editor: Editor) => insertExistingInkNote(this, editor)
+			id: 'ddc_embed-writing-file',
+			name: 'Insert existing handwriting section',
+			editorCallback: (editor: Editor) => insertExistingWritingFile(this, editor)
 		});
 		this.addCommand({
 			id: 'ddc_create-handwritten-section',
-			name: 'Insert new handwritten section',
-			editorCallback: (editor: Editor) => insertNewHandwrittenNote(this, editor)
+			name: 'Insert new handwriting section',
+			editorCallback: (editor: Editor) => insertNewWritingFile(this, editor)
+		});
+		this.addCommand({
+			id: 'ddc_embed-drawing-file',
+			name: 'Insert existing handdrawing section',
+			editorCallback: (editor: Editor) => insertExistingDrawingFile(this, editor)
+		});
+		this.addCommand({
+			id: 'ddc_create-drawing-section',
+			name: 'Insert new handdrawing section',
+			editorCallback: (editor: Editor) => insertNewDrawingFile(this, editor)
 		});
 
 
@@ -70,7 +91,7 @@ export default class HandwritePlugin extends Plugin {
 		
 
 		this.addRibbonIcon("pencil", "New handwritten note", async () => {
-			const fileRef = await createNewHandwrittenNote(this);
+			const fileRef = await createNewWritingFile(this);
 			openInkFile(this, fileRef);
 		});
 

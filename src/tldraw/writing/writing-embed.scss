@@ -1,0 +1,6 @@
+
+
+// TODO: Can't do this until I can pass through the scrolling
+.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ink_writing-embed) {
+    margin: 0 calc(-1 * var(--file-margins)) !important;
+}

@@ -1,12 +1,12 @@
 import { createTLStore } from "@tldraw/tldraw";
-import HandwritePlugin from "src/main";
+import InkPlugin from "src/main";
 import { buildPageFile } from "src/utils/page-file";
 import defaultSnapshot from "src/defaults/default-handwriting-tldraw-store";
 
 
 
 
-const createNewHandwrittenNote = async (plugin: HandwritePlugin) => {
+const createNewWritingFile = async (plugin: InkPlugin) => {
     const date = new Date();
     let minutes = date.getMinutes().toString();
     let hours = date.getHours();
@@ -35,4 +35,4 @@ const createNewHandwrittenNote = async (plugin: HandwritePlugin) => {
 }
 
 
-export default createNewHandwrittenNote;
+export default createNewWritingFile;

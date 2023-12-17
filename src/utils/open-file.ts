@@ -1,16 +1,16 @@
 import { TFile } from "obsidian";
-import HandwritePlugin from "src/main";
+import InkPlugin from "src/main";
 import { ViewPosition } from "src/views/handwriting-view";
 
 
 
-export async function openInkFileByFilepath(plugin: HandwritePlugin, filepath: string) {
+export async function openInkFileByFilepath(plugin: InkPlugin, filepath: string) {
     const v = plugin.app.vault;
     const fileRef = v.getAbstractFileByPath(filepath) as TFile;
     if(!fileRef) console.log('Filepath being opened is not a file');
     openInkFile(plugin, fileRef);
 }
-export async function openInkFile(plugin: HandwritePlugin, fileRef: TFile) {
+export async function openInkFile(plugin: InkPlugin, fileRef: TFile) {
     // switch(position) {
         // case ViewPosition.replacement:      openInActiveView(plugin, fileRef); break;
         // case ViewPosition.tab:              activateTabView(plugin, fileRef); break;
@@ -28,7 +28,7 @@ export async function openInkFile(plugin: HandwritePlugin, fileRef: TFile) {
 // Old, probably not necessary
 
 
-// export async function activateHandwritingView(plugin: HandwritePlugin, position: ViewPosition = ViewPosition.replacement) {
+// export async function activateHandwritingView(plugin: InkPlugin, position: ViewPosition = ViewPosition.replacement) {
 // 	switch(position) {
 //         case ViewPosition.replacement:      openInActiveView(plugin); break;
 //         case ViewPosition.tab:              activateTabView(plugin); break;
@@ -43,7 +43,7 @@ export async function openInkFile(plugin: HandwritePlugin, fileRef: TFile) {
 
 
 
-export async function openInActiveView(plugin: HandwritePlugin, fileRef: TFile) {
+export async function openInActiveView(plugin: InkPlugin, fileRef: TFile) {
     let { workspace }  = plugin.app;
 	let leaf = workspace.getLeaf();
     await leaf.openFile(fileRef);
@@ -53,7 +53,7 @@ export async function openInActiveView(plugin: HandwritePlugin, fileRef: TFile) 
 
 
 
-async function activateTabView(plugin: HandwritePlugin) {
+async function activateTabView(plugin: InkPlugin) {
     let { workspace }  = plugin.app;
 	
     let leaf: WorkspaceLeaf | null = null;
@@ -71,7 +71,7 @@ async function activateTabView(plugin: HandwritePlugin) {
 
     workspace.revealLeaf(leaf);
 }
-async function activateSplitView(plugin: HandwritePlugin, direction: 'horizontal' | 'vertical') {
+async function activateSplitView(plugin: InkPlugin, direction: 'horizontal' | 'vertical') {
     let { workspace }  = plugin.app;
     
     let leaf: null | WorkspaceLeaf;

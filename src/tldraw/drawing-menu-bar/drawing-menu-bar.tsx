@@ -1,16 +1,14 @@
+import "./drawing-menu-bar.scss";
 import * as React from "react";
 import { App, Editor, MarkdownView, Plugin } from "obsidian";
-import { tool } from "../write/tldraw-handwritten-editor";
-import HandwritePlugin from "../../main";
+import { tool } from "../writing/tldraw-writing-editor";
+import InkPlugin from "../../main";
 
 //////////
 //////////
 
-import "./menu-bar.scss";
 
 //////////
-
-export const MENUBAR_HEIGHT_PX = 200;
 
 interface MenuBarProps {
     canUndo: boolean,

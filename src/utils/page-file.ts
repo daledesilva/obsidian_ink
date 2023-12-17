@@ -21,7 +21,7 @@ export type PageData = {
 // Primary functions
 ///////
 
-export const buildPageFile = (tldrawData: SerializedStore<TLRecord>, pngDataUri: string | null) => {
+export const buildPageFile = (tldrawData: SerializedStore<TLRecord>, pngDataUri: string | null = null) => {
 	let str = '';
 	// str += buildFrontMatter();
 	// str += '\n';

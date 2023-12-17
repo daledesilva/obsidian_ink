@@ -1,0 +1,59 @@
+
+
+
+.ink_write_menu-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    margin: 8px var(--file-margins);
+
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+
+    button {
+        color: rgba(127.5, 127.5, 127.5, 0.7);
+        &:hover {
+            opacity: 1;
+            color: #FFF;
+        }
+        &:disabled {
+            opacity: 1;
+            color: #FFF;
+            &:hover {
+                background-color: var(--interactive-normal);
+                box-shadow: var(--input-shadow);
+            }
+        }
+    }
+}
+
+
+.ink_quick-menu {
+    display: flex;
+    flex-direction: row;
+
+    button {
+        &:disabled {
+            visibility: hidden;
+        }
+    }
+}
+
+.ink_tool-menu {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, 0);
+
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.ink_other-menu {
+    display: flex;
+    flex-direction: row;
+}

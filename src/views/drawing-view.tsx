@@ -4,6 +4,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
+import TldrawDrawingEditor from "src/tldraw/drawing/tldraw-drawing-editor";
 import TldrawHandwrittenEditor from "src/tldraw/writing/tldraw-writing-editor";
 import { PageData, buildPageFile } from "src/utils/page-file";
 
@@ -69,7 +70,7 @@ export class DrawingView extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawHandwrittenEditor
+            <TldrawDrawingEditor
                 plugin = {this.plugin}
                 existingData = {this.tldrawData}
                 filepath = {this.file.path}

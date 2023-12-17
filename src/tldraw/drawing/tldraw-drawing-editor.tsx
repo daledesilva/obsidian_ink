@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
 import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { initCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
+import { initDrawingCamera, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
 import HandwritingContainer, { LINE_HEIGHT } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import { Canvg } from 'canvg';
@@ -25,14 +25,14 @@ export enum tool {
 let hiddenShapes: TLShape[] = [];
 
 const myOverrides: TLUiOverrides = {
-	toolbar(editor: Editor, toolbar, { tools }) {
-		const reducedToolbar = [
-			toolbar[0],
-			toolbar[2],
-			toolbar[3]
-		];
-		return reducedToolbar;
-	},
+	// toolbar(editor: Editor, toolbar, { tools }) {
+	// 	const reducedToolbar = [
+	// 		toolbar[0],
+	// 		toolbar[2],
+	// 		toolbar[3]
+	// 	];
+	// 	return reducedToolbar;
+	// },
 	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
 	// 	console.log('actionsMenu', actionsMenu);
 	// 	// const reducedToolbar = [
@@ -109,7 +109,7 @@ export function TldrawDrawingEditor(props: {
 
 		unstashOldShapes(editor);
 
-		initCamera(editor, MENUBAR_HEIGHT_PX);
+		initDrawingCamera(editor);
 		editor.updateInstanceState({
 			isDebugMode: false,
 		})
@@ -118,17 +118,16 @@ export function TldrawDrawingEditor(props: {
 			editor.updateInstanceState({ canMoveCamera: false })
 		}
 
-		resizeContainerIfEmbed(editor);
+		// resizeContainerIfEmbed(editor);
 		initScrollHandler();
 
 		editor.store.listen((entry) => {
 
-			setCanUndo(editor.canUndo);
-			setCanRedo(editor.canRedo);
+			// setCanUndo(editor.canUndo);
+			// setCanRedo(editor.canRedo);
 
 			// Bail if this listener fired because again of changes made in the listener itself
 			if (justProcessedRef.current) {
-				console.log('just processed');
 				justProcessedRef.current = false;
 				return;
 			}
@@ -157,9 +156,8 @@ export function TldrawDrawingEditor(props: {
 
 				case Activity.DrawingCompleted:
 					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
-					resizeWritingContainer(editor);
 					embedPostProcess(editor);
-					inputPostProcesses(entry, editor);
+					// inputPostProcesses(entry, editor);
 					break;
 
 				case Activity.DrawingErased:
@@ -193,7 +191,7 @@ export function TldrawDrawingEditor(props: {
 
 
 	const embedPostProcess = (editor: Editor) => {
-		resizeContainerIfEmbed(editor);
+		// resizeContainerIfEmbed(editor);
 	}
 
 
@@ -360,11 +358,11 @@ export function TldrawDrawingEditor(props: {
 				// persistenceKey = {props.filepath}
 				onMount={handleMount}
 				// assetUrls = {assetUrls}
-				shapeUtils={MyCustomShapes}
+				// shapeUtils={MyCustomShapes}
 				overrides={myOverrides}
-				hideUi
+				// hideUi
 			/>
-			<WritingMenuBar
+			{/* <WritingMenuBar
 				ref={menuBarElRef}
 				canUndo={canUndo}
 				canRedo={canRedo}
@@ -375,22 +373,7 @@ export function TldrawDrawingEditor(props: {
 				onDrawClick={activateDrawTool}
 				onEraseClick={activateEraseTool}
 				onOpenClick={props.embedded && open}
-			/>
-			{/* <div
-				className = 'output-log'
-				style = {{
-					position: 'absolute',
-					bottom: '60px',
-					left: '50%',
-					transform: 'translate(-50%, 0)',
-					zIndex: 10000,
-					backgroundColor: '#000',
-					padding: '0.5em 1em'
-				}}
-				>
-				<p>Output Log:</p>
-				{outputLog}
-			</div> */}
+			/> */}
 		</div>
 	</>;
 

@@ -1,6 +1,6 @@
 import InkPlugin from "src/main";
 import { buildPageFile } from "src/utils/page-file";
-import defaultSnapshot from "src/defaults/default-handwriting-tldraw-store";
+import defaultSnapshot from "src/defaults/default-tldraw-writing-store";
 import { FOLDER_NAME } from "src/constants";
 
 

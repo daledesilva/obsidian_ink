@@ -191,8 +191,11 @@ export function TldrawWritingEditor(props: {
 
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
-			clearTimeout(postProcessTimeoutRef.current);
+			console.log('cleaning up 1');
+			resetInputPostProcessTimer()
+			console.log('cleaning up 2');
 			cleanUpScrollHandler();
+			console.log('cleaning up 3');
 		};
 	}
 
@@ -238,11 +241,20 @@ export function TldrawWritingEditor(props: {
 		if (!blockEl) return;
 
 		let blockPosY = blockEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
+
+		// Because the menu bar is translated outside of the container by it's height
+		// So considering the block position that much lower means it will stay visible without changing the translation
+		const menuBarHeight = menuBarEl.getBoundingClientRect().height;
+		console.log('height', menuBarHeight) ;
+		blockPosY -= Number(menuBarHeight);
+
 		const blockOffsetY = blockPosY;// - pageScrollY;
 
 		const scrolledOffTopEdge = blockOffsetY < 0;
 		if (scrolledOffTopEdge) {
 			menuBarEl.style.top = Math.abs(blockOffsetY) + 'px';
+		} else {
+			menuBarEl.style.removeProperty('top');
 		}
 	}
 

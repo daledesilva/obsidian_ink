@@ -22,7 +22,10 @@
     flex-direction: row;
     justify-content: space-between;
 
+    pointer-events: none;
+
     button {
+        pointer-events: auto;
         color: rgba(127.5, 127.5, 127.5, 0.7);
         &:hover {
             opacity: 1;
@@ -38,6 +41,8 @@
         }
     }
 }
+
+// If inside an embed block
 .cm-embed-block .ink_write_menu-bar {
     transform: translate(0, -100%);
 }

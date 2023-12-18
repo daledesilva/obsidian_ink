@@ -38,11 +38,15 @@ export function HandwrittenEmbed (props: {
 				// height: '400px',
 			}}
 		>
-			{(!isEditMode && curPageData.previewUri) ? (
+			{(!isEditMode && !curPageData.previewUri) && (
+				<p>No screenshot yet</p>
+			)}
+			{(!isEditMode && curPageData.previewUri) && (
 				<HandwrittenEmbedPreview
 					base64Image = {curPageData.previewUri}
 				/>
-			) : (
+			)}
+			{isEditMode && (
 				<TldrawWritingEditor
 					plugin = {props.plugin}
 					existingData = {curPageData.tldraw}

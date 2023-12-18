@@ -6,7 +6,7 @@ import { Root, createRoot } from "react-dom/client";
 import { PageData, buildPageFile } from "src/utils/page-file";
 import { WritingEmbedData as WritingEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
-import HandwrittenEmbed from "src/tldraw/writing/writing-embed";
+import WritingEmbed from "src/tldraw/writing/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
 
 ////////
@@ -58,7 +58,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 
 		this.root = createRoot(this.el);
 		this.root.render(
-            <HandwrittenEmbed
+            <WritingEmbed
 				plugin = {this.plugin}
                 filepath = {this.embedData.filepath}
 				pageData = {pageData}

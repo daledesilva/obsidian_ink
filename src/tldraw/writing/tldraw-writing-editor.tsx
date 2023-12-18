@@ -17,7 +17,7 @@ import { MENUBAR_HEIGHT_PX } from 'src/constants';
 
 
 
-const PAUSE_BEFORE_FULL_SAVE_MS = 3000;
+const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
 
 
 const MyCustomShapes = [HandwritingContainer];

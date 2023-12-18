@@ -19,7 +19,7 @@ enum tool {
 	eraser = 'eraser',
 }
 
-export function HandwrittenEmbed (props: {
+export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	pageData: PageData,
 	filepath: string,
@@ -109,7 +109,7 @@ export function HandwrittenEmbed (props: {
 	
 };
 
-export default HandwrittenEmbed;
+export default WritingEmbed;
 
 
 

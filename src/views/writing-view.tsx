@@ -89,7 +89,9 @@ export class WritingView extends TextFileView {
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that old files can save data into new ones)
+        console.log('unmounting A')
         this.root?.unmount();
+        console.log('unmounting B')
     }
 
     

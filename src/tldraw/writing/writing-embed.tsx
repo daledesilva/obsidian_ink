@@ -42,7 +42,7 @@ export function HandwrittenEmbed (props: {
 				<p>No screenshot yet</p>
 			)}
 			{(!isEditMode && curPageData.previewUri) && (
-				<HandwrittenEmbedPreview
+				<WritingEmbedPreview
 					base64Image = {curPageData.previewUri}
 				/>
 			)}
@@ -114,7 +114,7 @@ export default HandwrittenEmbed;
 
 
 
-const HandwrittenEmbedPreview: React.FC<{ 
+const WritingEmbedPreview: React.FC<{ 
 	base64Image: string,
 }> = (props) => {
 

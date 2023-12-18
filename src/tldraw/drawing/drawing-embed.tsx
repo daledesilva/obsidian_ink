@@ -41,11 +41,15 @@ export function DrawingEmbed (props: {
 				height: isEditMode ? '600px' : 'auto',
 			}}
 		>
-			{(!isEditMode && curPageData.previewUri) ? (
+			{(!isEditMode && !curPageData.previewUri) && (
+				<p>No screenshot yet</p>
+			)}
+			{(!isEditMode && curPageData.previewUri) && (
 				<DrawingEmbedPreview
 					base64Image = {curPageData.previewUri}
 				/>
-			) : (
+			)}
+			{isEditMode && (
 				<TldrawDrawingEditor
 					plugin = {props.plugin}
 					existingData = {curPageData.tldraw}

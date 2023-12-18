@@ -13,6 +13,7 @@ import { MENUBAR_HEIGHT_PX } from 'src/constants';
 ///////
 ///////
 
+const PAUSE_BEFORE_FULL_SAVE_MS = 3000;
 
 const MyCustomShapes = [HandwritingContainer];
 export enum tool {
@@ -142,22 +143,22 @@ export function TldrawDrawingEditor(props: {
 					break;
 
 				case Activity.DrawingStarted:
-					clearTimeout(postProcessTimeoutRef.current);
+					resetInputPostProcessTimer();
 					// stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
 					break;
 
 				case Activity.DrawingContinued:
-					clearTimeout(postProcessTimeoutRef.current);
+					resetInputPostProcessTimer();
 					break;
 
 				case Activity.DrawingCompleted:
-					saveContent(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					incrementalSave(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					embedPostProcess(editor);
-					// inputPostProcesses(entry, editor);
+					inputPostProcesses(entry, editor);
 					break;
 
 				case Activity.DrawingErased:
-					saveContent(editor);
+					incrementalSave(editor);
 					resizeWritingContainer(editor);
 					embedPostProcess(editor);
 					break;
@@ -274,60 +275,50 @@ export function TldrawDrawingEditor(props: {
 		})
 	}
 
+	const resetInputPostProcessTimer = () => {
+		clearTimeout(postProcessTimeoutRef.current);
+	}
 
 	// Use this to run optimisations after a short delay
 	const inputPostProcesses = (entry: HistoryEntry<TLRecord>, editor: Editor) => {
-		clearTimeout(postProcessTimeoutRef.current);
+		resetInputPostProcessTimer();
 
 		postProcessTimeoutRef.current = setTimeout(() => {
-			console.log('Running writingPostProcesses');
+			console.log('Running drawingPostProcesses');
 
 			// Bring all writing back to main canvas
-			unstashOldShapes(editor);
+			// unstashOldShapes(editor);
 
 			// Save content
-			saveContent(editor);
+			completeSave(editor);
 
 			// Take screenshot for embed preview & OCR
 
 			// Optimise writing by moving old writing off canvas
-			stashOldShapes(editor);
+			// stashOldShapes(editor);
 
 			justProcessedRef.current = true;
-		}, 2000)
+		}, PAUSE_BEFORE_FULL_SAVE_MS)
 
 	};
 
 
-	const saveContent = async (editor: Editor) => {
+	const incrementalSave = async (editor: Editor) => {
+		const tldrawData = editor.store.getSnapshot();
+		props.save(tldrawData);
+	}
+
+
+	const completeSave = async (editor: Editor) => {
 		const tldrawData = editor.store.getSnapshot();
 		let imageUri;
 		
-
 		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
-
-		// Hide page background element
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
-			isLocked: false,
-			opacity: 0,
-		});
-
-		// get SVG
 		const svgEl = await editor.getSvg(allShapeIds);
-
-		// bring back page background element
-		editor.updateShape({
-				id: 'shape:primary_container' as TLShapeId,
-			isLocked: true,
-			type: 'handwriting-container',
-			opacity: 1,
-		});
 		
 		if (svgEl) {
 			imageUri = await svgToPngDataUri(svgEl)
-			// if(imageUri) addDataURIImage(imageUri)
+			// if(imageUri) addDataURIImage(imageUri)	// NOTE: Option for testing
 		}
 		
 		if(imageUri) {

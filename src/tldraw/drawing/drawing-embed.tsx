@@ -19,6 +19,11 @@ enum tool {
 	eraser = 'eraser',
 }
 
+
+export type DrawingEditorControls = {
+	save: Function,
+}
+
 export function DrawingEmbed (props: {
 	plugin: InkPlugin,
 	pageData: PageData,
@@ -31,7 +36,11 @@ export function DrawingEmbed (props: {
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
+	const editorControlsRef = useRef<DrawingEditorControls>();
 
+	const registerEditorControls = (handlers: DrawingEditorControls) => {
+		editorControlsRef.current = handlers;
+	}
 
 	return <>
 		<div
@@ -56,6 +65,7 @@ export function DrawingEmbed (props: {
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
 					save = {props.save}
 					embedded
+					registerControls = {registerEditorControls}
 				/>
 			)}
 			<TransitionMenuBar
@@ -67,6 +77,7 @@ export function DrawingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onFreezeClick = { async () => {
+					await editorControlsRef.current?.save();
 					const newPageData = await refreshPageData();
 					setIsEditMode(false);
 					setCurPageData(newPageData);

@@ -56,6 +56,7 @@ export function TldrawWritingEditor(props: {
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
+	registerControls: Function,
 	embedded?: boolean,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 }) {
@@ -101,12 +102,15 @@ export function TldrawWritingEditor(props: {
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
-	
 
 
 
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
+
+		props.registerControls({
+			save: () => completeSave(editor),
+		})
 
 		unstashOldShapes(editor);
 
@@ -315,16 +319,7 @@ export function TldrawWritingEditor(props: {
 
 		postProcessTimeoutRef.current = setTimeout(() => {
 			console.log('Running writingPostProcesses');
-
-			// Bring all writing back to main canvas
-			unstashOldShapes(editor);
-
-			// Save content
 			completeSave(editor);
-
-			// Optimise writing by moving old writing off canvas
-			stashOldShapes(editor);
-
 			justProcessedRef.current = true;
 		}, PAUSE_BEFORE_FULL_SAVE_MS)
 
@@ -337,11 +332,14 @@ export function TldrawWritingEditor(props: {
 	}
 
 	const completeSave = async (editor: Editor) => {
-		const tldrawData = editor.store.getSnapshot();
-		let imageUri;
-		
-		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
+		console.log('Started complete save...');
 
+		let imageUri;
+		const tldrawData = editor.store.getSnapshot();
+
+		// Bring all writing back to main canvas
+		unstashOldShapes(editor);
+		
 		// Hide page background element
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
@@ -351,6 +349,7 @@ export function TldrawWritingEditor(props: {
 		});
 
 		// get SVG
+		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
 		const svgEl = await editor.getSvg(allShapeIds);
 
 		// bring back page background element
@@ -360,6 +359,9 @@ export function TldrawWritingEditor(props: {
 			type: 'handwriting-container',
 			opacity: 1,
 		});
+
+		// Optimise writing by moving old writing off canvas
+		stashOldShapes(editor);
 		
 		if (svgEl) {
 			imageUri = await svgToPngDataUri(svgEl)
@@ -371,6 +373,8 @@ export function TldrawWritingEditor(props: {
 		} else {
 			props.save(tldrawData);
 		}
+
+		console.log('...Finished complete save');
 	}
 
 

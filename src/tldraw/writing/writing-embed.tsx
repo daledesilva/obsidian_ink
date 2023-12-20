@@ -19,6 +19,10 @@ enum tool {
 	eraser = 'eraser',
 }
 
+export type WritingEditorControls = {
+	save: Function,
+}
+
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	pageData: PageData,
@@ -29,6 +33,11 @@ export function WritingEmbed (props: {
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
+	const editorControlsRef = useRef<WritingEditorControls>();
+
+	const registerEditorControls = (handlers: WritingEditorControls) => {
+		editorControlsRef.current = handlers;
+	}
 
 	return <>
 		<div
@@ -53,6 +62,7 @@ export function WritingEmbed (props: {
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
 					save = {props.save}
 					embedded
+					registerControls = {registerEditorControls}
 				/>
 			)}
 			<TransitionMenuBar
@@ -64,6 +74,7 @@ export function WritingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onFreezeClick = { async () => {
+					await editorControlsRef.current?.save();
 					const newPageData = await refreshPageData();
 					setIsEditMode(false);
 					setCurPageData(newPageData);

@@ -51,6 +51,7 @@ export function TldrawDrawingEditor(props: {
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
+	registerControls: Function,
 	embedded?: boolean,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 }) {
@@ -102,6 +103,10 @@ export function TldrawDrawingEditor(props: {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
+
+		props.registerControls({
+			save: () => completeSave(editor),
+		})
 
 		unstashOldShapes(editor);
 
@@ -248,17 +253,10 @@ export function TldrawDrawingEditor(props: {
 		postProcessTimeoutRef.current = setTimeout(() => {
 			console.log('Running drawingPostProcesses');
 
-			// Bring all writing back to main canvas
-			// unstashOldShapes(editor);
+			
 
 			// Save content
 			completeSave(editor);
-
-			// Take screenshot for embed preview & OCR
-
-			// Optimise writing by moving old writing off canvas
-			// stashOldShapes(editor);
-
 			justProcessedRef.current = true;
 		}, PAUSE_BEFORE_FULL_SAVE_MS)
 
@@ -272,9 +270,12 @@ export function TldrawDrawingEditor(props: {
 
 
 	const completeSave = async (editor: Editor) => {
-		const tldrawData = editor.store.getSnapshot();
+		console.log('Started complete save...');
+
 		let imageUri;
+		const tldrawData = editor.store.getSnapshot();
 		
+		// get SVG
 		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
 		const svgEl = await editor.getSvg(allShapeIds);
 		

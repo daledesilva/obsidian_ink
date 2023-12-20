@@ -245,7 +245,6 @@ export function TldrawWritingEditor(props: {
 		// Because the menu bar is translated outside of the container by it's height
 		// So considering the block position that much lower means it will stay visible without changing the translation
 		const menuBarHeight = menuBarEl.getBoundingClientRect().height;
-		console.log('height', menuBarHeight) ;
 		blockPosY -= Number(menuBarHeight);
 
 		const blockOffsetY = blockPosY;// - pageScrollY;

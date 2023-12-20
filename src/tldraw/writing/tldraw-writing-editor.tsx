@@ -160,21 +160,28 @@ export function TldrawWritingEditor(props: {
 				case Activity.DrawingContinued:
 					resetInputPostProcessTimer();
 					break;
+					
+				case Activity.ErasingContinued:
+					resetInputPostProcessTimer();
+					break;
 
 				case Activity.DrawingCompleted:
 					incrementalSave(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
-					resizeWritingContainer(editor);
+					resizeTemplate(editor);
 					embedPostProcess(editor);
-					inputPostProcesses(entry, editor);
+					delayedPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
 					incrementalSave(editor);
-					resizeWritingContainer(editor);
+					resizeTemplate(editor);
 					embedPostProcess(editor);
 					break;
 
 				default:
+					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
+					incrementalSave(editor);
+					delayedPostProcess(editor);
 				// console.log('Activity not recognised.');
 				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -258,7 +265,7 @@ export function TldrawWritingEditor(props: {
 	}
 
 
-	const resizeWritingContainer = (editor: Editor) => {
+	const resizeTemplate = (editor: Editor) => {
 		let contentBounds = getWritingBounds(editor);
 
 		// Can't do it this way because the change in pages causes the camera to jump around
@@ -303,7 +310,7 @@ export function TldrawWritingEditor(props: {
 	}
 
 	// Use this to run optimisations after a short delay
-	const inputPostProcesses = (entry: HistoryEntry<TLRecord>, editor: Editor) => {
+	const delayedPostProcess = (editor: Editor) => {
 		resetInputPostProcessTimer();
 
 		postProcessTimeoutRef.current = setTimeout(() => {

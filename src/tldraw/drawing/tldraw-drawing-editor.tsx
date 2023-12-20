@@ -154,16 +154,18 @@ export function TldrawDrawingEditor(props: {
 				case Activity.DrawingCompleted:
 					incrementalSave(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					embedPostProcess(editor);
-					inputPostProcesses(entry, editor);
+					delayedPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
 					incrementalSave(editor);
-					resizeWritingContainer(editor);
 					embedPostProcess(editor);
 					break;
 
 				default:
+					// Catch anything else not specifically mentioned (ie. erase, draw shape, etc.)
+					incrementalSave(editor);
+					delayedPostProcess(editor);
 				// console.log('Activity not recognised.');
 				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -235,52 +237,12 @@ export function TldrawDrawingEditor(props: {
 		}
 	}
 
-
-	const resizeWritingContainer = (editor: Editor) => {
-		let contentBounds = getWritingBounds(editor);
-
-		// Can't do it this way because the change in pages causes the camera to jump around
-		// editor.batch( () => {
-		//	const stashPage = getOrCreateStash(editor);
-
-		// 	// Move writing container off main page so it's not considered in height
-		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], stashPage.id);
-		// 	editor.setCurrentPage(editor.pages[0]);
-
-		// 	// Get height of leftover content
-		// 	contentBounds = editor.currentPageBounds;
-
-		// 	// Move writing container back to main page
-		// 	editor.setCurrentPage(stashPage.id);
-		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], editor.pages[0].id);
-		// 	editor.setCurrentPage(editor.pages[0]);
-		// })
-
-		editor.batch(() => {
-			if (!contentBounds) return;
-
-			editor.updateShape({
-				id: 'shape:primary_container' as TLShapeId,
-				type: 'handwriting-container',
-				isLocked: false,
-			})
-			editor.updateShape({
-				id: 'shape:primary_container' as TLShapeId,
-				type: 'handwriting-container',
-				isLocked: true,
-				props: {
-					h: Math.max(700, contentBounds.h + LINE_HEIGHT * 2),
-				}
-			})
-		})
-	}
-
 	const resetInputPostProcessTimer = () => {
 		clearTimeout(postProcessTimeoutRef.current);
 	}
 
 	// Use this to run optimisations after a short delay
-	const inputPostProcesses = (entry: HistoryEntry<TLRecord>, editor: Editor) => {
+	const delayedPostProcess = (editor: Editor) => {
 		resetInputPostProcessTimer();
 
 		postProcessTimeoutRef.current = setTimeout(() => {

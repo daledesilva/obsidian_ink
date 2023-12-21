@@ -27,6 +27,9 @@ export const buildWritingEmbed = (filepath: string, transcript: string = '') => 
     embedStr += "\n```" + WRITE_EMBED_KEY;
     embedStr += "\n" + JSON.stringify(embedContent, null, '\t');
     embedStr += "\n```";
+	
+	// Adds a blank line at the end so it's easy to place the cursor after
+    embedStr += "\n";
 
 	return embedStr;
 };
@@ -55,6 +58,9 @@ export const buildDrawingEmbed = (filepath: string, transcript: string = '') => 
     embedStr += "\n```" + DRAW_EMBED_KEY;
     embedStr += "\n" + JSON.stringify(embedContent, null, '\t');
     embedStr += "\n```";
+
+	// Adds a blank line at the end so it's easy to place the cursor after
+    embedStr += "\n";
 
 	return embedStr;
 };

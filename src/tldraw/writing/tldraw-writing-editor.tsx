@@ -56,8 +56,8 @@ export function TldrawWritingEditor(props: {
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
-	registerControls: Function,
 	embedded?: boolean,
+	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -108,9 +108,11 @@ export function TldrawWritingEditor(props: {
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
 
-		props.registerControls({
-			save: () => completeSave(editor),
-		})
+		if(props.registerControls) {
+			props.registerControls({
+				save: () => completeSave(editor),
+			})
+		}
 
 		unstashOldShapes(editor);
 

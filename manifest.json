@@ -1,9 +1,9 @@
 {
 	"id": "ink",
-	"name": "ink",
-	"version": "0.0.1",
+	"name": "Ink",
+	"version": "0.0.2",
 	"minAppVersion": "1.00.0",
-	"description": "Handwrite creates features specifically tailored for handwriting. Enjoy a smooth experience on tablets and easily move words and paragraphs around. This plugin is built on top of the open source tldraw framework.",
+	"description": "Ink creates embeddable sections specifically tailored for either handwriting or drawing. Enjoy a smooth experience on tablets with your stylus. This plugin is built on top of the open source tldraw framework.",
 	"author": "Dale de Silva",
 	"authorUrl": "https://designdebt.club",
 	"fundingUrl": "https://ko-fi.com/daledesilva",

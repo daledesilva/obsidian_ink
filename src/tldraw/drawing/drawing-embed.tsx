@@ -7,7 +7,8 @@ import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFileByFilepath } from "src/utils/open-file";
-import { TFile } from "obsidian";
+import { Notice, TFile } from "obsidian";
+import { duplicateDrawingFile } from "src/utils/file-manipulation";
 
 ///////
 ///////
@@ -69,8 +70,11 @@ export function DrawingEmbed (props: {
 				/>
 			)}
 			<TransitionMenuBar
-				onOpenClick = {() => openInkFileByFilepath(props.plugin, props.filepath)}
 				isEditMode = {isEditMode}
+				onOpenClick = {async () => {
+					await editorControlsRef.current?.save();
+					openInkFileByFilepath(props.plugin, props.filepath)
+				}}
 				onEditClick = { async () => {
 					const newPageData = await refreshPageData();
 					setIsEditMode(true);
@@ -81,6 +85,11 @@ export function DrawingEmbed (props: {
 					const newPageData = await refreshPageData();
 					setIsEditMode(false);
 					setCurPageData(newPageData);
+				}}
+				onDuplicateClick = { async () => {
+					await editorControlsRef.current?.save();
+					await duplicateDrawingFile(props.plugin, props.filepath);
+					new Notice("File duplicated");
 				}}
 			/>
 		</div>

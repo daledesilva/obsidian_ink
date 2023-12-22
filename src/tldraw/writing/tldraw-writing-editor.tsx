@@ -56,6 +56,8 @@ export function TldrawWritingEditor(props: {
 	existingData: SerializedStore<TLRecord>,
 	filepath: string,
 	save: Function,
+
+	// For embeds
 	embedded?: boolean,
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,

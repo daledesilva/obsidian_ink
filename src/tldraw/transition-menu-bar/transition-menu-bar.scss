@@ -3,18 +3,20 @@
 .ink_transition_menu-bar {
     position: absolute;
     top: 0;
-    left: 0;
     right: 0;
+    translate: 100% 0;
     z-index: 1000;
-    margin: 4px;//8px var(--file-margins);
+    padding: 0 8px;//8px var(--file-margins);
 
     display: flex;
-    flex-direction: row;
-    justify-content: flex-end;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
 
     pointer-events: none;
 
     button {
+        width: auto;
         pointer-events: auto;
         color: rgba(127.5, 127.5, 127.5, 0.7);
         &:hover {

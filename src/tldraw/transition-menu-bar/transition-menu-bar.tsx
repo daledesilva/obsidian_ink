@@ -12,31 +12,41 @@ export const TransitionMenuBar: React.FC<{
 	isEditMode: boolean,
 	onEditClick: Function,
 	onFreezeClick: Function,
+	onDuplicateClick: Function,
 }> = (props) => {
 
 	return <>
 		<div
             className = 'ink_transition_menu-bar'
         >
-            <button
-                onClick = {() => props.onOpenClick()}
-            >
-                Open
-            </button>
             {props.isEditMode ? (
                 <button
                     onClick = {() => props.onFreezeClick()}
                 >
                     Freeze
                 </button>
-            ) : (
+            ) : (<>
                 <button
                     onClick = {() => props.onEditClick()}
                 >
                     Edit
                 </button>
+                <button
+                    onClick = {() => props.onOpenClick()}
+                >
+                    Open
+                </button>
 
-            )}
+                -
+
+                <button
+                    onClick = {() => props.onDuplicateClick()}
+                >
+                    Duplicate
+                </button>
+            </>)}
+
+            
         </div>
 	</>
 

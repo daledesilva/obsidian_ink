@@ -7,8 +7,14 @@ export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | 
 	try {
 		const canvas = document.createElement('canvas');
 		// Extract width and height from the SVG element
-		const width = svgElement.getAttribute('width') ? Number(svgElement.getAttribute('width')) : 0;
-		const height = svgElement.getAttribute('height') ? Number(svgElement.getAttribute('height')) : 0;
+		let width = svgElement.getAttribute('width') ? Number(svgElement.getAttribute('width')) : 0;
+		let height = svgElement.getAttribute('height') ? Number(svgElement.getAttribute('height')) : 0;
+
+        // Scale up if small
+        while(width < 1000) {
+            width *= 2;
+            height *= 2;
+        }
 
 		// Set canvas dimensions
 		canvas.width = width;
@@ -25,6 +31,7 @@ export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | 
 		const xmlSerialiser = new XMLSerializer();
 		const svgStr = xmlSerialiser.serializeToString(svgElement);
 		const canvgRenderer = await Canvg.from(ctx, svgStr);
+        canvgRenderer.resize(width, height, 'xMidYMid meet')
 		canvgRenderer.start();
 
 		// Convert canvas to PNG data URI with transparent background

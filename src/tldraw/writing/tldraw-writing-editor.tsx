@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
+import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
 import HandwritingContainer, { LINE_HEIGHT } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
@@ -113,6 +113,8 @@ export function TldrawWritingEditor(props: {
 				save: () => completeSave(editor),
 			})
 		}
+
+		adaptTldrawToObsidianThemeMode();
 
 		unstashOldShapes(editor);
 

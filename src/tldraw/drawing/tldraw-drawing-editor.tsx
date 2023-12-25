@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
-import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, setUserPreferences, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
+import { adaptTldrawToObsidianThemeMode, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
 import HandwritingContainer from "../writing-shapes/writing-container"
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -110,6 +110,8 @@ export function TldrawDrawingEditor(props: {
 				save: () => completeSave(editor),
 			})
 		}
+
+		adaptTldrawToObsidianThemeMode();
 
 		unstashOldShapes(editor);
 
@@ -315,18 +317,6 @@ export function TldrawDrawingEditor(props: {
 				overrides={myOverrides}
 				// hideUi
 			/>
-			{/* <WritingMenuBar
-				ref={menuBarElRef}
-				canUndo={canUndo}
-				canRedo={canRedo}
-				curTool={curTool}
-				onUndoClick={undo}
-				onRedoClick={redo}
-				onSelectClick={activateSelectTool}
-				onDrawClick={activateDrawTool}
-				onEraseClick={activateEraseTool}
-				onOpenClick={props.embedded && open}
-			/> */}
 		</div>
 	</>;
 

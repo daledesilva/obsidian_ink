@@ -1,4 +1,4 @@
-import { Editor } from "@tldraw/tldraw";
+import { Editor, setUserPreferences } from "@tldraw/tldraw";
 
 export function preventTldrawCanvasesCausingObsidianGestures() {
     const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
@@ -38,4 +38,19 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 
 export function initDrawingCamera(editor: Editor) {
     editor.zoomToFit()
+}
+
+export function adaptTldrawToObsidianThemeMode() {
+    const isDarkMode = document.body.classList.contains('theme-dark');
+    if(isDarkMode) {
+        setUserPreferences({
+            id: 'dummy-id',
+            isDarkMode: true
+        })
+    } else {
+        setUserPreferences({
+            id: 'dummy-id',
+            isDarkMode: false
+        })
+    }
 }

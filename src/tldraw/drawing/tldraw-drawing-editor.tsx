@@ -118,7 +118,7 @@ export function TldrawDrawingEditor(props: {
 		initDrawingCamera(editor);
 		editor.updateInstanceState({
 			isDebugMode: false,
-			isGridMode: true,
+			// isGridMode: true,	// REVIEW: Turned off for now because it forces snapping
 		})
 
 		if (props.embedded) {

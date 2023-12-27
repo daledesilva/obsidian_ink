@@ -4,6 +4,7 @@ import InkPlugin from "src/main";
 import { PageData } from "./page-file";
 import { isNonNullish } from "@tldraw/tldraw";
 import { saveLocally } from "./storage";
+import { removeExtensionAndDotFromFilepath } from "./helpers";
 
 
 
@@ -94,4 +95,13 @@ export const duplicateWritingFile = async (plugin: InkPlugin, existingFilepath: 
     const newFile = await v.copy(existingFile, newFilePath);
 
     return newFile;
+}
+
+
+export const savePngExport = (plugin: InkPlugin, dataUri: string, filepath: string): void => {
+    const base64Data = dataUri.split(',')[1];
+    const buffer = Buffer.from(base64Data, 'base64');
+    const v = plugin.app.vault;
+    const newFilePath = removeExtensionAndDotFromFilepath(filepath) + '.png';   // REVIEW: This should probably be moved out of this function
+    v.createBinary(newFilePath, buffer);
 }

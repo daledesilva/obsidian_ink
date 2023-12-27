@@ -1,12 +1,14 @@
 import './tldraw-drawing-editor.scss';
 import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, setUserPreferences, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { adaptTldrawToObsidianThemeMode, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
+import { adaptTldrawToObsidianThemeMode, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures, removeExtensionAndDotFromFilepath } from "../../utils/helpers";
 import HandwritingContainer from "../writing-shapes/writing-container"
 import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
+import { FileSystemAdapter } from 'obsidian';
+import { savePngExport } from 'src/utils/file-manipulation';
 
 
 ///////
@@ -290,6 +292,10 @@ export function TldrawDrawingEditor(props: {
 		if (svgEl) {
 			imageUri = await svgToPngDataUri(svgEl)
 			// if(imageUri) addDataURIImage(imageUri)	// NOTE: Option for testing
+
+			if(imageUri) { // TODO: and if save to file is turned on
+				savePngExport(props.plugin, imageUri, props.filepath)
+			}
 		}
 		console.log('...saved to PNG data');
 		

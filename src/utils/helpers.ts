@@ -26,7 +26,7 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
     // REVIEW: These are currently hard coded to a specific page position
     let x = containerMargin;
     let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
-    
+
     // editor.zoomToFit()
     editor.setCamera({
         x: x,
@@ -42,7 +42,7 @@ export function initDrawingCamera(editor: Editor) {
 
 export function adaptTldrawToObsidianThemeMode() {
     const isDarkMode = document.body.classList.contains('theme-dark');
-    if(isDarkMode) {
+    if (isDarkMode) {
         setUserPreferences({
             id: 'dummy-id',
             isDarkMode: true
@@ -52,5 +52,18 @@ export function adaptTldrawToObsidianThemeMode() {
             id: 'dummy-id',
             isDarkMode: false
         })
+    }
+}
+
+
+export function removeExtensionAndDotFromFilepath(filepath: string) {
+    const dotIndex = filepath.lastIndexOf(".");
+
+    const aDotExists = dotIndex !== -1;
+    const lastDotNotInPath = filepath.lastIndexOf("/") < dotIndex;
+    if (aDotExists && lastDotNotInPath) {
+        return filepath.substring(0, dotIndex);
+    } else {
+        return filepath;
     }
 }

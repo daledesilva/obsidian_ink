@@ -228,7 +228,7 @@ export function TldrawWritingEditor(props: {
 		const contentBounds = editor.currentPageBounds;
 
 		if (contentBounds) {
-			const contentRatio = contentBounds.w / (contentBounds.h + (MENUBAR_HEIGHT_PX * 1.5));
+			const contentRatio = contentBounds.w / contentBounds.h;
 			const embedHeight = embedBounds.w / contentRatio;
 			if(blockElRef.current) {
 				blockElRef.current.style.height = embedHeight + 'px';

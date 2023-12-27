@@ -1,21 +1,25 @@
 
 
+// Enables placing elements outside of the embed
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_drawing-embed),
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_drawing-embed):hover {
+    contain: unset !important;
+    overflow: visible;
+}
+
 
 .cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ink_drawing-embed) {
     // Extend through page horizontal margin
     margin: 0 calc(-1 * var(--file-margins)) !important;
 
-    // Allow menus to be visible outside of block
-    overflow: visible;
-    clip: unset;
-    contain: none !important;
-
     .tl-container {
+        // Allow tldraw right click menu to overflow container
         overflow: visible;
         clip: unset;
         contain: none !important;
         
         .tlui-layout {
+            // Allow tldraw right click menu to overflow container
             overflow: visible;
             clip: unset;
             contain: none !important;

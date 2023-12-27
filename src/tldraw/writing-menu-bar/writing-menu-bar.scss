@@ -1,12 +1,7 @@
 
 
 
-// Enables placing elements outside of the embed
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_writing-embed),
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_writing-embed):hover {
-    contain: unset !important;
-    overflow: visible;
-}
+
 
 
 

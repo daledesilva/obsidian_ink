@@ -60,7 +60,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		this.root.render(
             <WritingEmbed
 				plugin = {this.plugin}
-                filepath = {this.embedData.filepath}
+                fileRef = {this.fileRef}
 				pageData = {pageData}
                 save = {this.save}
 			/>
@@ -76,6 +76,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 
 	save = async (pageData: PageData) => {
 		if(!this.fileRef) return;
+
 		await this.plugin.app.vault.modify(this.fileRef, stringifyPageData(pageData));
 		console.log('...Saved');
 	}

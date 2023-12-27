@@ -7,7 +7,7 @@ import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
-import { FileSystemAdapter } from 'obsidian';
+import { FileSystemAdapter, TFile } from 'obsidian';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { PageData, buildPageData } from 'src/utils/page-file';
 
@@ -51,7 +51,7 @@ const myOverrides: TLUiOverrides = {
 export function TldrawDrawingEditor(props: {
 	plugin: InkPlugin,
 	pageData: PageData,
-	filepath: string,
+	fileRef: TFile,
 	save: (pageData: PageData) => void,
 
 	// For embeds
@@ -131,7 +131,7 @@ export function TldrawDrawingEditor(props: {
 		// resizeContainerIfEmbed(editor);
 		initScrollHandler();
 
-		editor.store.listen((entry) => {
+		const removeStoreListener = editor.store.listen((entry) => {
 
 			// setCanUndo(editor.canUndo);
 			// setCanRedo(editor.canRedo);
@@ -195,10 +195,12 @@ export function TldrawDrawingEditor(props: {
 
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
-			clearTimeout(postProcessTimeoutRef.current);
+			resetInputPostProcessTimer();
 			cleanUpScrollHandler();
+			removeStoreListener();
 		};
 	}
+
 
 
 
@@ -258,15 +260,14 @@ export function TldrawDrawingEditor(props: {
 	const delayedPostProcess = (editor: Editor) => {
 		resetInputPostProcessTimer();
 
-		postProcessTimeoutRef.current = setTimeout(() => {
-			console.log('Running drawingPostProcesses');
-
-			
-
-			// Save content
-			completeSave(editor);
-			justProcessedRef.current = true;
-		}, PAUSE_BEFORE_FULL_SAVE_MS)
+		postProcessTimeoutRef.current = setTimeout(
+			() => {
+				// Save content
+				completeSave(editor);
+				justProcessedRef.current = true;
+			},
+			PAUSE_BEFORE_FULL_SAVE_MS
+		)
 
 	};
 
@@ -310,7 +311,7 @@ export function TldrawDrawingEditor(props: {
 			props.save(pageData);
 
 		} else if(previewUri) {
-			savePngExport(props.plugin, previewUri, props.filepath)
+			savePngExport(props.plugin, previewUri, props.fileRef)
 
 			const pageData = buildPageData({
 				tldrawData,

@@ -6,7 +6,7 @@ import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
-import { openInkFileByFilepath } from "src/utils/open-file";
+import { openInkFile } from "src/utils/open-file";
 import { TFile, Notice } from "obsidian";
 import { duplicateWritingFile } from "src/utils/file-manipulation";
 
@@ -26,7 +26,7 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
-	filepath: string,
+	fileRef: TFile,
 	pageData: PageData,
 	save: (pageData: PageData) => void,
 }) {
@@ -59,7 +59,7 @@ export function WritingEmbed (props: {
 			{isEditMode && (
 				<TldrawWritingEditor
 					plugin = {props.plugin}
-					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					fileRef = {props.fileRef}	// REVIEW: Conver tthis to an open function so the embed controls the open?
 					pageData = {curPageData}
 					save = {props.save}
 					embedded
@@ -70,7 +70,7 @@ export function WritingEmbed (props: {
 				isEditMode = {isEditMode}
 				onOpenClick = {async () => {
 					await editorControlsRef.current?.save();
-					openInkFileByFilepath(props.plugin, props.filepath)
+					openInkFile(props.plugin, props.fileRef)
 				}}
 				onEditClick = { async () => {
 					const newPageData = await refreshPageData();
@@ -85,7 +85,7 @@ export function WritingEmbed (props: {
 				}}
 				onDuplicateClick = { async () => {
 					await editorControlsRef.current?.save();
-					await duplicateWritingFile(props.plugin, props.filepath);
+					await duplicateWritingFile(props.plugin, props.fileRef);
 					new Notice("File duplicated");
 				}}
 			/>
@@ -98,9 +98,7 @@ export function WritingEmbed (props: {
 
 	async function refreshPageData(): Promise<PageData> {
 		const v = props.plugin.app.vault;
-		const file = v.getAbstractFileByPath(props.filepath);
-		if(!(file instanceof TFile)) return props.pageData;
-		const pageDataStr = await v.read(file);
+		const pageDataStr = await v.read(props.fileRef);
 		const pageData = JSON.parse(pageDataStr) as PageData;
 		return pageData;
 	}

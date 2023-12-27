@@ -10,6 +10,7 @@ import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { PageData, buildPageData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
+import { TFile } from 'obsidian';
 
 
 ///////
@@ -53,8 +54,8 @@ const myOverrides: TLUiOverrides = {
 
 export function TldrawWritingEditor(props: {
 	plugin: InkPlugin,
+	fileRef: TFile,
 	pageData: PageData,
-	filepath: string,
 	save: (pageData: PageData) => void,
 
 	// For embeds
@@ -137,7 +138,7 @@ export function TldrawWritingEditor(props: {
 		resizeContainerIfEmbed(editor);
 		initScrollHandler();
 
-		editor.store.listen((entry) => {
+		const removeStoreListener = editor.store.listen((entry) => {
 
 			setCanUndo(editor.canUndo);
 			setCanRedo(editor.canRedo);
@@ -208,11 +209,9 @@ export function TldrawWritingEditor(props: {
 
 		return () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
-			console.log('cleaning up 1');
-			resetInputPostProcessTimer()
-			console.log('cleaning up 2');
+			resetInputPostProcessTimer();
+			removeStoreListener();
 			cleanUpScrollHandler();
-			console.log('cleaning up 3');
 		};
 	}
 
@@ -323,11 +322,14 @@ export function TldrawWritingEditor(props: {
 	const delayedPostProcess = (editor: Editor) => {
 		resetInputPostProcessTimer();
 
-		postProcessTimeoutRef.current = setTimeout(() => {
-			console.log('Running writingPostProcesses');
-			completeSave(editor);
-			justProcessedRef.current = true;
-		}, PAUSE_BEFORE_FULL_SAVE_MS)
+		postProcessTimeoutRef.current = setTimeout(
+			() => {
+				console.log('Running writingPostProcesses');
+				completeSave(editor);
+				justProcessedRef.current = true;
+			},
+			PAUSE_BEFORE_FULL_SAVE_MS
+		)
 
 	};
 
@@ -393,7 +395,7 @@ export function TldrawWritingEditor(props: {
 			props.save(pageData);
 
 		} else if(previewUri) {
-			savePngExport(props.plugin, previewUri, props.filepath)
+			savePngExport(props.plugin, previewUri, props.fileRef)
 
 			const pageData = buildPageData({
 				tldrawData,
@@ -426,7 +428,6 @@ export function TldrawWritingEditor(props: {
 			<Tldraw
 				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {props.pageData.tldraw}	// NOTE: Check what's causing this snapshot error??
-				// persistenceKey = {props.filepath}
 				onMount={handleMount}
 				// assetUrls = {assetUrls}
 				shapeUtils={MyCustomShapes}

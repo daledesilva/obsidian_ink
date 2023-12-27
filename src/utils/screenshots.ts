@@ -12,18 +12,14 @@ export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | 
         // Scale up or down
 		if (width > 1500 || height > 2000) {
 			while(width > 1500) {
-				console.log('scaling down')
 				width /= 2;
 				height /= 2;
 			}
-			console.log(width, height);
 		} else if(width < 500) {
 			while(width < 500) {
-				console.log('scaling up')
 				width *= 2;
 				height *= 2;
 			}
-			console.log(width, height);
 		} 
 		
 		// Set canvas dimensions

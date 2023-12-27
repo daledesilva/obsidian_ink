@@ -64,17 +64,17 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
 
 
 
-export const duplicateDrawingFile = async (plugin: InkPlugin, existingFilepath: string): Promise<TFile | null> => {
+export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
     const v = plugin.app.vault;
 
-    const existingFile = v.getAbstractFileByPath(existingFilepath);
-    if(!(existingFile instanceof TFile)) {
+    // const existingFile = v.getAbstractFileByPath(existingFileRef);
+    if(!(existingFileRef instanceof TFile)) {
         new Notice('No file found to duplicate');
         return null;
     }
 
     const newFilePath = await getNewTimestampedDrawingFilepath(plugin);
-    const newFile = await v.copy(existingFile, newFilePath);
+    const newFile = await v.copy(existingFileRef, newFilePath);
 
     saveLocally('lastDrawingDuplicate', newFilePath);
 
@@ -98,18 +98,39 @@ export const duplicateWritingFile = async (plugin: InkPlugin, existingFilepath: 
 }
 
 
-export const savePngExport = async (plugin: InkPlugin, dataUri: string, filepath: string): Promise<void> => {
+export const savePngExport = async (plugin: InkPlugin, dataUri: string, fileRef: TFile): Promise<void> => {
     const v = plugin.app.vault;
     
     const base64Data = dataUri.split(',')[1];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    const newFilePath = removeExtensionAndDotFromFilepath(filepath) + '.png';   // REVIEW: This should probably be moved out of this function
-    const fileRef = v.getAbstractFileByPath(newFilePath) as TFile;
-		
-    if(fileRef) {
-        v.modifyBinary(fileRef, buffer);
+    const previewFilepath = getPreviewFileVaultPath(plugin, fileRef);   // REVIEW: This should probably be moved out of this function
+    const previewFileRef = v.getAbstractFileByPath(previewFilepath) as TFile;
+	
+    if(previewFileRef) {
+        v.modifyBinary(previewFileRef, buffer);
     } else {
-        v.createBinary(newFilePath, buffer);    
+        v.createBinary(previewFilepath, buffer);    
     }
+}
+
+
+export const getPreviewFileVaultPath = (plugin: InkPlugin, fileRef: TFile): string => {
+    if(!fileRef) return '';
+    const v = plugin.app.vault;
+    const previewFilepath = fileRef.parent?.path + '/' + fileRef.basename + '.png';
+    return previewFilepath;
+}
+
+export const getPreviewFileResourcePath = (plugin: InkPlugin, fileRef: TFile): string | null => {
+    if(!fileRef) return null;
+    const v = plugin.app.vault;
+
+    const previewFilepath = fileRef.parent?.path + '/' + fileRef.basename + '.png';
+
+    const previewFileRef = v.getAbstractFileByPath(previewFilepath)
+    if(!previewFileRef || !(previewFileRef instanceof TFile)) return null;
+    
+    const previewFileResourcePath = v.getResourcePath(previewFileRef);
+    return previewFileResourcePath;
 }

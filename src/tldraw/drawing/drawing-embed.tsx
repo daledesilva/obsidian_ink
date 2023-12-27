@@ -6,9 +6,9 @@ import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { PageData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
-import { openInkFileByFilepath } from "src/utils/open-file";
+import { openInkFile } from "src/utils/open-file";
 import { Notice, TFile } from "obsidian";
-import { duplicateDrawingFile } from "src/utils/file-manipulation";
+import { duplicateDrawingFile, getPreviewFileResourcePath, getPreviewFileVaultPath } from "src/utils/file-manipulation";
 import { removeExtensionAndDotFromFilepath } from "src/utils/helpers";
 
 ///////
@@ -29,7 +29,7 @@ export type DrawingEditorControls = {
 export function DrawingEmbed (props: {
 	plugin: InkPlugin,
 	pageData: PageData,
-	filepath: string,
+	fileRef: TFile,
 	save: (pageData: PageData) => {},
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -42,21 +42,20 @@ export function DrawingEmbed (props: {
 	const editorControlsRef = useRef<DrawingEditorControls>();
 
 	// If it's not in edit mode, but doesn't have a screenshot to show, send it to edit mode to get one
-	if(!isEditMode && !curPageData.previewUri) {
-		console.log('found to have no preview')
+	// if(!isEditMode && !curPageData.previewUri) {
+	// 	console.log('found to have no preview')
 		
-		// TODO: If the file is empty, then just default straight to edit mode
-		setIsEditMode(true);
+	// 	// TODO: If the file is empty, then just default straight to edit mode
+	// 	setIsEditMode(true);
 		
-		// TODO: If it's been edit, or the dark mode has changed, then go to edit mode just to create the screenshot and then come straight back
-		setIsEditMode(true);
-		setIsEditModeForScreenshotting(true);
-	}
+	// 	// TODO: If it's been edit, or the dark mode has changed, then go to edit mode just to create the screenshot and then come straight back
+	// 	setIsEditMode(true);
+	// 	setIsEditModeForScreenshotting(true);
+	// }
 
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
-		console.log('registering controls');
 		if(isEditModeForScreenshotting) takeScreenshotAndReturn();
 	}
 
@@ -74,6 +73,7 @@ export function DrawingEmbed (props: {
 	}
 
 	
+	const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	return <>
 		<div
@@ -86,16 +86,17 @@ export function DrawingEmbed (props: {
 			{(!isEditMode && !curPageData.previewUri) && (
 				<p>No screenshot yet</p>
 			)}
+			{/* {(!isEditMode && previewFilePath) && ( */}
 			{(!isEditMode && curPageData.previewUri) && (
 				<DrawingEmbedPreview
 					src = {curPageData.previewUri}
-					// src = {removeExtensionAndDotFromFilepath(props.filepath) + '.png'}
+					// src = {previewFilePath}
 				/>
 			)}
 			{isEditMode && (
 				<TldrawDrawingEditor
 					plugin = {props.plugin}
-					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					fileRef = {props.fileRef}	// REVIEW: Conver tthis to an open function so the embed controls the open?
 					pageData = {curPageData}
 					save = {props.save}
 					embedded
@@ -106,7 +107,7 @@ export function DrawingEmbed (props: {
 				isEditMode = {isEditMode}
 				onOpenClick = {async () => {
 					await editorControlsRef.current?.save();
-					openInkFileByFilepath(props.plugin, props.filepath)
+					openInkFile(props.plugin, props.fileRef)
 				}}
 				onEditClick = { async () => {
 					const newPageData = await refreshPageData();
@@ -115,13 +116,13 @@ export function DrawingEmbed (props: {
 				}}
 				onFreezeClick = { async () => {
 					await editorControlsRef.current?.save();
-					const newPageData = await refreshPageData();
 					setIsEditMode(false);
+					const newPageData = await refreshPageData();
 					setCurPageData(newPageData);
 				}}
 				onDuplicateClick = { async () => {
 					await editorControlsRef.current?.save();
-					await duplicateDrawingFile(props.plugin, props.filepath);
+					await duplicateDrawingFile(props.plugin, props.fileRef);
 					new Notice("File duplicated");
 				}}
 			/>
@@ -133,9 +134,7 @@ export function DrawingEmbed (props: {
 
 	async function refreshPageData(): Promise<PageData> {
 		const v = props.plugin.app.vault;
-		const file = v.getAbstractFileByPath(props.filepath);
-		if(!(file instanceof TFile)) return props.pageData;
-		const pageDataStr = await v.read(file);
+		const pageDataStr = await v.read(props.fileRef);
 		const pageData = JSON.parse(pageDataStr) as PageData;
 		return pageData;
 	}

@@ -4,12 +4,7 @@ import { ViewPosition } from "src/views/writing-view";
 
 
 
-export async function openInkFileByFilepath(plugin: InkPlugin, filepath: string) {
-    const v = plugin.app.vault;
-    const fileRef = v.getAbstractFileByPath(filepath) as TFile;
-    if(!fileRef) console.log('Filepath being opened is not a file');
-    openInkFile(plugin, fileRef);
-}
+
 export async function openInkFile(plugin: InkPlugin, fileRef: TFile) {
     // switch(position) {
         // case ViewPosition.replacement:      openInActiveView(plugin, fileRef); break;

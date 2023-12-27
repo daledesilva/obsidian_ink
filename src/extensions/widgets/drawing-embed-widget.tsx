@@ -3,7 +3,7 @@ import { Editor, SerializedStore, Store, StoreSnapshot, TLGeoShape, TLRecord, TL
 import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TAbstractFile, TFile, debounce, } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { PageData } from "src/utils/page-file";
+import { PageData, stringifyPageData } from "src/utils/page-file";
 import { DrawingEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
@@ -61,7 +61,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 		this.root.render(
             <DrawingEmbed
 				plugin = {this.plugin}
-                filepath = {this.embedData.filepath}
+                fileRef = {this.fileRef}
 				pageData = {pageData}
                 save = {this.saveLinkedFile}
 			/>
@@ -75,10 +75,9 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	// Helper functions
 	///////////////////
 
-	saveLinkedFile = async (fileContents: string) => {
+	saveLinkedFile = async (pageData: PageData) => {
 		if(!this.fileRef) return;
-		await this.plugin.app.vault.modify(this.fileRef, fileContents);
-		console.log('...Saved');
+		await this.plugin.app.vault.modify(this.fileRef, stringifyPageData(pageData));
 	}
 
 }

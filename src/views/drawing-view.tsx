@@ -24,7 +24,7 @@ export enum ViewPosition {
 export function registerDrawingView (plugin: InkPlugin) {
     plugin.registerView(
         DRAWING_VIEW_TYPE,
-        (leaf) => new DrawingView(leaf, this)
+        (leaf) => new DrawingView(leaf, plugin)
     );
     plugin.registerExtensions([DRAW_FILE_EXT], DRAWING_VIEW_TYPE);
 }

@@ -98,10 +98,18 @@ export const duplicateWritingFile = async (plugin: InkPlugin, existingFilepath: 
 }
 
 
-export const savePngExport = (plugin: InkPlugin, dataUri: string, filepath: string): void => {
+export const savePngExport = async (plugin: InkPlugin, dataUri: string, filepath: string): Promise<void> => {
+    const v = plugin.app.vault;
+    
     const base64Data = dataUri.split(',')[1];
     const buffer = Buffer.from(base64Data, 'base64');
-    const v = plugin.app.vault;
+
     const newFilePath = removeExtensionAndDotFromFilepath(filepath) + '.png';   // REVIEW: This should probably be moved out of this function
-    v.createBinary(newFilePath, buffer);
+    const fileRef = v.getAbstractFileByPath(newFilePath) as TFile;
+		
+    if(fileRef) {
+        v.modifyBinary(fileRef, buffer);
+    } else {
+        v.createBinary(newFilePath, buffer);    
+    }
 }

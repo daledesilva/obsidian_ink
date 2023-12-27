@@ -30,19 +30,50 @@ export function DrawingEmbed (props: {
 	plugin: InkPlugin,
 	pageData: PageData,
 	filepath: string,
-	save: Function,
+	save: (pageData: PageData) => {},
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<Editor|null>(null);
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	const [isEditModeForScreenshotting, setIsEditModeForScreenshotting] = useState<boolean>(false);
 	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 
+	// If it's not in edit mode, but doesn't have a screenshot to show, send it to edit mode to get one
+	if(!isEditMode && !curPageData.previewUri) {
+		console.log('found to have no preview')
+		
+		// TODO: If the file is empty, then just default straight to edit mode
+		setIsEditMode(true);
+		
+		// TODO: If it's been edit, or the dark mode has changed, then go to edit mode just to create the screenshot and then come straight back
+		setIsEditMode(true);
+		setIsEditModeForScreenshotting(true);
+	}
+
+	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
+		console.log('registering controls');
+		if(isEditModeForScreenshotting) takeScreenshotAndReturn();
 	}
+
+	const takeScreenshotAndReturn = async () => {
+		if(!editorControlsRef.current) return;
+
+		console.log('taking screenshot');
+		await editorControlsRef.current.save();
+
+		console.log('leaving edit mode');
+		const newPageData = await refreshPageData();
+		setCurPageData(newPageData);
+		setIsEditMode(false);
+		setIsEditModeForScreenshotting(false);
+	}
+
+	
 
 	return <>
 		<div
@@ -64,8 +95,8 @@ export function DrawingEmbed (props: {
 			{isEditMode && (
 				<TldrawDrawingEditor
 					plugin = {props.plugin}
-					existingData = {curPageData.tldraw}
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					pageData = {curPageData}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}

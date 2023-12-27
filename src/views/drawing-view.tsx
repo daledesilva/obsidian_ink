@@ -6,7 +6,7 @@ import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import TldrawDrawingEditor from "src/tldraw/drawing/tldraw-drawing-editor";
 import TldrawHandwrittenEditor from "src/tldraw/writing/tldraw-writing-editor";
-import { PageData, buildPageFile } from "src/utils/page-file";
+import { PageData, stringifyPageData } from "src/utils/page-file";
 
 ////////
 ////////
@@ -33,17 +33,15 @@ export function registerDrawingView (plugin: InkPlugin) {
 export class DrawingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    tldrawData: SerializedStore<TLRecord> = {};
-    previewImageUri: string | null;
+    pageData: PageData;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
-    saveFile = (tldrawData: SerializedStore<TLRecord>, previewImageUri: string | null = null) => {
-        this.tldrawData = tldrawData;
-        this.previewImageUri = previewImageUri;
+    saveFile = (pageData: PageData) => {
+        this.pageData = pageData;
         this.save(false);   // this called getViewData
     }
 
@@ -60,7 +58,7 @@ export class DrawingView extends TextFileView {
         if(!this.file) return;
         
         const pageData = JSON.parse(fileContents) as PageData;
-        this.tldrawData = pageData.tldraw;
+        this.pageData = pageData;
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
@@ -72,8 +70,8 @@ export class DrawingView extends TextFileView {
 		this.root.render(
             <TldrawDrawingEditor
                 plugin = {this.plugin}
-                existingData = {this.tldrawData}
                 filepath = {this.file.path}
+                pageData = {this.pageData}
                 save = {this.saveFile}
 			/>
         );
@@ -81,7 +79,7 @@ export class DrawingView extends TextFileView {
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData = (): string => {
-        const fileContents = buildPageFile(this.tldrawData, this.previewImageUri);
+        const fileContents = stringifyPageData(this.pageData);
         return fileContents;
     }
 

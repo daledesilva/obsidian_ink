@@ -26,9 +26,9 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
-	pageData: PageData,
 	filepath: string,
-	save: Function,
+	pageData: PageData,
+	save: (pageData: PageData) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
@@ -59,8 +59,8 @@ export function WritingEmbed (props: {
 			{isEditMode && (
 				<TldrawWritingEditor
 					plugin = {props.plugin}
-					existingData = {curPageData.tldraw}
 					filepath = {props.filepath}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					pageData = {curPageData}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}

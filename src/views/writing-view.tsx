@@ -4,10 +4,10 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import TldrawHandwrittenEditor from "src/tldraw/writing/tldraw-writing-editor";
+import { TldrawWritingEditor } from "src/tldraw/writing/tldraw-writing-editor";
 import { convertWriteFileToDraw } from "src/utils/file-manipulation";
 import { openInkFile } from "src/utils/open-file";
-import { PageData, buildPageFile } from "src/utils/page-file";
+import { PageData, stringifyPageData } from "src/utils/page-file";
 
 ////////
 ////////
@@ -34,18 +34,16 @@ export function registerWritingView (plugin: InkPlugin) {
 export class WritingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    tldrawData: SerializedStore<TLRecord> = {};
-    previewImageUri: string | null;
+    pageData: PageData;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
-    saveFile = (tldrawData: SerializedStore<TLRecord>, previewImageUri: string | null = null) => {
-        this.tldrawData = tldrawData;
-        this.previewImageUri = previewImageUri;
-        this.save(false);   // this called getViewData
+    saveFile = (pageData: PageData) => {
+        this.pageData = pageData;
+        this.save(false);   // this calls getViewData
     }
 
     getViewType(): string {
@@ -61,7 +59,7 @@ export class WritingView extends TextFileView {
         if(!this.file) return;
         
         const pageData = JSON.parse(fileContents) as PageData;
-        this.tldrawData = pageData.tldraw;
+        this.pageData = pageData;
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
@@ -71,10 +69,10 @@ export class WritingView extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawHandwrittenEditor
+            <TldrawWritingEditor
                 plugin = {this.plugin}
-                existingData = {this.tldrawData}
                 filepath = {this.file.path}
+                pageData = {this.pageData}
                 save = {this.saveFile}
 			/>
         );
@@ -82,8 +80,8 @@ export class WritingView extends TextFileView {
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData = (): string => {
-        const fileContents = buildPageFile(this.tldrawData, this.previewImageUri);
-        return fileContents;
+        console.log(this.pageData);
+        return stringifyPageData(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

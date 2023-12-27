@@ -9,6 +9,7 @@ import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { FileSystemAdapter } from 'obsidian';
 import { savePngExport } from 'src/utils/file-manipulation';
+import { PageData, buildPageData } from 'src/utils/page-file';
 
 
 ///////
@@ -49,9 +50,9 @@ const myOverrides: TLUiOverrides = {
 
 export function TldrawDrawingEditor(props: {
 	plugin: InkPlugin,
-	existingData: SerializedStore<TLRecord>,
+	pageData: PageData,
 	filepath: string,
-	save: Function,
+	save: (pageData: PageData) => void,
 
 	// For embeds
 	embedded?: boolean,
@@ -109,7 +110,7 @@ export function TldrawDrawingEditor(props: {
 
 		if(props.registerControls) {
 			props.registerControls({
-				save: () => completeSave(editor),
+				save: async () => await completeSave(editor),
 			})
 		}
 
@@ -272,13 +273,18 @@ export function TldrawDrawingEditor(props: {
 
 	const incrementalSave = async (editor: Editor) => {
 		const tldrawData = editor.store.getSnapshot();
-		props.save(tldrawData);
+
+		const pageData = buildPageData({
+			tldrawData,
+			previewIsOutdated: true,
+		})
+		props.save(pageData);
 	}
 
 
 	const completeSave = async (editor: Editor) => {
 		
-		let imageUri;
+		let previewUri;
 		const tldrawData = editor.store.getSnapshot();
 		
 		// get SVG
@@ -286,16 +292,40 @@ export function TldrawDrawingEditor(props: {
 		const svgEl = await editor.getSvg(allShapeIds);
 		
 		if (svgEl) {
-			imageUri = await svgToPngDataUri(svgEl)
-			// if(imageUri) addDataURIImage(imageUri)	// NOTE: Option for testing
+			previewUri = await svgToPngDataUri(svgEl)
+			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
+
+		// TODO: check dark mode 
+		const isDarkMode = true;
+
+		// TODO: check if file contains data worth creating a preview of
+		const isEmpty = false;
 		
-		if(imageUri) {
-			savePngExport(props.plugin, imageUri, props.filepath)
-			// props.save(tldrawData, imageUri);
+		if(isEmpty) {
+			const pageData = buildPageData({
+				tldrawData,
+				isEmpty,
+			})
+			props.save(pageData);
+
+		} else if(previewUri) {
+			savePngExport(props.plugin, previewUri, props.filepath)
+
+			const pageData = buildPageData({
+				tldrawData,
+				previewUri,
+				previewIsDarkMode: isDarkMode,
+			})
+			props.save(pageData);
+
+		} else {
+			const pageData = buildPageData({
+				tldrawData,
+			})
+			props.save(pageData);
+
 		}
-		
-		props.save(tldrawData);
 
 	}
 
@@ -304,20 +334,20 @@ export function TldrawDrawingEditor(props: {
 
 	return <>
 		<div
-			ref={blockElRef}
-			style={{
+			ref = {blockElRef}
+			style = {{
 				height: '100%',
 				position: 'relative'
 			}}
 		>
 			<Tldraw
 				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
-				snapshot={props.existingData}	// NOTE: Check what's causing this snapshot error??
+				snapshot = {props.pageData.tldraw}	// NOTE: Check what's causing this snapshot error??
 				// persistenceKey = {props.filepath}
-				onMount={handleMount}
+				onMount = {handleMount}
 				// assetUrls = {assetUrls}
 				// shapeUtils={MyCustomShapes}
-				overrides={myOverrides}
+				overrides = {myOverrides}
 				// hideUi
 			/>
 		</div>

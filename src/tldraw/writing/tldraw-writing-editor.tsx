@@ -8,6 +8,8 @@ import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
+import { PageData, buildPageData } from 'src/utils/page-file';
+import { savePngExport } from 'src/utils/file-manipulation';
 
 
 ///////
@@ -51,9 +53,9 @@ const myOverrides: TLUiOverrides = {
 
 export function TldrawWritingEditor(props: {
 	plugin: InkPlugin,
-	existingData: SerializedStore<TLRecord>,
+	pageData: PageData,
 	filepath: string,
-	save: Function,
+	save: (pageData: PageData) => void,
 
 	// For embeds
 	embedded?: boolean,
@@ -332,13 +334,18 @@ export function TldrawWritingEditor(props: {
 
 	const incrementalSave = async (editor: Editor) => {
 		const tldrawData = editor.store.getSnapshot();
-		props.save(tldrawData);
+
+		const pageData = buildPageData({
+			tldrawData,
+			previewIsOutdated: true,
+		})
+		props.save(pageData);
 	}
 
 	const completeSave = async (editor: Editor) => {
 		console.log('Started complete save...');
 
-		let imageUri;
+		let previewUri;
 		const tldrawData = editor.store.getSnapshot();
 
 		// Bring all writing back to main canvas
@@ -351,14 +358,14 @@ export function TldrawWritingEditor(props: {
 			isLocked: false,
 			opacity: 0,
 		});
-
+		
 		// get SVG
 		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
 		const svgEl = await editor.getSvg(allShapeIds);
 
 		// bring back page background element
 		editor.updateShape({
-				id: 'shape:primary_container' as TLShapeId,
+			id: 'shape:primary_container' as TLShapeId,
 			isLocked: true,
 			type: 'handwriting-container',
 			opacity: 1,
@@ -368,14 +375,39 @@ export function TldrawWritingEditor(props: {
 		stashOldShapes(editor);
 		
 		if (svgEl) {
-			imageUri = await svgToPngDataUri(svgEl)
-			// if(imageUri) addDataURIImage(imageUri)
+			previewUri = await svgToPngDataUri(svgEl)
+			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
+
+		// TODO: check dark mode 
+		const isDarkMode = true;
+
+		// TODO: check if file contains data worth creating a preview of
+		const isEmpty = false;
 		
-		if(imageUri) {
-			props.save(tldrawData, imageUri);
+		if(isEmpty) {
+			const pageData = buildPageData({
+				tldrawData,
+				isEmpty,
+			})
+			props.save(pageData);
+
+		} else if(previewUri) {
+			savePngExport(props.plugin, previewUri, props.filepath)
+
+			const pageData = buildPageData({
+				tldrawData,
+				previewUri,
+				previewIsDarkMode: isDarkMode,
+			})
+			props.save(pageData);
+
 		} else {
-			props.save(tldrawData);
+			const pageData = buildPageData({
+				tldrawData,
+			})
+			props.save(pageData);
+
 		}
 
 		console.log('...Finished complete save');
@@ -393,7 +425,7 @@ export function TldrawWritingEditor(props: {
 		>
 			<Tldraw
 				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
-				snapshot={props.existingData}	// NOTE: Check what's causing this snapshot error??
+				snapshot = {props.pageData.tldraw}	// NOTE: Check what's causing this snapshot error??
 				// persistenceKey = {props.filepath}
 				onMount={handleMount}
 				// assetUrls = {assetUrls}
@@ -402,15 +434,15 @@ export function TldrawWritingEditor(props: {
 				hideUi
 			/>
 			<WritingMenuBar
-				ref={menuBarElRef}
-				canUndo={canUndo}
-				canRedo={canRedo}
-				curTool={curTool}
-				onUndoClick={undo}
-				onRedoClick={redo}
-				onSelectClick={activateSelectTool}
-				onDrawClick={activateDrawTool}
-				onEraseClick={activateEraseTool}
+				ref = {menuBarElRef}
+				canUndo = {canUndo}
+				canRedo = {canRedo}
+				curTool = {curTool}
+				onUndoClick = {undo}
+				onRedoClick = {redo}
+				onSelectClick = {activateSelectTool}
+				onDrawClick = {activateDrawTool}
+				onEraseClick = {activateEraseTool}
 			/>
 			{/* <div
 				className = 'output-log'
@@ -432,7 +464,6 @@ export function TldrawWritingEditor(props: {
 
 };
 
-export default TldrawWritingEditor;
 
 
 

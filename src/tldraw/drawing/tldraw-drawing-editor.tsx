@@ -108,12 +108,6 @@ export function TldrawDrawingEditor(props: {
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
 
-		if(props.registerControls) {
-			props.registerControls({
-				save: async () => await completeSave(editor),
-			})
-		}
-
 		adaptTldrawToObsidianThemeMode();
 
 		unstashOldShapes(editor);
@@ -192,12 +186,25 @@ export function TldrawDrawingEditor(props: {
 		preventTldrawCanvasesCausingObsidianGestures();
 		activateDrawTool();
 
-
-		return () => {
+		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimer();
-			cleanUpScrollHandler();
 			removeStoreListener();
+			cleanUpScrollHandler();
+		}
+
+		if(props.registerControls) {
+			props.registerControls({
+				save: async () => await completeSave(editor),
+				saveAndFreeze: async () => {
+					await completeSave(editor)
+					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and the unmount
+				},
+			})
+		}
+
+		return () => {
+			unmountActions();
 		};
 	}
 

@@ -63,7 +63,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 				plugin = {this.plugin}
                 fileRef = {this.fileRef}
 				pageData = {pageData}
-                save = {this.saveLinkedFile}
+                save = {this.save}
 			/>
         );
 	}
@@ -75,9 +75,10 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	// Helper functions
 	///////////////////
 
-	saveLinkedFile = async (pageData: PageData) => {
+	save = async (pageData: PageData) => {
 		if(!this.fileRef) return;
-		await this.plugin.app.vault.modify(this.fileRef, stringifyPageData(pageData));
+		const pageDataStr = stringifyPageData(pageData);
+		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 
 }

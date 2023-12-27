@@ -22,6 +22,7 @@ enum tool {
 
 export type WritingEditorControls = {
 	save: Function,
+	saveAndFreeze: Function,
 }
 
 export function WritingEmbed (props: {
@@ -40,6 +41,8 @@ export function WritingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
+	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -51,9 +54,11 @@ export function WritingEmbed (props: {
 			{(!isEditMode && !curPageData.previewUri) && (
 				<p>No screenshot yet</p>
 			)}
+			{/* {(!isEditMode && previewFilePath) && ( */}
 			{(!isEditMode && curPageData.previewUri) && (
 				<WritingEmbedPreview
-					base64Image = {curPageData.previewUri}
+					src = {curPageData.previewUri}
+					// src = {previewFilePath}
 				/>
 			)}
 			{isEditMode && (
@@ -77,9 +82,9 @@ export function WritingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onFreezeClick = { async () => {
-					await editorControlsRef.current?.save();
-					const newPageData = await refreshPageData();
+					await editorControlsRef.current?.saveAndFreeze();
 					setIsEditMode(false);
+					const newPageData = await refreshPageData();
 					setCurPageData(newPageData);
 				}}
 				onDuplicateClick = { async () => {
@@ -94,6 +99,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	async function refreshPageData(): Promise<PageData> {
+		console.log('refreshing pageData');
 		const v = props.plugin.app.vault;
 		const pageDataStr = await v.read(props.fileRef);
 		const pageData = JSON.parse(pageDataStr) as PageData;
@@ -131,12 +137,12 @@ export default WritingEmbed;
 
 
 const WritingEmbedPreview: React.FC<{ 
-	base64Image: string,
+	src: string,
 }> = (props) => {
 
 	return <div>
 		<img
-			src = {props.base64Image}
+			src = {props.src}
 			style = {{
 				width: '100%'
 			}}

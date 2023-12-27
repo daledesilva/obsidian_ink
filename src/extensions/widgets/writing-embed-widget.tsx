@@ -75,10 +75,12 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 	///////////////////
 
 	save = async (pageData: PageData) => {
+		console.log('Modifying', pageData);
 		if(!this.fileRef) return;
 
-		await this.plugin.app.vault.modify(this.fileRef, stringifyPageData(pageData));
-		console.log('...Saved');
+		const pageDataStr = stringifyPageData(pageData);
+		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
+		console.log('...File modified', pageData);
 	}
 
 }

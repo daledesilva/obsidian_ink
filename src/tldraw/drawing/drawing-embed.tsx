@@ -73,7 +73,7 @@ export function DrawingEmbed (props: {
 	}
 
 	
-	const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
+	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	return <>
 		<div

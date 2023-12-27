@@ -11,6 +11,7 @@ import { svgToPngDataUri } from 'src/utils/screenshots';
 import { PageData, buildPageData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
+import { unmountComponentAtNode } from 'react-dom';
 
 
 ///////
@@ -111,12 +112,6 @@ export function TldrawWritingEditor(props: {
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
 
-		if(props.registerControls) {
-			props.registerControls({
-				save: () => completeSave(editor),
-			})
-		}
-
 		adaptTldrawToObsidianThemeMode();
 
 		unstashOldShapes(editor);
@@ -177,6 +172,7 @@ export function TldrawWritingEditor(props: {
 					break;
 
 				case Activity.DrawingCompleted:
+					console.log('drawing completed');
 					incrementalSave(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					resizeTemplate(editor);
 					embedPostProcess(editor);
@@ -184,12 +180,14 @@ export function TldrawWritingEditor(props: {
 					break;
 
 				case Activity.DrawingErased:
+					console.log('drawing erased');
 					incrementalSave(editor);
 					resizeTemplate(editor);
 					embedPostProcess(editor);
 					break;
 
 				default:
+					console.log('default');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
 					incrementalSave(editor);
 					delayedPostProcess(editor);
@@ -206,12 +204,25 @@ export function TldrawWritingEditor(props: {
 		preventTldrawCanvasesCausingObsidianGestures();
 		activateDrawTool();
 
-
-		return () => {
+		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimer();
 			removeStoreListener();
 			cleanUpScrollHandler();
+		}
+
+		if(props.registerControls) {
+			props.registerControls({
+				save: () => completeSave(editor),
+				saveAndFreeze: async () => {
+					await completeSave(editor)
+					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and the unmount
+				},
+			})
+		}
+
+		return () => {
+			unmountActions();
 		};
 	}
 
@@ -324,7 +335,6 @@ export function TldrawWritingEditor(props: {
 
 		postProcessTimeoutRef.current = setTimeout(
 			() => {
-				console.log('Running writingPostProcesses');
 				completeSave(editor);
 				justProcessedRef.current = true;
 			},
@@ -342,11 +352,10 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
+		console.log('...Finished incremental save');
 	}
 
 	const completeSave = async (editor: Editor) => {
-		console.log('Started complete save...');
-
 		let previewUri;
 		const tldrawData = editor.store.getSnapshot();
 
@@ -395,14 +404,13 @@ export function TldrawWritingEditor(props: {
 			props.save(pageData);
 
 		} else if(previewUri) {
-			savePngExport(props.plugin, previewUri, props.fileRef)
-
 			const pageData = buildPageData({
 				tldrawData,
 				previewUri,
 				previewIsDarkMode: isDarkMode,
 			})
 			props.save(pageData);
+			savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
 			const pageData = buildPageData({

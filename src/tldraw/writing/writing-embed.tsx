@@ -69,7 +69,6 @@ export function WritingEmbed (props: {
 			<TransitionMenuBar
 				isEditMode = {isEditMode}
 				onOpenClick = {async () => {
-					await editorControlsRef.current?.save();
 					openInkFile(props.plugin, props.fileRef)
 				}}
 				onEditClick = { async () => {
@@ -84,9 +83,7 @@ export function WritingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onDuplicateClick = { async () => {
-					await editorControlsRef.current?.save();
 					await duplicateWritingFile(props.plugin, props.fileRef);
-					new Notice("File duplicated");
 				}}
 			/>
 		</div>

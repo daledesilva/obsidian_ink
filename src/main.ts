@@ -13,6 +13,7 @@ import createNewWritingFile from './commands/create-new-writing-file';
 import { openInkFile } from './utils/open-file';
 import createNewDrawingFile from './commands/create-new-drawing-file';
 import insertRecentlyDuplicatedDrawingFile from './commands/insert-recently-duplicated-drawing-file';
+import insertRecentlyDuplicatedWritingFile from './commands/insert-recently-duplicated-writing-file';
 
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -88,6 +89,11 @@ export default class InkPlugin extends Plugin {
 			id: 'ddc_insert-recently-duplicated-drawing',
 			name: 'Insert recently duplicated drawing',
 			editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(this, editor)
+		});
+		this.addCommand({
+			id: 'ddc_insert-recently-duplicated-writing',
+			name: 'Insert recently duplicated handwriting section',
+			editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(this, editor)
 		});
 
 

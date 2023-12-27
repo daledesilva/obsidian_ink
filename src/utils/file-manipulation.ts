@@ -67,7 +67,6 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
 export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
     const v = plugin.app.vault;
 
-    // const existingFile = v.getAbstractFileByPath(existingFileRef);
     if(!(existingFileRef instanceof TFile)) {
         new Notice('No file found to duplicate');
         return null;
@@ -77,22 +76,25 @@ export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: T
     const newFile = await v.copy(existingFileRef, newFilePath);
 
     saveLocally('lastDrawingDuplicate', newFilePath);
+    new Notice("Drawing file duplicated");
 
     return newFile;
 }
 
 
-export const duplicateWritingFile = async (plugin: InkPlugin, existingFilepath: string): Promise<TFile | null> => {
+export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
     const v = plugin.app.vault;
 
-    const existingFile = v.getAbstractFileByPath(existingFilepath);
-    if(!(existingFile instanceof TFile)) {
+    if(!(existingFileRef instanceof TFile)) {
         new Notice('No file found to duplicate');
         return null;
     }
 
     const newFilePath = await getNewTimestampedWritingFilepath(plugin);
-    const newFile = await v.copy(existingFile, newFilePath);
+    const newFile = await v.copy(existingFileRef, newFilePath);
+
+    saveLocally('lastWritingDuplicate', newFilePath);
+    new Notice("Writing file duplicated");
 
     return newFile;
 }

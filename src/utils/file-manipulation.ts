@@ -1,8 +1,9 @@
 import { Notice, TFile, Vault } from "obsidian";
-import { DRAW_FILE_EXT, FOLDER_NAME, WRITE_FILE_EXT } from "src/constants";
+import { DRAW_FILE_EXT, FOLDER_NAME, PLUGIN_KEY, WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { PageData } from "./page-file";
 import { isNonNullish } from "@tldraw/tldraw";
+import { saveLocally } from "./storage";
 
 
 
@@ -73,6 +74,8 @@ export const duplicateDrawingFile = async (plugin: InkPlugin, existingFilepath: 
 
     const newFilePath = await getNewTimestampedDrawingFilepath(plugin);
     const newFile = await v.copy(existingFile, newFilePath);
+
+    saveLocally('lastDrawingDuplicate', newFilePath);
 
     return newFile;
 }

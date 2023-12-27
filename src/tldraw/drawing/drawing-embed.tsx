@@ -9,6 +9,7 @@ import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFileByFilepath } from "src/utils/open-file";
 import { Notice, TFile } from "obsidian";
 import { duplicateDrawingFile } from "src/utils/file-manipulation";
+import { removeExtensionAndDotFromFilepath } from "src/utils/helpers";
 
 ///////
 ///////
@@ -56,7 +57,8 @@ export function DrawingEmbed (props: {
 			)}
 			{(!isEditMode && curPageData.previewUri) && (
 				<DrawingEmbedPreview
-					base64Image = {curPageData.previewUri}
+					src = {curPageData.previewUri}
+					// src = {removeExtensionAndDotFromFilepath(props.filepath) + '.png'}
 				/>
 			)}
 			{isEditMode && (
@@ -138,12 +140,12 @@ export default DrawingEmbed;
 
 
 const DrawingEmbedPreview: React.FC<{ 
-	base64Image: string,
+	src: string,
 }> = (props) => {
 
 	return <div>
 		<img
-			src = {props.base64Image}
+			src = {props.src}
 			style = {{
 				width: '100%'
 			}}

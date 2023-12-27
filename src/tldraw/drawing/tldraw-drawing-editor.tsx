@@ -277,34 +277,26 @@ export function TldrawDrawingEditor(props: {
 
 
 	const completeSave = async (editor: Editor) => {
-		console.log('Started complete save...');
 		
 		let imageUri;
 		const tldrawData = editor.store.getSnapshot();
-		console.log('...Got snapshot');
 		
 		// get SVG
 		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
-		console.log('...Got shapeIds');
 		const svgEl = await editor.getSvg(allShapeIds);
-		console.log('...Got SVG');
 		
 		if (svgEl) {
 			imageUri = await svgToPngDataUri(svgEl)
 			// if(imageUri) addDataURIImage(imageUri)	// NOTE: Option for testing
-
-			if(imageUri) { // TODO: and if save to file is turned on
-				savePngExport(props.plugin, imageUri, props.filepath)
-			}
 		}
-		console.log('...saved to PNG data');
 		
 		if(imageUri) {
-			props.save(tldrawData, imageUri);
-		} else {
-			props.save(tldrawData);
+			savePngExport(props.plugin, imageUri, props.filepath)
+			// props.save(tldrawData, imageUri);
 		}
-		console.log('...saved to file');
+		
+		props.save(tldrawData);
+
 	}
 
 

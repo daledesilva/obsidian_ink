@@ -45,3 +45,10 @@
         height: fit-content;
     }
 }
+
+
+
+// Remove the option to pattern fill because that cripples saving to PNG
+.tlui-button[data-id="pattern"] {
+    display: none;
+}

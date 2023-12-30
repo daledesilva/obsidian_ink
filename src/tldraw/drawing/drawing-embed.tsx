@@ -42,12 +42,13 @@ export function DrawingEmbed (props: {
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 
+	console.log('RENDERING EMBED');
 		
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 
 		if(!isEditMode) {
-			if(isEmptyDrawingFile(props.pageData.tldraw)) {
+			if(isEmptyDrawingFile(curPageData.tldraw)) {
 				setIsEditMode(true);
 				
 			} else if(!curPageData.previewUri) {
@@ -124,9 +125,9 @@ export function DrawingEmbed (props: {
 				}}
 				onFreezeClick = { async () => {
 					await editorControlsRef.current?.save();
-					setIsEditMode(false);
 					const newPageData = await refreshPageData();
 					setCurPageData(newPageData);
+					setIsEditMode(false);
 				}}
 				onDuplicateClick = { async () => {
 					await duplicateDrawingFile(props.plugin, props.fileRef);

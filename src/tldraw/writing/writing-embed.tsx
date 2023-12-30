@@ -44,7 +44,7 @@ export function WritingEmbed (props: {
 	React.useEffect( () => {
 
 		if(!isEditMode) {
-			if(isEmptyWritingFile(props.pageData.tldraw)) {
+			if(isEmptyWritingFile(curPageData.tldraw)) {
 				setIsEditMode(true);
 				
 			} else if(!curPageData.previewUri) {
@@ -120,8 +120,8 @@ export function WritingEmbed (props: {
 				onFreezeClick = { async () => {
 					await editorControlsRef.current?.saveAndHalt();
 					const newPageData = await refreshPageData();
-					setIsEditMode(false);
 					setCurPageData(newPageData);
+					setIsEditMode(false);
 				}}
 				onDuplicateClick = { async () => {
 					await duplicateWritingFile(props.plugin, props.fileRef);

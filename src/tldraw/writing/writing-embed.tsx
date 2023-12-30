@@ -4,11 +4,12 @@ import * as React from "react";
 import { useRef, useState } from "react";
 import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
-import { PageData } from "../../utils/page-file";
+import { InkFileData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFile } from "src/utils/open-file";
 import { TFile, Notice } from "obsidian";
 import { duplicateWritingFile } from "src/utils/file-manipulation";
+import { isEmptyWritingFile } from "src/utils/helpers";
 
 ///////
 ///////
@@ -28,18 +29,23 @@ export type WritingEditorControls = {
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	fileRef: TFile,
-	pageData: PageData,
-	save: (pageData: PageData) => void,
+	pageData: InkFileData,
+	save: (pageData: InkFileData) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
-	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
+	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 
 	const registerEditorControls = (handlers: WritingEditorControls) => {
 		editorControlsRef.current = handlers;
 	}
+
+	// on mount
+	React.useEffect( () => {
+		if(isEmptyWritingFile(props.pageData.tldraw)) setIsEditMode(true);
+	}, [])
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
@@ -98,11 +104,11 @@ export function WritingEmbed (props: {
 	// Helper functions
 	///////////////////
 
-	async function refreshPageData(): Promise<PageData> {
+	async function refreshPageData(): Promise<InkFileData> {
 		console.log('refreshing pageData');
 		const v = props.plugin.app.vault;
 		const pageDataStr = await v.read(props.fileRef);
-		const pageData = JSON.parse(pageDataStr) as PageData;
+		const pageData = JSON.parse(pageDataStr) as InkFileData;
 		return pageData;
 	}
 

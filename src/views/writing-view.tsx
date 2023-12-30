@@ -7,7 +7,7 @@ import InkPlugin from "src/main";
 import { TldrawWritingEditor } from "src/tldraw/writing/tldraw-writing-editor";
 import { convertWriteFileToDraw } from "src/utils/file-manipulation";
 import { openInkFile } from "src/utils/open-file";
-import { PageData, stringifyPageData } from "src/utils/page-file";
+import { InkFileData, stringifyPageData } from "src/utils/page-file";
 
 ////////
 ////////
@@ -34,14 +34,14 @@ export function registerWritingView (plugin: InkPlugin) {
 export class WritingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    pageData: PageData;
+    pageData: InkFileData;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
-    saveFile = (pageData: PageData) => {
+    saveFile = (pageData: InkFileData) => {
         this.pageData = pageData;
         this.save(false);   // this calls getViewData
     }
@@ -58,7 +58,7 @@ export class WritingView extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = JSON.parse(fileContents) as PageData;
+        const pageData = JSON.parse(fileContents) as InkFileData;
         this.pageData = pageData;
 
         const viewContent = this.containerEl.children[1];

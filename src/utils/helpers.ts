@@ -1,4 +1,4 @@
-import { Editor, setUserPreferences } from "@tldraw/tldraw";
+import { Editor, StoreSnapshot, TLRecord, TLShape, setUserPreferences } from "@tldraw/tldraw";
 
 export function preventTldrawCanvasesCausingObsidianGestures() {
     const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
@@ -66,4 +66,31 @@ export function removeExtensionAndDotFromFilepath(filepath: string) {
     } else {
         return filepath;
     }
+}
+
+
+export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
+    let isEmpty = true;
+    for (const record of Object.values(tldrawData.store)) {
+        // Store should only contain document, page, and handwriting container shape
+        if(record.typeName === 'shape') {
+            const shapeRecord = record as TLShape;
+            if (shapeRecord.type !== 'handwriting-container') {
+                isEmpty = false;
+            }
+        } 
+    }
+    return isEmpty;
+}
+
+export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
+    console.log('Drawing store', Object.keys(tldrawData.store))
+    let isEmpty = true;
+    for (const record of Object.values(tldrawData.store)) {
+        // Store should only contain document and page
+        if(record.typeName === 'shape') {
+            isEmpty = false;
+        } 
+    }
+    return isEmpty;
 }

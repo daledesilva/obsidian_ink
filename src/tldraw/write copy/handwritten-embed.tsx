@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRef, useState } from "react";
 import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
 import HandwritePlugin from "../../main";
-import { PageData } from "../../utils/page-file";
+import { InkFileData } from "../../utils/page-file";
 import ReadonlyMenuBar from "../transition-menu-bar/transition-menu-bar";
 
 ///////
@@ -19,7 +19,7 @@ enum tool {
 
 export function HandwrittenEmbed (props: {
 	plugin: HandwritePlugin,
-	pageData: PageData,
+	pageData: InkFileData,
 	filepath: string,
 	save: Function,
 }) {

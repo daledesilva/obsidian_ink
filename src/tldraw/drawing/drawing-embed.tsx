@@ -4,12 +4,12 @@ import * as React from "react";
 import { useRef, useState } from "react";
 import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
-import { PageData } from "../../utils/page-file";
+import { InkFileData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFile } from "src/utils/open-file";
 import { Notice, TFile } from "obsidian";
 import { duplicateDrawingFile, duplicateWritingFile, getPreviewFileResourcePath, getPreviewFileVaultPath } from "src/utils/file-manipulation";
-import { removeExtensionAndDotFromFilepath } from "src/utils/helpers";
+import { isEmptyDrawingFile, removeExtensionAndDotFromFilepath } from "src/utils/helpers";
 
 ///////
 ///////
@@ -28,9 +28,9 @@ export type DrawingEditorControls = {
 
 export function DrawingEmbed (props: {
 	plugin: InkPlugin,
-	pageData: PageData,
+	pageData: InkFileData,
 	fileRef: TFile,
-	save: (pageData: PageData) => {},
+	save: (pageData: InkFileData) => {},
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
@@ -38,7 +38,7 @@ export function DrawingEmbed (props: {
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 	const [isEditModeForScreenshotting, setIsEditModeForScreenshotting] = useState<boolean>(false);
-	const [curPageData, setCurPageData] = useState<PageData>(props.pageData);
+	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 
 	// If it's not in edit mode, but doesn't have a screenshot to show, send it to edit mode to get one
@@ -71,6 +71,12 @@ export function DrawingEmbed (props: {
 		setIsEditMode(false);
 		setIsEditModeForScreenshotting(false);
 	}
+
+
+	// on mount
+	React.useEffect( () => {
+		if(isEmptyDrawingFile(props.pageData.tldraw)) setIsEditMode(true);
+	}, [])
 
 	
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
@@ -129,10 +135,10 @@ export function DrawingEmbed (props: {
 	// Helper functions
 	///////////////////
 
-	async function refreshPageData(): Promise<PageData> {
+	async function refreshPageData(): Promise<InkFileData> {
 		const v = props.plugin.app.vault;
 		const pageDataStr = await v.read(props.fileRef);
-		const pageData = JSON.parse(pageDataStr) as PageData;
+		const pageData = JSON.parse(pageDataStr) as InkFileData;
 		return pageData;
 	}
 

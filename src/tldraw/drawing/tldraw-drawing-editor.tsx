@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Box2d, Editor, HistoryEntry, SerializedStore, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, setUserPreferences, useExportAs } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, setUserPreferences, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { adaptTldrawToObsidianThemeMode, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures, removeExtensionAndDotFromFilepath } from "../../utils/helpers";
 import HandwritingContainer from "../writing-shapes/writing-container"
@@ -9,7 +9,7 @@ import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { FileSystemAdapter, TFile } from 'obsidian';
 import { savePngExport } from 'src/utils/file-manipulation';
-import { PageData, buildPageData } from 'src/utils/page-file';
+import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
 
 
 ///////
@@ -50,9 +50,9 @@ const myOverrides: TLUiOverrides = {
 
 export function TldrawDrawingEditor(props: {
 	plugin: InkPlugin,
-	pageData: PageData,
+	pageData: InkFileData,
 	fileRef: TFile,
-	save: (pageData: PageData) => void,
+	save: (pageData: InkFileData) => void,
 
 	// For embeds
 	embedded?: boolean,
@@ -282,7 +282,7 @@ export function TldrawDrawingEditor(props: {
 	const incrementalSave = async (editor: Editor) => {
 		const tldrawData = editor.store.getSnapshot();
 
-		const pageData = buildPageData({
+		const pageData = buildDrawingFileData({
 			tldrawData,
 			previewIsOutdated: true,
 		})
@@ -303,32 +303,18 @@ export function TldrawDrawingEditor(props: {
 			previewUri = await svgToPngDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
-
-		// TODO: check dark mode 
-		const isDarkMode = true;
-
-		// TODO: check if file contains data worth creating a preview of
-		const isEmpty = false;
 		
-		if(isEmpty) {
-			const pageData = buildPageData({
-				tldrawData,
-				isEmpty,
-			})
-			props.save(pageData);
-
-		} else if(previewUri) {
+		if(previewUri) {
 			savePngExport(props.plugin, previewUri, props.fileRef)
 
-			const pageData = buildPageData({
+			const pageData = buildDrawingFileData({
 				tldrawData,
 				previewUri,
-				previewIsDarkMode: isDarkMode,
 			})
 			props.save(pageData);
 
 		} else {
-			const pageData = buildPageData({
+			const pageData = buildDrawingFileData({
 				tldrawData,
 			})
 			props.save(pageData);

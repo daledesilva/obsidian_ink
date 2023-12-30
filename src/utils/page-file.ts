@@ -1,6 +1,7 @@
-import { SerializedStore } from '@tldraw/store';
+import { StoreSnapshot } from '@tldraw/store';
 import { TLRecord } from '@tldraw/tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
+import { isEmptyDrawingFile, isEmptyWritingFile } from './helpers';
 
 ///////
 ///////
@@ -8,39 +9,57 @@ import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 type Metadata = {
 	pluginVersion: string;
 	tldrawVersion: string;
-	isEmpty?: boolean;
 	previewIsOutdated?: boolean;
 	previewIsDarkMode?: boolean;
 	transcript?: string;
 };
 
-export type PageData = {
+export type InkFileData = {
 	meta: Metadata;
-	tldraw: SerializedStore<TLRecord>;
+	tldraw: StoreSnapshot<TLRecord>;
 	previewUri?: string;
 };
 
 // Primary functions
 ///////
 
-export const buildPageData = (props: {
-	tldrawData: SerializedStore<TLRecord>,
-	isEmpty?: boolean;
+
+export const buildWritingFileData = (props: {
+	tldrawData: StoreSnapshot<TLRecord>,
+	previewIsOutdated?: boolean;
+	transcript?: string;
+	previewUri?: string,
+}): InkFileData => {
+	
+	return buildFileData(props);
+}
+
+export const buildDrawingFileData = (props: {
+	tldrawData: StoreSnapshot<TLRecord>,
+	previewIsOutdated?: boolean;
+	previewUri?: string,
+}): InkFileData => {
+
+	return buildFileData(props);
+}
+
+
+const buildFileData = (props: {
+	tldrawData: StoreSnapshot<TLRecord>,
 	previewIsOutdated?: boolean;
 	previewIsDarkMode?: boolean;
 	transcript?: string;
 	previewUri?: string,
-}): PageData => {
+}): InkFileData => {
 
 	const {
 		tldrawData,
-		isEmpty,
 		previewUri,
 		previewIsOutdated = false,
 		previewIsDarkMode,
 	} = props;
 
-	let pageData: PageData = {
+	let pageData: InkFileData = {
 		meta: {
 			pluginVersion: PLUGIN_VERSION,
 			tldrawVersion: TLDRAW_VERSION,
@@ -48,7 +67,6 @@ export const buildPageData = (props: {
 		tldraw: tldrawData,
 	}
 
-	if(isEmpty) pageData.meta.isEmpty = isEmpty;
 	if(previewIsOutdated) pageData.meta.previewIsOutdated = previewIsOutdated;
 	if(previewIsDarkMode) pageData.meta.previewIsDarkMode = previewIsDarkMode;
 	if(previewUri) pageData.previewUri = previewUri;
@@ -56,6 +74,6 @@ export const buildPageData = (props: {
 	return pageData;
 };
 
-export const stringifyPageData = (pageData: PageData): string => {
+export const stringifyPageData = (pageData: InkFileData): string => {
 	return JSON.stringify(pageData, null, '\t');
 }

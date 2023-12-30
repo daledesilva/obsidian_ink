@@ -12,6 +12,7 @@ type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y:
 const startingPageHeight = 500;
 const pageWidth = 2000;
 export const LINE_HEIGHT = 150;
+export const NEW_LINE_REVEAL_HEIGHT = LINE_HEIGHT * 1.5;
 
 
 export default class HandwritingContainerUtil extends ShapeUtil<HandwritingContainer> {

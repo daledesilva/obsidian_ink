@@ -2,7 +2,7 @@ import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
-import HandwritingContainer, { LINE_HEIGHT } from "../writing-shapes/writing-container"
+import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -318,7 +318,7 @@ export function TldrawWritingEditor(props: {
 				type: 'handwriting-container',
 				isLocked: true,
 				props: {
-					h: Math.max(700, contentBounds.h + LINE_HEIGHT * 2),
+					h: contentBounds.h + NEW_LINE_REVEAL_HEIGHT,
 				}
 			})
 		})

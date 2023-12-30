@@ -9,8 +9,7 @@ import * as React from 'react';
 
 type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y: number, w: number; h: number }>
 
-const startingPageHeight = 500;
-const pageWidth = 2000;
+export const PAGE_WIDTH = 2000;
 export const LINE_HEIGHT = 150;
 export const NEW_LINE_REVEAL_HEIGHT = LINE_HEIGHT * 1.5;
 
@@ -22,8 +21,8 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 		return {
 			x: 0,
 			y: 0,
-			w: pageWidth,
-			h: startingPageHeight,
+			w: PAGE_WIDTH,
+			h: NEW_LINE_REVEAL_HEIGHT,
 		}
 	}
 
@@ -49,9 +48,9 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 		// Prevent resizing horizontally
 	onResize: TLOnResizeHandler<HandwritingContainer> = (shape, info) => {
 		return resizeBox(shape, info, {
-			minWidth: pageWidth,
-			maxWidth: pageWidth,
-			minHeight: startingPageHeight,
+			minWidth: PAGE_WIDTH,
+			maxWidth: PAGE_WIDTH,
+			minHeight: NEW_LINE_REVEAL_HEIGHT,
 			maxHeight: 50000
 		});
 	}

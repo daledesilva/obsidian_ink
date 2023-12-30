@@ -1,4 +1,4 @@
-import { NEW_LINE_REVEAL_HEIGHT } from "src/tldraw/writing-shapes/writing-container";
+import { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "src/tldraw/writing-shapes/writing-container";
 
 const defaultHandwritingTldrawStore = {
         "store": {
@@ -29,7 +29,7 @@ const defaultHandwritingTldrawStore = {
             "props": {
                 "x": 0,
                 "y": 0,
-                "w": 2000,
+                "w": PAGE_WIDTH,
                 "h": NEW_LINE_REVEAL_HEIGHT
             },
             "id": "shape:primary_container",

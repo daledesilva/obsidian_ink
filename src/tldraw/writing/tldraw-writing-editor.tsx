@@ -2,7 +2,7 @@ import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
-import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT } from "../writing-shapes/writing-container"
+import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -313,6 +313,7 @@ export function TldrawWritingEditor(props: {
 				type: 'handwriting-container',
 				isLocked: false,
 			})
+			
 			editor.updateShape({
 				id: 'shape:primary_container' as TLShapeId,
 				type: 'handwriting-container',
@@ -618,47 +619,75 @@ function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 // TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
 function getWritingBounds(editor: Editor): Box2d {
-	const allBounds = new Box2d(100000, 100000);	// x and y overlay high so the first shape overrides it
+	const writingBounds = getShapeBounds(editor);
+	
+	// Add gap from above text as users stroke won't touch the top edge and may not be on the first line.
+	writingBounds.h += writingBounds.y;
+
+	// reset static values
+	writingBounds.x = 0;
+	writingBounds.y = 0;
+	writingBounds.w = PAGE_WIDTH;
+
+	return writingBounds;
+}
+
+function getShapeBounds(editor: Editor): Box2d {
 
 	const allShapes = editor.currentPageShapes;
+	let bounds = new Box2d(0, 0);
+	let boundsInit = false;
 
-	allShapes.forEach((shape) => {
-		if (shape.type != 'draw') return;
-		const drawShape = shape as TLDrawShape;
-		if (!drawShape.props.isComplete) return;
+	if(allShapes.length) {
 
-		const shapeBounds = editor.getShapePageBounds(drawShape)
-		if (!shapeBounds) return;
+		// Iterate through all shapes and accumulate bounds
+		for(let k=0; k<allShapes.length; k++) {
+			const shape = allShapes[k];
 
-		const allLeftEdge = allBounds.x;
-		const allRightEdge = allBounds.x + allBounds.w;
-		const allTopEdge = allBounds.y;
-		const allBottomEdge = allBounds.y + allBounds.h;
+			if (shape.type != 'draw') continue;
+			const drawShape = shape as TLDrawShape;
+			if (!drawShape.props.isComplete) continue;
+	
+			const shapeBounds = editor.getShapePageBounds(drawShape)
+			if (!shapeBounds) continue;
 
-		const shapeLeftEdge = shapeBounds.x;
-		const shapeRightEdge = shapeBounds.x + shapeBounds.w;
-		const shapeTopEdge = shapeBounds.y;
-		const shapeBottomEdge = shapeBounds.y + shapeBounds.h;
+			if(!boundsInit) {
+				// Set the bounds to match the first shape founds
+				bounds = shapeBounds;
+				boundsInit = true;
+			} else {
+				// Overwrite each bound dimension only if it's an extension to the existing bound dimension
 
-		if (shapeLeftEdge < allLeftEdge) {
-			allBounds.x = shapeLeftEdge;
-		}
-		if (shapeRightEdge > allRightEdge) {
-			allBounds.w = allRightEdge - allBounds.x;
-		}
-		if (shapeTopEdge < allTopEdge) {
-			allBounds.y = shapeTopEdge;
-		}
-		if (shapeBottomEdge > allBottomEdge) {
-			allBounds.h = shapeBottomEdge - allBounds.y;
-		}
-	})
+				const allLeftEdge = bounds.x;
+				const allRightEdge = bounds.x + bounds.w;
+				const allTopEdge = bounds.y;
+				const allBottomEdge = bounds.y + bounds.h;
+		
+				const shapeLeftEdge = shapeBounds.x;
+				const shapeRightEdge = shapeBounds.x + shapeBounds.w;
+				const shapeTopEdge = shapeBounds.y;
+				const shapeBottomEdge = shapeBounds.y + shapeBounds.h;
+		
+				if (shapeLeftEdge < allLeftEdge) {
+					bounds.x = shapeLeftEdge;
+				}
+				if (shapeRightEdge > allRightEdge) {
+					bounds.w = shapeRightEdge - bounds.x;
+				}
+				if (shapeTopEdge < allTopEdge) {
+					bounds.y = shapeTopEdge;
+				}
+				if (shapeBottomEdge > allBottomEdge) {
+					bounds.h = shapeBottomEdge - bounds.y;
+				}
+			}		
+			
+		};
 
-	// Add gap from above text if user chose not to start on first line.
-	allBounds.h += allBounds.y;
-	allBounds.y = 0;
+	}
 
-	return allBounds;
+	return bounds
+
 }
 
 

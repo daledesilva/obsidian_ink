@@ -196,9 +196,9 @@ export function TldrawDrawingEditor(props: {
 		if(props.registerControls) {
 			props.registerControls({
 				save: async () => await completeSave(editor),
-				saveAndFreeze: async () => {
+				saveAndHalt: async () => {
 					await completeSave(editor)
-					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and the unmount
+					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 			})
 		}

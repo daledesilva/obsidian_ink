@@ -23,7 +23,7 @@ enum tool {
 
 export type WritingEditorControls = {
 	save: Function,
-	saveAndPause: Function,
+	saveAndHalt: Function,
 }
 
 export function WritingEmbed (props: {
@@ -48,7 +48,7 @@ export function WritingEmbed (props: {
 				setIsEditMode(true);
 				
 			} else if(!curPageData.previewUri) {
-				console.log("Switching to edit mode for screenshot")
+				console.log("Switching to edit mode for writing screenshot")
 				setIsEditMode(true);
 				isEditModeForScreenshottingRef.current = true;
 			}
@@ -67,11 +67,11 @@ export function WritingEmbed (props: {
 
 
 	const takeScreenshotAndReturn = async () => {
-		console.log('Taking screenshot and switching back to read-only mode');
+		console.log('Taking writing screenshot and switching back to read-only mode');
 		if(!editorControlsRef.current) return;
 		isEditModeForScreenshottingRef.current = false;
 		
-		await editorControlsRef.current.saveAndPause();
+		await editorControlsRef.current.saveAndHalt();
 		const newPageData = await refreshPageData();
 		setCurPageData(newPageData);
 		setIsEditMode(false);
@@ -118,7 +118,7 @@ export function WritingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onFreezeClick = { async () => {
-					await editorControlsRef.current?.saveAndPause();
+					await editorControlsRef.current?.saveAndHalt();
 					const newPageData = await refreshPageData();
 					setIsEditMode(false);
 					setCurPageData(newPageData);

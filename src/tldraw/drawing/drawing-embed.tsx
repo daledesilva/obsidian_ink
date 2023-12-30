@@ -24,6 +24,7 @@ enum tool {
 
 export type DrawingEditorControls = {
 	save: Function,
+	saveAndHalt: Function,
 }
 
 export function DrawingEmbed (props: {
@@ -37,46 +38,48 @@ export function DrawingEmbed (props: {
 	const editorRef = useRef<Editor|null>(null);
 	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
-	const [isEditModeForScreenshotting, setIsEditModeForScreenshotting] = useState<boolean>(false);
+	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 
-	// If it's not in edit mode, but doesn't have a screenshot to show, send it to edit mode to get one
-	// if(!isEditMode && !curPageData.previewUri) {
-	// 	console.log('found to have no preview')
 		
-	// 	// TODO: If the file is empty, then just default straight to edit mode
-	// 	setIsEditMode(true);
-		
-	// 	// TODO: If it's been edit, or the dark mode has changed, then go to edit mode just to create the screenshot and then come straight back
-	// 	setIsEditMode(true);
-	// 	setIsEditModeForScreenshotting(true);
-	// }
+	// Whenever switching between readonly and edit mode
+	React.useEffect( () => {
+
+		if(!isEditMode) {
+			if(isEmptyDrawingFile(props.pageData.tldraw)) {
+				setIsEditMode(true);
+				
+			} else if(!curPageData.previewUri) {
+				console.log("Switching to edit mode for drawing screenshot")
+				setIsEditMode(true);
+				isEditModeForScreenshottingRef.current = true;
+			}
+
+		}		
+
+	}, [isEditMode])
 
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
-		if(isEditModeForScreenshotting) takeScreenshotAndReturn();
+		
+		// Run mount actions for edit mode here to ensure editorControls is available
+		if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 	}
 
 	const takeScreenshotAndReturn = async () => {
+		console.log('Taking drawing screenshot and switching back to read-only mode');
 		if(!editorControlsRef.current) return;
-
-		console.log('taking screenshot');
-		await editorControlsRef.current.save();
-
-		console.log('leaving edit mode');
+		isEditModeForScreenshottingRef.current = false;
+		
+		await editorControlsRef.current.saveAndHalt();
 		const newPageData = await refreshPageData();
 		setCurPageData(newPageData);
 		setIsEditMode(false);
-		setIsEditModeForScreenshotting(false);
 	}
 
 
-	// on mount
-	React.useEffect( () => {
-		if(isEmptyDrawingFile(props.pageData.tldraw)) setIsEditMode(true);
-	}, [])
 
 	
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)

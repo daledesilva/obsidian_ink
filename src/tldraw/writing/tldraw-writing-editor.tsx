@@ -237,9 +237,10 @@ export function TldrawWritingEditor(props: {
 		if (!props.embedded) return;
 
 		const embedBounds = editor.viewportScreenBounds;
-		const contentBounds = editor.currentPageBounds;
-
+		const contentBounds = getTemplateBounds(editor);
+		
 		if (contentBounds) {
+
 			const contentRatio = contentBounds.w / contentBounds.h;
 			const embedHeight = embedBounds.w / contentRatio;
 			if(blockElRef.current) {
@@ -285,9 +286,20 @@ export function TldrawWritingEditor(props: {
 	}
 
 
+	const getTemplateBounds = (editor: Editor): Box2d => {
+		const bounds = editor.getShapePageBounds('shape:primary_container' as TLShapeId)
+		
+		if(bounds) {
+			return bounds;
+		} else {
+			return new Box2d();		
+		}
+	}
+
+
 	const resizeTemplate = (editor: Editor) => {
 		let contentBounds = getWritingBounds(editor);
-
+		
 		// Can't do it this way because the change in pages causes the camera to jump around
 		// editor.batch( () => {
 		//	const stashPage = getOrCreateStash(editor);
@@ -319,7 +331,7 @@ export function TldrawWritingEditor(props: {
 				type: 'handwriting-container',
 				isLocked: true,
 				props: {
-					h: contentBounds.h + NEW_LINE_REVEAL_HEIGHT,
+					h: contentBounds.h,
 				}
 			})
 		})
@@ -628,6 +640,9 @@ function getWritingBounds(editor: Editor): Box2d {
 	writingBounds.x = 0;
 	writingBounds.y = 0;
 	writingBounds.w = PAGE_WIDTH;
+
+	// Add default padding amount below
+	writingBounds.h += NEW_LINE_REVEAL_HEIGHT
 
 	return writingBounds;
 }

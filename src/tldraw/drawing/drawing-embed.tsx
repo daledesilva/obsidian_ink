@@ -8,7 +8,7 @@ import { InkFileData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFile } from "src/utils/open-file";
 import { Notice, TFile } from "obsidian";
-import { duplicateDrawingFile, duplicateWritingFile, getPreviewFileResourcePath, getPreviewFileVaultPath } from "src/utils/file-manipulation";
+import { duplicateDrawingFile } from "src/utils/file-manipulation";
 import { isEmptyDrawingFile, removeExtensionAndDotFromFilepath } from "src/utils/helpers";
 
 ///////
@@ -129,7 +129,7 @@ export function DrawingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onDuplicateClick = { async () => {
-					await duplicateWritingFile(props.plugin, props.fileRef);
+					await duplicateDrawingFile(props.plugin, props.fileRef);
 				}}
 			/>
 		</div>

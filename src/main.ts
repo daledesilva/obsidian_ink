@@ -77,12 +77,12 @@ export default class InkPlugin extends Plugin {
 		});
 		this.addCommand({
 			id: 'ddc_embed-drawing-file',
-			name: 'Insert existing handdrawing section',
+			name: 'Insert existing drawing section',
 			editorCallback: (editor: Editor) => insertExistingDrawingFile(this, editor)
 		});
 		this.addCommand({
 			id: 'ddc_create-drawing-section',
-			name: 'Insert new handdrawing section',
+			name: 'Insert new drawing section',
 			editorCallback: (editor: Editor) => insertNewDrawingFile(this, editor)
 		});
 		this.addCommand({

@@ -130,6 +130,7 @@ export function TldrawWritingEditor(props: {
 			editor.updateInstanceState({ canMoveCamera: false })
 		}
 
+		resizeTemplate(editor);
 		resizeContainerIfEmbed(editor);
 		initScrollHandler();
 
@@ -631,15 +632,17 @@ function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 // TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
 function getWritingBounds(editor: Editor): Box2d {
-	const writingBounds = getShapeBounds(editor);
+	const writingBounds = getDrawShapeBounds(editor);
+
+	console.log('writingBounds', writingBounds)
 	
+	// Set static width
+	writingBounds.x = 0;
+	writingBounds.w = PAGE_WIDTH;
+
 	// Add gap from above text as users stroke won't touch the top edge and may not be on the first line.
 	writingBounds.h += writingBounds.y;
-
-	// reset static values
-	writingBounds.x = 0;
 	writingBounds.y = 0;
-	writingBounds.w = PAGE_WIDTH;
 
 	// Add default padding amount below
 	writingBounds.h += NEW_LINE_REVEAL_HEIGHT
@@ -647,7 +650,7 @@ function getWritingBounds(editor: Editor): Box2d {
 	return writingBounds;
 }
 
-function getShapeBounds(editor: Editor): Box2d {
+function getDrawShapeBounds(editor: Editor): Box2d {
 
 	const allShapes = editor.currentPageShapes;
 	let bounds = new Box2d(0, 0);
@@ -659,7 +662,7 @@ function getShapeBounds(editor: Editor): Box2d {
 		for(let k=0; k<allShapes.length; k++) {
 			const shape = allShapes[k];
 
-			if (shape.type != 'draw') continue;
+			if (shape.type !== 'draw') continue;
 			const drawShape = shape as TLDrawShape;
 			if (!drawShape.props.isComplete) continue;
 	
@@ -667,7 +670,7 @@ function getShapeBounds(editor: Editor): Box2d {
 			if (!shapeBounds) continue;
 
 			if(!boundsInit) {
-				// Set the bounds to match the first shape founds
+				// Set the bounds to match the first shape found
 				bounds = shapeBounds;
 				boundsInit = true;
 			} else {
@@ -689,6 +692,7 @@ function getShapeBounds(editor: Editor): Box2d {
 				if (shapeRightEdge > allRightEdge) {
 					bounds.w = shapeRightEdge - bounds.x;
 				}
+				
 				if (shapeTopEdge < allTopEdge) {
 					bounds.y = shapeTopEdge;
 				}

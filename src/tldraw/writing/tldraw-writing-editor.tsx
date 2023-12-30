@@ -215,7 +215,7 @@ export function TldrawWritingEditor(props: {
 		if(props.registerControls) {
 			props.registerControls({
 				save: () => completeSave(editor),
-				saveAndFreeze: async () => {
+				saveAndPause: async () => {
 					await completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and the unmount
 				},
@@ -633,8 +633,6 @@ function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
 function getWritingBounds(editor: Editor): Box2d {
 	const writingBounds = getDrawShapeBounds(editor);
-
-	console.log('writingBounds', writingBounds)
 	
 	// Set static width
 	writingBounds.x = 0;
@@ -692,7 +690,7 @@ function getDrawShapeBounds(editor: Editor): Box2d {
 				if (shapeRightEdge > allRightEdge) {
 					bounds.w = shapeRightEdge - bounds.x;
 				}
-				
+
 				if (shapeTopEdge < allTopEdge) {
 					bounds.y = shapeTopEdge;
 				}

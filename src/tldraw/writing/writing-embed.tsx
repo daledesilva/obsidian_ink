@@ -23,7 +23,7 @@ enum tool {
 
 export type WritingEditorControls = {
 	save: Function,
-	saveAndFreeze: Function,
+	saveAndPause: Function,
 }
 
 export function WritingEmbed (props: {
@@ -35,17 +35,47 @@ export function WritingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 
+	
+	// Whenever switching between readonly and edit mode
+	React.useEffect( () => {
+
+		if(!isEditMode) {
+			if(isEmptyWritingFile(props.pageData.tldraw)) {
+				setIsEditMode(true);
+				
+			} else if(!curPageData.previewUri) {
+				console.log("Switching to edit mode for screenshot")
+				setIsEditMode(true);
+				isEditModeForScreenshottingRef.current = true;
+			}
+
+		}		
+
+	}, [isEditMode])
+
+
 	const registerEditorControls = (handlers: WritingEditorControls) => {
 		editorControlsRef.current = handlers;
+
+		// Run mount actions for edit mode here to ensure editorControls is available
+		if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 	}
 
-	// on mount
-	React.useEffect( () => {
-		if(isEmptyWritingFile(props.pageData.tldraw)) setIsEditMode(true);
-	}, [])
+
+	const takeScreenshotAndReturn = async () => {
+		console.log('Taking screenshot and switching back to read-only mode');
+		if(!editorControlsRef.current) return;
+		isEditModeForScreenshottingRef.current = false;
+		
+		await editorControlsRef.current.saveAndPause();
+		const newPageData = await refreshPageData();
+		setCurPageData(newPageData);
+		setIsEditMode(false);
+	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
@@ -88,9 +118,9 @@ export function WritingEmbed (props: {
 					setCurPageData(newPageData);
 				}}
 				onFreezeClick = { async () => {
-					await editorControlsRef.current?.saveAndFreeze();
-					setIsEditMode(false);
+					await editorControlsRef.current?.saveAndPause();
 					const newPageData = await refreshPageData();
+					setIsEditMode(false);
 					setCurPageData(newPageData);
 				}}
 				onDuplicateClick = { async () => {

@@ -10,17 +10,13 @@ import { removeExtensionAndDotFromFilepath } from "./helpers";
 
 const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string) => {
     const date = new Date();
-    let minutes = date.getMinutes().toString();
+    let monthStr = date.getMonth().toString();
+    let dateStr = date.getDate().toString();
     let hours = date.getHours();
+    let minutesStr = date.getMinutes().toString();
     let suffix = 'am';
 
-    if(hours>12) {
-        hours = hours-12;
-        suffix = 'pm';
-    }
-    if(minutes.length<2) minutes = '0' + minutes;
-
-    let filename = date.getFullYear() + '.' + date.getMonth() + '.' + date.getDate() + ' - ' + hours + '.' + minutes + suffix;
+    let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
 
     const pathAndBasename = FOLDER_NAME + '/' + filename;
     let version = 1;

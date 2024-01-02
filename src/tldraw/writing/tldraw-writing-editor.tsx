@@ -2,7 +2,7 @@ import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
-import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
+import HandwritingContainerUtil, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -12,6 +12,7 @@ import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
 import { unmountComponentAtNode } from 'react-dom';
+import PlaceholderDrawUtil from '../writing-shapes/writing-placeholder-draw';
 
 
 ///////
@@ -20,10 +21,10 @@ import { unmountComponentAtNode } from 'react-dom';
 
 
 const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
-const STROKE_LIMIT = 200;
+const STROKE_LIMIT = 50;//200;
 
 
-const MyCustomShapes = [HandwritingContainer];
+const MyCustomShapes = [HandwritingContainerUtil, PlaceholderDrawUtil];
 export enum tool {
 	select = 'select',
 	draw = 'draw',
@@ -509,7 +510,8 @@ const stashOldShapes = (editor: Editor) => {
 		olderShapes.push(record as TLShape);
 	}
 
-	editor.moveShapesToPage(olderShapes, stashPage.id);
+	// editor.moveShapesToPage(olderShapes, stashPage.id);
+	convertShapesToPlaceholders(editor, olderShapes);
 	editor.setCurrentPage(editor.pages[0]);
 
 	// })
@@ -572,6 +574,38 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 
 }
 
+function convertShapesToPlaceholders(editor: Editor, shapes: TLShape[]) {
+	shapes.forEach( (record) => {
+		if (record.typeName === 'shape' && record.type === 'draw') {
+			editor.store.update(record.id, (record) => {
+				record.type = 'placeholder-draw';
+				return record
+			})
+			console.log('record outside', record);
+		}
+	})
+
+	console.log('oldShapes After conversion', JSON.parse(JSON.stringify(shapes)))
+	
+}
+
+
+
+function convertPlaceholdersToShapes(editor: Editor) {
+	const completeShapes = getCompleteShapes(editor);
+	// console.log('completeShapes', completeShapes)
+
+	completeShapes.forEach( (shapeRecord) => {
+		if (shapeRecord.typeName == 'shape' && shapeRecord.type == 'placeholder-draw') {
+			editor.store.update(shapeRecord.id, (shapeRecord) => {
+				shapeRecord.type = 'draw';
+				return shapeRecord
+			})
+		}
+	})
+
+}
+
 function getOrCreateStash(editor: Editor): TLPage {
 	let page = editor.getPage('page:stash' as TLPageId);
 	if (!page) {
@@ -596,6 +630,9 @@ function unstashOldShapes(editor: Editor): TLShape[] | undefined {
 		editor.moveShapesToPage(allStashShapes, curPageId);
 		editor.setCurrentPage(curPageId);
 	})
+
+
+	convertPlaceholdersToShapes(editor);
 
 	return allStashShapes;
 }

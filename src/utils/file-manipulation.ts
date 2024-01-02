@@ -4,7 +4,7 @@ import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLShapeId, isNonNullish } from "@tldraw/tldraw";
 import { saveLocally } from "./storage";
-import { removeExtensionAndDotFromFilepath } from "./helpers";
+import { removeExtensionAndDotFromFilepath } from "./tldraw-helpers";
 
 
 

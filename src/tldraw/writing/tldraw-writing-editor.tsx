@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/helpers";
+import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
@@ -20,7 +20,7 @@ import { unmountComponentAtNode } from 'react-dom';
 
 
 const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
-const STROKE_LIMIT = 20; // 200;
+const STROKE_LIMIT = 200;
 
 const stash: TLShape[] = [];
 
@@ -140,7 +140,7 @@ export function TldrawWritingEditor(props: {
 
 			// Bail if this listener fired because again of changes made in the listener itself
 			if (justProcessedRef.current) {
-				console.log('just processed');
+				console.log('------------ just processed');
 				justProcessedRef.current = false;
 				return;
 			}
@@ -155,14 +155,14 @@ export function TldrawWritingEditor(props: {
 				case Activity.CameraMovedManually:
 					console.log('camera moved');
 					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
-					unstashOldShapes(editor);
+					unstashStaleStrokes(editor);
 					// justProcessedRef.current = true;
 					break;
 
 				case Activity.DrawingStarted:
 					console.log('drawing started');
 					resetInputPostProcessTimer();
-					stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
+					stashStaleStrokes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
 					break;
 					
 				case Activity.DrawingContinued:
@@ -369,7 +369,7 @@ export function TldrawWritingEditor(props: {
 
 
 	const incrementalSave = async (editor: Editor) => {
-		unstashOldShapes(editor);
+		unstashStaleStrokes(editor);
 		const tldrawData = editor.store.getSnapshot();
 
 		const pageData = buildWritingFileData({
@@ -377,13 +377,13 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		stashOldShapes(editor);
+		stashStaleStrokes(editor);
 	}
 
 	const completeSave = async (editor: Editor) => {
 		let previewUri;
 		
-		unstashOldShapes(editor);
+		unstashStaleStrokes(editor);
 		const tldrawData = editor.store.getSnapshot();
 		
 		// Hide page background element
@@ -406,7 +406,7 @@ export function TldrawWritingEditor(props: {
 			opacity: 1,
 		});
 
-		stashOldShapes(editor);
+		stashStaleStrokes(editor);
 
 		
 		if (svgEl) {
@@ -492,37 +492,35 @@ export function TldrawWritingEditor(props: {
 
 
 
-const stashOldShapes = (editor: Editor) => {
+const stashStaleStrokes = (editor: Editor) => {
 	const completeShapes = getCompleteShapes(editor);
 
-	let olderShapeIds: TLShapeId[] = [];
-	let olderShapes: TLShape[] = [];
+	let staleShapeIds: TLShapeId[] = [];
+	let staleShapes: TLShape[] = [];
 	// TODO: Order isn't guaranteed. Need to order by vertical position first
 	for (let i = 0; i <= completeShapes.length - STROKE_LIMIT; i++) {
 		const record = completeShapes[i];
 		if (record.type != 'draw') return;
 
-		olderShapeIds.push(record.id as TLShapeId);
-		olderShapes.push(record as TLShape);
+		staleShapeIds.push(record.id as TLShapeId);
+		staleShapes.push(record as TLShape);
 	}
 	
-	stash.push(...olderShapes);
-	editor.store.mergeRemoteChanges( () => {
-		editor.store.remove(olderShapeIds)
+	stash.push(...staleShapes);
+	silentlyChangeStore(editor, () => {
+		editor.store.remove(staleShapeIds)
 	})
 }
 
-function unstashOldShapes(editor: Editor): void {
-	editor.store.mergeRemoteChanges( () => {
+function unstashStaleStrokes(editor: Editor): void {
+	silentlyChangeStore(editor, () => {
 		editor.store.put(stash);
 	})
 	stash.length = 0;
 }
 
 
-// const silentlyChange = (editor: Editor, func: () => void) => {
-// 	editor.store.mergeRemoteChanges(func)
-// }
+
 
 
 enum Activity {
@@ -579,19 +577,6 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 	})
 
 }
-
-function getOrCreateStash(editor: Editor): TLPage {
-	let page = editor.getPage('page:stash' as TLPageId);
-	if (!page) {
-		let testPage = editor.createPage({
-			id: 'page:stash' as TLPageId,
-			name: 'Stash'
-		});
-		page = editor.getPage('page:stash' as TLPageId)!;
-	}
-	return page;
-}
-
 
 
 

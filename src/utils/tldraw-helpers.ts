@@ -94,3 +94,8 @@ export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean
     }
     return isEmpty;
 }
+
+
+export const silentlyChangeStore = (editor: Editor, func: () => void) => {
+	editor.store.mergeRemoteChanges(func)
+}

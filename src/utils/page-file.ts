@@ -1,7 +1,7 @@
 import { StoreSnapshot } from '@tldraw/store';
 import { TLRecord } from '@tldraw/tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
-import { isEmptyDrawingFile, isEmptyWritingFile } from './helpers';
+import { isEmptyDrawingFile, isEmptyWritingFile } from './tldraw-helpers';
 
 ///////
 ///////

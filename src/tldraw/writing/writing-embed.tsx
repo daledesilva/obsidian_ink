@@ -9,7 +9,7 @@ import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFile } from "src/utils/open-file";
 import { TFile, Notice } from "obsidian";
 import { duplicateWritingFile } from "src/utils/file-manipulation";
-import { isEmptyWritingFile } from "src/utils/helpers";
+import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 
 ///////
 ///////

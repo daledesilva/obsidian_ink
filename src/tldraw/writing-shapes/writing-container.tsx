@@ -7,7 +7,7 @@ import * as React from 'react';
 //////////
 
 
-type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y: number, w: number; h: number }>
+type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y: number, w: number, h: number }>
 
 export const PAGE_WIDTH = 2000;
 export const LINE_HEIGHT = 150;

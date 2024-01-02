@@ -20,6 +20,7 @@ import { unmountComponentAtNode } from 'react-dom';
 
 
 const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
+const STROKE_LIMIT = 200;
 
 
 const MyCustomShapes = [HandwritingContainer];
@@ -174,15 +175,15 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.DrawingCompleted:
 					console.log('drawing completed');
-					incrementalSave(editor); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					instantInputPostProcess(editor, entry); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					resizeTemplate(editor);
 					embedPostProcess(editor);
-					delayedPostProcess(editor);
+					delayedInputPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
 					console.log('drawing erased');
-					incrementalSave(editor);
+					instantInputPostProcess(editor, entry);
 					resizeTemplate(editor);
 					embedPostProcess(editor);
 					break;
@@ -190,8 +191,8 @@ export function TldrawWritingEditor(props: {
 				default:
 					console.log('default');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
-					incrementalSave(editor);
-					delayedPostProcess(editor);
+					instantInputPostProcess(editor, entry);
+					delayedInputPostProcess(editor);
 				// console.log('Activity not recognised.');
 				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -339,12 +340,19 @@ export function TldrawWritingEditor(props: {
 	}
 
 
+	const instantInputPostProcess = (editor: Editor, entry: HistoryEntry<TLRecord>) => {
+		// simplifyLines(editor, entry);
+		incrementalSave(editor);
+		justProcessedRef.current = true;
+	};
+
+
 	const resetInputPostProcessTimer = () => {
 		clearTimeout(postProcessTimeoutRef.current);
 	}
 
 	// Use this to run optimisations after a short delay
-	const delayedPostProcess = (editor: Editor) => {
+	const delayedInputPostProcess = (editor: Editor) => {
 		resetInputPostProcessTimer();
 
 		postProcessTimeoutRef.current = setTimeout(
@@ -489,7 +497,9 @@ const stashOldShapes = (editor: Editor) => {
 	const stashPage = getOrCreateStash(editor);
 
 	let olderShapes: TLShape[] = [];
-	let recentCount = 150;	// The number of recent strokes to keep visible
+	let recentCount = STROKE_LIMIT;	// The number of recent strokes to keep visible
+
+	console.log('completeShapes.length', completeShapes.length)
 
 	// TODO: Order isn't guaranteed. Need to order by vertical position first
 	for (let i = 0; i <= completeShapes.length - recentCount; i++) {
@@ -536,6 +546,30 @@ function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 	if (activitySummary.pointerMoved) return Activity.PointerMoved;
 
 	return Activity.Unclassified;
+}
+
+function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
+	const updatedRecords = Object.values(entry.changes.updated);
+
+	editor.batch(() => {
+
+		updatedRecords.forEach( (record) => {
+			const toRecord = record[1];
+			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
+				console.log('simplifying: ', toRecord.id)
+				editor.updateShape({
+					id: toRecord.id,
+					type: 'draw',
+					props: {
+						...toRecord.props,
+						dash: 'solid'
+					},
+				})
+			}
+		})
+
+	})
+
 }
 
 function getOrCreateStash(editor: Editor): TLPage {

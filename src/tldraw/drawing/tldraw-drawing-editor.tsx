@@ -414,6 +414,7 @@ function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 	return Activity.Unclassified;
 }
 
+
 function getOrCreateStash(editor: Editor): TLPage {
 	let page = editor.getPage('page:stash' as TLPageId);
 	if (!page) {

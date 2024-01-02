@@ -2,7 +2,7 @@ import { Notice, TFile, Vault } from "obsidian";
 import { DRAW_FILE_EXT, FOLDER_NAME, PLUGIN_KEY, WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
-import { isNonNullish } from "@tldraw/tldraw";
+import { TLShapeId, isNonNullish } from "@tldraw/tldraw";
 import { saveLocally } from "./storage";
 import { removeExtensionAndDotFromFilepath } from "./helpers";
 
@@ -16,6 +16,7 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string) => {
     let minutesStr = date.getMinutes().toString();
     let suffix = 'am';
 
+    if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
 
     const pathAndBasename = FOLDER_NAME + '/' + filename;
@@ -45,8 +46,8 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     const pageData = JSON.parse(pageDataStr) as InkFileData;
 
     // Remove the page container from the file
-    if(pageData.tldraw.store['shape:primary_container']){
-        delete pageData.tldraw.store['shape:primary_container'];
+    if(pageData.tldraw.store['shape:primary_container' as TLShapeId]){
+        delete pageData.tldraw.store['shape:primary_container' as TLShapeId];
         await v.modify(file, JSON.stringify(pageData));
     }
 

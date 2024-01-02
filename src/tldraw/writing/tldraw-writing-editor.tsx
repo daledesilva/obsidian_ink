@@ -20,7 +20,9 @@ import { unmountComponentAtNode } from 'react-dom';
 
 
 const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
-const STROKE_LIMIT = 200;
+const STROKE_LIMIT = 20; // 200;
+
+const stash: TLShape[] = [];
 
 
 const MyCustomShapes = [HandwritingContainer];
@@ -29,8 +31,6 @@ export enum tool {
 	draw = 'draw',
 	eraser = 'eraser',
 }
-
-let hiddenShapes: TLShape[] = [];
 
 const myOverrides: TLUiOverrides = {
 	toolbar(editor: Editor, toolbar, { tools }) {
@@ -115,8 +115,6 @@ export function TldrawWritingEditor(props: {
 
 		adaptTldrawToObsidianThemeMode();
 
-		unstashOldShapes(editor);
-
 		if(props.embedded) {
 			initWritingCamera(editor);
 		} else {
@@ -155,21 +153,25 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
+					console.log('camera moved');
 					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
-					// unstashOldShapes(editor);
+					unstashOldShapes(editor);
 					// justProcessedRef.current = true;
 					break;
 
 				case Activity.DrawingStarted:
+					console.log('drawing started');
 					resetInputPostProcessTimer();
-					// stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
+					stashOldShapes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
 					break;
 					
 				case Activity.DrawingContinued:
+					console.log('drawing continued');
 					resetInputPostProcessTimer();
 					break;
 					
 				case Activity.ErasingContinued:
+					console.log('erasing continued');
 					resetInputPostProcessTimer();
 					break;
 
@@ -191,8 +193,8 @@ export function TldrawWritingEditor(props: {
 				default:
 					console.log('default');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
-					instantInputPostProcess(editor, entry);
-					delayedInputPostProcess(editor);
+					// instantInputPostProcess(editor, entry);
+					// delayedInputPostProcess(editor);
 				// console.log('Activity not recognised.');
 				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -367,6 +369,7 @@ export function TldrawWritingEditor(props: {
 
 
 	const incrementalSave = async (editor: Editor) => {
+		unstashOldShapes(editor);
 		const tldrawData = editor.store.getSnapshot();
 
 		const pageData = buildWritingFileData({
@@ -374,15 +377,14 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		console.log('...Finished incremental save');
+		stashOldShapes(editor);
 	}
 
 	const completeSave = async (editor: Editor) => {
 		let previewUri;
-		const tldrawData = editor.store.getSnapshot();
-
-		// Bring all writing back to main canvas
+		
 		unstashOldShapes(editor);
+		const tldrawData = editor.store.getSnapshot();
 		
 		// Hide page background element
 		editor.updateShape({
@@ -404,8 +406,8 @@ export function TldrawWritingEditor(props: {
 			opacity: 1,
 		});
 
-		// Optimise writing by moving old writing off canvas
 		stashOldShapes(editor);
+
 		
 		if (svgEl) {
 			previewUri = await svgToPngDataUri(svgEl)
@@ -491,31 +493,36 @@ export function TldrawWritingEditor(props: {
 
 
 const stashOldShapes = (editor: Editor) => {
-	// editor.batch( () => {
-
 	const completeShapes = getCompleteShapes(editor);
-	const stashPage = getOrCreateStash(editor);
 
+	let olderShapeIds: TLShapeId[] = [];
 	let olderShapes: TLShape[] = [];
-	let recentCount = STROKE_LIMIT;	// The number of recent strokes to keep visible
-
-	console.log('completeShapes.length', completeShapes.length)
-
 	// TODO: Order isn't guaranteed. Need to order by vertical position first
-	for (let i = 0; i <= completeShapes.length - recentCount; i++) {
+	for (let i = 0; i <= completeShapes.length - STROKE_LIMIT; i++) {
 		const record = completeShapes[i];
 		if (record.type != 'draw') return;
 
+		olderShapeIds.push(record.id as TLShapeId);
 		olderShapes.push(record as TLShape);
 	}
+	
+	stash.push(...olderShapes);
+	editor.store.mergeRemoteChanges( () => {
+		editor.store.remove(olderShapeIds)
+	})
+}
 
-	editor.moveShapesToPage(olderShapes, stashPage.id);
-	editor.setCurrentPage(editor.pages[0]);
-
-	// })
+function unstashOldShapes(editor: Editor): void {
+	editor.store.mergeRemoteChanges( () => {
+		editor.store.put(stash);
+	})
+	stash.length = 0;
 }
 
 
+// const silentlyChange = (editor: Editor, func: () => void) => {
+// 	editor.store.mergeRemoteChanges(func)
+// }
 
 
 enum Activity {
@@ -533,6 +540,7 @@ enum Activity {
 
 function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 	const activitySummary = getActivitySummary(entry);
+	console.log('activitySummary', activitySummary);
 
 	if (activitySummary.drawShapesCompleted) return Activity.DrawingCompleted;	// Note, this overules everything else
 	if (activitySummary.drawShapesStarted) return Activity.DrawingStarted;
@@ -584,21 +592,7 @@ function getOrCreateStash(editor: Editor): TLPage {
 	return page;
 }
 
-function unstashOldShapes(editor: Editor): TLShape[] | undefined {
-	const stashPage = editor.getPage('page:stash' as TLPageId);
-	if (!stashPage) return;
 
-	let allStashShapes: TLShape[] | undefined;
-	editor.batch(() => {
-		const curPageId = editor.currentPageId;
-		editor.setCurrentPage(stashPage);
-		allStashShapes = editor.currentPageShapes;
-		editor.moveShapesToPage(allStashShapes, curPageId);
-		editor.setCurrentPage(curPageId);
-	})
-
-	return allStashShapes;
-}
 
 
 

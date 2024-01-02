@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore } from "../../utils/tldraw-helpers";
+import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, silentlyChangeStoreAsync } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
@@ -71,7 +71,6 @@ export function TldrawWritingEditor(props: {
 	const menuBarElRef = useRef<HTMLDivElement>(null);
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 	const postProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const justProcessedRef = useRef<boolean>(false);
 	const editorRef = useRef<Editor>();
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
@@ -138,13 +137,6 @@ export function TldrawWritingEditor(props: {
 			setCanUndo(editor.canUndo);
 			setCanRedo(editor.canRedo);
 
-			// Bail if this listener fired because again of changes made in the listener itself
-			if (justProcessedRef.current) {
-				console.log('------------ just processed');
-				justProcessedRef.current = false;
-				return;
-			}
-
 			const activity = getActivityType(entry);
 			switch (activity) {
 				case Activity.PointerMoved:
@@ -156,7 +148,6 @@ export function TldrawWritingEditor(props: {
 					console.log('camera moved');
 					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
 					unstashStaleStrokes(editor);
-					// justProcessedRef.current = true;
 					break;
 
 				case Activity.DrawingStarted:
@@ -345,7 +336,6 @@ export function TldrawWritingEditor(props: {
 	const instantInputPostProcess = (editor: Editor, entry: HistoryEntry<TLRecord>) => {
 		// simplifyLines(editor, entry);
 		incrementalSave(editor);
-		justProcessedRef.current = true;
 	};
 
 
@@ -360,7 +350,6 @@ export function TldrawWritingEditor(props: {
 		postProcessTimeoutRef.current = setTimeout(
 			() => {
 				completeSave(editor);
-				justProcessedRef.current = true;
 			},
 			PAUSE_BEFORE_FULL_SAVE_MS
 		)
@@ -371,13 +360,13 @@ export function TldrawWritingEditor(props: {
 	const incrementalSave = async (editor: Editor) => {
 		unstashStaleStrokes(editor);
 		const tldrawData = editor.store.getSnapshot();
+		stashStaleStrokes(editor);
 
 		const pageData = buildWritingFileData({
 			tldrawData,
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		stashStaleStrokes(editor);
 	}
 
 	const completeSave = async (editor: Editor) => {
@@ -385,29 +374,8 @@ export function TldrawWritingEditor(props: {
 		
 		unstashStaleStrokes(editor);
 		const tldrawData = editor.store.getSnapshot();
-		
-		// Hide page background element
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
-			isLocked: false,
-			opacity: 0,
-		});
-		
-		// get SVG
-		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
-		const svgEl = await editor.getSvg(allShapeIds);
-
-		// bring back page background element
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			isLocked: true,
-			type: 'handwriting-container',
-			opacity: 1,
-		});
-
+		const svgEl = await getWritingSvg(editor);
 		stashStaleStrokes(editor);
-
 		
 		if (svgEl) {
 			previewUri = await svgToPngDataUri(svgEl)
@@ -432,6 +400,8 @@ export function TldrawWritingEditor(props: {
 
 		console.log('...Finished complete save');
 	}
+
+	
 
 
 
@@ -538,7 +508,6 @@ enum Activity {
 
 function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 	const activitySummary = getActivitySummary(entry);
-	console.log('activitySummary', activitySummary);
 
 	if (activitySummary.drawShapesCompleted) return Activity.DrawingCompleted;	// Note, this overules everything else
 	if (activitySummary.drawShapesStarted) return Activity.DrawingStarted;
@@ -581,6 +550,34 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 
 
 
+
+async function getWritingSvg(editor: Editor) {
+	let svgEl;
+	await silentlyChangeStoreAsync( editor, async () => {
+		// Hide page background element
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+			opacity: 0,
+		});
+
+		// get SVG
+		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
+		svgEl = await editor.getSvg(allShapeIds);
+
+		// bring back page background element
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			isLocked: true,
+			type: 'handwriting-container',
+			opacity: 1,
+		});
+
+	})
+
+	return svgEl;
+}
 
 
 function getActivitySummary(entry: HistoryEntry<TLRecord>) {

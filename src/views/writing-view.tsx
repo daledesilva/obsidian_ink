@@ -80,7 +80,6 @@ export class WritingView extends TextFileView {
     
     // This allows you to return the data you want obsidian to save (Called when file is closing)
     getViewData = (): string => {
-        console.log(this.pageData);
         return stringifyPageData(this.pageData);
     }
 

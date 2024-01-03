@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStoreAsync, stashStaleStrokes, unstashStaleStrokes } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, silentlyChangeStoreAsync, stashStaleStrokes, unstashStaleStrokes } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
@@ -68,17 +68,20 @@ export function TldrawWritingEditor(props: {
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-	const exportAs = useExportAs();
 
 	function undo() {
 		const editor = editorRef.current
 		if (!editor) return;
-		editor.undo();
+		silentlyChangeStore( editor, () => {
+			editor.undo();
+		});
 	}
 	function redo() {
 		const editor = editorRef.current
 		if (!editor) return;
-		editor.redo();
+		silentlyChangeStore( editor, () => {
+			editor.redo();
+		});
 	}
 	function activateSelectTool() {
 		const editor = editorRef.current
@@ -125,10 +128,8 @@ export function TldrawWritingEditor(props: {
 		resizeContainerIfEmbed(editor);
 		initScrollHandler();
 
-		const removeStoreListener = editor.store.listen((entry) => {
-
-			setCanUndo(editor.canUndo);
-			setCanRedo(editor.canRedo);
+		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
+		const removeUserStoreChangeListener = editor.store.listen((entry) => {
 
 			const activity = getActivityType(entry);
 			switch (activity) {
@@ -189,13 +190,21 @@ export function TldrawWritingEditor(props: {
 		})
 
 
+		// Runs on any change to the store, caused by user, system, undo, anything, etc.
+		const removeStoreChangeListener = editor.store.listen((entry) => {
+			setCanUndo(editor.canUndo);
+			setCanRedo(editor.canRedo);
+		})
+
+
 		preventTldrawCanvasesCausingObsidianGestures();
 		activateDrawTool();
 
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
-			removeStoreListener();
+			removeUserStoreChangeListener();
+			removeStoreChangeListener
 			cleanUpScrollHandler();
 		}
 
@@ -287,7 +296,8 @@ export function TldrawWritingEditor(props: {
 
 	const resizeTemplate = (editor: Editor) => {
 		let contentBounds = getWritingBounds(editor);
-		
+		if (!contentBounds) return;
+
 		// Can't do it this way because the change in pages causes the camera to jump around
 		// editor.batch( () => {
 		//	const stashPage = getOrCreateStash(editor);
@@ -305,9 +315,8 @@ export function TldrawWritingEditor(props: {
 		// 	editor.setCurrentPage(editor.pages[0]);
 		// })
 
-		editor.batch(() => {
-			if (!contentBounds) return;
-
+		
+		silentlyChangeStore( editor, () => {
 			editor.updateShape({
 				id: 'shape:primary_container' as TLShapeId,
 				type: 'handwriting-container',
@@ -323,6 +332,7 @@ export function TldrawWritingEditor(props: {
 				}
 			})
 		})
+		
 	}
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus

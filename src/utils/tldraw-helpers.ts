@@ -258,9 +258,11 @@ export function unstashStaleStrokes(editor: Editor): void {
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 	editor.store.mergeRemoteChanges(func);
 }
-export const silentlyChangeStoreAsync = async (editor: Editor, func: () => void) => {
-	editor.store.mergeRemoteChanges(func);
-}
+
+// TODO: This doesn't work, don't use it, I think I need to add a promise to be returned, but just do it when needed
+// export const silentlyChangeStoreAsync = async (editor: Editor, func: () => void) => {
+// 	editor.store.mergeRemoteChanges(func);
+// }
 
 
 // These two are intended for replacing an unstash+commands+restash sequence, but the asyncs aren't quite working yet
@@ -269,8 +271,8 @@ export const takeActionOnFullStore = (editor: Editor, func: () => void) => {
 	silentlyChangeStore(editor, func)
     stashStaleStrokes(editor)
 }
-export const takeActionOnFullStoreAsync = async (editor: Editor, func: () => void) => {
-	unstashStaleStrokes(editor);
-	await silentlyChangeStoreAsync(editor, func);
-    stashStaleStrokes(editor);
-}
+// export const takeActionOnFullStoreAsync = async (editor: Editor, func: () => void) => {
+// 	unstashStaleStrokes(editor);
+// 	await silentlyChangeStoreAsync(editor, func);
+//     stashStaleStrokes(editor);
+// }

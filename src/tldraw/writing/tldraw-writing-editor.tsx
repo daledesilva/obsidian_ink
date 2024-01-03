@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, silentlyChangeStoreAsync, stashStaleStrokes, unstashStaleStrokes } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, stashStaleStrokes, unstashStaleStrokes } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
@@ -152,28 +152,28 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
-					console.log('camera moved');
+					// console.log('camera moved');
 					unstashStaleStrokes(editor);
 					break;
 
 				case Activity.DrawingStarted:
-					console.log('drawing started');
+					// console.log('drawing started');
 					resetInputPostProcessTimers();
 					stashStaleStrokes(editor);
 					break;
 					
 				case Activity.DrawingContinued:
-					console.log('drawing continued');
+					// console.log('drawing continued');
 					resetInputPostProcessTimers();
 					break;
 					
 				case Activity.ErasingContinued:
-					console.log('erasing continued');
+					// console.log('erasing continued');
 					resetInputPostProcessTimers();
 					break;
 
 				case Activity.DrawingCompleted:
-					console.log('drawing completed');
+					// console.log('drawing completed');
 					instantInputPostProcess(editor, entry);
 					resizeTemplate(editor);
 					embedPostProcess(editor);
@@ -182,19 +182,20 @@ export function TldrawWritingEditor(props: {
 					break;
 
 				case Activity.DrawingErased:
-					console.log('drawing erased');
-					// instantInputPostProcess(editor, entry);
-					// resizeTemplate(editor);
-					// embedPostProcess(editor);
-					// smallDelayInputPostProcess(editor);
-					// longDelayInputPostProcess(editor);
+					// console.log('drawing erased');
+					instantInputPostProcess(editor, entry);
+					resizeTemplate(editor);
+					embedPostProcess(editor);
+					smallDelayInputPostProcess(editor);
+					longDelayInputPostProcess(editor);
 					break;
 
 				default:
 					console.log('default');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
-					// instantInputPostProcess(editor, entry);
-					// delayedInputPostProcess(editor);
+					instantInputPostProcess(editor, entry);
+					smallDelayInputPostProcess(editor);
+					longDelayInputPostProcess(editor);
 				// console.log('Activity not recognised.');
 				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -344,7 +345,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations that take a small amount of time but should happen frequently
 	const smallDelayInputPostProcess = (editor: Editor) => {
-		resetInputPostProcessTimers();
+		resetShortPostProcessTimer();
 
 		shortDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
@@ -357,7 +358,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations after a short delay
 	const longDelayInputPostProcess = (editor: Editor) => {
-		resetInputPostProcessTimers();
+		resetLongPostProcessTimer();
 
 		longDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
@@ -367,9 +368,15 @@ export function TldrawWritingEditor(props: {
 		)
 
 	};
-	const resetInputPostProcessTimers = () => {
+	const resetShortPostProcessTimer = () => {
 		clearTimeout(shortDelayPostProcessTimeoutRef.current);
+	}
+	const resetLongPostProcessTimer = () => {
 		clearTimeout(longDelayPostProcessTimeoutRef.current);
+	}
+	const resetInputPostProcessTimers = () => {
+		resetShortPostProcessTimer();
+		resetLongPostProcessTimer();
 	}
 
 
@@ -383,6 +390,7 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
+		console.log('...Finished incremental save');
 	}
 
 	const completeSave = async (editor: Editor) => {
@@ -393,12 +401,14 @@ export function TldrawWritingEditor(props: {
 		const svgEl = await getWritingSvg(editor);
 		stashStaleStrokes(editor);
 		
-		// if (svgEl) {
-		// 	previewUri = await svgToPngDataUri(svgEl)
-		// 	// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
-		// }
+		if (svgEl) {
+			console.log('has svgEL');
+			previewUri = await svgToPngDataUri(svgEl)
+			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
+		}
 
 		if(previewUri) {
+			console.log('has previewURI');
 			const pageData = buildWritingFileData({
 				tldrawData,
 				previewUri,
@@ -407,6 +417,7 @@ export function TldrawWritingEditor(props: {
 			savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
+			console.log('WITHOUT');
 			const pageData = buildWritingFileData({
 				tldrawData,
 			})
@@ -508,8 +519,7 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 async function getWritingSvg(editor: Editor) {
 	let svgEl;
 
-	// TODO: This doesn't happen silently, it creates an undo and thus erases redo history
-	await silentlyChangeStoreAsync( editor, async () => {
+	silentlyChangeStore( editor, () => {
 		// Hide page background element
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
@@ -519,11 +529,13 @@ async function getWritingSvg(editor: Editor) {
 		}, {
 			ephemeral: true,
 		});
+	});
 
-		// get SVG
-		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
-		svgEl = await editor.getSvg(allShapeIds);
+	// get SVG
+	const allShapeIds = Array.from(editor.currentPageShapeIds.values());
+	svgEl = await editor.getSvg(allShapeIds);
 
+	silentlyChangeStore( editor, () => {
 		// bring back page background element
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,

@@ -124,12 +124,14 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
     let x = containerMargin;
     let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
 
-    // editor.zoomToFit()
-    editor.setCamera({
-        x: x,
-        y: y,
-        z: zoom
-    })
+	silentlyChangeStore( editor, () => {
+		// editor.zoomToFit()
+		editor.setCamera({
+			x: x,
+			y: y,
+			z: zoom
+		})
+	})
 }
 
 
@@ -137,19 +139,21 @@ export function initDrawingCamera(editor: Editor) {
     editor.zoomToFit()
 }
 
-export function adaptTldrawToObsidianThemeMode() {
+export function adaptTldrawToObsidianThemeMode(editor: Editor) {
     const isDarkMode = document.body.classList.contains('theme-dark');
-    if (isDarkMode) {
-        setUserPreferences({
-            id: 'dummy-id',
-            isDarkMode: true
-        })
-    } else {
-        setUserPreferences({
-            id: 'dummy-id',
-            isDarkMode: false
-        })
-    }
+	
+	if (isDarkMode) {
+		setUserPreferences({
+			id: 'dummy-id',
+			isDarkMode: true
+		})
+	} else {
+		setUserPreferences({
+			id: 'dummy-id',
+			isDarkMode: false
+		})
+	}
+	    
 }
 
 
@@ -252,10 +256,10 @@ export function unstashStaleStrokes(editor: Editor): void {
 
 
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
-	editor.store.mergeRemoteChanges(func)
+	editor.store.mergeRemoteChanges(func);
 }
 export const silentlyChangeStoreAsync = async (editor: Editor, func: () => void) => {
-	editor.store.mergeRemoteChanges(func)
+	editor.store.mergeRemoteChanges(func);
 }
 
 

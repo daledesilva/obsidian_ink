@@ -75,6 +75,11 @@ export function TldrawWritingEditor(props: {
 		silentlyChangeStore( editor, () => {
 			editor.undo();
 		});
+		instantInputPostProcess(editor);
+		resizeTemplate(editor);
+		embedPostProcess(editor);
+		smallDelayInputPostProcess(editor);
+		longDelayInputPostProcess(editor);
 	}
 	function redo() {
 		const editor = editorRef.current
@@ -82,6 +87,12 @@ export function TldrawWritingEditor(props: {
 		silentlyChangeStore( editor, () => {
 			editor.redo();
 		});
+		instantInputPostProcess(editor);
+		resizeTemplate(editor);
+		embedPostProcess(editor);
+		smallDelayInputPostProcess(editor);
+		longDelayInputPostProcess(editor);
+
 	}
 	function activateSelectTool() {
 		const editor = editorRef.current
@@ -108,25 +119,27 @@ export function TldrawWritingEditor(props: {
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
 
-		adaptTldrawToObsidianThemeMode();
+		// Container setups
+		resizeContainerIfEmbed(editor);
+		initScrollHandler();
+		preventTldrawCanvasesCausingObsidianGestures();
+		
+		// tldraw content prep
+		resizeTemplate(editor);
 
+		// view set up
 		if(props.embedded) {
 			initWritingCamera(editor);
+			editor.updateInstanceState({ canMoveCamera: false })
 		} else {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 		}
 
-		editor.updateInstanceState({
-			isDebugMode: false,
-		})
+		// tldraw setups
+		adaptTldrawToObsidianThemeMode(editor);
+		editor.updateInstanceState({ isDebugMode: false, })
+		activateDrawTool();
 
-		if (props.embedded) {
-			editor.updateInstanceState({ canMoveCamera: false })
-		}
-
-		resizeTemplate(editor);
-		resizeContainerIfEmbed(editor);
-		initScrollHandler();
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserStoreChangeListener = editor.store.listen((entry) => {
@@ -161,7 +174,7 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.DrawingCompleted:
 					console.log('drawing completed');
-					instantInputPostProcess(editor, entry); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
+					instantInputPostProcess(editor, entry);
 					resizeTemplate(editor);
 					embedPostProcess(editor);
 					smallDelayInputPostProcess(editor);
@@ -170,9 +183,11 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.DrawingErased:
 					console.log('drawing erased');
-					instantInputPostProcess(editor, entry);
-					resizeTemplate(editor);
-					embedPostProcess(editor);
+					// instantInputPostProcess(editor, entry);
+					// resizeTemplate(editor);
+					// embedPostProcess(editor);
+					// smallDelayInputPostProcess(editor);
+					// longDelayInputPostProcess(editor);
 					break;
 
 				default:
@@ -197,8 +212,7 @@ export function TldrawWritingEditor(props: {
 		})
 
 
-		preventTldrawCanvasesCausingObsidianGestures();
-		activateDrawTool();
+		
 
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
@@ -297,30 +311,15 @@ export function TldrawWritingEditor(props: {
 	const resizeTemplate = (editor: Editor) => {
 		let contentBounds = getWritingBounds(editor);
 		if (!contentBounds) return;
-
-		// Can't do it this way because the change in pages causes the camera to jump around
-		// editor.batch( () => {
-		//	const stashPage = getOrCreateStash(editor);
-
-		// 	// Move writing container off main page so it's not considered in height
-		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], stashPage.id);
-		// 	editor.setCurrentPage(editor.pages[0]);
-
-		// 	// Get height of leftover content
-		// 	contentBounds = editor.currentPageBounds;
-
-		// 	// Move writing container back to main page
-		// 	editor.setCurrentPage(stashPage.id);
-		// 	editor.moveShapesToPage(['shape:primary_container' as TLShapeId], editor.pages[0].id);
-		// 	editor.setCurrentPage(editor.pages[0]);
-		// })
-
 		
+		// TODO: This doesn't happen silently, it creates an undo point
 		silentlyChangeStore( editor, () => {
 			editor.updateShape({
 				id: 'shape:primary_container' as TLShapeId,
 				type: 'handwriting-container',
 				isLocked: false,
+			}, {
+				ephemeral: true
 			})
 			
 			editor.updateShape({
@@ -330,13 +329,15 @@ export function TldrawWritingEditor(props: {
 				props: {
 					h: contentBounds.h,
 				}
+			}, {
+				ephemeral: true
 			})
 		})
 		
 	}
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
-	const instantInputPostProcess = (editor: Editor, entry: HistoryEntry<TLRecord>) => {
+	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
 		// simplifyLines(editor, entry);
 	};
 
@@ -392,10 +393,10 @@ export function TldrawWritingEditor(props: {
 		const svgEl = await getWritingSvg(editor);
 		stashStaleStrokes(editor);
 		
-		if (svgEl) {
-			previewUri = await svgToPngDataUri(svgEl)
-			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
-		}
+		// if (svgEl) {
+		// 	previewUri = await svgToPngDataUri(svgEl)
+		// 	// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
+		// }
 
 		if(previewUri) {
 			const pageData = buildWritingFileData({
@@ -490,6 +491,8 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 						...toRecord.props,
 						dash: 'solid'
 					},
+				}, {
+					ephemeral: true
 				})
 			}
 		})
@@ -504,6 +507,8 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 
 async function getWritingSvg(editor: Editor) {
 	let svgEl;
+
+	// TODO: This doesn't happen silently, it creates an undo and thus erases redo history
 	await silentlyChangeStoreAsync( editor, async () => {
 		// Hide page background element
 		editor.updateShape({
@@ -511,6 +516,8 @@ async function getWritingSvg(editor: Editor) {
 			type: 'handwriting-container',
 			isLocked: false,
 			opacity: 0,
+		}, {
+			ephemeral: true,
 		});
 
 		// get SVG
@@ -523,6 +530,8 @@ async function getWritingSvg(editor: Editor) {
 			isLocked: true,
 			type: 'handwriting-container',
 			opacity: 1,
+		}, {
+			ephemeral: true,
 		});
 
 	})

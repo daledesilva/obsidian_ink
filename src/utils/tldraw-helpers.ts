@@ -258,6 +258,8 @@ export const silentlyChangeStoreAsync = async (editor: Editor, func: () => void)
 	editor.store.mergeRemoteChanges(func)
 }
 
+
+// These two are intended for replacing an unstash+commands+restash sequence, but the asyncs aren't quite working yet
 export const takeActionOnFullStore = (editor: Editor, func: () => void) => {
     unstashStaleStrokes(editor);
 	silentlyChangeStore(editor, func)

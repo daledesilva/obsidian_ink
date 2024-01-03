@@ -1,28 +1,20 @@
 import './tldraw-writing-editor.scss';
-import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { adaptTldrawToObsidianThemeMode, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, silentlyChangeStoreAsync } from "../../utils/tldraw-helpers";
-import HandwritingContainer, { LINE_HEIGHT, NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
+import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStoreAsync, stashStaleStrokes, unstashStaleStrokes } from "../../utils/tldraw-helpers";
+import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX } from 'src/constants';
+import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
-import { unmountComponentAtNode } from 'react-dom';
 
 
 ///////
 ///////
-
-
-
-const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
-const STROKE_LIMIT = 200;
-
-const stash: TLShape[] = [];
 
 
 const MyCustomShapes = [HandwritingContainer];
@@ -70,7 +62,8 @@ export function TldrawWritingEditor(props: {
 	const blockElRef = useRef<HTMLDivElement>(null)
 	const menuBarElRef = useRef<HTMLDivElement>(null);
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
-	const postProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const editorRef = useRef<Editor>();
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
@@ -146,24 +139,23 @@ export function TldrawWritingEditor(props: {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					console.log('camera moved');
-					// NOTE: Can't do this because it switches pages and back and causes the the camera to jump around
 					unstashStaleStrokes(editor);
 					break;
 
 				case Activity.DrawingStarted:
 					console.log('drawing started');
-					resetInputPostProcessTimer();
-					stashStaleStrokes(editor); // NOTE: Can't do this while user is drawing because it changes pages and back, which messes with the stroke.
+					resetInputPostProcessTimers();
+					stashStaleStrokes(editor);
 					break;
 					
 				case Activity.DrawingContinued:
 					console.log('drawing continued');
-					resetInputPostProcessTimer();
+					resetInputPostProcessTimers();
 					break;
 					
 				case Activity.ErasingContinued:
 					console.log('erasing continued');
-					resetInputPostProcessTimer();
+					resetInputPostProcessTimers();
 					break;
 
 				case Activity.DrawingCompleted:
@@ -171,7 +163,8 @@ export function TldrawWritingEditor(props: {
 					instantInputPostProcess(editor, entry); // REVIEW: Temporarily saving immediately as well just incase the user closes the file too quickly (But this might cause a latency issue)
 					resizeTemplate(editor);
 					embedPostProcess(editor);
-					delayedInputPostProcess(editor);
+					smallDelayInputPostProcess(editor);
+					longDelayInputPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
@@ -201,7 +194,7 @@ export function TldrawWritingEditor(props: {
 
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
-			resetInputPostProcessTimer();
+			resetInputPostProcessTimers();
 			removeStoreListener();
 			cleanUpScrollHandler();
 		}
@@ -332,29 +325,41 @@ export function TldrawWritingEditor(props: {
 		})
 	}
 
-
+	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry: HistoryEntry<TLRecord>) => {
 		// simplifyLines(editor, entry);
-		incrementalSave(editor);
 	};
 
 
-	const resetInputPostProcessTimer = () => {
-		clearTimeout(postProcessTimeoutRef.current);
-	}
+	// Use this to run optimisations that take a small amount of time but should happen frequently
+	const smallDelayInputPostProcess = (editor: Editor) => {
+		resetInputPostProcessTimers();
 
-	// Use this to run optimisations after a short delay
-	const delayedInputPostProcess = (editor: Editor) => {
-		resetInputPostProcessTimer();
-
-		postProcessTimeoutRef.current = setTimeout(
+		shortDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
-				completeSave(editor);
+				incrementalSave(editor);
 			},
-			PAUSE_BEFORE_FULL_SAVE_MS
+			WRITE_SHORT_DELAY_MS
 		)
 
 	};
+
+	// Use this to run optimisations after a short delay
+	const longDelayInputPostProcess = (editor: Editor) => {
+		resetInputPostProcessTimers();
+
+		longDelayPostProcessTimeoutRef.current = setTimeout(
+			() => {
+				completeSave(editor);
+			},
+			WRITE_LONG_DELAY_MS
+		)
+
+	};
+	const resetInputPostProcessTimers = () => {
+		clearTimeout(shortDelayPostProcessTimeoutRef.current);
+		clearTimeout(longDelayPostProcessTimeoutRef.current);
+	}
 
 
 	const incrementalSave = async (editor: Editor) => {
@@ -459,70 +464,6 @@ export function TldrawWritingEditor(props: {
 
 
 
-
-
-
-const stashStaleStrokes = (editor: Editor) => {
-	const completeShapes = getCompleteShapes(editor);
-
-	let staleShapeIds: TLShapeId[] = [];
-	let staleShapes: TLShape[] = [];
-	// TODO: Order isn't guaranteed. Need to order by vertical position first
-	for (let i = 0; i <= completeShapes.length - STROKE_LIMIT; i++) {
-		const record = completeShapes[i];
-		if (record.type != 'draw') return;
-
-		staleShapeIds.push(record.id as TLShapeId);
-		staleShapes.push(record as TLShape);
-	}
-	
-	stash.push(...staleShapes);
-	silentlyChangeStore(editor, () => {
-		editor.store.remove(staleShapeIds)
-	})
-}
-
-function unstashStaleStrokes(editor: Editor): void {
-	silentlyChangeStore(editor, () => {
-		editor.store.put(stash);
-	})
-	stash.length = 0;
-}
-
-
-
-
-
-enum Activity {
-	PointerMoved,
-	CameraMovedManually,
-	CameraMovedAutomatically,
-	DrawingStarted,
-	DrawingContinued,
-	DrawingCompleted,
-	DrawingErased,
-	ErasingContinued,
-	Unclassified,
-}
-
-
-function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
-	const activitySummary = getActivitySummary(entry);
-
-	if (activitySummary.drawShapesCompleted) return Activity.DrawingCompleted;	// Note, this overules everything else
-	if (activitySummary.drawShapesStarted) return Activity.DrawingStarted;
-	if (activitySummary.drawShapesContinued) return Activity.DrawingContinued;
-	if (activitySummary.drawShapesRemoved) return Activity.DrawingErased;
-
-	if (activitySummary.cameraMoved && activitySummary.pointerMoved) return Activity.CameraMovedManually;
-	if (activitySummary.cameraMoved && !activitySummary.pointerMoved) return Activity.CameraMovedAutomatically;
-
-	if (activitySummary.pointerScribbled) return Activity.ErasingContinued;
-	if (activitySummary.pointerMoved) return Activity.PointerMoved;
-
-	return Activity.Unclassified;
-}
-
 function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 	const updatedRecords = Object.values(entry.changes.updated);
 
@@ -580,62 +521,7 @@ async function getWritingSvg(editor: Editor) {
 }
 
 
-function getActivitySummary(entry: HistoryEntry<TLRecord>) {
-	const summary = {
-		pointerMoved: false,
-		pointerScribbled: false,
-		cameraMoved: false,
-		drawShapesStarted: 0,
-		drawShapesContinued: 0,
-		drawShapesCompleted: 0,
-		drawShapesRemoved: 0,
-	}
 
-	const addedRecords = Object.values(entry.changes.added);
-	if (addedRecords) {
-		for (let i = 0; i < addedRecords.length; i++) {
-			const record = addedRecords[i];
-			if (record.typeName == 'shape' && record.type == 'draw') {
-				summary.drawShapesStarted += 1;
-				if (record.props.isComplete === true) {
-					summary.drawShapesCompleted += 1;
-				};
-			}
-		}
-	}
-
-	const updatedRecords = Object.values(entry.changes.updated);
-	if (updatedRecords) {
-		for (let i = 0; i < updatedRecords.length; i++) {
-			const recordFinalState = updatedRecords[i][1];
-			if (recordFinalState.typeName == 'shape' && recordFinalState.type == 'draw') {
-				if (recordFinalState.props.isComplete === true) {
-					summary.drawShapesCompleted += 1;
-				} else {
-					summary.drawShapesContinued += 1;
-				}
-			} else if (recordFinalState.typeName == 'pointer') {
-				summary.pointerMoved = true;
-			} else if (recordFinalState.typeName == 'camera') {
-				summary.cameraMoved = true;
-			} else if (recordFinalState.typeName == 'instance') {
-				if (recordFinalState.scribble) summary.pointerScribbled = true;
-			}
-		}
-	}
-
-	const removedRecords = Object.values(entry.changes.removed);
-	if (removedRecords) {
-		for (let i = 0; i < removedRecords.length; i++) {
-			const record = removedRecords[i];
-			if (record.typeName == 'shape' && record.type == 'draw') {
-				summary.drawShapesRemoved += 1;
-			}
-		}
-	}
-
-	return summary;
-}
 
 
 
@@ -719,31 +605,7 @@ function getDrawShapeBounds(editor: Editor): Box2d {
 
 
 
-function getCompleteShapes(editor: Editor) {
-	const allShapes = editor.currentPageShapes;
-	let completeShapes: TLShape[] = [];
-	for (let i = 0; i < allShapes.length; i++) {
-		const shape = allShapes[i];
-		if (shape.props.isComplete === true) completeShapes.push(shape);
-	}
 
-	// Order according to y position
-	completeShapes.sort((a, b) => {
-		return a.y - b.y
-	});
-
-	return completeShapes;
-}
-
-function getIncompleteShapes(editor: Editor) {
-	const allShapes = editor.currentPageShapes;
-	let incompleteShapes: TLShape[] = [];
-	for (let i = 0; i < allShapes.length; i++) {
-		const shape = allShapes[i];
-		if (shape.props.isComplete === false) incompleteShapes.push(shape);
-	}
-	return incompleteShapes;
-}
 
 
 

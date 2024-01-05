@@ -8,8 +8,9 @@ import { InkFileData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFile } from "src/utils/open-file";
 import { TFile, Notice } from "obsidian";
-import { duplicateWritingFile } from "src/utils/file-manipulation";
+import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
+import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 
 ///////
 ///////
@@ -53,6 +54,8 @@ export function WritingEmbed (props: {
 				isEditModeForScreenshottingRef.current = true;
 			}
 
+
+			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
 		}		
 
 	}, [isEditMode])
@@ -187,6 +190,15 @@ const WritingEmbedPreview: React.FC<{
 
 };
 
+
+const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
+	if(needsTranscriptUpdate(pageData)) {
+		fetchWriteFileTranscript()
+			.then((transcript) => {
+				saveWriteFileTranscript(plugin, fileRef, transcript)
+			})
+	}
+}
 
 
 

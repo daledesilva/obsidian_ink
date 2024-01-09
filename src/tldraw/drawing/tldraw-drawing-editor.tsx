@@ -6,7 +6,7 @@ import HandwritingContainer from "../writing-shapes/writing-container"
 import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX } from 'src/constants';
-import { svgToPngDataUri } from 'src/utils/screenshots';
+import { svgToDataUri as svgToDataUri } from 'src/utils/screenshots';
 import { FileSystemAdapter, TFile } from 'obsidian';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
@@ -300,7 +300,7 @@ export function TldrawDrawingEditor(props: {
 		const svgEl = await editor.getSvg(allShapeIds);
 		
 		if (svgEl) {
-			previewUri = await svgToPngDataUri(svgEl)
+			previewUri = await svgToDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 		

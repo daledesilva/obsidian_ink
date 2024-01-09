@@ -3,7 +3,7 @@ import { Canvg } from 'canvg';
 //////////
 //////////
 
-export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | null> {
+export async function svgToDataUri(svgElement: SVGElement): Promise<string | null> {
 	try {
 		// Extract width and height from the SVG element
 		let width = svgElement.getAttribute('width') ? Number(svgElement.getAttribute('width')) : 0;
@@ -40,15 +40,20 @@ export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | 
 		canvgRenderer.start();
 		
 		// Convert canvas to PNG data URI with transparent background
-		const dataURL = canvas.toDataURL('image/png', {alpha: true});
+		const dataUri = canvas.toDataURL('image/png', {alpha: true})
 		
 		// Remove temporary canvas element
 		canvgRenderer.stop();
 		canvas.remove();
 
-		return dataURL;
+		return dataUri;
 	} catch (error) {
 		console.error(`Error converting SVG to PNG: ${error}`);
 		return null;
 	}
+}
+
+
+export function dataUriToBase64Image(dataUri: string): string {
+	return dataUri.slice(dataUri.indexOf(',') + 1);
 }

@@ -192,8 +192,10 @@ const WritingEmbedPreview: React.FC<{
 
 
 const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
+	if(!pageData.previewUri) return;
+	
 	if(needsTranscriptUpdate(pageData)) {
-		fetchWriteFileTranscript()
+		fetchWriteFileTranscript(pageData.previewUri)
 			.then((transcript) => {
 				saveWriteFileTranscript(plugin, fileRef, transcript)
 			})

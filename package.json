@@ -24,6 +24,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
+		"@google-cloud/vision": "^4.0.2",
 		"@tldraw/tldraw": "^2.0.0-alpha.17",
 		"canvg": "^4.0.1",
 		"esbuild-plugin-copy": "^2.0.1",

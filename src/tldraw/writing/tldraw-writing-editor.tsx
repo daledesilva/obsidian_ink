@@ -7,7 +7,7 @@ import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
-import { svgToPngDataUri } from 'src/utils/screenshots';
+import { svgToDataUri } from 'src/utils/screenshots';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
@@ -403,7 +403,7 @@ export function TldrawWritingEditor(props: {
 		
 		if (svgEl) {
 			console.log('has svgEL');
-			previewUri = await svgToPngDataUri(svgEl)
+			previewUri = await svgToDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 

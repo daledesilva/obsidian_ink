@@ -155,8 +155,10 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
 
     // TODO: Add in a date of the transcript
 
-    pageData.meta.transcript = "The new transcript";
+    console.log('transcript', transcript)
+    pageData.meta.transcript = transcript;
     const newPageDataStr = JSON.stringify(pageData, null, '\t');
 
     await v.modify(fileRef, newPageDataStr, { mtime: fileRef.stat.mtime });
 }
+

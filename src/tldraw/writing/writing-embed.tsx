@@ -1,5 +1,5 @@
 import "./writing-embed.scss";
-import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
+import { Editor } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import { TldrawWritingEditor } from "./tldraw-writing-editor";
@@ -7,8 +7,8 @@ import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
 import { openInkFile } from "src/utils/open-file";
-import { TFile, Notice } from "obsidian";
-import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
+import { TFile } from "obsidian";
+import { duplicateWritingFile, getPreviewFileResourcePath, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 
@@ -55,7 +55,7 @@ export function WritingEmbed (props: {
 			}
 
 
-			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
+			// fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
 		}		
 
 	}, [isEditMode])
@@ -80,7 +80,7 @@ export function WritingEmbed (props: {
 		setIsEditMode(false);
 	}
 
-	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
+	const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	return <>
 		<div
@@ -194,12 +194,13 @@ const WritingEmbedPreview: React.FC<{
 const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
 	if(!pageData.previewUri) return;
 	
-	if(needsTranscriptUpdate(pageData)) {
-		fetchWriteFileTranscript(pageData.previewUri)
-			.then((transcript) => {
-				saveWriteFileTranscript(plugin, fileRef, transcript)
-			})
-	}
+	// TODO: This only works on desktop currently and breaks when the key file is missing.
+	// if(needsTranscriptUpdate(pageData)) {
+	// 	fetchWriteFileTranscript(pageData.previewUri)
+	// 		.then((transcript) => {
+	// 			saveWriteFileTranscript(plugin, fileRef, transcript)
+	// 		})
+	// }
 }
 
 

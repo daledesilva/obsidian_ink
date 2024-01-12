@@ -1,6 +1,4 @@
-import { Editor, SerializedStore, Store, StoreSnapshot, TLGeoShape, TLRecord, TLShapePartial, Tldraw, createShapeId, createTLStore, parseTldrawJsonFile } from "@tldraw/tldraw";
-// import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TAbstractFile, TFile, debounce, } from "obsidian";
+import { MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
@@ -60,7 +58,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		this.root.render(
             <WritingEmbed
 				plugin = {this.plugin}
-                fileRef = {this.fileRef}
+				fileRef = {this.fileRef}
 				pageData = {pageData}
                 save = {this.save}
 			/>

@@ -1,7 +1,29 @@
 # Obsidian Handwrite
 A plugin for [Obsidian](https://obsidian.md) that adds the ability to handwrite with a stylus into sections of markdown files.
 
-This plugin is not yet released.
+## This plugin is not yet released.
+
+### Rough roadmap
+These are the high level features I will be working on.
+- [x] Proof of concept handwriting input.
+- [x] Proof of concept drawing input.
+- [x] Embeddable in markdown files.
+- [x] Automatic screenshotting.
+- [x] Begin using internally.
+- [x] Proof of concept OCR (Transcripts).
+- [ ] Basic UI Refinement. (January)
+- [ ] Improve interaction with of markdown files while using embeds. (January)
+- [ ] Convert embed format to persist beyond uninstall. (January)
+- [ ] **Alpha release.**
+- [ ] More intuitive UI refinements. [February]
+- [ ] Multiple pen styles. (February)
+- [ ] Convert to canvas framework. (March)
+- [ ] More intuitive touch/stylus input refinement. (April)
+- [ ] Implement automatic OCR (Transcripts).
+- [ ] Implement finger selection of words
+- [ ] Ability to reorder text.
+- [ ] Consider drawing functionality.
+
 
 ---
 

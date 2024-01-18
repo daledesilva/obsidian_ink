@@ -5,10 +5,11 @@ A plugin for [Obsidian](https://obsidian.md) that adds the ability to handwrite 
 Please also note that while the repository is public, the plugin it is not currently open source.
 
 ## Demo
-https://youtu.be/qgir8F7ezNM
+[![Click to play demo](https://img.youtube.com/vi/qgir8F7ezNM/0.jpg)](https://www.youtube.com/watch?v=qgir8F7ezNM)<br/>
+[Click to view video](https://youtu.be/qgir8F7ezNM)
 
 **Demo Note**<br/>
-In the video above, I have set up this plugin's commands to be visible in another plugin called [Slash Commander](https://github.com/alephpiece/obsidian-slash-commander) - This allows me to select the insert command quickly by simply typeing '/'.
+In the video above, I have set up this plugin's commands to be visible in another plugin called [Slash Commander](https://github.com/alephpiece/obsidian-slash-commander) - This allows me to select the insert command quickly by simply typeing `/`.
 
 ## Rough roadmap
 I've been building this plugin since December 2023 and I'm currently developing it further and using it daily.<br/>

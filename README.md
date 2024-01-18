@@ -21,11 +21,11 @@ Below are the high level features in my current development plan along with thei
 - [x] Automatic screenshotting.
 - [x] Begin using internally.
 - [x] Proof of concept OCR (Transcripts).
-- [ ] Basic UI Refinement. ***January***
+- [ ] Basic UI Refinement. ***January 2023***
 - [ ] Improve interaction with of markdown files while using embeds. ***January***
 - [ ] Convert embed format to persist beyond uninstall. ***January***
 - [ ] Turn off drawing functionality by default ***January***
-- [ ] **ALPHA release in plugin repository.**
+- [ ] **ALPHA release February 2023.**
 - [ ] More intuitive UI refinements. ***February***
 - [ ] Multiple pen styles. ***February***
 - [ ] Convert to canvas framework. ***March***

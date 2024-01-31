@@ -1,5 +1,6 @@
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
+import { useRef, useState } from 'react';
 
 
 //////////
@@ -98,33 +99,33 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 
 
 export function preventTldrawCanvasesCausingObsidianGestures() {
-    const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
-    tlCanvas.addEventListener('touchmove', (e: Event) => {
-        e.stopPropagation();
-    })
+	const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
+	tlCanvas.addEventListener('touchmove', (e: Event) => {
+		e.stopPropagation();
+	})
 
-    // NOTE: This might be a more appropriate method than above, but I don't know how to get a reference to the event object to stop propogation
-    // editor.addListener('event', (e: TLEventInfo) => {
-    // 	// if(e instanceof TLPointerEventInfo)
-    // 	const str = `type: ${e.type}, name: ${e.name}, isPen: ${e?.isPen}`;
-    // 	console.log(e);
-    // 	setOutputLog(str);
-    // });
+	// NOTE: This might be a more appropriate method than above, but I don't know how to get a reference to the event object to stop propogation
+	// editor.addListener('event', (e: TLEventInfo) => {
+	// 	// if(e instanceof TLPointerEventInfo)
+	// 	const str = `type: ${e.type}, name: ${e.name}, isPen: ${e?.isPen}`;
+	// 	console.log(e);
+	// 	setOutputLog(str);
+	// });
 }
 
 
 export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
-    let canvasWidth = editor.getContainer().innerWidth
-    let containerMargin = 0;
-    let containerWidth = 2000;
-    let visibleWidth = containerWidth + 2 * containerMargin;
-    const zoom = canvasWidth / visibleWidth;
+	let canvasWidth = editor.getContainer().innerWidth
+	let containerMargin = 0;
+	let containerWidth = 2000;
+	let visibleWidth = containerWidth + 2 * containerMargin;
+	const zoom = canvasWidth / visibleWidth;
 
-    // REVIEW: These are currently hard coded to a specific page position
-    let x = containerMargin;
-    let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
+	// REVIEW: These are currently hard coded to a specific page position
+	let x = containerMargin;
+	let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
 
-	silentlyChangeStore( editor, () => {
+	silentlyChangeStore(editor, () => {
 		// editor.zoomToFit()
 		editor.setCamera({
 			x: x,
@@ -136,12 +137,12 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 
 
 export function initDrawingCamera(editor: Editor) {
-    editor.zoomToFit()
+	editor.zoomToFit()
 }
 
 export function adaptTldrawToObsidianThemeMode(editor: Editor) {
-    const isDarkMode = document.body.classList.contains('theme-dark');
-	
+	const isDarkMode = document.body.classList.contains('theme-dark');
+
 	if (isDarkMode) {
 		setUserPreferences({
 			id: 'dummy-id',
@@ -153,47 +154,47 @@ export function adaptTldrawToObsidianThemeMode(editor: Editor) {
 			isDarkMode: false
 		})
 	}
-	    
+
 }
 
 
 export function removeExtensionAndDotFromFilepath(filepath: string) {
-    const dotIndex = filepath.lastIndexOf(".");
+	const dotIndex = filepath.lastIndexOf(".");
 
-    const aDotExists = dotIndex !== -1;
-    const lastDotNotInPath = filepath.lastIndexOf("/") < dotIndex;
-    if (aDotExists && lastDotNotInPath) {
-        return filepath.substring(0, dotIndex);
-    } else {
-        return filepath;
-    }
+	const aDotExists = dotIndex !== -1;
+	const lastDotNotInPath = filepath.lastIndexOf("/") < dotIndex;
+	if (aDotExists && lastDotNotInPath) {
+		return filepath.substring(0, dotIndex);
+	} else {
+		return filepath;
+	}
 }
 
 
 export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
-    let isEmpty = true;
-    for (const record of Object.values(tldrawData.store)) {
-        // Store should only contain document, page, and handwriting container shape
-        if(record.typeName === 'shape') {
-            const shapeRecord = record as TLShape;
-            if (shapeRecord.type !== 'handwriting-container') {
-                isEmpty = false;
-            }
-        } 
-    }
-    return isEmpty;
+	let isEmpty = true;
+	for (const record of Object.values(tldrawData.store)) {
+		// Store should only contain document, page, and handwriting container shape
+		if (record.typeName === 'shape') {
+			const shapeRecord = record as TLShape;
+			if (shapeRecord.type !== 'handwriting-container') {
+				isEmpty = false;
+			}
+		}
+	}
+	return isEmpty;
 }
 
 export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
-    console.log('Drawing store', Object.keys(tldrawData.store))
-    let isEmpty = true;
-    for (const record of Object.values(tldrawData.store)) {
-        // Store should only contain document and page
-        if(record.typeName === 'shape') {
-            isEmpty = false;
-        } 
-    }
-    return isEmpty;
+	console.log('Drawing store', Object.keys(tldrawData.store))
+	let isEmpty = true;
+	for (const record of Object.values(tldrawData.store)) {
+		// Store should only contain document and page
+		if (record.typeName === 'shape') {
+			isEmpty = false;
+		}
+	}
+	return isEmpty;
 }
 
 
@@ -226,33 +227,39 @@ function getIncompleteShapes(editor: Editor) {
 
 
 
-const stash: TLShape[] = [];
-export const stashStaleStrokes = (editor: Editor) => {
-	const completeShapes = getCompleteShapes(editor);
+export const useStash = () => {
+	const stash = useRef<TLShape[]>([]);
 
-	let staleShapeIds: TLShapeId[] = [];
-	let staleShapes: TLShape[] = [];
-	// TODO: Order isn't guaranteed. Need to order by vertical position first
-	for (let i = 0; i <= completeShapes.length - WRITE_STROKE_LIMIT; i++) {
-		const record = completeShapes[i];
-		if (record.type != 'draw') return;
+	const stashStaleContent = (editor: Editor) => {
+		const completeShapes = getCompleteShapes(editor);
 
-		staleShapeIds.push(record.id as TLShapeId);
-		staleShapes.push(record as TLShape);
-	}
-	
-	stash.push(...staleShapes);
-	silentlyChangeStore(editor, () => {
-		editor.store.remove(staleShapeIds)
-	})
-}
+		const staleShapeIds: TLShapeId[] = [];
+		const staleShapes: TLShape[] = [];
 
-export function unstashStaleStrokes(editor: Editor): void {
-	silentlyChangeStore(editor, () => {
-		editor.store.put(stash);
-	})
-	stash.length = 0;
-}
+		// TODO: Order shapes by vertical position
+		for (let i = 0; i <= completeShapes.length - WRITE_STROKE_LIMIT; i++) {
+			const record = completeShapes[i];
+			if (record.type !== 'draw') return;
+
+			staleShapeIds.push(record.id as TLShapeId);
+			staleShapes.push(record as TLShape);
+		}
+
+		stash.current.push(...staleShapes);
+		silentlyChangeStore(editor, () => {
+			editor.store.remove(staleShapeIds);
+		});
+	};
+
+	const unstashStaleContent = (editor: Editor) => {
+		silentlyChangeStore(editor, () => {
+			editor.store.put(stash.current);
+		});
+		stash.current.length = 0;
+	};
+
+	return { stashStaleContent, unstashStaleContent };
+};
 
 
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
@@ -267,9 +274,9 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 
 // These two are intended for replacing an unstash+commands+restash sequence, but the asyncs aren't quite working yet
 export const takeActionOnFullStore = (editor: Editor, func: () => void) => {
-    unstashStaleStrokes(editor);
+	unstashStaleStrokes(editor);
 	silentlyChangeStore(editor, func)
-    stashStaleStrokes(editor)
+	stashStaleStrokes(editor)
 }
 // export const takeActionOnFullStoreAsync = async (editor: Editor, func: () => void) => {
 // 	unstashStaleStrokes(editor);

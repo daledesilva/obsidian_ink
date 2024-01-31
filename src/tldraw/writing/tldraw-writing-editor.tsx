@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, stashStaleStrokes, unstashStaleStrokes } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
@@ -68,6 +68,7 @@ export function TldrawWritingEditor(props: {
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
+	const { stashStaleContent, unstashStaleContent } = useStash();
 
 	function undo() {
 		const editor = editorRef.current
@@ -153,13 +154,13 @@ export function TldrawWritingEditor(props: {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					// console.log('camera moved');
-					unstashStaleStrokes(editor);
+					unstashStaleContent(editor);
 					break;
 
 				case Activity.DrawingStarted:
 					// console.log('drawing started');
 					resetInputPostProcessTimers();
-					stashStaleStrokes(editor);
+					stashStaleContent(editor);
 					break;
 					
 				case Activity.DrawingContinued:
@@ -381,9 +382,9 @@ export function TldrawWritingEditor(props: {
 
 
 	const incrementalSave = async (editor: Editor) => {
-		unstashStaleStrokes(editor);
+		unstashStaleContent(editor);
 		const tldrawData = editor.store.getSnapshot();
-		stashStaleStrokes(editor);
+		stashStaleContent(editor);
 
 		const pageData = buildWritingFileData({
 			tldrawData,
@@ -396,10 +397,10 @@ export function TldrawWritingEditor(props: {
 	const completeSave = async (editor: Editor) => {
 		let previewUri;
 		
-		unstashStaleStrokes(editor);
+		unstashStaleContent(editor);
 		const tldrawData = editor.store.getSnapshot();
 		const svgEl = await getWritingSvg(editor);
-		stashStaleStrokes(editor);
+		stashStaleContent(editor);
 		
 		if (svgEl) {
 			console.log('has svgEL');

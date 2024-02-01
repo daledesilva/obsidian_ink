@@ -1,5 +1,5 @@
 import "./writing-embed.scss";
-import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
+import { Editor, SerializedStore, TLRecord, Tldraw, preventDefault } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import { TldrawWritingEditor } from "./tldraw-writing-editor";
@@ -11,8 +11,17 @@ import { TFile, Notice } from "obsidian";
 import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
+import { useSelector } from "react-redux";
+import { GlobalSessionSlice } from "src/logic/stores";
+import { useDispatch } from 'react-redux';
 
 ///////
+///////
+
+// Global variables
+// TODO: This needs to be a React managed variable so that it causes rerenders
+let activeEmbedId: null | string;
+
 ///////
 
 enum tool {
@@ -39,6 +48,9 @@ export function WritingEmbed (props: {
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
+	const activeEmbedId = useSelector((state: GlobalSessionSlice) => state.activeEmbedId);
+	const dispatch = useDispatch();
+	const [embedId] = useState<string>(crypto.randomUUID());
 
 	
 	// Whenever switching between readonly and edit mode
@@ -82,6 +94,9 @@ export function WritingEmbed (props: {
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
+	let isActive = false;
+	if(embedId && embedId === activeEmbedId) isActive = true;
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -98,6 +113,10 @@ export function WritingEmbed (props: {
 				<WritingEmbedPreview
 					src = {curPageData.previewUri}
 					// src = {previewFilePath}
+					onClick = {(event) => {
+						event.preventDefault();
+						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+					}}
 				/>
 			)}
 			{isEditMode && (
@@ -110,26 +129,28 @@ export function WritingEmbed (props: {
 					registerControls = {registerEditorControls}
 				/>
 			)}
-			<TransitionMenuBar
-				isEditMode = {isEditMode}
-				onOpenClick = {async () => {
-					openInkFile(props.plugin, props.fileRef)
-				}}
-				onEditClick = { async () => {
-					const newPageData = await refreshPageData();
-					setIsEditMode(true);
-					setCurPageData(newPageData);
-				}}
-				onFreezeClick = { async () => {
-					await editorControlsRef.current?.saveAndHalt();
-					const newPageData = await refreshPageData();
-					setCurPageData(newPageData);
-					setIsEditMode(false);
-				}}
-				onDuplicateClick = { async () => {
-					await duplicateWritingFile(props.plugin, props.fileRef);
-				}}
-			/>
+			{(isActive || isEditMode) && (
+				<TransitionMenuBar
+					isEditMode = {isEditMode}
+					onOpenClick = {async () => {
+						openInkFile(props.plugin, props.fileRef)
+					}}
+					onEditClick = { async () => {
+						const newPageData = await refreshPageData();
+						setIsEditMode(true);
+						setCurPageData(newPageData);
+					}}
+					onFreezeClick = { async () => {
+						await editorControlsRef.current?.saveAndHalt();
+						const newPageData = await refreshPageData();
+						setCurPageData(newPageData);
+						setIsEditMode(false);
+					}}
+					onDuplicateClick = { async () => {
+						await duplicateWritingFile(props.plugin, props.fileRef);
+					}}
+				/>
+			)}
 		</div>
 	</>;
 	
@@ -177,10 +198,12 @@ export default WritingEmbed;
 
 const WritingEmbedPreview: React.FC<{ 
 	src: string,
+	onClick: React.MouseEventHandler
 }> = (props) => {
 
 	return <div>
 		<img
+			onClick = {props.onClick}
 			src = {props.src}
 			style = {{
 				width: '100%'

@@ -8,6 +8,8 @@ import { WritingEmbedData as WritingEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
 import WritingEmbed from "src/tldraw/writing/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
+import { Provider } from "react-redux";
+import { store } from "src/logic/stores";
 
 ////////
 ////////
@@ -58,12 +60,14 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 
 		this.root = createRoot(this.el);
 		this.root.render(
-            <WritingEmbed
-				plugin = {this.plugin}
-                fileRef = {this.fileRef}
-				pageData = {pageData}
-                save = {this.save}
-			/>
+			<Provider store={store}>
+				<WritingEmbed
+					plugin = {this.plugin}
+					fileRef = {this.fileRef}
+					pageData = {pageData}
+					save = {this.save}
+				/>
+			</Provider>
         );
 	}
 

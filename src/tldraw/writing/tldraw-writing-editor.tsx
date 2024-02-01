@@ -391,7 +391,7 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		console.log('...Finished incremental save');
+		console.log('...Finished incremental WRITING save');
 	}
 
 	const completeSave = async (editor: Editor) => {

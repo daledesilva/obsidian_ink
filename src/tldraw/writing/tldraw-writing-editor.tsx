@@ -403,13 +403,11 @@ export function TldrawWritingEditor(props: {
 		stashStaleContent(editor);
 		
 		if (svgEl) {
-			console.log('has svgEL');
 			previewUri = await svgToPngDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 
 		if(previewUri) {
-			console.log('has previewURI');
 			const pageData = buildWritingFileData({
 				tldrawData,
 				previewUri,
@@ -418,15 +416,13 @@ export function TldrawWritingEditor(props: {
 			savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
-			console.log('WITHOUT');
 			const pageData = buildWritingFileData({
 				tldrawData,
 			})
 			props.save(pageData);
-
 		}
 
-		console.log('...Finished complete save');
+		console.log('...Finished complete WRITING save');
 	}
 
 	

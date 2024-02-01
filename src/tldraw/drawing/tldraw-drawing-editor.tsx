@@ -287,6 +287,7 @@ export function TldrawDrawingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
+		console.log('...Finished incremental DRAWING save');
 	}
 
 
@@ -295,9 +296,7 @@ export function TldrawDrawingEditor(props: {
 		let previewUri;
 		const tldrawData = editor.store.getSnapshot();
 		
-		// get SVG
-		const allShapeIds = Array.from(editor.currentPageShapeIds.values());
-		const svgEl = await editor.getSvg(allShapeIds);
+		const svgEl = await getDrawingSvg(editor);
 		
 		if (svgEl) {
 			previewUri = await svgToPngDataUri(svgEl)
@@ -305,22 +304,21 @@ export function TldrawDrawingEditor(props: {
 		}
 		
 		if(previewUri) {
-			savePngExport(props.plugin, previewUri, props.fileRef)
-
 			const pageData = buildDrawingFileData({
 				tldrawData,
 				previewUri,
 			})
 			props.save(pageData);
+			savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
 			const pageData = buildDrawingFileData({
 				tldrawData,
 			})
 			props.save(pageData);
-
 		}
 
+		console.log('...Finished complete DRAWING save');
 	}
 
 
@@ -354,33 +352,14 @@ export default TldrawDrawingEditor;
 
 
 
-
-
-
-
-
-const stashOldShapes = (editor: Editor) => {
-	// editor.batch( () => {
-
-	const completeShapes = getCompleteShapes(editor);
-	const stashPage = getOrCreateStash(editor);
-
-	let olderShapes: TLShape[] = [];
-	let recentCount = 300;	// The number of recent strokes to keep visible
-
-	// TODO: Order isn't guaranteed. Need to order by vertical position first
-	for (let i = 0; i <= completeShapes.length - recentCount; i++) {
-		const record = completeShapes[i];
-		if (record.type != 'draw') return;
-
-		olderShapes.push(record as TLShape);
-	}
-
-	editor.moveShapesToPage(olderShapes, stashPage.id);
-	editor.setCurrentPage(editor.pages[0]);
-
-	// })
+async function getDrawingSvg(editor: Editor) {
+	const allShapeIds = Array.from(editor.currentPageShapeIds.values());
+	const svgEl = await editor.getSvg(allShapeIds);
+	return svgEl;
 }
+
+
+
 
 
 

@@ -102,7 +102,8 @@ export function WritingEmbed (props: {
 			ref = {embedContainerRef}
 			className = 'ink_writing-embed'
 			style = {{
-				// height: '400px',
+				marginTop: '3em',
+				marginBottom: '2.5em',
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (

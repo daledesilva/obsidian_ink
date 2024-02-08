@@ -41,108 +41,31 @@ export default class InkPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-
 		// this.app.emulateMobile(false);
-		
-
-		// Add global actions
-		this.addCommand({
-			id: 'ddc_create-writing-file',
-			name: 'Create new handwritten note',
-			callback: async () => {
-				const fileRef = await createNewWritingFile(this);
-				openInkFile(this, fileRef);
-			}
-		});
-		this.addCommand({
-			id: 'ddc_create-drawing-file',
-			name: 'Create new drawing',
-			callback: async () => {
-				const fileRef = await createNewDrawingFile(this);
-				openInkFile(this, fileRef);
-			}
-		});
-		
-
-		// Add markdown note actions
-		this.addCommand({
-			id: 'ddc_embed-writing-file',
-			name: 'Insert existing handwriting section',
-			editorCallback: (editor: Editor) => insertExistingWritingFile(this, editor)
-		});
-		this.addCommand({
-			id: 'ddc_create-handwritten-section',
-			name: 'Insert new handwriting section',
-			editorCallback: (editor: Editor) => insertNewWritingFile(this, editor)
-		});
-		this.addCommand({
-			id: 'ddc_embed-drawing-file',
-			name: 'Insert existing drawing section',
-			editorCallback: (editor: Editor) => insertExistingDrawingFile(this, editor)
-		});
-		this.addCommand({
-			id: 'ddc_create-drawing-section',
-			name: 'Insert new drawing section',
-			editorCallback: (editor: Editor) => insertNewDrawingFile(this, editor)
-		});
-		this.addCommand({
-			id: 'ddc_insert-recently-duplicated-drawing',
-			name: 'Insert recently duplicated drawing',
-			editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(this, editor)
-		});
-		this.addCommand({
-			id: 'ddc_insert-recently-duplicated-writing',
-			name: 'Insert recently duplicated handwriting section',
-			editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(this, editor)
-		});
-
-
-		
 
 		registerWritingView(this);
 		registerWritingEmbed(this);
 
 		registerDrawingView(this);
 		registerDrawingEmbed(this);
-	
 		
-
-		this.addRibbonIcon("pencil", "New handwritten note", async () => {
-			const fileRef = await createNewWritingFile(this);
-			openInkFile(this, fileRef);
-		});
-		this.addRibbonIcon("pencil", "New hand drawn note", async () => {
-			const fileRef = await createNewDrawingFile(this);
-			openInkFile(this, fileRef);
-		});
-
-		// this.addRibbonIcon("dice", "Handwriting View (Current tab)", () => {
-			// activateHandwritingView(this, ViewPosition.replacement);
-		// });
-		// this.addRibbonIcon("dice", "Handwriting View (New tab)", () => {
-		// 	activateHandwritingView(this, ViewPosition.tab);
-		// });
-		// this.addRibbonIcon("dice", "Handwriting View (Split right)", () => {
-		// 	activateHandwritingView(this, ViewPosition.verticalSplit);
-		// });
-		// this.addRibbonIcon("dice", "Handwriting View (Split bottom)", () => {
-		// 	activateHandwritingView(this, ViewPosition.horizontalSplit);
-		// });
-
-
+		implementWritingEmbedActions(this);
+		implementDrawingEmbedActions(this);
+		
+		// For testing only
+		// implementHandwrittenNoteAction(this)
+		// implementHandDrawnNoteAction(this)
 		
 		// TODO: Convert this to registerSettingsTab
 		this.addSettingTab(new MySettingsTab(this.app, this));
 		
-
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
 		// // this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
 		// // 	console.log('click', evt);
 		// // });
-		
-
 	}
+	
 
 	onunload() {
 		// TODO: Make sure to stop anything here
@@ -166,3 +89,70 @@ export default class InkPlugin extends Plugin {
 
 
 
+function implementWritingEmbedActions(plugin: InkPlugin) {
+	plugin.addCommand({
+		id: 'ddc_create-handwritten-section',
+		name: 'Insert new handwriting section',
+		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'ddc_embed-writing-file',
+		name: 'Insert existing handwriting section',
+		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'ddc_insert-recently-duplicated-writing',
+		name: 'Insert recently duplicated handwriting section',
+		editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(plugin, editor)
+	});
+}
+
+
+function implementDrawingEmbedActions(plugin: InkPlugin) {
+	plugin.addCommand({
+		id: 'ddc_create-drawing-section',
+		name: 'Insert new drawing section',
+		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'ddc_embed-drawing-file',
+		name: 'Insert existing drawing section',
+		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'ddc_insert-recently-duplicated-drawing',
+		name: 'Insert recently duplicated drawing',
+		editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(plugin, editor)
+	});
+}
+
+
+function implementHandwrittenNoteAction(plugin: InkPlugin) {
+	plugin.addCommand({
+		id: 'ddc_create-writing-file',
+		name: 'Create new handwritten note',
+		callback: async () => {
+			const fileRef = await createNewWritingFile(plugin);
+			openInkFile(plugin, fileRef);
+		}
+	});
+	plugin.addRibbonIcon("pencil", "New handwritten note", async () => {
+		const fileRef = await createNewWritingFile(plugin);
+		openInkFile(plugin, fileRef);
+	});
+}
+
+function implementHandDrawnNoteAction(plugin: InkPlugin) {
+	plugin.addCommand({
+		id: 'ddc_create-drawing-file',
+		name: 'Create new drawing',
+		callback: async () => {
+			const fileRef = await createNewDrawingFile(plugin);
+			openInkFile(plugin, fileRef);
+		}
+	});
+	plugin.addRibbonIcon("pencil", "New hand drawn note", async () => {
+		const fileRef = await createNewDrawingFile(plugin);
+		openInkFile(plugin, fileRef);
+	});
+}

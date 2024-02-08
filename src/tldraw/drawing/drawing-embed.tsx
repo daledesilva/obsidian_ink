@@ -91,6 +91,8 @@ export function DrawingEmbed (props: {
 			className = 'ink_drawing-embed'
 			style = {{
 				height: isEditMode ? '600px' : 'auto',
+				marginTop: '3em',
+				marginBottom: '2.5em',
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (

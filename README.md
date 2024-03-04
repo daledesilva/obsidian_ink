@@ -4,14 +4,44 @@ A plugin for [Obsidian](https://obsidian.md) that adds the ability to handwrite 
 !! ***This plugin is not yet released.***<br/>
 Please also note that while the repository is public, the plugin it is not currently open source.
 
-## Demo
-[![Click to play demo](https://img.youtube.com/vi/qgir8F7ezNM/0.jpg)](https://www.youtube.com/watch?v=qgir8F7ezNM)<br/>
-[Click to view video](https://youtu.be/qgir8F7ezNM)
+## 🎥 Demo
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=qgir8F7ezNM" target="_blank">
+      <img src="https://img.youtube.com/vi/qgir8F7ezNM/0.jpg" width="60%" alt="Screenshot of devdiary video"><br/>
+      Click to play demo
+  </a>
+
+</p>
 
 **Demo Note**<br/>
-In the video above, I have set up this plugin's commands to be visible in another plugin called [Slash Commander](https://github.com/alephpiece/obsidian-slash-commander) - This allows me to select the insert command quickly by simply typeing `/`.
+In the video above, I have set up this plugin's commands to be visible in another plugin called [Slash Commander](https://github.com/alephpiece/obsidian-slash-commander) - This allows me to select the insert command quickly by simply typing `/`.
 
-## Rough roadmap
+## 📓 Development Diaries
+I record regular development diaries. [Subscribe and follow along](https://www.youtube.com/@designdebtclub) to see features in development.
+
+<p align="center">
+    <a href="https://youtube.com/playlist?list=PLAiv7XV4xFx3_JUHGUp_vrqturMTsoBUZ&si=7-XnA3NEq6OBNzhW" target="_blank">
+        <img src="docs/media/devdiary-screenshot.jpg" width="60%" alt="Screenshot of devdiary video"><br/>
+        Click to view development diaries
+    </a>
+</p>
+
+<p align="center">
+  <a href="https://twitter.com/daledesilva" target="_blank_">
+    <img src="docs/media/twitter-btn.svg" height="40px" alt="Dale de Silva on Twitter">
+  </a>
+  <a href="https://indieweb.social/@daledesilva" target="_blank">
+    <img src="docs/media/mastodon-btn.svg" height="40px" alt="Dale de Silva on Mastodon">
+  </a>
+  <a href="https://www.threads.net/@daledesilva" target="_blank">
+    <img src="docs/media/threads-btn.svg" height="40px" alt="Dale de Silva on Threads">
+  </a>
+  <a href="https://bsky.app/profile/daledesilva.bsky.social" target="_blank">
+    <img src="docs/media/bluesky-btn.svg" height="40px" alt="Dale de Silva on Bluesky">
+  </a>
+</p>
+
+## 🗺️ Rough roadmap
 I've been building this plugin since December 2023 and I'm currently developing it further and using it daily.<br/>
 Below are the high level features in my current development plan along with their expected timeframes.
 
@@ -21,11 +51,11 @@ Below are the high level features in my current development plan along with thei
 - [x] Automatic screenshotting.
 - [x] Begin using internally.
 - [x] Proof of concept OCR (Transcripts).
-- [ ] Basic UI Refinement. ***January 2023***
+- [ ] Basic UI Refinement. ***January 2024***
 - [ ] Improve interaction with of markdown files while using embeds. ***January***
 - [ ] Convert embed format to persist beyond uninstall. ***January***
 - [ ] Turn off drawing functionality by default ***January***
-- [ ] **ALPHA release February 2023.**
+- [ ] **ALPHA release February 2024.**
 - [ ] More intuitive UI refinements. ***February***
 - [ ] Multiple pen styles. ***February***
 - [ ] Convert to canvas framework. ***March***
@@ -55,9 +85,8 @@ Note, however, that the embed format described above will apply here also, which
 
 Note also that the drawing functionality will not take the place of Excalidraw. Excalidraw provides a feature rich ability to diagram holistically, whereas this plugin is built around freeform natural pen input. I personally like sketching more freeform with only minimal aid of drag and drop elements, so this is what drawing here is focussed on as that aligns with a handwritten style of taking notes as well.
 
-
 ## ❤️ Support
-If you find this plugin saves you time or helps you in some way, please consider supporting my development of plugins and other free community material like this. A simply way is to follow and message me on twitter at [@daledesilva](https://twitter.com/daledesilva) or Mastodon at [indieweb.social/@daledesilva](https://indieweb.social/@daledesilva), and you can also support with a donation below.
+If you find this plugin saves you time or helps you in some way, please consider supporting my development of plugins and other free community material like this.
 
 <p>
   <a href="https://twitter.com/daledesilva" target="_blank_">
@@ -65,6 +94,12 @@ If you find this plugin saves you time or helps you in some way, please consider
   </a>
   <a href="https://indieweb.social/@daledesilva" target="_blank">
     <img src="docs/media/mastodon-btn.svg" height="40px" alt="Dale de Silva on Mastodon">
+  </a>
+  <a href="https://www.threads.net/@daledesilva" target="_blank">
+    <img src="docs/media/threads-btn.svg" height="40px" alt="Dale de Silva on Threads">
+  </a>
+  <a href="https://bsky.app/profile/daledesilva.bsky.social" target="_blank">
+    <img src="docs/media/bluesky-btn.svg" height="40px" alt="Dale de Silva on Bluesky">
   </a>
   <a href="https://ko-fi.com/N4N3JLUCW" target="_blank">
     <img src="docs/media/support-btn.svg" height="40px" alt="Support me on Ko-fi">
@@ -82,4 +117,3 @@ You can find links to my other projects on [designdebt.club](https://designdebt.
     <img src="docs/media/falter-in-resolute-btn.svg" height="50px" alt="Falter In Resolute Blog">
   </a>
 </p>
-

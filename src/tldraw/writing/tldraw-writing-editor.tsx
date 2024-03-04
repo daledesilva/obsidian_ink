@@ -421,7 +421,7 @@ export function TldrawWritingEditor(props: {
 					onDrawClick = {activateDrawTool}
 					onEraseClick = {activateEraseTool}
 				/>
-				{/* <ContextualMenu/> */}
+				{/* <TransitionMenu/> */}
 			</PrimaryMenuBar>
 			{/* <div
 				className = 'output-log'

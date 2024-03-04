@@ -3,7 +3,7 @@ import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOver
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
-import { WritingMenuBar } from "../writing-menu-bar/writing-menu-bar";
+import { WritingMenu } from "../writing-menu-bar/writing-menu-bar";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
@@ -11,6 +11,7 @@ import { svgToPngDataUri } from 'src/utils/screenshots';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
+import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 
 
 ///////
@@ -58,9 +59,7 @@ export function TldrawWritingEditor(props: {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	const scrollContainerElRef = useRef<HTMLDivElement>(null);
-	const blockElRef = useRef<HTMLDivElement>(null)
-	const menuBarElRef = useRef<HTMLDivElement>(null);
+	const containerElRef = React.useRef<HTMLDivElement>(null)
 	const [outputLog, setOutputLog] = React.useState('This is the output log');
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -122,7 +121,6 @@ export function TldrawWritingEditor(props: {
 
 		// Container setups
 		resizeContainerIfEmbed(editor);
-		initScrollHandler();
 		preventTldrawCanvasesCausingObsidianGestures();
 		
 		// tldraw content prep
@@ -221,7 +219,6 @@ export function TldrawWritingEditor(props: {
 			resetInputPostProcessTimers();
 			removeUserStoreChangeListener();
 			removeStoreChangeListener
-			cleanUpScrollHandler();
 		}
 
 		if(props.registerControls) {
@@ -256,47 +253,13 @@ export function TldrawWritingEditor(props: {
 
 			const contentRatio = contentBounds.w / contentBounds.h;
 			const embedHeight = embedBounds.w / contentRatio;
-			if(blockElRef.current) {
-				blockElRef.current.style.height = embedHeight + 'px';
+			if(containerElRef.current) {
+				containerElRef.current.style.height = embedHeight + 'px';
 			}
 		}
 	}
 
-	const initScrollHandler = () => {
-		const menuBarEl = menuBarElRef.current;
-		const scrollEl = menuBarEl?.closest(".cm-scroller");
-		scrollEl?.addEventListener('scroll', handleScrolling);
-	}
-	const cleanUpScrollHandler = () => {
-		const scrollEl = scrollContainerElRef.current;
-		scrollEl?.removeEventListener('scroll', handleScrolling);
-	}
-
-	const handleScrolling = (e: Event): void => {
-		const scrollEl = e.target as HTMLDivElement;
-		const pageScrollY = scrollEl.scrollTop;
-
-		const menuBarEl = menuBarElRef.current;
-		const blockEl = blockElRef.current;
-		if (!menuBarEl) return;
-		if (!blockEl) return;
-
-		let blockPosY = blockEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
-
-		// Because the menu bar is translated outside of the container by it's height
-		// So considering the block position that much lower means it will stay visible without changing the translation
-		const menuBarHeight = menuBarEl.getBoundingClientRect().height;
-		blockPosY -= Number(menuBarHeight);
-
-		const blockOffsetY = blockPosY;// - pageScrollY;
-
-		const scrolledOffTopEdge = blockOffsetY < 0;
-		if (scrolledOffTopEdge) {
-			menuBarEl.style.top = Math.abs(blockOffsetY) + 'px';
-		} else {
-			menuBarEl.style.removeProperty('top');
-		}
-	}
+	
 
 
 	const getTemplateBounds = (editor: Editor): Box2d => {
@@ -431,7 +394,7 @@ export function TldrawWritingEditor(props: {
 
 	return <>
 		<div
-			ref={blockElRef}
+			ref={containerElRef}
 			style={{
 				height: '100%',
 				position: 'relative'
@@ -446,17 +409,20 @@ export function TldrawWritingEditor(props: {
 				overrides={myOverrides}
 				hideUi
 			/>
-			<WritingMenuBar
-				ref = {menuBarElRef}
-				canUndo = {canUndo}
-				canRedo = {canRedo}
-				curTool = {curTool}
-				onUndoClick = {undo}
-				onRedoClick = {redo}
-				onSelectClick = {activateSelectTool}
-				onDrawClick = {activateDrawTool}
-				onEraseClick = {activateEraseTool}
-			/>
+			<PrimaryMenuBar>
+				{/* <MistakeMenu/> */}
+				<WritingMenu
+					canUndo = {canUndo}
+					canRedo = {canRedo}
+					curTool = {curTool}
+					onUndoClick = {undo}
+					onRedoClick = {redo}
+					onSelectClick = {activateSelectTool}
+					onDrawClick = {activateDrawTool}
+					onEraseClick = {activateEraseTool}
+				/>
+				{/* <ContextualMenu/> */}
+			</PrimaryMenuBar>
 			{/* <div
 				className = 'output-log'
 				style = {{

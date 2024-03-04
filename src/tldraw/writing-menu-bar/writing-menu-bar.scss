@@ -10,12 +10,6 @@
 
 
 .ink_write_menu-bar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    padding: 8px var(--file-margins);
 
     display: flex;
     flex-direction: row;
@@ -41,10 +35,6 @@
     }
 }
 
-// If inside an embed block
-.cm-embed-block .ink_write_menu-bar {
-    transform: translate(0, -100%);
-}
 
 
 

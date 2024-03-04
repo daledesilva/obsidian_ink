@@ -18,11 +18,10 @@ interface MenuBarProps {
     onEraseClick: React.MouseEventHandler<HTMLButtonElement>,
 }
 
-export const WritingMenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((props, ref) => {
+export const WritingMenu = (props: MenuBarProps) => {
 
     return <>
         <div
-            ref = {ref}
             className = 'ink_write_menu-bar'
         >
             <div
@@ -71,11 +70,11 @@ export const WritingMenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((pr
         </div>
     </>;
 
-});
+};
 
 
 
 
 
 
-export default WritingMenuBar;
+export default WritingMenu;

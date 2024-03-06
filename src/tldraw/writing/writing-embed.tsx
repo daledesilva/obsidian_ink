@@ -19,12 +19,6 @@ import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-previ
 ///////
 ///////
 
-// Global variables
-// TODO: This needs to be a React managed variable so that it causes rerenders
-let activeEmbedId: null | string;
-
-///////
-
 enum tool {
 	nothing,
 	select = 'select',
@@ -97,6 +91,7 @@ export function WritingEmbed (props: {
 
 	let isActive = false;
 	if(embedId && embedId === activeEmbedId) isActive = true;
+	if(isActive === false && isEditMode) switchToReadOnly();
 
 	return <>
 		<div
@@ -113,6 +108,7 @@ export function WritingEmbed (props: {
 			{/* {(!isEditMode && previewFilePath) && ( */}
 			{(!isEditMode && curPageData.previewUri) && (
 				<WritingEmbedPreview
+					isActive = {isActive}
 					src = {curPageData.previewUri}
 					// src = {previewFilePath}
 					onClick = {(event) => {
@@ -140,11 +136,6 @@ export function WritingEmbed (props: {
 					switchToReadOnly = {switchToReadOnly}
 				/>
 			)}
-			{/* {(isActive || isEditMode) && (
-				<TransitionMenuBar
-					isEditMode = {isEditMode}
-				/>
-			)} */}
 		</div>
 	</>;
 	

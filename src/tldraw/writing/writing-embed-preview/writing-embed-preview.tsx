@@ -8,12 +8,15 @@ import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 
 interface WritingEmbedProps {
     src: string,
-	onClick: React.MouseEventHandler
-	onEditClick: React.MouseEventHandler
-	onDuplicateClick: React.MouseEventHandler
+    isActive: boolean,
+	onClick: React.MouseEventHandler,
+	onEditClick: React.MouseEventHandler,
+	onDuplicateClick: React.MouseEventHandler,
 }
 
 export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
+
+    console.log('props.isActive', props.isActive);
 
 	return <>
         <div
@@ -30,12 +33,14 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                     width: '100%'
                 }}
             />
-            <PrimaryMenuBar>
-                <TransitionMenu
-                    onEditClick = {props.onEditClick}
-                    onDuplicateClick = {props.onDuplicateClick}
-                />
-			</PrimaryMenuBar>
+            {props.isActive && (
+                <PrimaryMenuBar>
+                    <TransitionMenu
+                        onEditClick = {props.onEditClick}
+                        onDuplicateClick = {props.onDuplicateClick}
+                    />
+                </PrimaryMenuBar>
+            )}
         </div>
     </>;
 

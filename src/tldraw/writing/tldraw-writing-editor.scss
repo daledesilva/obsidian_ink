@@ -11,25 +11,3 @@
 }
 
 
-.ink_write_primary-menu-bar {
-    background-color: red;
-
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    padding: 8px var(--file-margins);
-
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-
-    pointer-events: none;
-}
-
-
-// If inside an embed block
-.cm-embed-block .ink_write_primary-menu-bar {
-    transform: translate(0, -100%);
-}

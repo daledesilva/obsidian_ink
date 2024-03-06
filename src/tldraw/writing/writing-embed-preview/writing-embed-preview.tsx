@@ -1,0 +1,42 @@
+import './writing-embed-preview.scss';
+import * as React from 'react';
+import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
+import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
+
+//////////
+//////////
+
+interface WritingEmbedProps {
+    src: string,
+	onClick: React.MouseEventHandler
+	onEditClick: React.MouseEventHandler
+	onDuplicateClick: React.MouseEventHandler
+}
+
+export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
+
+	return <>
+        <div
+            className = 'ink_writing-embed-preview'
+            style={{
+                // height: '100%',
+                position: 'relative'
+            }}
+        >
+            <img
+                onClick = {props.onClick}
+                src = {props.src}
+                style = {{
+                    width: '100%'
+                }}
+            />
+            <PrimaryMenuBar>
+                <TransitionMenu
+                    onEditClick = {props.onEditClick}
+                    onDuplicateClick = {props.onDuplicateClick}
+                />
+			</PrimaryMenuBar>
+        </div>
+    </>;
+
+};

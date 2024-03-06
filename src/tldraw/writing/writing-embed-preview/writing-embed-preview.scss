@@ -1,23 +1,9 @@
-
-
-.ink_transition_menu-bar {
-    position: absolute;
-    top: 0;
-    right: 0;
-    translate: 100% 0;
-    z-index: 1000;
-    padding: 0 8px;//8px var(--file-margins);
-
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
-
+.ink_writing-embed-preview {
     pointer-events: none;
 
     button {
-        width: auto;
         pointer-events: auto;
+        cursor: pointer;
         color: rgba(127.5, 127.5, 127.5, 0.7);
         &:hover {
             opacity: 1;

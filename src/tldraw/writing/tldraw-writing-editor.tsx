@@ -3,7 +3,7 @@ import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOver
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
-import { WritingMenu } from "../writing-menu-bar/writing-menu-bar";
+import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
@@ -12,6 +12,7 @@ import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
+import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 
 
 ///////
@@ -57,6 +58,7 @@ export function TldrawWritingEditor(props: {
 	embedded?: boolean,
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
+	switchToReadOnly: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerElRef = React.useRef<HTMLDivElement>(null)
@@ -211,8 +213,6 @@ export function TldrawWritingEditor(props: {
 			setCanRedo(editor.canRedo);
 		})
 
-
-		
 
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
@@ -410,7 +410,6 @@ export function TldrawWritingEditor(props: {
 				hideUi
 			/>
 			<PrimaryMenuBar>
-				{/* <MistakeMenu/> */}
 				<WritingMenu
 					canUndo = {canUndo}
 					canRedo = {canRedo}
@@ -421,7 +420,11 @@ export function TldrawWritingEditor(props: {
 					onDrawClick = {activateDrawTool}
 					onEraseClick = {activateEraseTool}
 				/>
-				{/* <TransitionMenu/> */}
+				<ExtendedWritingMenu
+					onLockClick = { async () => {
+						props.switchToReadOnly();
+					}}
+				/>
 			</PrimaryMenuBar>
 			{/* <div
 				className = 'output-log'

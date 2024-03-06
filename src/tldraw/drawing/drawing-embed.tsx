@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
-import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
+import { TransitionMenu } from "../transition-menu/transition-menu";
 import { openInkFile } from "src/utils/open-file";
 import { Notice, TFile } from "obsidian";
 import { duplicateDrawingFile } from "src/utils/file-manipulation";
@@ -115,7 +115,7 @@ export function DrawingEmbed (props: {
 					registerControls = {registerEditorControls}
 				/>
 			)}
-			<TransitionMenuBar
+			<TransitionMenu
 				isEditMode = {isEditMode}
 				onOpenClick = {async () => {
 					openInkFile(props.plugin, props.fileRef)

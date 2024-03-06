@@ -1,0 +1,28 @@
+
+
+.ink_transition_menu {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 4px;
+
+    pointer-events: none;
+
+    button {
+        width: auto;
+        pointer-events: auto;
+        color: rgba(127.5, 127.5, 127.5, 0.7);
+        &:hover {
+            opacity: 1;
+            color: #FFF;
+        }
+        &:disabled {
+            opacity: 1;
+            color: #FFF;
+            &:hover {
+                background-color: var(--interactive-normal);
+                box-shadow: var(--input-shadow);
+            }
+        }
+    }
+}

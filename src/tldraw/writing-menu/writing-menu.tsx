@@ -1,4 +1,4 @@
-import "./writing-menu-bar.scss";
+import "./writing-menu.scss";
 import * as React from "react";
 import { App, Editor, MarkdownView, Plugin } from "obsidian";
 import { tool } from "../writing/tldraw-writing-editor";

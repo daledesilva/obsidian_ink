@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
-import { TransitionMenuBar } from "../transition-menu-bar/transition-menu-bar";
+import { TransitionMenu } from "../transition-menu/transition-menu";
 import { openInkFile } from "src/utils/open-file";
 import { TFile, Notice } from "obsidian";
 import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
@@ -14,6 +14,7 @@ import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 import { useSelector } from "react-redux";
 import { GlobalSessionSlice } from "src/logic/stores";
 import { useDispatch } from 'react-redux';
+import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 
 ///////
 ///////
@@ -118,6 +119,14 @@ export function WritingEmbed (props: {
 						event.preventDefault();
 						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 					}}
+					onEditClick = { async () => {
+						const newPageData = await refreshPageData();
+						setIsEditMode(true);
+						setCurPageData(newPageData);
+					}}
+					onDuplicateClick = { async () => {
+						await duplicateWritingFile(props.plugin, props.fileRef);
+					}}
 				/>
 			)}
 			{isEditMode && (
@@ -128,36 +137,28 @@ export function WritingEmbed (props: {
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
+					switchToReadOnly = {switchToReadOnly}
 				/>
 			)}
-			{(isActive || isEditMode) && (
+			{/* {(isActive || isEditMode) && (
 				<TransitionMenuBar
 					isEditMode = {isEditMode}
-					onOpenClick = {async () => {
-						openInkFile(props.plugin, props.fileRef)
-					}}
-					onEditClick = { async () => {
-						const newPageData = await refreshPageData();
-						setIsEditMode(true);
-						setCurPageData(newPageData);
-					}}
-					onFreezeClick = { async () => {
-						await editorControlsRef.current?.saveAndHalt();
-						const newPageData = await refreshPageData();
-						setCurPageData(newPageData);
-						setIsEditMode(false);
-					}}
-					onDuplicateClick = { async () => {
-						await duplicateWritingFile(props.plugin, props.fileRef);
-					}}
 				/>
-			)}
+			)} */}
 		</div>
 	</>;
 	
 
 	// Helper functions
 	///////////////////
+
+	async function switchToReadOnly() {
+		// TODO: Save immediately incase it hasn't been saved yet
+		await editorControlsRef.current?.saveAndHalt();
+		const newPageData = await refreshPageData();
+		setCurPageData(newPageData);
+		setIsEditMode(false);
+	}
 
 	async function refreshPageData(): Promise<InkFileData> {
 		console.log('refreshing pageData');
@@ -194,25 +195,6 @@ export function WritingEmbed (props: {
 
 export default WritingEmbed;
 
-
-
-
-const WritingEmbedPreview: React.FC<{ 
-	src: string,
-	onClick: React.MouseEventHandler
-}> = (props) => {
-
-	return <div>
-		<img
-			onClick = {props.onClick}
-			src = {props.src}
-			style = {{
-				width: '100%'
-			}}
-		/>
-	</div>
-
-};
 
 
 const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {

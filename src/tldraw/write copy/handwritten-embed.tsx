@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import TldrawHandwrittenEditor from "./tldraw-handwritten-editor";
 import HandwritePlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
-import ReadonlyMenuBar from "../transition-menu-bar/transition-menu-bar";
+import ReadonlyMenuBar from "../transition-menu/transition-menu";
 
 ///////
 ///////

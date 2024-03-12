@@ -51,15 +51,15 @@ Below are the high level features in my current development plan along with thei
 - [x] Automatic screenshotting.
 - [x] Begin using internally.
 - [x] Proof of concept OCR (Transcripts).
-- [ ] Basic UI Refinement. ***January 2024***
-- [ ] Improve interaction with of markdown files while using embeds. ***January***
-- [ ] Convert embed format to persist beyond uninstall. ***January***
-- [ ] Turn off drawing functionality by default ***January***
-- [ ] **ALPHA release February 2024.**
-- [ ] More intuitive UI refinements. ***February***
-- [ ] Multiple pen styles. ***February***
-- [ ] Convert to canvas framework. ***March***
-- [ ] More intuitive touch/stylus input refinement. ***April***
+- [x] Basic UI Refinement.
+- [x] Improve interaction of markdown files while using embeds. ***January***
+- [ ] Simplify & turn off drawing functionality by default ***January***
+- [ ] **ALPHA release March 2024.**
+- [ ] Convert embed format to persist beyond uninstall. ***March***
+- [ ] More intuitive UI refinements. ***April 2024***
+- [ ] Multiple pen styles. ***April***
+- [ ] Convert to canvas framework. ***April***
+- [ ] More intuitive touch/stylus input refinement. ***May***
 - [ ] **BETA release in plugin repository.**
 - [ ] Automatic OCR (Transcripts).
 - [ ] Intuitive selection of words.

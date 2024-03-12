@@ -51,8 +51,8 @@ Below are the high level features in my current development plan along with thei
 - [x] Automatic screenshotting.
 - [x] Begin using internally.
 - [x] Proof of concept OCR (Transcripts).
-- [x] Basic UI Refinement. ***March 2024***
-- [x] Improve interaction of markdown files while using embeds. ***March***
+- [x] Basic UI Refinement. *(March 2024)*
+- [x] Improve interaction of markdown files while using embeds. *(March)*
 - [ ] Simplify & turn off drawing functionality by default ***March***
 - [ ] Clean up and refactor for release ***March***
 - [ ] **ALPHA release March 2024.**

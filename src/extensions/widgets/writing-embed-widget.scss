@@ -1,0 +1,5 @@
+
+// Hide Obsidian's default image embed
+img[alt*='ink-writing'] {
+    display: none;
+}

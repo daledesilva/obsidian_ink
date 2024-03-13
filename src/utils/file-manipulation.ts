@@ -1,4 +1,4 @@
-import { Notice, TFile, Vault } from "obsidian";
+import { FileSystemAdapter, Notice, TFile, Vault } from "obsidian";
 import { DRAW_FILE_EXT, FOLDER_NAME, PLUGIN_KEY, WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
@@ -159,4 +159,18 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
     const newPageDataStr = JSON.stringify(pageData, null, '\t');
 
     await v.modify(fileRef, newPageDataStr, { mtime: fileRef.stat.mtime });
+}
+
+
+export const createFoldersForFilepath = async (plugin: InkPlugin, path: string): Promise<void> => {
+    const folders = path.split('/');
+    
+    // Remove the filename at the end
+    folders.pop();
+
+    try {
+        await plugin.app.vault.createFolder(folders.join('/'));
+    } catch(e) {
+        console.log(e);
+    }
 }

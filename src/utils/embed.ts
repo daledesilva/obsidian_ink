@@ -2,6 +2,7 @@
 ///////
 ///////
 
+import { MarkdownViewModeType } from "obsidian";
 import { DRAW_EMBED_KEY, WRITE_EMBED_KEY } from "src/constants";
 
 const WRITING_EMBED_VERSION = '0.0.1';
@@ -65,3 +66,13 @@ export const buildDrawingEmbed = (filepath: string, transcript: string = '') => 
 	return embedStr;
 };
 
+// Function came from Notion like tables code
+export const getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
+	const parent = el.parentElement;
+	if (parent) {
+		return parent.className.includes("cm-preview-code-block")
+			? "source"
+			: "preview";
+	}
+	return null;
+};

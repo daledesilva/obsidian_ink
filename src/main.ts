@@ -1,6 +1,6 @@
-import { Editor, MarkdownViewModeType, Notice, Plugin, WorkspaceLeaf } from 'obsidian';
-import { PluginSettings } from 'src/types/PluginSettings';
-import { MySettingsTab } from './tabs/settings-tab/settings-tab';
+import { Editor, Notice, Plugin } from 'obsidian';
+import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/PluginSettings';
+import { MySettingsTab, registerSettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerWritingEmbed} from './extensions/widgets/writing-embed-widget'
 import insertExistingWritingFile from './commands/insert-existing-writing-file';
 import insertNewWritingFile from './commands/insert-new-writing-file';
@@ -16,9 +16,7 @@ import insertRecentlyDuplicatedDrawingFile from './commands/insert-recently-dupl
 import insertRecentlyDuplicatedWritingFile from './commands/insert-recently-duplicated-writing-file';
 
 
-export const DEFAULT_SETTINGS: PluginSettings = {
-	
-}
+
 
 
 
@@ -26,22 +24,13 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
 
-	// Function came from Notion like tables code
-	private getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
-		const parent = el.parentElement;
-		if (parent) {
-			return parent.className.includes("cm-preview-code-block")
-				? "source"
-				: "preview";
-		}
-		return null;
-	};
-
-
 	async onload() {
 		await this.loadSettings();
 
+		// For testing only
 		// this.app.emulateMobile(false);
+		// implementHandwrittenNoteAction(this)
+		// implementHandDrawnNoteAction(this)
 
 		registerWritingView(this);
 		registerWritingEmbed(this);
@@ -52,12 +41,7 @@ export default class InkPlugin extends Plugin {
 		implementWritingEmbedActions(this);
 		implementDrawingEmbedActions(this);
 		
-		// For testing only
-		// implementHandwrittenNoteAction(this)
-		// implementHandDrawnNoteAction(this)
-		
-		// TODO: Convert this to registerSettingsTab
-		this.addSettingTab(new MySettingsTab(this.app, this));
+		registerSettingsTab(this);
 		
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
@@ -67,26 +51,22 @@ export default class InkPlugin extends Plugin {
 	}
 	
 
-	onunload() {
-		// TODO: Make sure to stop anything here
-
-	}
+	onunload() {}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	// async saveSettings() {
-	// 	await this.saveData(this.settings);
-	// }
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
 
-	// async resetSettings() {
-	// 	this.settings = JSON.parse( JSON.stringify(DEFAULT_SETTINGS) );
-	// 	this.saveSettings();
-	// 	new Notice('Plugin settings reset');
-	// }
+	async resetSettings() {
+		this.settings = JSON.parse( JSON.stringify(DEFAULT_SETTINGS) );
+		this.saveSettings();
+		new Notice('Ink plugin settings reset');
+	}
 }
-
 
 
 function implementWritingEmbedActions(plugin: InkPlugin) {

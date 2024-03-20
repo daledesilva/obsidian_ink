@@ -1,3 +1,4 @@
+import './settings-tab.scss';
 import { App, PluginSettingTab, Setting } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
@@ -24,7 +25,34 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('p', {text: 'The Ink plugin enables embedding hand written sections within your markdown files.'});
-		containerEl.createEl('p').createEl('strong').createEl('em', {text: 'This plugin is in an Alpha state.'});
+		
+		containerEl.createEl('hr');
+		containerEl.createEl('h1', {text: `Notable deficiencies`})
+
+		containerEl.createEl('ul')
+			.createEl('li', {text: 'Interfaces are still being styled.'})
+			.createEl('li', {text: 'Multiple pen styles are yet to be implemented.'})
+			.createEl('li', {text: 'Only the last 300 strokes written will be visible — You will see old strokes disappear as you write. This is because the plugin currently experiences priocessing issues while displaying long amounts of writing. All your writing is still saved, however, by turning off old lines the plugin can ensure that writing continues to feel smooth. This will be fixsed asap and all previous writing will reappear.'})
+
+		containerEl.createEl('p', {text: `For a full roadmap see the `}).createEl('a', {
+			href: 'https://github.com/daledesilva/obsidian_ink',
+			text: 'github repository.'
+		})
+		containerEl.createEl('p', {text: `To follow along with upcoming changes, subscribe to the `}).createEl('a', {
+			href: 'https://www.youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL',
+			text: 'dev diaries.'
+		})
+
+		// TODO: Collapsible change log
+		// containerEl.createEl('p', {
+		// 	text: 'Alpha v0.0.359 changes',
+		// 	cls: 'ddc_ink_text-warning',
+		// });
+
+		containerEl.createEl('hr');
+		containerEl.createEl('h1', {text: `Settings`})
+
+		
 
 		containerEl.createEl('hr');
 		containerEl.createEl('h2', {text: 'Setup'});

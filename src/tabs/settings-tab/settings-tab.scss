@@ -1,8 +1,31 @@
-.ddc_ink_text-warning {
-    font-size: 1.5em;
-    font-weight: 600;
-    padding: 0.5em;
-    background-color: var(--color-base-20);
+.ddc_ink_section {
+    margin-bottom: 2em;
+}
+
+
+.ddc_ink_section details {
+    overflow: hidden;
+    border-style: solid;
+    border-color: rgba(var(--callout-color), var(--callout-border-opacity));
+    border-width: var(--callout-border-width);
+    border-radius: var(--callout-radius);
+    margin: 1em 0;
+    background-color: rgba(var(--callout-color), 0.05);
+    padding: var(--callout-padding);
+
+    --callout-color: 255,255,255;
+    &.warning {
+        --callout-color: var(--callout-warning);
+    }
+
+    summary {
+        font-weight: 600;
+    }
+}
+
+.ddc_ink_controls-section {
+    padding: 0.2em 1em;
+    border: none;
     border-radius: 10px;
-    width: fit-content;
+    background-color: var(--color-base-20);
 }

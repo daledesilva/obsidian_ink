@@ -1,16 +1,14 @@
 import './tldraw-drawing-editor.scss';
-import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, setUserPreferences, useExportAs } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { adaptTldrawToObsidianThemeMode, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures, removeExtensionAndDotFromFilepath } from "../../utils/tldraw-helpers";
+import { adaptTldrawToObsidianThemeMode, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import HandwritingContainer from "../writing-shapes/writing-container"
 import InkPlugin from "../../main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
-import { FileSystemAdapter, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { savePngExport } from 'src/utils/file-manipulation';
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
-
 
 ///////
 ///////

@@ -1,6 +1,6 @@
 import { Editor, Notice, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/PluginSettings';
-import { MySettingsTab, registerSettingsTab } from './tabs/settings-tab/settings-tab';
+import { registerSettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerWritingEmbed} from './extensions/widgets/writing-embed-widget'
 import insertExistingWritingFile from './commands/insert-existing-writing-file';
 import insertNewWritingFile from './commands/insert-new-writing-file';
@@ -15,11 +15,8 @@ import createNewDrawingFile from './commands/create-new-drawing-file';
 import insertRecentlyDuplicatedDrawingFile from './commands/insert-recently-duplicated-drawing-file';
 import insertRecentlyDuplicatedWritingFile from './commands/insert-recently-duplicated-writing-file';
 
-
-
-
-
-
+////////
+////////
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;

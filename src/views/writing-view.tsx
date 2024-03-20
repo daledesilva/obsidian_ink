@@ -13,14 +13,8 @@ import { InkFileData, stringifyPageData } from "src/utils/page-file";
 ////////
 
 export const WRITING_VIEW_TYPE = "ink_writing-view";
-export enum ViewPosition {
-    replacement,
-    tab,
-    verticalSplit,
-    horizontalSplit
-}
 
-
+////////
 
 export function registerWritingView (plugin: InkPlugin) {
     plugin.registerView(
@@ -29,7 +23,6 @@ export function registerWritingView (plugin: InkPlugin) {
     );
     plugin.registerExtensions([WRITE_FILE_EXT], WRITING_VIEW_TYPE);
 }
-
 
 export class WritingView extends TextFileView {
     root: null | Root;
@@ -41,11 +34,6 @@ export class WritingView extends TextFileView {
         this.plugin = plugin;
     }
 
-    saveFile = (pageData: InkFileData) => {
-        this.pageData = pageData;
-        this.save(false);   // this calls getViewData
-    }
-
     getViewType(): string {
         return WRITING_VIEW_TYPE;
     }
@@ -54,7 +42,7 @@ export class WritingView extends TextFileView {
         return this.file?.basename || "Handwritten note";
     }
     
-    // This provides the data from the file for placing into the view (Called when file is opening)
+    // This provides the data from the file for placing into the view (Called by Obsidian when file is opening)
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
@@ -64,48 +52,52 @@ export class WritingView extends TextFileView {
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
 		
-        // If a new handwriting file is opening in the same leaf, then clear the old one
+        // If a new handwriting file is opening in the same leaf, then clear the old one instead of creating a new one
         if(this.root) this.clear();
         
         this.root = createRoot(viewContent);
 		this.root.render(
             <TldrawWritingEditor
                 plugin = {this.plugin}
-                filepath = {this.file.path}
+                fileRef = {this.file}
                 pageData = {this.pageData}
                 save = {this.saveFile}
 			/>
         );
     }
+
+    saveFile = (pageData: InkFileData) => {
+        this.pageData = pageData;
+        this.save(false);   // Obsidian will call getViewData during this method
+    }
     
-    // This allows you to return the data you want obsidian to save (Called when file is closing)
+    // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
         return stringifyPageData(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
-        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that old files can save data into new ones)
-        console.log('unmounting A')
+        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that old files can save data over new files)
         this.root?.unmount();
-        console.log('unmounting B')
-    }
-
-    
-    onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
-        menu.addItem((item) => {
-            item.setTitle('Convert to Drawing');
-            item.setSection('action');
-            item.onClick( async () => {
-                if(!this.file) return;
-                await convertWriteFileToDraw(this.plugin, this.file);
-                openInkFile(this.plugin, this.file);
-            })
-        })
-        super.onPaneMenu(menu, source);
     }
 
     // onResize()
+
+    // TODO: Consider converting between drawings and writing files in future
+
+    // onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
+    //     menu.addItem((item) => {
+    //         item.setTitle('Convert to Drawing');
+    //         item.setSection('action');
+    //         item.onClick( async () => {
+    //             if(!this.file) return;
+    //             await convertWriteFileToDraw(this.plugin, this.file);
+    //             openInkFile(this.plugin, this.file);
+    //         })
+    //     })
+    //     super.onPaneMenu(menu, source);
+    // }
 
 }
 

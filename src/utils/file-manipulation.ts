@@ -99,6 +99,9 @@ export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: T
 
 export const savePngExport = async (plugin: InkPlugin, dataUri: string, fileRef: TFile): Promise<void> => {
     const v = plugin.app.vault;
+
+    console.log('savePngExport');
+    console.log('fileRef', fileRef);
     
     const base64Data = dataUri.split(',')[1];
     const buffer = Buffer.from(base64Data, 'base64');
@@ -106,6 +109,8 @@ export const savePngExport = async (plugin: InkPlugin, dataUri: string, fileRef:
     const previewFilepath = getPreviewFileVaultPath(plugin, fileRef);   // REVIEW: This should probably be moved out of this function
     const previewFileRef = v.getAbstractFileByPath(previewFilepath) as TFile;
 	
+    console.log('previewFilepath', previewFilepath);
+
     if(previewFileRef) {
         v.modifyBinary(previewFileRef, buffer);
     } else {

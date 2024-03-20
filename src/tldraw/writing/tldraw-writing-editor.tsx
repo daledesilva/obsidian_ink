@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
@@ -14,10 +14,8 @@ import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 
-
 ///////
 ///////
-
 
 const MyCustomShapes = [HandwritingContainer];
 export enum tool {
@@ -58,7 +56,7 @@ export function TldrawWritingEditor(props: {
 	embedded?: boolean,
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
-	switchToReadOnly: Function,
+	switchToReadOnly?: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerElRef = React.useRef<HTMLDivElement>(null)

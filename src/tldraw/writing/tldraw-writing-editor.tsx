@@ -60,7 +60,6 @@ export function TldrawWritingEditor(props: {
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const containerElRef = React.useRef<HTMLDivElement>(null)
-	const [outputLog, setOutputLog] = React.useState('This is the output log');
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const editorRef = useRef<Editor>();
@@ -114,19 +113,20 @@ export function TldrawWritingEditor(props: {
 		setCurTool(tool.eraser);
 	}
 
-
-
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
 
-		// Container setups
+		// General setup
 		resizeContainerIfEmbed(editor);
 		preventTldrawCanvasesCausingObsidianGestures();
 		
-		// tldraw content prep
+		// tldraw content setup
+		adaptTldrawToObsidianThemeMode(editor);
 		resizeTemplate(editor);
-
+		editor.updateInstanceState({ isDebugMode: false, })
+		
 		// view set up
+		activateDrawTool();
 		if(props.embedded) {
 			initWritingCamera(editor);
 			editor.updateInstanceState({ canMoveCamera: false })
@@ -134,14 +134,9 @@ export function TldrawWritingEditor(props: {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 		}
 
-		// tldraw setups
-		adaptTldrawToObsidianThemeMode(editor);
-		editor.updateInstanceState({ isDebugMode: false, })
-		activateDrawTool();
-
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
-		const removeUserStoreChangeListener = editor.store.listen((entry) => {
+		const removeUserActionListener = editor.store.listen((entry) => {
 
 			const activity = getActivityType(entry);
 			switch (activity) {
@@ -151,37 +146,31 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
-					// console.log('camera moved');
 					unstashStaleContent(editor);
 					break;
 
 				case Activity.DrawingStarted:
-					// console.log('drawing started');
 					resetInputPostProcessTimers();
 					stashStaleContent(editor);
 					break;
 					
 				case Activity.DrawingContinued:
-					// console.log('drawing continued');
 					resetInputPostProcessTimers();
 					break;
 					
 				case Activity.ErasingContinued:
-					// console.log('erasing continued');
 					resetInputPostProcessTimers();
 					break;
 
 				case Activity.DrawingCompleted:
-					// console.log('drawing completed');
 					instantInputPostProcess(editor, entry);
-					resizeTemplate(editor);
-					embedPostProcess(editor);
+					resizeTemplate(editor);	// REVIEW: This could go inside a post process
+					embedPostProcess(editor);	// REVIEW: This could go inside a post process
 					smallDelayInputPostProcess(editor);
 					longDelayInputPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
-					// console.log('drawing erased');
 					instantInputPostProcess(editor, entry);
 					resizeTemplate(editor);
 					embedPostProcess(editor);
@@ -190,13 +179,12 @@ export function TldrawWritingEditor(props: {
 					break;
 
 				default:
-					console.log('default');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
 					instantInputPostProcess(editor, entry);
 					smallDelayInputPostProcess(editor);
 					longDelayInputPostProcess(editor);
-				// console.log('Activity not recognised.');
-				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
+					// console.log('Activity not recognised.');
+					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
 
 		}, {
@@ -204,19 +192,17 @@ export function TldrawWritingEditor(props: {
 			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
-
 		// Runs on any change to the store, caused by user, system, undo, anything, etc.
 		const removeStoreChangeListener = editor.store.listen((entry) => {
 			setCanUndo(editor.canUndo);
 			setCanRedo(editor.canRedo);
 		})
 
-
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
-			removeUserStoreChangeListener();
-			removeStoreChangeListener
+			removeUserActionListener();
+			removeStoreChangeListener();
 		}
 
 		if(props.registerControls) {
@@ -234,12 +220,9 @@ export function TldrawWritingEditor(props: {
 		};
 	}
 
-
-
 	const embedPostProcess = (editor: Editor) => {
 		resizeContainerIfEmbed(editor);
 	}
-
 
 	const resizeContainerIfEmbed = (editor: Editor) => {
 		if (!props.embedded) return;
@@ -257,9 +240,6 @@ export function TldrawWritingEditor(props: {
 		}
 	}
 
-	
-
-
 	const getTemplateBounds = (editor: Editor): Box2d => {
 		const bounds = editor.getShapePageBounds('shape:primary_container' as TLShapeId)
 		
@@ -270,12 +250,11 @@ export function TldrawWritingEditor(props: {
 		}
 	}
 
-
+	// REVIEW: Some of these can be moved out of the function
 	const resizeTemplate = (editor: Editor) => {
 		let contentBounds = getWritingBounds(editor);
 		if (!contentBounds) return;
 		
-		// TODO: This doesn't happen silently, it creates an undo point
 		silentlyChangeStore( editor, () => {
 			editor.updateShape({
 				id: 'shape:primary_container' as TLShapeId,
@@ -304,7 +283,6 @@ export function TldrawWritingEditor(props: {
 		// simplifyLines(editor, entry);
 	};
 
-
 	// Use this to run optimisations that take a small amount of time but should happen frequently
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
@@ -318,7 +296,7 @@ export function TldrawWritingEditor(props: {
 
 	};
 
-	// Use this to run optimisations after a short delay
+	// Use this to run optimisations after a slight delay
 	const longDelayInputPostProcess = (editor: Editor) => {
 		resetLongPostProcessTimer();
 
@@ -330,6 +308,7 @@ export function TldrawWritingEditor(props: {
 		)
 
 	};
+
 	const resetShortPostProcessTimer = () => {
 		clearTimeout(shortDelayPostProcessTimeoutRef.current);
 	}
@@ -340,7 +319,6 @@ export function TldrawWritingEditor(props: {
 		resetShortPostProcessTimer();
 		resetLongPostProcessTimer();
 	}
-
 
 	const incrementalSave = async (editor: Editor) => {
 		unstashStaleContent(editor);
@@ -386,10 +364,6 @@ export function TldrawWritingEditor(props: {
 		console.log('...Finished complete WRITING save');
 	}
 
-	
-
-
-
 	return <>
 		<div
 			ref={containerElRef}
@@ -399,13 +373,14 @@ export function TldrawWritingEditor(props: {
 			}}
 		>
 			<Tldraw
-				// TODO: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
+				// REVIEW: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {props.pageData.tldraw}	// NOTE: Check what's causing this snapshot error??
 				onMount={handleMount}
+				// persistenceKey = {props.filepath}
 				// assetUrls = {assetUrls}
 				shapeUtils={MyCustomShapes}
 				overrides={myOverrides}
-				hideUi
+				hideUi // REVIEW: Does this do anything?
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -420,65 +395,17 @@ export function TldrawWritingEditor(props: {
 				/>
 				<ExtendedWritingMenu
 					onLockClick = { async () => {
-						props.switchToReadOnly();
+						if(props.switchToReadOnly) props.switchToReadOnly();
 					}}
 				/>
 			</PrimaryMenuBar>
-			{/* <div
-				className = 'output-log'
-				style = {{
-					position: 'absolute',
-					bottom: '60px',
-					left: '50%',
-					transform: 'translate(-50%, 0)',
-					zIndex: 10000,
-					backgroundColor: '#000',
-					padding: '0.5em 1em'
-				}}
-				>
-				<p>Output Log:</p>
-				{outputLog}
-			</div> */}
 		</div>
 	</>;
 
 };
 
-
-
-
-
-
-
-function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
-	const updatedRecords = Object.values(entry.changes.updated);
-
-	editor.batch(() => {
-
-		updatedRecords.forEach( (record) => {
-			const toRecord = record[1];
-			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
-				console.log('simplifying: ', toRecord.id)
-				editor.updateShape({
-					id: toRecord.id,
-					type: 'draw',
-					props: {
-						...toRecord.props,
-						dash: 'solid'
-					},
-				}, {
-					ephemeral: true
-				})
-			}
-		})
-
-	})
-
-}
-
-
-
-
+///////////
+///////////
 
 async function getWritingSvg(editor: Editor) {
 	let svgEl;
@@ -514,11 +441,6 @@ async function getWritingSvg(editor: Editor) {
 
 	return svgEl;
 }
-
-
-
-
-
 
 // TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
@@ -598,35 +520,28 @@ function getDrawShapeBounds(editor: Editor): Box2d {
 
 }
 
+function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
+	const updatedRecords = Object.values(entry.changes.updated);
 
+	editor.batch(() => {
 
+		updatedRecords.forEach( (record) => {
+			const toRecord = record[1];
+			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
+				console.log('simplifying: ', toRecord.id)
+				editor.updateShape({
+					id: toRecord.id,
+					type: 'draw',
+					props: {
+						...toRecord.props,
+						dash: 'solid'
+					},
+				}, {
+					ephemeral: true
+				})
+			}
+		})
 
+	})
 
-
-
-
-
-
-
-
-
-
-function addDataURIImage(dataURI: string) {
-	// Create an image element
-	const imageElement = document.createElement('img');
-	imageElement.src = dataURI;
-
-	// Set absolute positioning and center alignment
-	imageElement.style.position = 'absolute';
-	imageElement.style.top = '50%';
-	imageElement.style.left = '50%';
-	imageElement.style.width = '50%';
-	imageElement.style.transform = 'translate(-50%, -50%)';
-
-	// Set z-index to ensure it's on top of everything else
-	imageElement.style.zIndex = '9999';
-
-	// Append the image element to the body
-	document.body.appendChild(imageElement);
 }
-

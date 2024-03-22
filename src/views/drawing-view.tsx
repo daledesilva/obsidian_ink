@@ -3,7 +3,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import TldrawDrawingEditor from "src/tldraw/drawing/tldraw-drawing-editor";
+import { TldrawDrawingEditor } from "src/tldraw/drawing/tldraw-drawing-editor";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
 
 ////////
@@ -36,7 +36,7 @@ export class DrawingView extends TextFileView {
     }
 
     getDisplayText = () => {
-        return this.file?.basename || "Handwritten note";
+        return this.file?.basename || "Drawing";
     }
     
     // This provides the data from the file for placing into the view (Called when file is opening)
@@ -49,7 +49,7 @@ export class DrawingView extends TextFileView {
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
 		
-        // If a new handwriting file is opening in the same leaf, then clear the old one instead of creating a new one
+        // If a new file is opening in the same leaf, then clear the old one instead of creating a new one
         if(this.root) this.clear();
         
         this.root = createRoot(viewContent);
@@ -70,13 +70,12 @@ export class DrawingView extends TextFileView {
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        const fileContents = stringifyPageData(this.pageData);
-        return fileContents;
+        return stringifyPageData(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
-        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that old files can save data into new ones)
+        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data into new ones)
         this.root?.unmount();
     }
 

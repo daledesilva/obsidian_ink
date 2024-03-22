@@ -52,7 +52,7 @@ export class WritingView extends TextFileView {
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
 		
-        // If a new handwriting file is opening in the same leaf, then clear the old one instead of creating a new one
+        // If a new file is opening in the same leaf, then clear the old one instead of creating a new one
         if(this.root) this.clear();
         
         this.root = createRoot(viewContent);
@@ -78,7 +78,7 @@ export class WritingView extends TextFileView {
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
-        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that old files can save data over new files)
+        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data over new files)
         this.root?.unmount();
     }
 

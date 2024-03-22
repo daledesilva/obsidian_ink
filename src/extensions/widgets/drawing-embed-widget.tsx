@@ -1,6 +1,5 @@
-import { Editor, SerializedStore, Store, StoreSnapshot, TLGeoShape, TLRecord, TLShapePartial, Tldraw, createShapeId, createTLStore, parseTldrawJsonFile } from "@tldraw/tldraw";
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, MarkdownViewModeType, Plugin, TAbstractFile, TFile, debounce, } from "obsidian";
+import { MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
@@ -8,16 +7,16 @@ import { DrawingEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
+import { Provider } from "react-redux";
+import { store } from "src/logic/stores";
 
 ////////
 ////////
-
 
 export function registerDrawingEmbed(plugin: InkPlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		DRAW_EMBED_KEY,
 		(source, el, ctx) => {
-			console.log('FOUND A DRAWING');
 			const embedData = JSON.parse(source) as DrawingEmbedData;
 			if(embedData.filepath) {
 				ctx.addChild(new DrawingEmbedWidget(el, plugin, embedData));
@@ -59,12 +58,14 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 
 		this.root = createRoot(this.el);
 		this.root.render(
-            <DrawingEmbed
-				plugin = {this.plugin}
-                fileRef = {this.fileRef}
-				pageData = {pageData}
-                save = {this.save}
-			/>
+			<Provider store={store}>
+				<DrawingEmbed
+					plugin = {this.plugin}
+					fileRef = {this.fileRef}
+					pageData = {pageData}
+					save = {this.save}
+				/>
+			</Provider>
         );
 	}
 

@@ -395,6 +395,7 @@ export function TldrawWritingEditor(props: {
 				/>
 				<ExtendedWritingMenu
 					onLockClick = { async () => {
+						// TODO: Save immediately incase it hasn't been saved yet
 						if(props.switchToReadOnly) props.switchToReadOnly();
 					}}
 				/>

@@ -186,7 +186,6 @@ export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean
 }
 
 export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
-	console.log('Drawing store', Object.keys(tldrawData.store))
 	let isEmpty = true;
 	for (const record of Object.values(tldrawData.store)) {
 		// Store should only contain document and page

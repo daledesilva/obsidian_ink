@@ -1,13 +1,10 @@
 import "./writing-embed.scss";
-import { Editor, SerializedStore, TLRecord, Tldraw, preventDefault } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
-import { TransitionMenu } from "../transition-menu/transition-menu";
-import { openInkFile } from "src/utils/open-file";
-import { TFile, Notice } from "obsidian";
+import { TFile } from "obsidian";
 import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
@@ -18,13 +15,6 @@ import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-previ
 
 ///////
 ///////
-
-enum tool {
-	nothing,
-	select = 'select',
-	draw = 'draw',
-	eraser = 'eraser',
-}
 
 export type WritingEditorControls = {
 	save: Function,
@@ -46,7 +36,6 @@ export function WritingEmbed (props: {
 	const activeEmbedId = useSelector((state: GlobalSessionSlice) => state.activeEmbedId);
 	const dispatch = useDispatch();
 	const [embedId] = useState<string>(crypto.randomUUID());
-
 	
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
@@ -61,20 +50,18 @@ export function WritingEmbed (props: {
 				isEditModeForScreenshottingRef.current = true;
 			}
 
-
 			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
 		}		
 
 	}, [isEditMode])
 
-
+	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: WritingEditorControls) => {
 		editorControlsRef.current = handlers;
 
 		// Run mount actions for edit mode here to ensure editorControls is available
 		if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 	}
-
 
 	const takeScreenshotAndReturn = async () => {
 		console.log('Taking writing screenshot and switching back to read-only mode');
@@ -103,9 +90,8 @@ export function WritingEmbed (props: {
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (
-				<p>No screenshot yet</p>
+				<p>This should never be show</p>
 			)}
-			{/* {(!isEditMode && previewFilePath) && ( */}
 			{(!isEditMode && curPageData.previewUri) && (
 				<WritingEmbedPreview
 					isActive = {isActive}
@@ -128,7 +114,7 @@ export function WritingEmbed (props: {
 			{isEditMode && (
 				<TldrawWritingEditor
 					plugin = {props.plugin}
-					fileRef = {props.fileRef}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
 					save = {props.save}
 					embedded
@@ -144,7 +130,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	async function switchToReadOnly() {
-		// TODO: Save immediately incase it hasn't been saved yet
+		// TODO: Save immediately incase it hasn't been saved yet?
 		await editorControlsRef.current?.saveAndHalt();
 		const newPageData = await refreshPageData();
 		setCurPageData(newPageData);
@@ -152,42 +138,20 @@ export function WritingEmbed (props: {
 	}
 
 	async function refreshPageData(): Promise<InkFileData> {
-		console.log('refreshing pageData');
 		const v = props.plugin.app.vault;
 		const pageDataStr = await v.read(props.fileRef);
 		const pageData = JSON.parse(pageDataStr) as InkFileData;
 		return pageData;
-	}
-
-	function applyPostMountSettings(editor: Editor) {
-		editor.updateInstanceState({
-			isDebugMode: false,
-			// isGridMode: false,
-			canMoveCamera: false,
-		})
-	}
-
-	function zoomToPageWidth(editor: Editor) {
-		const pageBounds = editor.currentPageBounds;
-		if(pageBounds) {
-			// REVIEW: This manipulations are a hack because I don't know how to get it to zoom exactly to the bounds rather than adding buffer
-			pageBounds.x /= 3.5;
-			pageBounds.y *= 2.3;
-			pageBounds.w /= 2;
-			pageBounds.h /= 2;
-			editor.zoomToBounds(pageBounds);
-		} else {
-			console.log('zooming to FIT')
-			editor.zoomToFit();
-		}
 	}
 	
 };
 
 export default WritingEmbed;
 
+/////////
+/////////
 
-
+// REVIEW: Move to a helper file
 const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
 	if(needsTranscriptUpdate(pageData)) {
 		fetchWriteFileTranscript()
@@ -196,6 +160,3 @@ const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: In
 			})
 	}
 }
-
-
-

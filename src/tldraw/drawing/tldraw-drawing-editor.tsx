@@ -29,15 +29,15 @@ export enum tool {
 
 // let hiddenShapes: TLShape[] = [];
 
-// const myOverrides: TLUiOverrides = {
-	// toolbar(editor: Editor, toolbar, { tools }) {
-	// 	const reducedToolbar = [
-	// 		toolbar[0],
-	// 		toolbar[2],
-	// 		toolbar[3]
-	// 	];
-	// 	return reducedToolbar;
-	// },
+const myOverrides: TLUiOverrides = {
+	toolbar(editor: Editor, toolbar, { tools }) {
+		const reducedToolbar = [
+			toolbar[0],
+			toolbar[2],
+			toolbar[3]
+		];
+		return reducedToolbar;
+	},
 	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
 	// 	console.log('actionsMenu', actionsMenu);
 	// 	// const reducedToolbar = [
@@ -47,7 +47,7 @@ export enum tool {
 	// 	// ]
 	// 	return actionsMenu;
 	// }
-// }
+}
 
 export function TldrawDrawingEditor(props: {
 	plugin: InkPlugin,
@@ -321,7 +321,7 @@ export function TldrawDrawingEditor(props: {
 				// persistenceKey = {props.filepath}
 				// assetUrls = {assetUrls}
 				// shapeUtils={MyCustomShapes}
-				// overrides = {myOverrides}
+				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
 			/>
 			<PrimaryMenuBar>
@@ -337,6 +337,7 @@ export function TldrawDrawingEditor(props: {
 				/>
 				<ExtendedWritingMenu
 					onLockClick = { async () => {
+						// TODO: Save immediately incase it hasn't been saved yet?
 						if(props.switchToReadOnly) props.switchToReadOnly();
 					}}
 				/>

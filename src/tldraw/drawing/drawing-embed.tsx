@@ -1,26 +1,18 @@
 import "./drawing-embed.scss";
-import { Editor, SerializedStore, TLRecord, Tldraw } from "@tldraw/tldraw";
 import * as React from "react";
 import { useRef, useState } from "react";
 import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
-import { TransitionMenu } from "../transition-menu/transition-menu";
-import { openInkFile } from "src/utils/open-file";
-import { Notice, TFile } from "obsidian";
+import { TFile } from "obsidian";
 import { duplicateDrawingFile } from "src/utils/file-manipulation";
-import { isEmptyDrawingFile, removeExtensionAndDotFromFilepath } from "src/utils/tldraw-helpers";
+import { isEmptyDrawingFile } from "src/utils/tldraw-helpers";
+import { GlobalSessionSlice } from "src/logic/stores";
+import { useDispatch, useSelector } from "react-redux";
+import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
 
 ///////
 ///////
-
-enum tool {
-	nothing,
-	select = 'select',
-	draw = 'draw',
-	eraser = 'eraser',
-}
-
 
 export type DrawingEditorControls = {
 	save: Function,
@@ -29,20 +21,19 @@ export type DrawingEditorControls = {
 
 export function DrawingEmbed (props: {
 	plugin: InkPlugin,
-	pageData: InkFileData,
 	fileRef: TFile,
+	pageData: InkFileData,
 	save: (pageData: InkFileData) => {},
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
-	const editorRef = useRef<Editor|null>(null);
-	const [activeTool, setActiveTool] = useState<tool>(tool.nothing);
 	const [isEditMode, setIsEditMode] = useState<boolean>(false);
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
-
-	console.log('RENDERING EMBED');
+	const activeEmbedId = useSelector((state: GlobalSessionSlice) => state.activeEmbedId);
+	const [embedId] = useState<string>(crypto.randomUUID());
+	const dispatch = useDispatch();
 		
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
@@ -80,10 +71,11 @@ export function DrawingEmbed (props: {
 		setIsEditMode(false);
 	}
 
-
-
-	
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
+
+	let isActive = false;
+	if(embedId && embedId === activeEmbedId) isActive = true;
+	if(isActive === false && isEditMode) switchToReadOnly();
 
 	return <>
 		<div
@@ -96,50 +88,51 @@ export function DrawingEmbed (props: {
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (
-				<p>No screenshot yet</p>
+				<p>This should never be show</p>
 			)}
-			{/* {(!isEditMode && previewFilePath) && ( */}
 			{(!isEditMode && curPageData.previewUri) && (
 				<DrawingEmbedPreview
+					isActive = {isActive}
 					src = {curPageData.previewUri}
 					// src = {previewFilePath}
+					onClick = {(event) => {
+						event.preventDefault();
+						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+					}}
+					onEditClick = { async () => {
+						const newPageData = await refreshPageData();
+						setIsEditMode(true);
+						setCurPageData(newPageData);
+					}}
+					onDuplicateClick = { async () => {
+						await duplicateDrawingFile(props.plugin, props.fileRef);
+					}}
 				/>
 			)}
 			{isEditMode && (
 				<TldrawDrawingEditor
 					plugin = {props.plugin}
-					fileRef = {props.fileRef}	// REVIEW: Conver tthis to an open function so the embed controls the open?
+					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
+					switchToReadOnly = {switchToReadOnly}
 				/>
 			)}
-			<TransitionMenu
-				isEditMode = {isEditMode}
-				onOpenClick = {async () => {
-					openInkFile(props.plugin, props.fileRef)
-				}}
-				onEditClick = { async () => {
-					const newPageData = await refreshPageData();
-					setIsEditMode(true);
-					setCurPageData(newPageData);
-				}}
-				onFreezeClick = { async () => {
-					await editorControlsRef.current?.save();
-					const newPageData = await refreshPageData();
-					setCurPageData(newPageData);
-					setIsEditMode(false);
-				}}
-				onDuplicateClick = { async () => {
-					await duplicateDrawingFile(props.plugin, props.fileRef);
-				}}
-			/>
 		</div>
 	</>;
 
 	// Helper functions
 	///////////////////
+
+	async function switchToReadOnly() {
+		// TODO: Save immediately incase it hasn't been saved yet?
+		await editorControlsRef.current?.saveAndHalt();
+		const newPageData = await refreshPageData();
+		setCurPageData(newPageData);
+		setIsEditMode(false);
+	}
 
 	async function refreshPageData(): Promise<InkFileData> {
 		const v = props.plugin.app.vault;
@@ -147,52 +140,7 @@ export function DrawingEmbed (props: {
 		const pageData = JSON.parse(pageDataStr) as InkFileData;
 		return pageData;
 	}
-
-	function applyPostMountSettings(editor: Editor) {
-		editor.updateInstanceState({
-			isDebugMode: false,
-			// isGridMode: false,
-			canMoveCamera: false,
-		})
-	}
-
-	function zoomToPageWidth(editor: Editor) {
-		const pageBounds = editor.currentPageBounds;
-		if(pageBounds) {
-			// REVIEW: This manipulations are a hack because I don't know how to get it to zoom exactly to the bounds rather than adding buffer
-			pageBounds.x /= 3.5;
-			pageBounds.y *= 2.3;
-			pageBounds.w /= 2;
-			pageBounds.h /= 2;
-			editor.zoomToBounds(pageBounds);
-		} else {
-			console.log('zooming to FIT')
-			editor.zoomToFit();
-		}
-	}
 	
 };
 
 export default DrawingEmbed;
-
-
-
-
-const DrawingEmbedPreview: React.FC<{ 
-	src: string,
-}> = (props) => {
-
-	return <div>
-		<img
-			src = {props.src}
-			style = {{
-				width: '100%'
-			}}
-		/>
-	</div>
-
-};
-
-
-
-

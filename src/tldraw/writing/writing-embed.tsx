@@ -9,7 +9,7 @@ import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } 
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 import { useSelector } from "react-redux";
-import { GlobalSessionSlice } from "src/logic/stores";
+import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 
@@ -33,9 +33,9 @@ export function WritingEmbed (props: {
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
-	const activeEmbedId = useSelector((state: GlobalSessionSlice) => state.activeEmbedId);
-	const dispatch = useDispatch();
 	const [embedId] = useState<string>(crypto.randomUUID());
+	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId || embedId);
+	const dispatch = useDispatch();
 	
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {

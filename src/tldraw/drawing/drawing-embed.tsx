@@ -7,7 +7,7 @@ import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
 import { duplicateDrawingFile } from "src/utils/file-manipulation";
 import { isEmptyDrawingFile } from "src/utils/tldraw-helpers";
-import { GlobalSessionSlice } from "src/logic/stores";
+import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";
 import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
 
@@ -31,19 +31,18 @@ export function DrawingEmbed (props: {
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
-	const activeEmbedId = useSelector((state: GlobalSessionSlice) => state.activeEmbedId);
 	const [embedId] = useState<string>(crypto.randomUUID());
+	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId || embedId);
 	const dispatch = useDispatch();
 		
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
-
+		
 		if(!isEditMode) {
 			if(isEmptyDrawingFile(curPageData.tldraw)) {
 				setIsEditMode(true);
 				
 			} else if(!curPageData.previewUri) {
-				console.log("Switching to edit mode for drawing screenshot")
 				setIsEditMode(true);
 				isEditModeForScreenshottingRef.current = true;
 			}
@@ -52,7 +51,6 @@ export function DrawingEmbed (props: {
 
 	}, [isEditMode])
 
-	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
 		

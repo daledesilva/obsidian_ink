@@ -3,7 +3,7 @@ import { createSlice, configureStore } from '@reduxjs/toolkit';
 ///////
 ///////
 
-export interface GlobalSessionSlice {
+export interface GlobalSessionState {
     activeEmbedId: null | string;
 }
 

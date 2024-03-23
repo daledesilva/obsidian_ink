@@ -14,7 +14,6 @@ const globalSessionSlice = createSlice({
     },
     reducers: {
         setActiveEmbedId: (state, data) => {
-            console.log('state.activeEmbedId', state.activeEmbedId);
             state.activeEmbedId = data.payload;
         },
     }

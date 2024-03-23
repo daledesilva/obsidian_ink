@@ -1,8 +1,7 @@
 import './tldraw-drawing-editor.scss';
-import { Box2d, Editor, HistoryEntry, TLDrawShape, TLPage, TLPageId, TLRecord, TLShape, TLUiOverrides, Tldraw, useExportAs } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, TLRecord, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
-import HandwritingContainer from "../writing-shapes/writing-container"
 import InkPlugin from "../../main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
@@ -16,8 +15,6 @@ import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu'
 
 ///////
 ///////
-
-const PAUSE_BEFORE_FULL_SAVE_MS = 2000;
 
 export enum tool {
 	select = 'select',

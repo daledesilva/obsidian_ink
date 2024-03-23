@@ -19,6 +19,4 @@ const insertRecentlyDuplicatedDrawingFile = async (plugin: InkPlugin, editor: Ed
     editor.replaceRange( embedStr, editor.getCursor() );
 }
 
-//////////
-
 export default insertRecentlyDuplicatedDrawingFile;

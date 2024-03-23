@@ -45,10 +45,6 @@ export type DrawingEmbedData = {
 	filepath: string;
 };
 
-
-// Primary functions
-///////
-
 export const buildDrawingEmbed = (filepath: string, transcript: string = '') => {
 	let embedContent: DrawingEmbedData = {
 		embedVersion: DRAWING_EMBED_VERSION,
@@ -66,7 +62,7 @@ export const buildDrawingEmbed = (filepath: string, transcript: string = '') => 
 	return embedStr;
 };
 
-// Function came from Notion like tables code
+// This function came from Notion like tables code
 export const getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
 	const parent = el.parentElement;
 	if (parent) {

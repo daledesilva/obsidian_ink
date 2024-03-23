@@ -1,12 +1,12 @@
-import { FileSystemAdapter, Notice, TFile, Vault } from "obsidian";
-import { DRAW_FILE_EXT, FOLDER_NAME, PLUGIN_KEY, WRITE_FILE_EXT } from "src/constants";
+import { Notice, TFile } from "obsidian";
+import { DRAW_FILE_EXT, FOLDER_NAME, WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
-import { TLShapeId, isNonNullish } from "@tldraw/tldraw";
+import { TLShapeId } from "@tldraw/tldraw";
 import { saveLocally } from "./storage";
-import { removeExtensionAndDotFromFilepath } from "./tldraw-helpers";
 
-
+/////////
+/////////
 
 const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string) => {
     const date = new Date();
@@ -37,7 +37,6 @@ export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin) => {
     return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT);
 }
 
-
 export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => {
     if(file.extension !== WRITE_FILE_EXT) return;
     const v = plugin.app.vault;
@@ -59,8 +58,6 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     await v.rename(file, newPath);
 }
 
-
-
 export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
     const v = plugin.app.vault;
 
@@ -77,7 +74,6 @@ export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: T
 
     return newFile;
 }
-
 
 export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
     const v = plugin.app.vault;
@@ -96,12 +92,8 @@ export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: T
     return newFile;
 }
 
-
 export const savePngExport = async (plugin: InkPlugin, dataUri: string, fileRef: TFile): Promise<void> => {
     const v = plugin.app.vault;
-
-    console.log('savePngExport');
-    console.log('fileRef', fileRef);
     
     const base64Data = dataUri.split(',')[1];
     const buffer = Buffer.from(base64Data, 'base64');
@@ -109,15 +101,12 @@ export const savePngExport = async (plugin: InkPlugin, dataUri: string, fileRef:
     const previewFilepath = getPreviewFileVaultPath(plugin, fileRef);   // REVIEW: This should probably be moved out of this function
     const previewFileRef = v.getAbstractFileByPath(previewFilepath) as TFile;
 	
-    console.log('previewFilepath', previewFilepath);
-
     if(previewFileRef) {
         v.modifyBinary(previewFileRef, buffer);
     } else {
         v.createBinary(previewFilepath, buffer);    
     }
 }
-
 
 export const getPreviewFileVaultPath = (plugin: InkPlugin, fileRef: TFile): string => {
     if(!fileRef) return '';
@@ -139,13 +128,12 @@ export const getPreviewFileResourcePath = (plugin: InkPlugin, fileRef: TFile): s
     return previewFileResourcePath;
 }
 
-
 export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
 	// TODO: Also check if hte transcript is older than the last file update
 	// if(!pageData.meta.transcript) {
-		return true;
+		// return true;
 	// } else {
-	// 	return false;
+		return false;
 	// }
 }
 

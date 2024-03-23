@@ -1,13 +1,10 @@
 import InkPlugin from "src/main";
 import { buildWritingFileData, stringifyPageData } from "src/utils/page-file";
 import defaultSnapshot from "src/defaults/default-tldraw-writing-store";
-import { FOLDER_NAME } from "src/constants";
 import { getNewTimestampedWritingFilepath, createFoldersForFilepath } from "src/utils/file-manipulation";
 
-
-
-
-
+////////
+////////
 
 const createNewWritingFile = async (plugin: InkPlugin) => {
     const filepath = await getNewTimestampedWritingFilepath(plugin);

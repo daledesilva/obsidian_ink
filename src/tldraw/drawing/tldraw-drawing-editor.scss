@@ -1,16 +1,12 @@
 @import url('@tldraw/tldraw/tldraw.css');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
-
 /////////
 /////////
-
 
 .tl-background {
     background: none;
 }
-
-
 
 .view-content {
 
@@ -45,8 +41,6 @@
         height: fit-content;
     }
 }
-
-
 
 // Remove the option to pattern fill because that cripples saving to PNG
 .tlui-button[data-id="pattern"] {

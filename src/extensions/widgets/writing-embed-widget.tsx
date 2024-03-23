@@ -43,7 +43,6 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		this.embedData = embedData;
 	}
 
-
 	async onload() {
 		const v = this.plugin.app.vault;
 		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;

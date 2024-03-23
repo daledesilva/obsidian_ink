@@ -1,10 +1,7 @@
+import "./transition-menu.scss";
 import * as React from "react";
 
 //////////
-//////////
-
-import "./transition-menu.scss";
-
 //////////
 
 export const TransitionMenu: React.FC<{
@@ -31,6 +28,5 @@ export const TransitionMenu: React.FC<{
 	</>
 
 };
-
 
 export default TransitionMenu;

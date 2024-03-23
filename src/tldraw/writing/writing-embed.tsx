@@ -125,7 +125,6 @@ export function WritingEmbed (props: {
 		</div>
 	</>;
 	
-
 	// Helper functions
 	///////////////////
 

@@ -22,9 +22,6 @@ export async function openInActiveView(plugin: InkPlugin, fileRef: TFile) {
     await leaf.openFile(fileRef);
 }
 
-
-
-
 // NOTE: Future possible additions
 
 // async function activateTabView(plugin: InkPlugin) {

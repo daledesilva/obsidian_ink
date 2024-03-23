@@ -23,7 +23,6 @@ export type InkFileData = {
 // Primary functions
 ///////
 
-
 export const buildWritingFileData = (props: {
 	tldrawData: StoreSnapshot<TLRecord>,
 	previewIsOutdated?: boolean;
@@ -42,7 +41,6 @@ export const buildDrawingFileData = (props: {
 
 	return buildFileData(props);
 }
-
 
 const buildFileData = (props: {
 	tldrawData: StoreSnapshot<TLRecord>,

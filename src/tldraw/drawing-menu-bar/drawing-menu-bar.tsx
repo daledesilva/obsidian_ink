@@ -1,13 +1,8 @@
 import "./drawing-menu-bar.scss";
 import * as React from "react";
-import { App, Editor, MarkdownView, Plugin } from "obsidian";
 import { tool } from "../writing/tldraw-writing-editor";
-import InkPlugin from "../../main";
 
 //////////
-//////////
-
-
 //////////
 
 interface MenuBarProps {
@@ -78,10 +73,5 @@ export const MenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((props, re
     </>;
 
 });
-
-
-
-
-
 
 export default MenuBar;

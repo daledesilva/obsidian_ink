@@ -47,7 +47,6 @@ export default class InkPlugin extends Plugin {
 		// // });
 	}
 	
-
 	onunload() {}
 
 	async loadSettings() {
@@ -64,7 +63,6 @@ export default class InkPlugin extends Plugin {
 		new Notice('Ink plugin settings reset');
 	}
 }
-
 
 function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
@@ -84,7 +82,6 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	});
 }
 
-
 function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'ddc_create-drawing-section',
@@ -102,7 +99,6 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(plugin, editor)
 	});
 }
-
 
 function implementHandwrittenNoteAction(plugin: InkPlugin) {
 	plugin.addCommand({

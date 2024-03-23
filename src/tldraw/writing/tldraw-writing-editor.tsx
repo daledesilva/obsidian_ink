@@ -44,8 +44,6 @@ const myOverrides: TLUiOverrides = {
 	// }
 }
 
-
-
 export function TldrawWritingEditor(props: {
 	plugin: InkPlugin,
 	fileRef: TFile,
@@ -133,7 +131,6 @@ export function TldrawWritingEditor(props: {
 		} else {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 		}
-
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = editor.store.listen((entry) => {

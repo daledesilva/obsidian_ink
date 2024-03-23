@@ -1,11 +1,9 @@
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
-import { useRef, useState } from 'react';
-
+import { useRef } from 'react';
 
 //////////
 //////////
-
 
 export enum Activity {
 	PointerMoved,
@@ -18,7 +16,6 @@ export enum Activity {
 	ErasingContinued,
 	Unclassified,
 }
-
 
 export function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 	const activitySummary = getActivitySummary(entry);
@@ -36,7 +33,6 @@ export function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 
 	return Activity.Unclassified;
 }
-
 
 export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	const summary = {
@@ -95,9 +91,6 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	return summary;
 }
 
-
-
-
 export function preventTldrawCanvasesCausingObsidianGestures() {
 	const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
 	tlCanvas.addEventListener('touchmove', (e: Event) => {
@@ -112,7 +105,6 @@ export function preventTldrawCanvasesCausingObsidianGestures() {
 	// 	setOutputLog(str);
 	// });
 }
-
 
 export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 	let canvasWidth = editor.getContainer().innerWidth
@@ -135,7 +127,6 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 	})
 }
 
-
 export function initDrawingCamera(editor: Editor) {
 	editor.zoomToFit()
 }
@@ -157,7 +148,6 @@ export function adaptTldrawToObsidianThemeMode(editor: Editor) {
 
 }
 
-
 export function removeExtensionAndDotFromFilepath(filepath: string) {
 	const dotIndex = filepath.lastIndexOf(".");
 
@@ -169,7 +159,6 @@ export function removeExtensionAndDotFromFilepath(filepath: string) {
 		return filepath;
 	}
 }
-
 
 export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
 	let isEmpty = true;
@@ -196,8 +185,6 @@ export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean
 	return isEmpty;
 }
 
-
-
 function getCompleteShapes(editor: Editor) {
 	const allShapes = editor.currentPageShapes;
 	let completeShapes: TLShape[] = [];
@@ -223,8 +210,6 @@ function getIncompleteShapes(editor: Editor) {
 	}
 	return incompleteShapes;
 }
-
-
 
 export const useStash = () => {
 	const stash = useRef<TLShape[]>([]);
@@ -260,7 +245,6 @@ export const useStash = () => {
 	return { stashStaleContent, unstashStaleContent };
 };
 
-
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 	editor.store.mergeRemoteChanges(func);
 }
@@ -270,13 +254,12 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 // 	editor.store.mergeRemoteChanges(func);
 // }
 
-
 // These two are intended for replacing an unstash+commands+restash sequence, but the asyncs aren't quite working yet
-export const takeActionOnFullStore = (editor: Editor, func: () => void) => {
-	unstashStaleStrokes(editor);
-	silentlyChangeStore(editor, func)
-	stashStaleStrokes(editor)
-}
+// export const takeActionOnFullStore = (editor: Editor, func: () => void) => {
+// 	unstashStaleStrokes(editor);
+// 	silentlyChangeStore(editor, func)
+// 	stashStaleStrokes(editor)
+// }
 // export const takeActionOnFullStoreAsync = async (editor: Editor, func: () => void) => {
 // 	unstashStaleStrokes(editor);
 // 	await silentlyChangeStoreAsync(editor, func);

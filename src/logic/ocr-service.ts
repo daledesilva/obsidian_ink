@@ -1,6 +1,6 @@
 
 
 export async function fetchWriteFileTranscript(): Promise<string> {
-    console.log('Fetching transcript!!!');
+    console.log('Transcripts not implemented yet');
     return 'transcript';
 }

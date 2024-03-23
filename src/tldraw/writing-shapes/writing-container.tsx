@@ -1,18 +1,15 @@
 import { Rectangle2d, SVGContainer, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
-import { HTMLContainer, ShapeUtil } from '@tldraw/tldraw';
+import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 
-
 //////////
 //////////
-
 
 type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y: number, w: number, h: number }>
 
 export const PAGE_WIDTH = 2000;
 export const LINE_HEIGHT = 150;
 export const NEW_LINE_REVEAL_HEIGHT = LINE_HEIGHT * 1.5;
-
 
 export default class HandwritingContainerUtil extends ShapeUtil<HandwritingContainer> {
 	static override type = 'handwriting-container' as const

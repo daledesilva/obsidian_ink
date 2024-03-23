@@ -1,8 +1,6 @@
 import "./writing-menu.scss";
 import * as React from "react";
-import { App, Editor, MarkdownView, Plugin } from "obsidian";
 import { tool } from "../writing/tldraw-writing-editor";
-import InkPlugin from "../../main";
 
 //////////
 //////////
@@ -65,16 +63,11 @@ export const WritingMenu = (props: MenuBarProps) => {
             <div
                 className='ink_other-menu'
             >
-                
+            
             </div>
         </div>
     </>;
 
 };
-
-
-
-
-
 
 export default WritingMenu;

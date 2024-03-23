@@ -12,6 +12,4 @@ const insertNewDrawingFile = async (plugin: InkPlugin, editor: Editor) => {
     editor.replaceRange( embedStr, editor.getCursor() );
 }
 
-//////////
-
 export default insertNewDrawingFile;

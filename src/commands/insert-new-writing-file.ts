@@ -12,6 +12,4 @@ const insertNewWritingFile = async (plugin: InkPlugin, editor: Editor) => {
     editor.replaceRange( embedStr, editor.getCursor() );
 }
 
-/////////
-
 export default insertNewWritingFile;

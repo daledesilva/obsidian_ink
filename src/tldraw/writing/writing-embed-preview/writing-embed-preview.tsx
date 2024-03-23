@@ -16,8 +16,6 @@ interface WritingEmbedProps {
 
 export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
 
-    console.log('props.isActive', props.isActive);
-
 	return <>
         <div
             className = 'ink_writing-embed-preview'

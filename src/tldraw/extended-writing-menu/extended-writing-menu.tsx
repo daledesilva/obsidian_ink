@@ -27,5 +27,4 @@ export const ExtendedWritingMenu: React.FC<{
 
 };
 
-
 export default ExtendedWritingMenu;

@@ -3,17 +3,16 @@ import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { buildWritingEmbed } from "src/utils/embed";
 
-
+////////
+////////
 
 export const insertExistingWritingFile = (plugin: InkPlugin, editor: Editor) => {
-    // const fileRef = await createNewHandwrittenNote(plugin);
     new SelectHandwritingFileModal(plugin.app, (filepath) => {
         let embedStr = buildWritingEmbed(filepath);
         editor.replaceRange( embedStr, editor.getCursor() );
     }).open();
     
 }
-
 
 export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
     onSubmit: Function;
@@ -41,6 +40,5 @@ export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
         this.onSubmit(file.path);
     }
 }
-
 
 export default insertExistingWritingFile;

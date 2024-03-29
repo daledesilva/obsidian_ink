@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
+import { Activity, CameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
@@ -65,6 +65,7 @@ export function TldrawWritingEditor(props: {
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash();
+	const cameraLimitsRef = useRef<CameraLimits>();
 
 	function undo() {
 		const editor = editorRef.current
@@ -130,6 +131,7 @@ export function TldrawWritingEditor(props: {
 			editor.updateInstanceState({ canMoveCamera: false })
 		} else {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
+			cameraLimitsRef.current = initWritingCameraLimits(editor);
 		}
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
@@ -143,6 +145,7 @@ export function TldrawWritingEditor(props: {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
+					if(cameraLimitsRef.current) restrictWritingCamera(editor, cameraLimitsRef.current);
 					unstashStaleContent(editor);
 					break;
 
@@ -209,6 +212,12 @@ export function TldrawWritingEditor(props: {
 					await completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
+				resize: () => {
+					const cameraY = editor.camera.y;
+					console.log('cameraY', cameraY);
+					initWritingCamera(editor);
+					editor.camera.y = cameraY;
+				}
 			})
 		}
 

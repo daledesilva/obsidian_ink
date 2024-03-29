@@ -28,6 +28,9 @@ export class WritingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     pageData: InkFileData;
+    tldrawControls: {
+        resize?: Function,
+    } = {}
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -62,6 +65,10 @@ export class WritingView extends TextFileView {
                 fileRef = {this.file}
                 pageData = {this.pageData}
                 save = {this.saveFile}
+                registerControls = {(controls) => {
+                    this.tldrawControls.resize = controls.resize;
+                    console.log('controls.resize', controls.resize)
+                }}
 			/>
         );
     }
@@ -82,7 +89,10 @@ export class WritingView extends TextFileView {
         this.root?.unmount();
     }
 
-    // onResize()
+    onResize = () => {
+        // TODO: Currently this doesn't refresh the width stored in the camera limits, so removed it for now
+        // if(this.tldrawControls.resize) this.tldrawControls.resize();
+    }
 
     // TODO: Consider converting between drawings and writing files in future
 

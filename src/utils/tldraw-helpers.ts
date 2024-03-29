@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
+import { Box2d, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
 import { useRef } from 'react';
 
@@ -132,6 +132,58 @@ export function initDrawingCamera(editor: Editor) {
 
 	const intendedZoom = 1;
 	editor.zoomToBounds(allShapesBounds, intendedZoom);
+}
+
+export interface WritingCameraLimits {
+	x: {
+		min: number,
+		max: number,
+	},
+	zoom: {
+		min: number,
+		max: number,
+	},
+}
+
+export function initWritingCameraLimits(editor: Editor) : WritingCameraLimits {
+	return {
+		x: {
+			min: editor.camera.x,
+			max: editor.camera.x
+		},
+		zoom: {
+			min: editor.camera.z,
+			max: editor.camera.z
+		},
+	}
+}
+
+export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCameraLimits) {
+
+	const bounds = editor.currentPageBounds;
+	if(!bounds) return;
+
+	const yMin = bounds.minY - 500;
+	const yMax = bounds.maxY + 1000;
+
+	let x = editor.camera.x;
+	let y = editor.camera.y;
+	let zoom = editor.zoomLevel;
+
+	x = Math.max(x, cameraLimits.x.min);
+	x = Math.min(x, cameraLimits.x.max);
+	y = Math.max(y, yMin);
+	y = Math.min(y, yMax);
+	zoom = Math.max(zoom, cameraLimits.zoom.min);
+	zoom = Math.min(zoom, cameraLimits.zoom.max);
+
+	silentlyChangeStore(editor, () => {
+		editor.setCamera({
+			x: x,
+			y: y,
+			z: zoom
+		})
+	})
 }
 
 export function adaptTldrawToObsidianThemeMode(editor: Editor) {

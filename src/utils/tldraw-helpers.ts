@@ -118,7 +118,6 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 	let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
 
 	silentlyChangeStore(editor, () => {
-		// editor.zoomToFit()
 		editor.setCamera({
 			x: x,
 			y: y,
@@ -128,7 +127,11 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 }
 
 export function initDrawingCamera(editor: Editor) {
-	editor.zoomToFit()
+	const allShapesBounds = editor.currentPageBounds;
+	if(!allShapesBounds) return;
+
+	const intendedZoom = 1;
+	editor.zoomToBounds(allShapesBounds, intendedZoom);
 }
 
 export function adaptTldrawToObsidianThemeMode(editor: Editor) {

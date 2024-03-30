@@ -17,7 +17,7 @@ import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-previ
 ///////
 
 export type WritingEditorControls = {
-	save: Function,
+	// save: Function,
 	saveAndHalt: Function,
 }
 
@@ -56,7 +56,6 @@ export function WritingEmbed (props: {
 
 		} else {
 			// It IS edit mode
-			
 			if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 		}
 
@@ -65,26 +64,12 @@ export function WritingEmbed (props: {
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: WritingEditorControls) => {
 		editorControlsRef.current = handlers;
-
-		
-	}
-
-	const takeScreenshotAndReturn = async () => {
-		console.log('Taking writing screenshot and switching back to read-only mode');
-		if(!editorControlsRef.current) return;
-		isEditModeForScreenshottingRef.current = false;
-		
-		await editorControlsRef.current.saveAndHalt();
-		const newPageData = await refreshPageData();
-		setCurPageData(newPageData);
-		setIsEditMode(false);
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = false;
-	if(embedId && embedId === activeEmbedId) isActive = true;
-	if(isActive === false && isEditMode) switchToReadOnly();
+	let isActive = embedId === activeEmbedId;
+	if(!isActive && isEditMode) switchToReadOnlyIfStarted();
 
 	return <>
 		<div
@@ -97,19 +82,23 @@ export function WritingEmbed (props: {
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (
-				<p>This should never be show</p>
+				<p>
+					Your writing embed doesn't have a valid screenshot.<br/>
+					Try opening the source file directly to fix.
+					({props.fileRef.path})
+				</p>
 			)}
 			{(!isEditMode && curPageData.previewUri) && (
 				<WritingEmbedPreview
 					isActive = {isActive}
-					src = {curPageData.previewUri}
+					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.
 					// src = {previewFilePath}
 					onClick = {(event) => {
 						event.preventDefault();
 						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 					}}
 					onEditClick = { async () => {
-						const newPageData = await refreshPageData();
+						const newPageData = await refreshPageData(props.plugin, props.fileRef);
 						setIsEditMode(true);
 						setCurPageData(newPageData);
 					}}
@@ -126,7 +115,7 @@ export function WritingEmbed (props: {
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
-					switchToReadOnly = {switchToReadOnly}
+					switchToReadOnly = {switchToReadOnlyIfStarted}
 				/>
 			)}
 		</div>
@@ -135,19 +124,27 @@ export function WritingEmbed (props: {
 	// Helper functions
 	///////////////////
 
-	async function switchToReadOnly() {
-		// TODO: Save immediately incase it hasn't been saved yet?
-		await editorControlsRef.current?.saveAndHalt();
-		const newPageData = await refreshPageData();
-		setCurPageData(newPageData);
-		setIsEditMode(false);
+	async function switchToReadOnlyIfStarted() {
+		const newPageData = await refreshPageData(props.plugin, props.fileRef);
+		
+		// Don't switch to readonly if it hasn't been started (It's empty so there's no screenshot to show).
+		if(!isEmptyWritingFile(newPageData.tldraw)) {
+			// console.log(`Isn't an empty writing file --------`);
+			await editorControlsRef.current?.saveAndHalt();
+			setCurPageData(newPageData);
+			setIsEditMode(false);
+		}
 	}
 
-	async function refreshPageData(): Promise<InkFileData> {
-		const v = props.plugin.app.vault;
-		const pageDataStr = await v.read(props.fileRef);
-		const pageData = JSON.parse(pageDataStr) as InkFileData;
-		return pageData;
+	async function takeScreenshotAndReturn() {
+		console.log('Taking writing screenshot and switching back to read-only mode');
+		if(!editorControlsRef.current) return;
+		isEditModeForScreenshottingRef.current = false;
+		
+		await editorControlsRef.current.saveAndHalt();
+		const newPageData = await refreshPageData(props.plugin, props.fileRef);
+		setCurPageData(newPageData);
+		setIsEditMode(false);
 	}
 	
 };
@@ -165,4 +162,11 @@ const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: In
 				saveWriteFileTranscript(plugin, fileRef, transcript)
 			})
 	}
+}
+
+async function refreshPageData(plugin: InkPlugin, file: TFile): Promise<InkFileData> {
+	const v = plugin.app.vault;
+	const pageDataStr = await v.read(file);
+	const pageData = JSON.parse(pageDataStr) as InkFileData;
+	return pageData;
 }

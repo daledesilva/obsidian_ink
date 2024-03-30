@@ -150,11 +150,13 @@ export function TldrawWritingEditor(props: {
 					break;
 
 				case Activity.DrawingStarted:
+					console.log('Drawing Started');
 					resetInputPostProcessTimers();
 					stashStaleContent(editor);
 					break;
 					
-				case Activity.DrawingContinued:
+					case Activity.DrawingContinued:
+					console.log('Drawing Continued');
 					resetInputPostProcessTimers();
 					break;
 					
@@ -207,8 +209,9 @@ export function TldrawWritingEditor(props: {
 
 		if(props.registerControls) {
 			props.registerControls({
-				save: () => completeSave(editor),
+				// save: () => completeSave(editor),
 				saveAndHalt: async () => {
+					console.log('saveAndHalt');
 					completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
@@ -257,6 +260,7 @@ export function TldrawWritingEditor(props: {
 
 	// REVIEW: Some of these can be moved out of the function
 	const resizeTemplate = (editor: Editor) => {
+		console.log('resizeTemplate');
 		let contentBounds = getWritingBounds(editor);
 		if (!contentBounds) return;
 		
@@ -347,6 +351,7 @@ export function TldrawWritingEditor(props: {
 		stashStaleContent(editor);
 		
 		if (svgEl) {
+			console.log('no SVG');
 			previewUri = await svgToPngDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
@@ -375,6 +380,9 @@ export function TldrawWritingEditor(props: {
 		},
 	}
 
+
+	console.log('test');
+
 	return <>
 		<div
 			ref={containerElRef}
@@ -392,7 +400,7 @@ export function TldrawWritingEditor(props: {
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
-				assetUrls = {assetUrls} 
+				// assetUrls = {assetUrls} // This causes multiple mounts
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu

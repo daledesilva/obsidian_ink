@@ -3,25 +3,23 @@
 ///////
 
 import { MarkdownViewModeType } from "obsidian";
-import { DRAW_EMBED_KEY, WRITE_EMBED_KEY } from "src/constants";
-
-const WRITING_EMBED_VERSION = '0.0.1';
+import { DRAW_EMBED_KEY, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
 
 export type WritingEmbedData = {
-	embedVersion: string;
+	versionAtEmbed: string;
 	filepath: string;
-	transcript: string;
+	transcript?: string;
 };
 
 
 // Primary functions
 ///////
 
-export const buildWritingEmbed = (filepath: string, transcript: string = '') => {
+export const buildWritingEmbed = (filepath: string, transcript?: string) => {
 	let embedContent: WritingEmbedData = {
-		embedVersion: WRITING_EMBED_VERSION,
+		versionAtEmbed: PLUGIN_VERSION,
 		filepath,
-		transcript,
+		// transcript,
 	}
 
 	let embedStr = "";
@@ -38,16 +36,14 @@ export const buildWritingEmbed = (filepath: string, transcript: string = '') => 
 //////////
 //////////
 
-const DRAWING_EMBED_VERSION = '0.0.1';
-
 export type DrawingEmbedData = {
-	embedVersion: string;
+	versionAtEmbed: string;
 	filepath: string;
 };
 
-export const buildDrawingEmbed = (filepath: string, transcript: string = '') => {
+export const buildDrawingEmbed = (filepath: string) => {
 	let embedContent: DrawingEmbedData = {
-		embedVersion: DRAWING_EMBED_VERSION,
+		versionAtEmbed: PLUGIN_VERSION,
 		filepath,
 	}
 

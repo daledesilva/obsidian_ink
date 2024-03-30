@@ -29,14 +29,17 @@ export default class InkPlugin extends Plugin {
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
 
-		registerWritingView(this);
-		registerWritingEmbed(this);
-
-		registerDrawingView(this);
-		registerDrawingEmbed(this);
+		if(this.settings.writingEnabled) {
+			registerWritingView(this);
+			registerWritingEmbed(this);
+			implementWritingEmbedActions(this);
+		}
 		
-		implementWritingEmbedActions(this);
-		implementDrawingEmbedActions(this);
+		if(this.settings.drawingEnabled) {
+			registerDrawingView(this);
+			registerDrawingEmbed(this);		
+			implementDrawingEmbedActions(this);
+		}
 		
 		registerSettingsTab(this);
 		
@@ -100,32 +103,32 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 	});
 }
 
-function implementHandwrittenNoteAction(plugin: InkPlugin) {
-	plugin.addCommand({
-		id: 'ddc_create-writing-file',
-		name: 'Create new handwritten note',
-		callback: async () => {
-			const fileRef = await createNewWritingFile(plugin);
-			openInkFile(plugin, fileRef);
-		}
-	});
-	plugin.addRibbonIcon("pencil", "New handwritten note", async () => {
-		const fileRef = await createNewWritingFile(plugin);
-		openInkFile(plugin, fileRef);
-	});
-}
+// function implementHandwrittenNoteAction(plugin: InkPlugin) {
+// 	plugin.addCommand({
+// 		id: 'ddc_create-writing-file',
+// 		name: 'Create new handwritten note',
+// 		callback: async () => {
+// 			const fileRef = await createNewWritingFile(plugin);
+// 			openInkFile(plugin, fileRef);
+// 		}
+// 	});
+// 	plugin.addRibbonIcon("pencil", "New handwritten note", async () => {
+// 		const fileRef = await createNewWritingFile(plugin);
+// 		openInkFile(plugin, fileRef);
+// 	});
+// }
 
-function implementHandDrawnNoteAction(plugin: InkPlugin) {
-	plugin.addCommand({
-		id: 'ddc_create-drawing-file',
-		name: 'Create new drawing',
-		callback: async () => {
-			const fileRef = await createNewDrawingFile(plugin);
-			openInkFile(plugin, fileRef);
-		}
-	});
-	plugin.addRibbonIcon("pencil", "New hand drawn note", async () => {
-		const fileRef = await createNewDrawingFile(plugin);
-		openInkFile(plugin, fileRef);
-	});
-}
+// function implementHandDrawnNoteAction(plugin: InkPlugin) {
+// 	plugin.addCommand({
+// 		id: 'ddc_create-drawing-file',
+// 		name: 'Create new drawing',
+// 		callback: async () => {
+// 			const fileRef = await createNewDrawingFile(plugin);
+// 			openInkFile(plugin, fileRef);
+// 		}
+// 	});
+// 	plugin.addRibbonIcon("pencil", "New hand drawn note", async () => {
+// 		const fileRef = await createNewDrawingFile(plugin);
+// 		openInkFile(plugin, fileRef);
+// 	});
+// }

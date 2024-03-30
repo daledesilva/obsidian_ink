@@ -66,17 +66,17 @@ function insertGeneralSettings(containerEl: HTMLElement, plugin: InkPlugin) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
 	sectionEl.createEl('h2', {text: 'General'});
 
-	new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Use default attachment folder')
-		.setDesc(`This will create the 'Ink' folder inside your default attachment folder defined in the 'Files and links' settings tab. Otherwise it will be at the root of your vault.`)
-		.addToggle((toggle) => {
-			toggle.setValue(plugin.settings.useDefaultAttachmentFolder);
-			toggle.onChange(async (value) => {
-				plugin.settings.useDefaultAttachmentFolder = value;
-				await plugin.saveSettings();
-			});
-		});
+	// new Setting(sectionEl)
+	// 	.setClass('ddc_ink_setting')
+	// 	.setName('Use default attachment folder')
+	// 	.setDesc(`This will create the 'Ink' folder inside your default attachment folder defined in the 'Files and links' settings tab. Otherwise it will be at the root of your vault.`)
+	// 	.addToggle((toggle) => {
+	// 		toggle.setValue(plugin.settings.useDefaultAttachmentFolder);
+	// 		toggle.onChange(async (value) => {
+	// 			plugin.settings.useDefaultAttachmentFolder = value;
+	// 			await plugin.saveSettings();
+	// 		});
+	// 	});
 
 	insertSetupGuide(sectionEl);
 }
@@ -113,7 +113,8 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 		new Setting(sectionEl)
 			.setClass('ddc_ink_setting')
 			.setName('Enable writing')
-			.setDesc('If disabled, you will still be able to view previously created writing embeds.')
+			// .setDesc('If disabled, you will still be able to view previously created writing embeds.')
+			.setDesc('If disabled, you will not be able to add new writing embeds and those already embedded will appear as raw code. Existing writing files will be hidden in Obsidian but still exist on disk. Changing this setting will require a restart of Obsidian to take effect.')
 			.addToggle((toggle) => {
 				toggle.setValue(plugin.settings.writingEnabled);
 				toggle.onChange(async (value) => {
@@ -126,7 +127,8 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 		new Setting(sectionEl)
 			.setClass('ddc_ink_setting')
 			.setName('Enable drawing')
-			.setDesc('If disabled, you will still be able to view previously created drawing embeds.')
+			// .setDesc('If disabled, you will still be able to view previously created drawing embeds.')
+			.setDesc('If disabled, you will not be able to add new drawing embeds and those already embedded will appear as raw code. Existing drawing files will be hidden in Obsidian but still exist on disk. Changing this setting will require a restart of Obsidian to take effect.')
 			.addToggle((toggle) => {
 				toggle.setValue(plugin.settings.drawingEnabled);
 				toggle.onChange(async (value) => {
@@ -154,7 +156,7 @@ function insertWritingLimitations(containerEl: HTMLElement) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_current-limitations-section');
 	const accordion = sectionEl.createEl('details');
 	accordion.createEl('summary', { text: `Notable writing limitations (Expand for details)` });
-	accordion.createEl('p', { text: `Only the last 300 strokes will be visible while writing (Others will dissapear). This is because the plugin currently experiences lag while displaying long amounts of writing thta degrades pen fluidity.` });
+	accordion.createEl('p', { text: `Only the last 300 strokes will be visible while writing (Others will dissapear). This is because the plugin currently experiences lag while displaying long amounts of writing that degrades pen fluidity.` });
 	accordion.createEl('p', { text: `All your writing is still saved, however, and will appear in full whenever the embed is locked.` });
 }
 
@@ -165,4 +167,10 @@ function insertPrereleaseWarning(containerEl: HTMLElement) {
 	accordion.createEl('p', { text: `What does Alpha mean? Development of products like this plugin often involve moving through multiple different stages (e.g. Alpha, Beta, then Standard Release).` });
 	accordion.createEl('p', { text: `Alpha, the current stage, means that this plugin is in early development and may undergo large changes that break or change previous functionality.` });
 	accordion.createEl('p', { text: `While in Alpha, please exercise caution while using the plugin, however, note that I (The developer of this plugin) am proceeding with caution to help ensure any files created in this version will be compatible or converted to work with future versions (My own vaults depend on it as well).` });
+}
+
+function insertGenericWarning(containerEl: HTMLElement, text: string) {
+	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_generic-warning-section');
+	const warningEl = sectionEl.createDiv('warning');
+	warningEl.createEl('p', {text});
 }

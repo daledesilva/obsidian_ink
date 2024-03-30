@@ -1,4 +1,9 @@
-export const PLUGIN_VERSION = '0.0.1';
+const manifest = require('../manifest.json');
+
+////////
+////////
+
+export const PLUGIN_VERSION = manifest.version;
 export const TLDRAW_VERSION = '2.0.0-alpha.17';
 export const PLUGIN_KEY = 'ddc_ink';
 export const ATTACHMENT_SUBFOLDER_NAME = 'Ink';

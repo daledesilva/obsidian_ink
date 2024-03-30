@@ -69,7 +69,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 	}
 
 	async onunload() {
-		this.root.unmount();
+		this.root?.unmount();
 	}
 
 	// Helper functions

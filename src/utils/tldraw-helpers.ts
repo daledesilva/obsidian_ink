@@ -93,6 +93,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 
 export function preventTldrawCanvasesCausingObsidianGestures() {
 	const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
+	if(!tlCanvas) return;
 	tlCanvas.addEventListener('touchmove', (e: Event) => {
 		e.stopPropagation();
 	})

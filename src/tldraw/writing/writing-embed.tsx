@@ -41,6 +41,8 @@ export function WritingEmbed (props: {
 	React.useEffect( () => {
 
 		if(!isEditMode) {
+			// It's not edit mode
+
 			if(isEmptyWritingFile(curPageData.tldraw)) {
 				setIsEditMode(true);
 				
@@ -51,7 +53,12 @@ export function WritingEmbed (props: {
 			}
 
 			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
-		}		
+
+		} else {
+			// It IS edit mode
+			
+			if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
+		}
 
 	}, [isEditMode])
 
@@ -59,8 +66,7 @@ export function WritingEmbed (props: {
 	const registerEditorControls = (handlers: WritingEditorControls) => {
 		editorControlsRef.current = handlers;
 
-		// Run mount actions for edit mode here to ensure editorControls is available
-		if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
+		
 	}
 
 	const takeScreenshotAndReturn = async () => {

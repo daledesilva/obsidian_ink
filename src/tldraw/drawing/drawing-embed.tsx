@@ -39,6 +39,8 @@ export function DrawingEmbed (props: {
 	React.useEffect( () => {
 		
 		if(!isEditMode) {
+			// It's not edit mode
+
 			if(isEmptyDrawingFile(curPageData.tldraw)) {
 				setIsEditMode(true);
 				
@@ -47,15 +49,16 @@ export function DrawingEmbed (props: {
 				isEditModeForScreenshottingRef.current = true;
 			}
 
-		}		
+		} else {
+			// It IS edit mode
+			
+			if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
+		}	
 
 	}, [isEditMode])
 
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
-		
-		// Run mount actions for edit mode here to ensure editorControls is available
-		if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 	}
 
 	const takeScreenshotAndReturn = async () => {

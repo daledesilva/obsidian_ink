@@ -209,12 +209,11 @@ export function TldrawWritingEditor(props: {
 			props.registerControls({
 				save: () => completeSave(editor),
 				saveAndHalt: async () => {
-					await completeSave(editor)
+					completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 				resize: () => {
 					const cameraY = editor.camera.y;
-					console.log('cameraY', cameraY);
 					initWritingCamera(editor);
 					editor.camera.y = cameraY;
 				}
@@ -358,7 +357,7 @@ export function TldrawWritingEditor(props: {
 				previewUri,
 			})
 			props.save(pageData);
-			savePngExport(props.plugin, previewUri, props.fileRef)
+			await savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
 			const pageData = buildWritingFileData({
@@ -368,6 +367,12 @@ export function TldrawWritingEditor(props: {
 		}
 
 		console.log('...Finished complete WRITING save');
+	}
+
+	const assetUrls = {
+		icons: {
+			'tool-hand': './custom-tool-hand.svg',
+		},
 	}
 
 	return <>
@@ -381,12 +386,13 @@ export function TldrawWritingEditor(props: {
 			<Tldraw
 				// REVIEW: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {props.pageData.tldraw}	// NOTE: Check what's causing this snapshot error??
-				onMount={handleMount}
+				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
 				// assetUrls = {assetUrls}
-				shapeUtils={MyCustomShapes}
-				overrides={myOverrides}
+				shapeUtils = {MyCustomShapes}
+				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
+				assetUrls = {assetUrls} 
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu

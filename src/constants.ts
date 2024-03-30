@@ -1,7 +1,9 @@
 export const PLUGIN_VERSION = '0.0.1';
 export const TLDRAW_VERSION = '2.0.0-alpha.17';
 export const PLUGIN_KEY = 'ddc_ink';
-export const FOLDER_NAME = 'Ink';
+export const ATTACHMENT_SUBFOLDER_NAME = 'Ink';
+export const WRITING_SUBFOLDER_NAME = 'Writing';
+export const DRAWING_SUBFOLDER_NAME = 'Drawing';
 export const WRITE_FILE_EXT = 'writing';
 export const DRAW_FILE_EXT = 'drawing';
 export const WRITE_EMBED_KEY = 'handwritten-ink';

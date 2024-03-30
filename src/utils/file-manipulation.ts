@@ -1,5 +1,5 @@
 import { Notice, TFile } from "obsidian";
-import { DRAW_FILE_EXT, FOLDER_NAME, WRITE_FILE_EXT } from "src/constants";
+import { DRAW_FILE_EXT, ATTACHMENT_SUBFOLDER_NAME, WRITE_FILE_EXT, WRITING_SUBFOLDER_NAME, DRAWING_SUBFOLDER_NAME } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLShapeId } from "@tldraw/tldraw";
@@ -8,7 +8,7 @@ import { saveLocally } from "./storage";
 /////////
 /////////
 
-const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string) => {
+const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfolder: string) => {
     const date = new Date();
     let monthStr = date.getMonth().toString();
     let dateStr = date.getDate().toString();
@@ -19,7 +19,9 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string) => {
     if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
 
-    const pathAndBasename = FOLDER_NAME + '/' + filename;
+    const attachmentFolder = plugin.app.vault.config.attachmentFolderPath;
+    
+    const pathAndBasename = attachmentFolder + '/' + ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename;
     let version = 1;
     let pathAndVersionedBasename = pathAndBasename;
 
@@ -31,10 +33,10 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string) => {
     return pathAndVersionedBasename + '.' + ext;
 }
 export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin) => {
-    return getNewTimestampedFilepath(plugin, WRITE_FILE_EXT);
+    return getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, WRITING_SUBFOLDER_NAME);
 }
 export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin) => {
-    return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT);
+    return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, DRAWING_SUBFOLDER_NAME);
 }
 
 export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => {

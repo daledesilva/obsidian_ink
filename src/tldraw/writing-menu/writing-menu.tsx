@@ -51,7 +51,7 @@ export const WritingMenu = (props: MenuBarProps) => {
                     onClick={props.onDrawClick}
                     disabled={props.curTool === tool.draw}
                 >
-                    Draw
+                    Write
                 </button>
                 <button
                     onClick={props.onEraseClick}

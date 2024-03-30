@@ -10,8 +10,8 @@ import { savePngExport } from 'src/utils/file-manipulation';
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
 import { WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
-import WritingMenu from '../writing-menu/writing-menu';
-import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
+import DrawingMenu from '../drawing-menu/drawing-menu';
+import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
 
 ///////
 ///////
@@ -322,7 +322,7 @@ export function TldrawDrawingEditor(props: {
 				hideUi // REVIEW: Does this do anything?
 			/>
 			<PrimaryMenuBar>
-				<WritingMenu
+				<DrawingMenu
 					canUndo = {canUndo}
 					canRedo = {canRedo}
 					curTool = {curTool}
@@ -333,7 +333,7 @@ export function TldrawDrawingEditor(props: {
 					onEraseClick = {activateEraseTool}
 				/>
 				{props.embedded && (
-					<ExtendedWritingMenu
+					<ExtendedDrawingMenu
 						onLockClick = { async () => {
 							// TODO: Save immediately incase it hasn't been saved yet?
 							if(props.switchToReadOnly) props.switchToReadOnly();

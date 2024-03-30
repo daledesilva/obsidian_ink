@@ -1,11 +1,11 @@
-import "./drawing-menu-bar.scss";
+import "./drawing-menu.scss";
 import * as React from "react";
 import { tool } from "../writing/tldraw-writing-editor";
 
 //////////
 //////////
 
-interface MenuBarProps {
+interface DrawingMenuProps {
     canUndo: boolean,
     canRedo: boolean,
     curTool: tool,
@@ -14,10 +14,9 @@ interface MenuBarProps {
     onSelectClick: React.MouseEventHandler<HTMLButtonElement>,
     onDrawClick: React.MouseEventHandler<HTMLButtonElement>,
     onEraseClick: React.MouseEventHandler<HTMLButtonElement>,
-    onOpenClick: React.MouseEventHandler<HTMLButtonElement> | false | undefined,
 }
 
-export const MenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((props, ref) => {
+export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((props, ref) => {
 
     return <>
         <div
@@ -65,13 +64,11 @@ export const MenuBar = React.forwardRef<HTMLDivElement, MenuBarProps>((props, re
             <div
                 className='ink_other-menu'
             >
-                {props.onOpenClick && (
-                    <button onClick={props.onOpenClick}>Open</button>
-                )}
+                
             </div>
         </div>
     </>;
 
 });
 
-export default MenuBar;
+export default DrawingMenu;

@@ -11,16 +11,17 @@
     button {
         width: auto;
         pointer-events: auto;
-        color: rgba(127.5, 127.5, 127.5, 0.7);
+        background-color: var(--interactive-normal);
+        color: var(--color-base-60);
         &:hover {
-            opacity: 1;
-            color: #FFF;
+            background-color: var(--interactive-hover);
+            color: var(--color-base-100);
         }
         &:disabled {
-            opacity: 1;
-            color: #FFF;
+            cursor: default;
+            color: var(--text-on-accent);
+            background-color: var(--interactive-accent);
             &:hover {
-                background-color: var(--interactive-normal);
                 box-shadow: var(--input-shadow);
             }
         }

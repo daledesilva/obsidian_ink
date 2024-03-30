@@ -1,8 +1,5 @@
-# Obsidian Handwrite
-A plugin for [Obsidian](https://obsidian.md) that adds the ability to handwrite with a stylus into sections of markdown files.
-
-!! ***This plugin is not yet released.***<br/>
-Please also note that while the repository is public, the plugin it is not currently open source.
+# Ink
+A plugin for [Obsidian](https://obsidian.md) that adds the ability to hand write or draw with a stylus between paragraphs in your notes.
 
 ## 🎥 Demo
 <p align="center">
@@ -103,7 +100,10 @@ This plugin is not yet listed on Obsidian's Community Plugins page but you can i
 7. Follow the instructions presented.
 </details>
 
-## Notes
+## 🏛️ License
+>Please note that while this repository is public and can be browsed and modified for your personal use, it is not open source. It is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+
+## 🗒️ Notes
 
 #### Optimisation Notes
 The plugin currently works based on the [tldraw](https://tldraw.dev/) framework, however, tldraw is implemented using SVG elements which slow down greatly on iOS platforms and possibly others. This equates to significant lag while writing after about 200-300 strokes on iOS (Which is about 3-4 paragraphs). To temporarily mitigate this, the plugin hides strokes while writing that are several lines old. The strokes are still saved and reappear upon freezing the embed, reopening the file, or adjusting the infinite canvas view.

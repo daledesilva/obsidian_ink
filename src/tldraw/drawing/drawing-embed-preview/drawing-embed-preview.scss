@@ -1,24 +1,6 @@
 .ink_drawing-embed-preview {
     pointer-events: none;
 
-    button {
-        pointer-events: auto;
-        cursor: pointer;
-        color: rgba(127.5, 127.5, 127.5, 0.7);
-        &:hover {
-            opacity: 1;
-            color: #FFF;
-        }
-        &:disabled {
-            opacity: 1;
-            color: #FFF;
-            &:hover {
-                background-color: var(--interactive-normal);
-                box-shadow: var(--input-shadow);
-            }
-        }
-    }
-
     img {
         pointer-events: auto;
         cursor: pointer;

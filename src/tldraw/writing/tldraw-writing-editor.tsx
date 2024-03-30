@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
-import { Box2d, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, CameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
@@ -65,7 +65,7 @@ export function TldrawWritingEditor(props: {
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash();
-	const cameraLimitsRef = useRef<CameraLimits>();
+	const cameraLimitsRef = useRef<WritingCameraLimits>();
 
 	function undo() {
 		const editor = editorRef.current
@@ -194,8 +194,8 @@ export function TldrawWritingEditor(props: {
 
 		// Runs on any change to the store, caused by user, system, undo, anything, etc.
 		const removeStoreChangeListener = editor.store.listen((entry) => {
-			setCanUndo(editor.canUndo);
-			setCanRedo(editor.canRedo);
+			setCanUndo(editor.getCanUndo());
+			setCanRedo(editor.getCanRedo());
 		})
 
 		const unmountActions = () => {
@@ -213,9 +213,10 @@ export function TldrawWritingEditor(props: {
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 				resize: () => {
-					const cameraY = editor.camera.y;
+					const camera = editor.getCamera()
+					const cameraY = camera.y;
 					initWritingCamera(editor);
-					editor.camera.y = cameraY;
+					editor.setCamera({x: camera.x, y: cameraY})
 				}
 			})
 		}
@@ -232,7 +233,7 @@ export function TldrawWritingEditor(props: {
 	const resizeContainerIfEmbed = (editor: Editor) => {
 		if (!props.embedded) return;
 
-		const embedBounds = editor.viewportScreenBounds;
+		const embedBounds = editor.getViewportScreenBounds();
 		const contentBounds = getTemplateBounds(editor);
 		
 		if (contentBounds) {
@@ -245,13 +246,13 @@ export function TldrawWritingEditor(props: {
 		}
 	}
 
-	const getTemplateBounds = (editor: Editor): Box2d => {
+	const getTemplateBounds = (editor: Editor): Box => {
 		const bounds = editor.getShapePageBounds('shape:primary_container' as TLShapeId)
 		
 		if(bounds) {
 			return bounds;
 		} else {
-			return new Box2d();		
+			return new Box();		
 		}
 	}
 
@@ -438,7 +439,7 @@ async function getWritingSvg(editor: Editor) {
 	});
 
 	// get SVG
-	const allShapeIds = Array.from(editor.currentPageShapeIds.values());
+	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgEl = await editor.getSvg(allShapeIds);
 
 	silentlyChangeStore( editor, () => {
@@ -459,7 +460,7 @@ async function getWritingSvg(editor: Editor) {
 
 // TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
-function getWritingBounds(editor: Editor): Box2d {
+function getWritingBounds(editor: Editor): Box {
 	const writingBounds = getDrawShapeBounds(editor);
 	
 	// Set static width
@@ -476,10 +477,10 @@ function getWritingBounds(editor: Editor): Box2d {
 	return writingBounds;
 }
 
-function getDrawShapeBounds(editor: Editor): Box2d {
+function getDrawShapeBounds(editor: Editor): Box {
 
-	const allShapes = editor.currentPageShapes;
-	let bounds = new Box2d(0, 0);
+	const allShapes = editor.getCurrentPageShapes();
+	let bounds = new Box(0, 0);
 	let boundsInit = false;
 
 	if(allShapes.length) {

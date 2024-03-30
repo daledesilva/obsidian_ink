@@ -150,13 +150,11 @@ export function TldrawWritingEditor(props: {
 					break;
 
 				case Activity.DrawingStarted:
-					console.log('Drawing Started');
 					resetInputPostProcessTimers();
 					stashStaleContent(editor);
 					break;
 					
 					case Activity.DrawingContinued:
-					console.log('Drawing Continued');
 					resetInputPostProcessTimers();
 					break;
 					
@@ -211,7 +209,6 @@ export function TldrawWritingEditor(props: {
 			props.registerControls({
 				// save: () => completeSave(editor),
 				saveAndHalt: async () => {
-					console.log('saveAndHalt');
 					completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
@@ -260,7 +257,6 @@ export function TldrawWritingEditor(props: {
 
 	// REVIEW: Some of these can be moved out of the function
 	const resizeTemplate = (editor: Editor) => {
-		console.log('resizeTemplate');
 		let contentBounds = getWritingBounds(editor);
 		if (!contentBounds) return;
 		

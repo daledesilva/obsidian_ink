@@ -332,12 +332,14 @@ export function TldrawDrawingEditor(props: {
 					onDrawClick = {activateDrawTool}
 					onEraseClick = {activateEraseTool}
 				/>
-				<ExtendedWritingMenu
-					onLockClick = { async () => {
-						// TODO: Save immediately incase it hasn't been saved yet?
-						if(props.switchToReadOnly) props.switchToReadOnly();
-					}}
-				/>
+				{props.embedded && (
+					<ExtendedWritingMenu
+						onLockClick = { async () => {
+							// TODO: Save immediately incase it hasn't been saved yet?
+							if(props.switchToReadOnly) props.switchToReadOnly();
+						}}
+					/>
+				)}
 			</PrimaryMenuBar>
 		</div>
 	</>;

@@ -16,8 +16,6 @@ interface DrawingEmbedProps {
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
 
-    console.log('props.isActive', props.isActive);
-
 	return <>
         <div
             className = 'ink_drawing-embed-preview'

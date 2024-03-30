@@ -37,7 +37,10 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     function initScrollHandler() {
         const primaryMenuBar = primaryMenuBarElRef.current;
         const scrollEl = primaryMenuBar?.closest(".cm-scroller");
-        scrollEl?.addEventListener('scroll', handleScrolling);
+        if(!scrollEl) return;
+        scrollEl.addEventListener('scroll', handleScrolling);
+        // dispatch event immediately incase it's already partially scrolled off screen
+        scrollEl.dispatchEvent(new CustomEvent('scroll'));
     }
     function cleanUpScrollHandler() {
         const scrollEl = scrollContainerElRef.current;

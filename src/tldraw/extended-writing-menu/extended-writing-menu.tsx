@@ -17,11 +17,11 @@ export const ExtendedWritingMenu: React.FC<{
             >
                 Lock
             </button>
-            <button
+            {/* <button
                 // onClick = {() => props.onOverflowClick()}
             >
                 ...
-            </button>           
+            </button>            */}
         </div>
 	</>
 

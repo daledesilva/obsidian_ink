@@ -18,7 +18,7 @@ export const TransitionMenu: React.FC<{
             >
                 Edit
             </button>
-            <button>...</button>
+            {/* <button>...</button> */}
             {/* <button
                 onClick = {() => props.onDuplicateClick()}
             >

@@ -85,8 +85,9 @@ export function WritingEmbed (props: {
 			ref = {embedContainerRef}
 			className = 'ink_writing-embed'
 			style = {{
-				marginTop: '3em',
-				marginBottom: '2.5em',
+				// Must be padding as margin creates codemirror calculation issues
+				paddingTop: '3em',
+				paddingBottom: '2.5em',
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (

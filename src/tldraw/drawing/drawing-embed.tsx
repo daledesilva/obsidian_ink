@@ -81,8 +81,9 @@ export function DrawingEmbed (props: {
 			className = 'ink_drawing-embed'
 			style = {{
 				height: isEditMode ? '600px' : 'auto',
-				marginTop: '3em',
-				marginBottom: '2.5em',
+				// Must be padding as margin creates codemirror calculation issues
+				paddingTop: '3em',
+				paddingBottom: '2.5em',
 			}}
 		>
 			{(!isEditMode && !curPageData.previewUri) && (

@@ -31,7 +31,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 	embedData: WritingEmbedData;
 	root: Root;
 	fileRef: TFile | null;
-
+	
 	constructor(
 		el: HTMLElement,
 		plugin: InkPlugin,
@@ -76,6 +76,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 	///////////////////
 
 	save = async (pageData: InkFileData) => {
+		
 		if(!this.fileRef) return;
 		const pageDataStr = stringifyPageData(pageData);
 		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);

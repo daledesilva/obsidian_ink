@@ -12,6 +12,16 @@
     // Extend through page horizontal margin
     margin: 0 calc(-1 * var(--file-margins)) !important;
 
+    // Prevent default obsidian cod-block hover outline
+    &:hover {
+        box-shadow: none;
+    }
+    
+    // Prevent default Obsidian 'edit block' button appearing
+    .edit-block-button {
+        display: none;
+    }
+
     .tl-container {
         // Allow tldraw right click menu to overflow container
         overflow: visible;

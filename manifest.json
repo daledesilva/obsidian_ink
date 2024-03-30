@@ -3,7 +3,7 @@
 	"name": "Ink",
 	"version": "0.1.0",
 	"minAppVersion": "1.00.0",
-	"description": "Ink creates embeddable sections specifically tailored for either handwriting or drawing. Enjoy a smooth experience on tablets with your stylus. This plugin is built on top of the open source tldraw framework.",
+	"description": "Hand write or draw with a stylus directly between paragraphs in your notes.",
 	"author": "Dale de Silva",
 	"authorUrl": "https://designdebt.club",
 	"fundingUrl": "https://ko-fi.com/daledesilva",

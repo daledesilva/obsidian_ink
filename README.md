@@ -53,19 +53,55 @@ Below are the high level features in my current development plan along with thei
 - [x] Proof of concept OCR (Transcripts).
 - [x] Basic UI Refinement. *(March 2024)*
 - [x] Improve interaction of markdown files while using embeds. *(March)*
-- [ ] Simplify & turn off drawing functionality by default ***March***
-- [ ] Clean up and refactor for release ***March***
-- [ ] **ALPHA release March 2024.**
-- [ ] Convert embed format to persist beyond uninstall. ***March***
-- [ ] More intuitive UI refinements. ***April 2024***
-- [ ] Multiple pen styles. ***April***
+- [x] Simplify drawing functionality ***March***
+- [x] Clean up and refactor for release ***March***
+- [x] **ALPHA release March 2024.**
+- [ ] Bug fixes. ***April 2024***
 - [ ] Convert to canvas framework (Improve writing memory). ***April***
+- [ ] More intuitive UI refinements. ***April***
+- [ ] Multiple pen styles. ***May***
 - [ ] More intuitive touch/stylus input refinement. ***May***
+- [ ] Convert embed format to persist beyond uninstall. ***June***
 - [ ] **BETA release in plugin repository.**
 - [ ] Automatic OCR (Transcripts).
 - [ ] Intuitive selection of words.
 - [ ] Ability to reorder text.
-- [ ] Consider primary support for drawing functionality.
+
+## 🪳 Report a bug
+Found something that's not quite working right or do you have a feature request? Don't be shy, feel free to make some noise over on the [GitHub Issues](https://github.com/daledesilva/obsidian_project-browser/issues) page. But be sure to check if someone has already posted the same issue and comment on theirs if they have.
+
+## 💾 Installation
+<!-- You can find this plugin in the plugin directory within Obsidian.
+<details>
+<summary>Click for help installing plugins</summary>
+
+1. Open your Obsidian vault and go to **Settings**.
+
+2. Click on **Community Plugins** in the side bar.
+
+3. If you haven't already, you will need to turn on community plugins.
+
+4. Search and install **Ink** by Dale de Silva.
+</details> -->
+
+This plugin is not yet listed on Obsidian's Community Plugins page but you can install it through the BRAT plugin.
+<details>
+<summary>Click for installation instructions</summary>
+
+1. Open your Obsidian vault and go to **Settings**.
+
+2. Click on **Community Plugins** in the side bar.
+
+3. Turn on community plugins and click **Browse**.
+
+4. Search and install **BRAT**.
+
+5. Scroll down and **activate** BRAT.
+
+6. In the BRAT menu in the side pane, select **Add Beta Plugin**.
+
+7. Follow the instructions presented.
+</details>
 
 ## Notes
 

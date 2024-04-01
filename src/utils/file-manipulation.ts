@@ -142,7 +142,7 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
     if(fileRef.extension !== WRITE_FILE_EXT) return;
     const v = plugin.app.vault;
 
-    console.log('saving transcript to', fileRef.path);
+    // console.log('saving transcript to', fileRef.path);
 
     const pageDataStr = await v.read(fileRef as TFile);
     const pageData = JSON.parse(pageDataStr) as InkFileData;
@@ -165,6 +165,6 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, path: string):
     try {
         await plugin.app.vault.createFolder(folders.join('/'));
     } catch(e) {
-        console.log(e);
+        // console.log(e);
     }
 }

@@ -45,7 +45,7 @@ export function DrawingEmbed (props: {
 				setIsEditMode(true);
 				
 			} else if(!curPageData.previewUri) {
-				console.log("Switching to edit mode for writing screenshot")
+				// console.log("Switching to edit mode for writing screenshot")
 				setIsEditMode(true);
 				isEditModeForScreenshottingRef.current = true;
 			}
@@ -63,7 +63,7 @@ export function DrawingEmbed (props: {
 	}
 
 	const takeScreenshotAndReturn = async () => {
-		console.log('Taking drawing screenshot and switching back to read-only mode');
+		// console.log('Taking drawing screenshot and switching back to read-only mode');
 		if(!editorControlsRef.current) return;
 		isEditModeForScreenshottingRef.current = false;
 		

@@ -47,7 +47,7 @@ export function WritingEmbed (props: {
 				setIsEditMode(true);
 				
 			} else if(!curPageData.previewUri) {
-				console.log("Switching to edit mode for writing screenshot")
+				// console.log("Switching to edit mode for writing screenshot")
 				setIsEditMode(true);
 				isEditModeForScreenshottingRef.current = true;
 			}
@@ -137,7 +137,7 @@ export function WritingEmbed (props: {
 	}
 
 	async function takeScreenshotAndReturn() {
-		console.log('Taking writing screenshot and switching back to read-only mode');
+		// console.log('Taking writing screenshot and switching back to read-only mode');
 		if(!editorControlsRef.current) return;
 		isEditModeForScreenshottingRef.current = false;
 		

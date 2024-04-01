@@ -335,7 +335,7 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		console.log('...Finished incremental WRITING save');
+		// console.log('...Finished incremental WRITING save');
 	}
 
 	const completeSave = async (editor: Editor) => {
@@ -347,7 +347,7 @@ export function TldrawWritingEditor(props: {
 		stashStaleContent(editor);
 		
 		if (svgEl) {
-			console.log('no SVG');
+			// console.log('no SVG');
 			previewUri = await svgToPngDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
@@ -367,7 +367,7 @@ export function TldrawWritingEditor(props: {
 			props.save(pageData);
 		}
 
-		console.log('...Finished complete WRITING save');
+		// console.log('...Finished complete WRITING save');
 	}
 
 	const assetUrls = {
@@ -377,7 +377,7 @@ export function TldrawWritingEditor(props: {
 	}
 
 
-	console.log('test');
+	// console.log('test');
 
 	return <>
 		<div
@@ -547,7 +547,7 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 		updatedRecords.forEach( (record) => {
 			const toRecord = record[1];
 			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
-				console.log('simplifying: ', toRecord.id)
+				// console.log('simplifying: ', toRecord.id)
 				editor.updateShape({
 					id: toRecord.id,
 					type: 'draw',

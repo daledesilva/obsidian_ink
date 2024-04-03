@@ -120,7 +120,7 @@ export function TldrawWritingEditor(props: {
 		resizeTemplate(editor);
 		editor.updateInstanceState({ isDebugMode: false, })
 		
-		// view set up
+		// // view set up
 		activateDrawTool();
 		if(props.embedded) {
 			initWritingCamera(editor);

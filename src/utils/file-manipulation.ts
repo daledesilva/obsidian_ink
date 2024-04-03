@@ -19,7 +19,10 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfold
     if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
 
-    const attachmentFolder = plugin.app.vault.config.attachmentFolderPath;
+    let attachmentFolder: string = plugin.app.vault.config.attachmentFolderPath;
+    if(attachmentFolder.indexOf('./') == 0) {
+        attachmentFolder = attachmentFolder.slice(2);
+    }
     
     const pathAndBasename = attachmentFolder + '/' + ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename;
     let version = 1;

@@ -28,7 +28,7 @@ export function getActivityType(entry: HistoryEntry<TLRecord>): Activity {
 	if (activitySummary.cameraMoved && activitySummary.pointerMoved) return Activity.CameraMovedManually;
 	if (activitySummary.cameraMoved && !activitySummary.pointerMoved) return Activity.CameraMovedAutomatically;
 
-	if (activitySummary.pointerScribbled) return Activity.ErasingContinued;
+	// if (activitySummary.pointerScribbled) return Activity.ErasingContinued;	// This isn't correct. Could be arrow drag, erase drag, or even occasionall reported from pen drag.
 	if (activitySummary.pointerMoved) return Activity.PointerMoved;
 
 	return Activity.Unclassified;

@@ -57,7 +57,6 @@ export function TldrawWritingEditor(props: {
 	switchToReadOnly?: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	const containerElRef = React.useRef<HTMLDivElement>(null)
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const editorRef = useRef<Editor>();
@@ -66,6 +65,7 @@ export function TldrawWritingEditor(props: {
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash();
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
+	const [embedHeight, setEmbedHeight] = React.useState<string>('100px');
 
 	function undo() {
 		const editor = editorRef.current
@@ -74,8 +74,6 @@ export function TldrawWritingEditor(props: {
 			editor.undo();
 		});
 		instantInputPostProcess(editor);
-		resizeTemplate(editor);
-		embedPostProcess(editor);
 		smallDelayInputPostProcess(editor);
 		longDelayInputPostProcess(editor);
 	}
@@ -86,8 +84,6 @@ export function TldrawWritingEditor(props: {
 			editor.redo();
 		});
 		instantInputPostProcess(editor);
-		resizeTemplate(editor);
-		embedPostProcess(editor);
 		smallDelayInputPostProcess(editor);
 		longDelayInputPostProcess(editor);
 
@@ -154,35 +150,33 @@ export function TldrawWritingEditor(props: {
 					stashStaleContent(editor);
 					break;
 					
-					case Activity.DrawingContinued:
+				case Activity.DrawingContinued:
 					resetInputPostProcessTimers();
 					break;
-					
-				case Activity.ErasingContinued:
-					resetInputPostProcessTimers();
-					break;
-
+						
+				// case Activity.ErasingContinued:
+				// 	console.log('ERASING CONTINUED');
+				// 	resetInputPostProcessTimers();
+				// 	break;
+							
 				case Activity.DrawingCompleted:
 					instantInputPostProcess(editor, entry);
-					resizeTemplate(editor);	// REVIEW: This could go inside a post process
-					embedPostProcess(editor);	// REVIEW: This could go inside a post process
 					smallDelayInputPostProcess(editor);
 					longDelayInputPostProcess(editor);
 					break;
-
+					
 				case Activity.DrawingErased:
 					instantInputPostProcess(editor, entry);
-					resizeTemplate(editor);
-					embedPostProcess(editor);
 					smallDelayInputPostProcess(editor);
 					longDelayInputPostProcess(editor);
 					break;
-
+					
 				default:
+					// console.log('DEFAULT');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
-					instantInputPostProcess(editor, entry);
-					smallDelayInputPostProcess(editor);
-					longDelayInputPostProcess(editor);
+					// instantInputPostProcess(editor, entry);
+					// smallDelayInputPostProcess(editor);
+					// longDelayInputPostProcess(editor);
 					// console.log('Activity not recognised.');
 					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -226,10 +220,6 @@ export function TldrawWritingEditor(props: {
 		};
 	}
 
-	const embedPostProcess = (editor: Editor) => {
-		resizeContainerIfEmbed(editor);
-	}
-
 	const resizeContainerIfEmbed = (editor: Editor) => {
 		if (!props.embedded) return;
 
@@ -239,10 +229,8 @@ export function TldrawWritingEditor(props: {
 		if (contentBounds) {
 
 			const contentRatio = contentBounds.w / contentBounds.h;
-			const embedHeight = embedBounds.w / contentRatio;
-			if(containerElRef.current) {
-				containerElRef.current.style.height = embedHeight + 'px';
-			}
+			const newEmbedHeight = embedBounds.w / contentRatio;
+			setEmbedHeight(newEmbedHeight + 'px');
 		}
 	}
 
@@ -286,13 +274,15 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
+		resizeTemplate(editor);
+		resizeContainerIfEmbed(editor);
 		// simplifyLines(editor, entry);
 	};
 
 	// Use this to run optimisations that take a small amount of time but should happen frequently
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
-
+		
 		shortDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
 				incrementalSave(editor);
@@ -382,9 +372,8 @@ export function TldrawWritingEditor(props: {
 
 	return <>
 		<div
-			ref={containerElRef}
 			style={{
-				height: '100%',
+				height: props.embedded ? embedHeight : '100%',
 				position: 'relative'
 			}}
 		>

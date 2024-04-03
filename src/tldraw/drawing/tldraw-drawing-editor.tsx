@@ -230,9 +230,11 @@ export function TldrawDrawingEditor(props: {
 	// Use this to run optimisations that take a small amount of time but should happen frequently
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
+		console.log('smallDelayInputPostProcess - DRAWING')
 
 		shortDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
+				console.log('--about to incrementalSave - DRAWING')
 				incrementalSave(editor);
 			},
 			WRITE_SHORT_DELAY_MS
@@ -243,9 +245,11 @@ export function TldrawDrawingEditor(props: {
 	// Use this to run optimisations after a slight delay
 	const longDelayInputPostProcess = (editor: Editor) => {
 		resetLongPostProcessTimer();
+		console.log('longDelayInputPostProcess - DRAWING')
 
 		longDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
+				console.log('--about to completeSave - DRAWING')
 				completeSave(editor);
 			},
 			WRITE_LONG_DELAY_MS

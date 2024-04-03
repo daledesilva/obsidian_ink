@@ -52,7 +52,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 			return;
 		}
 
-		const pageDataStr = await v.read(this.fileRef as TFile);
+		const pageDataStr = await v.read(this.fileRef);
 		const pageData = JSON.parse(pageDataStr) as InkFileData;
 
 		this.root = createRoot(this.el);

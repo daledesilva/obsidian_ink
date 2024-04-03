@@ -43,7 +43,7 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     if(file.extension !== WRITE_FILE_EXT) return;
     const v = plugin.app.vault;
 
-    const pageDataStr = await v.read(file as TFile);
+    const pageDataStr = await v.read(file);
     const pageData = JSON.parse(pageDataStr) as InkFileData;
 
     // Remove the page container from the file
@@ -103,7 +103,7 @@ export const savePngExport = async (plugin: InkPlugin, dataUri: string, fileRef:
     const previewFilepath = getPreviewFileVaultPath(plugin, fileRef);   // REVIEW: This should probably be moved out of this function
     const previewFileRef = v.getAbstractFileByPath(previewFilepath) as TFile;
 	
-    if(previewFileRef) {
+    if(previewFileRef && previewFileRef instanceof TFile) {
         v.modifyBinary(previewFileRef, buffer);
     } else {
         v.createBinary(previewFilepath, buffer);    
@@ -118,7 +118,6 @@ export const getPreviewFileVaultPath = (plugin: InkPlugin, fileRef: TFile): stri
 }
 
 export const getPreviewFileResourcePath = (plugin: InkPlugin, fileRef: TFile): string | null => {
-    if(!fileRef) return null;
     const v = plugin.app.vault;
 
     const previewFilepath = fileRef.parent?.path + '/' + fileRef.basename + '.png';
@@ -143,7 +142,7 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
     if(fileRef.extension !== WRITE_FILE_EXT) return;
     const v = plugin.app.vault;
 
-    console.log('saving transcript to', fileRef.path);
+    // console.log('saving transcript to', fileRef.path);
 
     const pageDataStr = await v.read(fileRef as TFile);
     const pageData = JSON.parse(pageDataStr) as InkFileData;
@@ -166,6 +165,6 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, path: string):
     try {
         await plugin.app.vault.createFolder(folders.join('/'));
     } catch(e) {
-        console.log(e);
+        // console.log(e);
     }
 }

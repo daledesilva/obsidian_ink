@@ -154,7 +154,7 @@ export function TldrawWritingEditor(props: {
 					stashStaleContent(editor);
 					break;
 					
-				case Activity.DrawingContinued:
+					case Activity.DrawingContinued:
 					resetInputPostProcessTimers();
 					break;
 					
@@ -207,7 +207,7 @@ export function TldrawWritingEditor(props: {
 
 		if(props.registerControls) {
 			props.registerControls({
-				save: () => completeSave(editor),
+				// save: () => completeSave(editor),
 				saveAndHalt: async () => {
 					completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
@@ -336,7 +336,7 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		console.log('...Finished incremental WRITING save');
+		// console.log('...Finished incremental WRITING save');
 	}
 
 	const completeSave = async (editor: Editor) => {
@@ -348,6 +348,7 @@ export function TldrawWritingEditor(props: {
 		stashStaleContent(editor);
 		
 		if (svgEl) {
+			// console.log('no SVG');
 			previewUri = await svgToPngDataUri(svgEl)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
@@ -367,7 +368,7 @@ export function TldrawWritingEditor(props: {
 			props.save(pageData);
 		}
 
-		console.log('...Finished complete WRITING save');
+		// console.log('...Finished complete WRITING save');
 	}
 
 	const assetUrls = {
@@ -375,6 +376,9 @@ export function TldrawWritingEditor(props: {
 			'tool-hand': './custom-tool-hand.svg',
 		},
 	}
+
+
+	// console.log('test');
 
 	return <>
 		<div
@@ -393,7 +397,7 @@ export function TldrawWritingEditor(props: {
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
-				assetUrls = {assetUrls} 
+				// assetUrls = {assetUrls} // This causes multiple mounts
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -544,7 +548,7 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 		updatedRecords.forEach( (record) => {
 			const toRecord = record[1];
 			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
-				console.log('simplifying: ', toRecord.id)
+				// console.log('simplifying: ', toRecord.id)
 				editor.updateShape({
 					id: toRecord.id,
 					type: 'draw',

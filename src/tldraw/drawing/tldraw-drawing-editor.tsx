@@ -272,7 +272,7 @@ export function TldrawDrawingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		console.log('...Finished incremental DRAWING save');
+		// console.log('...Finished incremental DRAWING save');
 	}
 
 	const completeSave = async (editor: Editor) => {
@@ -301,7 +301,7 @@ export function TldrawDrawingEditor(props: {
 			props.save(pageData);
 		}
 
-		console.log('...Finished complete DRAWING save');
+		// console.log('...Finished complete DRAWING save');
 	}
 
 	return <>

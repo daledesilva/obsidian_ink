@@ -1,4 +1,4 @@
-import { Box2d, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
 import { useRef } from 'react';
 
@@ -73,7 +73,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 			} else if (recordFinalState.typeName == 'camera') {
 				summary.cameraMoved = true;
 			} else if (recordFinalState.typeName == 'instance') {
-				if (recordFinalState.scribble) summary.pointerScribbled = true;
+				if (recordFinalState.scribbles) summary.pointerScribbled = true;
 			}
 		}
 	}
@@ -128,11 +128,11 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 }
 
 export function initDrawingCamera(editor: Editor) {
-	const allShapesBounds = editor.currentPageBounds;
+	const allShapesBounds = editor.getCurrentPageBounds();
 	if(!allShapesBounds) return;
 
-	const intendedZoom = 1;
-	editor.zoomToBounds(allShapesBounds, intendedZoom);
+	const targetZoom = 1;
+	editor.zoomToBounds(allShapesBounds, {targetZoom});
 }
 
 export interface WritingCameraLimits {
@@ -149,27 +149,27 @@ export interface WritingCameraLimits {
 export function initWritingCameraLimits(editor: Editor) : WritingCameraLimits {
 	return {
 		x: {
-			min: editor.camera.x,
-			max: editor.camera.x
+			min: editor.getCamera().x,
+			max: editor.getCamera().x
 		},
 		zoom: {
-			min: editor.camera.z,
-			max: editor.camera.z
+			min: editor.getCamera().z,
+			max: editor.getCamera().z
 		},
 	}
 }
 
 export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCameraLimits) {
 
-	const bounds = editor.currentPageBounds;
+	const bounds = editor.getCurrentPageBounds();
 	if(!bounds) return;
 
 	const yMin = bounds.minY - 500;
 	const yMax = bounds.maxY + 1000;
 
-	let x = editor.camera.x;
-	let y = editor.camera.y;
-	let zoom = editor.zoomLevel;
+	let x = editor.getCamera().x;
+	let y = editor.getCamera().y;
+	let zoom = editor.getZoomLevel();
 
 	x = Math.max(x, cameraLimits.x.min);
 	x = Math.min(x, cameraLimits.x.max);
@@ -242,7 +242,7 @@ export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean
 }
 
 function getCompleteShapes(editor: Editor) {
-	const allShapes = editor.currentPageShapes;
+	const allShapes = editor.getCurrentPageShapes();
 	let completeShapes: TLShape[] = [];
 	for (let i = 0; i < allShapes.length; i++) {
 		const shape = allShapes[i];
@@ -258,7 +258,7 @@ function getCompleteShapes(editor: Editor) {
 }
 
 function getIncompleteShapes(editor: Editor) {
-	const allShapes = editor.currentPageShapes;
+	const allShapes = editor.getCurrentPageShapes();
 	let incompleteShapes: TLShape[] = [];
 	for (let i = 0; i < allShapes.length; i++) {
 		const shape = allShapes[i];

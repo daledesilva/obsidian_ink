@@ -176,8 +176,8 @@ export function TldrawDrawingEditor(props: {
 
 		// Runs on any change to the store, caused by user, system, undo, anything, etc.
 		const removeStoreChangeListener = editor.store.listen((entry) => {
-			setCanUndo(editor.canUndo);
-			setCanRedo(editor.canRedo);
+			setCanUndo(editor.getCanUndo());
+			setCanRedo(editor.getCanRedo());
 		})
 
 		const unmountActions = () => {
@@ -210,8 +210,8 @@ export function TldrawDrawingEditor(props: {
 	const resizeContainerIfEmbed = (editor: Editor) => {
 		if (!props.embedded) return;
 
-		const embedBounds = editor.viewportScreenBounds;
-		const contentBounds = editor.currentPageBounds;
+		const embedBounds = editor.getViewportScreenBounds();
+		const contentBounds = editor.getCurrentPageBounds();
 
 		if (contentBounds) {
 			const contentRatio = contentBounds.w / contentBounds.h;
@@ -350,7 +350,7 @@ export function TldrawDrawingEditor(props: {
 //////////
 
 async function getDrawingSvg(editor: Editor) {
-	const allShapeIds = Array.from(editor.currentPageShapeIds.values());
+	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	const svgEl = await editor.getSvg(allShapeIds);
 	return svgEl;
 }

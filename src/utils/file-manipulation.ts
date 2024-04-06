@@ -4,7 +4,6 @@ import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLShapeId } from "@tldraw/tldraw";
 import { saveLocally } from "./storage";
-import * as path from 'path';
 
 /////////
 /////////
@@ -30,23 +29,27 @@ export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin) => {
     return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, DRAWING_SUBFOLDER_NAME);
 }
 
-export const getVersionedFilepath = async (plugin: InkPlugin, seedFilepath: string): Promise<string> => {
+export const getVersionedFilepath = async (plugin: InkPlugin, seedFilepath: string): Promise<string> => { try {
     const {
-        dir,
-        name,
+        folderpath,
+        basename,
         ext
-    } = path.parse(seedFilepath);
-    let pathAndBasename = dir + '/' + name;
+    } = parseFilepath(seedFilepath);
+    let pathAndBasename = folderpath + '/' + basename;
 
     let pathAndVersionedBasename = pathAndBasename;
     let version = 1;
-    while( await plugin.app.vault.adapter.exists(`${pathAndVersionedBasename+ext}`) ) {
+    while( await plugin.app.vault.adapter.exists(`${pathAndVersionedBasename}.${ext}`) ) {
         version ++;
 		pathAndVersionedBasename = pathAndBasename + ' (' + version + ')';
     }
 
-    return pathAndVersionedBasename + ext;
-}
+    return `${pathAndVersionedBasename}.${ext}`;
+} catch(err) {
+    console.warn(err);
+    new Notice(`There was an error finding a non-conflicting filename.`, 0)
+    return '';
+}}
 
 export const getUsableAttachmentPath = async (plugin: InkPlugin, seedFilepath: string): Promise<string> => {
     let obsAttachmentPath: string
@@ -56,8 +59,8 @@ export const getUsableAttachmentPath = async (plugin: InkPlugin, seedFilepath: s
     try {
         obsAttachmentPath = await plugin.app.fileManager.getAvailablePathForAttachment('dummy');
         if(obsAttachmentPath.contains('/')) {
-            const {dir} = path.parse(obsAttachmentPath);
-            correctedFilepath = dir + '/' + normalizePath(seedFilepath);
+            const {folderpath} = parseFilepath(obsAttachmentPath);
+            correctedFilepath = folderpath + '/' + normalizePath(seedFilepath);
         } else {
             // it's only filename, so just ignore it
             correctedFilepath = seedFilepath;
@@ -200,4 +203,22 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, path: string):
     } catch(e) {
         // console.log(e);
     }
+}
+
+
+function parseFilepath(filepath: string): { folderpath: string; basename: string; ext: string } {
+    const segments = filepath.split('/');
+
+    // Handle root directory (/)
+    let folderpath = segments[0] === '' ? '/' : '';
+
+    // Extract filename and extension
+    const filename = segments.pop() || '';
+    const extIndex = filename.lastIndexOf('.');
+    const ext = extIndex >= 0 ? filename.slice(extIndex) : '';
+    const basename = extIndex >= 0 ? filename.slice(0, extIndex) : filename;
+
+    folderpath = segments.join('/');
+
+    return { folderpath, basename, ext: ext.startsWith('.') ? ext.slice(1) : ext };
 }

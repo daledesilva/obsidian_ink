@@ -4,11 +4,12 @@ import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLShapeId } from "@tldraw/tldraw";
 import { saveLocally } from "./storage";
+import * as path from 'path';
 
 /////////
 /////////
 
-const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfolder: string) => {
+const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfolder: string): string => {
     const date = new Date();
     let monthStr = date.getMonth().toString();
     let dateStr = date.getDate().toString();
@@ -18,19 +19,9 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfold
 
     if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
-
-    const attachmentFolder = getAttachmentFolder(plugin);
     
-    const pathAndBasename = attachmentFolder + '/' + ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename;
-    let version = 1;
-    let pathAndVersionedBasename = pathAndBasename;
-
-    while( await plugin.app.vault.adapter.exists(`${pathAndVersionedBasename}.${ext}`) ) {
-        version ++;
-		pathAndVersionedBasename = pathAndBasename + ' (' + version + ')';
-    }
-
-    return pathAndVersionedBasename + '.' + ext;
+    const filepath = await getUsableAttachmentPath(plugin, ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename + '.' + ext);
+    return filepath;
 }
 export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin) => {
     return getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, WRITING_SUBFOLDER_NAME);
@@ -39,19 +30,49 @@ export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin) => {
     return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, DRAWING_SUBFOLDER_NAME);
 }
 
-export const getAttachmentFolder = (plugin: InkPlugin): string => {
+export const getVersionedFilepath = async (plugin: InkPlugin, seedFilepath: string): Promise<string> => {
+    const {
+        dir,
+        name,
+        ext
+    } = path.parse(seedFilepath);
+    let pathAndBasename = dir + '/' + name;
+
+    let pathAndVersionedBasename = pathAndBasename;
+    let version = 1;
+    while( await plugin.app.vault.adapter.exists(`${pathAndVersionedBasename+ext}`) ) {
+        version ++;
+		pathAndVersionedBasename = pathAndBasename + ' (' + version + ')';
+    }
+
+    return pathAndVersionedBasename + ext;
+}
+
+export const getUsableAttachmentPath = async (plugin: InkPlugin, seedFilepath: string): Promise<string|null> => {
+    let obsAttachmentPath: string
+    let correctedFilepath: string;
+    let usableFilepath: string;
+
     try {
-        let folder = plugin.app.vault.config.attachmentFolderPath;
-        if(!folder) folder = '';
-        folder = normalizePath(folder);
-        // NOTE: normalizePath returns '/' for vault root but doesn't end with '/' for other paths.
-        // Remove the slash from vault root for consistency
-        if(folder === '/') folder = '';
-        return folder
+        obsAttachmentPath = await plugin.app.fileManager.getAvailablePathForAttachment('dummy');
+        console.log('obsAttachmentPath:', obsAttachmentPath);
+        if(obsAttachmentPath.contains('/')) {
+            const {dir} = path.parse(obsAttachmentPath);
+            correctedFilepath = dir + '/' + normalizePath(seedFilepath);
+        } else {
+            // it's only filename, so just ignore it
+            correctedFilepath = seedFilepath;
+        }
+        console.log('obsAttachmentPath:', obsAttachmentPath);
+        console.log('correctedFilepath:', correctedFilepath);
     } catch(err) {
         console.warn(err);
-        return ''
+        new Notice(`There was an error using your preferred attachment folder, using the root of your vault instead.`, 0)
+        correctedFilepath = seedFilepath;
     }
+
+    usableFilepath = await getVersionedFilepath(plugin, correctedFilepath);
+    return usableFilepath;
 }
 
 export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => {

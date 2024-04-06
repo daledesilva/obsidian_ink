@@ -9,13 +9,13 @@ import * as path from 'path';
 /////////
 /////////
 
-const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfolder: string): string => {
+const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfolder: string): Promise<string> => {
     const date = new Date();
     let monthStr = date.getMonth().toString();
     let dateStr = date.getDate().toString();
     let hours = date.getHours();
     let minutesStr = date.getMinutes().toString();
-    let suffix = 'am';
+    let suffix = hours < 12 ? 'am' : 'pm';
 
     if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
@@ -48,14 +48,13 @@ export const getVersionedFilepath = async (plugin: InkPlugin, seedFilepath: stri
     return pathAndVersionedBasename + ext;
 }
 
-export const getUsableAttachmentPath = async (plugin: InkPlugin, seedFilepath: string): Promise<string|null> => {
+export const getUsableAttachmentPath = async (plugin: InkPlugin, seedFilepath: string): Promise<string> => {
     let obsAttachmentPath: string
     let correctedFilepath: string;
     let usableFilepath: string;
 
     try {
         obsAttachmentPath = await plugin.app.fileManager.getAvailablePathForAttachment('dummy');
-        console.log('obsAttachmentPath:', obsAttachmentPath);
         if(obsAttachmentPath.contains('/')) {
             const {dir} = path.parse(obsAttachmentPath);
             correctedFilepath = dir + '/' + normalizePath(seedFilepath);
@@ -63,8 +62,6 @@ export const getUsableAttachmentPath = async (plugin: InkPlugin, seedFilepath: s
             // it's only filename, so just ignore it
             correctedFilepath = seedFilepath;
         }
-        console.log('obsAttachmentPath:', obsAttachmentPath);
-        console.log('correctedFilepath:', correctedFilepath);
     } catch(err) {
         console.warn(err);
         new Notice(`There was an error using your preferred attachment folder, using the root of your vault instead.`, 0)

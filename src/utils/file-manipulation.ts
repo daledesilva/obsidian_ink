@@ -1,4 +1,4 @@
-import { Notice, TFile } from "obsidian";
+import { Notice, TFile, normalizePath } from "obsidian";
 import { DRAW_FILE_EXT, ATTACHMENT_SUBFOLDER_NAME, WRITE_FILE_EXT, WRITING_SUBFOLDER_NAME, DRAWING_SUBFOLDER_NAME } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
@@ -19,10 +19,7 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfold
     if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
 
-    let attachmentFolder: string = plugin.app.vault.config.attachmentFolderPath;
-    if(attachmentFolder.indexOf('./') == 0) {
-        attachmentFolder = attachmentFolder.slice(2);
-    }
+    const attachmentFolder = getAttachmentFolder(plugin);
     
     const pathAndBasename = attachmentFolder + '/' + ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename;
     let version = 1;
@@ -40,6 +37,21 @@ export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin) => {
 }
 export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin) => {
     return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, DRAWING_SUBFOLDER_NAME);
+}
+
+export const getAttachmentFolder = (plugin: InkPlugin): string => {
+    try {
+        let folder = plugin.app.vault.config.attachmentFolderPath;
+        if(!folder) folder = '';
+        folder = normalizePath(folder);
+        // NOTE: normalizePath returns '/' for vault root but doesn't end with '/' for other paths.
+        // Remove the slash from vault root for consistency
+        if(folder === '/') folder = '';
+        return folder
+    } catch(err) {
+        console.warn(err);
+        return ''
+    }
 }
 
 export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => {

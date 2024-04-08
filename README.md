@@ -42,6 +42,9 @@ I record regular development diaries. [Subscribe and follow along](https://www.y
 I've been building this plugin since December 2023 and I'm currently developing it further and using it daily.<br/>
 Below are the high level features in my current development plan along with their expected timeframes.
 
+<details>
+<summary>Historical</summary>
+
 - [x] Proof of concept handwriting input.
 - [x] Proof of concept drawing input.
 - [x] Embeddable in markdown files.
@@ -53,16 +56,26 @@ Below are the high level features in my current development plan along with thei
 - [x] Simplify drawing functionality ***March***
 - [x] Clean up and refactor for release ***March***
 - [x] **ALPHA release March 2024.**
-- [ ] Bug fixes. ***April 2024***
-- [ ] Convert to canvas framework (Improve writing memory). ***April***
-- [ ] More intuitive UI refinements. ***April***
+- [x] Bug fixes. ***April 2024***
+</details>
+
+<details open>
+<summary>Upcoming</summary>
+
+- [ ] More intuitive UI/UX refinements & functionality. ***April***
 - [ ] Multiple pen styles. ***May***
 - [ ] More intuitive touch/stylus input refinement. ***May***
+</details>
+
+<details>
+<summary>Speculative</summary>
+
 - [ ] Convert embed format to persist beyond uninstall. ***June***
-- [ ] **BETA release in plugin repository.**
 - [ ] Automatic OCR (Transcripts).
+- [ ] Convert to canvas framework (Improve writing memory).
 - [ ] Intuitive selection of words.
 - [ ] Ability to reorder text.
+</details>
 
 ## 🪳 Report a bug
 Found something that's not quite working right or do you have a feature request? Don't be shy, feel free to make some noise over on the [GitHub Issues](https://github.com/daledesilva/obsidian_project-browser/issues) page. But be sure to check if someone has already posted the same issue and comment on theirs if they have.

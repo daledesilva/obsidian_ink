@@ -24,7 +24,6 @@ export class MySettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('p', {text: 'The Ink plugin enables embedding and editing handwritten and hand drawn sections directly in your markdown files.'});
 		insertPrereleaseWarning(containerEl);
 
 		containerEl.createEl('hr');
@@ -36,8 +35,8 @@ export class MySettingsTab extends PluginSettingTab {
 		// 	cls: 'ddc_ink_text-warning',
 		// });		
 		
-		insertGeneralSettings(containerEl, this.plugin);
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
+		insertSetupGuide(containerEl);
 		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl);
 		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl);
 	
@@ -60,25 +59,6 @@ export class MySettingsTab extends PluginSettingTab {
 		
 
 	}
-}
-
-function insertGeneralSettings(containerEl: HTMLElement, plugin: InkPlugin) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-	sectionEl.createEl('h2', {text: 'General'});
-
-	// new Setting(sectionEl)
-	// 	.setClass('ddc_ink_setting')
-	// 	.setName('Use default attachment folder')
-	// 	.setDesc(`This will create the 'Ink' folder inside your default attachment folder defined in the 'Files and links' settings tab. Otherwise it will be at the root of your vault.`)
-	// 	.addToggle((toggle) => {
-	// 		toggle.setValue(plugin.settings.useDefaultAttachmentFolder);
-	// 		toggle.onChange(async (value) => {
-	// 			plugin.settings.useDefaultAttachmentFolder = value;
-	// 			await plugin.saveSettings();
-	// 		});
-	// 	});
-
-	insertSetupGuide(sectionEl);
 }
 
 function insertSetupGuide(containerEl: HTMLElement) {
@@ -107,10 +87,8 @@ function insertMoreInfoLinks(containerEl: HTMLElement) {
 }
 
 function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-	sectionEl.createEl('h2', {text: 'High level functionality'});
 
-		new Setting(sectionEl)
+		new Setting(containerEl)
 			.setClass('ddc_ink_setting')
 			.setName('Enable writing')
 			// .setDesc('If disabled, you will still be able to view previously created writing embeds.')
@@ -124,7 +102,7 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 				});
 			});
 
-		new Setting(sectionEl)
+		new Setting(containerEl)
 			.setClass('ddc_ink_setting')
 			.setName('Enable drawing')
 			// .setDesc('If disabled, you will still be able to view previously created drawing embeds.')

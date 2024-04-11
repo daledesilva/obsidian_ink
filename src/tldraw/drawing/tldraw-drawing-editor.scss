@@ -4,45 +4,49 @@
 /////////
 /////////
 
-.tl-background {
-    background: none;
-}
+.ink_drawing-editor {
 
-.view-content {
+    .tl-background {
+        background: none;
+    }
 
-    .tlui-button.tlui-menu__trigger {
+    .view-content {
+
+        .tlui-button.tlui-menu__trigger {
+            display: none;
+        }
+        
+        .tlui-navigation-zone {
+            display: none;
+        }
+        
+        .tlui-help-menu {
+            display: none;
+        }
+        
+        
+        .tlui-layout__top {
+            grid-row: 1;
+            position: absolute;
+            top: 0;
+            right: 0;
+        }
+        .tlui-layout__bottom {
+            grid-row: 1;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        // collapse space left by undo bar
+        .tlui-toolbar__extras {
+            height: fit-content;
+        }
+    }
+
+    // Remove the option to pattern fill because that cripples saving to PNG
+    .tlui-button[data-id="pattern"] {
         display: none;
     }
-    
-    .tlui-navigation-zone {
-        display: none;
-    }
-    
-    .tlui-help-menu {
-        display: none;
-    }
-    
-    
-    .tlui-layout__top {
-        grid-row: 1;
-        position: absolute;
-        top: 0;
-        right: 0;
-    }
-    .tlui-layout__bottom {
-        grid-row: 1;
-        position: absolute;
-        top: 0;
-        left: 0;
-    }
 
-    // collapse space left by undo bar
-    .tlui-toolbar__extras {
-        height: fit-content;
-    }
-}
-
-// Remove the option to pattern fill because that cripples saving to PNG
-.tlui-button[data-id="pattern"] {
-    display: none;
 }

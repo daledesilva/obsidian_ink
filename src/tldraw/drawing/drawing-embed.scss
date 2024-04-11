@@ -22,44 +22,47 @@
         display: none;
     }
 
-    .tl-container {
-        // Allow tldraw right click menu to overflow container
-        overflow: visible;
-        clip: unset;
-        contain: none !important;
-        
-        .tlui-layout {
+    .ink_drawing-editor {
+
+        .tl-container {
             // Allow tldraw right click menu to overflow container
             overflow: visible;
             clip: unset;
             contain: none !important;
+            
+            .tlui-layout {
+                // Allow tldraw right click menu to overflow container
+                overflow: visible;
+                clip: unset;
+                contain: none !important;
 
-            .tlui-button.tlui-menu__trigger {
-                display: none;
-            }
-            
-            .tlui-navigation-zone {
-                display: none;
-            }
-            
-            .tlui-help-menu {
-                display: none;
-            }
-            
-            
-            .tlui-layout__top {
-                grid-row: 1;
-                position: absolute;
-                top: 0;
-                right: 0;
-                translate: 0 -100%;
-            }
-            .tlui-layout__bottom {
-                grid-row: 1;
-                position: absolute;
-                top: 0;
-                left: 0;
-                translate: 0 -100%;
+                .tlui-button.tlui-menu__trigger {
+                    display: none;
+                }
+                
+                .tlui-navigation-zone {
+                    display: none;
+                }
+                
+                .tlui-help-menu {
+                    display: none;
+                }
+                
+                
+                .tlui-layout__top {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    translate: 0 -100%;
+                }
+                .tlui-layout__bottom {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    translate: 0 -100%;
+                }
             }
         }
     }

@@ -372,6 +372,7 @@ export function TldrawWritingEditor(props: {
 
 	return <>
 		<div
+			className = "ink_writing-editor"
 			style={{
 				height: props.embedded ? embedHeight : '100%',
 				position: 'relative'

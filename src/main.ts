@@ -69,17 +69,17 @@ export default class InkPlugin extends Plugin {
 
 function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
-		id: 'ddc_create-handwritten-section',
+		id: 'create-handwritten-section',
 		name: 'Insert new handwriting section',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'ddc_embed-writing-file',
+		id: 'embed-writing-file',
 		name: 'Insert existing handwriting section',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
 	// plugin.addCommand({
-	// 	id: 'ddc_insert-recently-duplicated-writing',
+	// 	id: 'insert-recently-duplicated-writing',
 	// 	name: 'Insert recently duplicated handwriting section',
 	// 	editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(plugin, editor)
 	// });
@@ -87,17 +87,17 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 
 function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
-		id: 'ddc_create-drawing-section',
+		id: 'create-drawing-section',
 		name: 'Insert new drawing section',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'ddc_embed-drawing-file',
+		id: 'embed-drawing-file',
 		name: 'Insert existing drawing section',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
 	// plugin.addCommand({
-	// 	id: 'ddc_insert-recently-duplicated-drawing',
+	// 	id: 'insert-recently-duplicated-drawing',
 	// 	name: 'Insert recently duplicated drawing',
 	// 	editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(plugin, editor)
 	// });
@@ -105,7 +105,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {
 // 	plugin.addCommand({
-// 		id: 'ddc_create-writing-file',
+// 		id: 'create-writing-file',
 // 		name: 'Create new handwritten note',
 // 		callback: async () => {
 // 			const fileRef = await createNewWritingFile(plugin);
@@ -120,7 +120,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 
 // function implementHandDrawnNoteAction(plugin: InkPlugin) {
 // 	plugin.addCommand({
-// 		id: 'ddc_create-drawing-file',
+// 		id: 'create-drawing-file',
 // 		name: 'Create new drawing',
 // 		callback: async () => {
 // 			const fileRef = await createNewDrawingFile(plugin);

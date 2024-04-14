@@ -1,11 +1,16 @@
-@import url('@tldraw/tldraw/tldraw.css');
-// @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
 
 /////////
 /////////
 
 .ink_writing-editor {
-    .tl-background {
-        background: none;
+
+    .tl-canvas {
+        background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+
+        .tl-background {
+            background: none;
+        }
+
     }
 }

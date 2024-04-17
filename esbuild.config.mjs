@@ -30,6 +30,11 @@ const copyManifestPlugin = () => ({
 			} catch (e) {
 				console.error('Failed to copy manifest.json to dist:', e);
 			}
+			try {
+				fs.copyFileSync('./manifest-beta.json', './dist/manifest-beta.json');
+			} catch (e) {
+				console.error('Failed to copy manifest-beta.json to dist:', e);
+			}
 		});
 	},
 });

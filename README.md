@@ -81,7 +81,7 @@ Below are the high level features in my current development plan along with thei
 Found something that's not quite working right or do you have a feature request? Don't be shy, feel free to make some noise over on the [GitHub Issues](https://github.com/daledesilva/obsidian_project-browser/issues) page. But be sure to check if someone has already posted the same issue and comment on theirs if they have.
 
 ## 💾 Installation
-<!-- You can find this plugin in the plugin directory within Obsidian.
+You can find this plugin in the plugin directory within Obsidian.
 <details>
 <summary>Click for help installing plugins</summary>
 
@@ -91,26 +91,29 @@ Found something that's not quite working right or do you have a feature request?
 
 3. If you haven't already, you will need to turn on community plugins.
 
-4. Search and install **Ink** by Dale de Silva.
-</details> -->
+4. Search 'Dale de Silva' and install **Ink**.
+</details>
 
-This plugin is not yet listed on Obsidian's Community Plugins page but you can install it through the BRAT plugin.
+If you would like to install new versions of the plugin that are still being tested, you can install this plugin through BRAT instead.
+BRAT is another community plugin that allows you to install a Beta version. New features are released as a Beta version first and can take from a few days to a month before landing in the standard version.
 <details>
-<summary>Click for installation instructions</summary>
+<summary>Click for Beta version installation instructions</summary>
 
 1. Open your Obsidian vault and go to **Settings**.
-
 2. Click on **Community Plugins** in the side bar.
-
 3. Turn on community plugins and click **Browse**.
-
 4. Search and install **BRAT**.
-
 5. Scroll down and **activate** BRAT.
-
 6. In the BRAT menu in the side pane, select **Add Beta Plugin**.
-
 7. Follow the instructions presented.
+8. When a URL is requested, use: `https://github.com/daledesilva/obsidian_ink`
+
+</details>
+<details>
+<summary>Click for Beta version update instructions</summary>
+
+- BRAT is set to update Beta plugins by default on startup, however, this can sometimes take some time.
+- To force an update, run BRAT's Obsidian commnd `Choose a single plugin to update` and choose Ink.
 </details>
 
 ## 🏛️ License

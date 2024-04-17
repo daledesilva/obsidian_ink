@@ -25,7 +25,7 @@ export default class InkPlugin extends Plugin {
 		await this.loadSettings();
 
 		// NOTE: For testing only
-		// this.app.emulateMobile(true);
+		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
 

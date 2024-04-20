@@ -2,7 +2,7 @@
 	"id": "ink",
 	"name": "Ink",
 	"author": "Dale de Silva",
-	"description": "Hand write or draw directly between paragraphs in your notes using a digital pen, stylus, or Apple pencil. Useful for handwriting, sketches, scribbles, or even math equations and scientific notation. Runs on the tldraw framework.",
+	"description": "Hand write or draw directly between paragraphs in your notes using a digital pen, stylus, or Apple pencil. Useful for handwriting, sketches, scribbles, or even math equations and scientific notation. Runs on the tldraw framework and drawing provides an infinite canvas.",
 	"version": "0.1.172",
 	"minAppVersion": "1.00.0",
 	"authorUrl": "https://designdebt.club",

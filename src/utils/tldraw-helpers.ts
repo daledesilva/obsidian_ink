@@ -1,6 +1,7 @@
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
 import { useRef } from 'react';
+import InkPlugin from "src/main";
 
 //////////
 //////////
@@ -267,7 +268,7 @@ function getIncompleteShapes(editor: Editor) {
 	return incompleteShapes;
 }
 
-export const useStash = () => {
+export const useStash = (plugin: InkPlugin) => {
 	const stash = useRef<TLShape[]>([]);
 
 	const stashStaleContent = (editor: Editor) => {
@@ -277,7 +278,7 @@ export const useStash = () => {
 		const staleShapes: TLShape[] = [];
 
 		// TODO: Order shapes by vertical position
-		for (let i = 0; i <= completeShapes.length - WRITE_STROKE_LIMIT; i++) {
+		for (let i = 0; i <= completeShapes.length - plugin.settings.writingStrokeLimit; i++) {
 			const record = completeShapes[i];
 			if (record.type !== 'draw') return;
 

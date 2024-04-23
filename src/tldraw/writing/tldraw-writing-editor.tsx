@@ -63,7 +63,7 @@ export function TldrawWritingEditor(props: {
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-	const { stashStaleContent, unstashStaleContent } = useStash();
+	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [embedHeight, setEmbedHeight] = React.useState<string>('100px');
 

@@ -1,5 +1,5 @@
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, TFile } from "obsidian";
+import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
@@ -21,6 +21,22 @@ export function registerWritingEmbed(plugin: InkPlugin) {
 			if(embedData.filepath) {
 				ctx.addChild(new WritingEmbedWidget(el, plugin, embedData));
 			}
+			console.log('source', source);
+			console.log('el', el);
+			console.log('ctx', ctx);
+			console.log('ctx.getSectionInfo()', ctx.getSectionInfo(el));
+			
+			// TODO: Editor test for deletion
+			// const sectionInfo = ctx.getSectionInfo(el);
+			// if(sectionInfo) {
+			// 	const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+			// 	if (view) {
+			// 		const editor = view.editor;
+			// 		// TODO: I think this offset is index offset, not line offset
+			// 		editor.replaceRange('', editor.offsetToPos(sectionInfo.lineStart), editor.offsetToPos(sectionInfo.lineEnd))
+	
+			// 	}
+			// }
 		}
 	);
 }

@@ -2,13 +2,19 @@
 ////////
 
 export interface PluginSettings {
-	writingEnabled: boolean,
-	drawingEnabled: boolean,
     useDefaultAttachmentFolder: boolean,
+
+	writingEnabled: boolean,
+	writingStrokeLimit: number,
+
+	drawingEnabled: boolean,
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
-	writingEnabled: true,
-	drawingEnabled: false,
     useDefaultAttachmentFolder: true,
+
+	writingEnabled: true,
+	writingStrokeLimit: 200,
+
+	drawingEnabled: false,
 }

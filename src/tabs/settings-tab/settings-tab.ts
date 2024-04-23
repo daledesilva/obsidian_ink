@@ -3,6 +3,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/modals/confirmation-modal/confirmation-modal";
+import { DEFAULT_SETTINGS } from 'src/types/PluginSettings';
 
 /////////
 /////////
@@ -37,7 +38,7 @@ export class MySettingsTab extends PluginSettingTab {
 		
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
 		insertSetupGuide(containerEl);
-		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl);
+		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
 		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl);
 	
 		new Setting(containerEl)
@@ -123,19 +124,43 @@ function insertDrawingSettings(containerEl: HTMLElement) {
 	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.` });
 }
 
-function insertWritingSettings(containerEl: HTMLElement) {
+function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
 	sectionEl.createEl('h2', { text: 'Writing' });
 	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.` });
+	new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Writing stroke limit')
+		.setDesc(`Too much writing in one embed can create a lag between your physical pen movement and the line appearing on screen. The stroke limit defines the maximum pen strokes before old strokes start becoming invisible until the embed is locked. Set this to a lower number if you're experiencing lag or jagged writing.`)
+
+		.addText((textItem) => {
+			textItem.setValue(plugin.settings.writingStrokeLimit.toString());
+			textItem.setPlaceholder(DEFAULT_SETTINGS.writingStrokeLimit.toString());
+			// TODO: Combine the blur and the enter into one abstracted and reusable function
+			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
+				const value = parseInt(textItem.getValue()) || DEFAULT_SETTINGS.writingStrokeLimit;
+				plugin.settings.writingStrokeLimit = value;
+				await plugin.saveSettings();
+				refresh();
+			})
+			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+				if(ev.key === 'Enter') {
+					const value = parseInt(textItem.getValue()) || DEFAULT_SETTINGS.writingStrokeLimit;
+					plugin.settings.writingStrokeLimit = value;
+					await plugin.saveSettings();
+					refresh();
+				}
+			})
+		});
 	insertWritingLimitations(sectionEl);
 }
 
 function insertWritingLimitations(containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_current-limitations-section');
-	const accordion = sectionEl.createEl('details');
-	accordion.createEl('summary', { text: `Notable writing limitations (Expand for details)` });
-	accordion.createEl('p', { text: `Only the last 300 strokes will be visible while writing (Others will dissapear). This is because the plugin currently experiences lag while displaying long amounts of writing that degrades pen fluidity.` });
-	accordion.createEl('p', { text: `All your writing is still saved, however, and will appear in full whenever the embed is locked.` });
+	// const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_current-limitations-section');
+	// const accordion = sectionEl.createEl('details');
+	// accordion.createEl('summary', { text: `Notable writing limitations (Expand for details)` });
+	// accordion.createEl('p', { text: `Only the last 300 strokes will be visible while writing (Others will dissapear). This is because the plugin currently experiences lag while displaying long amounts of writing that degrades pen fluidity.` });
+	// accordion.createEl('p', { text: `All your writing is still saved, however, and will appear in full whenever the embed is locked.` });
 }
 
 function insertPrereleaseWarning(containerEl: HTMLElement) {

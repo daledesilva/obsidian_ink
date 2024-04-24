@@ -119,6 +119,9 @@ export function TldrawWritingEditor(props: {
 		adaptTldrawToObsidianThemeMode(editor);
 		resizeTemplate(editor);
 		editor.updateInstanceState({ isDebugMode: false, })
+
+		// REVIEW: Testing pen mode, etc.
+		// editor.updateInstanceState({ isPenMode: false });
 		
 		// // view set up
 		activateDrawTool();
@@ -151,6 +154,7 @@ export function TldrawWritingEditor(props: {
 					break;
 					
 				case Activity.DrawingContinued:
+					// simultaneousInputProcess(editor, entry);
 					resetInputPostProcessTimers();
 					break;
 						
@@ -273,10 +277,15 @@ export function TldrawWritingEditor(props: {
 	}
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
+	const simultaneousInputProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
+		entry && simplifyLines(editor, entry);
+	};
+
+	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
 		resizeTemplate(editor);
 		resizeContainerIfEmbed(editor);
-		// entry && simplifyLines(editor, entry);
+		entry && simplifyLines(editor, entry);
 	};
 
 	// Use this to run optimisations that take a small amount of time but should happen frequently
@@ -538,14 +547,15 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 		updatedRecords.forEach( (record) => {
 			const toRecord = record[1];
 			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
-				// console.log('simplifying: ', toRecord.id)
+				console.log('toRecord.props', toRecord.props)
 				editor.updateShape({
 					id: toRecord.id,
 					type: 'draw',
 					props: {
 						...toRecord.props,
-						dash: 'draw', // Sets to dynamic stroke thickness
+						// dash: 'draw', // Sets to dynamic stroke thickness
 						// dash: 'solid', // Sets to constant stroke thickness
+						// isPen: true,
 					},
 				}, {
 					ephemeral: true

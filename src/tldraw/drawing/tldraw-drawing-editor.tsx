@@ -27,14 +27,14 @@ export enum tool {
 // let hiddenShapes: TLShape[] = [];
 
 const myOverrides: TLUiOverrides = {
-	toolbar(editor: Editor, toolbar, { tools }) {
-		const reducedToolbar = [
-			toolbar[0],
-			toolbar[2],
-			toolbar[3]
-		];
-		return reducedToolbar;
-	},
+	// toolbar(editor: Editor, toolbar, { tools }) {
+	// 	const reducedToolbar = [
+	// 		toolbar[0],
+	// 		toolbar[2],
+	// 		toolbar[3]
+	// 	];
+	// 	return reducedToolbar;
+	// },
 	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
 	// 	console.log('actionsMenu', actionsMenu);
 	// 	// const reducedToolbar = [

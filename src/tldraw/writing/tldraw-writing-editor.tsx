@@ -276,7 +276,7 @@ export function TldrawWritingEditor(props: {
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
 		resizeTemplate(editor);
 		resizeContainerIfEmbed(editor);
-		// simplifyLines(editor, entry);
+		// entry && simplifyLines(editor, entry);
 	};
 
 	// Use this to run optimisations that take a small amount of time but should happen frequently
@@ -544,7 +544,8 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 					type: 'draw',
 					props: {
 						...toRecord.props,
-						dash: 'solid'
+						dash: 'draw', // Sets to dynamic stroke thickness
+						// dash: 'solid', // Sets to constant stroke thickness
 					},
 				}, {
 					ephemeral: true

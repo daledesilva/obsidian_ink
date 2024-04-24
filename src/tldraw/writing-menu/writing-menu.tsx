@@ -1,6 +1,11 @@
 import "./writing-menu.scss";
 import * as React from "react";
 import { tool } from "../writing/tldraw-writing-editor";
+import { WriteIcon } from "src/graphics/icons/write-icon";
+import { EraseIcon } from "src/graphics/icons/erase-icon";
+import { SelectIcon } from "src/graphics/icons/select-icon";
+import { UndoIcon } from "src/graphics/icons/undo-icon";
+import { RedoIcon } from "src/graphics/icons/redo-icon";
 
 //////////
 //////////
@@ -29,13 +34,13 @@ export const WritingMenu = (props: MenuBarProps) => {
                     onClick={props.onUndoClick}
                     disabled={!props.canUndo}
                 >
-                    Undo
+                    <UndoIcon/>
                 </button>
                 <button
                     onClick={props.onRedoClick}
                     disabled={!props.canRedo}
                 >
-                    Redo
+                    <RedoIcon/>
                 </button>
             </div>
             <div
@@ -45,19 +50,19 @@ export const WritingMenu = (props: MenuBarProps) => {
                     onClick={props.onSelectClick}
                     disabled={props.curTool === tool.select}
                 >
-                    Select
+                    <SelectIcon/>
                 </button>
                 <button
                     onClick={props.onDrawClick}
                     disabled={props.curTool === tool.draw}
                 >
-                    Write
+                    <WriteIcon/>
                 </button>
                 <button
                     onClick={props.onEraseClick}
                     disabled={props.curTool === tool.eraser}
                 >
-                    Erase
+                    <EraseIcon/>
                 </button>
             </div>
             <div

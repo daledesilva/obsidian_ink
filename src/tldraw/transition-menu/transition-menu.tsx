@@ -1,3 +1,4 @@
+import { UnlockIcon } from "src/graphics/icons/unlock-icon";
 import "./transition-menu.scss";
 import * as React from "react";
 
@@ -16,7 +17,7 @@ export const TransitionMenu: React.FC<{
             <button
                 onClick = {() => props.onEditClick()}
             >
-                Edit
+                <UnlockIcon/>
             </button>
             {/* <button>...</button> */}
             {/* <button

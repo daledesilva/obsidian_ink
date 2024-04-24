@@ -12,13 +12,16 @@
         pointer-events: auto;
         background-color: var(--interactive-normal);
         color: var(--color-base-60);
+        fill: var(--color-base-60); // for svg icon elements
         &:hover {
             background-color: var(--interactive-hover);
             color: var(--color-base-100);
+            fill: var(--color-base-100);
         }
         &:disabled {
             cursor: default;
             color: var(--text-on-accent);
+            fill: var(--text-on-accent);
             background-color: var(--interactive-accent);
             &:hover {
                 box-shadow: var(--input-shadow);
@@ -30,8 +33,17 @@
 .ink_quick-menu {
     display: flex;
     flex-direction: row;
+    gap: 8px;
 
     button {
+        aspect-ratio: 1 / 1;
+        border-radius: 35%;
+        padding: 0;
+
+        svg {
+            height: 60%;
+        }
+
         &:disabled {
             visibility: hidden;
         }
@@ -47,6 +59,17 @@
     display: flex;
     flex-direction: row;
     justify-content: center;
+    gap: 8px;
+
+    button {
+        border-radius: 50%;
+        padding: 0;
+        aspect-ratio: 1 / 1;
+
+        svg {
+            height: 60%;
+        }
+    }
 }
 
 .ink_other-menu {

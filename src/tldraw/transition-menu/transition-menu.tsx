@@ -1,6 +1,7 @@
 import { UnlockIcon } from "src/graphics/icons/unlock-icon";
 import "./transition-menu.scss";
 import * as React from "react";
+import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 
 //////////
 //////////
@@ -18,6 +19,15 @@ export const TransitionMenu: React.FC<{
                 onClick = {() => props.onEditClick()}
             >
                 <UnlockIcon/>
+            </button>
+            <button
+                className = "ddc_ink_btn-slim"
+                onClick = {() => {
+                    console.log('show menu');
+                    // props.onOverflowClick();
+                }}
+            >
+                <OverflowIcon/>
             </button>
             {/* <button>...</button> */}
             {/* <button

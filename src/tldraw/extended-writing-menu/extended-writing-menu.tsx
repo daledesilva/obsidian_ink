@@ -1,6 +1,7 @@
 import { LockIcon } from "src/graphics/icons/lock-icon";
 import "./extended-writing-menu.scss";
 import * as React from "react";
+import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 
 //////////
 //////////
@@ -18,11 +19,15 @@ export const ExtendedWritingMenu: React.FC<{
             >
                 <LockIcon/>
             </button>
-            {/* <button
-                // onClick = {() => props.onOverflowClick()}
+            <button
+                className = "ddc_ink_btn-slim"
+                onClick = {() => {
+                    console.log('show menu');
+                    // props.onOverflowClick();
+                }}
             >
-                ...
-            </button>            */}
+                <OverflowIcon/>
+            </button>
         </div>
 	</>
 

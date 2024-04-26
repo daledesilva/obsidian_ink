@@ -14,6 +14,7 @@ import { openInkFile } from './utils/open-file';
 import createNewDrawingFile from './commands/create-new-drawing-file';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
+import './ddc-library/settings-styles.scss';
 
 ////////
 ////////

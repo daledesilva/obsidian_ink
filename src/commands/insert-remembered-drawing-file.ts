@@ -1,9 +1,11 @@
 import InkPlugin from "src/main";
-import { Editor, Notice, TFile } from "obsidian";
+import { Editor, Menu, Notice, TFile } from "obsidian";
 import { buildDrawingEmbed } from "src/utils/embed";
 import createNewDrawingFile from "./create-new-drawing-file";
 import { PLUGIN_KEY } from "src/constants";
 import { fetchLocally } from "src/utils/storage";
+import { InsertCopiedFileModal } from "src/modals/confirmation-modal/insert-copied-file-modal";
+import { duplicateDrawingFile } from "src/utils/file-manipulation";
 
 //////////
 //////////
@@ -12,25 +14,37 @@ const insertRememberedDrawingFile = async (plugin: InkPlugin, editor: Editor) =>
     const v = plugin.app.vault;
 
     const existingFilePath = fetchLocally('rememberedDrawingFile');
-    if(!existingFilePath) {
+    if (!existingFilePath) {
         new Notice('Copy a drawing embed first.');
         return;
     }
 
     const existingFileRef = v.getAbstractFileByPath(existingFilePath) as TFile;
-    if(!(existingFileRef instanceof TFile)) {
+    if (!(existingFileRef instanceof TFile)) {
         new Notice('Cannot insert.\nCopied drawing file no longer exists.');
         return;
     }
 
-    let fileToInsert: TFile;
-    // If insert existing
-    fileToInsert = existingFileRef
-    // If insert duplicate
-    // fileToInsert = await duplicateDrawingFile(plugin, existingFileRef);
+    new InsertCopiedFileModal({
+        plugin,
+        filetype: 'drawing',
+        instanceAction: () => {
+            let embedStr = buildDrawingEmbed(existingFileRef.path);
+            editor.replaceRange(embedStr, editor.getCursor());
+        },
+        duplicateAction: async () => {
+            const duplicatedFileRef = await duplicateDrawingFile(plugin, existingFileRef);
+            if(!duplicatedFileRef) return;
 
-    let embedStr = buildDrawingEmbed(fileToInsert.path);
-    editor.replaceRange( embedStr, editor.getCursor() );
+            new Notice("Drawing file duplicated");
+            let embedStr = buildDrawingEmbed(duplicatedFileRef.path);
+            editor.replaceRange(embedStr, editor.getCursor());
+        },
+        cancelAction: () => {
+            new Notice('Insert cancelled.');
+        }
+    }).open();
+    
 }
 
 export default insertRememberedDrawingFile;

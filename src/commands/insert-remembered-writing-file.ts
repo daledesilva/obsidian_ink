@@ -3,6 +3,7 @@ import { Editor, Notice, TFile } from "obsidian";
 import { buildWritingEmbed } from "src/utils/embed";
 import { fetchLocally } from "src/utils/storage";
 import { duplicateWritingFile } from "src/utils/file-manipulation";
+import { InsertCopiedFileModal } from "src/modals/confirmation-modal/insert-copied-file-modal";
 
 //////////
 //////////
@@ -22,14 +23,27 @@ const insertRememberedWritingFile = async (plugin: InkPlugin, editor: Editor) =>
         return;
     }
 
-    let fileToInsert: TFile;
-    // If insert existing
-    fileToInsert = existingFileRef
-    // If insert duplicate
-    // fileToInsert = await duplicateWritingFile(plugin, existingFileRef);
 
-    let embedStr = buildWritingEmbed(fileToInsert.path);
-    editor.replaceRange( embedStr, editor.getCursor() );
+    new InsertCopiedFileModal({
+        plugin,
+        filetype: 'writing',
+        instanceAction: () => {
+            let embedStr = buildWritingEmbed(existingFileRef.path);
+            editor.replaceRange(embedStr, editor.getCursor());
+        },
+        duplicateAction: async () => {
+            const duplicatedFileRef = await duplicateWritingFile(plugin, existingFileRef);
+            if(!duplicatedFileRef) return;
+
+            new Notice("Writing file duplicated");
+            let embedStr = buildWritingEmbed(duplicatedFileRef.path);
+            editor.replaceRange(embedStr, editor.getCursor());
+        },
+        cancelAction: () => {
+            new Notice('Insert cancelled.');
+        }
+    }).open();
+
 }
 
 export default insertRememberedWritingFile;

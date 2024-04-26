@@ -1,0 +1,20 @@
+
+.ddc_ink_primary-2-button-set {
+    .setting-item-info { display: none; }
+    .setting-item-control>* {
+        flex-grow: 1;
+        font-size: var(--font-ui-medium);
+        height: unset;
+        line-height: 2em;
+        width: 50%; // TODO: This assumes there's only two options
+    }
+}
+
+.ddc_ink_modal-actions {
+    .setting-item-info { display: none; }
+
+    .setting-item-control {
+        .ddc_ink_backward-button {
+        }
+    }
+}

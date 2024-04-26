@@ -5,7 +5,7 @@ import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
-import { duplicateWritingFile, needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/file-manipulation";
+import { duplicateWritingFile, needsTranscriptUpdate, rememberWritingFile, saveWriteFileTranscript } from "src/utils/file-manipulation";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 import { useSelector } from "react-redux";
@@ -102,8 +102,8 @@ export function WritingEmbed (props: {
 						setIsEditMode(true);
 						setCurPageData(newPageData);
 					}}
-					onDuplicateClick = { async () => {
-						await duplicateWritingFile(props.plugin, props.fileRef);
+					onCopyClick = { async () => {
+						await rememberWritingFile(props.plugin, props.fileRef);
 					}}
 				/>
 			)}

@@ -12,8 +12,8 @@ import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget'
 import createNewWritingFile from './commands/create-new-writing-file';
 import { openInkFile } from './utils/open-file';
 import createNewDrawingFile from './commands/create-new-drawing-file';
-import insertRecentlyDuplicatedDrawingFile from './commands/insert-recently-duplicated-drawing-file';
-import insertRecentlyDuplicatedWritingFile from './commands/insert-recently-duplicated-writing-file';
+import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
+import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 
 ////////
 ////////
@@ -81,7 +81,7 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'insert-copied-writing',
 		name: 'Insert copied handwriting section',
-		editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(plugin, editor)
+		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
 	});
 }
 
@@ -99,7 +99,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'insert-copied-drawing',
 		name: 'Insert copied drawing',
-		editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(plugin, editor)
+		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 }
 

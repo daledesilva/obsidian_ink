@@ -11,7 +11,7 @@ interface DrawingEmbedProps {
     isActive: boolean,
 	onClick: React.MouseEventHandler,
 	onEditClick: React.MouseEventHandler,
-	onDuplicateClick: React.MouseEventHandler,
+	onCopyClick: React.MouseEventHandler,
 }
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
@@ -35,7 +35,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                 <PrimaryMenuBar>
                     <TransitionMenu
                         onEditClick = {props.onEditClick}
-                        onDuplicateClick = {props.onDuplicateClick}
+                        onCopyClick = {props.onCopyClick}
                     />
                 </PrimaryMenuBar>
             )}

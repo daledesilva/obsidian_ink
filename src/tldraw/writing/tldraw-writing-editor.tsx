@@ -9,7 +9,7 @@ import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
-import { duplicateWritingFile, savePngExport } from 'src/utils/file-manipulation';
+import { duplicateWritingFile, rememberWritingFile, savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
@@ -415,8 +415,8 @@ export function TldrawWritingEditor(props: {
 							// TODO: Save immediately incase it hasn't been saved yet
 							if(props.switchToReadOnly) props.switchToReadOnly();
 						}}
-						onDuplicateClick = { async () => {
-							await duplicateWritingFile(props.plugin, props.fileRef);
+						onCopyClick = { async () => {
+							await rememberWritingFile(props.plugin, props.fileRef);
 						}}
 					/>
 				)}

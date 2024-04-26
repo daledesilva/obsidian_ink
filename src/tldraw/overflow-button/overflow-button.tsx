@@ -13,7 +13,7 @@ interface menuOption {
 
 export const OverflowButton: React.FC<{
     // onEditClick: Function,
-    // onDuplicateClick: Function,
+    // onCopyClick: Function,
     menuOptions: menuOption[]
 }> = (props) => {
 
@@ -43,17 +43,11 @@ export const OverflowButton: React.FC<{
             >
                 <OverflowIcon />
             </button>
-            {/* TODO: Should actually make this a context menu? */}
-            {/* <ul className="ddc_ink_dropdown ddc_ink_visible">
-                <li>Option 1</li>
-                <li>Option 2</li>
-                <li>Option 3</li>
-            </ul> */}
         </div>
     </>
     {/* <button>...</button> */ }
     {/* <button
-                onClick = {() => props.onDuplicateClick()}
+                onClick = {() => props.onCopyClick()}
             >
                 Duplicate
             </button>             */}

@@ -9,7 +9,7 @@ import OverflowButton from "../overflow-button/overflow-button";
 
 export const TransitionMenu: React.FC<{
 	onEditClick: Function,
-	onDuplicateClick: Function,
+	onCopyClick: Function,
 }> = (props) => {
 
 	return <>
@@ -25,7 +25,7 @@ export const TransitionMenu: React.FC<{
                 menuOptions = {[
                     {
                         text: 'Copy',
-                        action: props.onDuplicateClick
+                        action: props.onCopyClick
                     }
                 ]}
             />

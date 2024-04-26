@@ -3,7 +3,7 @@ import { DRAW_FILE_EXT, ATTACHMENT_SUBFOLDER_NAME, WRITE_FILE_EXT, WRITING_SUBFO
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLShapeId } from "@tldraw/tldraw";
-import { saveLocally } from "./storage";
+import { fetchLocally, saveLocally } from "./storage";
 
 /////////
 /////////
@@ -96,35 +96,58 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     await v.rename(file, newPath);
 }
 
-export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
+export const rememberDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile) => {
     const v = plugin.app.vault;
 
     if(!(existingFileRef instanceof TFile)) {
-        new Notice('No file found to duplicate');
+        new Notice('No file found to copy');
+        return;
+    }
+
+    saveLocally('rememberedDrawingFile', existingFileRef.path);
+    new Notice(`Drawing file copied.\nRun 'Insert drawing file' where desired.`);
+}
+
+export const rememberWritingFile = async (plugin: InkPlugin, existingFileRef: TFile) => {
+    const v = plugin.app.vault;
+
+    if(!(existingFileRef instanceof TFile)) {
+        new Notice('No file found to copy');
+        return null;
+    }
+
+    saveLocally('rememberedWritingFile', existingFileRef.path);
+    new Notice(`Writing file copied.\nRun 'Insert writing file' where desired.`);
+}
+
+export const duplicateDrawingFile = async (plugin: InkPlugin): Promise<TFile | null> => {
+    const v = plugin.app.vault;
+
+    const existingFilePath = fetchLocally('rememberedDrawingFile');
+    if(!existingFilePath) {
+        new Notice('Copy a drawing embed first.');
+        return null;
+    }
+
+    const existingFileRef = v.getAbstractFileByPath(existingFilePath) as TFile;
+    if(!(existingFileRef instanceof TFile)) {
+        new Notice('Cannot duplicate.\nCopied drawing file no longer exists.');
         return null;
     }
 
     const newFilePath = await getNewTimestampedDrawingFilepath(plugin);
     const newFile = await v.copy(existingFileRef, newFilePath);
 
-    saveLocally('lastDrawingDuplicate', newFilePath);
     new Notice("Drawing file duplicated");
 
     return newFile;
 }
 
-export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
+export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile> => {
     const v = plugin.app.vault;
-
-    if(!(existingFileRef instanceof TFile)) {
-        new Notice('No file found to duplicate');
-        return null;
-    }
 
     const newFilePath = await getNewTimestampedWritingFilepath(plugin);
     const newFile = await v.copy(existingFileRef, newFilePath);
-
-    saveLocally('lastWritingDuplicate', newFilePath);
     new Notice("Writing file duplicated");
 
     return newFile;

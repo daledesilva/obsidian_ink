@@ -2,6 +2,7 @@ import { LockIcon } from "src/graphics/icons/lock-icon";
 import "./extended-writing-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
+import OverflowButton from "../overflow-button/overflow-button";
 
 //////////
 //////////
@@ -18,16 +19,15 @@ export const ExtendedWritingMenu: React.FC<{
                 onClick = {() => props.onLockClick()}
             >
                 <LockIcon/>
-            </button>
-            <button
-                className = "ddc_ink_btn-slim"
-                onClick = {() => {
-                    console.log('show menu');
-                    // props.onOverflowClick();
-                }}
-            >
-                <OverflowIcon/>
-            </button>
+            </button>            
+            <OverflowButton
+                menuOptions = {[
+                    {
+                        text: 'Copy',
+                        action: props.onDuplicateClick
+                    }
+                ]}
+            />
         </div>
 	</>
 

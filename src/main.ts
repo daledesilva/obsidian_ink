@@ -78,11 +78,11 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		name: 'Insert existing handwriting section',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
-	// plugin.addCommand({
-	// 	id: 'insert-recently-duplicated-writing',
-	// 	name: 'Insert recently duplicated handwriting section',
-	// 	editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(plugin, editor)
-	// });
+	plugin.addCommand({
+		id: 'insert-copied-writing',
+		name: 'Insert copied handwriting section',
+		editorCallback: (editor: Editor) => insertRecentlyDuplicatedWritingFile(plugin, editor)
+	});
 }
 
 function implementDrawingEmbedActions(plugin: InkPlugin) {
@@ -96,11 +96,11 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		name: 'Insert existing drawing section',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
-	// plugin.addCommand({
-	// 	id: 'insert-recently-duplicated-drawing',
-	// 	name: 'Insert recently duplicated drawing',
-	// 	editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(plugin, editor)
-	// });
+	plugin.addCommand({
+		id: 'insert-copied-drawing',
+		name: 'Insert copied drawing',
+		editorCallback: (editor: Editor) => insertRecentlyDuplicatedDrawingFile(plugin, editor)
+	});
 }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {

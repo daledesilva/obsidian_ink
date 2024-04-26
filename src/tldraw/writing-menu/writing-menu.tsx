@@ -25,7 +25,7 @@ export const WritingMenu = (props: MenuBarProps) => {
 
     return <>
         <div
-            className = 'ink_write_menu-bar'
+            className = 'ink_menu-bar'
         >
             <div
                 className='ink_quick-menu'

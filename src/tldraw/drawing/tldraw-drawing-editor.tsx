@@ -6,7 +6,7 @@ import InkPlugin from "../../main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { TFile } from 'obsidian';
-import { savePngExport } from 'src/utils/file-manipulation';
+import { duplicateWritingFile, savePngExport } from 'src/utils/file-manipulation';
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
 import { WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
@@ -338,6 +338,9 @@ export function TldrawDrawingEditor(props: {
 						onLockClick = { async () => {
 							// TODO: Save immediately incase it hasn't been saved yet?
 							if(props.switchToReadOnly) props.switchToReadOnly();
+						}}
+						onDuplicateClick = { async () => {
+							await duplicateWritingFile(props.plugin, props.fileRef);
 						}}
 					/>
 				)}

@@ -2,6 +2,7 @@ import { UnlockIcon } from "src/graphics/icons/unlock-icon";
 import "./transition-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
+import OverflowButton from "../overflow-button/overflow-button";
 
 //////////
 //////////
@@ -20,21 +21,14 @@ export const TransitionMenu: React.FC<{
             >
                 <UnlockIcon/>
             </button>
-            <button
-                className = "ddc_ink_btn-slim"
-                onClick = {() => {
-                    console.log('show menu');
-                    // props.onOverflowClick();
-                }}
-            >
-                <OverflowIcon/>
-            </button>
-            {/* <button>...</button> */}
-            {/* <button
-                onClick = {() => props.onDuplicateClick()}
-            >
-                Duplicate
-            </button>             */}
+            <OverflowButton
+                menuOptions = {[
+                    {
+                        text: 'Copy',
+                        action: props.onDuplicateClick
+                    }
+                ]}
+            />
         </div>
 	</>
 

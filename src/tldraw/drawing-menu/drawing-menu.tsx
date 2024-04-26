@@ -26,7 +26,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
     return <>
         <div
             ref = {ref}
-            className = 'ink_write_menu-bar'
+            className = 'ink_menu-bar'
         >
             <div
                 className='ink_quick-menu'

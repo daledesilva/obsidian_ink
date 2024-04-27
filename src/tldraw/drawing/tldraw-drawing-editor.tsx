@@ -12,6 +12,7 @@ import { WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import DrawingMenu from '../drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
+import { openInkFile } from 'src/utils/open-file';
 
 ///////
 ///////
@@ -341,6 +342,9 @@ export function TldrawDrawingEditor(props: {
 						}}
 						onCopyClick = { async () => {
 							await rememberDrawingFile(props.plugin, props.fileRef);
+						}}
+						onOpenClick = { async () => {
+							openInkFile(props.plugin, props.fileRef)
 						}}
 					/>
 				)}

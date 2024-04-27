@@ -19,12 +19,11 @@ export const OverflowButton: React.FC<{
 
     const menu = new Menu();
 
+    console.log('props.menuOptions', props.menuOptions);
     props.menuOptions.forEach(menuOption => {
-        console.log('menuOption', menuOption)
         menu.addItem((item) =>
             item
                 .setTitle(menuOption.text)
-                .setIcon("documents")
                 .onClick(() => {
                     menuOption.action();
                 })
@@ -36,7 +35,6 @@ export const OverflowButton: React.FC<{
             <button
                 className="ddc_ink_btn-slim"
                 onClick={(e) => {
-                    console.log('show menu');
                     menu.showAtMouseEvent(e.nativeEvent);
                     // props.onOverflowClick();
                 }}

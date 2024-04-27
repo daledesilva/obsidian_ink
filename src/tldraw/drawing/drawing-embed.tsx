@@ -10,6 +10,7 @@ import { isEmptyDrawingFile } from "src/utils/tldraw-helpers";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";
 import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
+import { openInkFile } from "src/utils/open-file";
 
 ///////
 ///////
@@ -108,6 +109,9 @@ export function DrawingEmbed (props: {
 					}}
 					onCopyClick = { async () => {
 						await rememberDrawingFile(props.plugin, props.fileRef);
+					}}
+					onOpenClick = { async () => {
+						openInkFile(props.plugin, props.fileRef)
 					}}
 				/>
 			)}

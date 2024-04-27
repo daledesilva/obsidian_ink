@@ -5,13 +5,14 @@ import { TldrawWritingEditor } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
-import { duplicateWritingFile, needsTranscriptUpdate, rememberWritingFile, saveWriteFileTranscript } from "src/utils/file-manipulation";
+import { duplicateWritingFile, needsTranscriptUpdate, rememberDrawingFile, rememberWritingFile, saveWriteFileTranscript } from "src/utils/file-manipulation";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 import { useSelector } from "react-redux";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
+import { openInkFile } from "src/utils/open-file";
 
 ///////
 ///////
@@ -71,6 +72,21 @@ export function WritingEmbed (props: {
 	let isActive = embedId === activeEmbedId;
 	if(!isActive && isEditMode) switchToReadOnlyIfStarted();
 
+	const commonExtendedOptions = [
+		{
+			text: 'Copy writing',
+			action: async () => {
+				await rememberDrawingFile(props.plugin, props.fileRef);
+			}
+		},
+		{
+			text: 'Open writing',
+			action: async () => {
+				openInkFile(props.plugin, props.fileRef)
+			}
+		}
+	]
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -102,9 +118,7 @@ export function WritingEmbed (props: {
 						setIsEditMode(true);
 						setCurPageData(newPageData);
 					}}
-					onCopyClick = { async () => {
-						await rememberWritingFile(props.plugin, props.fileRef);
-					}}
+					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
 			{isEditMode && (
@@ -116,6 +130,7 @@ export function WritingEmbed (props: {
 					embedded
 					registerControls = {registerEditorControls}
 					switchToReadOnly = {switchToReadOnlyIfStarted}
+					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
 		</div>

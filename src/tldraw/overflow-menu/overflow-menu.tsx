@@ -1,5 +1,5 @@
 import { Menu, Notice } from "obsidian";
-import "./overflow-button.scss";
+import "./overflow-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 
@@ -11,15 +11,12 @@ interface menuOption {
     action: Function,
 }
 
-export const OverflowButton: React.FC<{
-    // onEditClick: Function,
-    // onCopyClick: Function,
+export const OverflowMenu: React.FC<{
     menuOptions: menuOption[]
 }> = (props) => {
 
     const menu = new Menu();
 
-    console.log('props.menuOptions', props.menuOptions);
     props.menuOptions.forEach(menuOption => {
         menu.addItem((item) =>
             item
@@ -52,4 +49,4 @@ export const OverflowButton: React.FC<{
 
 };
 
-export default OverflowButton;
+export default OverflowMenu;

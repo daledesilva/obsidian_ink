@@ -11,7 +11,7 @@ interface WritingEmbedProps {
     isActive: boolean,
 	onClick: React.MouseEventHandler,
 	onEditClick: React.MouseEventHandler,
-	onCopyClick: React.MouseEventHandler,
+	commonExtendedOptions: any[],
 }
 
 export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
@@ -35,7 +35,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                 <PrimaryMenuBar>
                     <TransitionMenu
                         onEditClick = {props.onEditClick}
-                        onCopyClick = {props.onCopyClick}
+                        menuOptions = {props.commonExtendedOptions}
                     />
                 </PrimaryMenuBar>
             )}

@@ -56,6 +56,7 @@ export function TldrawWritingEditor(props: {
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	switchToReadOnly?: Function,
+	commonExtendedOptions: any[],
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -416,9 +417,7 @@ export function TldrawWritingEditor(props: {
 							// TODO: Save immediately incase it hasn't been saved yet
 							if(props.switchToReadOnly) props.switchToReadOnly();
 						}}
-						onCopyClick = { async () => {
-							await rememberWritingFile(props.plugin, props.fileRef);
-						}}
+						menuOptions = {props.commonExtendedOptions}
 					/>
 				)}
 			</PrimaryMenuBar>

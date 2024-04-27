@@ -79,6 +79,21 @@ export function DrawingEmbed (props: {
 	let isActive = embedId === activeEmbedId;
 	if(!isActive && isEditMode) switchToReadOnlyIfStarted();
 
+	const commonExtendedOptions = [
+		{
+			text: 'Copy drawing',
+			action: async () => {
+				await rememberDrawingFile(props.plugin, props.fileRef);
+			}
+		},
+		{
+			text: 'Open drawing',
+			action: async () => {
+				openInkFile(props.plugin, props.fileRef)
+			}
+		}
+	]
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -107,12 +122,7 @@ export function DrawingEmbed (props: {
 						setIsEditMode(true);
 						setCurPageData(newPageData);
 					}}
-					onCopyClick = { async () => {
-						await rememberDrawingFile(props.plugin, props.fileRef);
-					}}
-					onOpenClick = { async () => {
-						openInkFile(props.plugin, props.fileRef)
-					}}
+					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
 			{isEditMode && (
@@ -124,6 +134,7 @@ export function DrawingEmbed (props: {
 					embedded
 					registerControls = {registerEditorControls}
 					switchToReadOnly = {switchToReadOnlyIfStarted}
+					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
 		</div>

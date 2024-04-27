@@ -9,8 +9,7 @@ import OverflowButton from "../overflow-button/overflow-button";
 
 export const ExtendedDrawingMenu: React.FC<{
 	onLockClick: Function,
-	onCopyClick: Function,
-	onOpenClick: Function,
+	overflowOptions: any[],
 }> = (props) => {
 
 	return <>
@@ -23,20 +22,7 @@ export const ExtendedDrawingMenu: React.FC<{
                 <LockIcon/>
             </button>            
             <OverflowButton
-                menuOptions = {[
-                    {
-                        text: 'Copy',
-                        action: props.onCopyClick
-                    },
-                    {
-                        text: 'Open',
-                        action: props.onOpenClick
-                    },
-                    // {
-                    //     text: 'Delete',
-                    //     action: props.onCopyClick
-                    // },
-                ]}
+                menuOptions = {props.overflowOptions}
             />
         </div>
 	</>

@@ -9,8 +9,7 @@ import OverflowButton from "../overflow-button/overflow-button";
 
 export const TransitionMenu: React.FC<{
 	onEditClick: Function,
-	onCopyClick: Function,
-	onOpenClick: Function,
+	overflowOptions: any[],
 }> = (props) => {
 
 	return <>
@@ -23,16 +22,7 @@ export const TransitionMenu: React.FC<{
                 <UnlockIcon/>
             </button>
             <OverflowButton
-                menuOptions = {[
-                    {
-                        text: 'Copy',
-                        action: props.onCopyClick
-                    },
-                    {
-                        text: 'Open',
-                        action: props.onOpenClick
-                    }
-                ]}
+                menuOptions = {props.overflowOptions}
             />
         </div>
 	</>

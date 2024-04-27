@@ -27,17 +27,17 @@
         width: 2.5em;
         height: 2.5em;
         border-radius: 0.8em;
-        padding: 0;
+        padding: 0 !important;
         
         &.ddc_ink_btn-slim {
             width: 1.9em;
             height: 2.5em;
             border-radius: 0.8em;
-            padding: 0;
         }
 
         svg {
-            height: 60%;
+            width: 1.5em !important;
+            height: 1.5em !important;
         }
     }
 }

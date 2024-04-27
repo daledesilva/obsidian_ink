@@ -31,12 +31,16 @@
     }
 
     button {
-        aspect-ratio: 1 / 1;
-        border-radius: 10px;//35%;
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 0.8em;
+        padding: 0;
         
         &.ddc_ink_btn-slim {
-            aspect-ratio: 2 / 3;
-            border-radius: 10px;
+            width: 1.9em;
+            height: 2.5em;
+            border-radius: 0.8em;
+            padding: 0;
         }
         
         padding: 0;

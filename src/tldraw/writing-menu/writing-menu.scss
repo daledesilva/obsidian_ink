@@ -40,10 +40,11 @@
         width: 2.5em;
         height: 2.5em;
         border-radius: 0.8em;
-        padding: 0;
+        padding: 0 !important;
 
         svg {
-            height: 60%;
+            width: 1.5em !important;
+            height: 1.5em !important;
         }
 
         &:disabled {
@@ -66,11 +67,12 @@
     button {
         width: 2.5em;
         height: 2.5em;
-        border-radius: 1.75em;
-        padding: 0;
+        border-radius: 2.5em;
+        padding: 0 !important;
 
         svg {
-            height: 60%;
+            width: 1.5em !important;
+            height: 1.5em !important;
         }
     }
 }

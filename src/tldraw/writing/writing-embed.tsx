@@ -76,7 +76,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Copy writing',
 			action: async () => {
-				await rememberDrawingFile(props.plugin, props.fileRef);
+				await rememberWritingFile(props.plugin, props.fileRef);
 			}
 		},
 		// {

@@ -91,7 +91,7 @@ export function DrawingEmbed (props: {
 			action: async () => {
 				openInkFile(props.plugin, props.fileRef)
 			}
-		}
+		},
 	]
 
 	return <>

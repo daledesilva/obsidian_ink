@@ -21,10 +21,6 @@ export function registerWritingEmbed(plugin: InkPlugin) {
 			if(embedData.filepath) {
 				ctx.addChild(new WritingEmbedWidget(el, plugin, embedData));
 			}
-			console.log('source', source);
-			console.log('el', el);
-			console.log('ctx', ctx);
-			console.log('ctx.getSectionInfo()', ctx.getSectionInfo(el));
 			
 			// TODO: Editor test for deletion
 			// const sectionInfo = ctx.getSectionInfo(el);

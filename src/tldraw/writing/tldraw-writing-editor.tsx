@@ -13,6 +13,7 @@ import { duplicateWritingFile, rememberWritingFile, savePngExport } from 'src/ut
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
+import { openInkFile } from 'src/utils/open-file';
 
 ///////
 ///////

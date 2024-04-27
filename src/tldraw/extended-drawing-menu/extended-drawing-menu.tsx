@@ -7,9 +7,10 @@ import OverflowButton from "../overflow-button/overflow-button";
 //////////
 //////////
 
-export const ExtendedWritingMenu: React.FC<{
+export const ExtendedDrawingMenu: React.FC<{
 	onLockClick: Function,
 	onCopyClick: Function,
+	onOpenClick: Function,
 }> = (props) => {
 
 	return <>
@@ -27,10 +28,10 @@ export const ExtendedWritingMenu: React.FC<{
                         text: 'Copy',
                         action: props.onCopyClick
                     },
-                    // {
-                    //     text: 'Open',
-                    //     action: props.onCopyClick
-                    // },
+                    {
+                        text: 'Open',
+                        action: props.onOpenClick
+                    },
                     // {
                     //     text: 'Delete',
                     //     action: props.onCopyClick
@@ -42,4 +43,4 @@ export const ExtendedWritingMenu: React.FC<{
 
 };
 
-export default ExtendedWritingMenu;
+export default ExtendedDrawingMenu;

@@ -79,12 +79,12 @@ export function WritingEmbed (props: {
 				await rememberDrawingFile(props.plugin, props.fileRef);
 			}
 		},
-		{
-			text: 'Open writing',
-			action: async () => {
-				openInkFile(props.plugin, props.fileRef)
-			}
-		}
+		// {
+		// 	text: 'Open writing',
+		// 	action: async () => {
+		// 		openInkFile(props.plugin, props.fileRef)
+		// 	}
+		// }
 	]
 
 	return <>

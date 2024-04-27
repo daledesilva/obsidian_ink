@@ -35,7 +35,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                 <PrimaryMenuBar>
                     <TransitionMenu
                         onEditClick = {props.onEditClick}
-                        overflowOptions = {props.commonExtendedOptions}
+                        menuOptions = {props.commonExtendedOptions}
                     />
                 </PrimaryMenuBar>
             )}

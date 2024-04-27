@@ -341,7 +341,7 @@ export function TldrawDrawingEditor(props: {
 							// TODO: Save immediately incase it hasn't been saved yet?
 							if(props.switchToReadOnly) props.switchToReadOnly();
 						}}
-						overflowOptions = {props.commonExtendedOptions}
+						menuOptions = {props.commonExtendedOptions}
 					/>
 				)}
 			</PrimaryMenuBar>

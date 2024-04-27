@@ -2,14 +2,14 @@ import { UnlockIcon } from "src/graphics/icons/unlock-icon";
 import "./transition-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
-import OverflowButton from "../overflow-button/overflow-button";
+import OverflowMenu from "../overflow-menu/overflow-menu";
 
 //////////
 //////////
 
 export const TransitionMenu: React.FC<{
 	onEditClick: Function,
-	overflowOptions: any[],
+	menuOptions: any[],
 }> = (props) => {
 
 	return <>
@@ -21,8 +21,8 @@ export const TransitionMenu: React.FC<{
             >
                 <UnlockIcon/>
             </button>
-            <OverflowButton
-                menuOptions = {props.overflowOptions}
+            <OverflowMenu
+                menuOptions = {props.menuOptions}
             />
         </div>
 	</>

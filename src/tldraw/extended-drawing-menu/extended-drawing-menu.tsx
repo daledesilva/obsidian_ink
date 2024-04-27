@@ -2,14 +2,14 @@ import { LockIcon } from "src/graphics/icons/lock-icon";
 import "./extended-drawing-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
-import OverflowButton from "../overflow-button/overflow-button";
+import OverflowMenu from "../overflow-menu/overflow-menu";
 
 //////////
 //////////
 
 export const ExtendedDrawingMenu: React.FC<{
 	onLockClick: Function,
-	overflowOptions: any[],
+	menuOptions: any[],
 }> = (props) => {
 
 	return <>
@@ -21,8 +21,8 @@ export const ExtendedDrawingMenu: React.FC<{
             >
                 <LockIcon/>
             </button>            
-            <OverflowButton
-                menuOptions = {props.overflowOptions}
+            <OverflowMenu
+                menuOptions = {props.menuOptions}
             />
         </div>
 	</>

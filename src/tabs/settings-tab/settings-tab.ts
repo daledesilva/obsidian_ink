@@ -66,7 +66,7 @@ function insertSetupGuide(containerEl: HTMLElement) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_setup-guide-section');
 	const accordion = sectionEl.createEl('details');
 	accordion.createEl('summary', { text: `Setup guide (Expand for details)` });
-	accordion.createEl('p', { text: `To make this plugin more intuitive, consider using a plugin like Slash Commander to make the insert commands more easily accessible.` });
+	accordion.createEl('p', { text: `To make this plugin more intuitive, consider turning on 'Slash commands' in 'Obsidian Settings' / 'Core Plugins' or install and set up the community plugin 'Slash Commander'.` });
 }
 
 function insertMoreInfoLinks(containerEl: HTMLElement) {

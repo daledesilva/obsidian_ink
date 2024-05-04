@@ -31,13 +31,13 @@ export const WritingMenu = (props: MenuBarProps) => {
                 className='ink_quick-menu'
             >
                 <button
-                    onClick={props.onUndoClick}
+                    onPointerDown={props.onUndoClick}
                     disabled={!props.canUndo}
                 >
                     <UndoIcon/>
                 </button>
                 <button
-                    onClick={props.onRedoClick}
+                    onPointerDown={props.onRedoClick}
                     disabled={!props.canRedo}
                 >
                     <RedoIcon/>
@@ -47,19 +47,19 @@ export const WritingMenu = (props: MenuBarProps) => {
                 className='ink_tool-menu'
             >
                 <button
-                    onClick={props.onSelectClick}
+                    onPointerDown={props.onSelectClick}
                     disabled={props.curTool === tool.select}
                 >
                     <SelectIcon/>
                 </button>
                 <button
-                    onClick={props.onDrawClick}
+                    onPointerDown={props.onDrawClick}
                     disabled={props.curTool === tool.draw}
                 >
                     <WriteIcon/>
                 </button>
                 <button
-                    onClick={props.onEraseClick}
+                    onPointerDown={props.onEraseClick}
                     disabled={props.curTool === tool.eraser}
                 >
                     <EraseIcon/>

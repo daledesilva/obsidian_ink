@@ -17,7 +17,7 @@ export const TransitionMenu: React.FC<{
             className = 'ink_transition_menu'
         >
             <button
-                onClick = {() => props.onEditClick()}
+                onPointerDown = {() => props.onEditClick()}
             >
                 <UnlockIcon/>
             </button>

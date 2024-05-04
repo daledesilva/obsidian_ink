@@ -17,7 +17,7 @@ export const ExtendedDrawingMenu: React.FC<{
             className = 'ink_extended-writing-menu'
         >
             <button
-                onClick = {() => props.onLockClick()}
+                onPointerDown = {() => props.onLockClick()}
             >
                 <LockIcon/>
             </button>            

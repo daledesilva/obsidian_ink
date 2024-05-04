@@ -103,7 +103,7 @@ export function TldrawDrawingEditor(props: {
 		const editor = editorRef.current = _editor;
 
 		// General setup
-		preventTldrawCanvasesCausingObsidianGestures();
+		preventTldrawCanvasesCausingObsidianGestures(editorRef.current);
 
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);

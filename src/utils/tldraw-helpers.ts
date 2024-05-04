@@ -92,13 +92,17 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	return summary;
 }
 
-export function preventTldrawCanvasesCausingObsidianGestures() {
-	const tlCanvas = document.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
+export function preventTldrawCanvasesCausingObsidianGestures(tlEditor: Editor) {
+	const tlContainer = tlEditor.getContainer();
+
+	const tlCanvas = tlContainer.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
 	if(!tlCanvas) return;
+	
+	// Prevent fingers and capacitive pens causing Obsidian gestures
 	tlCanvas.addEventListener('touchmove', (e: Event) => {
 		e.stopPropagation();
 	})
-
+		
 	// NOTE: This might be a more appropriate method than above, but I don't know how to get a reference to the event object to stop propogation
 	// editor.addListener('event', (e: TLEventInfo) => {
 	// 	// if(e instanceof TLPointerEventInfo)

@@ -115,7 +115,7 @@ export function TldrawWritingEditor(props: {
 
 		// General setup
 		resizeContainerIfEmbed(editor);
-		preventTldrawCanvasesCausingObsidianGestures();
+		preventTldrawCanvasesCausingObsidianGestures(editorRef.current);
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);

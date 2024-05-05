@@ -35,7 +35,7 @@ export function WritingEmbed (props: {
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(crypto.randomUUID());
-	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId || embedId);
+	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
 	
 	// Whenever switching between readonly and edit mode

@@ -9,7 +9,7 @@ type HandwritingContainer = TLBaseShape<'handwriting-container', { x: number, y:
 
 export const PAGE_WIDTH = 2000;
 export const LINE_HEIGHT = 150;
-export const NEW_LINE_REVEAL_HEIGHT = LINE_HEIGHT * 1.5;
+export const MIN_PAGE_HEIGHT = LINE_HEIGHT * 1.5;
 
 export default class HandwritingContainerUtil extends ShapeUtil<HandwritingContainer> {
 	static override type = 'handwriting-container' as const
@@ -19,7 +19,7 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 			x: 0,
 			y: 0,
 			w: PAGE_WIDTH,
-			h: NEW_LINE_REVEAL_HEIGHT,
+			h: MIN_PAGE_HEIGHT,
 		}
 	}
 
@@ -47,7 +47,7 @@ export default class HandwritingContainerUtil extends ShapeUtil<HandwritingConta
 		return resizeBox(shape, info, {
 			minWidth: PAGE_WIDTH,
 			maxWidth: PAGE_WIDTH,
-			minHeight: NEW_LINE_REVEAL_HEIGHT,
+			minHeight: MIN_PAGE_HEIGHT,
 			maxHeight: 50000
 		});
 	}

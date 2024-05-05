@@ -2,7 +2,7 @@ import './tldraw-writing-editor.scss';
 import { Box, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
-import HandwritingContainer, { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
+import HandwritingContainer, { LINE_HEIGHT, MIN_PAGE_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -480,7 +480,10 @@ function getWritingBounds(editor: Editor): Box {
 	writingBounds.y = 0;
 
 	// Add default padding amount below
-	writingBounds.h += NEW_LINE_REVEAL_HEIGHT
+	const numOfLines = Math.ceil(writingBounds.h / LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 1.5) * LINE_HEIGHT;
+	
+	writingBounds.h = Math.max(newLineHeight, MIN_PAGE_HEIGHT)
 
 	return writingBounds;
 }

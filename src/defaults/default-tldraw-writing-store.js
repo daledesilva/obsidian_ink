@@ -1,4 +1,4 @@
-import { NEW_LINE_REVEAL_HEIGHT, PAGE_WIDTH } from "src/tldraw/writing-shapes/writing-container";
+import { MIN_PAGE_HEIGHT, PAGE_WIDTH } from "src/tldraw/writing-shapes/writing-container";
 
 const defaultHandwritingTldrawStore = {
         "store": {
@@ -30,7 +30,7 @@ const defaultHandwritingTldrawStore = {
                 "x": 0,
                 "y": 0,
                 "w": PAGE_WIDTH,
-                "h": NEW_LINE_REVEAL_HEIGHT
+                "h": MIN_PAGE_HEIGHT
             },
             "id": "shape:primary_container",
             "typeName": "shape"

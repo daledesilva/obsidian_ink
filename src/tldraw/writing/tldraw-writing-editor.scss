@@ -4,6 +4,7 @@
 /////////
 
 .ink_writing-editor {
+    transition: height 1s ease;
 
     .tl-canvas {
         background: none;   // This is needed because tldraw Obsidian plugin adds a background here?

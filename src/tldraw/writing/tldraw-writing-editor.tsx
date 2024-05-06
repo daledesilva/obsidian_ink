@@ -14,6 +14,8 @@ import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 import { openInkFile } from 'src/utils/open-file';
+import classNames from 'classnames';
+import insertNewWritingFile from 'src/commands/insert-new-writing-file';
 
 ///////
 ///////
@@ -67,7 +69,8 @@ export function TldrawWritingEditor(props: {
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
-	const [embedHeight, setEmbedHeight] = React.useState<string>('100px');
+	const [embedHeight, setEmbedHeight] = React.useState<string>('0');
+	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
 	function undo() {
 		const editor = editorRef.current
@@ -114,14 +117,22 @@ export function TldrawWritingEditor(props: {
 		const editor = editorRef.current = _editor;
 
 		// General setup
-		resizeContainerIfEmbed(editor);
-		preventTldrawCanvasesCausingObsidianGestures(editorRef.current);
+		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
+		preventTldrawCanvasesCausingObsidianGestures(editor);
+
+		if(isEmptyWritingFile(editor)) {
+			setPreventTransitions(false);
+		} else {
+			setTimeout(() => {
+				setPreventTransitions(false);
+			}, 50);
+		}
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
 		resizeTemplate(editor);
 		editor.updateInstanceState({ isDebugMode: false, })
-
+		
 		// REVIEW: Testing pen mode, etc.
 		// editor.updateInstanceState({ isPenMode: false });
 		
@@ -246,7 +257,7 @@ export function TldrawWritingEditor(props: {
 		if(bounds) {
 			return bounds;
 		} else {
-			return new Box();		
+			return new Box();
 		}
 	}
 
@@ -381,14 +392,15 @@ export function TldrawWritingEditor(props: {
 	}
 
 
-	// console.log('test');
-
 	return <>
 		<div
-			className = "ink_writing-editor"
+			className = {classNames([
+				"ink_writing-editor",
+				preventTransitions && "preventTransitions"
+			])}
 			style={{
 				height: props.embedded ? embedHeight : '100%',
-				position: 'relative'
+				position: 'relative',
 			}}
 		>
 			<Tldraw
@@ -573,4 +585,14 @@ function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 
 	})
 
+}
+
+
+function isEmptyWritingFile(editor: Editor): boolean {
+	let contentBounds = getDrawShapeBounds(editor);
+	if(contentBounds.height === 0) {
+		return true;
+	} else {
+		return false;
+	}
 }

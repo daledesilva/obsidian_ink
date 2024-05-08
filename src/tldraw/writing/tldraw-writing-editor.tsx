@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, useStash } from "../../utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, makeWritingTemplateInvisible, makeWritingTemplateVisible, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingTemplate, unmakeWritingTemplateVisible, useStash } from "../../utils/tldraw-helpers";
 import HandwritingContainer, { LINE_HEIGHT, MIN_PAGE_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
@@ -445,18 +445,12 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 	
 	resizeWritingTemplateTightly(editor);
 	hideWritingTemplate(editor);
-	
 
-	// return new Promise( async (resolve) => {
-		
-		// setTimeout( async () => {
-			// get SVG
-			const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
-			
-			svgObj = await editor.getSvgString(allShapeIds);
+	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+	svgObj = await editor.getSvgString(allShapeIds);
 
-			showWritingTemplate(editor);
-			resizeWritingTemplateInvitingly(editor);
+	unhideWritingTemplate(editor);
+	resizeWritingTemplateInvitingly(editor);
 			
 
 	// 		resolve(svgObj);
@@ -485,96 +479,10 @@ function getAllStrokeBounds(editor: Editor): Box {
 }
 
 function getDrawShapeBounds(editor: Editor): Box {
-
-	// const allShapes = editor.getCurrentPageShapes();
-	// let bounds = new Box(0, 0);
-	// let boundsInit = false;
-
-	// if(allShapes.length) {
-
-	// 	// Iterate through all shapes and accumulate bounds
-	// 	for(let k=0; k<allShapes.length; k++) {
-	// 		const shape = allShapes[k];
-	// 		if (shape.type !== 'draw') continue;
-			
-	// 		const drawShape = shape as TLDrawShape;
-	// 		if (!drawShape.props.isComplete) continue;
-			
-	// 		const shapeBounds = editor.getShapePageBounds(drawShape)
-	// 		if (!shapeBounds) continue;
-
-	// 		console.log('drawShape', drawShape);
-	// 		console.log('shapeBounds', JSON.parse(JSON.stringify(shapeBounds)) )
-
-	// 		if(!boundsInit) {
-	// 			// Set the bounds to match the first shape found
-	// 			bounds = shapeBounds;
-	// 			boundsInit = true;
-	// 		} else {
-	// 			// Overwrite each bound dimension only if it's an extension to the existing bound dimension
-
-	// 			const allLeftEdge = bounds.x;
-	// 			const allRightEdge = bounds.x + bounds.w;
-	// 			const allTopEdge = bounds.y;
-	// 			const allBottomEdge = bounds.y + bounds.h;
-		
-	// 			const shapeLeftEdge = shapeBounds.x;
-	// 			const shapeRightEdge = shapeBounds.x + shapeBounds.w;
-	// 			const shapeTopEdge = shapeBounds.y;
-	// 			const shapeBottomEdge = shapeBounds.y + shapeBounds.h;
-		
-	// 			if (shapeLeftEdge < allLeftEdge) {
-	// 				bounds.x = shapeLeftEdge;
-	// 			}
-	// 			if (shapeRightEdge > allRightEdge) {
-	// 				bounds.w = shapeRightEdge - bounds.x;
-	// 			}
-
-	// 			if (shapeTopEdge < allTopEdge) {
-	// 				bounds.y = shapeTopEdge;
-	// 			}
-	// 			if (shapeBottomEdge > allBottomEdge) {
-	// 				bounds.h = shapeBottomEdge - bounds.y;
-	// 			}
-	// 		}		
-			
-	// 	};
-
-	// }
-
-	silentlyChangeStore( editor, () => {
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
-			isLocked: false,
-			props: {
-				h: 0
-			}
-		}, {
-			ephemeral: true,
-		});
-	});
-
+	hideWritingTemplate(editor);
 	let bounds = editor.getCurrentPageBounds() || new Box(0,0)
-	
-	// TODO:
-	// Don't have to put it back because the normal functions will put it back anyway?
-	// SHould though - to prevent side effects
-
-	// silentlyChangeStore( editor, () => {
-	// 	editor.updateShape({
-	// 		id: 'shape:primary_container' as TLShapeId,
-	// 		isLocked: true,
-	// 		type: 'handwriting-container',
-	// 	}, {
-	// 		ephemeral: true,
-	// 	});
-	// })
-
-	console.log('bounds', JSON.parse(JSON.stringify(bounds)) )
-
+	unhideWritingTemplate(editor);
 	return bounds
-
 }
 
 function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
@@ -704,30 +612,3 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 }
 
 
-const hideWritingTemplate = (editor: Editor) => {
-	silentlyChangeStore( editor, () => {
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
-			isLocked: false,
-			opacity: 0,
-		}, {
-			ephemeral: true,
-		});
-	});
-}
-
-
-const showWritingTemplate = (editor: Editor) => {
-	silentlyChangeStore( editor, () => {
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			isLocked: true,
-			type: 'handwriting-container',
-			opacity: 1,
-		}, {
-			ephemeral: true,
-		});
-
-	})
-}

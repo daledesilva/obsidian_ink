@@ -306,6 +306,75 @@ export const useStash = (plugin: InkPlugin) => {
 	return { stashStaleContent, unstashStaleContent };
 };
 
+export const hideWritingTemplate = (editor: Editor) => {
+	const templateShape = editor.getShape('shape:primary_container' as TLShapeId);
+	if(!templateShape) return;
+	const savedH = templateShape.props.h;
+
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+			props: {
+				h: 0,
+				savedH: savedH
+			}
+		}, {
+			ephemeral: true,
+		});
+	});
+}
+
+export const unhideWritingTemplate = (editor: Editor) => {
+	const templateShape = editor.getShape('shape:primary_container' as TLShapeId);
+	if(!templateShape) return;
+	const h = templateShape.props.savedH;
+
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+			props: {
+				h: h,
+				savedH: undefined
+			}
+		}, {
+			ephemeral: true,
+		});
+	});
+}
+
+export const makeWritingTemplateInvisible = (editor: Editor) => {
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+			opacity: 0,
+		}, {
+			ephemeral: true,
+		});
+	});
+}
+
+
+export const makeWritingTemplateVisible = (editor: Editor) => {
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			isLocked: true,
+			type: 'handwriting-container',
+			opacity: 1,
+		}, {
+			ephemeral: true,
+		});
+
+	})
+}
+
+
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 	editor.store.mergeRemoteChanges(func);
 }

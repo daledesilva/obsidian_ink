@@ -46,7 +46,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                     src = {props.src}
                     style = {{
                         width: '100%',
-                        height: 'fit-content',
+                        height: 'unset',
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"

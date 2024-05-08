@@ -46,7 +46,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                     src = {props.src}
                     style = {{
                         width: '100%',
-                        height: 'fit-content',
+                        height: 'unset',
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"

@@ -279,12 +279,12 @@ export function TldrawDrawingEditor(props: {
 
 	const completeSave = async (editor: Editor) => {
 		let previewUri;
+
 		const tldrawData = editor.store.getSnapshot();
+		const svgObj = await getDrawingSvg(editor);
 		
-		const svgEl = await getDrawingSvg(editor);
-		
-		if (svgEl) {
-			previewUri = await svgToPngDataUri(svgEl)
+		if (svgObj) {
+			previewUri = await svgToPngDataUri(svgObj)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 		
@@ -353,8 +353,14 @@ export function TldrawDrawingEditor(props: {
 //////////
 //////////
 
-async function getDrawingSvg(editor: Editor) {
+interface svgObj {
+	height: number,
+	width: number,
+	svg: string,
+};
+
+async function getDrawingSvg(editor: Editor): Promise<svgObj | undefined> {
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
-	const svgEl = await editor.getSvg(allShapeIds);
-	return svgEl;
+	const svgObj = await editor.getSvgString(allShapeIds);
+	return svgObj;
 }

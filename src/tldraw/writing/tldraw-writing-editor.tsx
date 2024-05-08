@@ -336,44 +336,31 @@ export function TldrawWritingEditor(props: {
 		let previewUri;
 		
 		unstashStaleContent(editor);
+		const tldrawData = editor.store.getSnapshot();
+		const svgObj = await getWritingSvg(editor);
+		stashStaleContent(editor);
+		
+		if (svgObj) {
+			previewUri = await svgToPngDataUri(svgObj)
+			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
+		}
 
-		// REVIEW: Not sure why this set timout is needed... the above function must have some async in it that I can't find
-		// TODO: Even this isn't working properly, it's sometimes resizing tightly sometimes invitingly and sometimes VERY spaciously. Sometimes it doesn't lock properly.
-		// return new Promise( async (resolve) => {
-			// setTimeout( async () => {
-				
-				const tldrawData = editor.store.getSnapshot();
-				const svgObj = await getWritingSvg(editor);
-				stashStaleContent(editor);
-				
-				if (svgObj) {
-					previewUri = await svgToPngDataUri(svgObj)
-					// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
-				}
-	
-				if(previewUri) {
-					const pageData = buildWritingFileData({
-						tldrawData,
-						previewUri,
-					})
-					props.save(pageData);
-					await savePngExport(props.plugin, previewUri, props.fileRef)
-	
-				} else {
-					const pageData = buildWritingFileData({
-						tldrawData,
-					})
-					props.save(pageData);
-				}
-	
-				// resolve();
-				
-			// }, 1000)
-		// })
+		if(previewUri) {
+			const pageData = buildWritingFileData({
+				tldrawData,
+				previewUri,
+			})
+			props.save(pageData);
+			await savePngExport(props.plugin, previewUri, props.fileRef)
+
+		} else {
+			const pageData = buildWritingFileData({
+				tldrawData,
+			})
+			props.save(pageData);
+		}
 
 		return;
-		
-		
 	}
 
 	const assetUrls = {

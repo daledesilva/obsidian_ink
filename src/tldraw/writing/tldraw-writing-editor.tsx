@@ -59,6 +59,7 @@ export function TldrawWritingEditor(props: {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	switchToReadOnly?: Function,
 	commonExtendedOptions: any[],
+	startHeight: number,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -69,7 +70,7 @@ export function TldrawWritingEditor(props: {
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
-	const [embedHeight, setEmbedHeight] = React.useState<string>('0');
+	const [embedHeight, setEmbedHeight] = React.useState<number>(props.startHeight);
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
 	function undo() {
@@ -251,7 +252,7 @@ export function TldrawWritingEditor(props: {
 
 			const contentRatio = contentBounds.w / contentBounds.h;
 			const newEmbedHeight = embedBounds.w / contentRatio;
-			setEmbedHeight(newEmbedHeight + 'px');
+			setEmbedHeight(newEmbedHeight);
 		}
 	}
 
@@ -389,7 +390,7 @@ export function TldrawWritingEditor(props: {
 				preventTransitions && "preventTransitions"
 			])}
 			style={{
-				height: props.embedded ? embedHeight : '100%',
+				height: props.embedded ? embedHeight + 'px' : '100%',
 				position: 'relative',
 			}}
 		>

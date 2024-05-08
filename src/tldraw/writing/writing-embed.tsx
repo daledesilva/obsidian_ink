@@ -37,6 +37,7 @@ export function WritingEmbed (props: {
 	const [embedId] = useState<string>(crypto.randomUUID());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
+	const [previewHeight, setPreviewHeight] = useState<number>(0);
 	
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
@@ -115,6 +116,7 @@ export function WritingEmbed (props: {
 					}}
 					onEditClick = { async () => {
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
+						setPreviewHeight(embedContainerRef.current?.offsetHeight || 0);
 						setIsEditMode(true);
 						setCurPageData(newPageData);
 					}}
@@ -123,6 +125,7 @@ export function WritingEmbed (props: {
 			)}
 			{isEditMode && (
 				<TldrawWritingEditor
+					startHeight = {previewHeight}	// The height the preview image was, to match initially
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}

@@ -284,7 +284,7 @@ export function TldrawDrawingEditor(props: {
 		const svgObj = await getDrawingSvg(editor);
 		
 		if (svgObj) {
-			previewUri = await svgToPngDataUri(svgObj)
+			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 		

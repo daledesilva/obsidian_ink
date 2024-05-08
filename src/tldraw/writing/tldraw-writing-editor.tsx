@@ -341,7 +341,7 @@ export function TldrawWritingEditor(props: {
 		stashStaleContent(editor);
 		
 		if (svgObj) {
-			previewUri = await svgToPngDataUri(svgObj)
+			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 
@@ -438,13 +438,6 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 
 	unhideWritingTemplate(editor);
 	resizeWritingTemplateInvitingly(editor);
-			
-
-	// 		resolve(svgObj);
-
-	// 	}, 1000)
-
-	// })
 
 	return svgObj;
 }

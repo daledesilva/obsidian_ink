@@ -10,6 +10,10 @@
     pointer-events: none;
 
     button {
+
+        animation: scale-up 0.3s 0.1s ease-out;
+        animation-fill-mode: both;
+
         pointer-events: auto;
         background-color: var(--interactive-normal);
         color: var(--color-base-60);
@@ -20,6 +24,8 @@
             fill: var(--color-base-100);
         }
         &:disabled {
+            animation: scale-up 0.3s ease-out;
+
             cursor: default;
             color: var(--text-on-accent);
             fill: var(--text-on-accent);
@@ -30,6 +36,11 @@
         }
     }
 }
+
+@keyframes scale-up {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+  }
 
 .ink_quick-menu {
     display: flex;

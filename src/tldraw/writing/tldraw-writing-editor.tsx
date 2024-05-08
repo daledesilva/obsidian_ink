@@ -117,12 +117,15 @@ export function TldrawWritingEditor(props: {
 		const editor = editorRef.current = _editor;
 
 		// General setup
-		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
 		if(isEmptyWritingFile(editor)) {
+			// It's new, transition it on
 			setPreventTransitions(false);
 		} else {
+			// It's existing and already has a screenshot, so it's already the right size.
+			// Wait a split second before enabling the transition class
+			// TODO: This doesn't actually work based on screenshots, so will also prevent transitions for inserting existing files
 			setTimeout(() => {
 				setPreventTransitions(false);
 			}, 50);
@@ -130,7 +133,8 @@ export function TldrawWritingEditor(props: {
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
-		resizeTemplate(editor);
+		resizeWritingTemplateInvitingly(editor);
+		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
 		editor.updateInstanceState({ isDebugMode: false, })
 		
 		// REVIEW: Testing pen mode, etc.
@@ -220,7 +224,7 @@ export function TldrawWritingEditor(props: {
 			props.registerControls({
 				// save: () => completeSave(editor),
 				saveAndHalt: async () => {
-					completeSave(editor)
+					completeSave(editor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 				resize: () => {
@@ -262,34 +266,8 @@ export function TldrawWritingEditor(props: {
 	}
 
 	// REVIEW: Some of these can be moved out of the function
-	const resizeTemplate = (editor: Editor) => {
-		let contentBounds = getWritingBounds(editor);
-		if (!contentBounds) return;
-		
-		silentlyChangeStore( editor, () => {
-			editor.updateShape({
-				id: 'shape:primary_container' as TLShapeId,
-				type: 'handwriting-container',
-				isLocked: false,
-			}, {
-				ephemeral: true
-			})
-			
-			editor.updateShape({
-				id: 'shape:primary_container' as TLShapeId,
-				type: 'handwriting-container',
-				isLocked: true,
-				props: {
-					h: contentBounds.h,
-				}
-			}, {
-				ephemeral: true
-			})
-		})
 
-		
-		
-	}
+	
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const simultaneousInputProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
@@ -298,7 +276,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
-		resizeTemplate(editor);
+		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);
 		entry && simplifyLines(editor, entry);
 	};
@@ -353,36 +331,48 @@ export function TldrawWritingEditor(props: {
 		// console.log('...Finished incremental WRITING save');
 	}
 
-	const completeSave = async (editor: Editor) => {
+	const completeSave = async (editor: Editor): Promise<void> => {
 		let previewUri;
 		
 		unstashStaleContent(editor);
-		const tldrawData = editor.store.getSnapshot();
-		const svgEl = await getWritingSvg(editor);
-		stashStaleContent(editor);
+
+		// REVIEW: Not sure why this set timout is needed... the above function must have some async in it that I can't find
+		// TODO: Even this isn't working properly, it's sometimes resizing tightly sometimes invitingly and sometimes VERY spaciously. Sometimes it doesn't lock properly.
+		// return new Promise( async (resolve) => {
+			// setTimeout( async () => {
+				
+				const tldrawData = editor.store.getSnapshot();
+				const svgObj = await getWritingSvg(editor);
+				stashStaleContent(editor);
+				
+				if (svgObj) {
+					previewUri = await svgToPngDataUri(svgObj)
+					// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
+				}
+	
+				if(previewUri) {
+					const pageData = buildWritingFileData({
+						tldrawData,
+						previewUri,
+					})
+					props.save(pageData);
+					await savePngExport(props.plugin, previewUri, props.fileRef)
+	
+				} else {
+					const pageData = buildWritingFileData({
+						tldrawData,
+					})
+					props.save(pageData);
+				}
+	
+				// resolve();
+				
+			// }, 1000)
+		// })
+
+		return;
 		
-		if (svgEl) {
-			// console.log('no SVG');
-			previewUri = await svgToPngDataUri(svgEl)
-			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
-		}
-
-		if(previewUri) {
-			const pageData = buildWritingFileData({
-				tldrawData,
-				previewUri,
-			})
-			props.save(pageData);
-			await savePngExport(props.plugin, previewUri, props.fileRef)
-
-		} else {
-			const pageData = buildWritingFileData({
-				tldrawData,
-			})
-			props.save(pageData);
-		}
-
-		// console.log('...Finished complete WRITING save');
+		
 	}
 
 	const assetUrls = {
@@ -443,147 +433,173 @@ export function TldrawWritingEditor(props: {
 ///////////
 ///////////
 
-async function getWritingSvg(editor: Editor) {
-	let svgEl;
+interface svgObj {
+	height: number,
+	width: number,
+	svg: string,
+};
+
+async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+	let svgObj: undefined | svgObj;
+	
+	resizeWritingTemplateTightly(editor);
+	hideWritingTemplate(editor);
+	
+
+	// return new Promise( async (resolve) => {
+		
+		// setTimeout( async () => {
+			// get SVG
+			const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+			
+			svgObj = await editor.getSvgString(allShapeIds);
+
+			showWritingTemplate(editor);
+			resizeWritingTemplateInvitingly(editor);
+			
+
+	// 		resolve(svgObj);
+
+	// 	}, 1000)
+
+	// })
+
+	return svgObj;
+}
+
+// TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
+// Then again, I should parent them to it anyway, in which case it could just check it's descendants.
+function getAllStrokeBounds(editor: Editor): Box {
+	const allStrokeBounds = getDrawShapeBounds(editor);
+	
+	// Set static width
+	allStrokeBounds.x = 0;
+	allStrokeBounds.w = PAGE_WIDTH;
+	
+	// Add gap from above text as users stroke won't touch the top edge and may not be on the first line.
+	allStrokeBounds.h += allStrokeBounds.y;
+	allStrokeBounds.y = 0;
+
+	return allStrokeBounds;
+}
+
+function getDrawShapeBounds(editor: Editor): Box {
+
+	// const allShapes = editor.getCurrentPageShapes();
+	// let bounds = new Box(0, 0);
+	// let boundsInit = false;
+
+	// if(allShapes.length) {
+
+	// 	// Iterate through all shapes and accumulate bounds
+	// 	for(let k=0; k<allShapes.length; k++) {
+	// 		const shape = allShapes[k];
+	// 		if (shape.type !== 'draw') continue;
+			
+	// 		const drawShape = shape as TLDrawShape;
+	// 		if (!drawShape.props.isComplete) continue;
+			
+	// 		const shapeBounds = editor.getShapePageBounds(drawShape)
+	// 		if (!shapeBounds) continue;
+
+	// 		console.log('drawShape', drawShape);
+	// 		console.log('shapeBounds', JSON.parse(JSON.stringify(shapeBounds)) )
+
+	// 		if(!boundsInit) {
+	// 			// Set the bounds to match the first shape found
+	// 			bounds = shapeBounds;
+	// 			boundsInit = true;
+	// 		} else {
+	// 			// Overwrite each bound dimension only if it's an extension to the existing bound dimension
+
+	// 			const allLeftEdge = bounds.x;
+	// 			const allRightEdge = bounds.x + bounds.w;
+	// 			const allTopEdge = bounds.y;
+	// 			const allBottomEdge = bounds.y + bounds.h;
+		
+	// 			const shapeLeftEdge = shapeBounds.x;
+	// 			const shapeRightEdge = shapeBounds.x + shapeBounds.w;
+	// 			const shapeTopEdge = shapeBounds.y;
+	// 			const shapeBottomEdge = shapeBounds.y + shapeBounds.h;
+		
+	// 			if (shapeLeftEdge < allLeftEdge) {
+	// 				bounds.x = shapeLeftEdge;
+	// 			}
+	// 			if (shapeRightEdge > allRightEdge) {
+	// 				bounds.w = shapeRightEdge - bounds.x;
+	// 			}
+
+	// 			if (shapeTopEdge < allTopEdge) {
+	// 				bounds.y = shapeTopEdge;
+	// 			}
+	// 			if (shapeBottomEdge > allBottomEdge) {
+	// 				bounds.h = shapeBottomEdge - bounds.y;
+	// 			}
+	// 		}		
+			
+	// 	};
+
+	// }
 
 	silentlyChangeStore( editor, () => {
-		// Hide page background element
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
 			type: 'handwriting-container',
 			isLocked: false,
-			opacity: 0,
+			props: {
+				h: 0
+			}
 		}, {
 			ephemeral: true,
 		});
 	});
 
-	// get SVG
-	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
-	svgEl = await editor.getSvg(allShapeIds);
-
-	silentlyChangeStore( editor, () => {
-		// bring back page background element
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			isLocked: true,
-			type: 'handwriting-container',
-			opacity: 1,
-		}, {
-			ephemeral: true,
-		});
-
-	})
-
-	return svgEl;
-}
-
-// TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
-// Then again, I should parent them to it anyway, in which case it could just check it's descendants.
-function getWritingBounds(editor: Editor): Box {
-	const writingBounds = getDrawShapeBounds(editor);
+	let bounds = editor.getCurrentPageBounds() || new Box(0,0)
 	
-	// Set static width
-	writingBounds.x = 0;
-	writingBounds.w = PAGE_WIDTH;
+	// TODO:
+	// Don't have to put it back because the normal functions will put it back anyway?
+	// SHould though - to prevent side effects
 
-	// Add gap from above text as users stroke won't touch the top edge and may not be on the first line.
-	writingBounds.h += writingBounds.y;
-	writingBounds.y = 0;
+	// silentlyChangeStore( editor, () => {
+	// 	editor.updateShape({
+	// 		id: 'shape:primary_container' as TLShapeId,
+	// 		isLocked: true,
+	// 		type: 'handwriting-container',
+	// 	}, {
+	// 		ephemeral: true,
+	// 	});
+	// })
 
-	// Add default padding amount below
-	const numOfLines = Math.ceil(writingBounds.h / LINE_HEIGHT);
-	const newLineHeight = (numOfLines + 1.5) * LINE_HEIGHT;
-	
-	writingBounds.h = Math.max(newLineHeight, MIN_PAGE_HEIGHT)
-
-	return writingBounds;
-}
-
-function getDrawShapeBounds(editor: Editor): Box {
-
-	const allShapes = editor.getCurrentPageShapes();
-	let bounds = new Box(0, 0);
-	let boundsInit = false;
-
-	if(allShapes.length) {
-
-		// Iterate through all shapes and accumulate bounds
-		for(let k=0; k<allShapes.length; k++) {
-			const shape = allShapes[k];
-
-			if (shape.type !== 'draw') continue;
-			const drawShape = shape as TLDrawShape;
-			if (!drawShape.props.isComplete) continue;
-	
-			const shapeBounds = editor.getShapePageBounds(drawShape)
-			if (!shapeBounds) continue;
-
-			if(!boundsInit) {
-				// Set the bounds to match the first shape found
-				bounds = shapeBounds;
-				boundsInit = true;
-			} else {
-				// Overwrite each bound dimension only if it's an extension to the existing bound dimension
-
-				const allLeftEdge = bounds.x;
-				const allRightEdge = bounds.x + bounds.w;
-				const allTopEdge = bounds.y;
-				const allBottomEdge = bounds.y + bounds.h;
-		
-				const shapeLeftEdge = shapeBounds.x;
-				const shapeRightEdge = shapeBounds.x + shapeBounds.w;
-				const shapeTopEdge = shapeBounds.y;
-				const shapeBottomEdge = shapeBounds.y + shapeBounds.h;
-		
-				if (shapeLeftEdge < allLeftEdge) {
-					bounds.x = shapeLeftEdge;
-				}
-				if (shapeRightEdge > allRightEdge) {
-					bounds.w = shapeRightEdge - bounds.x;
-				}
-
-				if (shapeTopEdge < allTopEdge) {
-					bounds.y = shapeTopEdge;
-				}
-				if (shapeBottomEdge > allBottomEdge) {
-					bounds.h = shapeBottomEdge - bounds.y;
-				}
-			}		
-			
-		};
-
-	}
+	console.log('bounds', JSON.parse(JSON.stringify(bounds)) )
 
 	return bounds
 
 }
 
 function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
-	const updatedRecords = Object.values(entry.changes.updated);
+	// const updatedRecords = Object.values(entry.changes.updated);
 
-	editor.batch(() => {
+	// editor.batch(() => {
 
-		updatedRecords.forEach( (record) => {
-			const toRecord = record[1];
-			if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
-				console.log('toRecord.props', toRecord.props)
-				editor.updateShape({
-					id: toRecord.id,
-					type: 'draw',
-					props: {
-						...toRecord.props,
-						// dash: 'draw', // Sets to dynamic stroke thickness
-						// dash: 'solid', // Sets to constant stroke thickness
-						// isPen: true,
-					},
-				}, {
-					ephemeral: true
-				})
-			}
-		})
+	// 	updatedRecords.forEach( (record) => {
+	// 		const toRecord = record[1];
+	// 		if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
+	// 			editor.updateShape({
+	// 				id: toRecord.id,
+	// 				type: 'draw',
+	// 				props: {
+	// 					...toRecord.props,
+	// 					// dash: 'draw', // Sets to dynamic stroke thickness
+	// 					dash: 'solid', // Sets to constant stroke thickness
+	// 					// isPen: true,
+	// 				},
+	// 			}, {
+	// 				ephemeral: true
+	// 			})
+	// 		}
+	// 	})
 
-	})
+	// })
 
 }
 
@@ -595,4 +611,122 @@ function isEmptyWritingFile(editor: Editor): boolean {
 	} else {
 		return false;
 	}
+}
+
+/***
+ * Convert an existing writing height to a value with just enough space under writing strokes to view baseline.
+ * Good for screenshots and other non-interactive states.
+ */
+function cropWritingStrokeHeightTightly(height: number): number {
+	const numOfLines = Math.ceil(height / LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 0.5) * LINE_HEIGHT;
+	return Math.max(newLineHeight, MIN_PAGE_HEIGHT)
+}
+
+/***
+ * Convert an existing writing height to a value with excess space under writing strokes to to enable further writing.
+ * Good for while in editing mode.
+ */
+function cropWritingStrokeHeightInvitingly(height: number): number {
+	const numOfLines = Math.ceil(height / LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 1.5) * LINE_HEIGHT;
+	return Math.max(newLineHeight, MIN_PAGE_HEIGHT)
+}
+
+
+/***
+ * Add excess space under writing strokes to to enable further writing.
+ * Good for while in editing mode.
+ */
+const resizeWritingTemplateInvitingly = (editor: Editor) => {
+	let contentBounds = getAllStrokeBounds(editor);
+	if (!contentBounds) return;
+
+	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h)
+	
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+		}, {
+			ephemeral: true
+		})
+		
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: true,
+			props: {
+				h: contentBounds.h,
+			}
+		}, {
+			ephemeral: true
+		})
+	})
+	
+}
+
+/***
+ * Add just enough space under writing strokes to view baseline.
+ * Good for screenshots and other non-interactive states.
+ */
+const resizeWritingTemplateTightly = (editor: Editor) => {
+	let contentBounds = getAllStrokeBounds(editor);
+	if (!contentBounds) return;
+
+	console.log('contentBounds', JSON.parse(JSON.stringify(contentBounds)));
+	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h)
+	console.log('contentBounds', JSON.parse(JSON.stringify(contentBounds)));
+	
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+		}, {
+			ephemeral: true
+		})
+		
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: true,
+			props: {
+				h: contentBounds.h,
+			}
+		}, {
+			ephemeral: true
+		})
+	})
+	
+}
+
+
+const hideWritingTemplate = (editor: Editor) => {
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			type: 'handwriting-container',
+			isLocked: false,
+			opacity: 0,
+		}, {
+			ephemeral: true,
+		});
+	});
+}
+
+
+const showWritingTemplate = (editor: Editor) => {
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:primary_container' as TLShapeId,
+			isLocked: true,
+			type: 'handwriting-container',
+			opacity: 1,
+		}, {
+			ephemeral: true,
+		});
+
+	})
 }

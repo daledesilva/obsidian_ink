@@ -3,11 +3,11 @@ import { Canvg } from 'canvg';
 //////////
 //////////
 
-export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | null> {
+export async function svgToPngDataUri(svgObj: {	height: number,	width: number, svg: string, }): Promise<string | null> {
 	try {
 		// Extract width and height from the SVG element
-		let width = svgElement.getAttribute('width') ? Number(svgElement.getAttribute('width')) : 0;
-		let height = svgElement.getAttribute('height') ? Number(svgElement.getAttribute('height')) : 0;
+		let width = svgObj.width;
+		let height = svgObj.height;
 		
         // Scale up or down
 		if (width > 1500 || height > 2000) {
@@ -34,7 +34,7 @@ export async function svgToPngDataUri(svgElement: SVGElement): Promise<string | 
 		
 		// Render SVG onto canvas
 		const xmlSerialiser = new XMLSerializer();
-		const svgStr = xmlSerialiser.serializeToString(svgElement);
+		const svgStr = svgObj.svg;
 		const canvgRenderer = await Canvg.from(ctx, svgStr);
         canvgRenderer.resize(width, height, 'xMidYMid meet')
 		canvgRenderer.start();

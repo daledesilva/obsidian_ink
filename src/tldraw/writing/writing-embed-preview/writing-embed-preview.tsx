@@ -8,6 +8,7 @@ import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 //////////
 
 interface WritingEmbedProps {
+    onReady: Function,
     src: string,
     isActive: boolean,
 	onClick: React.MouseEventHandler,
@@ -19,6 +20,10 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
 
     // Check if src is a pnd DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
+
+    React.useEffect( () => {
+        setTimeout(props.onReady, 100); // Hardcoded value just to give SVG time to appear
+    }, [])
 
 	return <>
         <div

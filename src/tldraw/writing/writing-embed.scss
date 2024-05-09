@@ -21,5 +21,7 @@
 }
 
 .ink_writing-embed {
-    transition: padding 0.5s ease-out;
+    transition-property: padding, height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
 }

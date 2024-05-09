@@ -48,6 +48,7 @@ const myOverrides: TLUiOverrides = {
 }
 
 export function TldrawWritingEditor(props: {
+	onReady: Function,
 	plugin: InkPlugin,
 	fileRef: TFile,
 	pageData: InkFileData,
@@ -237,6 +238,8 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 
+		setTimeout(props.onReady, 100);
+
 		return () => {
 			unmountActions();
 		};
@@ -351,7 +354,7 @@ export function TldrawWritingEditor(props: {
 				previewUri,
 			})
 			props.save(pageData);
-			await savePngExport(props.plugin, previewUri, props.fileRef)
+			// await savePngExport(props.plugin, previewUri, props.fileRef) // REVIEW: Still need a png?
 
 		} else {
 			const pageData = buildWritingFileData({
@@ -564,9 +567,7 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 
-	console.log('contentBounds', JSON.parse(JSON.stringify(contentBounds)));
 	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h)
-	console.log('contentBounds', JSON.parse(JSON.stringify(contentBounds)));
 	
 	silentlyChangeStore( editor, () => {
 		editor.updateShape({

@@ -30,27 +30,29 @@ export function WritingEmbed (props: {
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
-	const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	// const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	const [state, setState] = useState<'preview'|'edit'>('preview');
+	const [transitioning, setTransitioning] = useState<boolean>(false);
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(crypto.randomUUID());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
-	const [previewHeight, setPreviewHeight] = useState<number>(0);
+	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number>(0);
 	
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 
-		if(!isEditMode) {
+		if(state === 'preview') {
 			// It's not edit mode
 
 			if(isEmptyWritingFile(curPageData.tldraw)) {
-				setIsEditMode(true);
+				switchToEditMode();
 				
 			} else if(!curPageData.previewUri) {
 				// console.log("Switching to edit mode for writing screenshot")
-				setIsEditMode(true);
+				switchToEditMode();
 				isEditModeForScreenshottingRef.current = true;
 			}
 
@@ -61,7 +63,7 @@ export function WritingEmbed (props: {
 			if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 		}
 
-	}, [isEditMode])
+	}, [state])
 
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: WritingEditorControls) => {
@@ -71,7 +73,7 @@ export function WritingEmbed (props: {
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = embedId === activeEmbedId;
-	if(!isActive && isEditMode) switchToReadOnlyIfStarted();
+	if(!isActive && state === 'edit') switchToReadOnlyIfStarted();
 
 	const commonExtendedOptions = [
 		{
@@ -94,19 +96,24 @@ export function WritingEmbed (props: {
 			className = 'ink_writing-embed'
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
-				paddingTop: isEditMode ? '3em' : '1em',
-				paddingBottom: isEditMode ? '2em' : '0.5em',
+				paddingTop: state=='edit' ? '3em' : '1em',
+				paddingBottom: state=='edit' ? '2em' : '0.5em',
+				height: transitioning ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
-			{(!isEditMode && !curPageData.previewUri) && (
+			{(state === 'preview' && !curPageData.previewUri) && (
 				<p>
 					Your writing embed doesn't have a valid screenshot.<br/>
 					Try opening the source file directly to fix.
 					({props.fileRef.path})
 				</p>
 			)}
-			{(!isEditMode && curPageData.previewUri) && (
+			{(state === 'preview' && curPageData.previewUri) && (
 				<WritingEmbedPreview
+					onReady = {() => {
+						console.log('ending transition')
+						setTransitioning(false)
+					}}
 					isActive = {isActive}
 					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.
 					// src = {previewFilePath}
@@ -116,16 +123,20 @@ export function WritingEmbed (props: {
 					}}
 					onEditClick = { async () => {
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setPreviewHeight(embedContainerRef.current?.offsetHeight || 0);
-						setIsEditMode(true);
+						setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
+						switchToEditMode();
 						setCurPageData(newPageData);
 					}}
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
-			{isEditMode && (
+			{state === 'edit' && (
 				<TldrawWritingEditor
-					startHeight = {previewHeight}	// The height the preview image was, to match initially
+					onReady = {() => {
+						console.log('ending transition')
+						setTransitioning(false)
+					}}
+					startHeight = {staticEmbedHeight}	// The height the preview image was, to match initially
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -142,6 +153,16 @@ export function WritingEmbed (props: {
 	// Helper functions
 	///////////////////
 
+	function switchToEditMode() {
+		setState('edit');
+		setTransitioning(true);
+	}
+
+	function switchToPreviewMode() {
+		setState('preview');
+		setTransitioning(true);
+	}
+
 	async function switchToReadOnlyIfStarted() {
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		
@@ -150,7 +171,7 @@ export function WritingEmbed (props: {
 			// console.log(`Isn't an empty writing file --------`);
 			await editorControlsRef.current?.saveAndHalt();
 			setCurPageData(newPageData);
-			setIsEditMode(false);
+			switchToPreviewMode();
 		}
 	}
 
@@ -162,7 +183,7 @@ export function WritingEmbed (props: {
 		await editorControlsRef.current.saveAndHalt();
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setIsEditMode(false);
+		switchToPreviewMode();
 	}
 	
 };

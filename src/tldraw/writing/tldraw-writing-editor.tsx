@@ -60,7 +60,6 @@ export function TldrawWritingEditor(props: {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	switchToReadOnly?: Function,
 	commonExtendedOptions: any[],
-	startHeight: number,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -71,7 +70,7 @@ export function TldrawWritingEditor(props: {
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
-	const [embedHeight, setEmbedHeight] = React.useState<number>(props.startHeight);
+	const [embedHeight, setEmbedHeight] = React.useState<number>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
 	function undo() {
@@ -238,7 +237,7 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 
-		setTimeout(props.onReady, 100);
+		props.onReady()
 
 		return () => {
 			unmountActions();
@@ -394,6 +393,7 @@ export function TldrawWritingEditor(props: {
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
 				// assetUrls = {assetUrls} // This causes multiple mounts
+				autoFocus={false}	// Prevents tldraw scrolling the page to the top of the embed when turning on
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu

@@ -111,7 +111,6 @@ export function WritingEmbed (props: {
 			{(state === 'preview' && curPageData.previewUri) && (
 				<WritingEmbedPreview
 					onReady = {() => {
-						console.log('ending transition')
 						setTransitioning(false)
 					}}
 					isActive = {isActive}
@@ -123,9 +122,8 @@ export function WritingEmbed (props: {
 					}}
 					onEditClick = { async () => {
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
-						switchToEditMode();
 						setCurPageData(newPageData);
+						switchToEditMode();
 					}}
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
@@ -133,10 +131,8 @@ export function WritingEmbed (props: {
 			{state === 'edit' && (
 				<TldrawWritingEditor
 					onReady = {() => {
-						console.log('ending transition')
 						setTransitioning(false)
 					}}
-					startHeight = {staticEmbedHeight}	// The height the preview image was, to match initially
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -154,13 +150,17 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setState('edit');
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
 		setTransitioning(true);
+		setState('edit');
+		// TODO: Remember scroll position
 	}
 
 	function switchToPreviewMode() {
-		setState('preview');
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
 		setTransitioning(true);
+		setState('preview');
+		// TODO: Remember scroll position
 	}
 
 	async function switchToReadOnlyIfStarted() {

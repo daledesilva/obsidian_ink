@@ -17,19 +17,16 @@ interface WritingEmbedProps {
 }
 
 export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
+    const svgRef = React.useRef(null);
 
     // Check if src is a pnd DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
 
-    React.useEffect( () => {
-        setTimeout(props.onReady, 100); // Hardcoded value just to give SVG time to appear
-    }, [])
-
 	return <>
         <div
+            ref = {svgRef}
             className = 'ink_writing-embed-preview'
             style={{
-                // height: '100%',
                 position: 'relative'
             }}
             onClick = {props.onClick}
@@ -55,6 +52,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
+                    onLoad = {props.onReady}
                 />
             )}
             

@@ -70,3 +70,9 @@
 
 
 
+
+.ink_drawing-embed {
+    transition-property: padding, height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}

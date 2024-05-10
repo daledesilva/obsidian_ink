@@ -28,26 +28,28 @@ export function DrawingEmbed (props: {
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
-	const [isEditMode, setIsEditMode] = useState<boolean>(false);
+	const [state, setState] = useState<'preview'|'edit'>('preview');
+	const [transitioning, setTransitioning] = useState<boolean>(false);
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const [embedId] = useState<string>(crypto.randomUUID());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
+	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number>(0);
 		
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 		
-		if(!isEditMode) {
+		if(state === 'preview') {
 			// It's not edit mode
 
 			if(isEmptyDrawingFile(curPageData.tldraw)) {
-				setIsEditMode(true);
+				switchToEditMode();
 				
 			} else if(!curPageData.previewUri) {
 				// console.log("Switching to edit mode for writing screenshot")
-				setIsEditMode(true);
+				switchToEditMode();
 				isEditModeForScreenshottingRef.current = true;
 			}
 
@@ -57,7 +59,7 @@ export function DrawingEmbed (props: {
 			if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 		}	
 
-	}, [isEditMode])
+	}, [state])
 
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
@@ -71,13 +73,13 @@ export function DrawingEmbed (props: {
 		await editorControlsRef.current.saveAndHalt();
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setIsEditMode(false);
+		switchToPreviewMode();
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = embedId === activeEmbedId;
-	if(!isActive && isEditMode) switchToReadOnlyIfStarted();
+	if(!isActive && state === 'edit') switchToReadOnlyIfStarted();
 
 	const commonExtendedOptions = [
 		{
@@ -99,17 +101,18 @@ export function DrawingEmbed (props: {
 			ref = {embedContainerRef}
 			className = 'ink_drawing-embed'
 			style = {{
-				height: isEditMode ? '600px' : 'auto',
 				// Must be padding as margin creates codemirror calculation issues
-				paddingTop: '3em',
-				paddingBottom: '2.5em',
+				paddingTop: state=='edit' ? '3em' : '1em',
+				paddingBottom: state=='edit' ? '2em' : '0.5em',
+				height: state === 'edit' ? '600px' : 'auto',
 			}}
 		>
-			{(!isEditMode && !curPageData.previewUri) && (
+			{(state === 'preview' && !curPageData.previewUri) && (
 				<p>This should never be show</p>
 			)}
-			{(!isEditMode && curPageData.previewUri) && (
+			{(state === 'preview' && curPageData.previewUri) && (
 				<DrawingEmbedPreview
+					onReady = {() => setTransitioning(false)}
 					isActive = {isActive}
 					src = {curPageData.previewUri}
 					// src = {previewFilePath}
@@ -119,14 +122,15 @@ export function DrawingEmbed (props: {
 					}}
 					onEditClick = { async () => {
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setIsEditMode(true);
 						setCurPageData(newPageData);
+						switchToEditMode();
 					}}
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
-			{isEditMode && (
+			{state === 'edit' && (
 				<TldrawDrawingEditor
+					onReady = {() => setTransitioning(false)}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -143,6 +147,18 @@ export function DrawingEmbed (props: {
 	// Helper functions
 	///////////////////
 
+	function switchToEditMode() {
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
+		setTransitioning(true);
+		setState('edit');
+	}
+
+	function switchToPreviewMode() {
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
+		setTransitioning(true);
+		setState('preview');
+	}
+	
 	async function switchToReadOnlyIfStarted() {
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		
@@ -151,7 +167,7 @@ export function DrawingEmbed (props: {
 			// console.log(`Isn't an empty writing file --------`);
 			await editorControlsRef.current?.saveAndHalt();
 			setCurPageData(newPageData);
-			setIsEditMode(false);
+			switchToPreviewMode();
 		}
 	}
 	

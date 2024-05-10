@@ -8,6 +8,7 @@ import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 //////////
 
 interface DrawingEmbedProps {
+    onReady: Function,
     src: string,
     isActive: boolean,
 	onClick: React.MouseEventHandler,
@@ -16,12 +17,14 @@ interface DrawingEmbedProps {
 }
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
+    const svgRef = React.useRef(null);
 
     // Check if src is a pnd DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
 
 	return <>
         <div
+            ref = {svgRef}
             className = 'ink_drawing-embed-preview'
             style={{
                 // height: '100%',
@@ -41,6 +44,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                     }}
                 />
             )}
+
             {!isImg && (
                 <SVG
                     src = {props.src}
@@ -50,17 +54,10 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
+                    onLoad = {props.onReady}
                 />
             )}
-            {/* Works for SVG, but you can't dynamically adjust css */}
-            {/* <img
-                onClick = {props.onClick}
-                // src = {props.src}
-                src={`data:image/svg+xml;utf8,${encodeURIComponent(props.src)}`}
-                style = {{
-                    width: '100%'
-                }}
-            /> */}
+
             {props.isActive && (
                 <PrimaryMenuBar>
                     <TransitionMenu

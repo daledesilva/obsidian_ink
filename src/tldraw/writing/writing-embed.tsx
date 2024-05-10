@@ -110,9 +110,7 @@ export function WritingEmbed (props: {
 			)}
 			{(state === 'preview' && curPageData.previewUri) && (
 				<WritingEmbedPreview
-					onReady = {() => {
-						setTransitioning(false)
-					}}
+					onReady = {() => setTransitioning(false)}
 					isActive = {isActive}
 					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.
 					// src = {previewFilePath}
@@ -130,9 +128,7 @@ export function WritingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawWritingEditor
-					onReady = {() => {
-						setTransitioning(false)
-					}}
+					onReady = {() => setTransitioning(false)}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -153,14 +149,12 @@ export function WritingEmbed (props: {
 		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
 		setTransitioning(true);
 		setState('edit');
-		// TODO: Remember scroll position
 	}
 
 	function switchToPreviewMode() {
 		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
 		setTransitioning(true);
 		setState('preview');
-		// TODO: Remember scroll position
 	}
 
 	async function switchToReadOnlyIfStarted() {

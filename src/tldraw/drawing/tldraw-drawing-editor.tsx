@@ -48,6 +48,7 @@ const myOverrides: TLUiOverrides = {
 }
 
 export function TldrawDrawingEditor(props: {
+	onReady: Function,
 	plugin: InkPlugin,
 	fileRef: TFile,
 	pageData: InkFileData,
@@ -198,6 +199,8 @@ export function TldrawDrawingEditor(props: {
 				},
 			})
 		}
+		
+		props.onReady()
 
 		return () => {
 			unmountActions();

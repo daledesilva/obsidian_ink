@@ -43,6 +43,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                     }}
                 />
             )}
+            
             {!isImg && (
                 <SVG
                     src = {props.src}

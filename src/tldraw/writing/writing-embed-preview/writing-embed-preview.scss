@@ -1,8 +1,32 @@
 .ink_writing-embed-preview {
     pointer-events: none;
 
-    img {
-        pointer-events: auto;
-        cursor: pointer;
+    // img {
+    //     pointer-events: auto;
+    //     cursor: pointer;
+    // }
+
+    // Pens
+    // path[fill="rgb(242, 242, 242)"] {
+    //     fill: red;
+    // }
+
+}
+
+
+
+
+.theme-dark {
+    .ink_writing-embed-preview {
+        path { fill: rgb(242, 242, 242); }
+        // NOTE: Seems like an attribute selector on fill doesn't work.
+        // May have to iterate through SVG string before save and add id's for the paths with matching fills so I select them here
     }
 }
+
+.theme-light {
+    .ink_writing-embed-preview {
+        path { fill: rgb(29, 29, 29); }
+    }
+}
+

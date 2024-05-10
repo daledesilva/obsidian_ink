@@ -104,6 +104,7 @@ export function DrawingEmbed (props: {
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: state=='edit' ? '3em' : '1em',
 				paddingBottom: state=='edit' ? '2em' : '0.5em',
+				// height: transitioning ? staticEmbedHeight + 'px' : (state === 'edit' ? '600px' : 'auto'),
 				height: state === 'edit' ? '600px' : 'auto',
 			}}
 		>

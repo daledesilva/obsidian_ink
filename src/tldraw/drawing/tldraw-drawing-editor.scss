@@ -11,6 +11,10 @@
     .tl-canvas {
         background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
         
+        overflow: hidden;
+        border-radius: 10px;
+        border: 1px solid #FFF;
+
         .tl-background {
             background: rgba(127.5, 127.5, 127.5, 0.02)
         }

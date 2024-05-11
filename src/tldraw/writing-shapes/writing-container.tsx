@@ -6,10 +6,10 @@ import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 //////////
 //////////
 
-type WritingContainer = TLBaseShape<'handwriting-container', { x: number, y: number, w: number, h: number }>
+type WritingContainer = TLBaseShape<'writing-container', { x: number, y: number, w: number, h: number }>
 
 export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
-	static override type = 'handwriting-container' as const
+	static override type = 'writing-container' as const
 
 	getDefaultProps(): WritingContainer['props'] {
 		return {

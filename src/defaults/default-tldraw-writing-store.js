@@ -19,14 +19,14 @@ const defaultHandwritingTldrawStore = {
             "index": "a1",
             "typeName": "page"
         },
-        "shape:handwriting_lines": {
+        "shape:writing-lines": {
             "x": 0,
             "y": 0,
             "rotation": 0,
             "isLocked": true,
             "opacity": 1,
             "meta": {},
-            "type": "handwriting-lines",
+            "type": "writing-lines",
             "parentId": "page:3qj9EtNgqSCW_6knX2K9_",
             "index": "a1",
             "props": {
@@ -35,17 +35,17 @@ const defaultHandwritingTldrawStore = {
                 "w": WRITING_PAGE_WIDTH,
                 "h": WRITING_MIN_PAGE_HEIGHT
             },
-            "id": "shape:handwriting_lines",
+            "id": "shape:writing-lines",
             "typeName": "shape"
         },
-        "shape:primary_container": {
+        "shape:writing-container": {
             "x": 0,
             "y": 0,
             "rotation": 0,
             "isLocked": true,
             "opacity": 1,
             "meta": {},
-            "type": "handwriting-container",
+            "type": "writing-container",
             "parentId": "page:3qj9EtNgqSCW_6knX2K9_",
             "index": "a1",
             "props": {
@@ -54,7 +54,7 @@ const defaultHandwritingTldrawStore = {
                 "w": WRITING_PAGE_WIDTH,
                 "h": WRITING_MIN_PAGE_HEIGHT
             },
-            "id": "shape:primary_container",
+            "id": "shape:writing-container",
             "typeName": "shape"
         }
     },
@@ -103,7 +103,7 @@ const defaultHandwritingTldrawStore = {
                     "embed": 4,
                     "image": 2,
                     "video": 1,
-                    "handwriting-container": 0
+                    "writing-container": 0
                 }
             },
             "instance_presence": {

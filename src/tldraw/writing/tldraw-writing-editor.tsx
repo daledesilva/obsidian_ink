@@ -1,8 +1,8 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, useStash } from "../../utils/tldraw-helpers";
-import { WritingContainerUtil } from "../writing-shapes/handwriting-container"
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
+import { WritingContainerUtil } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -12,7 +12,7 @@ import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
-import { WritingLinesUtil } from '../writing-shapes/handwriting-lines';
+import { WritingLinesUtil } from '../writing-shapes/writing-lines';
 
 ///////
 ///////
@@ -45,7 +45,7 @@ const myOverrides: TLUiOverrides = {
 }
 
 export function TldrawWritingEditor(props: {
-	onReady: Function,
+	onReady?: Function,
 	plugin: InkPlugin,
 	fileRef: TFile,
 	pageData: InkFileData,
@@ -69,6 +69,9 @@ export function TldrawWritingEditor(props: {
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [embedHeight, setEmbedHeight] = React.useState<number>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
+	const [storeSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareWritingSnapshot(props.pageData.tldraw))
+
+	props.pageData.tldraw
 
 	function undo() {
 		const editor = editorRef.current
@@ -113,6 +116,8 @@ export function TldrawWritingEditor(props: {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = editorRef.current = _editor;
+
+		updateWritingStoreIfNeeded(editor);
 
 		// General setup
 		preventTldrawCanvasesCausingObsidianGestures(editor);
@@ -234,7 +239,7 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 
-		props.onReady()
+		if(props.onReady) props.onReady()
 
 		return () => {
 			unmountActions();
@@ -256,7 +261,7 @@ export function TldrawWritingEditor(props: {
 	}
 
 	const getTemplateBounds = (editor: Editor): Box => {
-		const bounds = editor.getShapePageBounds('shape:primary_container' as TLShapeId)
+		const bounds = editor.getShapePageBounds('shape:writing-container' as TLShapeId)
 		
 		if(bounds) {
 			return bounds;
@@ -382,7 +387,7 @@ export function TldrawWritingEditor(props: {
 		>
 			<Tldraw
 				// REVIEW: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
-				snapshot = {props.pageData.tldraw}	// NOTE: Check what's causing this snapshot error??
+				snapshot = {storeSnapshot}	// NOTE: Check what's causing this snapshot error??
 				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
 				// assetUrls = {assetUrls}
@@ -539,15 +544,15 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 
 		// Unlock container and lines
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
 			isLocked: false,
 		}, {
 			ephemeral: true
 		})
 		editor.updateShape({
-			id: 'shape:handwriting_lines' as TLShapeId,
-			type: 'handwriting-lines',
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
 			isLocked: false,
 		}, {
 			ephemeral: true
@@ -555,8 +560,8 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 		
 		// resize container and lines & lock again
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
 			isLocked: true,
 			props: {
 				h: contentBounds.h,
@@ -565,8 +570,8 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 			ephemeral: true
 		})
 		editor.updateShape({
-			id: 'shape:handwriting_lines' as TLShapeId,
-			type: 'handwriting-lines',
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
 			isLocked: true,
 			props: {
 				h: contentBounds.h,
@@ -592,15 +597,15 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 
 		// resize container and lines
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
 			isLocked: false,
 		}, {
 			ephemeral: true
 		})
 		editor.updateShape({
-			id: 'shape:handwriting_lines' as TLShapeId,
-			type: 'handwriting-lines',
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
 			isLocked: false,
 		}, {
 			ephemeral: true
@@ -608,8 +613,8 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 		
 		// resize container and lines & lock again
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
 			isLocked: true,
 			props: {
 				h: contentBounds.h,
@@ -618,8 +623,8 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 			ephemeral: true
 		})
 		editor.updateShape({
-			id: 'shape:handwriting_lines' as TLShapeId,
-			type: 'handwriting-lines',
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
 			isLocked: true,
 			props: {
 				h: contentBounds.h,

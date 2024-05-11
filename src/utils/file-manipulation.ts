@@ -83,8 +83,8 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     const pageData = JSON.parse(pageDataStr) as InkFileData;
 
     // Remove the page container from the file
-    if(pageData.tldraw.store['shape:primary_container' as TLShapeId]){
-        delete pageData.tldraw.store['shape:primary_container' as TLShapeId];
+    if(pageData.tldraw.store['shape:writing-container' as TLShapeId]){
+        delete pageData.tldraw.store['shape:writing-container' as TLShapeId];
         await v.modify(file, JSON.stringify(pageData));
     }
 

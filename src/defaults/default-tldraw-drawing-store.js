@@ -60,7 +60,7 @@ const defaultHandwritingTldrawStore = {
                     "embed": 4,
                     "image": 2,
                     "video": 1,
-                    "handwriting-container": 0
+                    "writing-container": 0
                 }
             },
             "instance_presence": {

@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, setUserPreferences } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
@@ -96,13 +96,13 @@ export function preventTldrawCanvasesCausingObsidianGestures(tlEditor: Editor) {
 	const tlContainer = tlEditor.getContainer();
 
 	const tlCanvas = tlContainer.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
-	if(!tlCanvas) return;
-	
+	if (!tlCanvas) return;
+
 	// Prevent fingers and capacitive pens causing Obsidian gestures
 	tlCanvas.addEventListener('touchmove', (e: Event) => {
 		e.stopPropagation();
 	})
-		
+
 	// NOTE: This might be a more appropriate method than above, but I don't know how to get a reference to the event object to stop propogation
 	// editor.addListener('event', (e: TLEventInfo) => {
 	// 	// if(e instanceof TLPointerEventInfo)
@@ -134,10 +134,10 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 
 export function initDrawingCamera(editor: Editor) {
 	const allShapesBounds = editor.getCurrentPageBounds();
-	if(!allShapesBounds) return;
+	if (!allShapesBounds) return;
 
 	const targetZoom = 1;
-	editor.zoomToBounds(allShapesBounds, {targetZoom});
+	editor.zoomToBounds(allShapesBounds, { targetZoom });
 }
 
 export interface WritingCameraLimits {
@@ -151,7 +151,7 @@ export interface WritingCameraLimits {
 	},
 }
 
-export function initWritingCameraLimits(editor: Editor) : WritingCameraLimits {
+export function initWritingCameraLimits(editor: Editor): WritingCameraLimits {
 	return {
 		x: {
 			min: editor.getCamera().x,
@@ -167,7 +167,7 @@ export function initWritingCameraLimits(editor: Editor) : WritingCameraLimits {
 export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCameraLimits) {
 
 	const bounds = editor.getCurrentPageBounds();
-	if(!bounds) return;
+	if (!bounds) return;
 
 	const yMin = bounds.minY - 500;
 	const yMax = bounds.maxY + 1000;
@@ -227,7 +227,7 @@ export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean
 		// Store should only contain document, page, and handwriting container shape
 		if (record.typeName === 'shape') {
 			const shapeRecord = record as TLShape;
-			if (shapeRecord.type !== 'handwriting-container') {
+			if (shapeRecord.type !== 'writing-container') {
 				isEmpty = false;
 			}
 		}
@@ -317,14 +317,14 @@ export const unhideWritingTemplate = (editor: Editor) => {
 }
 
 export const hideWritingContainer = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:primary_container' as TLShapeId);
-	if(!templateShape) return;
+	const templateShape = editor.getShape('shape:writing-container' as TLShapeId);
+	if (!templateShape) return;
 	const savedH = templateShape.props.h;
 
-	silentlyChangeStore( editor, () => {
+	silentlyChangeStore(editor, () => {
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
 			isLocked: false,
 			props: {
 				h: 0,
@@ -337,14 +337,14 @@ export const hideWritingContainer = (editor: Editor) => {
 }
 
 export const hideWritingLines = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:handwriting_lines' as TLShapeId);
-	if(!templateShape) return;
+	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId);
+	if (!templateShape) return;
 	const savedH = templateShape.props.h;
 
-	silentlyChangeStore( editor, () => {
+	silentlyChangeStore(editor, () => {
 		editor.updateShape({
-			id: 'shape:handwriting_lines' as TLShapeId,
-			type: 'handwriting-lines',
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
 			isLocked: false,
 			props: {
 				h: 0,
@@ -357,14 +357,14 @@ export const hideWritingLines = (editor: Editor) => {
 }
 
 export const unhideWritingContainer = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:primary_container' as TLShapeId);
-	if(!templateShape) return;
+	const templateShape = editor.getShape('shape:writing-container' as TLShapeId);
+	if (!templateShape) return;
 	const h = templateShape.props.savedH;
 
-	silentlyChangeStore( editor, () => {
+	silentlyChangeStore(editor, () => {
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
 			isLocked: false,
 			props: {
 				h: h,
@@ -377,14 +377,14 @@ export const unhideWritingContainer = (editor: Editor) => {
 }
 
 export const unhideWritingLines = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:handwriting_lines' as TLShapeId);
-	if(!templateShape) return;
+	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId);
+	if (!templateShape) return;
 	const h = templateShape.props.savedH;
 
-	silentlyChangeStore( editor, () => {
+	silentlyChangeStore(editor, () => {
 		editor.updateShape({
-			id: 'shape:handwriting_lines' as TLShapeId,
-			type: 'handwriting-lines',
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
 			isLocked: false,
 			props: {
 				h: h,
@@ -399,8 +399,8 @@ export const unhideWritingLines = (editor: Editor) => {
 // export const makeWritingTemplateInvisible = (editor: Editor) => {
 // 	silentlyChangeStore( editor, () => {
 // 		editor.updateShape({
-// 			id: 'shape:primary_container' as TLShapeId,
-// 			type: 'handwriting-container',
+// 			id: 'shape:writing-container' as TLShapeId,
+// 			type: 'writing-container',
 // 			isLocked: false,
 // 			opacity: 0,
 // 		}, {
@@ -413,9 +413,9 @@ export const unhideWritingLines = (editor: Editor) => {
 // export const makeWritingTemplateVisible = (editor: Editor) => {
 // 	silentlyChangeStore( editor, () => {
 // 		editor.updateShape({
-// 			id: 'shape:primary_container' as TLShapeId,
+// 			id: 'shape:writing-container' as TLShapeId,
 // 			isLocked: true,
-// 			type: 'handwriting-container',
+// 			type: 'writing-container',
 // 			opacity: 1,
 // 		}, {
 // 			ephemeral: true,
@@ -445,3 +445,60 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 // 	await silentlyChangeStoreAsync(editor, func);
 //     stashStaleStrokes(editor);
 // }
+
+
+export function prepareWritingSnapshot(snapshot: StoreSnapshot<TLRecord>): StoreSnapshot<TLRecord> {
+	return deleteObsoleteTemplateShapes(snapshot);
+}
+
+
+/***
+ * Deletes obsolete template shapes but doesn't add updated ones.
+ * See updateWritingStoreIfNeeded.
+ * // TODO: This desperately needs unit testing as it can delete elements from the users file
+ */
+export function deleteObsoleteTemplateShapes(snapshot: StoreSnapshot<TLRecord>): StoreSnapshot<TLRecord> {
+	let obsoleteShapeIds: TLShapeId[] = [
+		'shape:primary_container' as TLShapeId,	// From before version 0.1.192
+		'shape:handwriting_lines' as TLShapeId,	// From while testing
+	];
+
+	const filteredStore = Object.entries(snapshot.store).filter(
+		([key, tlRecord]) => {
+			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);
+			if (isObsoleteObj) {
+				console.log('Removing old ink element to update file:', tlRecord)
+				return false;
+			}
+			return true
+		}
+	);
+
+	const updatedSnapshot = JSON.parse(JSON.stringify(snapshot));
+	updatedSnapshot.store = Object.fromEntries(filteredStore);
+
+	return updatedSnapshot;
+}
+
+
+export const updateWritingStoreIfNeeded = (editor: Editor) => {
+	addNewTemplateShapes(editor);
+}
+
+function addNewTemplateShapes(editor: Editor) {
+	const hasLines = editor.store.has('shape:writing-lines' as TLShapeId);
+	if(!hasLines) {
+		editor.createShape({
+			id: 'shape:writing-lines' as TLShapeId,
+			type: 'writing-lines',
+		})
+	}
+
+	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId);
+	if(!hasContainer) {
+			editor.createShape({
+			id: 'shape:writing-container' as TLShapeId,
+			type: 'writing-container',
+		})
+	}
+}

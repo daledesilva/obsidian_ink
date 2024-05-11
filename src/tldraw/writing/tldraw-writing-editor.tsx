@@ -431,14 +431,14 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);
-	hideWritingContainer(editor);
+	// hideWritingContainer(editor);
 	// hideWritingLines(editor);
 	
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
 	
 	// unhideWritingLines(editor);
-	unhideWritingContainer(editor);
+	// unhideWritingContainer(editor);
 	resizeWritingTemplateInvitingly(editor);
 
 	return svgObj;

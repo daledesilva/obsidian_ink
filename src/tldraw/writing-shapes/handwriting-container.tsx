@@ -1,4 +1,4 @@
-import { Rectangle2d, SVGContainer, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
+import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
 import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -49,10 +49,34 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 		});
 	}
 
+	indicator(shape: WritingContainer) {
+		return <>
+			<rect
+				width = {shape.props.w}
+				height = {shape.props.h}
+				rx = {20}
+				ry = {20}
+			/>
+		</>
+	}
+
 	component(shape: WritingContainer) {
+		return <SVGContainer>
+			{this.createSvg(shape)}
+		</SVGContainer>
+	}
+	
+	toSvg(shape: WritingContainer, ctx: SvgExportContext): React.JSX.Element {
+		return this.createSvg(shape);
+	}
+
+	// Custom functions
+	//////////////
+
+	createSvg(shape: WritingContainer) {
 		this.isAspectRatioLocked(shape);
 
-		return <SVGContainer>
+		return <>
 			<rect
 				width = {shape.props.w}
 				height = {shape.props.h}
@@ -61,17 +85,6 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 				stroke = 'rgba(127.5, 127.5, 127.5, 0.2)'
 				strokeWidth = '1px'
 				fill = 'rgba(127.5, 127.5, 127.5, 0.02)'
-			/>
-		</SVGContainer>
-	}
-
-	indicator(shape: WritingContainer) {
-		return <>
-			<rect
-				width = {shape.props.w}
-				height = {shape.props.h}
-				rx = {20}
-				ry = {20}
 			/>
 		</>
 	}

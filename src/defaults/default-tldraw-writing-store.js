@@ -1,4 +1,7 @@
-import { MIN_PAGE_HEIGHT, PAGE_WIDTH } from "src/tldraw/writing-shapes/writing-container";
+import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
+
+/////
+/////
 
 const defaultHandwritingTldrawStore = {
         "store": {
@@ -16,6 +19,25 @@ const defaultHandwritingTldrawStore = {
             "index": "a1",
             "typeName": "page"
         },
+        "shape:handwriting_lines": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "isLocked": true,
+            "opacity": 1,
+            "meta": {},
+            "type": "handwriting-lines",
+            "parentId": "page:3qj9EtNgqSCW_6knX2K9_",
+            "index": "a1",
+            "props": {
+                "x": 0,
+                "y": 0,
+                "w": WRITING_PAGE_WIDTH,
+                "h": WRITING_MIN_PAGE_HEIGHT
+            },
+            "id": "shape:handwriting_lines",
+            "typeName": "shape"
+        },
         "shape:primary_container": {
             "x": 0,
             "y": 0,
@@ -29,8 +51,8 @@ const defaultHandwritingTldrawStore = {
             "props": {
                 "x": 0,
                 "y": 0,
-                "w": PAGE_WIDTH,
-                "h": MIN_PAGE_HEIGHT
+                "w": WRITING_PAGE_WIDTH,
+                "h": WRITING_MIN_PAGE_HEIGHT
             },
             "id": "shape:primary_container",
             "typeName": "shape"

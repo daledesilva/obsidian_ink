@@ -307,6 +307,16 @@ export const useStash = (plugin: InkPlugin) => {
 };
 
 export const hideWritingTemplate = (editor: Editor) => {
+	hideWritingContainer(editor);
+	hideWritingLines(editor);
+}
+
+export const unhideWritingTemplate = (editor: Editor) => {
+	unhideWritingContainer(editor);
+	unhideWritingLines(editor);
+}
+
+export const hideWritingContainer = (editor: Editor) => {
 	const templateShape = editor.getShape('shape:primary_container' as TLShapeId);
 	if(!templateShape) return;
 	const savedH = templateShape.props.h;
@@ -326,7 +336,27 @@ export const hideWritingTemplate = (editor: Editor) => {
 	});
 }
 
-export const unhideWritingTemplate = (editor: Editor) => {
+export const hideWritingLines = (editor: Editor) => {
+	const templateShape = editor.getShape('shape:handwriting_lines' as TLShapeId);
+	if(!templateShape) return;
+	const savedH = templateShape.props.h;
+
+	silentlyChangeStore( editor, () => {
+		editor.updateShape({
+			id: 'shape:handwriting_lines' as TLShapeId,
+			type: 'handwriting-lines',
+			isLocked: false,
+			props: {
+				h: 0,
+				savedH: savedH
+			}
+		}, {
+			ephemeral: true,
+		});
+	});
+}
+
+export const unhideWritingContainer = (editor: Editor) => {
 	const templateShape = editor.getShape('shape:primary_container' as TLShapeId);
 	if(!templateShape) return;
 	const h = templateShape.props.savedH;
@@ -346,33 +376,53 @@ export const unhideWritingTemplate = (editor: Editor) => {
 	});
 }
 
-export const makeWritingTemplateInvisible = (editor: Editor) => {
+export const unhideWritingLines = (editor: Editor) => {
+	const templateShape = editor.getShape('shape:handwriting_lines' as TLShapeId);
+	if(!templateShape) return;
+	const h = templateShape.props.savedH;
+
 	silentlyChangeStore( editor, () => {
 		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			type: 'handwriting-container',
+			id: 'shape:handwriting_lines' as TLShapeId,
+			type: 'handwriting-lines',
 			isLocked: false,
-			opacity: 0,
+			props: {
+				h: h,
+				savedH: undefined
+			}
 		}, {
 			ephemeral: true,
 		});
 	});
 }
 
+// export const makeWritingTemplateInvisible = (editor: Editor) => {
+// 	silentlyChangeStore( editor, () => {
+// 		editor.updateShape({
+// 			id: 'shape:primary_container' as TLShapeId,
+// 			type: 'handwriting-container',
+// 			isLocked: false,
+// 			opacity: 0,
+// 		}, {
+// 			ephemeral: true,
+// 		});
+// 	});
+// }
 
-export const makeWritingTemplateVisible = (editor: Editor) => {
-	silentlyChangeStore( editor, () => {
-		editor.updateShape({
-			id: 'shape:primary_container' as TLShapeId,
-			isLocked: true,
-			type: 'handwriting-container',
-			opacity: 1,
-		}, {
-			ephemeral: true,
-		});
 
-	})
-}
+// export const makeWritingTemplateVisible = (editor: Editor) => {
+// 	silentlyChangeStore( editor, () => {
+// 		editor.updateShape({
+// 			id: 'shape:primary_container' as TLShapeId,
+// 			isLocked: true,
+// 			type: 'handwriting-container',
+// 			opacity: 1,
+// 		}, {
+// 			ephemeral: true,
+// 		});
+
+// 	})
+// }
 
 
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {

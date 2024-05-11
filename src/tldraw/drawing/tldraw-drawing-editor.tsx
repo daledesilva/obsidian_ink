@@ -23,7 +23,7 @@ export enum tool {
 	eraser = 'eraser',
 }
 
-// const MyCustomShapes = [HandwritingContainer];
+// const MyCustomShapes = [WritingContainer];
 
 // let hiddenShapes: TLShape[] = [];
 

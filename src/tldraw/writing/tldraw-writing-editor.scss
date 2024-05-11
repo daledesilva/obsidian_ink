@@ -15,7 +15,7 @@
 
         overflow: hidden;
         border-radius: 10px;
-        border: 1px solid #FFF;
+        border: 1px solid var(--color-base-20);
         
         .tl-background {
             background: none;
@@ -23,3 +23,50 @@
 
     }
 }
+
+
+
+
+
+
+// TODO: Should be placed in a separate file for writing-file-styles
+
+
+// Auto adapts to themes
+////////////////////////
+
+.ink_writing-editor,
+.ink_writing-embed-preview {
+    
+    // Writing lines
+    line {
+        stroke: var(--color-base-50);
+        stroke-width: 2px;
+    }
+}
+
+
+
+// Customised for themes
+////////////////////////
+
+.theme-dark {
+    .ink_writing-embed-preview {
+        
+        // Pens
+        path { fill: rgb(242, 242, 242); }  // TODO: Have a separate file for pen colors? that defines the colours as variables that can be used here?
+        // NOTE: Seems like an attribute selector on fill doesn't work.
+        // May have to iterate through SVG string before save and add class name's for the paths with matching fills so I can select them here
+
+    }
+}
+
+.theme-light {
+    .ink_writing-embed-preview {
+
+        // Pens
+        path { fill: rgb(29, 29, 29); }
+
+    }
+}
+

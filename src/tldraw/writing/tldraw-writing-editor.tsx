@@ -1,26 +1,23 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, TLDrawShape, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, TLRecord, TLShapeId, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, makeWritingTemplateInvisible, makeWritingTemplateVisible, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingTemplate, unmakeWritingTemplateVisible, useStash } from "../../utils/tldraw-helpers";
-import HandwritingContainer, { LINE_HEIGHT, MIN_PAGE_HEIGHT, PAGE_WIDTH } from "../writing-shapes/writing-container"
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, useStash } from "../../utils/tldraw-helpers";
+import { WritingContainerUtil } from "../writing-shapes/handwriting-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
-import { svgToPngDataUri } from 'src/utils/screenshots';
+import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
-import { duplicateWritingFile, rememberWritingFile, savePngExport } from 'src/utils/file-manipulation';
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
-import { openInkFile } from 'src/utils/open-file';
 import classNames from 'classnames';
-import insertNewWritingFile from 'src/commands/insert-new-writing-file';
+import { WritingLinesUtil } from '../writing-shapes/handwriting-lines';
 
 ///////
 ///////
 
-const MyCustomShapes = [HandwritingContainer];
+const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
 export enum tool {
 	select = 'select',
 	draw = 'draw',
@@ -434,12 +431,14 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);
-	hideWritingTemplate(editor);
-
+	hideWritingContainer(editor);
+	// hideWritingLines(editor);
+	
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
-
-	unhideWritingTemplate(editor);
+	
+	// unhideWritingLines(editor);
+	unhideWritingContainer(editor);
 	resizeWritingTemplateInvitingly(editor);
 
 	return svgObj;
@@ -452,7 +451,7 @@ function getAllStrokeBounds(editor: Editor): Box {
 	
 	// Set static width
 	allStrokeBounds.x = 0;
-	allStrokeBounds.w = PAGE_WIDTH;
+	allStrokeBounds.w = WRITING_PAGE_WIDTH;
 	
 	// Add gap from above text as users stroke won't touch the top edge and may not be on the first line.
 	allStrokeBounds.h += allStrokeBounds.y;
@@ -510,9 +509,9 @@ function isEmptyWritingFile(editor: Editor): boolean {
  * Good for screenshots and other non-interactive states.
  */
 function cropWritingStrokeHeightTightly(height: number): number {
-	const numOfLines = Math.ceil(height / LINE_HEIGHT);
-	const newLineHeight = (numOfLines + 0.5) * LINE_HEIGHT;
-	return Math.max(newLineHeight, MIN_PAGE_HEIGHT)
+	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 0.5) * WRITING_LINE_HEIGHT;
+	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
 }
 
 /***
@@ -520,9 +519,9 @@ function cropWritingStrokeHeightTightly(height: number): number {
  * Good for while in editing mode.
  */
 function cropWritingStrokeHeightInvitingly(height: number): number {
-	const numOfLines = Math.ceil(height / LINE_HEIGHT);
-	const newLineHeight = (numOfLines + 1.5) * LINE_HEIGHT;
-	return Math.max(newLineHeight, MIN_PAGE_HEIGHT)
+	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 1.5) * WRITING_LINE_HEIGHT;
+	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
 }
 
 
@@ -537,6 +536,8 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h)
 	
 	silentlyChangeStore( editor, () => {
+
+		// Unlock container and lines
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
 			type: 'handwriting-container',
@@ -544,10 +545,28 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 		}, {
 			ephemeral: true
 		})
+		editor.updateShape({
+			id: 'shape:handwriting_lines' as TLShapeId,
+			type: 'handwriting-lines',
+			isLocked: false,
+		}, {
+			ephemeral: true
+		})
 		
+		// resize container and lines & lock again
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
 			type: 'handwriting-container',
+			isLocked: true,
+			props: {
+				h: contentBounds.h,
+			}
+		}, {
+			ephemeral: true
+		})
+		editor.updateShape({
+			id: 'shape:handwriting_lines' as TLShapeId,
+			type: 'handwriting-lines',
 			isLocked: true,
 			props: {
 				h: contentBounds.h,
@@ -570,6 +589,8 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h)
 	
 	silentlyChangeStore( editor, () => {
+
+		// resize container and lines
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
 			type: 'handwriting-container',
@@ -577,10 +598,28 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 		}, {
 			ephemeral: true
 		})
+		editor.updateShape({
+			id: 'shape:handwriting_lines' as TLShapeId,
+			type: 'handwriting-lines',
+			isLocked: false,
+		}, {
+			ephemeral: true
+		})
 		
+		// resize container and lines & lock again
 		editor.updateShape({
 			id: 'shape:primary_container' as TLShapeId,
 			type: 'handwriting-container',
+			isLocked: true,
+			props: {
+				h: contentBounds.h,
+			}
+		}, {
+			ephemeral: true
+		})
+		editor.updateShape({
+			id: 'shape:handwriting_lines' as TLShapeId,
+			type: 'handwriting-lines',
 			isLocked: true,
 			props: {
 				h: contentBounds.h,

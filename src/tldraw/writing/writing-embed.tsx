@@ -30,10 +30,8 @@ export function WritingEmbed (props: {
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
-	// const [isEditMode, setIsEditMode] = useState<boolean>(false);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
 	const [transitioning, setTransitioning] = useState<boolean>(false);
-	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(crypto.randomUUID());
@@ -43,26 +41,14 @@ export function WritingEmbed (props: {
 	
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
-
 		if(state === 'preview') {
-			// It's not edit mode
-
-			if(isEmptyWritingFile(curPageData.tldraw)) {
+			if(!curPageData.previewUri) {
+				console.log('Editing because no preview Url yet')
+				dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 				switchToEditMode();
-				
-			} else if(!curPageData.previewUri) {
-				// console.log("Switching to edit mode for writing screenshot")
-				switchToEditMode();
-				isEditModeForScreenshottingRef.current = true;
 			}
-
 			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
-
-		} else {
-			// It IS edit mode
-			if(isEditModeForScreenshottingRef.current) takeScreenshotAndReturn();
 		}
-
 	}, [state])
 
 	// This fires the first time it enters edit mode
@@ -73,7 +59,10 @@ export function WritingEmbed (props: {
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = embedId === activeEmbedId;
-	if(!isActive && state === 'edit') switchToReadOnlyIfStarted();
+	if(!isActive && state === 'edit'){
+		console.log('Freezing because not the active embed')
+		saveAndSwitchToPreviewMode();
+	}
 
 	const commonExtendedOptions = [
 		{
@@ -135,7 +124,7 @@ export function WritingEmbed (props: {
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
-					switchToReadOnly = {switchToReadOnlyIfStarted}
+					closeEditor = {saveAndSwitchToPreviewMode}
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
@@ -150,34 +139,16 @@ export function WritingEmbed (props: {
 		setTransitioning(true);
 		setState('edit');
 	}
-
-	function switchToPreviewMode() {
+	
+	async function saveAndSwitchToPreviewMode() {
+		if(editorControlsRef.current) {
+			await editorControlsRef.current.saveAndHalt();
+		}
+		const newPageData = await refreshPageData(props.plugin, props.fileRef);
+		setCurPageData(newPageData);
 		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
 		setTransitioning(true);
 		setState('preview');
-	}
-
-	async function switchToReadOnlyIfStarted() {
-		const newPageData = await refreshPageData(props.plugin, props.fileRef);
-		
-		// Don't switch to readonly if it hasn't been started (It's empty so there's no screenshot to show).
-		if(!isEmptyWritingFile(newPageData.tldraw)) {
-			// console.log(`Isn't an empty writing file --------`);
-			await editorControlsRef.current?.saveAndHalt();
-			setCurPageData(newPageData);
-			switchToPreviewMode();
-		}
-	}
-
-	async function takeScreenshotAndReturn() {
-		// console.log('Taking writing screenshot and switching back to read-only mode');
-		if(!editorControlsRef.current) return;
-		isEditModeForScreenshottingRef.current = false;
-		
-		await editorControlsRef.current.saveAndHalt();
-		const newPageData = await refreshPageData(props.plugin, props.fileRef);
-		setCurPageData(newPageData);
-		switchToPreviewMode();
 	}
 	
 };

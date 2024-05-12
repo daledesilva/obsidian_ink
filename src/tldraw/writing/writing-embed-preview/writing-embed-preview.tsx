@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import './writing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
@@ -25,7 +26,11 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
 	return <>
         <div
             ref = {svgRef}
-            className = 'ink_writing-embed-preview'
+            className = {classNames([
+                'ink_writing-embed-preview',
+                // 'ink_visible-lines',
+                // 'ink_visible-background',
+            ])}
             style={{
                 position: 'relative'
             }}

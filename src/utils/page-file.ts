@@ -10,7 +10,6 @@ type Metadata = {
 	pluginVersion: string;
 	tldrawVersion: string;
 	previewIsOutdated?: boolean;
-	previewIsDarkMode?: boolean;
 	transcript?: string;
 };
 
@@ -45,7 +44,6 @@ export const buildDrawingFileData = (props: {
 const buildFileData = (props: {
 	tldrawData: StoreSnapshot<TLRecord>,
 	previewIsOutdated?: boolean;
-	previewIsDarkMode?: boolean;
 	transcript?: string;
 	previewUri?: string,
 }): InkFileData => {
@@ -54,7 +52,6 @@ const buildFileData = (props: {
 		tldrawData,
 		previewUri,
 		previewIsOutdated = false,
-		previewIsDarkMode,
 	} = props;
 
 	let pageData: InkFileData = {
@@ -66,7 +63,6 @@ const buildFileData = (props: {
 	}
 
 	if(previewIsOutdated) pageData.meta.previewIsOutdated = previewIsOutdated;
-	if(previewIsDarkMode) pageData.meta.previewIsDarkMode = previewIsDarkMode;
 	if(previewUri) pageData.previewUri = previewUri;
 
 	return pageData;

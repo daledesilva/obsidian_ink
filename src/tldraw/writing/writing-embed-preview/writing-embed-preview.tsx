@@ -4,11 +4,13 @@ import * as React from 'react';
 import SVG from 'react-inlinesvg';
 import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
+import InkPlugin from 'src/main';
 
 //////////
 //////////
 
 interface WritingEmbedProps {
+    plugin: InkPlugin,
     onReady: Function,
     src: string,
     isActive: boolean,
@@ -27,9 +29,9 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
         <div
             ref = {svgRef}
             className = {classNames([
-                'ink_writing-embed-preview',
-                // 'ink_visible-lines',
-                // 'ink_visible-background',
+                'ddc_ink_writing-embed-preview',
+                props.plugin.settings.writingLinesWhenLocked && 'ddc_ink_visible-lines',
+                props.plugin.settings.writingBackgroundWhenLocked && 'ddc_ink_visible-background',
             ])}
             style={{
                 position: 'relative'

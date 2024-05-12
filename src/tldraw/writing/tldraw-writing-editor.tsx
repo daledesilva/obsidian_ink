@@ -377,7 +377,7 @@ export function TldrawWritingEditor(props: {
 	return <>
 		<div
 			className = {classNames([
-				"ink_writing-editor",
+				"ddc_ink_writing-editor",
 				preventTransitions && "preventTransitions"
 			])}
 			style={{
@@ -436,14 +436,10 @@ async function getWritingSvg(plugin: InkPlugin, editor: Editor): Promise<svgObj 
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);
-	if(!plugin.settings.writingBackgroundWhenLocked)	hideWritingContainer(editor);
-	if(!plugin.settings.writingLinesWhenLocked) 		hideWritingLines(editor);
-	
+
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
-	
-	if(!plugin.settings.writingBackgroundWhenLocked)	unhideWritingContainer(editor);
-	if(!plugin.settings.writingLinesWhenLocked) 		unhideWritingLines(editor);
+
 	resizeWritingTemplateInvitingly(editor);
 
 	return svgObj;

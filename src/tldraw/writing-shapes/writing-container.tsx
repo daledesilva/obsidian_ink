@@ -80,11 +80,8 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 			<rect
 				width = {shape.props.w}
 				height = {shape.props.h}
-				rx = {20}
-				ry = {20}
-				stroke = 'rgba(127.5, 127.5, 127.5, 0.2)'
-				strokeWidth = '1px'
-				fill = 'rgba(127.5, 127.5, 127.5, 0.02)'
+				opacity = {0}
+				// Not styled as it's used just for spacing
 			/>
 		</>
 	}

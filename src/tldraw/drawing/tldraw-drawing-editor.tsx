@@ -312,7 +312,7 @@ export function TldrawDrawingEditor(props: {
 	return <>
 		<div
 			ref = {containerElRef}
-			className = "ink_drawing-editor"
+			className = "ddc_ink_drawing-editor"
 			style = {{
 				height: '100%',
 				position: 'relative'

@@ -99,6 +99,7 @@ export function WritingEmbed (props: {
 			)}
 			{(state === 'preview' && curPageData.previewUri) && (
 				<WritingEmbedPreview
+					plugin = {props.plugin}
 					onReady = {() => setTransitioning(false)}
 					isActive = {isActive}
 					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.

@@ -46,8 +46,11 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                 <img
                     src = {props.src}
                     style = {{
-                        width: '100%'
+                        width: '100%',
+                        cursor: 'pointer',
+                        pointerEvents: 'all',
                     }}
+                    onLoad = {() => props.onReady}
                 />
             )}
             
@@ -60,7 +63,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
-                    onLoad = {props.onReady}
+                    onLoad = {() => props.onReady}
                 />
             )}
             

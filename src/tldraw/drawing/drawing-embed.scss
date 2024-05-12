@@ -1,14 +1,14 @@
 
 
 // Enables placing elements outside of the embed
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_drawing-embed),
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_drawing-embed):hover {
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ddc_ink_drawing-embed),
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ddc_ink_drawing-embed):hover {
     contain: unset !important;
     overflow: visible;
 }
 
 
-.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ink_drawing-embed) {
+.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ddc_ink_drawing-embed) {
     // Extend through page horizontal margin
     margin: 0 calc(-1 * var(--file-margins)) !important;
 
@@ -71,7 +71,7 @@
 
 
 
-.ink_drawing-embed {
+.ddc_ink_drawing-embed {
     box-sizing: content-box;
     transition-property: padding;
     transition-duration: 0.5s;
@@ -80,7 +80,7 @@
 
 
 .theme-dark {
-    .ink_drawing-embed-preview {
+    .ddc_ink_drawing-embed-preview {
         path { fill: rgb(242, 242, 242); }
         // NOTE: Seems like an attribute selector on fill doesn't work.
         // May have to iterate through SVG string before save and add id's for the paths with matching fills so I select them here
@@ -88,7 +88,7 @@
 }
 
 .theme-light {
-    .ink_drawing-embed-preview {
+    .ddc_ink_drawing-embed-preview {
         path { fill: rgb(29, 29, 29); }
     }
 }

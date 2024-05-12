@@ -39,7 +39,7 @@ export class MySettingsTab extends PluginSettingTab {
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
 		insertSetupGuide(containerEl);
 		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
-		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl);
+		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
 	
 		new Setting(containerEl)
 			.addButton( (button) => {
@@ -118,10 +118,37 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			});
 }
 
-function insertDrawingSettings(containerEl: HTMLElement) {
+function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
 	sectionEl.createEl('h2', { text: 'Drawing' });
 	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.` });
+
+	new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Show frame around drawing when not editing')
+
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.drawingFrameWhenLocked);
+			toggle.onChange( async (value: boolean) => {
+				plugin.settings.drawingFrameWhenLocked = value;
+				await plugin.saveSettings();
+				refresh();
+			})
+		});
+
+	new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Show background when not editing')
+
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.drawingBackgroundWhenLocked);
+			toggle.onChange( async (value: boolean) => {
+				plugin.settings.drawingBackgroundWhenLocked = value;
+				await plugin.saveSettings();
+				refresh();
+			})
+		});
+
 }
 
 function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {

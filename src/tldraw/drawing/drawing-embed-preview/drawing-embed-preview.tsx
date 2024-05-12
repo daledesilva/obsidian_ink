@@ -1,13 +1,16 @@
+import classNames from 'classnames';
 import './drawing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
 import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
+import InkPlugin from 'src/main';
 
 //////////
 //////////
 
 interface DrawingEmbedProps {
+    plugin: InkPlugin,
     onReady: Function,
     src: string,
     isActive: boolean,
@@ -25,7 +28,11 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
 	return <>
         <div
             ref = {svgRef}
-            className = 'ink_drawing-embed-preview'
+            className = {classNames([
+                'ddc_ink_drawing-embed-preview',
+                props.plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
+                props.plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
+            ])}
             style={{
                 // height: '100%',
                 position: 'relative'
@@ -40,8 +47,11 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                 <img
                     src = {props.src}
                     style = {{
-                        width: '100%'
+                        width: '100%',
+                        cursor: 'pointer',
+                        pointerEvents: 'all',
                     }}
+                    onLoad = {() => props.onReady}
                 />
             )}
 

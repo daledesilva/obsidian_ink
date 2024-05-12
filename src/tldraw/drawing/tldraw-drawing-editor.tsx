@@ -58,7 +58,7 @@ export function TldrawDrawingEditor(props: {
 	embedded?: boolean,
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
-	switchToReadOnly?: Function,
+	closeEditor?: Function,
 	commonExtendedOptions: any[]
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -193,7 +193,7 @@ export function TldrawDrawingEditor(props: {
 		if(props.registerControls) {
 			props.registerControls({
 				save: () => completeSave(editor),
-				saveAndHalt: async () => {
+				saveAndHalt: async (): Promise<void> => {
 					await completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
@@ -326,6 +326,7 @@ export function TldrawDrawingEditor(props: {
 				// shapeUtils={MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
+				autoFocus={false}	// Prevents tldraw scrolling the page to the top of the embed when turning on
 			/>
 			<PrimaryMenuBar>
 				<DrawingMenu
@@ -342,7 +343,7 @@ export function TldrawDrawingEditor(props: {
 					<ExtendedDrawingMenu
 						onLockClick = { async () => {
 							// TODO: Save immediately incase it hasn't been saved yet?
-							if(props.switchToReadOnly) props.switchToReadOnly();
+							if(props.closeEditor) props.closeEditor();
 						}}
 						menuOptions = {props.commonExtendedOptions}
 					/>

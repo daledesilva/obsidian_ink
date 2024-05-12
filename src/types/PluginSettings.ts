@@ -13,6 +13,8 @@ export interface PluginSettings {
 	writingBackgroundWhenLocked: boolean,
 	// Drawing specific
 	drawingEnabled: boolean,
+	drawingFrameWhenLocked: boolean,
+	drawingBackgroundWhenLocked: boolean,
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -24,7 +26,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	writingDynamicStrokeThickness: true,
 	writingSmoothing: false,
 	writingLinesWhenLocked: true,
-	writingBackgroundWhenLocked: false,
+	writingBackgroundWhenLocked: true,
 	// Drawing specific
 	drawingEnabled: false,
+	drawingFrameWhenLocked: false,
+	drawingBackgroundWhenLocked: false,
 }

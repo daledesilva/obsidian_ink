@@ -7,9 +7,7 @@
     transition: height 0.5s ease;
     &.preventTransitions { transition: none; }
     
-    // outline: 1px solid #FFF;
-    // border-radius: 10px;
-
+    
     .tl-canvas {
         background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
 

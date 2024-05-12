@@ -1,6 +1,8 @@
 # Ink
 A plugin for [Obsidian](https://obsidian.md) that adds the ability to hand write or draw with a stylus between paragraphs in your notes.
 
+Hand write or draw directly between paragraphs in your notes using a digital pen, stylus, or Apple pencil. Useful for handwriting, sketches, scribbles, or even math equations and scientific notation. Runs on the tldraw framework and drawing provides an infinite canvas.
+
 ## 🎥 Demo
 <p align="center">
   <a href="https://www.youtube.com/watch?v=qgir8F7ezNM" target="_blank">
@@ -62,9 +64,9 @@ Below are the high level features in my current development plan along with thei
 <details open>
 <summary>Upcoming</summary>
 
-- [ ] More intuitive UI/UX refinements & functionality. ***April***
-- [ ] Multiple pen styles. ***May***
-- [ ] More intuitive touch/stylus input refinement. ***May***
+- [ ] More intuitive UI/UX refinements & functionality. ***May***
+- [ ] Multiple pen styles. ***June***
+- [ ] More intuitive touch/stylus input refinement. ***June***
 </details>
 
 <details>
@@ -76,6 +78,9 @@ Below are the high level features in my current development plan along with thei
 - [ ] Intuitive selection of words.
 - [ ] Ability to reorder text.
 </details>
+
+## ⚠️ Be careful
+>As with most Obsidian plugins, this is a free gift to the community, provided 'as is' to help you out. While I'm doing my best to make it awesome (And I love feedback), there are always chances things might not work quite right. To be safe, **please always back up your files**.
 
 ## 🪳 Report a bug
 Found something that's not quite working right or do you have a feature request? Don't be shy, feel free to make some noise over on the [GitHub Issues](https://github.com/daledesilva/obsidian_project-browser/issues) page. But be sure to check if someone has already posted the same issue and comment on theirs if they have.

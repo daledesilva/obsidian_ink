@@ -451,6 +451,10 @@ export function prepareWritingSnapshot(snapshot: StoreSnapshot<TLRecord>): Store
 	return deleteObsoleteTemplateShapes(snapshot);
 }
 
+export function prepareDrawingSnapshot(snapshot: StoreSnapshot<TLRecord>): StoreSnapshot<TLRecord> {
+	return snapshot;
+}
+
 
 /***
  * Deletes obsolete template shapes but doesn't add updated ones.

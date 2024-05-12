@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, TLRecord, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
@@ -69,6 +69,7 @@ export function TldrawDrawingEditor(props: {
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
+	const [storeSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareDrawingSnapshot(props.pageData.tldraw))
 
 	function undo() {
 		const editor = editorRef.current
@@ -319,7 +320,7 @@ export function TldrawDrawingEditor(props: {
 			}}
 		>
 			<Tldraw
-				snapshot = {props.pageData.tldraw}
+				snapshot = {storeSnapshot}
 				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
 				// assetUrls = {assetUrls}

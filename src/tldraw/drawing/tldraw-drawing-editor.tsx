@@ -48,7 +48,7 @@ const myOverrides: TLUiOverrides = {
 }
 
 export function TldrawDrawingEditor(props: {
-	onReady: Function,
+	onReady?: Function,
 	plugin: InkPlugin,
 	fileRef: TFile,
 	pageData: InkFileData,
@@ -200,7 +200,7 @@ export function TldrawDrawingEditor(props: {
 			})
 		}
 		
-		props.onReady()
+		if(props.onReady) props.onReady()
 
 		return () => {
 			unmountActions();
@@ -326,7 +326,7 @@ export function TldrawDrawingEditor(props: {
 				// shapeUtils={MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
-				autoFocus={false}	// Prevents tldraw scrolling the page to the top of the embed when turning on
+				autoFocus = {props.embedded ? false : true}	// False prevents tldraw scrolling the page to the top of the embed when turning on // NOTE: A side effect of false is preventing mousewheel scrolling and zooming
 			/>
 			<PrimaryMenuBar>
 				<DrawingMenu

@@ -51,7 +51,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                         cursor: 'pointer',
                         pointerEvents: 'all',
                     }}
-                    onLoad = {() => props.onReady}
+                    onLoad = {() => props.onReady()}
                 />
             )}
 
@@ -64,7 +64,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
-                    onLoad = {() => props.onReady}
+                    onLoad = {() => props.onReady()}
                 />
             )}
 

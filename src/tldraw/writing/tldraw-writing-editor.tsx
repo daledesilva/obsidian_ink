@@ -395,7 +395,7 @@ export function TldrawWritingEditor(props: {
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
 				// assetUrls = {assetUrls} // This causes multiple mounts
-				autoFocus={false}	// Prevents tldraw scrolling the page to the top of the embed when turning on
+				autoFocus = {props.embedded ? false : true}	// False prevents tldraw scrolling the page to the top of the embed when turning on // NOTE: A side effect of false is preventing mousewheel scrolling and zooming
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu

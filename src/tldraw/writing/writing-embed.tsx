@@ -31,13 +31,12 @@ export function WritingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
-	const [transitioning, setTransitioning] = useState<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(crypto.randomUUID());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
-	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number>(0);
+	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
 	
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
@@ -60,7 +59,6 @@ export function WritingEmbed (props: {
 
 	let isActive = embedId === activeEmbedId;
 	if(!isActive && state === 'edit'){
-		console.log('Freezing because not the active embed')
 		saveAndSwitchToPreviewMode();
 	}
 
@@ -87,7 +85,7 @@ export function WritingEmbed (props: {
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: state=='edit' ? '3em' : '1em',
 				paddingBottom: state=='edit' ? '2em' : '0.5em',
-				height: transitioning ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
+				height: staticEmbedHeight ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
 			{(state === 'preview' && !curPageData.previewUri) && (
@@ -100,7 +98,9 @@ export function WritingEmbed (props: {
 			{(state === 'preview' && curPageData.previewUri) && (
 				<WritingEmbedPreview
 					plugin = {props.plugin}
-					onReady = {() => setTransitioning(false)}
+					onReady = {() => {
+						setStaticEmbedHeight(null);
+					}}
 					isActive = {isActive}
 					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.
 					// src = {previewFilePath}
@@ -118,7 +118,9 @@ export function WritingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawWritingEditor
-					onReady = {() => setTransitioning(false)}
+					onReady = {() => {
+						setStaticEmbedHeight(null);
+					}}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -136,8 +138,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
-		setTransitioning(true);
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
 		setState('edit');
 	}
 	
@@ -147,8 +148,7 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
-		setTransitioning(true);
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 	

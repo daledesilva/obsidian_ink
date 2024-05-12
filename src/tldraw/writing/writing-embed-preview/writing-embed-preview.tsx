@@ -25,6 +25,10 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
     // Check if src is a pnd DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
 
+    // const handleImageLoad = () => {
+    //     this.setState({ loaded: true });
+    // }
+
 	return <>
         <div
             ref = {svgRef}
@@ -50,7 +54,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                         cursor: 'pointer',
                         pointerEvents: 'all',
                     }}
-                    onLoad = {() => props.onReady}
+                    onLoad = {() => props.onReady()}
                 />
             )}
             
@@ -63,7 +67,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
-                    onLoad = {() => props.onReady}
+                    onLoad = {() => props.onReady()}
                 />
             )}
             

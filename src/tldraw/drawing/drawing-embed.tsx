@@ -29,14 +29,13 @@ export function DrawingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
-	const [transitioning, setTransitioning] = useState<boolean>(false);
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const [embedId] = useState<string>(crypto.randomUUID());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
-	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number>(0);
+	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);
 		
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
@@ -51,17 +50,6 @@ export function DrawingEmbed (props: {
 
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
-	}
-
-	const takeScreenshotAndReturn = async () => {
-		// console.log('Taking drawing screenshot and switching back to read-only mode');
-		if(!editorControlsRef.current) return;
-		isEditModeForScreenshottingRef.current = false;
-		
-		await editorControlsRef.current.saveAndHalt();
-		const newPageData = await refreshPageData(props.plugin, props.fileRef);
-		setCurPageData(newPageData);
-		saveAndSwitchToPreviewMode();
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
@@ -102,7 +90,7 @@ export function DrawingEmbed (props: {
 			{(state === 'preview' && curPageData.previewUri) && (
 				<DrawingEmbedPreview
 					plugin = {props.plugin}
-					onReady = {() => setTransitioning(false)}
+					onReady = {() => setStaticEmbedHeight(null)}
 					isActive = {isActive}
 					src = {curPageData.previewUri}
 					// src = {previewFilePath}
@@ -120,7 +108,7 @@ export function DrawingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawDrawingEditor
-					onReady = {() => setTransitioning(false)}
+					onReady = {() => setStaticEmbedHeight(null)}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -138,8 +126,7 @@ export function DrawingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
-		setTransitioning(true);
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
 		setState('edit');
 	}
 
@@ -149,8 +136,7 @@ export function DrawingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || 0);
-		setTransitioning(true);
+		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 		

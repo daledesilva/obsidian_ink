@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainerUtil } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
@@ -341,7 +341,7 @@ export function TldrawWritingEditor(props: {
 		
 		unstashStaleContent(editor);
 		const tldrawData = editor.store.getSnapshot();
-		const svgObj = await getWritingSvg(editor);
+		const svgObj = await getWritingSvg(props.plugin, editor);
 		stashStaleContent(editor);
 		
 		if (svgObj) {
@@ -432,18 +432,18 @@ interface svgObj {
 	svg: string,
 };
 
-async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+async function getWritingSvg(plugin: InkPlugin, editor: Editor): Promise<svgObj | undefined> {
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);
-	// hideWritingContainer(editor);
-	// hideWritingLines(editor);
+	if(!plugin.settings.writingBackgroundWhenLocked)	hideWritingContainer(editor);
+	if(!plugin.settings.writingLinesWhenLocked) 		hideWritingLines(editor);
 	
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
 	
-	// unhideWritingLines(editor);
-	// unhideWritingContainer(editor);
+	if(!plugin.settings.writingBackgroundWhenLocked)	unhideWritingContainer(editor);
+	if(!plugin.settings.writingLinesWhenLocked) 		unhideWritingLines(editor);
 	resizeWritingTemplateInvitingly(editor);
 
 	return svgObj;

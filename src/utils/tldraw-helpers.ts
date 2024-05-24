@@ -2,6 +2,8 @@ import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, TLUn
 import { WRITE_STROKE_LIMIT } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
+import { WritingContainer } from "src/tldraw/writing-shapes/writing-container";
+import { WritingLines } from "src/tldraw/writing-shapes/writing-lines";
 
 //////////
 //////////
@@ -317,7 +319,7 @@ export const unhideWritingTemplate = (editor: Editor) => {
 }
 
 export const hideWritingContainer = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-container' as TLShapeId);
+	const templateShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!templateShape) return;
 	const savedH = templateShape.props.h;
 
@@ -328,7 +330,9 @@ export const hideWritingContainer = (editor: Editor) => {
 			isLocked: false,
 			props: {
 				h: 0,
-				savedH: savedH
+			},
+			meta: {
+				savedH: savedH,
 			}
 		}, {
 			ephemeral: true,
@@ -337,7 +341,7 @@ export const hideWritingContainer = (editor: Editor) => {
 }
 
 export const hideWritingLines = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId);
+	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	if (!templateShape) return;
 	const savedH = templateShape.props.h;
 
@@ -348,7 +352,9 @@ export const hideWritingLines = (editor: Editor) => {
 			isLocked: false,
 			props: {
 				h: 0,
-				savedH: savedH
+			},
+			meta: {
+				savedH: savedH,
 			}
 		}, {
 			ephemeral: true,
@@ -357,9 +363,9 @@ export const hideWritingLines = (editor: Editor) => {
 }
 
 export const unhideWritingContainer = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-container' as TLShapeId);
+	const templateShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!templateShape) return;
-	const h = templateShape.props.savedH;
+	const h = templateShape.meta.savedH;
 
 	silentlyChangeStore(editor, () => {
 		editor.updateShape({
@@ -368,7 +374,9 @@ export const unhideWritingContainer = (editor: Editor) => {
 			isLocked: false,
 			props: {
 				h: h,
-				savedH: undefined
+			},
+			meta: {
+				savedH: undefined,
 			}
 		}, {
 			ephemeral: true,
@@ -377,9 +385,9 @@ export const unhideWritingContainer = (editor: Editor) => {
 }
 
 export const unhideWritingLines = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId);
+	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	if (!templateShape) return;
-	const h = templateShape.props.savedH;
+	const h = templateShape.meta.savedH;
 
 	silentlyChangeStore(editor, () => {
 		editor.updateShape({
@@ -388,7 +396,9 @@ export const unhideWritingLines = (editor: Editor) => {
 			isLocked: false,
 			props: {
 				h: h,
-				savedH: undefined
+			},
+			meta: {
+				savedH: undefined,
 			}
 		}, {
 			ephemeral: true,
@@ -490,7 +500,7 @@ export const updateWritingStoreIfNeeded = (editor: Editor) => {
 }
 
 function addNewTemplateShapes(editor: Editor) {
-	const hasLines = editor.store.has('shape:writing-lines' as TLShapeId);
+	const hasLines = editor.store.has('shape:writing-lines' as TLShapeId) as WritingLines;
 	if(!hasLines) {
 		editor.createShape({
 			id: 'shape:writing-lines' as TLShapeId,
@@ -498,7 +508,7 @@ function addNewTemplateShapes(editor: Editor) {
 		})
 	}
 
-	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId);
+	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId) as WritingContainer;
 	if(!hasContainer) {
 			editor.createShape({
 			id: 'shape:writing-container' as TLShapeId,

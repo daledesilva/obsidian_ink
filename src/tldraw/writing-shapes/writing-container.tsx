@@ -28,7 +28,7 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 		})
 	}
 
-	// Don't let arrows lor lines bind one of their ends to it
+	// Don't let arrows or lines bind one of their ends to it
 	override canBind = (shape: WritingContainer) => false
 
 	// Prevent rotating the container
@@ -39,7 +39,7 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 		return initShape;
 	}
 	
-		// Prevent resizing horizontally
+	// Prevent resizing horizontally
 	onResize: TLOnResizeHandler<WritingContainer> = (shape, info) => {
 		return resizeBox(shape, info, {
 			minWidth: WRITING_PAGE_WIDTH,

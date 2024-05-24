@@ -6,7 +6,7 @@ import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from
 //////////
 //////////
 
-type WritingLines = TLBaseShape<'writing-lines', { x: number, y: number, w: number, h: number }>
+export type WritingLines = TLBaseShape<'writing-lines', { x: number, y: number, w: number, h: number }>
 
 export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 	static override type = 'writing-lines' as const

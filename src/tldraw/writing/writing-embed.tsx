@@ -78,7 +78,7 @@ export function WritingEmbed (props: {
 		// }
 	]
 
-	const showPreview = (state === 'preview' && !curPageData.previewUri);
+	//////
 
 	return <>
 		<div
@@ -91,7 +91,7 @@ export function WritingEmbed (props: {
 				height: staticEmbedHeight ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
-			{showPreview && (
+			{(state === 'preview' && !curPageData.previewUri) && (
 				<p>
 					Your writing embed doesn't have a valid screenshot.<br/>
 					Try opening the source file directly to fix.
@@ -119,7 +119,7 @@ export function WritingEmbed (props: {
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
-			{!showPreview && (
+			{state === 'edit' && (
 				<TldrawWritingEditor
 					onReady = {() => {
 						setStaticEmbedHeight(null);

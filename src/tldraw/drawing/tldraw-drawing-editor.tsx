@@ -298,7 +298,7 @@ export function TldrawDrawingEditor(props: {
 				previewUri,
 			})
 			props.save(pageData);
-			savePngExport(props.plugin, previewUri, props.fileRef)
+			// savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
 			const pageData = buildDrawingFileData({

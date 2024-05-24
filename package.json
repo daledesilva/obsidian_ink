@@ -30,6 +30,7 @@
 		"classnames": "^2.5.1",
 		"esbuild-plugin-copy": "^2.0.1",
 		"esbuild-sass-plugin": "^2.4.4",
+		"nanoid": "^5.0.7",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-inlinesvg": "^4.1.3",

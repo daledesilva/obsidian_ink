@@ -60,15 +60,17 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
 		
 		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
-			this.el.createEl('p').textContent = 'Ink writing file not found.';
+			this.el.createEl('p').textContent = 'Ink writing file not found:   ' + this.embedData.filepath;
 			return;
 		}
 
 		const pageDataStr = await v.read(this.fileRef);
 		const pageData = JSON.parse(pageDataStr) as InkFileData;
+		this.el.createEl('p').textContent = JSON.stringify(pageData, null, 2);
 
-		this.root = createRoot(this.el);
-		this.root.render(
+		if(!this.root) this.root = createRoot(this.el);
+
+		this.root.render(<>
 			<Provider store={store}>
 				<WritingEmbed
 					plugin = {this.plugin}
@@ -77,7 +79,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 					save = {this.save}
 				/>
 			</Provider>
-        );
+		</>);
 	}
 
 	async onunload() {

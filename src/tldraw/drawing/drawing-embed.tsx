@@ -11,6 +11,7 @@ import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";
 import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
+import { nanoid } from "nanoid";
 
 ///////
 ///////
@@ -32,7 +33,7 @@ export function DrawingEmbed (props: {
 	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
-	const [embedId] = useState<string>(crypto.randomUUID());
+	const [embedId] = useState<string>(nanoid());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);

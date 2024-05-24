@@ -13,6 +13,7 @@ import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
+import { nanoid } from "nanoid";
 
 ///////
 ///////
@@ -33,7 +34,7 @@ export function WritingEmbed (props: {
 	const [state, setState] = useState<'preview'|'edit'>('preview');
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
-	const [embedId] = useState<string>(crypto.randomUUID());
+	const [embedId] = useState<string>(nanoid());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
@@ -77,6 +78,8 @@ export function WritingEmbed (props: {
 		// }
 	]
 
+	const showPreview = (state === 'preview' && !curPageData.previewUri);
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -88,7 +91,7 @@ export function WritingEmbed (props: {
 				height: staticEmbedHeight ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
-			{(state === 'preview' && !curPageData.previewUri) && (
+			{showPreview && (
 				<p>
 					Your writing embed doesn't have a valid screenshot.<br/>
 					Try opening the source file directly to fix.
@@ -116,7 +119,7 @@ export function WritingEmbed (props: {
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
-			{state === 'edit' && (
+			{!showPreview && (
 				<TldrawWritingEditor
 					onReady = {() => {
 						setStaticEmbedHeight(null);

@@ -46,7 +46,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {isImg && (
+            {isImg && (<>
                 <img
                     src = {props.src}
                     style = {{
@@ -56,9 +56,9 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                     }}
                     onLoad = {() => props.onReady()}
                 />
-            )}
+            </>)}
             
-            {!isImg && (
+            {!isImg && (<>
                 <SVG
                     src = {props.src}
                     style = {{
@@ -69,7 +69,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                     pointerEvents = "visible"
                     onLoad = {() => props.onReady()}
                 />
-            )}
+            </>)}
             
             {props.isActive && (
                 <PrimaryMenuBar>

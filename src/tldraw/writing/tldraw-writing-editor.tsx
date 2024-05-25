@@ -1,8 +1,8 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
-import { WritingContainerUtil } from "../writing-shapes/writing-container"
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
+import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
 import * as React from "react";
@@ -12,7 +12,7 @@ import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
-import { WritingLinesUtil } from '../writing-shapes/writing-lines';
+import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
 
 ///////
 ///////
@@ -534,31 +534,19 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 
-	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h)
+	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h);
+
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	
 	
 	silentlyChangeStore( editor, () => {
-
-		// Unlock container and lines
+		unlockShape(editor, writingContainerShape);
+		unlockShape(editor, writingLinesShape);
+		// resize container and lines
 		editor.updateShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-			isLocked: false,
-		}, {
-			ephemeral: true
-		})
-		editor.updateShape({
-			id: 'shape:writing-lines' as TLShapeId,
-			type: 'writing-lines',
-			isLocked: false,
-		}, {
-			ephemeral: true
-		})
-		
-		// resize container and lines & lock again
-		editor.updateShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-			isLocked: true,
+			id: writingContainerShape.id,
+			type: writingContainerShape.type,
 			props: {
 				h: contentBounds.h,
 			}
@@ -566,16 +554,18 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 			ephemeral: true
 		})
 		editor.updateShape({
-			id: 'shape:writing-lines' as TLShapeId,
-			type: 'writing-lines',
-			isLocked: true,
+			id: writingLinesShape.id,
+			type: writingLinesShape.type,
 			props: {
 				h: contentBounds.h,
 			}
 		}, {
 			ephemeral: true
 		})
+		lockShape(editor, writingContainerShape);
+		lockShape(editor, writingLinesShape);
 	})
+
 	
 }
 
@@ -587,31 +577,19 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 
-	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h)
+	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h);
+
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	
 	
 	silentlyChangeStore( editor, () => {
-
+		unlockShape(editor, writingContainerShape);
+		unlockShape(editor, writingLinesShape);
 		// resize container and lines
 		editor.updateShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-			isLocked: false,
-		}, {
-			ephemeral: true
-		})
-		editor.updateShape({
-			id: 'shape:writing-lines' as TLShapeId,
-			type: 'writing-lines',
-			isLocked: false,
-		}, {
-			ephemeral: true
-		})
-		
-		// resize container and lines & lock again
-		editor.updateShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-			isLocked: true,
+			id: writingContainerShape.id,
+			type: writingContainerShape.type,
 			props: {
 				h: contentBounds.h,
 			}
@@ -619,16 +597,18 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 			ephemeral: true
 		})
 		editor.updateShape({
-			id: 'shape:writing-lines' as TLShapeId,
-			type: 'writing-lines',
-			isLocked: true,
+			id: writingLinesShape.id,
+			type: writingLinesShape.type,
 			props: {
 				h: contentBounds.h,
 			}
 		}, {
 			ephemeral: true
 		})
+		lockShape(editor, writingContainerShape);
+		lockShape(editor, writingLinesShape);
 	})
+
 	
 }
 

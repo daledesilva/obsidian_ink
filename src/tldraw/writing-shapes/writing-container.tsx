@@ -1,4 +1,4 @@
-import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
+import { HTMLContainer, Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnBeforeUpdateHandler, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
 import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -6,15 +6,14 @@ import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 //////////
 //////////
 
-type WritingContainer = TLBaseShape<'writing-container', { x: number, y: number, w: number, h: number }>
+export type WritingContainer = TLBaseShape<'writing-container', { w: number, h: number }>
+
 
 export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 	static override type = 'writing-container' as const
 
 	getDefaultProps(): WritingContainer['props'] {
 		return {
-			x: 0,
-			y: 0,
 			w: WRITING_PAGE_WIDTH,
 			h: WRITING_MIN_PAGE_HEIGHT,
 		}
@@ -27,6 +26,31 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 			isFilled: false,	// Controls whether you can select the shape by clicking the inside (Not whether it's visibly filled)
 		})
 	}
+
+	component(shape: WritingContainer) {
+		return <SVGContainer>
+			{this.createSvg(shape)}
+		</SVGContainer>
+	}
+	
+	indicator(shape: WritingContainer) {
+		return <>
+			<rect
+				width = {shape.props.w}
+				height = {shape.props.h}
+				rx = {20}
+				ry = {20}
+			/>
+		</>
+	}
+
+	// Playing with unlocking and locking automatically
+	// onBeforeUpdate = (shapePrior: WritingContainer, shapeAfter: WritingContainer) => {
+	// 	return {
+	// 		...shapePrior,
+	// 		isLocked: false,
+	// 	}
+	// }
 
 	// Don't let arrows or lines bind one of their ends to it
 	override canBind = (shape: WritingContainer) => false
@@ -47,23 +71,6 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 			minHeight: WRITING_MIN_PAGE_HEIGHT,
 			maxHeight: 50000
 		});
-	}
-
-	indicator(shape: WritingContainer) {
-		return <>
-			<rect
-				width = {shape.props.w}
-				height = {shape.props.h}
-				rx = {20}
-				ry = {20}
-			/>
-		</>
-	}
-
-	component(shape: WritingContainer) {
-		return <SVGContainer>
-			{this.createSvg(shape)}
-		</SVGContainer>
 	}
 	
 	toSvg(shape: WritingContainer, ctx: SvgExportContext): React.JSX.Element {

@@ -20,7 +20,15 @@
     }
 }
 
+.cm-preview-code-block {
+    overflow: visible !important; // Necessary on some android phones to allow menu bar to be visible outside   // TODO: This doesn't solve it actually
+}
+.block-language-handwritten-ink {
+    overflow: visible !important; // Necessary on some android phones to allow menu bar to be visible outside   // TODO: This doesn't solve it actually
+}
 .ink_writing-embed {
+    overflow: visible !important; // Necessary on some android phones to allow menu bar to be visible outside   // TODO: This doesn't solve it actually
+
     transition-property: padding, height;
     transition-duration: 0.5s;
     transition-timing-function: ease-out;

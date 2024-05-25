@@ -319,15 +319,16 @@ export const unhideWritingTemplate = (editor: Editor) => {
 }
 
 export const hideWritingContainer = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
-	if (!templateShape) return;
-	const savedH = templateShape.props.h;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	if (!writingContainerShape) return;
+	const savedH = writingContainerShape.props.h;
 
 	silentlyChangeStore(editor, () => {
+		unlockShape(editor, writingContainerShape);
 		editor.updateShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-			isLocked: false,
+			id: writingContainerShape.id,
+			type: writingContainerShape.type,
+			// isLocked: true,
 			props: {
 				h: 0,
 			},
@@ -337,19 +338,26 @@ export const hideWritingContainer = (editor: Editor) => {
 		}, {
 			ephemeral: true,
 		});
+		lockShape(editor, writingContainerShape);
 	});
 }
 
 export const hideWritingLines = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
-	if (!templateShape) return;
-	const savedH = templateShape.props.h;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	if (!writingLinesShape) return;
+	const savedH = writingLinesShape.props.h;
+
+	editor.store.update(writingLinesShape.id, (record: WritingContainer) => {
+		record.isLocked = false;
+		return record;
+	})
 
 	silentlyChangeStore(editor, () => {
+		unlockShape(editor, writingLinesShape);
 		editor.updateShape({
-			id: 'shape:writing-lines' as TLShapeId,
-			type: 'writing-lines',
-			isLocked: false,
+			id: writingLinesShape.id,
+			type: writingLinesShape.type,
+			// isLocked: true,
 			props: {
 				h: 0,
 			},
@@ -359,19 +367,21 @@ export const hideWritingLines = (editor: Editor) => {
 		}, {
 			ephemeral: true,
 		});
+		lockShape(editor, writingLinesShape);
 	});
 }
 
 export const unhideWritingContainer = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
-	if (!templateShape) return;
-	const h = templateShape.meta.savedH;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	if (!writingContainerShape) return;
+	const h = writingContainerShape.meta.savedH;
 
 	silentlyChangeStore(editor, () => {
+		unlockShape(editor, writingContainerShape);
 		editor.updateShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-			isLocked: false,
+			id: writingContainerShape.id,
+			type: writingContainerShape.type,
+			// isLocked: true,
 			props: {
 				h: h,
 			},
@@ -381,19 +391,21 @@ export const unhideWritingContainer = (editor: Editor) => {
 		}, {
 			ephemeral: true,
 		});
+		lockShape(editor, writingContainerShape);
 	});
 }
 
 export const unhideWritingLines = (editor: Editor) => {
-	const templateShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
-	if (!templateShape) return;
-	const h = templateShape.meta.savedH;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	if (!writingLinesShape) return;
+	const h = writingLinesShape.meta.savedH;
 
 	silentlyChangeStore(editor, () => {
+		unlockShape(editor, writingLinesShape);
 		editor.updateShape({
-			id: 'shape:writing-lines' as TLShapeId,
-			type: 'writing-lines',
-			isLocked: false,
+			id: writingLinesShape.id,
+			type: writingLinesShape.type,
+			// isLocked: true,
 			props: {
 				h: h,
 			},
@@ -403,6 +415,7 @@ export const unhideWritingLines = (editor: Editor) => {
 		}, {
 			ephemeral: true,
 		});
+		lockShape(editor, writingLinesShape);
 	});
 }
 
@@ -500,7 +513,7 @@ export const updateWritingStoreIfNeeded = (editor: Editor) => {
 }
 
 function addNewTemplateShapes(editor: Editor) {
-	const hasLines = editor.store.has('shape:writing-lines' as TLShapeId) as WritingLines;
+	const hasLines = editor.store.has('shape:writing-lines' as TLShapeId);
 	if(!hasLines) {
 		editor.createShape({
 			id: 'shape:writing-lines' as TLShapeId,
@@ -508,7 +521,7 @@ function addNewTemplateShapes(editor: Editor) {
 		})
 	}
 
-	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId) as WritingContainer;
+	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId);
 	if(!hasContainer) {
 			editor.createShape({
 			id: 'shape:writing-container' as TLShapeId,
@@ -516,3 +529,45 @@ function addNewTemplateShapes(editor: Editor) {
 		})
 	}
 }
+
+export function unlockShape(editor: Editor, shape: TLUnknownShape) {
+
+	// NOTE: Unlocking through updateShape causes an object.hasOwn error on older Android devices
+	// editor.updateShape({
+	// 	id: shape.id,
+	// 	type: shape.type,
+	//  isLocked: false,
+	// }, {
+	// 	ephemeral: true
+	// })
+
+	// NOTE: Unlocking directly in the store instead.
+	editor.store.update(shape.id, (record: TLUnknownShape) => {
+		const newRecord = JSON.parse(JSON.stringify(record));
+		newRecord.isLocked = false;
+		return newRecord;
+	})
+
+}
+
+export function lockShape(editor: Editor, shape: TLUnknownShape) {
+
+	// NOTE: Locking through updateShape causes an object.hasOwn error on older Android devices
+	// editor.updateShape({
+	// 	id: shape.id,
+	// 	type: shape.type,
+	//  isLocked: true,
+	// }, {
+	// 	ephemeral: true
+	// })
+
+	// NOTE: Locking directly in the store instead.
+	editor.store.update(shape.id, (record: TLUnknownShape) => {
+		const newRecord = JSON.parse(JSON.stringify(record));
+		newRecord.isLocked = true;
+		return newRecord;
+	})
+
+}
+
+

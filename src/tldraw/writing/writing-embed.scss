@@ -1,18 +1,28 @@
 
-// Enables placing elements outside of the embed
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_writing-embed),
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ink_writing-embed):hover {
-    contain: unset !important;
-    overflow: visible;
+
+.ink_writing-embed {
+    transition-property: padding, height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
 }
 
-.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ink_writing-embed) {
-    margin: 0 calc(-1 * var(--file-margins)) !important;
 
-    // Prevent default obsidian cod-block hover outline
-    &:hover {
-        box-shadow: none;
-    }
+
+
+// TODO: This is common to drawing and writing files. It should be moved to a common area.
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered.ddc_ink_embed-block,
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered.ddc_ink_embed-block:hover {
+    
+    // Enables placing elements outside of the embed
+    contain: unset !important;
+    overflow: visible !important;
+
+    // Extends ink area into margins of writing area
+    // NOTE: The above was removed and moved to javascript applyCommonAncestorStyling function. Because file-margin couldn't be trusted to be a single value. Sometimes it would bve something like '8px 22px'
+    // margin: 0 calc(-1 * var(--file-margins) + 4px) !important;
+
+    // Prevent default obsidian code-block hover outline
+    box-shadow: none;
     
     // Prevent default Obsidian 'edit block' button appearing
     .edit-block-button {
@@ -20,16 +30,3 @@
     }
 }
 
-.cm-preview-code-block {
-    overflow: visible !important; // Necessary on some android phones to allow menu bar to be visible outside   // TODO: This doesn't solve it actually
-}
-.block-language-handwritten-ink {
-    overflow: visible !important; // Necessary on some android phones to allow menu bar to be visible outside   // TODO: This doesn't solve it actually
-}
-.ink_writing-embed {
-    overflow: visible !important; // Necessary on some android phones to allow menu bar to be visible outside   // TODO: This doesn't solve it actually
-
-    transition-property: padding, height;
-    transition-duration: 0.5s;
-    transition-timing-function: ease-out;
-}

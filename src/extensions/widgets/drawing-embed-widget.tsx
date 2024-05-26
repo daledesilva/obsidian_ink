@@ -3,7 +3,7 @@ import { MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
-import { DrawingEmbedData } from "src/utils/embed";
+import { DrawingEmbedData, applyCommonAncestorStyling } from "src/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
@@ -66,6 +66,8 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 				/>
 			</Provider>
         );
+
+		applyCommonAncestorStyling(this.el)
 	}
 
 	async onunload() {

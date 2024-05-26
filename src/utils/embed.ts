@@ -68,3 +68,20 @@ export const getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
 	}
 	return null;
 };
+
+export function applyCommonAncestorStyling(embedEl: HTMLElement) {
+	const parentEmbedBlockEl = embedEl.closest('.cm-embed-block') as HTMLElement;
+	if(!parentEmbedBlockEl) return;
+	
+	parentEmbedBlockEl.classList.add('ddc_ink_embed-block');
+	
+	const parentPageScrollerEl = embedEl.closest('.cm-scroller') as HTMLElement;
+	const scrollerStyle = window.getComputedStyle(parentPageScrollerEl);
+	
+	const m = scrollerStyle.paddingLeft;
+
+	let style = parentEmbedBlockEl.getAttribute('style') ?? '';
+	style += `; margin-left: calc(-${m} + 4px) !important`;
+	style += `; margin-right: calc(-${m} + 4px) !important`;
+	parentEmbedBlockEl.setAttribute('style', style);
+}

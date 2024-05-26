@@ -37,6 +37,7 @@ export function DrawingEmbed (props: {
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);
+
 		
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {

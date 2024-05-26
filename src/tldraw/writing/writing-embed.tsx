@@ -39,6 +39,7 @@ export function WritingEmbed (props: {
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
 	
+
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 		if(state === 'preview') {

@@ -3,7 +3,7 @@ import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
-import { WritingEmbedData as WritingEmbedData } from "src/utils/embed";
+import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling } from "src/utils/embed";
 import InkPlugin from "src/main";
 import WritingEmbed from "src/tldraw/writing/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
@@ -79,6 +79,8 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 				/>
 			</Provider>
 		);
+
+		applyCommonAncestorStyling(this.el)
 	}
 
 	async onunload() {

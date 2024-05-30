@@ -2,6 +2,10 @@
 ////////
 
 export interface PluginSettings {
+	// Helpers
+    onboardingTips: {
+		strokeLimitTipRead: boolean,
+	},
 	// General
     useDefaultAttachmentFolder: boolean,
 	// Writing specific
@@ -18,6 +22,10 @@ export interface PluginSettings {
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
+	// Helpers
+    onboardingTips: {
+		strokeLimitTipRead: false,
+	},
 	// General
     useDefaultAttachmentFolder: true,
 	// Writing specific

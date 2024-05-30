@@ -1,0 +1,55 @@
+.ddc_ink_notice {
+    pointer-events: none;
+    
+    p.ddc_ink_notice-label {
+        color: var(--text-faint);
+        font-size: var(--font-small);
+        margin: 0;
+        padding: 0;
+    }
+
+    h1 {
+        margin-block-start: 0.1em;
+        color: var(--text-accent);
+    }
+    p {
+        font-size: var(--font-text-size);
+    }
+
+    .ddc_ink_notice-cta-bar {
+        display: flex;
+        flex-direction: row-reverse; // 
+        justify-content: space-between;
+        
+        Button {
+            pointer-events: all;
+            // margin-left: auto; // Right aligns when no siblings
+
+            &.ddc_ink_tertiary-btn {
+                color: var(--text-faint);
+                background: none;
+                box-shadow: none;
+                border-radius: var(--button-radius);
+                margin-inline: 0;
+                padding-inline: 0;
+    
+                &:hover {
+                    color: var(--text-normal);
+                    text-decoration: underline;
+                }
+            }
+
+            &.ddc_ink_primary-btn {
+                color: var(--text-on-accent);
+                background-color: var(--interactive-accent);
+                
+                &:hover {
+                    background-color: var(--interactive-accent-hover);
+                }
+            }
+
+        }
+        
+
+    }
+}

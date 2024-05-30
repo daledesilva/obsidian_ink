@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import InkPlugin from "src/main";
 import { WritingContainer } from "src/tldraw/writing-shapes/writing-container";
 import { WritingLines } from "src/tldraw/writing-shapes/writing-lines";
+import { showStrokeLimitNotice_maybe } from "src/notices/stroke-limit-notice";
 
 //////////
 //////////
@@ -291,6 +292,8 @@ export const useStash = (plugin: InkPlugin) => {
 			staleShapeIds.push(record.id as TLShapeId);
 			staleShapes.push(record as TLShape);
 		}
+
+		if(staleShapeIds.length > 5) showStrokeLimitNotice_maybe(plugin);
 
 		stash.current.push(...staleShapes);
 		silentlyChangeStore(editor, () => {

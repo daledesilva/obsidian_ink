@@ -15,6 +15,14 @@
     p {
         font-size: var(--font-text-size);
     }
+    blockquote {
+        font-size: var(--font-text-size);
+        padding: 0.5em 0.8em;
+        margin-inline: 0;
+        background-color: var(--background-primary-alt);
+        border-radius: var(--button-radius);
+        display: block;
+    }
 
     .ddc_ink_notice-cta-bar {
         display: flex;

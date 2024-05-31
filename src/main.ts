@@ -13,6 +13,7 @@ import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget'
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import { showStrokeLimitNotice_maybe } from './notices/stroke-limit-notice';
+import { showWelcomeNotice_maybe } from './notices/welcome-notice';
 
 ////////
 ////////
@@ -48,7 +49,7 @@ export default class InkPlugin extends Plugin {
 		// // 	console.log('click', evt);
 		// // });
 
-		showStrokeLimitNotice_maybe(this);
+		showWelcomeNotice_maybe(this);
 	}
 	
 	onunload() {}

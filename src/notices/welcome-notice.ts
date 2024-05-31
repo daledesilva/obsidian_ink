@@ -1,0 +1,114 @@
+import { createInkNoticeTemplate, createNoticeCtaBar, launchPersistentInkNotice } from 'src/components/dom-components/notice-components';
+import InkPlugin from "src/main";
+
+///////////
+///////////
+
+export function showWelcomeNotice_maybe(plugin: InkPlugin) {
+    // Bail if it's already been shown enough times
+    if(plugin.settings.onboardingTips.welcomeTipRead) return;
+
+    const noticeBody = createInkNoticeTemplate(1,3);
+    noticeBody.createEl('h1').setText(`Welcome to the Ink plugin`);
+    noticeBody.createEl('p').setText(`Ink is all about enabling stylus use directly in your markdown notes.`);
+    noticeBody.createEl('p').setText(`Here's a quick rundown to help you get started...`);
+    
+    const {
+        primaryBtnEl,
+        tertiaryBtnEl
+    } = createNoticeCtaBar(noticeBody, {
+        primaryLabel: `Let's go!`,
+        tertiaryLabel: 'Dismiss for now',
+    })
+    
+    const notice = launchPersistentInkNotice(noticeBody);
+
+    if(tertiaryBtnEl) {
+        tertiaryBtnEl.addEventListener('click', () => {
+            notice.hide();
+        });
+    }
+    if(primaryBtnEl) {
+        primaryBtnEl.addEventListener('click', () => {
+            notice.hide();
+            showHandwritingWelcomeTip(plugin);
+        });
+    }
+
+}
+
+export function showHandwritingWelcomeTip(plugin: InkPlugin) {
+    const noticeBody = createInkNoticeTemplate();
+    noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
+    noticeBody.createEl('p').setText(`In any markdown note, run the following command to begin writing where your cursor is.`);
+    noticeBody.createEl('blockquote').setText(`"Insert new handwriting section"`);
+    noticeBody.createEl('p').setText(`( Cmd+P or swipe down )`);
+    
+    const {
+        primaryBtnEl,
+        tertiaryBtnEl
+    } = createNoticeCtaBar(noticeBody, {
+        primaryLabel: 'Continue',
+        tertiaryLabel: 'Dismiss for now',
+    })
+
+    const notice = launchPersistentInkNotice(noticeBody);
+
+    if(primaryBtnEl) {
+        primaryBtnEl.addEventListener('click', () => {
+            notice.hide();
+            showDrawingWelcomeTip(plugin);
+        });
+    }
+    
+}
+
+export function showDrawingWelcomeTip(plugin: InkPlugin) {
+    const noticeBody = createInkNoticeTemplate();
+    noticeBody.createEl('h1').setText(`Drawing sections...`);
+    noticeBody.createEl('p').setText(`Drawing sections are in early development.`);
+    noticeBody.createEl('p').setText(`You can turn them on in the settings (and restart Obsidian) if you'd like to begin using them.`);
+
+    const {
+        primaryBtnEl,
+        tertiaryBtnEl
+    } = createNoticeCtaBar(noticeBody, {
+        primaryLabel: 'Continue',
+        tertiaryLabel: 'Dismiss for now',
+    })
+
+    const notice = launchPersistentInkNotice(noticeBody);
+
+    if(primaryBtnEl) {
+        primaryBtnEl.addEventListener('click', () => {
+            notice.hide();
+            showDevelopmentWelcomeTip(plugin);
+        });
+    }
+    
+}
+
+
+export function showDevelopmentWelcomeTip(plugin: InkPlugin) {
+    const noticeBody = createInkNoticeTemplate();
+    noticeBody.createEl('h1').setText(`Help improve Ink...`);
+    noticeBody.createEl('p').setText(`Ink is under construction. This means it has features missing and sometimes has bugs.`);
+    noticeBody.createEl('p').setText(`If you notice any, please report them through the link in the settings.`);
+    
+    const {
+        tertiaryBtnEl
+    } = createNoticeCtaBar(noticeBody, {
+        tertiaryLabel: 'Dismiss',
+    })
+
+    const notice = launchPersistentInkNotice(noticeBody);
+
+    if(tertiaryBtnEl) {
+        tertiaryBtnEl.addEventListener('click', () => {
+            notice.hide();
+            plugin.settings.onboardingTips.welcomeTipRead = true;
+            plugin.saveSettings();
+        });
+    }
+    
+}

@@ -4,9 +4,9 @@ import { Notice } from "obsidian";
 /////////////
 /////////////
 
-export function createInkNoticeTemplate(): DocumentFragment {
+export function createInkNoticeTemplate(noticeNumber?: number, noticeTotal?: number): DocumentFragment {
     const noticeBody = document.createDocumentFragment();
-    createNoticeLabel(noticeBody);
+    createNoticeLabel(noticeBody, noticeNumber, noticeTotal);
     return noticeBody;
 }
 
@@ -17,9 +17,13 @@ export function launchPersistentInkNotice(noticeBody: DocumentFragment) {
     return notice;
 }
 
-function createNoticeLabel(noticeBody: DocumentFragment): HTMLParagraphElement {
-    const labelEl = noticeBody.createEl('p')
-    labelEl.setText(`Ink plugin`);
+function createNoticeLabel(noticeBody: DocumentFragment, noticeNumber?: number, noticeTotal?: number): HTMLParagraphElement {
+    const labelEl = noticeBody.createEl('p');
+    let labelText = `Ink plugin`;
+    // if(noticeNumber) labelText += ' ('+noticeNumber;
+    // if(noticeTotal) labelText += '/'+noticeTotal;
+    // if(noticeNumber) labelText += ')';
+    labelEl.setText(labelText);
     labelEl.classList.add('ddc_ink_notice-label');
     return labelEl;
 }

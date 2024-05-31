@@ -4,7 +4,7 @@ import InkPlugin from "src/main";
 ///////////
 ///////////
 
-export function showStrokeLimitNotice_maybe(plugin: InkPlugin) {
+export function showStrokeLimitTips_maybe(plugin: InkPlugin) {
     // Bail if it's already been shown enough times
     if(plugin.settings.onboardingTips.strokeLimitTipRead) return;
 
@@ -30,13 +30,13 @@ export function showStrokeLimitNotice_maybe(plugin: InkPlugin) {
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
             notice.hide();
-            showFullStrokeLimitNotice(plugin);
+            showFullStrokeLimitTip(plugin);
         });
     }
 
 }
 
-export function showFullStrokeLimitNotice(plugin: InkPlugin) {
+function showFullStrokeLimitTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`To help keep writing smooth...`);//     margin-block-start: 0.1em;
     noticeBody.createEl('p').setText(`Hiding old strokes helps keep pen latency down and the writing experience smooth.`);

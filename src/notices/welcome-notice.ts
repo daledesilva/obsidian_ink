@@ -4,7 +4,7 @@ import InkPlugin from "src/main";
 ///////////
 ///////////
 
-export function showWelcomeNotice_maybe(plugin: InkPlugin) {
+export function showWelcomeTips_maybe(plugin: InkPlugin) {
     // Bail if it's already been shown enough times
     if(plugin.settings.onboardingTips.welcomeTipRead) return;
 
@@ -37,7 +37,7 @@ export function showWelcomeNotice_maybe(plugin: InkPlugin) {
 
 }
 
-export function showHandwritingWelcomeTip(plugin: InkPlugin) {
+function showHandwritingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
     noticeBody.createEl('p').setText(`In any markdown note, run the following command to begin writing where your cursor is.`);
@@ -63,7 +63,7 @@ export function showHandwritingWelcomeTip(plugin: InkPlugin) {
     
 }
 
-export function showDrawingWelcomeTip(plugin: InkPlugin) {
+function showDrawingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Drawing sections...`);
     noticeBody.createEl('p').setText(`Drawing sections are in early development.`);
@@ -89,7 +89,7 @@ export function showDrawingWelcomeTip(plugin: InkPlugin) {
 }
 
 
-export function showDevelopmentWelcomeTip(plugin: InkPlugin) {
+function showDevelopmentWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Help improve Ink...`);
     noticeBody.createEl('p').setText(`Ink is under construction. This means it has features missing and sometimes has bugs.`);

@@ -1,3 +1,4 @@
+import './ddc-library/settings-styles.scss';
 import { Editor, Notice, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/PluginSettings';
 import { registerSettingsTab } from './tabs/settings-tab/settings-tab';
@@ -11,8 +12,6 @@ import { registerDrawingView } from './views/drawing-view';
 import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
-import './ddc-library/settings-styles.scss';
-import { showStrokeLimitNotice } from './notices/stroke-limit-notice';
 
 ////////
 ////////
@@ -47,7 +46,6 @@ export default class InkPlugin extends Plugin {
 		// // this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
 		// // 	console.log('click', evt);
 		// // });
-		
 	}
 	
 	onunload() {}

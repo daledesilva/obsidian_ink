@@ -12,6 +12,7 @@ import { registerDrawingView } from './views/drawing-view';
 import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
+import { showStrokeLimitNotice_maybe } from './notices/stroke-limit-notice';
 
 ////////
 ////////
@@ -46,6 +47,8 @@ export default class InkPlugin extends Plugin {
 		// // this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
 		// // 	console.log('click', evt);
 		// // });
+
+		showStrokeLimitNotice_maybe(this);
 	}
 	
 	onunload() {}

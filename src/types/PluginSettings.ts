@@ -4,6 +4,7 @@
 export interface PluginSettings {
 	// Helpers
     onboardingTips: {
+		welcomeTipRead: boolean,
 		strokeLimitTipRead: boolean,
 	},
 	// General
@@ -24,6 +25,7 @@ export interface PluginSettings {
 export const DEFAULT_SETTINGS: PluginSettings = {
 	// Helpers
     onboardingTips: {
+		welcomeTipRead: false,
 		strokeLimitTipRead: false,
 	},
 	// General

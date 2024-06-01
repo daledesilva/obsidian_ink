@@ -5,6 +5,7 @@ import InkPlugin from "src/main";
 import { WritingContainer } from "src/tldraw/writing-shapes/writing-container";
 import { WritingLines } from "src/tldraw/writing-shapes/writing-lines";
 import { showStrokeLimitTips_maybe } from "src/notices/stroke-limit-notice";
+import { Notice } from "obsidian";
 
 //////////
 //////////
@@ -293,12 +294,18 @@ export const useStash = (plugin: InkPlugin) => {
 			staleShapes.push(record as TLShape);
 		}
 
-		if(staleShapeIds.length > 5) showStrokeLimitTips_maybe(plugin);
-
 		stash.current.push(...staleShapes);
 		silentlyChangeStore(editor, () => {
 			editor.store.remove(staleShapeIds);
 		});
+
+		try {
+			// REVIEW: This often throws an error on ipad. I'm not sure why.
+			if(staleShapeIds.length >= 5) showStrokeLimitTips_maybe(plugin);
+		} catch(error) {
+			console.log('StatchStaleContent when calling showStrokeLimitTips_maybe', error);
+		}
+
 	};
 
 	const unstashStaleContent = (editor: Editor) => {

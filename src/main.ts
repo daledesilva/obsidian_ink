@@ -12,7 +12,6 @@ import { registerDrawingView } from './views/drawing-view';
 import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
-import { showStrokeLimitTips_maybe } from './notices/stroke-limit-notice';
 import { showWelcomeTips_maybe } from './notices/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 

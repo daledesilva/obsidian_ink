@@ -1,5 +1,6 @@
 import { createInkNoticeTemplate, createNoticeCtaBar, launchPersistentInkNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
+import { clearTimeout } from 'timers';
 
 ///////////
 ///////////
@@ -7,6 +8,24 @@ import InkPlugin from "src/main";
 export function showStrokeLimitTips_maybe(plugin: InkPlugin) {
     // Bail if it's already been shown enough times
     if(plugin.settings.onboardingTips.strokeLimitTipRead) return;
+    showStrokeLimitTips_debounced(plugin);
+}
+
+const tips_timeouts:  NodeJS.Timeout[] = [];
+let tipsShowingOrDismissed: boolean = false;
+function showStrokeLimitTips_debounced(plugin: InkPlugin) {
+    while(tips_timeouts.length > 0) {
+        clearTimeout(tips_timeouts.pop());
+    }
+    const newTimeout = setTimeout( () => {
+        showStrokeLimitTips(plugin)
+    }, 5000);
+    tips_timeouts.push(newTimeout);
+}
+
+function showStrokeLimitTips(plugin: InkPlugin) {
+    if(tipsShowingOrDismissed) return;
+    tipsShowingOrDismissed = true;
 
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Lines disappearing?`);
@@ -54,6 +73,7 @@ function showFullStrokeLimitTip(plugin: InkPlugin) {
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {
             notice.hide();
+            tipsShowingOrDismissed = false;
             plugin.settings.onboardingTips.strokeLimitTipRead = true;
             plugin.saveSettings();
         });

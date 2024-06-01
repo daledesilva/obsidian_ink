@@ -10,10 +10,13 @@ export function showWelcomeTips_maybe(plugin: InkPlugin) {
     showWelcomeTips(plugin);
 }
 
+let tipsShowingOrDismissed: boolean = false;
 export function showWelcomeTips(plugin: InkPlugin) {
+    if(tipsShowingOrDismissed) return;
+    tipsShowingOrDismissed = true;
 
     const noticeBody = createInkNoticeTemplate(1,3);
-    noticeBody.createEl('h1').setText(`Welcome to the Ink plugin`);
+    noticeBody.createEl('h1').setText(`Welcome to Ink`);
     noticeBody.createEl('p').setText(`Ink is all about enabling stylus use directly in your markdown notes.`);
     noticeBody.createEl('p').setText(`Here's a quick rundown to help you get started...`);
     
@@ -135,6 +138,7 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {
             notice.hide();
+            tipsShowingOrDismissed = false;
             plugin.settings.onboardingTips.welcomeTipRead = true;
             plugin.saveSettings();
         });

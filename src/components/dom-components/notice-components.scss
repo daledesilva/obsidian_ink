@@ -1,4 +1,14 @@
 .ddc_ink_notice {
+    
+    // Make mobile notifications consistent with reliable contrast
+    background-color: var(--background-primary-alt) !important;
+    border: solid 1px var(--background-modifier-border) !important;
+    border-radius: var(--radius-m) !important;
+    box-shadow: 0 2px 8px var(--background-modifier-box-shadow) !important;
+    text-align: left !important;
+
+
+    // Forcing explicitly clicking a button to dismiss
     pointer-events: none;
     
     p.ddc_ink_notice-label {
@@ -19,7 +29,8 @@
         font-size: var(--font-text-size);
         padding: 0.5em 0.8em;
         margin-inline: 0;
-        background-color: var(--background-primary-alt);
+        color: var(--text-accent);
+        background-color: var(--background-primary);
         border-radius: var(--button-radius);
         display: block;
     }
@@ -40,6 +51,13 @@
                 border-radius: var(--button-radius);
                 margin-inline: 0;
                 padding-inline: 0;
+
+                // shift text to true bottom
+                padding-top: calc( var(--size-4-1) * 2 );
+                padding-bottom: 0 !important;
+                display: inline-flex;
+                align-items: flex-end;
+                line-height: var(--font-ui-small) !important;
     
                 &:hover {
                     color: var(--text-normal);

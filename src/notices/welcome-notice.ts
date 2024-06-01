@@ -7,6 +7,10 @@ import InkPlugin from "src/main";
 export function showWelcomeTips_maybe(plugin: InkPlugin) {
     // Bail if it's already been shown enough times
     if(plugin.settings.onboardingTips.welcomeTipRead) return;
+    showWelcomeTips(plugin);
+}
+
+export function showWelcomeTips(plugin: InkPlugin) {
 
     const noticeBody = createInkNoticeTemplate(1,3);
     noticeBody.createEl('h1').setText(`Welcome to the Ink plugin`);
@@ -68,6 +72,31 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
     noticeBody.createEl('h1').setText(`Drawing sections...`);
     noticeBody.createEl('p').setText(`Drawing sections are in early development.`);
     noticeBody.createEl('p').setText(`You can turn them on in the settings (and restart Obsidian) if you'd like to begin using them.`);
+
+    const {
+        primaryBtnEl,
+        tertiaryBtnEl
+    } = createNoticeCtaBar(noticeBody, {
+        primaryLabel: 'Continue',
+        tertiaryLabel: 'Dismiss for now',
+    })
+
+    const notice = launchPersistentInkNotice(noticeBody);
+
+    if(primaryBtnEl) {
+        primaryBtnEl.addEventListener('click', () => {
+            notice.hide();
+            showSyncingWelcomeTip(plugin);
+        });
+    }
+    
+}
+
+function showSyncingWelcomeTip(plugin: InkPlugin) {
+    const noticeBody = createInkNoticeTemplate();
+    noticeBody.createEl('h1').setText(`Syncing with your vault...`);
+    noticeBody.createEl('p').setText(`Ink files live in your vault and can sync with it to other devices.`);
+    noticeBody.createEl('p').setText(`If using Obsidian Sync, turn on "Sync all other types" in the Obsidian Sync settings.`);
 
     const {
         primaryBtnEl,

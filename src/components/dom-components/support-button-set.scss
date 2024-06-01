@@ -1,0 +1,35 @@
+.ddc_ink_support-btn-set {
+    
+    .setting-item {
+        border-top: none !important;
+
+        .setting-item-info {
+            flex-grow: 2;
+            text-align: right;
+        }
+        
+        .setting-item-control {
+            flex-grow: 0;
+        }
+    }
+
+    .ddc_ink_tertiary-button {
+        color: var(--text-subtle);
+        background: none;
+        box-shadow: none;
+        padding-inline: var(--size-4-1);
+        &:hover {
+            color: var(--text-normal);
+        }
+    }
+    .ddc_ink_secondary-button {
+
+    }
+    .ddc_ink_primary-button {
+        color: var(--text-on-accent);
+        background-color: var(--interactive-accent);
+        &:hover {
+            background-color: var(--interactive-accent-hover);
+        }
+    }
+}

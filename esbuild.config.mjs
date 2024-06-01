@@ -3,6 +3,7 @@ import process from "process";
 import builtins from 'builtin-modules';
 import {sassPlugin} from 'esbuild-sass-plugin'
 import { copy } from 'esbuild-plugin-copy';
+import svg from 'esbuild-plugin-svg';
 
 
 // import renamePlugin from "./rename-plugin";
@@ -82,6 +83,7 @@ esbuild.build({
 		sassPlugin({
 			filter:	/.(s[ac]ss|css)$/,
 		}),
+		svg(),
 		copy({
 		  resolveFrom: 'cwd',	// Returns name of current working directory
 			assets: {

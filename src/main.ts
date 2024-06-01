@@ -1,5 +1,5 @@
 import './ddc-library/settings-styles.scss';
-import { Editor, Notice, Plugin } from 'obsidian';
+import { Editor, Notice, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/PluginSettings';
 import { registerSettingsTab } from './tabs/settings-tab/settings-tab';
 import {registerWritingEmbed} from './extensions/widgets/writing-embed-widget'
@@ -14,6 +14,7 @@ import insertRememberedDrawingFile from './commands/insert-remembered-drawing-fi
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import { showStrokeLimitTips_maybe } from './notices/stroke-limit-notice';
 import { showWelcomeTips_maybe } from './notices/welcome-notice';
+import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 
 ////////
 ////////
@@ -23,6 +24,11 @@ export default class InkPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		addIcon('bluesky', blueskySvgStr);
+		addIcon('mastodon', mastodonSvgStr);
+		addIcon('threads', threadsSvgStr);
+		addIcon('twitter', twitterSvgStr);
 
 		// NOTE: For testing only
 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch

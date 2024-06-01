@@ -1,3 +1,4 @@
+import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
 import { App, PluginSettingTab, Setting } from "obsidian";
 import InkPlugin from "src/main";
@@ -57,6 +58,8 @@ export class MySettingsTab extends PluginSettingTab {
 					}).open();
 				})
 			})
+
+		createSupportButtonSet(containerEl);
 		
 
 	}
@@ -73,6 +76,10 @@ function insertMoreInfoLinks(containerEl: HTMLElement) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section');
 	sectionEl.createEl('p', { text: `For information on this plugin's development, visit the links below. Feel free to leave comments in the development diaries on YouTube.` });
 	const list = sectionEl.createEl('ul');
+	list.createEl('li').createEl('a', {
+		href: 'https://github.com/daledesilva/obsidian_ink/releases',
+		text: 'Latest Changes'
+	});
 	list.createEl('li').createEl('a', {
 		href: 'https://github.com/daledesilva/obsidian_ink',
 		text: 'Roadmap'

@@ -69,14 +69,14 @@ export class MySettingsTab extends PluginSettingTab {
 function insertSetupGuide(plugin: InkPlugin, containerEl: HTMLElement) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_setup-guide-section');
 	const accordion = sectionEl.createEl('details');
-	accordion.createEl('summary', { text: `Setup guide (Expand for details)` });
+	accordion.createEl('summary', { text: `Setup tips and tutorial (Expand for details)` });
 	accordion.createEl('p', { text: `To make this plugin more intuitive, consider turning on 'Slash commands' in 'Obsidian Settings' / 'Core Plugins' or install and set up the community plugin 'Slash Commander'.` });
 	new Setting(accordion)
 		.addButton( btn => {
-			btn.setButtonText('View welcome guide');
-			btn.onClick( () => showWelcomeTips(plugin) )
+			btn.setButtonText('Rewatch welcome tips');
+			btn.onClick( () => showWelcomeTips(plugin) );
+			btn.setCta();
 		})
-	// accordion.);
 }
 
 function insertMoreInfoLinks(containerEl: HTMLElement) {

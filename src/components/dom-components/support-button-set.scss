@@ -23,10 +23,16 @@
         }
     }
     .ddc_ink_secondary-button {
-
+        color: var(--text-normal);
+        svg path {
+            fill: var(--text-normal);
+        }
     }
     .ddc_ink_primary-button {
         color: var(--text-on-accent);
+        svg path {
+            fill: var(--text-on-accent);
+        }
         background-color: var(--interactive-accent);
         &:hover {
             background-color: var(--interactive-accent-hover);

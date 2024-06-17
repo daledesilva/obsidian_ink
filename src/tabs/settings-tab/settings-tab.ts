@@ -6,6 +6,7 @@ import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/modals/confirmation-modal/confirmation-modal";
 import { DEFAULT_SETTINGS } from 'src/types/PluginSettings';
 import { showWelcomeTips, showWelcomeTips_maybe } from 'src/notices/welcome-notice';
+import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-accordion-setting';
 
 /////////
 /////////
@@ -38,9 +39,12 @@ export class MySettingsTab extends PluginSettingTab {
 		// 	cls: 'ddc_ink_text-warning',
 		// });		
 		
+		insertSetupGuide(this.plugin, containerEl);
+
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
 		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
-		insertSetupGuide(this.plugin, containerEl);
+		
+		containerEl.createEl('hr');
 		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
 		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
 	
@@ -136,97 +140,77 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 
 function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
 
-	// addSettingsToggleAccordion
-	// toggle.onChange(async (value) => {
-	// 	plugin.settings.writingEnabled = value;
-	// 	await plugin.saveSettings();
-	// 	refresh();
-	// });
-
-	let sectionEl;
-
-	if(plugin.settings.customAttachmentFolders) {
-		sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-		// sectionEl.createEl('h2', { text: 'File organisation' });			
-	} else {
-		sectionEl = containerEl
-	}
-
-	new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
+	const accordionSection = new ToggleAccordionSetting(containerEl)
 		.setName('Customise file organisation')
-		// .setDesc(`By default, your files will be placed inside ink writing and drawing subfolders inside Obsidian's standard attachment folder.`)
-		.addToggle((toggle) => {
-			toggle.setValue(plugin.settings.customAttachmentFolders);
-			toggle.onChange(async (value) => {
-				plugin.settings.customAttachmentFolders = value;
-				await plugin.saveSettings();
-				refresh();
-			});
-		});
+		.setExpanded(plugin.settings.customAttachmentFolders)
+		.onToggle( async (value: boolean) => {
+			plugin.settings.customAttachmentFolders = value;
+			await plugin.saveSettings();
+			refresh();
+		})
+		.setContent((container) => {
+			new Setting(container)
+				.setClass('ddc_ink_setting')
+				.setName(`Use Obsidian's default location for attachments`)
+				.setDesc(`You can change this in the Files and links tab.`)
+				.addToggle((toggle) => {
+					toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
+					toggle.onChange(async (value) => {
+						plugin.settings.useObsidianAttachmentFolder = value;
+						await plugin.saveSettings();
+						refresh();
+					});
+				});
 
-	if(!plugin.settings.customAttachmentFolders) return;
+			let inputSettingEl = new Setting(container)
+				.setClass('ddc_ink_setting')
+				.setName('Writing files subfolder')
+				.addText((textItem) => {
+					textItem.setValue(plugin.settings.writingSubfolder.toString());
+					textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
+					// TODO: Combine the blur and the enter into one abstracted and reusable function
+					textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
+						const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
+						plugin.settings.writingSubfolder = value;
+						await plugin.saveSettings();
+						refresh();
+					})
+					textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+						if(ev.key === 'Enter') {
+							const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
+							plugin.settings.writingSubfolder = value;
+							await plugin.saveSettings();
+							refresh();
+						}
+					})
+				});
+			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
 
-	new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName(`Use Obsidian's default location for attachments`)
-		.setDesc(`You can change this in the Files and links tab.`)
-		.addToggle((toggle) => {
-			toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
-			toggle.onChange(async (value) => {
-				plugin.settings.useObsidianAttachmentFolder = value;
-				await plugin.saveSettings();
-				refresh();
-			});
-		});
+			inputSettingEl = new Setting(container)
+				.setClass('ddc_ink_setting')
+				.setName('Drawing files subfolder')
+				.addText((textItem) => {
+					textItem.setValue(plugin.settings.drawingSubfolder.toString());
+					textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
+					// TODO: Combine the blur and the enter into one abstracted and reusable function
+					textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
+						const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
+						plugin.settings.drawingSubfolder = value;
+						await plugin.saveSettings();
+						refresh();
+					})
+					textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+						if(ev.key === 'Enter') {
+							const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
+							plugin.settings.drawingSubfolder = value;
+							await plugin.saveSettings();
+							refresh();
+						}
+					})
+				});
+			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
+		})
 
-	let inputSettingEl = new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Writing files subfolder')
-		.addText((textItem) => {
-			textItem.setValue(plugin.settings.writingSubfolder.toString());
-			textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
-			// TODO: Combine the blur and the enter into one abstracted and reusable function
-			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-				const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
-				plugin.settings.writingSubfolder = value;
-				await plugin.saveSettings();
-				refresh();
-			})
-			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-				if(ev.key === 'Enter') {
-					const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
-					plugin.settings.writingSubfolder = value;
-					await plugin.saveSettings();
-					refresh();
-				}
-			})
-		});
-	inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
-
-	inputSettingEl = new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Drawing files subfolder')
-		.addText((textItem) => {
-			textItem.setValue(plugin.settings.drawingSubfolder.toString());
-			textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
-			// TODO: Combine the blur and the enter into one abstracted and reusable function
-			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-				const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
-				plugin.settings.drawingSubfolder = value;
-				await plugin.saveSettings();
-				refresh();
-			})
-			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-				if(ev.key === 'Enter') {
-					const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
-					plugin.settings.drawingSubfolder = value;
-					await plugin.saveSettings();
-					refresh();
-				}
-			})
-		});
-	inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
 
 }
 

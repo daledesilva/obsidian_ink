@@ -8,9 +8,11 @@
     border-color: rgba(var(--callout-color), var(--callout-border-opacity));
     border-width: var(--callout-border-width);
     border-radius: var(--callout-radius);
-    margin: 1em 0;
     background-color: rgba(var(--callout-color), 0.05);
-    padding: var(--callout-padding);
+    padding: 1em;
+    
+    margin-block: 1em;
+    margin-inline: -1em;
 
     --callout-color: 255,255,255;
     &.warning {
@@ -23,7 +25,6 @@
 }
 
 .ddc_ink_controls-section {
-    // padding-block-start: 0.8em;
     padding-block-start: 0.2em;
     padding-block-end: 0.2em;
     padding-inline: 1em;

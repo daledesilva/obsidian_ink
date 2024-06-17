@@ -23,8 +23,20 @@
 }
 
 .ddc_ink_controls-section {
-    padding: 0.2em 1em;
+    // padding-block-start: 0.8em;
+    padding-block-start: 0.2em;
+    padding-block-end: 0.2em;
+    padding-inline: 1em;
+    margin-inline: -1em;
     border: none;
     border-radius: 10px;
     background-color: var(--color-base-20);
+}
+
+.ddc_ink_input-medium {
+    .setting-item-control {
+        input {
+            width: 100%;
+        }
+    }
 }

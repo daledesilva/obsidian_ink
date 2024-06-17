@@ -8,7 +8,11 @@ export interface PluginSettings {
 		strokeLimitTipRead: boolean,
 	},
 	// General
-    useDefaultAttachmentFolder: boolean,
+	customAttachmentFolders: boolean,
+    useObsidianAttachmentFolder: boolean,
+	useSubfolders: boolean,
+	writingSubfolder: string,
+	drawingSubfolder: string,
 	// Writing specific
 	writingEnabled: boolean,
 	writingStrokeLimit: number,
@@ -29,7 +33,11 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		strokeLimitTipRead: false,
 	},
 	// General
-    useDefaultAttachmentFolder: true,
+	customAttachmentFolders: false,
+    useObsidianAttachmentFolder: true,
+	useSubfolders: true,
+	writingSubfolder: 'Ink/Writing',
+	drawingSubfolder: 'Ink/Drawing',
 	// Writing specific
 	writingEnabled: true,
 	writingStrokeLimit: 200,

@@ -39,6 +39,7 @@ export class MySettingsTab extends PluginSettingTab {
 		// });		
 		
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
+		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
 		insertSetupGuide(this.plugin, containerEl);
 		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
 		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
@@ -103,33 +104,130 @@ function insertMoreInfoLinks(containerEl: HTMLElement) {
 
 function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
 
-		new Setting(containerEl)
-			.setClass('ddc_ink_setting')
-			.setName('Enable writing')
-			// .setDesc('If disabled, you will still be able to view previously created writing embeds.')
-			.setDesc('If disabled, you will not be able to add new writing embeds and those already embedded will appear as raw code. Existing writing files will be hidden in Obsidian but still exist on disk. Changing this setting will require a restart of Obsidian to take effect.')
-			.addToggle((toggle) => {
-				toggle.setValue(plugin.settings.writingEnabled);
-				toggle.onChange(async (value) => {
-					plugin.settings.writingEnabled = value;
-					await plugin.saveSettings();
-					refresh();
-				});
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Enable writing')
+		// .setDesc('If disabled, you will still be able to view previously created writing embeds.')
+		.setDesc('If disabled, you will not be able to add new writing embeds and those already embedded will appear as raw code. Existing writing files will be hidden in Obsidian but still exist on disk. Changing this setting will require a restart of Obsidian to take effect.')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.writingEnabled);
+			toggle.onChange(async (value) => {
+				plugin.settings.writingEnabled = value;
+				await plugin.saveSettings();
+				refresh();
 			});
+		});
 
-		new Setting(containerEl)
-			.setClass('ddc_ink_setting')
-			.setName('Enable drawing')
-			// .setDesc('If disabled, you will still be able to view previously created drawing embeds.')
-			.setDesc('If disabled, you will not be able to add new drawing embeds and those already embedded will appear as raw code. Existing drawing files will be hidden in Obsidian but still exist on disk. Changing this setting will require a restart of Obsidian to take effect.')
-			.addToggle((toggle) => {
-				toggle.setValue(plugin.settings.drawingEnabled);
-				toggle.onChange(async (value) => {
-					plugin.settings.drawingEnabled = value;
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Enable drawing')
+		// .setDesc('If disabled, you will still be able to view previously created drawing embeds.')
+		.setDesc('If disabled, you will not be able to add new drawing embeds and those already embedded will appear as raw code. Existing drawing files will be hidden in Obsidian but still exist on disk. Changing this setting will require a restart of Obsidian to take effect.')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.drawingEnabled);
+			toggle.onChange(async (value) => {
+				plugin.settings.drawingEnabled = value;
+				await plugin.saveSettings();
+				refresh();
+			});
+		});
+
+}
+
+function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+
+	// addSettingsToggleAccordion
+	// toggle.onChange(async (value) => {
+	// 	plugin.settings.writingEnabled = value;
+	// 	await plugin.saveSettings();
+	// 	refresh();
+	// });
+
+	let sectionEl;
+
+	if(plugin.settings.customAttachmentFolders) {
+		sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
+		// sectionEl.createEl('h2', { text: 'File organisation' });			
+	} else {
+		sectionEl = containerEl
+	}
+
+	new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Customise file organisation')
+		// .setDesc(`By default, your files will be placed inside ink writing and drawing subfolders inside Obsidian's standard attachment folder.`)
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.customAttachmentFolders);
+			toggle.onChange(async (value) => {
+				plugin.settings.customAttachmentFolders = value;
+				await plugin.saveSettings();
+				refresh();
+			});
+		});
+
+	if(!plugin.settings.customAttachmentFolders) return;
+
+	new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName(`Use Obsidian's default location for attachments`)
+		.setDesc(`You can change this in the Files and links tab.`)
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
+			toggle.onChange(async (value) => {
+				plugin.settings.useObsidianAttachmentFolder = value;
+				await plugin.saveSettings();
+				refresh();
+			});
+		});
+
+	let inputSettingEl = new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Writing files subfolder')
+		.addText((textItem) => {
+			textItem.setValue(plugin.settings.writingSubfolder.toString());
+			textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
+			// TODO: Combine the blur and the enter into one abstracted and reusable function
+			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
+				const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
+				plugin.settings.writingSubfolder = value;
+				await plugin.saveSettings();
+				refresh();
+			})
+			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+				if(ev.key === 'Enter') {
+					const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
+					plugin.settings.writingSubfolder = value;
 					await plugin.saveSettings();
 					refresh();
-				});
-			});
+				}
+			})
+		});
+	inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
+
+	inputSettingEl = new Setting(sectionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Drawing files subfolder')
+		.addText((textItem) => {
+			textItem.setValue(plugin.settings.drawingSubfolder.toString());
+			textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
+			// TODO: Combine the blur and the enter into one abstracted and reusable function
+			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
+				const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
+				plugin.settings.drawingSubfolder = value;
+				await plugin.saveSettings();
+				refresh();
+			})
+			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+				if(ev.key === 'Enter') {
+					const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
+					plugin.settings.drawingSubfolder = value;
+					await plugin.saveSettings();
+					refresh();
+				}
+			})
+		});
+	inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
+
 }
 
 function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {

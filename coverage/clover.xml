@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1718716731467" clover="3.2.0">
+  <project timestamp="1718716731467" name="All files">
+    <metrics statements="31" coveredstatements="31" conditionals="11" coveredconditionals="7" methods="2" coveredmethods="2" elements="44" coveredelements="40" complexity="0" loc="31" ncloc="31" packages="1" files="2" classes="2"/>
+    <file name="getDateFilename.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/getDateFilename.ts">
+      <metrics statements="13" coveredstatements="13" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+      <line num="1" count="1" type="stmt"/>
+      <line num="2" count="1" type="cond" truecount="1" falsecount="0"/>
+      <line num="3" count="3" type="stmt"/>
+      <line num="4" count="3" type="stmt"/>
+      <line num="5" count="3" type="stmt"/>
+      <line num="6" count="3" type="stmt"/>
+      <line num="7" count="3" type="stmt"/>
+      <line num="8" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="9" count="3" type="stmt"/>
+      <line num="10" count="3" type="cond" truecount="1" falsecount="0"/>
+      <line num="11" count="3" type="stmt"/>
+      <line num="12" count="3" type="stmt"/>
+      <line num="13" count="3" type="stmt"/>
+    </file>
+    <file name="parseFilepath.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/parseFilepath.ts">
+      <metrics statements="18" coveredstatements="18" conditionals="7" coveredconditionals="3" methods="1" coveredmethods="1"/>
+      <line num="1" count="1" type="stmt"/>
+      <line num="2" count="1" type="stmt"/>
+      <line num="3" count="1" type="cond" truecount="1" falsecount="0"/>
+      <line num="4" count="7" type="stmt"/>
+      <line num="5" count="7" type="stmt"/>
+      <line num="6" count="7" type="stmt"/>
+      <line num="7" count="7" type="cond" truecount="2" falsecount="0"/>
+      <line num="8" count="7" type="stmt"/>
+      <line num="9" count="7" type="stmt"/>
+      <line num="10" count="7" type="cond" truecount="0" falsecount="1"/>
+      <line num="11" count="7" type="stmt"/>
+      <line num="12" count="7" type="cond" truecount="0" falsecount="1"/>
+      <line num="13" count="7" type="cond" truecount="0" falsecount="1"/>
+      <line num="14" count="7" type="stmt"/>
+      <line num="15" count="7" type="stmt"/>
+      <line num="16" count="7" type="stmt"/>
+      <line num="17" count="7" type="cond" truecount="0" falsecount="1"/>
+      <line num="18" count="7" type="stmt"/>
+    </file>
+  </project>
+</coverage>

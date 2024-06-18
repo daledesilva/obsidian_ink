@@ -1,15 +1,33 @@
 import {describe, expect, test} from '@jest/globals';
-import { getNewTimestampedWritingFilepath } from "./file-manipulation"
+import { parseFilepath } from "./parseFilepath";
 
 ////////////
 ////////////
 
-describe(`Getting new filepaths`, () => {
+// describe(`Getting new filepaths`, () => {
 
-    test(`No customisation`, () => {
-        // const mockPlugin;
-        const filepath = 'hello';//getNewTimestampedWritingFilepath(mockPlugin)
-        expect(filepath).toEqual('hello');
+//     const mockPlugin = jest.fn(x => 42);
+
+//     test(`No customisation`, () => {
+//         // const mockPlugin;
+//         const filepath = getNewTimestampedWritingFilepath(mockPlugin)
+//         expect(filepath).toEqual('hello');
+//     })
+
+// });
+
+
+
+
+describe(`parseFilepath tests`, () => {
+
+    test(`file.md`, () => {
+        const result = parseFilepath('file.md');
+        expect(result).toEqual({
+            folderpath: '',
+            basename: 'file',
+            ext: 'md'
+        });
     })
 
 });

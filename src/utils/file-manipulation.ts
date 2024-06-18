@@ -4,20 +4,14 @@ import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLShapeId } from "@tldraw/tldraw";
 import { fetchLocally, saveLocally } from "./storage";
+import { parseFilepath } from "./parseFilepath";
+import { getDateFilename } from "./getDateFilename";
 
 /////////
 /////////
 
 const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfolder: string): Promise<string> => {
-    const date = new Date();
-    let monthStr = date.getMonth().toString();
-    let dateStr = date.getDate().toString();
-    let hours = date.getHours();
-    let minutesStr = date.getMinutes().toString();
-    let suffix = hours < 12 ? 'am' : 'pm';
-
-    if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
-    let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
+    let filename = getDateFilename();
     
     // add a getSubfolder function here and pass in a type instead of subfolder
     const filepath = await getUsableAttachmentPath(plugin, ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename + '.' + ext);
@@ -215,19 +209,4 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, path: string):
 }
 
 
-function parseFilepath(filepath: string): { folderpath: string; basename: string; ext: string } {
-    const segments = filepath.split('/');
 
-    // Handle root directory (/)
-    let folderpath = segments[0] === '' ? '/' : '';
-
-    // Extract filename and extension
-    const filename = segments.pop() || '';
-    const extIndex = filename.lastIndexOf('.');
-    const ext = extIndex >= 0 ? filename.slice(extIndex) : '';
-    const basename = extIndex >= 0 ? filename.slice(0, extIndex) : filename;
-
-    folderpath = segments.join('/');
-
-    return { folderpath, basename, ext: ext.startsWith('.') ? ext.slice(1) : ext };
-}

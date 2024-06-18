@@ -43,7 +43,7 @@ export class MySettingsTab extends PluginSettingTab {
 
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
 		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
-		
+
 		containerEl.createEl('hr');
 		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
 		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
@@ -152,7 +152,7 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			new Setting(container)
 				.setClass('ddc_ink_setting')
 				.setName(`Use Obsidian's default location for attachments`)
-				.setDesc(`You can change this in the Files and links tab.`)
+				.setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
 				.addToggle((toggle) => {
 					toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
 					toggle.onChange(async (value) => {

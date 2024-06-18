@@ -19,6 +19,7 @@ const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, subfold
     if(minutesStr.length < 2) minutesStr = '0' + minutesStr;
     let filename = date.getFullYear() + '.' + monthStr + '.' + dateStr + ' - ' + hours + '.' + minutesStr + suffix;
     
+    // add a getSubfolder function here and pass in a type instead of subfolder
     const filepath = await getUsableAttachmentPath(plugin, ATTACHMENT_SUBFOLDER_NAME + '/' + subfolder + '/' + filename + '.' + ext);
     return filepath;
 }

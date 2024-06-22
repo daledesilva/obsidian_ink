@@ -5,7 +5,7 @@ import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawWritingEditor } from "src/tldraw/writing/tldraw-writing-editor";
-import { convertWriteFileToDraw } from "src/utils/file-manipulation";
+import { convertWriteFileToDraw } from "src/utils/convertWriteFileToDraw";
 import { openInkFile } from "src/utils/open-file";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
 

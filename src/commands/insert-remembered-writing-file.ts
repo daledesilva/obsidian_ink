@@ -2,7 +2,7 @@ import InkPlugin from "src/main";
 import { Editor, Notice, TFile } from "obsidian";
 import { buildWritingEmbed } from "src/utils/embed";
 import { fetchLocally } from "src/utils/storage";
-import { duplicateWritingFile } from "src/utils/file-manipulation";
+import { duplicateWritingFile } from "src/utils/rememberDrawingFile";
 import { InsertCopiedFileModal } from "src/modals/confirmation-modal/insert-copied-file-modal";
 
 //////////

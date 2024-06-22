@@ -5,7 +5,7 @@ import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
-import { duplicateDrawingFile, rememberDrawingFile } from "src/utils/file-manipulation";
+import { duplicateDrawingFile, rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { isEmptyDrawingFile } from "src/utils/tldraw-helpers";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";

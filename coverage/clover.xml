@@ -1,43 +1,127 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1718716731467" clover="3.2.0">
-  <project timestamp="1718716731467" name="All files">
-    <metrics statements="31" coveredstatements="31" conditionals="11" coveredconditionals="7" methods="2" coveredmethods="2" elements="44" coveredelements="40" complexity="0" loc="31" ncloc="31" packages="1" files="2" classes="2"/>
-    <file name="getDateFilename.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/getDateFilename.ts">
-      <metrics statements="13" coveredstatements="13" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
-      <line num="1" count="1" type="stmt"/>
-      <line num="2" count="1" type="cond" truecount="1" falsecount="0"/>
-      <line num="3" count="3" type="stmt"/>
-      <line num="4" count="3" type="stmt"/>
-      <line num="5" count="3" type="stmt"/>
-      <line num="6" count="3" type="stmt"/>
-      <line num="7" count="3" type="stmt"/>
-      <line num="8" count="3" type="cond" truecount="2" falsecount="0"/>
-      <line num="9" count="3" type="stmt"/>
-      <line num="10" count="3" type="cond" truecount="1" falsecount="0"/>
-      <line num="11" count="3" type="stmt"/>
-      <line num="12" count="3" type="stmt"/>
-      <line num="13" count="3" type="stmt"/>
-    </file>
-    <file name="parseFilepath.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/parseFilepath.ts">
-      <metrics statements="18" coveredstatements="18" conditionals="7" coveredconditionals="3" methods="1" coveredmethods="1"/>
-      <line num="1" count="1" type="stmt"/>
-      <line num="2" count="1" type="stmt"/>
-      <line num="3" count="1" type="cond" truecount="1" falsecount="0"/>
-      <line num="4" count="7" type="stmt"/>
-      <line num="5" count="7" type="stmt"/>
-      <line num="6" count="7" type="stmt"/>
-      <line num="7" count="7" type="cond" truecount="2" falsecount="0"/>
-      <line num="8" count="7" type="stmt"/>
-      <line num="9" count="7" type="stmt"/>
-      <line num="10" count="7" type="cond" truecount="0" falsecount="1"/>
-      <line num="11" count="7" type="stmt"/>
-      <line num="12" count="7" type="cond" truecount="0" falsecount="1"/>
-      <line num="13" count="7" type="cond" truecount="0" falsecount="1"/>
-      <line num="14" count="7" type="stmt"/>
-      <line num="15" count="7" type="stmt"/>
-      <line num="16" count="7" type="stmt"/>
-      <line num="17" count="7" type="cond" truecount="0" falsecount="1"/>
-      <line num="18" count="7" type="stmt"/>
-    </file>
+<coverage generated="1719065532973" clover="3.2.0">
+  <project timestamp="1719065532973" name="All files">
+    <metrics statements="103" coveredstatements="103" conditionals="17" coveredconditionals="13" methods="4" coveredmethods="4" elements="124" coveredelements="120" complexity="0" loc="103" ncloc="103" packages="2" files="4" classes="4"/>
+    <package name="types">
+      <metrics statements="52" coveredstatements="52" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="plugin-settings.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/types/plugin-settings.ts">
+        <metrics statements="52" coveredstatements="52" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="9" count="1" type="stmt"/>
+        <line num="10" count="1" type="stmt"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="13" count="1" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="15" count="1" type="stmt"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="17" count="1" type="stmt"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="23" count="1" type="stmt"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="25" count="1" type="stmt"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="27" count="1" type="stmt"/>
+        <line num="28" count="1" type="stmt"/>
+        <line num="29" count="1" type="stmt"/>
+        <line num="30" count="1" type="stmt"/>
+        <line num="31" count="1" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="33" count="1" type="stmt"/>
+        <line num="34" count="1" type="stmt"/>
+        <line num="35" count="1" type="stmt"/>
+        <line num="36" count="1" type="stmt"/>
+        <line num="37" count="1" type="stmt"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="39" count="1" type="stmt"/>
+        <line num="40" count="1" type="stmt"/>
+        <line num="41" count="1" type="stmt"/>
+        <line num="42" count="1" type="stmt"/>
+        <line num="43" count="1" type="stmt"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="45" count="1" type="stmt"/>
+        <line num="46" count="1" type="stmt"/>
+        <line num="47" count="1" type="stmt"/>
+        <line num="48" count="1" type="stmt"/>
+        <line num="49" count="1" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="52" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="utils">
+      <metrics statements="51" coveredstatements="51" conditionals="17" coveredconditionals="13" methods="4" coveredmethods="4"/>
+      <file name="getDateFilename.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/getDateFilename.ts">
+        <metrics statements="13" coveredstatements="13" conditionals="4" coveredconditionals="4" methods="1" coveredmethods="1"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="3" count="3" type="stmt"/>
+        <line num="4" count="3" type="stmt"/>
+        <line num="5" count="3" type="stmt"/>
+        <line num="6" count="3" type="stmt"/>
+        <line num="7" count="3" type="stmt"/>
+        <line num="8" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="9" count="3" type="stmt"/>
+        <line num="10" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="11" count="3" type="stmt"/>
+        <line num="12" count="3" type="stmt"/>
+        <line num="13" count="3" type="stmt"/>
+      </file>
+      <file name="getSubfolderPaths.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/getSubfolderPaths.ts">
+        <metrics statements="20" coveredstatements="20" conditionals="6" coveredconditionals="6" methods="2" coveredmethods="2"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="7" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="8" count="4" type="stmt"/>
+        <line num="9" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="10" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="11" count="3" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="14" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="16" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="17" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="18" count="3" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+      </file>
+      <file name="parseFilepath.ts" path="/Users/daledesilva/Dropbox/Projects/Obsidian Plugins/Ink/Development/obsidian_ink/src/utils/parseFilepath.ts">
+        <metrics statements="18" coveredstatements="18" conditionals="7" coveredconditionals="3" methods="1" coveredmethods="1"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="3" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="4" count="6" type="stmt"/>
+        <line num="5" count="6" type="stmt"/>
+        <line num="6" count="6" type="stmt"/>
+        <line num="7" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="8" count="6" type="stmt"/>
+        <line num="9" count="6" type="stmt"/>
+        <line num="10" count="6" type="cond" truecount="0" falsecount="1"/>
+        <line num="11" count="6" type="stmt"/>
+        <line num="12" count="6" type="cond" truecount="0" falsecount="1"/>
+        <line num="13" count="6" type="cond" truecount="0" falsecount="1"/>
+        <line num="14" count="6" type="stmt"/>
+        <line num="15" count="6" type="stmt"/>
+        <line num="16" count="6" type="stmt"/>
+        <line num="17" count="6" type="cond" truecount="0" falsecount="1"/>
+        <line num="18" count="6" type="stmt"/>
+      </file>
+    </package>
   </project>
 </coverage>

@@ -5,7 +5,7 @@ import createNewDrawingFile from "./create-new-drawing-file";
 import { PLUGIN_KEY } from "src/constants";
 import { fetchLocally } from "src/utils/storage";
 import { InsertCopiedFileModal } from "src/modals/confirmation-modal/insert-copied-file-modal";
-import { duplicateDrawingFile } from "src/utils/file-manipulation";
+import { duplicateDrawingFile } from "src/utils/rememberDrawingFile";
 
 //////////
 //////////

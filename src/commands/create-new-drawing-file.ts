@@ -1,7 +1,8 @@
 import InkPlugin from "src/main";
 import { buildDrawingFileData, stringifyPageData } from "src/utils/page-file";
 import defaultSnapshot from "src/defaults/default-tldraw-drawing-store";
-import { createFoldersForFilepath, getNewTimestampedDrawingFilepath } from "src/utils/file-manipulation";
+import { getNewTimestampedDrawingFilepath } from "src/utils/file-manipulation";
+import { createFoldersForFilepath } from "src/utils/createFoldersForFilepath";
 
 ////////
 ////////
@@ -12,8 +13,8 @@ const createNewDrawingFile = async (plugin: InkPlugin) => {
         tldrawData: defaultSnapshot,
     });
     await createFoldersForFilepath(plugin, filepath);
-    const noteRef = await plugin.app.vault.create(filepath, stringifyPageData(pageData));
-    return noteRef;
+    const fileRef = await plugin.app.vault.create(filepath, stringifyPageData(pageData));
+    return fileRef;
 }
 
 export default createNewDrawingFile;

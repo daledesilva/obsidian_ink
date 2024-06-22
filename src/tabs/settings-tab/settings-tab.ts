@@ -4,7 +4,7 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/modals/confirmation-modal/confirmation-modal";
-import { DEFAULT_SETTINGS } from 'src/types/PluginSettings';
+import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { showWelcomeTips, showWelcomeTips_maybe } from 'src/notices/welcome-notice';
 import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-accordion-setting';
 

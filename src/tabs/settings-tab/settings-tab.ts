@@ -140,6 +140,20 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 
 function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
 
+	const saveWritingFolder = async (enteredValue: string) => {
+		const value = enteredValue || DEFAULT_SETTINGS.writingSubfolder;
+		plugin.settings.writingSubfolder = value.trim();
+		await plugin.saveSettings();
+		refresh();
+	}
+
+	const saveDrawingFolder = async (enteredValue: string) => {
+		const value = enteredValue || DEFAULT_SETTINGS.drawingSubfolder;
+		plugin.settings.drawingSubfolder = value.trim();
+		await plugin.saveSettings();
+		refresh();
+	}
+
 	const accordionSection = new ToggleAccordionSetting(containerEl)
 		.setName('Customise file organisation')
 		.setExpanded(plugin.settings.customAttachmentFolders)
@@ -168,20 +182,11 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 				.addText((textItem) => {
 					textItem.setValue(plugin.settings.writingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
-					// TODO: Combine the blur and the enter into one abstracted and reusable function
 					textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-						const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
-						plugin.settings.writingSubfolder = value;
-						await plugin.saveSettings();
-						refresh();
+						saveWritingFolder(textItem.getValue());
 					})
 					textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') {
-							const value = textItem.getValue() || DEFAULT_SETTINGS.writingSubfolder;
-							plugin.settings.writingSubfolder = value;
-							await plugin.saveSettings();
-							refresh();
-						}
+						if(ev.key === 'Enter') saveWritingFolder(textItem.getValue());
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -192,20 +197,11 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 				.addText((textItem) => {
 					textItem.setValue(plugin.settings.drawingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
-					// TODO: Combine the blur and the enter into one abstracted and reusable function
 					textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-						const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
-						plugin.settings.drawingSubfolder = value;
-						await plugin.saveSettings();
-						refresh();
+						saveDrawingFolder(textItem.getValue());
 					})
 					textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') {
-							const value = textItem.getValue() || DEFAULT_SETTINGS.drawingSubfolder;
-							plugin.settings.drawingSubfolder = value;
-							await plugin.saveSettings();
-							refresh();
-						}
+						if(ev.key === 'Enter') saveDrawingFolder(textItem.getValue());
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -248,6 +244,14 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 }
 
 function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+
+	const saveWritingStrokeLimit = async (enteredValue: string) => {
+		const value = parseInt(enteredValue) || DEFAULT_SETTINGS.writingStrokeLimit;
+		plugin.settings.writingStrokeLimit = value;
+		await plugin.saveSettings();
+		refresh();
+	}
+
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
 	sectionEl.createEl('h2', { text: 'Writing' });
 	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.` });
@@ -288,18 +292,10 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			textItem.setPlaceholder(DEFAULT_SETTINGS.writingStrokeLimit.toString());
 			// TODO: Combine the blur and the enter into one abstracted and reusable function
 			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-				const value = parseInt(textItem.getValue()) || DEFAULT_SETTINGS.writingStrokeLimit;
-				plugin.settings.writingStrokeLimit = value;
-				await plugin.saveSettings();
-				refresh();
+				saveWritingStrokeLimit(textItem.getValue())
 			})
 			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-				if(ev.key === 'Enter') {
-					const value = parseInt(textItem.getValue()) || DEFAULT_SETTINGS.writingStrokeLimit;
-					plugin.settings.writingStrokeLimit = value;
-					await plugin.saveSettings();
-					refresh();
-				}
+				if(ev.key === 'Enter') saveWritingStrokeLimit(textItem.getValue())
 			})
 		});
 	insertWritingLimitations(sectionEl);

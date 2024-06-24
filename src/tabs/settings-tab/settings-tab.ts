@@ -156,7 +156,7 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 
 	const accordionSection = new ToggleAccordionSetting(containerEl)
 		.setName('Customise file organisation')
-		.setDesc(`Where Ink sections your create are saved.`)
+		.setDesc(`Where Ink sections you create are saved.`)
 		.setExpanded(plugin.settings.customAttachmentFolders)
 		.onToggle( async (value: boolean) => {
 			plugin.settings.customAttachmentFolders = value;

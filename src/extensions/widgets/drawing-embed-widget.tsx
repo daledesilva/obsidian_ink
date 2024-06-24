@@ -1,34 +1,47 @@
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, TFile } from "obsidian";
+import { EditorPosition, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
-import { DrawingEmbedData, applyCommonAncestorStyling } from "src/utils/embed";
+import { DrawingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
 import { Provider } from "react-redux";
 import { store } from "src/logic/stores";
+import { Editor } from 'obsidian';
 
 ////////
+////////
+
+interface EmbedCtrls {
+	removeEmbed: Function,
+}
+
 ////////
 
 export function registerDrawingEmbed(plugin: InkPlugin) {
+
 	plugin.registerMarkdownCodeBlockProcessor(
 		DRAW_EMBED_KEY,
 		(source, el, ctx) => {
 			const embedData = JSON.parse(source) as DrawingEmbedData;
+			const embedCtrls: EmbedCtrls = {
+				removeEmbed: () => removeEmbed(plugin, ctx, el),
+			}
 			if(embedData.filepath) {
-				ctx.addChild(new DrawingEmbedWidget(el, plugin, embedData));
+				ctx.addChild(new DrawingEmbedWidget(el, plugin, embedData, embedCtrls));
 			}
 		}
 	);
+
 }
 
 class DrawingEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
 	plugin: InkPlugin;
 	embedData: DrawingEmbedData;
+	embedCtrls: EmbedCtrls;
 	root: Root;
 	fileRef: TFile | null;
 
@@ -36,11 +49,13 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 		el: HTMLElement,
 		plugin: InkPlugin,
 		embedData: DrawingEmbedData,
+		embedCtrls: EmbedCtrls,
 	) {
 		super(el);
 		this.el = el;
 		this.plugin = plugin;
 		this.embedData = embedData;
+		this.embedCtrls = embedCtrls;
 	}
 
 	async onload() {
@@ -63,6 +78,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 					fileRef = {this.fileRef}
 					pageData = {pageData}
 					save = {this.save}
+					remove = {this.embedCtrls.removeEmbed}
 				/>
 			</Provider>
         );
@@ -84,3 +100,6 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	}
 
 }
+
+
+

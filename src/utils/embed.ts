@@ -2,8 +2,9 @@
 ///////
 ///////
 
-import { MarkdownViewModeType } from "obsidian";
+import { EditorPosition, MarkdownPostProcessorContext, MarkdownViewModeType } from "obsidian";
 import { DRAW_EMBED_KEY, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
+import InkPlugin from "src/main";
 
 export type WritingEmbedData = {
 	versionAtEmbed: string;
@@ -84,4 +85,32 @@ export function applyCommonAncestorStyling(embedEl: HTMLElement) {
 	style += `; margin-left: calc(-${m} + 4px) !important`;
 	style += `; margin-right: calc(-${m} + 4px) !important`;
 	parentEmbedBlockEl.setAttribute('style', style);
+}
+
+/**
+ * Removes an element from a markdown in the active editor.
+ * Pass in the context and el used when creating the embed.
+ * @param plugin 
+ * @param ctx 
+ * @param el 
+ * @returns 
+ */
+export function removeEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el: HTMLElement) {
+	const cmEditor = plugin.app.workspace.activeEditor?.editor;
+	if(!cmEditor) return;
+
+	const sectionInfo = ctx.getSectionInfo(el);
+
+	if(sectionInfo?.lineStart === undefined || sectionInfo.lineEnd === undefined) return;
+
+	const editorStart: EditorPosition = {
+		line: sectionInfo.lineStart,
+		ch: 0,
+	}
+	const editorEnd: EditorPosition = {
+		line: sectionInfo.lineEnd + 1,
+		ch: 0,
+	}
+
+	cmEditor.replaceRange( '', editorStart, editorEnd );
 }

@@ -3,7 +3,7 @@ import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
-import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling } from "src/utils/embed";
+import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/utils/embed";
 import InkPlugin from "src/main";
 import WritingEmbed from "src/tldraw/writing/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
@@ -13,26 +13,23 @@ import { store } from "src/logic/stores";
 ////////
 ////////
 
+interface EmbedCtrls {
+	removeEmbed: Function,
+}
+
+////////
+
 export function registerWritingEmbed(plugin: InkPlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		WRITE_EMBED_KEY,
 		(source, el, ctx) => {
 			const embedData = JSON.parse(source) as WritingEmbedData;
-			if(embedData.filepath) {
-				ctx.addChild(new WritingEmbedWidget(el, plugin, embedData));
+			const embedCtrls: EmbedCtrls = {
+				removeEmbed: () => removeEmbed(plugin, ctx, el),
 			}
-			
-			// TODO: Editor test for deletion
-			// const sectionInfo = ctx.getSectionInfo(el);
-			// if(sectionInfo) {
-			// 	const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-			// 	if (view) {
-			// 		const editor = view.editor;
-			// 		// TODO: I think this offset is index offset, not line offset
-			// 		editor.replaceRange('', editor.offsetToPos(sectionInfo.lineStart), editor.offsetToPos(sectionInfo.lineEnd))
-	
-			// 	}
-			// }
+			if(embedData.filepath) {
+				ctx.addChild(new WritingEmbedWidget(el, plugin, embedData, embedCtrls));
+			}
 		}
 	);
 }
@@ -41,6 +38,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
 	plugin: InkPlugin;
 	embedData: WritingEmbedData;
+	embedCtrls: EmbedCtrls;
 	root: Root;
 	fileRef: TFile | null;
 	
@@ -48,11 +46,13 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		el: HTMLElement,
 		plugin: InkPlugin,
 		embedData: WritingEmbedData,
+		embedCtrls: EmbedCtrls,
 	) {
 		super(el);
 		this.el = el;
 		this.plugin = plugin;
 		this.embedData = embedData;
+		this.embedCtrls = embedCtrls;
 	}
 
 	async onload() {
@@ -76,6 +76,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 					fileRef = {this.fileRef}
 					pageData = {pageData}
 					save = {this.save}
+					remove = {this.embedCtrls.removeEmbed}
 				/>
 			</Provider>
 		);

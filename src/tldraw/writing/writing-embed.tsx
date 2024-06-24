@@ -29,6 +29,7 @@ export function WritingEmbed (props: {
 	fileRef: TFile,
 	pageData: InkFileData,
 	save: (pageData: InkFileData) => void,
+	remove: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
@@ -77,7 +78,13 @@ export function WritingEmbed (props: {
 		// 	action: async () => {
 		// 		openInkFile(props.plugin, props.fileRef)
 		// 	}
-		// }
+		// },
+		{
+			text: 'Remove embed',
+			action: () => {
+				props.remove()
+			},
+		},
 	]
 
 	//////

@@ -73,10 +73,25 @@ export class MySettingsTab extends PluginSettingTab {
 
 function insertSetupGuide(plugin: InkPlugin, containerEl: HTMLElement) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_setup-guide-section');
-	const accordion = sectionEl.createEl('details');
-	accordion.createEl('summary', { text: `Setup tips and tutorial (Expand for details)` });
-	accordion.createEl('p', { text: `To make this plugin more intuitive, consider turning on 'Slash commands' in 'Obsidian Settings' / 'Core Plugins' or install and set up the community plugin 'Slash Commander'.` });
-	new Setting(accordion)
+	const accordionEl = sectionEl.createEl('details');
+	accordionEl.createEl('summary', { text: `Expand setup tips` });
+
+	new Setting(accordionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Slash Commands')
+		.setDesc(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`)
+
+	new Setting(accordionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Pen Scribble')
+		.setDesc(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`)
+
+	new Setting(accordionEl)
+		.setClass('ddc_ink_setting')
+		.setName('Obsidian Sync')
+		.setDesc(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`)
+
+	new Setting(accordionEl)
 		.addButton( btn => {
 			btn.setButtonText('Rewatch welcome tips');
 			btn.onClick( () => showWelcomeTips(plugin) );

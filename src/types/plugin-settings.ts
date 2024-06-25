@@ -6,6 +6,7 @@ export interface PluginSettings {
     onboardingTips: {
 		welcomeTipRead: boolean,
 		strokeLimitTipRead: boolean,
+		lastVersionTipRead: string,
 	},
 	// General
 	customAttachmentFolders: boolean,

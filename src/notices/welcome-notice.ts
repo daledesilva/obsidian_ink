@@ -4,14 +4,15 @@ import InkPlugin from "src/main";
 ///////////
 ///////////
 
-export function showWelcomeTips_maybe(plugin: InkPlugin) {
+export function showWelcomeTips_maybe(plugin: InkPlugin): boolean {
     // Bail if it's already been shown enough times
-    if(plugin.settings.onboardingTips.welcomeTipRead) return;
+    if(plugin.settings.onboardingTips.welcomeTipRead) return false;
     showWelcomeTips(plugin);
+    return true;
 }
 
 let tipsShowingOrDismissed: boolean = false;
-export function showWelcomeTips(plugin: InkPlugin) {
+export async function showWelcomeTips(plugin: InkPlugin) {
     if(tipsShowingOrDismissed) return;
     tipsShowingOrDismissed = true;
 
@@ -140,6 +141,7 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
             notice.hide();
             tipsShowingOrDismissed = false;
             plugin.settings.onboardingTips.welcomeTipRead = true;
+            plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
             plugin.saveSettings();
         });
     }

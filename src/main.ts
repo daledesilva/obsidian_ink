@@ -14,6 +14,8 @@ import insertRememberedDrawingFile from './commands/insert-remembered-drawing-fi
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import { showWelcomeTips_maybe } from './notices/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
+import * as semver from "semver";
+import { showVersionNotice, show_0_2_4_changes } from './notices/version-notices';
 
 ////////
 ////////
@@ -54,7 +56,7 @@ export default class InkPlugin extends Plugin {
 		// // 	console.log('click', evt);
 		// // });
 
-		showWelcomeTips_maybe(this);
+		showOnboardingTips_maybe(this);
 	}
 	
 	onunload() {}
@@ -139,3 +141,11 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 // 		openInkFile(plugin, fileRef);
 // 	});
 // }
+
+function showOnboardingTips_maybe(plugin: InkPlugin) {
+	const newInstall = showWelcomeTips_maybe(plugin);
+
+	if(!newInstall) {
+		showVersionNotice(plugin);
+	}
+}

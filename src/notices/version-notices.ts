@@ -31,7 +31,14 @@ function show_0_2_4_changes(plugin: InkPlugin) {
 
     const noticeBody = createInkNoticeTemplate(1,3);
     noticeBody.createEl('h1').setText(`Changes in Ink v0.2.4`);
-    noticeBody.createEl('p').setText(`Click on the overflow button in an Ink section (next to lock or edit) to remove the embed.`);
+    const listEl = noticeBody.createEl('ul');
+    listEl.createEl('li').setText(`Customise the attachment folder in Ink's settings.`);
+    listEl.createEl('li').setText(`Remove an embed section through the menu next to the lock button.`);
+    listEl.createEl('li').setText(`Additional problem solving tips added to Ink's settings.`);
+    
+    const link = noticeBody.createEl('a');
+    link.setAttribute('href', 'https://www.youtube.com/@DesignDebtClub/streams')
+    link.setText(`View release video`)
         
     const {
         tertiaryBtnEl

@@ -35,6 +35,16 @@
         border-radius: var(--button-radius);
         display: block;
     }
+    ul, ol {
+        padding-inline-start: 1em;
+        list-style-position: outside;
+        li {
+            margin-block-end: 1ch;
+        }
+    }
+    a {
+        pointer-events: all;
+    }
 
     .ddc_ink_notice-cta-bar {
         display: flex;

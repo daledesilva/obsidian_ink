@@ -171,7 +171,6 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 
 	const accordionSection = new ToggleAccordionSetting(containerEl)
 		.setName('Customise file organisation')
-		.setDesc(`Where Ink sections you create are saved.`)
 		.setExpanded(plugin.settings.customAttachmentFolders)
 		.onToggle( async (value: boolean) => {
 			plugin.settings.customAttachmentFolders = value;
@@ -180,17 +179,56 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 		})
 		.setContent((container) => {
 			new Setting(container)
-				.setClass('ddc_ink_setting')
-				.setName(`Use Obsidian's default location for attachments`)
-				.setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
-				.addToggle((toggle) => {
-					toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
-					toggle.onChange(async (value) => {
-						plugin.settings.useObsidianAttachmentFolder = value;
+				.setClass('ddc_ink_button-set')
+				.setName(`Where should Ink files be saved?`)
+				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
+				.addButton( (button) => {
+					button.setButtonText('Obsidian attachment folder')
+					button.setClass('ddc_ink_left-most')
+					if(plugin.settings.attachmentFolderLocation === 'obsidian') {
+						button.setCta()
+						button.setDisabled(true)
+					}
+					button.onClick( async (e) => {
+						plugin.settings.attachmentFolderLocation = 'obsidian';
 						await plugin.saveSettings();
 						refresh();
-					});
-				});
+					})
+				})
+				.addButton( (button) => {
+					button.setButtonText('Vault root')
+					button.setClass('ddc_ink_middle')
+					if(plugin.settings.attachmentFolderLocation === 'absolute') {
+						button.setCta()
+						button.setDisabled(true)
+					}
+					button.onClick( async (e) => {
+						plugin.settings.attachmentFolderLocation = 'absolute';
+						await plugin.saveSettings();
+						refresh();
+					})
+				})
+				.addButton( (button) => {
+					button.setButtonText('Next to the note')
+					button.setClass('ddc_ink_right-most')
+					if(plugin.settings.attachmentFolderLocation === 'relative') {
+						button.setCta()
+						button.setDisabled(true)
+					}
+					button.onClick( async (e) => {
+						plugin.settings.attachmentFolderLocation = 'relative';
+						await plugin.saveSettings();
+						refresh();
+					})
+				})
+				// .addToggle((toggle) => {
+				// 	toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
+				// 	toggle.onChange(async (value) => {
+				// 		plugin.settings.useObsidianAttachmentFolder = value;
+				// 		await plugin.saveSettings();
+				// 		refresh();
+				// 	});
+				// });
 
 			let inputSettingEl = new Setting(container)
 				.setClass('ddc_ink_setting')

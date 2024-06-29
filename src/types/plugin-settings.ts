@@ -10,8 +10,7 @@ export interface PluginSettings {
 	},
 	// General
 	customAttachmentFolders: boolean,
-    useObsidianAttachmentFolder: boolean,
-	useSubfolders: boolean,
+    attachmentFolderLocation: 'obsidian' | 'absolute' | 'relative',
 	writingSubfolder: string,
 	drawingSubfolder: string,
 	// Writing specific
@@ -36,8 +35,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	},
 	// General
 	customAttachmentFolders: false,
-    useObsidianAttachmentFolder: true,
-	useSubfolders: true,
+    attachmentFolderLocation: 'obsidian',
 	writingSubfolder: 'Ink/Writing',
 	drawingSubfolder: 'Ink/Drawing',
 	// Writing specific

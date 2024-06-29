@@ -41,3 +41,42 @@
         }
     }
 }
+
+
+.ddc_ink_button-set {
+    flex-wrap: wrap;
+    row-gap: 0.3em;
+
+    .setting-item-control {
+        gap: 2px;
+        flex-wrap: wrap;
+
+        button {
+            flex-grow: 1;
+            flex-shrink: 1;
+        }
+
+        .ddc_ink_middle {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .ddc_ink_left-most {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        .ddc_ink_right-most {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .mod-cta:disabled {
+            box-shadow: inset 1px 1px 3px 0.5px rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+        }
+
+    }
+
+}

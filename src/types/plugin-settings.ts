@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     onboardingTips: {
 		welcomeTipRead: false,
 		strokeLimitTipRead: false,
+		lastVersionTipRead: '',
 	},
 	// General
 	customAttachmentFolders: false,

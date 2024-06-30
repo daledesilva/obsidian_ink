@@ -7,7 +7,8 @@ import createNewDrawingFile from "./create-new-drawing-file";
 //////////
 
 const insertNewDrawingFile = async (plugin: InkPlugin, editor: Editor) => {
-    const fileRef = await createNewDrawingFile(plugin);
+    const activeFile = plugin.app.workspace.getActiveFile();
+    const fileRef = await createNewDrawingFile(plugin, activeFile);
     let embedStr = buildDrawingEmbed(fileRef.path);
     editor.replaceRange( embedStr, editor.getCursor() );
 }

@@ -178,19 +178,20 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			refresh();
 		})
 		.setContent((container) => {
+			// TODO: This should be abstracted as a dom component
 			new Setting(container)
 				.setClass('ddc_ink_button-set')
-				.setName(`Where should Ink files be saved?`)
+				.setName(`Where should Ink files be saved when created in a note?`)
 				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
 				.addButton( (button) => {
 					button.setButtonText('Obsidian attachment folder')
 					button.setClass('ddc_ink_left-most')
-					if(plugin.settings.attachmentFolderLocation === 'obsidian') {
+					if(plugin.settings.noteAttachmentFolderLocation === 'obsidian') {
 						button.setCta()
 						button.setDisabled(true)
 					}
 					button.onClick( async (e) => {
-						plugin.settings.attachmentFolderLocation = 'obsidian';
+						plugin.settings.noteAttachmentFolderLocation = 'obsidian';
 						await plugin.saveSettings();
 						refresh();
 					})
@@ -198,12 +199,12 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 				.addButton( (button) => {
 					button.setButtonText('Vault root')
 					button.setClass('ddc_ink_middle')
-					if(plugin.settings.attachmentFolderLocation === 'absolute') {
+					if(plugin.settings.noteAttachmentFolderLocation === 'root') {
 						button.setCta()
 						button.setDisabled(true)
 					}
 					button.onClick( async (e) => {
-						plugin.settings.attachmentFolderLocation = 'absolute';
+						plugin.settings.noteAttachmentFolderLocation = 'root';
 						await plugin.saveSettings();
 						refresh();
 					})
@@ -211,24 +212,47 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 				.addButton( (button) => {
 					button.setButtonText('Next to the note')
 					button.setClass('ddc_ink_right-most')
-					if(plugin.settings.attachmentFolderLocation === 'relative') {
+					if(plugin.settings.noteAttachmentFolderLocation === 'note') {
 						button.setCta()
 						button.setDisabled(true)
 					}
 					button.onClick( async (e) => {
-						plugin.settings.attachmentFolderLocation = 'relative';
+						plugin.settings.noteAttachmentFolderLocation = 'note';
 						await plugin.saveSettings();
 						refresh();
 					})
 				})
-				// .addToggle((toggle) => {
-				// 	toggle.setValue(plugin.settings.useObsidianAttachmentFolder);
-				// 	toggle.onChange(async (value) => {
-				// 		plugin.settings.useObsidianAttachmentFolder = value;
-				// 		await plugin.saveSettings();
-				// 		refresh();
-				// 	});
-				// });
+			// TODO: This should be abstracted as a dom component
+			new Setting(container)
+				.setClass('ddc_ink_button-set')
+				.setName(`Where should Ink files be saved when created independantly?`)
+				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
+				.addButton( (button) => {
+					button.setButtonText('Obsidian attachment folder')
+					button.setClass('ddc_ink_left-most')
+					if(plugin.settings.notelessAttachmentFolderLocation === 'obsidian') {
+						button.setCta()
+						button.setDisabled(true)
+					}
+					button.onClick( async (e) => {
+						plugin.settings.notelessAttachmentFolderLocation = 'obsidian';
+						await plugin.saveSettings();
+						refresh();
+					})
+				})
+				.addButton( (button) => {
+					button.setButtonText('Vault root')
+					button.setClass('ddc_ink_middle')
+					if(plugin.settings.notelessAttachmentFolderLocation === 'root') {
+						button.setCta()
+						button.setDisabled(true)
+					}
+					button.onClick( async (e) => {
+						plugin.settings.notelessAttachmentFolderLocation = 'root';
+						await plugin.saveSettings();
+						refresh();
+					})
+				})
 
 			let inputSettingEl = new Setting(container)
 				.setClass('ddc_ink_setting')

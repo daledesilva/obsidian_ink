@@ -45,11 +45,17 @@
 
 .ddc_ink_button-set {
     flex-wrap: wrap;
-    row-gap: 0.3em;
+    row-gap: 0.5em;
+    
+
+    .setting-item-info {
+        width: 100%;
+    }
 
     .setting-item-control {
         gap: 2px;
         flex-wrap: wrap;
+        padding-bottom: 0.9em;
 
         button {
             flex-grow: 1;

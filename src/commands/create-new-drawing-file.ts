@@ -3,12 +3,13 @@ import { buildDrawingFileData, stringifyPageData } from "src/utils/page-file";
 import defaultSnapshot from "src/defaults/default-tldraw-drawing-store";
 import { getNewTimestampedDrawingFilepath } from "src/utils/file-manipulation";
 import { createFoldersForFilepath } from "src/utils/createFoldersForFilepath";
+import { TFile } from "obsidian";
 
 ////////
 ////////
 
-const createNewDrawingFile = async (plugin: InkPlugin) => {
-    const filepath = await getNewTimestampedDrawingFilepath(plugin);
+const createNewDrawingFile = async (plugin: InkPlugin, instigatingFile?: TFile | null) => {
+    const filepath = await getNewTimestampedDrawingFilepath(plugin, instigatingFile);
     const pageData = buildDrawingFileData({
         tldrawData: defaultSnapshot,
     });

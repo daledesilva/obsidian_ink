@@ -7,7 +7,8 @@ import { buildWritingEmbed } from "src/utils/embed";
 /////////
 
 const insertNewWritingFile = async (plugin: InkPlugin, editor: Editor) => {
-    const fileRef = await createNewWritingFile(plugin);
+    const activeFile = plugin.app.workspace.getActiveFile();
+    const fileRef = await createNewWritingFile(plugin, activeFile);
     let embedStr = buildWritingEmbed(fileRef.path);
     editor.replaceRange( embedStr, editor.getCursor() );
 }

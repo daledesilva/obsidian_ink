@@ -36,7 +36,7 @@ export default class InkPlugin extends Plugin {
 		// NOTE: For testing only
 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
 		// implementHandwrittenNoteAction(this)
-		implementHandDrawnNoteAction(this)
+		// implementHandDrawnNoteAction(this)
 
 		if(this.settings.writingEnabled) {
 			registerWritingView(this);
@@ -129,20 +129,20 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 // 	});
 // }
 
-function implementHandDrawnNoteAction(plugin: InkPlugin) {
-	plugin.addCommand({
-		id: 'create-drawing-file',
-		name: 'Create new drawing',
-		callback: async () => {
-			const fileRef = await createNewDrawingFile(plugin);
-			openInkFile(plugin, fileRef);
-		}
-	});
-	plugin.addRibbonIcon("pencil", "New hand drawn note", async () => {
-		const fileRef = await createNewDrawingFile(plugin);
-		openInkFile(plugin, fileRef);
-	});
-}
+// function implementHandDrawnNoteAction(plugin: InkPlugin) {
+// 	plugin.addCommand({
+// 		id: 'create-drawing-file',
+// 		name: 'Create new drawing',
+// 		callback: async () => {
+// 			const fileRef = await createNewDrawingFile(plugin);
+// 			openInkFile(plugin, fileRef);
+// 		}
+// 	});
+// 	plugin.addRibbonIcon("pencil", "New hand drawn note", async () => {
+// 		const fileRef = await createNewDrawingFile(plugin);
+// 		openInkFile(plugin, fileRef);
+// 	});
+// }
 
 function showOnboardingTips_maybe(plugin: InkPlugin) {
 	const newInstall = showWelcomeTips_maybe(plugin);

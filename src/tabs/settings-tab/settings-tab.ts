@@ -223,36 +223,36 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					})
 				})
 			// TODO: This should be abstracted as a dom component
-			new Setting(container)
-				.setClass('ddc_ink_button-set')
-				.setName(`Where should Ink files be saved when created independantly?`)
-				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
-				.addButton( (button) => {
-					button.setButtonText('Obsidian attachment folder')
-					button.setClass('ddc_ink_left-most')
-					if(plugin.settings.notelessAttachmentFolderLocation === 'obsidian') {
-						button.setCta()
-						button.setDisabled(true)
-					}
-					button.onClick( async (e) => {
-						plugin.settings.notelessAttachmentFolderLocation = 'obsidian';
-						await plugin.saveSettings();
-						refresh();
-					})
-				})
-				.addButton( (button) => {
-					button.setButtonText('Vault root')
-					button.setClass('ddc_ink_middle')
-					if(plugin.settings.notelessAttachmentFolderLocation === 'root') {
-						button.setCta()
-						button.setDisabled(true)
-					}
-					button.onClick( async (e) => {
-						plugin.settings.notelessAttachmentFolderLocation = 'root';
-						await plugin.saveSettings();
-						refresh();
-					})
-				})
+			// new Setting(container)
+			// 	.setClass('ddc_ink_button-set')
+			// 	.setName(`Where should Ink files be saved when created independantly?`)
+			// 	// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
+			// 	.addButton( (button) => {
+			// 		button.setButtonText('Obsidian attachment folder')
+			// 		button.setClass('ddc_ink_left-most')
+			// 		if(plugin.settings.notelessAttachmentFolderLocation === 'obsidian') {
+			// 			button.setCta()
+			// 			button.setDisabled(true)
+			// 		}
+			// 		button.onClick( async (e) => {
+			// 			plugin.settings.notelessAttachmentFolderLocation = 'obsidian';
+			// 			await plugin.saveSettings();
+			// 			refresh();
+			// 		})
+			// 	})
+			// 	.addButton( (button) => {
+			// 		button.setButtonText('Vault root')
+			// 		button.setClass('ddc_ink_middle')
+			// 		if(plugin.settings.notelessAttachmentFolderLocation === 'root') {
+			// 			button.setCta()
+			// 			button.setDisabled(true)
+			// 		}
+			// 		button.onClick( async (e) => {
+			// 			plugin.settings.notelessAttachmentFolderLocation = 'root';
+			// 			await plugin.saveSettings();
+			// 			refresh();
+			// 		})
+			// 	})
 
 			let inputSettingEl = new Setting(container)
 				.setClass('ddc_ink_setting')

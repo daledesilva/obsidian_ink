@@ -38,7 +38,7 @@ describe(`getBaseAttachmentPath tests`, () => {
         mockPlugin.settings.customAttachmentFolders = false;
         const result = await getBaseAttachmentPath(mockPlugin, {
             obsAttachmentFolderPath: 'obs attachments',
-            noteFolderPath: 'file folder',
+            instigatingFileFolderPath: 'file folder',
         });
         expect(result).toEqual('obs attachments');
     })
@@ -49,7 +49,7 @@ describe(`getBaseAttachmentPath tests`, () => {
         mockPlugin.settings.noteAttachmentFolderLocation = 'obsidian'
         const result = await getBaseAttachmentPath(mockPlugin, {
             obsAttachmentFolderPath: 'obs attachments',
-            noteFolderPath: 'file folder',
+            instigatingFileFolderPath: 'file folder',
         });
         expect(result).toEqual('obs attachments');
     })
@@ -60,7 +60,7 @@ describe(`getBaseAttachmentPath tests`, () => {
         mockPlugin.settings.noteAttachmentFolderLocation = 'note'
         const result = await getBaseAttachmentPath(mockPlugin, {
             obsAttachmentFolderPath: 'obs attachments',
-            noteFolderPath: 'file folder',
+            instigatingFileFolderPath: 'file folder',
         });
         expect(result).toEqual('file folder');
     })
@@ -71,7 +71,7 @@ describe(`getBaseAttachmentPath tests`, () => {
         mockPlugin.settings.noteAttachmentFolderLocation = 'root';
         const result = await getBaseAttachmentPath(mockPlugin, {
             obsAttachmentFolderPath: 'obs attachments',
-            noteFolderPath: 'file folder',
+            instigatingFileFolderPath: 'file folder',
         });
         expect(result).toEqual('');
     })

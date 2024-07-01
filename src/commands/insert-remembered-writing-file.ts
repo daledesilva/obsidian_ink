@@ -32,7 +32,8 @@ const insertRememberedWritingFile = async (plugin: InkPlugin, editor: Editor) =>
             editor.replaceRange(embedStr, editor.getCursor());
         },
         duplicateAction: async () => {
-            const duplicatedFileRef = await duplicateWritingFile(plugin, existingFileRef);
+            const activeFile = plugin.app.workspace.getActiveFile();
+            const duplicatedFileRef = await duplicateWritingFile(plugin, existingFileRef, activeFile);
             if(!duplicatedFileRef) return;
 
             new Notice("Writing file duplicated");

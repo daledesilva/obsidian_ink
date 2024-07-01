@@ -28,19 +28,19 @@ export const rememberWritingFile = async (plugin: InkPlugin, existingFileRef: TF
     new Notice(`Writing file copied.\nRun 'Insert writing file' where desired.`);
 };
 
-export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile | null> => {
+export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile, instigatingFile?: TFile | null): Promise<TFile | null> => {
     const v = plugin.app.vault;
 
-    const newFilePath = await getNewTimestampedDrawingFilepath(plugin);
+    const newFilePath = await getNewTimestampedDrawingFilepath(plugin, instigatingFile);
     const newFile = await v.copy(existingFileRef, newFilePath);
 
     return newFile;
 };
 
-export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: TFile): Promise<TFile> => {
+export const duplicateWritingFile = async (plugin: InkPlugin, existingFileRef: TFile, instigatingFile?: TFile | null): Promise<TFile | null> => {
     const v = plugin.app.vault;
 
-    const newFilePath = await getNewTimestampedWritingFilepath(plugin);
+    const newFilePath = await getNewTimestampedWritingFilepath(plugin, instigatingFile);
     const newFile = await v.copy(existingFileRef, newFilePath);
 
     return newFile;

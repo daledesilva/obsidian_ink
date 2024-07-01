@@ -33,7 +33,8 @@ const insertRememberedDrawingFile = async (plugin: InkPlugin, editor: Editor) =>
             editor.replaceRange(embedStr, editor.getCursor());
         },
         duplicateAction: async () => {
-            const duplicatedFileRef = await duplicateDrawingFile(plugin, existingFileRef);
+            const activeFile = plugin.app.workspace.getActiveFile();
+            const duplicatedFileRef = await duplicateDrawingFile(plugin, existingFileRef, activeFile);
             if(!duplicatedFileRef) return;
 
             new Notice("Drawing file duplicated");

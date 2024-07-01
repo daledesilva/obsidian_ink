@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.97% </span>
+                <span class="strong">89.09% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>54/73</span>
+                <span class='fraction'>49/55</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">73.97% </span>
+                <span class="strong">89.09% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>54/73</span>
+                <span class='fraction'>49/55</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -120,22 +120,7 @@
 <a name='L55'></a><a href='#L55'>55</a>
 <a name='L56'></a><a href='#L56'>56</a>
 <a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a>
-<a name='L60'></a><a href='#L60'>60</a>
-<a name='L61'></a><a href='#L61'>61</a>
-<a name='L62'></a><a href='#L62'>62</a>
-<a name='L63'></a><a href='#L63'>63</a>
-<a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a>
-<a name='L66'></a><a href='#L66'>66</a>
-<a name='L67'></a><a href='#L67'>67</a>
-<a name='L68'></a><a href='#L68'>68</a>
-<a name='L69'></a><a href='#L69'>69</a>
-<a name='L70'></a><a href='#L70'>70</a>
-<a name='L71'></a><a href='#L71'>71</a>
-<a name='L72'></a><a href='#L72'>72</a>
-<a name='L73'></a><a href='#L73'>73</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L58'></a><a href='#L58'>58</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -170,8 +155,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -180,7 +163,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">4x</span>
@@ -193,21 +175,9 @@
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Notice, TFile } from "obsidian";
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Notice, TFile } from "obsidian";
 import InkPlugin from "src/main";
 import { parseFilepath } from "./parseFilepath";
 import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
@@ -215,11 +185,11 @@ import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
 /////////////
 /////////////
 &nbsp;
-export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {noteFolderPath?: string | null, obsAttachmentFolderPath?: string | null}): Promise&lt;string&gt; =&gt; {
+export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instigatingFileFolderPath?: string | null, obsAttachmentFolderPath?: string | null}): Promise&lt;string&gt; =&gt; {
     let baseAttachmentPath: string = '';
     let attachmentFolderLocation;
 &nbsp;
-    if(options.noteFolderPath) {
+    if(options.instigatingFileFolderPath) {
         if(plugin.settings.customAttachmentFolders) {
             attachmentFolderLocation = plugin.settings.noteAttachmentFolderLocation;
         } else {
@@ -242,17 +212,14 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {noteFol
 <span class="cstat-no" title="statement not covered" >            baseAttachmentPath = '';</span>
 <span class="cstat-no" title="statement not covered" >        }</span>
 &nbsp;
-        //await getObsidianAttachmentFolderPath(plugin);
-&nbsp;
     } else if(attachmentFolderLocation === 'note') {
         
-        if(options.noteFolderPath) {
-            baseAttachmentPath = options.noteFolderPath;
+        if(options.instigatingFileFolderPath) {
+            baseAttachmentPath = options.instigatingFileFolderPath;
         }<span class="branch-0 cbranch-no" title="branch not covered" > else {</span>
 <span class="cstat-no" title="statement not covered" >            console.log(`Ink Plugin: There was an error accessing the note's folder. Placing the new file according to the 'vault root' location setting instead.`, 0);</span>
 <span class="cstat-no" title="statement not covered" >            baseAttachmentPath = '';</span>
 <span class="cstat-no" title="statement not covered" >        }</span>
-        //baseAttachmentPath = parseFilepath(instigatingFile?.path).folderpath;
         
     } else {
         // Use vault root
@@ -267,26 +234,14 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {noteFol
 };
 &nbsp;
 &nbsp;
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async function getObsidianAttachmentFolderPath(plugin: InkPlugin): Promise&lt;string | null&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >    let attachmentPath: string | null = null;</span>
-<span class="cstat-no" title="statement not covered" >    try {</span>
-<span class="cstat-no" title="statement not covered" >        const returnedObsPath = await plugin.app.fileManager.getAvailablePathForAttachment('dummy');</span>
-<span class="cstat-no" title="statement not covered" >        if (returnedObsPath.contains('/')) {</span>
-<span class="cstat-no" title="statement not covered" >            const { folderpath } = parseFilepath(returnedObsPath);</span>
-<span class="cstat-no" title="statement not covered" >            attachmentPath = folderpath;</span>
-<span class="cstat-no" title="statement not covered" >        }</span>
-<span class="cstat-no" title="statement not covered" >    } catch (err) {</span>
-<span class="cstat-no" title="statement not covered" >        return null;</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >    return attachmentPath;</span>
-<span class="cstat-no" title="statement not covered" >}</span></pre></td></tr></table></pre>
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2024-07-01T13:23:53.852Z
+                at 2024-07-01T13:30:20.038Z
             </div>
         <script src="../prettify.js"></script>
         <script>

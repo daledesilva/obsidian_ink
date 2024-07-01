@@ -6,11 +6,11 @@ import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
 /////////////
 /////////////
 
-export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {noteFolderPath?: string | null, obsAttachmentFolderPath?: string | null}): Promise<string> => {
+export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instigatingFileFolderPath?: string | null, obsAttachmentFolderPath?: string | null}): Promise<string> => {
     let baseAttachmentPath: string = '';
     let attachmentFolderLocation;
 
-    if(options.noteFolderPath) {
+    if(options.instigatingFileFolderPath) {
         if(plugin.settings.customAttachmentFolders) {
             attachmentFolderLocation = plugin.settings.noteAttachmentFolderLocation;
         } else {
@@ -29,21 +29,18 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {noteFol
         if(options.obsAttachmentFolderPath) {
             baseAttachmentPath = options.obsAttachmentFolderPath;
         } else {
-            console.log(`Ink Plugin: There was an error accessing the default Obsidian attachment folder. Placing the new file according to the 'vault root' location setting instead.`, 0);
+            console.warn(`Ink Plugin: There was an error accessing the default Obsidian attachment folder. Placing the new file in the vault's root instead.`);
             baseAttachmentPath = '';
         }
-
-        //await getObsidianAttachmentFolderPath(plugin);
 
     } else if(attachmentFolderLocation === 'note') {
         
-        if(options.noteFolderPath) {
-            baseAttachmentPath = options.noteFolderPath;
+        if(options.instigatingFileFolderPath) {
+            baseAttachmentPath = options.instigatingFileFolderPath;
         } else {
-            console.log(`Ink Plugin: There was an error accessing the note's folder. Placing the new file according to the 'vault root' location setting instead.`, 0);
+            console.warn(`Ink Plugin: There was an error accessing the note's folder. Placing the new file in the vault's root instead.`);
             baseAttachmentPath = '';
         }
-        //baseAttachmentPath = parseFilepath(instigatingFile?.path).folderpath;
         
     } else {
         // Use vault root
@@ -58,16 +55,3 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {noteFol
 };
 
 
-async function getObsidianAttachmentFolderPath(plugin: InkPlugin): Promise<string | null> {
-    let attachmentPath: string | null = null;
-    try {
-        const returnedObsPath = await plugin.app.fileManager.getAvailablePathForAttachment('dummy');
-        if (returnedObsPath.contains('/')) {
-            const { folderpath } = parseFilepath(returnedObsPath);
-            attachmentPath = folderpath;
-        }
-    } catch (err) {
-        return null;
-    }
-    return attachmentPath;
-}

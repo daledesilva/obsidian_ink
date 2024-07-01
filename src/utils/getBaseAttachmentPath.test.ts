@@ -2,11 +2,22 @@ import { describe, expect, test } from "@jest/globals";
 import InkPlugin from "src/main";
 import { getDrawingSubfolderPath, getWritingSubfolderPath } from "./getSubfolderPaths";
 import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
+import { getBaseAttachmentPath } from "./getBaseAttachmentPath";
 
 ////////////
 ////////////
 
 function createMockPlugin() {
+    return {
+        settings: {},
+        app: {
+            vault: {},
+            fileManager: {},
+        }
+    }
+}
+
+function createMockTFile() {
     return {
         settings: {},
         app: {
@@ -19,60 +30,93 @@ function createMockPlugin() {
 
 describe(`getBaseAttachmentPath tests`, () => {
 
-    // plugin.settings.customAttachmentFolders = false
-    // instigatingFile included
-    // instigatingFile note included
+    // Creating ink file from within a note
+    ///////////////////////////////////////
 
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.noteAttachmentFolderLocation = 'obsidian'
-    // plugin.app.fileManager.getAvailablePathForAttachment('dummy') returns something
-    // instigatingFile included
+    test(`Created from file: No customisation`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = false;
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+            noteFolderPath: 'file folder',
+        });
+        expect(result).toEqual('obs attachments');
+    })
+
+    test(`Created from file: Obsidian attachment folder`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = true;
+        mockPlugin.settings.noteAttachmentFolderLocation = 'obsidian'
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+            noteFolderPath: 'file folder',
+        });
+        expect(result).toEqual('obs attachments');
+    })
+
+    test(`Created from file: Note folder`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = true;
+        mockPlugin.settings.noteAttachmentFolderLocation = 'note'
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+            noteFolderPath: 'file folder',
+        });
+        expect(result).toEqual('file folder');
+    })
     
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.noteAttachmentFolderLocation = 'obsidian'
-    // plugin.app.fileManager.getAvailablePathForAttachment('dummy') returns something valid
-    // instigatingFile included
+    test(`Created from file: Vault root`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = true;
+        mockPlugin.settings.noteAttachmentFolderLocation = 'root';
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+            noteFolderPath: 'file folder',
+        });
+        expect(result).toEqual('');
+    })
 
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.noteAttachmentFolderLocation = 'obsidian'
-    // plugin.app.fileManager.getAvailablePathForAttachment('dummy') returns some invalid things
-    // instigatingFile included
+    // Creating ink file independantly
+    //////////////////////////////////
 
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.noteAttachmentFolderLocation = 'note'
-    // instigatingFile included
+    test(`Created independantly: No customisation`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = false;
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+        });
+        expect(result).toEqual('obs attachments');
+    })
 
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.noteAttachmentFolderLocation = 'root'
-    // instigatingFile included
+    test(`Created independantly: Obsidian attachment folder`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = true;
+        mockPlugin.settings.noteAttachmentFolderLocation = 'obsidian'
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+        });
+        expect(result).toEqual('');
+    })
 
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.notelessAttachmentFolderLocation = 'obsidian'
-    // plugin.app.fileManager.getAvailablePathForAttachment('dummy') returns something valid
-    // instigatingFile not included
+    test(`Created independantly: Obsidian attachment folder (error)`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = true;
+        mockPlugin.settings.noteAttachmentFolderLocation = 'obsidian'
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: null,
+        });
+        expect(result).toEqual(''); // Should return vault root instead
+    })
 
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.notelessAttachmentFolderLocation = 'obsidian'
-    // plugin.app.fileManager.getAvailablePathForAttachment('dummy') returns something invalid things
-    // instigatingFile not included
-
-    // plugin.settings.customAttachmentFolders = true
-    // plugin.settings.notelessAttachmentFolderLocation = 'root'
-    // instigatingFile not included
-
-
-
-
-
-
-    // test(`Almost empty writing Subfolder`, () => {
-    //     const mockPlugin = createMockPlugin() as InkPlugin;
-    //     mockPlugin.settings.customAttachmentFolders = true;
-    //     mockPlugin.settings.writingSubfolder = '  ';
-
-    //     const result = getWritingSubfolderPath(mockPlugin);
-    //     expect(result).toEqual('');
-    // })
+    test(`Created independantly: Vault root`, async () => {
+        const mockPlugin = createMockPlugin() as InkPlugin;
+        mockPlugin.settings.customAttachmentFolders = true;
+        mockPlugin.settings.noteAttachmentFolderLocation = 'note'
+        const result = await getBaseAttachmentPath(mockPlugin, {
+            obsAttachmentFolderPath: 'obs attachments',
+        });
+        expect(result).toEqual('');
+    })
 
 
 });

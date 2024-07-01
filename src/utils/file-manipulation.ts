@@ -3,7 +3,7 @@ import { DRAW_FILE_EXT, WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { getDateFilename } from "./getDateFilename";
 import { getVersionedFilepath } from "./getVersionedFilepath";
-import { getBaseAttachmentPath } from "./getBaseAttachmentPath";
+import { getBaseAttachmentPath } from "./obsidian-interfaces";
 import { getWritingSubfolderPath, getDrawingSubfolderPath } from "./getSubfolderPaths";
 
 /////////

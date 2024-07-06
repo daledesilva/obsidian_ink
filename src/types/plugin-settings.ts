@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	writingLinesWhenLocked: true,
 	writingBackgroundWhenLocked: true,
 	// Drawing specific
-	drawingEnabled: false,
+	drawingEnabled: true,
 	drawingFrameWhenLocked: false,
 	drawingBackgroundWhenLocked: false,
 }

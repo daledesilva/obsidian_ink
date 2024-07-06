@@ -35,10 +35,13 @@ function show_0_2_4_changes(plugin: InkPlugin) {
     listEl.createEl('li').setText(`Customise the attachment folder in Ink's settings.`);
     listEl.createEl('li').setText(`Remove an embed section through the menu next to the lock button.`);
     listEl.createEl('li').setText(`Additional problem solving tips added to Ink's settings.`);
+    listEl.createEl('li').setText(`Drawing embeds enabled by default.`);
     
     const link = noticeBody.createEl('a');
-    link.setAttribute('href', 'https://www.youtube.com/@DesignDebtClub/streams')
-    link.setText(`View release video`)
+    link.setAttribute('href', 'https://youtube.com/live/nRAABxAG62o')
+    link.setText(`View release video`);
+    // Prevent clicking link from closing notice
+    link.onClickEvent( e => e.stopPropagation())
         
     const {
         tertiaryBtnEl

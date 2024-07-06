@@ -27,18 +27,13 @@ export class MySettingsTab extends PluginSettingTab {
 		const {containerEl} = this;
 
 		containerEl.empty();
-
-		insertPrereleaseWarning(containerEl);
-
+		
+		containerEl.createEl('h1').setText('Ink');
+		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
+		
 		containerEl.createEl('hr');
 		insertMoreInfoLinks(containerEl);
-			
-		// TODO: Collapsible change log
-		// containerEl.createEl('p', {
-		// 	text: 'Alpha v0.0.359 changes',
-		// 	cls: 'ddc_ink_text-warning',
-		// });		
-		
+		insertPrereleaseWarning(containerEl);
 		insertSetupGuide(this.plugin, containerEl);
 
 		insertHighLevelSettings(containerEl, this.plugin, () => this.display());

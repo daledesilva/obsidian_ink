@@ -35,7 +35,7 @@
 	},
 	"dependencies": {
 		"@reduxjs/toolkit": "^2.1.0",
-		"@tldraw/tldraw": "^2.1.0",
+		"@tldraw/tldraw": "^2.1.4",
 		"canvg": "^4.0.1",
 		"classnames": "^2.5.1",
 		"esbuild-plugin-copy": "^2.0.1",

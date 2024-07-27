@@ -1,3 +1,4 @@
+import './writing-embed-widget.scss';
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
 import * as React from "react";

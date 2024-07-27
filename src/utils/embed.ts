@@ -79,12 +79,34 @@ export function applyCommonAncestorStyling(embedEl: HTMLElement) {
 	const parentPageScrollerEl = embedEl.closest('.cm-scroller') as HTMLElement;
 	const scrollerStyle = window.getComputedStyle(parentPageScrollerEl);
 	
-	const m = scrollerStyle.paddingLeft;
+	const scrollerInlineStartMargin = scrollerStyle.paddingInlineStart;
+	const scrollerInlineEndMargin = scrollerStyle.paddingInlineEnd;
+	const scrollerMarginLeft = scrollerStyle.paddingLeft;
+	const scrollerMarginRight = scrollerStyle.paddingRight;
 
-	let style = parentEmbedBlockEl.getAttribute('style') ?? '';
-	style += `; margin-left: calc(-${m} + 4px) !important`;
-	style += `; margin-right: calc(-${m} + 4px) !important`;
-	parentEmbedBlockEl.setAttribute('style', style);
+	const pageHasScrollerInlineStartMargin = scrollerInlineStartMargin && scrollerInlineStartMargin !== '0' && scrollerInlineStartMargin !== '0px';
+	if(pageHasScrollerInlineStartMargin) {
+		let style = parentEmbedBlockEl.getAttribute('style') ?? '';
+		// Negate the scroller margin
+		style += `; margin-inline-start: calc(-1 * ${scrollerInlineStartMargin} + 4px) !important`;
+		parentEmbedBlockEl.setAttribute('style', style);
+
+	} else {
+		// Let it remain auto centered
+
+	}
+
+	const pageHasScrollerInlineEndMargin = scrollerInlineEndMargin && scrollerInlineEndMargin !== '0' && scrollerInlineEndMargin !== '0px';
+	if(pageHasScrollerInlineEndMargin) {
+		let style = parentEmbedBlockEl.getAttribute('style') ?? '';
+		// Negate the scroller margin
+		style += `; margin-inline-end: calc(-1 * ${scrollerInlineEndMargin} + 4px) !important`;
+		parentEmbedBlockEl.setAttribute('style', style);
+
+	} else {
+		// Let it remain auto centered
+
+	}
 }
 
 /**

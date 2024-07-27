@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
@@ -147,7 +147,9 @@ export function TldrawWritingEditor(props: {
 		activateDrawTool();
 		if(props.embedded) {
 			initWritingCamera(editor);
-			editor.updateInstanceState({ canMoveCamera: false })
+			editor.setCameraOptions({
+				isLocked: true,
+			})
 		} else {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
@@ -325,7 +327,7 @@ export function TldrawWritingEditor(props: {
 
 	const incrementalSave = async (editor: Editor) => {
 		unstashStaleContent(editor);
-		const tldrawData = editor.store.getSnapshot();
+		const tldrawData = getSnapshot(editor.store);
 		stashStaleContent(editor);
 
 		const pageData = buildWritingFileData({
@@ -340,7 +342,7 @@ export function TldrawWritingEditor(props: {
 		let previewUri;
 		
 		unstashStaleContent(editor);
-		const tldrawData = editor.store.getSnapshot();
+		const tldrawData = getSnapshot(editor.store);
 		const svgObj = await getWritingSvg(props.plugin, editor);
 		stashStaleContent(editor);
 		

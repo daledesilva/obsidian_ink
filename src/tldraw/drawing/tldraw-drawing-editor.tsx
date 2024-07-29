@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLUiOverrides, Tldraw, getSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLUiOverrides, Tldraw } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -96,9 +96,7 @@ export function TldrawDrawingEditor(props: {
 		initDrawingCamera(editor);
 		activateDrawTool();
 		if (props.embedded) {
-			editor.setCameraOptions({
-				isLocked: true,
-			})
+			editor.updateInstanceState({ canMoveCamera: false })
 		}
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
@@ -227,7 +225,7 @@ export function TldrawDrawingEditor(props: {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
-		const tldrawData = getSnapshot(editor.store);
+		const tldrawData = editor.store.getSnapshot();
 
 		const pageData = buildDrawingFileData({
 			tldrawData,
@@ -239,7 +237,7 @@ export function TldrawDrawingEditor(props: {
 	const completeSave = async (editor: Editor): Promise<void> => {
 		let previewUri;
 
-		const tldrawData = getSnapshot(editor.store);
+		const tldrawData = editor.store.getSnapshot();
 		const svgObj = await getDrawingSvg(editor);
 
 		if (svgObj) {

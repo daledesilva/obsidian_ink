@@ -9,11 +9,9 @@ export function TldrawPagePreview (props: {sourceJson: string}) {
 
 	const handleMount = (editor: Editor) => {
 		editor.zoomToFit();
-		editor.setCameraOptions({
-			isLocked: true,
-		})
 		editor.updateInstanceState({
 			isReadonly: true,
+			canMoveCamera: false,
 			isToolLocked: true,
 			isDebugMode: false,
 		})

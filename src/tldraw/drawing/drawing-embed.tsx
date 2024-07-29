@@ -16,6 +16,8 @@ import { nanoid } from "nanoid";
 ///////
 ///////
 
+const emptyDrawingSvg = '../../placeholders/empty-drawing-embed.svg';
+
 export type DrawingEditorControls = {
 	save: Function,
 	saveAndHalt: Function,
@@ -31,25 +33,12 @@ export function DrawingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
-	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);
-
-		
-	// Whenever switching between readonly and edit mode
-	React.useEffect( () => {
-		if(state === 'preview') {
-			if(!curPageData.previewUri) {
-				console.log('Editing because no preview Url yet')
-				dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-				switchToEditMode();
-			}
-		}
-	}, [state])
 
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
@@ -59,6 +48,9 @@ export function DrawingEmbed (props: {
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = (embedId === activeEmbedId);
+
+	console.log('drawing isActive', isActive);
+	console.log('drawing state', state);
 	if(!isActive && state === 'edit') {
 		saveAndSwitchToPreviewMode();
 	}
@@ -98,18 +90,12 @@ export function DrawingEmbed (props: {
 				height: state === 'edit' ? '600px' : 'auto',
 			}}
 		>
-			{(state === 'preview' && !curPageData.previewUri) && (
-				<p>
-					Your Ink drawing embed doesn't have a valid screenshot.<br/>
-					Try opening the source file directly to fix.
-				</p>
-			)}
-			{(state === 'preview' && curPageData.previewUri) && (
+			{(state === 'preview') && (
 				<DrawingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => setStaticEmbedHeight(null)}
 					isActive = {isActive}
-					src = {curPageData.previewUri}
+					src = {curPageData.previewUri || emptyDrawingSvg}
 					// src = {previewFilePath}
 					onClick = {(event) => {
 						event.preventDefault();

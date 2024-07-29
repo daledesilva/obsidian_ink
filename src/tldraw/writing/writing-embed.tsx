@@ -15,9 +15,12 @@ import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
+// import emptyWritingEmbed from '../../placeholders/empty-writing-embed.svg';
 
 ///////
 ///////
+
+const emptyWritingSvg = '../../placeholders/empty-writing-embed.svg';
 
 export type WritingEditorControls = {
 	// save: Function,
@@ -41,15 +44,9 @@ export function WritingEmbed (props: {
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
 	
-
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 		if(state === 'preview') {
-			if(!curPageData.previewUri) {
-				console.log('Editing because no preview Url yet')
-				dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-				switchToEditMode();
-			}
 			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
 		}
 	}, [state])
@@ -62,6 +59,8 @@ export function WritingEmbed (props: {
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = (embedId === activeEmbedId);
+	console.log('writing isActive', isActive);
+	console.log('writing state', state);
 	if(!isActive && state === 'edit'){
 		saveAndSwitchToPreviewMode();
 	}
@@ -100,21 +99,14 @@ export function WritingEmbed (props: {
 				height: staticEmbedHeight ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
-			{(state === 'preview' && !curPageData.previewUri) && (
-				<p>
-					Your Ink writing embed doesn't have a valid screenshot.<br/>
-					Try opening the source file directly to fix.
-					({props.fileRef.path})
-				</p>
-			)}
-			{(state === 'preview' && curPageData.previewUri) && (
+			{(state === 'preview') && (
 				<WritingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => {
 						setStaticEmbedHeight(null);
 					}}
 					isActive = {isActive}
-					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.
+					src = {curPageData.previewUri || emptyWritingSvg }
 					// src = {previewFilePath}
 					onClick = {(event) => {
 						event.preventDefault();

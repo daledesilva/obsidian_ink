@@ -315,7 +315,6 @@ export function TldrawWritingEditor(props: {
 			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
-		console.log('writing previewUri', previewUri);
 
 		if(previewUri) {
 			const pageData = buildWritingFileData({

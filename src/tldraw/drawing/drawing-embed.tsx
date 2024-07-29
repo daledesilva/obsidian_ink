@@ -51,14 +51,17 @@ export function DrawingEmbed (props: {
 		}
 	}, [state])
 
+	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = embedId === activeEmbedId;
-	if(!isActive && state === 'edit') saveAndSwitchToPreviewMode();
+	let isActive = (embedId === activeEmbedId);
+	if(!isActive && state === 'edit') {
+		saveAndSwitchToPreviewMode();
+	}
 
 	const commonExtendedOptions = [
 		{
@@ -81,6 +84,8 @@ export function DrawingEmbed (props: {
 		},
 	]
 
+	////////////
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -94,7 +99,10 @@ export function DrawingEmbed (props: {
 			}}
 		>
 			{(state === 'preview' && !curPageData.previewUri) && (
-				<p>This should never be show</p>
+				<p>
+					Your Ink drawing embed doesn't have a valid screenshot.<br/>
+					Try opening the source file directly to fix.
+				</p>
 			)}
 			{(state === 'preview' && curPageData.previewUri) && (
 				<DrawingEmbedPreview
@@ -145,7 +153,7 @@ export function DrawingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
+		// setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 		

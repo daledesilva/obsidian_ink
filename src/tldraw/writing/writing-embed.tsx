@@ -61,7 +61,7 @@ export function WritingEmbed (props: {
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = embedId === activeEmbedId;
+	let isActive = (embedId === activeEmbedId);
 	if(!isActive && state === 'edit'){
 		saveAndSwitchToPreviewMode();
 	}
@@ -87,7 +87,7 @@ export function WritingEmbed (props: {
 		},
 	]
 
-	//////
+	////////////
 
 	return <>
 		<div
@@ -102,7 +102,7 @@ export function WritingEmbed (props: {
 		>
 			{(state === 'preview' && !curPageData.previewUri) && (
 				<p>
-					Your writing embed doesn't have a valid screenshot.<br/>
+					Your Ink writing embed doesn't have a valid screenshot.<br/>
 					Try opening the source file directly to fix.
 					({props.fileRef.path})
 				</p>
@@ -130,9 +130,7 @@ export function WritingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawWritingEditor
-					onReady = {() => {
-						setStaticEmbedHeight(null);
-					}}
+					onReady = {() => setStaticEmbedHeight(null)}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}

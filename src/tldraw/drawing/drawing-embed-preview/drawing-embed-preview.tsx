@@ -22,7 +22,7 @@ interface DrawingEmbedProps {
 export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
     const svgRef = React.useRef(null);
 
-    // Check if src is a pnd DataURI. If not, it's an SVG
+    // Check if src is a png DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
 
 	return <>
@@ -43,30 +43,32 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {isImg && (
-                <img
-                    src = {props.src}
-                    style = {{
-                        width: '100%',
-                        cursor: 'pointer',
-                        pointerEvents: 'all',
-                    }}
-                    onLoad = {() => props.onReady()}
-                />
-            )}
+            {props.src && (<>
+                {isImg && (
+                    <img
+                        src = {props.src}
+                        style = {{
+                            width: '100%',
+                            cursor: 'pointer',
+                            pointerEvents: 'all',
+                        }}
+                        onLoad = {() => props.onReady()}
+                    />
+                )}
 
-            {!isImg && (
-                <SVG
-                    src = {props.src}
-                    style = {{
-                        width: '100%',
-                        height: 'unset',
-                        cursor: 'pointer'
-                    }}
-                    pointerEvents = "visible"
-                    onLoad = {() => props.onReady()}
-                />
-            )}
+                {!isImg && (
+                    <SVG
+                        src = {props.src}
+                        style = {{
+                            width: '100%',
+                            height: 'unset',
+                            cursor: 'pointer'
+                        }}
+                        pointerEvents = "visible"
+                        onLoad = {() => props.onReady()}
+                    />
+                )}
+            </>)}
 
             {props.isActive && (
                 <PrimaryMenuBar>

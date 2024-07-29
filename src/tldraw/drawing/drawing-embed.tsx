@@ -12,11 +12,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
+const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
 ///////
 
-const emptyDrawingSvg = '../../placeholders/empty-drawing-embed.svg';
 
 export type DrawingEditorControls = {
 	save: Function,
@@ -95,7 +95,7 @@ export function DrawingEmbed (props: {
 					plugin = {props.plugin}
 					onReady = {() => setStaticEmbedHeight(null)}
 					isActive = {isActive}
-					src = {curPageData.previewUri || emptyDrawingSvg}
+					src = {curPageData.previewUri || emptyDrawingSvgStr}
 					// src = {previewFilePath}
 					onClick = {(event) => {
 						event.preventDefault();

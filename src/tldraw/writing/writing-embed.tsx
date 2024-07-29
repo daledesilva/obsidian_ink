@@ -15,12 +15,10 @@ import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
-// import emptyWritingEmbed from '../../placeholders/empty-writing-embed.svg';
+const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
 ///////
-
-const emptyWritingSvg = '../../placeholders/empty-writing-embed.svg';
 
 export type WritingEditorControls = {
 	// save: Function,

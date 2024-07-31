@@ -15,6 +15,7 @@ import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
+import { embedShouldActivateImmediately } from "src/utils/storage";
 const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
@@ -42,6 +43,14 @@ export function WritingEmbed (props: {
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
 	
+	// On first mount
+	React.useEffect( () => {
+		if(embedShouldActivateImmediately()) {
+			dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+			switchToEditMode();
+		}
+	})
+
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 		if(state === 'preview') {
@@ -57,8 +66,6 @@ export function WritingEmbed (props: {
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = (embedId === activeEmbedId);
-	console.log('writing isActive', isActive);
-	console.log('writing state', state);
 	if(!isActive && state === 'edit'){
 		saveAndSwitchToPreviewMode();
 	}

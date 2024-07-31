@@ -12,6 +12,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
+import { embedShouldActivateImmediately } from "src/utils/storage";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -40,6 +41,14 @@ export function DrawingEmbed (props: {
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);
 
+	// On first mount
+	React.useEffect( () => {
+		if(embedShouldActivateImmediately()) {
+			dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+			switchToEditMode();
+		}
+	})
+
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
@@ -48,9 +57,6 @@ export function DrawingEmbed (props: {
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	let isActive = (embedId === activeEmbedId);
-
-	console.log('drawing isActive', isActive);
-	console.log('drawing state', state);
 	if(!isActive && state === 'edit') {
 		saveAndSwitchToPreviewMode();
 	}

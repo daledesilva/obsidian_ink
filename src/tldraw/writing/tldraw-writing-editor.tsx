@@ -38,7 +38,7 @@ export function TldrawWritingEditor(props: {
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
-	commonExtendedOptions: any[],
+	commonExtendedOptions?: any[],
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -376,7 +376,7 @@ export function TldrawWritingEditor(props: {
 					onDrawClick = {activateDrawTool}
 					onEraseClick = {activateEraseTool}
 				/>
-				{props.embedded && (
+				{props.embedded && props.commonExtendedOptions && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
 							// TODO: Save immediately incase it hasn't been saved yet

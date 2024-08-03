@@ -116,6 +116,7 @@ export function TldrawWritingEditor(props: {
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 		
 		// tldraw content setup
+		console.log('writing editor editor', editor);
 		adaptTldrawToObsidianThemeMode(editor);
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
@@ -249,6 +250,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
+		console.log('instantInputPostProcess editor', editor);
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);
 		entry && simplifyLines(editor, entry);
@@ -308,7 +310,7 @@ export function TldrawWritingEditor(props: {
 		
 		unstashStaleContent(editor);
 		const tldrawData = getSnapshot(editor.store);
-		const svgObj = await getWritingSvg(props.plugin, editor);
+		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 		
 		if (svgObj) {
@@ -403,6 +405,7 @@ interface svgObj {
 };
 
 async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+	console.log('getWritingSvg editor', editor)
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);
@@ -418,6 +421,7 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 // TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
 function getAllStrokeBounds(editor: Editor): Box {
+	console.log('getAllStrokeBounds editor', editor)
 	const allStrokeBounds = getDrawShapeBounds(editor);
 	
 	// Set static width
@@ -432,6 +436,7 @@ function getAllStrokeBounds(editor: Editor): Box {
 }
 
 function getDrawShapeBounds(editor: Editor): Box {
+	console.log('getDrawShapeBounds editor', editor);
 	hideWritingTemplate(editor);
 	let bounds = editor.getCurrentPageBounds() || new Box(0,0)
 	unhideWritingTemplate(editor);
@@ -501,6 +506,7 @@ function cropWritingStrokeHeightInvitingly(height: number): number {
  * Good for while in editing mode.
  */
 const resizeWritingTemplateInvitingly = (editor: Editor) => {
+	console.log('resizeWritingTemplateInvitingly editor', editor);
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 
@@ -520,8 +526,6 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 			props: {
 				h: contentBounds.h,
 			}
-		}, {
-			ephemeral: true
 		})
 		editor.updateShape({
 			id: writingLinesShape.id,
@@ -529,8 +533,6 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 			props: {
 				h: contentBounds.h,
 			}
-		}, {
-			ephemeral: true
 		})
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
@@ -544,6 +546,7 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
  * Good for screenshots and other non-interactive states.
  */
 const resizeWritingTemplateTightly = (editor: Editor) => {
+	console.log('resizeWritingTemplateTightly editor', editor)
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 
@@ -563,8 +566,6 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 			props: {
 				h: contentBounds.h,
 			}
-		}, {
-			ephemeral: true
 		})
 		editor.updateShape({
 			id: writingLinesShape.id,
@@ -572,8 +573,6 @@ const resizeWritingTemplateTightly = (editor: Editor) => {
 			props: {
 				h: contentBounds.h,
 			}
-		}, {
-			ephemeral: true
 		})
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);

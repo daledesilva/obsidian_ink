@@ -329,6 +329,7 @@ export const unhideWritingTemplate = (editor: Editor) => {
 }
 
 export const hideWritingContainer = (editor: Editor) => {
+	console.log('editor', editor)
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!writingContainerShape) return;
 	const savedH = writingContainerShape.props.h;
@@ -344,9 +345,7 @@ export const hideWritingContainer = (editor: Editor) => {
 			},
 			meta: {
 				savedH: savedH,
-			}
-		}, {
-			ephemeral: true,
+			},
 		});
 		lockShape(editor, writingContainerShape);
 	});
@@ -374,8 +373,6 @@ export const hideWritingLines = (editor: Editor) => {
 			meta: {
 				savedH: savedH,
 			}
-		}, {
-			ephemeral: true,
 		});
 		lockShape(editor, writingLinesShape);
 	});
@@ -398,8 +395,6 @@ export const unhideWritingContainer = (editor: Editor) => {
 			meta: {
 				savedH: undefined,
 			}
-		}, {
-			ephemeral: true,
 		});
 		lockShape(editor, writingContainerShape);
 	});
@@ -422,8 +417,6 @@ export const unhideWritingLines = (editor: Editor) => {
 			meta: {
 				savedH: undefined,
 			}
-		}, {
-			ephemeral: true,
 		});
 		lockShape(editor, writingLinesShape);
 	});
@@ -459,7 +452,9 @@ export const unhideWritingLines = (editor: Editor) => {
 
 
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
-	editor.store.mergeRemoteChanges(func);
+	editor.history.ignore( () => {
+		editor.store.mergeRemoteChanges(func);
+	})
 }
 
 // TODO: This doesn't work, don't use it, I think I need to add a promise to be returned, but just do it when needed

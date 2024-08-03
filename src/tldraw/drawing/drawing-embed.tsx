@@ -5,16 +5,18 @@ import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
-import { duplicateDrawingFile, rememberDrawingFile } from "src/utils/rememberDrawingFile";
-import { isEmptyDrawingFile } from "src/utils/tldraw-helpers";
+import { rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";
 import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
+import { embedShouldActivateImmediately } from "src/utils/storage";
+const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
 ///////
+
 
 export type DrawingEditorControls = {
 	save: Function,
@@ -31,7 +33,6 @@ export function DrawingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
-	const isEditModeForScreenshottingRef = useRef<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
@@ -39,26 +40,25 @@ export function DrawingEmbed (props: {
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);
 
-		
-	// Whenever switching between readonly and edit mode
+	// On first mount
 	React.useEffect( () => {
-		if(state === 'preview') {
-			if(!curPageData.previewUri) {
-				console.log('Editing because no preview Url yet')
-				dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-				switchToEditMode();
-			}
+		if(embedShouldActivateImmediately()) {
+			dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+			switchToEditMode();
 		}
-	}, [state])
+	})
 
+	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = embedId === activeEmbedId;
-	if(!isActive && state === 'edit') saveAndSwitchToPreviewMode();
+	let isActive = (embedId === activeEmbedId);
+	if(!isActive && state === 'edit') {
+		saveAndSwitchToPreviewMode();
+	}
 
 	const commonExtendedOptions = [
 		{
@@ -81,6 +81,8 @@ export function DrawingEmbed (props: {
 		},
 	]
 
+	////////////
+
 	return <>
 		<div
 			ref = {embedContainerRef}
@@ -93,15 +95,12 @@ export function DrawingEmbed (props: {
 				height: state === 'edit' ? '600px' : 'auto',
 			}}
 		>
-			{(state === 'preview' && !curPageData.previewUri) && (
-				<p>This should never be show</p>
-			)}
-			{(state === 'preview' && curPageData.previewUri) && (
+			{(state === 'preview') && (
 				<DrawingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => setStaticEmbedHeight(null)}
 					isActive = {isActive}
-					src = {curPageData.previewUri}
+					src = {curPageData.previewUri || emptyDrawingSvgStr}
 					// src = {previewFilePath}
 					onClick = {(event) => {
 						event.preventDefault();
@@ -145,7 +144,7 @@ export function DrawingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
+		// setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 		

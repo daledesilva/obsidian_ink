@@ -15,6 +15,8 @@ import { useDispatch } from 'react-redux';
 import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
+import { embedShouldActivateImmediately } from "src/utils/storage";
+const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
 ///////
@@ -41,15 +43,17 @@ export function WritingEmbed (props: {
 	const dispatch = useDispatch();
 	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
 	
+	// On first mount
+	React.useEffect( () => {
+		if(embedShouldActivateImmediately()) {
+			dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+			switchToEditMode();
+		}
+	})
 
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
 		if(state === 'preview') {
-			if(!curPageData.previewUri) {
-				console.log('Editing because no preview Url yet')
-				dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-				switchToEditMode();
-			}
 			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
 		}
 	}, [state])
@@ -61,7 +65,7 @@ export function WritingEmbed (props: {
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = embedId === activeEmbedId;
+	let isActive = (embedId === activeEmbedId);
 	if(!isActive && state === 'edit'){
 		saveAndSwitchToPreviewMode();
 	}
@@ -87,7 +91,7 @@ export function WritingEmbed (props: {
 		},
 	]
 
-	//////
+	////////////
 
 	return <>
 		<div
@@ -100,21 +104,14 @@ export function WritingEmbed (props: {
 				height: staticEmbedHeight ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
-			{(state === 'preview' && !curPageData.previewUri) && (
-				<p>
-					Your writing embed doesn't have a valid screenshot.<br/>
-					Try opening the source file directly to fix.
-					({props.fileRef.path})
-				</p>
-			)}
-			{(state === 'preview' && curPageData.previewUri) && (
+			{(state === 'preview') && (
 				<WritingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => {
 						setStaticEmbedHeight(null);
 					}}
 					isActive = {isActive}
-					src = {curPageData.previewUri}	// REVIEW: Even though the screenshot might be taken, I'm still using the URI. This is why iPad still works.
+					src = {curPageData.previewUri || emptyWritingSvg }
 					// src = {previewFilePath}
 					onClick = {(event) => {
 						event.preventDefault();
@@ -130,9 +127,7 @@ export function WritingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawWritingEditor
-					onReady = {() => {
-						setStaticEmbedHeight(null);
-					}}
+					onReady = {() => setStaticEmbedHeight(null)}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}

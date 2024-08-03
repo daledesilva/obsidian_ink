@@ -9,7 +9,7 @@ import { TFile } from 'obsidian';
 import { savePngExport } from "src/utils/savePngExport";
 import { duplicateWritingFile, rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
-import { WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
+import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import DrawingMenu from '../drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
@@ -24,29 +24,7 @@ export enum tool {
 	eraser = 'eraser',
 }
 
-// const MyCustomShapes = [WritingContainer];
-
-// let hiddenShapes: TLShape[] = [];
-
-const myOverrides: TLUiOverrides = {
-	// toolbar(editor: Editor, toolbar, { tools }) {
-	// 	const reducedToolbar = [
-	// 		toolbar[0],
-	// 		toolbar[2],
-	// 		toolbar[3]
-	// 	];
-	// 	return reducedToolbar;
-	// },
-	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
-	// 	console.log('actionsMenu', actionsMenu);
-	// 	// const reducedToolbar = [
-	// 	// 	toolbar[0],
-	// 	// 	toolbar[2],
-	// 	// 	toolbar[3]
-	// 	// ]
-	// 	return actionsMenu;
-	// }
-}
+const myOverrides: TLUiOverrides = {}
 
 export function TldrawDrawingEditor(props: {
 	onReady?: Function,
@@ -60,10 +38,9 @@ export function TldrawDrawingEditor(props: {
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
-	commonExtendedOptions: any[]
+	commonExtendedOptions?: any[]
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	const containerElRef = useRef<HTMLDivElement>(null)
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const editorRef = useRef<Editor>();
@@ -106,7 +83,7 @@ export function TldrawDrawingEditor(props: {
 		const editor = editorRef.current = _editor;
 
 		// General setup
-		preventTldrawCanvasesCausingObsidianGestures(editorRef.current);
+		preventTldrawCanvasesCausingObsidianGestures(editor);
 
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
@@ -124,16 +101,8 @@ export function TldrawDrawingEditor(props: {
 			})
 		}
 
+		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = editor.store.listen((entry) => {
-
-			// setCanUndo(editor.canUndo);
-			// setCanRedo(editor.canRedo);
-
-			// Bail if this listener fired because again of changes made in the listener itself
-			// if (justProcessedRef.current) {
-			// 	justProcessedRef.current = false;
-			// 	return;
-			// }
 
 			const activity = getActivityType(entry);
 			switch (activity) {
@@ -215,22 +184,6 @@ export function TldrawDrawingEditor(props: {
 		// resizeContainerIfEmbed(editor);
 	}
 
-	// REVIEW: Some of these can be moved out of the function
-	const resizeContainerIfEmbed = (editor: Editor) => {
-		if (!props.embedded) return;
-
-		const embedBounds = editor.getViewportScreenBounds();
-		const contentBounds = editor.getCurrentPageBounds();
-
-		if (contentBounds) {
-			const contentRatio = contentBounds.w / contentBounds.h;
-			const embedHeight = embedBounds.w / contentRatio;
-			if(containerElRef.current) {
-				containerElRef.current.style.height = embedHeight + 'px';
-			}
-		}
-	}
-
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
 		// simplifyLines(editor, entry);
@@ -244,7 +197,7 @@ export function TldrawDrawingEditor(props: {
 			() => {
 				incrementalSave(editor);
 			},
-			WRITE_SHORT_DELAY_MS
+			DRAW_SHORT_DELAY_MS
 		)
 
 	};
@@ -257,7 +210,7 @@ export function TldrawDrawingEditor(props: {
 			() => {
 				completeSave(editor);
 			},
-			WRITE_LONG_DELAY_MS
+			DRAW_LONG_DELAY_MS
 		)
 
 	};
@@ -281,15 +234,14 @@ export function TldrawDrawingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		// console.log('...Finished incremental DRAWING save');
 	}
 
-	const completeSave = async (editor: Editor) => {
+	const completeSave = async (editor: Editor): Promise<void> => {
 		let previewUri;
 
 		const tldrawData = getSnapshot(editor.store);
 		const svgObj = await getDrawingSvg(editor);
-		
+
 		if (svgObj) {
 			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
@@ -310,12 +262,20 @@ export function TldrawDrawingEditor(props: {
 			props.save(pageData);
 		}
 
-		// console.log('...Finished complete DRAWING save');
+		return;
 	}
+
+	// TODO: Assets
+	// const assetUrls = {
+	// 	icons: {
+	// 		'tool-hand': './custom-tool-hand.svg',
+	// 	},
+	// }
+
+	//////////////
 
 	return <>
 		<div
-			ref = {containerElRef}
 			className = "ddc_ink_drawing-editor"
 			style = {{
 				height: '100%',
@@ -330,7 +290,9 @@ export function TldrawDrawingEditor(props: {
 				// shapeUtils={MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
-				autoFocus = {props.embedded ? false : true}	// False prevents tldraw scrolling the page to the top of the embed when turning on // NOTE: A side effect of false is preventing mousewheel scrolling and zooming
+				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
+				// But a side effect of false is preventing mousewheel scrolling and zooming.
+				autoFocus = {props.embedded ? false : true}
 			/>
 			<PrimaryMenuBar>
 				<DrawingMenu
@@ -343,7 +305,7 @@ export function TldrawDrawingEditor(props: {
 					onDrawClick = {activateDrawTool}
 					onEraseClick = {activateEraseTool}
 				/>
-				{props.embedded && (
+				{props.embedded && props.commonExtendedOptions && (
 					<ExtendedDrawingMenu
 						onLockClick = { async () => {
 							// TODO: Save immediately incase it hasn't been saved yet?

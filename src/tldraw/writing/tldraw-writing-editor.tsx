@@ -24,25 +24,7 @@ export enum tool {
 	eraser = 'eraser',
 }
 
-const myOverrides: TLUiOverrides = {
-	// toolbar(editor: Editor, toolbar, { tools }) {
-	// 	const reducedToolbar = [
-	// 		toolbar[0],
-	// 		toolbar[2],
-	// 		toolbar[3]
-	// 	];
-	// 	return reducedToolbar;
-	// },
-	// actionsMenu(editor: Editor, actionsMenu, {actions}) {
-	// 	console.log('actionsMenu', actionsMenu);
-	// 	// const reducedToolbar = [
-	// 	// 	toolbar[0],
-	// 	// 	toolbar[2],
-	// 	// 	toolbar[3]
-	// 	// ]
-	// 	return actionsMenu;
-	// }
-}
+const myOverrides: TLUiOverrides = {}
 
 export function TldrawWritingEditor(props: {
 	onReady?: Function,
@@ -56,7 +38,7 @@ export function TldrawWritingEditor(props: {
 	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
-	commonExtendedOptions: any[],
+	commonExtendedOptions?: any[],
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -65,13 +47,12 @@ export function TldrawWritingEditor(props: {
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
+	const [storeSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareWritingSnapshot(props.pageData.tldraw))
+
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [embedHeight, setEmbedHeight] = React.useState<number>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
-	const [storeSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareWritingSnapshot(props.pageData.tldraw))
-
-	props.pageData.tldraw
 
 	function undo() {
 		const editor = editorRef.current
@@ -119,9 +100,6 @@ export function TldrawWritingEditor(props: {
 
 		updateWritingStoreIfNeeded(editor);
 
-		// General setup
-		preventTldrawCanvasesCausingObsidianGestures(editor);
-
 		if(isEmptyWritingFile(editor)) {
 			// It's new, transition it on
 			setPreventTransitions(false);
@@ -133,18 +111,17 @@ export function TldrawWritingEditor(props: {
 				setPreventTransitions(false);
 			}, 50);
 		}
+
+		// General setup
+		preventTldrawCanvasesCausingObsidianGestures(editor);
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
 		editor.updateInstanceState({ isDebugMode: false, })
-		
-		// REVIEW: Testing pen mode, etc.
-		// editor.updateInstanceState({ isPenMode: false });
-		
+				
 		// // view set up
-		activateDrawTool();
 		if(props.embedded) {
 			initWritingCamera(editor);
 			editor.setCameraOptions({
@@ -154,6 +131,8 @@ export function TldrawWritingEditor(props: {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
 		}
+
+		activateDrawTool();
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = editor.store.listen((entry) => {
@@ -176,14 +155,8 @@ export function TldrawWritingEditor(props: {
 					break;
 					
 				case Activity.DrawingContinued:
-					// simultaneousInputProcess(editor, entry);
 					resetInputPostProcessTimers();
 					break;
-						
-				// case Activity.ErasingContinued:
-				// 	console.log('ERASING CONTINUED');
-				// 	resetInputPostProcessTimers();
-				// 	break;
 							
 				case Activity.DrawingCompleted:
 					instantInputPostProcess(editor, entry);
@@ -274,13 +247,6 @@ export function TldrawWritingEditor(props: {
 
 	// REVIEW: Some of these can be moved out of the function
 
-	
-
-	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
-	const simultaneousInputProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
-		entry && simplifyLines(editor, entry);
-	};
-
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
 		resizeWritingTemplateInvitingly(editor);
@@ -335,7 +301,6 @@ export function TldrawWritingEditor(props: {
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
-		// console.log('...Finished incremental WRITING save');
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
@@ -369,12 +334,14 @@ export function TldrawWritingEditor(props: {
 		return;
 	}
 
-	const assetUrls = {
-		icons: {
-			'tool-hand': './custom-tool-hand.svg',
-		},
-	}
+	// TODO: Assets
+	// const assetUrls = {
+	// 	icons: {
+	// 		'tool-hand': './custom-tool-hand.svg',
+	// 	},
+	// }
 
+	//////////////
 
 	return <>
 		<div
@@ -392,12 +359,13 @@ export function TldrawWritingEditor(props: {
 				snapshot = {storeSnapshot}	// NOTE: Check what's causing this snapshot error??
 				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
-				// assetUrls = {assetUrls}
+				// assetUrls = {assetUrls} // This causes multiple mounts
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
-				// assetUrls = {assetUrls} // This causes multiple mounts
-				autoFocus = {props.embedded ? false : true}	// False prevents tldraw scrolling the page to the top of the embed when turning on // NOTE: A side effect of false is preventing mousewheel scrolling and zooming
+				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
+				// But a side effect of false is preventing mousewheel scrolling and zooming.
+				autoFocus = {props.embedded ? false : true}
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -410,7 +378,7 @@ export function TldrawWritingEditor(props: {
 					onDrawClick = {activateDrawTool}
 					onEraseClick = {activateEraseTool}
 				/>
-				{props.embedded && (
+				{props.embedded && props.commonExtendedOptions && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
 							// TODO: Save immediately incase it hasn't been saved yet
@@ -434,7 +402,7 @@ interface svgObj {
 	svg: string,
 };
 
-async function getWritingSvg(plugin: InkPlugin, editor: Editor): Promise<svgObj | undefined> {
+async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);

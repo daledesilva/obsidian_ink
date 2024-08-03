@@ -1,5 +1,5 @@
-const defaultHandwritingTldrawStore = {
-        "store": {
+export const starterTldrawStoreDrawingSnapshot = {
+    "store": {
         "document:document": {
             "gridSize": 10,
             "name": "",
@@ -72,5 +72,3 @@ const defaultHandwritingTldrawStore = {
         }
     }
 }
-
-export default defaultHandwritingTldrawStore;

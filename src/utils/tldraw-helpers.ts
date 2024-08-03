@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, TLSerializedStore } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
@@ -225,9 +225,9 @@ export function removeExtensionAndDotFromFilepath(filepath: string) {
 	}
 }
 
-export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
+export function isEmptyWritingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	let isEmpty = true;
-	for (const record of Object.values(tldrawData.store)) {
+	for (const record of Object.values(tlStoreSnapshot)) {
 		// Store should only contain document, page, and handwriting container shape
 		if (record.typeName === 'shape') {
 			const shapeRecord = record as TLShape;
@@ -239,9 +239,9 @@ export function isEmptyWritingFile(tldrawData: StoreSnapshot<TLRecord>): boolean
 	return isEmpty;
 }
 
-export function isEmptyDrawingFile(tldrawData: StoreSnapshot<TLRecord>): boolean {
+export function isEmptyDrawingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	let isEmpty = true;
-	for (const record of Object.values(tldrawData.store)) {
+	for (const record of Object.values(tlStoreSnapshot)) {
 		// Store should only contain document and page
 		if (record.typeName === 'shape') {
 			isEmpty = false;
@@ -329,7 +329,6 @@ export const unhideWritingTemplate = (editor: Editor) => {
 }
 
 export const hideWritingContainer = (editor: Editor) => {
-	console.log('editor', editor)
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!writingContainerShape) return;
 	const savedH = writingContainerShape.props.h;
@@ -475,12 +474,12 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 // }
 
 
-export function prepareWritingSnapshot(snapshot: StoreSnapshot<TLRecord>): StoreSnapshot<TLRecord> {
-	return deleteObsoleteTemplateShapes(snapshot);
+export function prepareWritingSnapshot(tlStoreSnapshot: TLStoreSnapshot): TLStoreSnapshot {
+	return deleteObsoleteTemplateShapes(tlStoreSnapshot);
 }
 
-export function prepareDrawingSnapshot(snapshot: StoreSnapshot<TLRecord>): StoreSnapshot<TLRecord> {
-	return snapshot;
+export function prepareDrawingSnapshot(tlStoreSnapshot: TLStoreSnapshot): TLStoreSnapshot {
+	return tlStoreSnapshot;
 }
 
 
@@ -489,13 +488,16 @@ export function prepareDrawingSnapshot(snapshot: StoreSnapshot<TLRecord>): Store
  * See updateWritingStoreIfNeeded.
  * // TODO: This desperately needs unit testing as it can delete elements from the users file
  */
-export function deleteObsoleteTemplateShapes(snapshot: StoreSnapshot<TLRecord>): StoreSnapshot<TLRecord> {
+export function deleteObsoleteTemplateShapes(tlStoreSnapshot: TLStoreSnapshot): TLStoreSnapshot {
+	const updatedSnapshot = JSON.parse(JSON.stringify(tlStoreSnapshot));
+	
 	let obsoleteShapeIds: TLShapeId[] = [
 		'shape:primary_container' as TLShapeId,	// From before version 0.1.192
 		'shape:handwriting_lines' as TLShapeId,	// From while testing
 	];
 
-	const filteredStore = Object.entries(snapshot.store).filter(
+	console.log('tlStoreSnapshot', tlStoreSnapshot);
+	const filteredStore = Object.entries(tlStoreSnapshot.store).filter(
 		([key, tlRecord]) => {
 			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);
 			if (isObsoleteObj) {
@@ -505,8 +507,6 @@ export function deleteObsoleteTemplateShapes(snapshot: StoreSnapshot<TLRecord>):
 			return true
 		}
 	);
-
-	const updatedSnapshot = JSON.parse(JSON.stringify(snapshot));
 	updatedSnapshot.store = Object.fromEntries(filteredStore);
 
 	return updatedSnapshot;

@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
@@ -47,7 +47,7 @@ export function TldrawWritingEditor(props: {
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-	const [storeSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareWritingSnapshot(props.pageData.tldraw))
+	const [tlStoreSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>(prepareWritingSnapshot(props.pageData.tldraw))
 
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
@@ -295,11 +295,13 @@ export function TldrawWritingEditor(props: {
 
 	const incrementalSave = async (editor: Editor) => {
 		unstashStaleContent(editor);
-		const tldrawData = getSnapshot(editor.store);
+		const tlEditorSnapshot = getSnapshot(editor.store);
+		const tlStoreSnapshot = tlEditorSnapshot.document;
+		console.log('tlStoreSnapshot', tlStoreSnapshot);
 		stashStaleContent(editor);
 
 		const pageData = buildWritingFileData({
-			tldrawData,
+			tlStoreSnapshot,
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
@@ -309,7 +311,9 @@ export function TldrawWritingEditor(props: {
 		let previewUri;
 		
 		unstashStaleContent(editor);
-		const tldrawData = getSnapshot(editor.store);
+		const tlEditorSnapshot = getSnapshot(editor.store);
+		const tlStoreSnapshot = tlEditorSnapshot.document;
+		console.log('tlStoreSnapshot', JSON.parse(JSON.stringify(tlStoreSnapshot)) );
 		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 		
@@ -320,7 +324,7 @@ export function TldrawWritingEditor(props: {
 
 		if(previewUri) {
 			const pageData = buildWritingFileData({
-				tldrawData,
+				tlStoreSnapshot,
 				previewUri,
 			})
 			props.save(pageData);
@@ -328,7 +332,7 @@ export function TldrawWritingEditor(props: {
 
 		} else {
 			const pageData = buildWritingFileData({
-				tldrawData,
+				tlStoreSnapshot,
 			})
 			props.save(pageData);
 		}
@@ -358,7 +362,7 @@ export function TldrawWritingEditor(props: {
 		>
 			<Tldraw
 				// REVIEW: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
-				snapshot = {storeSnapshot}	// NOTE: Check what's causing this snapshot error??
+				snapshot = {tlStoreSnapshot}	// NOTE: Check what's causing this snapshot error??
 				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
 				// assetUrls = {assetUrls} // This causes multiple mounts

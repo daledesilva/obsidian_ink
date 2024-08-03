@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLUiOverrides, Tldraw, getSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -227,10 +227,11 @@ export function TldrawDrawingEditor(props: {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
-		const tldrawData = getSnapshot(editor.store);
+		const tlEditorSnapshot = getSnapshot(editor.store);
+		const tlStoreSnapshot = tlEditorSnapshot.document;
 
 		const pageData = buildDrawingFileData({
-			tldrawData,
+			tlStoreSnapshot,
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
@@ -239,8 +240,11 @@ export function TldrawDrawingEditor(props: {
 	const completeSave = async (editor: Editor): Promise<void> => {
 		let previewUri;
 
-		const tldrawData = getSnapshot(editor.store);
+		const tlEditorSnapshot = getSnapshot(editor.store);
+		const tlStoreSnapshot = tlEditorSnapshot.document;
 		const svgObj = await getDrawingSvg(editor);
+
+		console.log('completeSave tlStoreSnapshot', tlStoreSnapshot);
 
 		if (svgObj) {
 			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
@@ -249,7 +253,7 @@ export function TldrawDrawingEditor(props: {
 		
 		if(previewUri) {
 			const pageData = buildDrawingFileData({
-				tldrawData,
+				tlStoreSnapshot,
 				previewUri,
 			})
 			props.save(pageData);
@@ -257,7 +261,7 @@ export function TldrawDrawingEditor(props: {
 
 		} else {
 			const pageData = buildDrawingFileData({
-				tldrawData,
+				tlStoreSnapshot,
 			})
 			props.save(pageData);
 		}

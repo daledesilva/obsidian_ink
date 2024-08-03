@@ -3,8 +3,8 @@ import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 /////
 /////
 
-const defaultHandwritingTldrawStore = {
-        "store": {
+export const starterTldrawStoreWritingSnapshot = {
+    "store": {
         "document:document": {
             "gridSize": 10,
             "name": "",
@@ -115,5 +115,3 @@ const defaultHandwritingTldrawStore = {
         }
     }
 }
-
-export default defaultHandwritingTldrawStore;

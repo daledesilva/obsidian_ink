@@ -202,12 +202,12 @@ export function adaptTldrawToObsidianThemeMode(editor: Editor) {
 	if (isDarkMode) {
 		setUserPreferences({
 			id: 'dummy-id',
-			isDarkMode: true
+			colorScheme: "dark",
 		})
 	} else {
 		setUserPreferences({
 			id: 'dummy-id',
-			isDarkMode: false
+			colorScheme: "light"
 		})
 	}
 

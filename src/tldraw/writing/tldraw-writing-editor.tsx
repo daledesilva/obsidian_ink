@@ -26,6 +26,10 @@ export enum tool {
 
 const myOverrides: TLUiOverrides = {}
 
+const tlOptions: Partial<TldrawOptions> = {
+	defaultSvgPadding: 0,
+}
+
 export function TldrawWritingEditor(props: {
 	onReady?: Function,
 	plugin: InkPlugin,
@@ -347,12 +351,6 @@ export function TldrawWritingEditor(props: {
 	// 	},
 	// }
 
-	const tlOptions: Partial<TldrawOptions> = {
-		// maxPages: 3,
-		// maxShapesPerPage: 1000,
-		defaultSvgPadding: 0,
-	}
-
 	//////////////
 
 	return <>
@@ -378,7 +376,7 @@ export function TldrawWritingEditor(props: {
 				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
 				autoFocus = {props.embedded ? false : true}
-				// options = {tlOptions}
+				options = {tlOptions}
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu

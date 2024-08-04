@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, getSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawOptions, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -25,6 +25,10 @@ export enum tool {
 }
 
 const myOverrides: TLUiOverrides = {}
+
+const tlOptions: Partial<TldrawOptions> = {
+	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
+}
 
 export function TldrawDrawingEditor(props: {
 	onReady?: Function,
@@ -298,6 +302,7 @@ export function TldrawDrawingEditor(props: {
 				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
 				autoFocus = {props.embedded ? false : true}
+				options = {tlOptions}
 			/>
 			<PrimaryMenuBar>
 				<DrawingMenu

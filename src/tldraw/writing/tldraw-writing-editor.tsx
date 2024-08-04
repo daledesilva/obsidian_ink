@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
@@ -116,8 +116,8 @@ export function TldrawWritingEditor(props: {
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 		
 		// tldraw content setup
-		console.log('writing editor editor', editor);
 		adaptTldrawToObsidianThemeMode(editor);
+		console.log('MOUNTING');
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
 		editor.updateInstanceState({ isDebugMode: false, })
@@ -250,7 +250,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
-		console.log('instantInputPostProcess editor', editor);
+		console.log('instantInputPostProcess');
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);
 		entry && simplifyLines(editor, entry);
@@ -258,6 +258,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations that take a small amount of time but should happen frequently
 	const smallDelayInputPostProcess = (editor: Editor) => {
+		console.log('smallDelayInputPostProcess');
 		resetShortPostProcessTimer();
 		
 		shortDelayPostProcessTimeoutRef.current = setTimeout(
@@ -271,6 +272,7 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations after a slight delay
 	const longDelayInputPostProcess = (editor: Editor) => {
+		console.log('longDelayInputPostProcess');
 		resetLongPostProcessTimer();
 
 		longDelayPostProcessTimeoutRef.current = setTimeout(
@@ -297,7 +299,6 @@ export function TldrawWritingEditor(props: {
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
-		console.log('tlStoreSnapshot', tlStoreSnapshot);
 		stashStaleContent(editor);
 
 		const pageData = buildWritingFileData({
@@ -313,7 +314,6 @@ export function TldrawWritingEditor(props: {
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
-		console.log('tlStoreSnapshot', JSON.parse(JSON.stringify(tlStoreSnapshot)) );
 		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 		
@@ -347,6 +347,12 @@ export function TldrawWritingEditor(props: {
 	// 	},
 	// }
 
+	const tlOptions: Partial<TldrawOptions> = {
+		// maxPages: 3,
+		// maxShapesPerPage: 1000,
+		defaultSvgPadding: 0,
+	}
+
 	//////////////
 
 	return <>
@@ -372,6 +378,7 @@ export function TldrawWritingEditor(props: {
 				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
 				autoFocus = {props.embedded ? false : true}
+				// options = {tlOptions}
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -409,7 +416,7 @@ interface svgObj {
 };
 
 async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
-	console.log('getWritingSvg editor', editor)
+	console.log('getWritingSvg')
 	let svgObj: undefined | svgObj;
 	
 	resizeWritingTemplateTightly(editor);
@@ -425,7 +432,6 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 // TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
 function getAllStrokeBounds(editor: Editor): Box {
-	console.log('getAllStrokeBounds editor', editor)
 	const allStrokeBounds = getDrawShapeBounds(editor);
 	
 	// Set static width
@@ -440,7 +446,6 @@ function getAllStrokeBounds(editor: Editor): Box {
 }
 
 function getDrawShapeBounds(editor: Editor): Box {
-	console.log('getDrawShapeBounds editor', editor);
 	hideWritingTemplate(editor);
 	let bounds = editor.getCurrentPageBounds() || new Box(0,0)
 	unhideWritingTemplate(editor);
@@ -510,7 +515,7 @@ function cropWritingStrokeHeightInvitingly(height: number): number {
  * Good for while in editing mode.
  */
 const resizeWritingTemplateInvitingly = (editor: Editor) => {
-	console.log('resizeWritingTemplateInvitingly editor', editor);
+	console.log('resizeWritingTemplateInvitingly');
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 
@@ -550,7 +555,7 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
  * Good for screenshots and other non-interactive states.
  */
 const resizeWritingTemplateTightly = (editor: Editor) => {
-	console.log('resizeWritingTemplateTightly editor', editor)
+	console.log('resizeWritingTemplateTightly')
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 

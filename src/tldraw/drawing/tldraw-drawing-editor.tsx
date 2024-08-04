@@ -227,6 +227,7 @@ export function TldrawDrawingEditor(props: {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
+		console.log('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
 
@@ -238,13 +239,13 @@ export function TldrawDrawingEditor(props: {
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
+		console.log('completeSave');
 		let previewUri;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
 		const svgObj = await getDrawingSvg(editor);
 
-		console.log('completeSave tlStoreSnapshot', tlStoreSnapshot);
 
 		if (svgObj) {
 			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)

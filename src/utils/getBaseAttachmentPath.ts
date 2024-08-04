@@ -47,8 +47,6 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instiga
         baseAttachmentPath = '';
     }
 
-    console.log('baseAttachmentPath', baseAttachmentPath)
-
     return baseAttachmentPath;
 
     

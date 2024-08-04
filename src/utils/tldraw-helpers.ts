@@ -303,7 +303,7 @@ export const useStash = (plugin: InkPlugin) => {
 			// REVIEW: This often throws an error on ipad. I'm not sure why.
 			if(staleShapeIds.length >= 5) showStrokeLimitTips_maybe(plugin);
 		} catch(error) {
-			console.log('StatchStaleContent when calling showStrokeLimitTips_maybe', error);
+			console.log('stashStaleContent when calling showStrokeLimitTips_maybe', error);
 		}
 
 	};
@@ -496,7 +496,6 @@ export function deleteObsoleteTemplateShapes(tlStoreSnapshot: TLStoreSnapshot): 
 		'shape:handwriting_lines' as TLShapeId,	// From while testing
 	];
 
-	console.log('tlStoreSnapshot', tlStoreSnapshot);
 	const filteredStore = Object.entries(tlStoreSnapshot.store).filter(
 		([key, tlRecord]) => {
 			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);

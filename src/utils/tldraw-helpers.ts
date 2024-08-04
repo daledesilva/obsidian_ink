@@ -451,8 +451,10 @@ export const unhideWritingLines = (editor: Editor) => {
 
 
 export const silentlyChangeStore = (editor: Editor, func: () => void) => {
-	editor.history.ignore( () => {
+	editor.run( () => {
 		editor.store.mergeRemoteChanges(func);
+	}, {
+		history: 'ignore',
 	})
 }
 

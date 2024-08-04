@@ -455,7 +455,7 @@ function getDrawShapeBounds(editor: Editor): Box {
 function simplifyLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
 	// const updatedRecords = Object.values(entry.changes.updated);
 
-	// editor.batch(() => {
+	// editor.run(() => {
 
 	// 	updatedRecords.forEach( (record) => {
 	// 		const toRecord = record[1];

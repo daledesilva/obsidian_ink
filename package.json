@@ -36,6 +36,7 @@
 	},
 	"dependencies": {
 		"@reduxjs/toolkit": "^2.1.0",
+		"@tldraw/assets": "^2.4.3",
 		"@tldraw/tldraw": "^2.4.3",
 		"canvg": "^4.0.1",
 		"classnames": "^2.5.1",

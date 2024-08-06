@@ -21,6 +21,7 @@
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx", "src/tldraw/writing/writing-embed-preview",
+    "**/*.tsx",
+    "src/tldraw/writing/writing-embed-preview",
   ],
 }

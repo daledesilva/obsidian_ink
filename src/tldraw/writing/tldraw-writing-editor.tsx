@@ -13,6 +13,8 @@ import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
 import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
+import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
+import {getAssetUrlsByImport} from '@tldraw/assets/imports';
 
 ///////
 ///////
@@ -30,6 +32,10 @@ const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
 
+// const assetUrls = getAssetUrlsByMetaUrl();
+const assetUrls = getAssetUrlsByImport();
+console.log('assetUrls', assetUrls)
+
 export function TldrawWritingEditor(props: {
 	onReady?: Function,
 	plugin: InkPlugin,
@@ -44,7 +50,6 @@ export function TldrawWritingEditor(props: {
 	closeEditor?: Function,
 	commonExtendedOptions?: any[],
 }) {
-	// const assetUrls = getAssetUrlsByMetaUrl();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const editorRef = useRef<Editor>();
@@ -344,13 +349,6 @@ export function TldrawWritingEditor(props: {
 		return;
 	}
 
-	// TODO: Assets
-	// const assetUrls = {
-	// 	icons: {
-	// 		'tool-hand': './custom-tool-hand.svg',
-	// 	},
-	// }
-
 	//////////////
 
 	return <>
@@ -369,7 +367,7 @@ export function TldrawWritingEditor(props: {
 				snapshot = {tlStoreSnapshot}	// NOTE: Check what's causing this snapshot error??
 				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
-				// assetUrls = {assetUrls} // This causes multiple mounts
+				assetUrls = {assetUrls} // This causes multiple mounts
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?

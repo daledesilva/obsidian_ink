@@ -5,7 +5,7 @@
 
 .ddc_ink_writing-editor {
     transition: height 0.5s ease;
-    &.preventTransitions { transition: none; }
+    &.prevent-transitions { transition: none; }
     
     
     .tl-canvas {

@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
@@ -19,6 +19,15 @@ import {getAssetUrlsByImport} from '@tldraw/assets/imports';
 ///////
 ///////
 
+const defaultComponents = {
+	Scribble: TldrawScribble,
+	ShapeIndicators: TldrawShapeIndicators,
+	CollaboratorScribble: TldrawScribble,
+	SelectionForeground: TldrawSelectionForeground,
+	SelectionBackground: TldrawSelectionBackground,
+	Handles: TldrawHandles,
+}
+
 const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
 export enum tool {
 	select = 'select',
@@ -33,8 +42,8 @@ const tlOptions: Partial<TldrawOptions> = {
 }
 
 // const assetUrls = getAssetUrlsByMetaUrl();
-const assetUrls = getAssetUrlsByImport();
-console.log('assetUrls', assetUrls)
+// const assetUrls = getAssetUrlsByImport();
+// console.log('assetUrls', assetUrls)
 
 export function TldrawWritingEditor(props: {
 	onReady?: Function,
@@ -50,9 +59,12 @@ export function TldrawWritingEditor(props: {
 	closeEditor?: Function,
 	commonExtendedOptions?: any[],
 }) {
+	console.log('RENDERING');
+
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const editorRef = useRef<Editor>();
+	const tldrawContainerElRef = useRef<HTMLDivElement>(null);
+	const tlEditorRef = useRef<Editor>();
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
@@ -60,78 +72,25 @@ export function TldrawWritingEditor(props: {
 
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
-	const [embedHeight, setEmbedHeight] = React.useState<number>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
-	function undo() {
-		const editor = editorRef.current
-		if (!editor) return;
-		silentlyChangeStore( editor, () => {
-			editor.undo();
-		});
-		instantInputPostProcess(editor);
-		smallDelayInputPostProcess(editor);
-		longDelayInputPostProcess(editor);
-	}
-	function redo() {
-		const editor = editorRef.current
-		if (!editor) return;
-		silentlyChangeStore( editor, () => {
-			editor.redo();
-		});
-		instantInputPostProcess(editor);
-		smallDelayInputPostProcess(editor);
-		longDelayInputPostProcess(editor);
-
-	}
-	function activateSelectTool() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.setCurrentTool('select');
-		setCurTool(tool.select);
-
-	}
-	function activateDrawTool() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.setCurrentTool('draw');
-		setCurTool(tool.draw);
-	}
-	function activateEraseTool() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.setCurrentTool('eraser');
-		setCurTool(tool.eraser);
-	}
-
 	const handleMount = (_editor: Editor) => {
-		const editor = editorRef.current = _editor;
+		console.log('MOUNTING');
+		
+		const editor = tlEditorRef.current = _editor;
 
-		updateWritingStoreIfNeeded(editor);
-
-		if(isEmptyWritingFile(editor)) {
-			// It's new, transition it on
-			setPreventTransitions(false);
-		} else {
-			// It's existing and already has a screenshot, so it's already the right size.
-			// Wait a split second before enabling the transition class
-			// TODO: This doesn't actually work based on screenshots, so will also prevent transitions for inserting existing files
-			setTimeout(() => {
-				setPreventTransitions(false);
-			}, 50);
-		}
+		// updateWritingStoreIfNeeded(editor); // TODO: Turned off for testing
 
 		// General setup
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
-		console.log('MOUNTING');
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
-		editor.updateInstanceState({ isDebugMode: false, })
+		// editor.updateInstanceState({ isDebugMode: false, })
 				
-		// // view set up
+		// view set up
 		if(props.embedded) {
 			initWritingCamera(editor);
 			editor.setCameraOptions({
@@ -142,15 +101,13 @@ export function TldrawWritingEditor(props: {
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
 		}
 
-		activateDrawTool();
-
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = editor.store.listen((entry) => {
 
 			const activity = getActivityType(entry);
 			switch (activity) {
 				case Activity.PointerMoved:
-					// TODO: Consider whether things are being erased
+					// REVIEW: Consider whether things are being erased
 					break;
 
 				case Activity.CameraMovedAutomatically:
@@ -202,6 +159,7 @@ export function TldrawWritingEditor(props: {
 		})
 
 		const unmountActions = () => {
+			console.log('Running unmount actions');
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
@@ -212,10 +170,12 @@ export function TldrawWritingEditor(props: {
 			props.registerControls({
 				// save: () => completeSave(editor),
 				saveAndHalt: async (): Promise<void> => {
+					console.log('saveAndHalt');
 					await completeSave(editor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 				resize: () => {
+					console.log('resize');
 					const camera = editor.getCamera()
 					const cameraY = camera.y;
 					initWritingCamera(editor);
@@ -224,28 +184,34 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 
-		if(props.onReady) props.onReady()
+		// if(props.onReady) props.onReady()
 
 		return () => {
+			console.log('UNMOUNTING');
 			unmountActions();
 		};
 	}
 
+	///////////////
+
 	const resizeContainerIfEmbed = (editor: Editor) => {
+		console.log('resizeContainerIfEmbed');
 		if (!props.embedded) return;
+		if (!tldrawContainerElRef.current) return;
 
 		const embedBounds = editor.getViewportScreenBounds();
 		const contentBounds = getTemplateBounds(editor);
 		
 		if (contentBounds) {
-
 			const contentRatio = contentBounds.w / contentBounds.h;
 			const newEmbedHeight = embedBounds.w / contentRatio;
-			setEmbedHeight(newEmbedHeight);
+			tldrawContainerElRef.current.style.height = newEmbedHeight + 'px';
 		}
+
 	}
 
 	const getTemplateBounds = (editor: Editor): Box => {
+		console.log('getTemplateBounds');
 		const bounds = editor.getShapePageBounds('shape:writing-container' as TLShapeId)
 		
 		if(bounds) {
@@ -305,6 +271,7 @@ export function TldrawWritingEditor(props: {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
+		console.log('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
@@ -318,6 +285,7 @@ export function TldrawWritingEditor(props: {
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
+		console.log('completeSave');
 		let previewUri;
 		
 		unstashStaleContent(editor);
@@ -353,21 +321,21 @@ export function TldrawWritingEditor(props: {
 
 	return <>
 		<div
+			ref = {tldrawContainerElRef}
 			className = {classNames([
 				"ddc_ink_writing-editor",
-				preventTransitions && "preventTransitions"
 			])}
 			style={{
-				height: props.embedded ? embedHeight + 'px' : '100%',
+				height: '100%',
 				position: 'relative',
 			}}
 		>
-			<Tldraw
+			{/* <Tldraw
 				// REVIEW: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
 				snapshot = {tlStoreSnapshot}	// NOTE: Check what's causing this snapshot error??
 				onMount = {handleMount}
 				// persistenceKey = {props.filepath}
-				assetUrls = {assetUrls} // This causes multiple mounts
+				// assetUrls = {assetUrls} // This causes multiple mounts
 				shapeUtils = {MyCustomShapes}
 				overrides = {myOverrides}
 				hideUi // REVIEW: Does this do anything?
@@ -375,7 +343,21 @@ export function TldrawWritingEditor(props: {
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
 				autoFocus = {props.embedded ? false : true}
 				options = {tlOptions}
-			/>
+			/> */}
+			<TldrawEditor
+				options = {tlOptions}
+				shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes]}
+				tools = {[...defaultTools, ...defaultShapeTools]}
+				initialState = "draw"
+				snapshot = {tlStoreSnapshot}
+				// persistenceKey = {props.fileRef.path}
+
+				// bindingUtils = {defaultBindingUtils}
+				// components = {defaultComponents}
+
+				onMount = {handleMount}
+			>
+			</TldrawEditor>
 			<PrimaryMenuBar>
 				<WritingMenu
 					canUndo = {canUndo}
@@ -399,6 +381,49 @@ export function TldrawWritingEditor(props: {
 			</PrimaryMenuBar>
 		</div>
 	</>;
+
+	//////////////
+
+	function undo() {
+		// const editor = editorRef.current
+		// if (!editor) return;
+		// silentlyChangeStore( editor, () => {
+		// 	editor.undo();
+		// });
+		// instantInputPostProcess(editor);
+		// smallDelayInputPostProcess(editor);
+		// longDelayInputPostProcess(editor);
+	}
+	function redo() {
+		// const editor = editorRef.current
+		// if (!editor) return;
+		// silentlyChangeStore( editor, () => {
+		// 	editor.redo();
+		// });
+		// instantInputPostProcess(editor);
+		// smallDelayInputPostProcess(editor);
+		// longDelayInputPostProcess(editor);
+
+	}
+	function activateSelectTool() {
+		// const editor = editorRef.current
+		// if (!editor) return;
+		// editor.setCurrentTool('select');
+		// setCurTool(tool.select);
+
+	}
+	function activateDrawTool() {
+		// const editor = editorRef.current
+		// if (!editor) return;
+		// editor.setCurrentTool('draw');
+		// setCurTool(tool.draw);
+	}
+	function activateEraseTool() {
+		// const editor = editorRef.current
+		// if (!editor) return;
+		// editor.setCurrentTool('eraser');
+		// setCurTool(tool.eraser);
+	}
 
 };
 
@@ -542,7 +567,6 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
 	})
-
 	
 }
 

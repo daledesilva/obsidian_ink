@@ -34,14 +34,13 @@ export function WritingEmbed (props: {
 	remove: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	const embedContainerRef = useRef<HTMLDivElement>(null);
+	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
-	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number | null>(null);
 	
 	// On first mount
 	React.useEffect( () => {
@@ -61,6 +60,16 @@ export function WritingEmbed (props: {
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: WritingEditorControls) => {
 		editorControlsRef.current = handlers;
+	}
+
+	const setStaticEmbedHeight = (height: number | null) => {
+		if(!embedContainerElRef.current) return;
+
+		if(height) {
+			embedContainerElRef.current.style.height = height + 'px';
+		} else {
+			embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
+		}
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
@@ -95,13 +104,12 @@ export function WritingEmbed (props: {
 
 	return <>
 		<div
-			ref = {embedContainerRef}
+			ref = {embedContainerElRef}
 			className = 'ink_writing-embed'
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: state=='edit' ? '3em' : '1em',
 				paddingBottom: state=='edit' ? '2em' : '0.5em',
-				height: staticEmbedHeight ? staticEmbedHeight : 'unset', // TODO: CSS transition doesn't work between number and unset
 			}}
 		>
 			{(state === 'preview') && (
@@ -127,7 +135,9 @@ export function WritingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawWritingEditor
-					onReady = {() => setStaticEmbedHeight(null)}
+					onReady = {() => {
+						setStaticEmbedHeight(null)	// TODO: Set with ref and style edit to prevent child rerenders
+					}}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -145,7 +155,9 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
+		// If it already has an auto generated height, then hard code that height
+		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
+		setStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('edit');
 	}
 	
@@ -155,7 +167,9 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
+		// If it already has an auto generated height, then hard code that height
+		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
+		setStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 	

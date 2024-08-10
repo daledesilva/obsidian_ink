@@ -19,21 +19,7 @@ import {getAssetUrlsByImport} from '@tldraw/assets/imports';
 ///////
 ///////
 
-const defaultComponents = {
-	Scribble: TldrawScribble,
-	ShapeIndicators: TldrawShapeIndicators,
-	CollaboratorScribble: TldrawScribble,
-	SelectionForeground: TldrawSelectionForeground,
-	SelectionBackground: TldrawSelectionBackground,
-	Handles: TldrawHandles,
-}
-
 const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
-export enum tool {
-	select = 'select',
-	draw = 'draw',
-	eraser = 'eraser',
-}
 
 const myOverrides: TLUiOverrides = {}
 
@@ -65,9 +51,6 @@ export function TldrawWritingEditor(props: {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tldrawContainerElRef = useRef<HTMLDivElement>(null);
 	const tlEditorRef = useRef<Editor>();
-	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
-	const [canUndo, setCanUndo] = React.useState<boolean>(false);
-	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const [tlStoreSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>(prepareWritingSnapshot(props.pageData.tldraw))
 
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
@@ -79,7 +62,7 @@ export function TldrawWritingEditor(props: {
 		
 		const editor = tlEditorRef.current = _editor;
 
-		// updateWritingStoreIfNeeded(editor); // TODO: Turned off for testing
+		updateWritingStoreIfNeeded(editor); // TODO: Turned off for testing
 
 		// General setup
 		preventTldrawCanvasesCausingObsidianGestures(editor);
@@ -126,13 +109,13 @@ export function TldrawWritingEditor(props: {
 					break;
 							
 				case Activity.DrawingCompleted:
-					instantInputPostProcess(editor, entry);
+					instantInputPostProcess(editor);
 					smallDelayInputPostProcess(editor);
 					longDelayInputPostProcess(editor);
 					break;
 					
 				case Activity.DrawingErased:
-					instantInputPostProcess(editor, entry);
+					instantInputPostProcess(editor);
 					smallDelayInputPostProcess(editor);
 					longDelayInputPostProcess(editor);
 					break;
@@ -152,18 +135,11 @@ export function TldrawWritingEditor(props: {
 			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
-		// Runs on any change to the store, caused by user, system, undo, anything, etc.
-		const removeStoreChangeListener = editor.store.listen((entry) => {
-			setCanUndo(editor.getCanUndo());
-			setCanRedo(editor.getCanRedo());
-		})
-
 		const unmountActions = () => {
 			console.log('Running unmount actions');
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
-			removeStoreChangeListener();
 		}
 
 		if(props.registerControls) {
@@ -223,21 +199,28 @@ export function TldrawWritingEditor(props: {
 
 	// REVIEW: Some of these can be moved out of the function
 
+	const queueOrRunStorePostProcesses = (editor: Editor) => {
+		instantInputPostProcess(editor);
+		smallDelayInputPostProcess(editor);
+		longDelayInputPostProcess(editor);
+	}
+
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
-	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
-		console.log('instantInputPostProcess');
+	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
+		console.log('instantInputPostProcess STARTED');
 		resizeWritingTemplateInvitingly(editor);
 		resizeContainerIfEmbed(editor);
-		entry && simplifyLines(editor, entry);
+		// entry && simplifyLines(editor, entry);
 	};
 
 	// Use this to run optimisations that take a small amount of time but should happen frequently
 	const smallDelayInputPostProcess = (editor: Editor) => {
-		console.log('smallDelayInputPostProcess');
+		console.log('smallDelayInputPostProcess queued');
 		resetShortPostProcessTimer();
 		
 		shortDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
+				console.log('smallDelayInputPostProcess STARTED');
 				incrementalSave(editor);
 			},
 			WRITE_SHORT_DELAY_MS
@@ -247,11 +230,12 @@ export function TldrawWritingEditor(props: {
 
 	// Use this to run optimisations after a slight delay
 	const longDelayInputPostProcess = (editor: Editor) => {
-		console.log('longDelayInputPostProcess');
+		console.log('longDelayInputPostProcess queued');
 		resetLongPostProcessTimer();
-
+		
 		longDelayPostProcessTimeoutRef.current = setTimeout(
 			() => {
+				console.log('longDelayInputPostProcess STARTED');
 				completeSave(editor);
 			},
 			WRITE_LONG_DELAY_MS
@@ -317,6 +301,10 @@ export function TldrawWritingEditor(props: {
 		return;
 	}
 
+	const getTlEditor = (): Editor | undefined => {
+		return tlEditorRef.current;
+	};
+
 	//////////////
 
 	return <>
@@ -330,20 +318,6 @@ export function TldrawWritingEditor(props: {
 				position: 'relative',
 			}}
 		>
-			{/* <Tldraw
-				// REVIEW: Try converting snapshot into store: https://tldraw.dev/docs/persistence#The-store-prop
-				snapshot = {tlStoreSnapshot}	// NOTE: Check what's causing this snapshot error??
-				onMount = {handleMount}
-				// persistenceKey = {props.filepath}
-				// assetUrls = {assetUrls} // This causes multiple mounts
-				shapeUtils = {MyCustomShapes}
-				overrides = {myOverrides}
-				hideUi // REVIEW: Does this do anything?
-				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
-				// But a side effect of false is preventing mousewheel scrolling and zooming.
-				autoFocus = {props.embedded ? false : true}
-				options = {tlOptions}
-			/> */}
 			<TldrawEditor
 				options = {tlOptions}
 				shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes]}
@@ -356,74 +330,26 @@ export function TldrawWritingEditor(props: {
 				// components = {defaultComponents}
 
 				onMount = {handleMount}
-			>
-			</TldrawEditor>
+			/>
+
 			<PrimaryMenuBar>
 				<WritingMenu
-					canUndo = {canUndo}
-					canRedo = {canRedo}
-					curTool = {curTool}
-					onUndoClick = {undo}
-					onRedoClick = {redo}
-					onSelectClick = {activateSelectTool}
-					onDrawClick = {activateDrawTool}
-					onEraseClick = {activateEraseTool}
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
 				{props.embedded && props.commonExtendedOptions && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
-							// TODO: Save immediately incase it hasn't been saved yet
+							// REVIEW: Save immediately? incase it hasn't been saved yet
 							if(props.closeEditor) props.closeEditor();
 						}}
 						menuOptions = {props.commonExtendedOptions}
 					/>
 				)}
 			</PrimaryMenuBar>
+
 		</div>
 	</>;
-
-	//////////////
-
-	function undo() {
-		// const editor = editorRef.current
-		// if (!editor) return;
-		// silentlyChangeStore( editor, () => {
-		// 	editor.undo();
-		// });
-		// instantInputPostProcess(editor);
-		// smallDelayInputPostProcess(editor);
-		// longDelayInputPostProcess(editor);
-	}
-	function redo() {
-		// const editor = editorRef.current
-		// if (!editor) return;
-		// silentlyChangeStore( editor, () => {
-		// 	editor.redo();
-		// });
-		// instantInputPostProcess(editor);
-		// smallDelayInputPostProcess(editor);
-		// longDelayInputPostProcess(editor);
-
-	}
-	function activateSelectTool() {
-		// const editor = editorRef.current
-		// if (!editor) return;
-		// editor.setCurrentTool('select');
-		// setCurTool(tool.select);
-
-	}
-	function activateDrawTool() {
-		// const editor = editorRef.current
-		// if (!editor) return;
-		// editor.setCurrentTool('draw');
-		// setCurTool(tool.draw);
-	}
-	function activateEraseTool() {
-		// const editor = editorRef.current
-		// if (!editor) return;
-		// editor.setCurrentTool('eraser');
-		// setCurTool(tool.eraser);
-	}
 
 };
 
@@ -450,7 +376,7 @@ async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
 	return svgObj;
 }
 
-// TODO: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
+// REVIEW: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
 // Then again, I should parent them to it anyway, in which case it could just check it's descendants.
 function getAllStrokeBounds(editor: Editor): Box {
 	const allStrokeBounds = getDrawShapeBounds(editor);
@@ -545,6 +471,8 @@ const resizeWritingTemplateInvitingly = (editor: Editor) => {
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	
+	if(!writingLinesShape) return;
+	if(!writingContainerShape) return;
 	
 	silentlyChangeStore( editor, () => {
 		unlockShape(editor, writingContainerShape);

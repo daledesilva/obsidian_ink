@@ -1,6 +1,5 @@
 import "./drawing-menu.scss";
 import * as React from "react";
-import { tool } from "../writing/tldraw-writing-editor";
 import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";

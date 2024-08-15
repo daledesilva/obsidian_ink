@@ -125,7 +125,7 @@ export function DrawingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawDrawingEditor
-					onReady = {() => applyStaticEmbedHeight(null)}
+					onReady = {() => applyStaticEmbedHeight(600)}	// TODO: This should be a dynamic number as saved in the embed
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}

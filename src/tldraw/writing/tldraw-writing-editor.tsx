@@ -27,9 +27,14 @@ const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
 
-// const assetUrls = getAssetUrlsByMetaUrl();
-// const assetUrls = getAssetUrlsByImport();
-// console.log('assetUrls', assetUrls)
+const defaultComponents = {
+	Scribble: TldrawScribble,
+	ShapeIndicators: TldrawShapeIndicators,
+	CollaboratorScribble: TldrawScribble,
+	SelectionForeground: TldrawSelectionForeground,
+	SelectionBackground: TldrawSelectionBackground,
+	Handles: TldrawHandles,
+}
 
 export function TldrawWritingEditor(props: {
 	onReady?: Function,
@@ -62,7 +67,7 @@ export function TldrawWritingEditor(props: {
 		
 		const editor = tlEditorRef.current = _editor;
 
-		updateWritingStoreIfNeeded(editor); // TODO: Turned off for testing
+		updateWritingStoreIfNeeded(editor);
 
 		// General setup
 		preventTldrawCanvasesCausingObsidianGestures(editor);
@@ -327,7 +332,7 @@ export function TldrawWritingEditor(props: {
 				// persistenceKey = {props.fileRef.path}
 
 				// bindingUtils = {defaultBindingUtils}
-				// components = {defaultComponents}
+				components = {defaultComponents}
 
 				onMount = {handleMount}
 			/>

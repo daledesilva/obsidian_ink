@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawOptions, getSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -14,20 +14,24 @@ import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import DrawingMenu from '../drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
 import { openInkFile } from 'src/utils/open-file';
+import classNames from 'classnames';
 
 ///////
 ///////
-
-export enum tool {
-	select = 'select',
-	draw = 'draw',
-	eraser = 'eraser',
-}
 
 const myOverrides: TLUiOverrides = {}
 
 const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
+}
+
+const defaultComponents = {
+	Scribble: TldrawScribble,
+	ShapeIndicators: TldrawShapeIndicators,
+	CollaboratorScribble: TldrawScribble,
+	SelectionForeground: TldrawSelectionForeground,
+	SelectionBackground: TldrawSelectionBackground,
+	Handles: TldrawHandles,
 }
 
 export function TldrawDrawingEditor(props: {
@@ -44,47 +48,15 @@ export function TldrawDrawingEditor(props: {
 	closeEditor?: Function,
 	commonExtendedOptions?: any[]
 }) {
-	// const assetUrls = getAssetUrlsByMetaUrl();
+
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const editorRef = useRef<Editor>();
-	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
-	const [canUndo, setCanUndo] = React.useState<boolean>(false);
-	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-	const [storeSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareDrawingSnapshot(props.pageData.tldraw))
-
-	function undo() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.undo();
-	}
-	function redo() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.redo();
-	}
-	function activateSelectTool() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.setCurrentTool('select');
-		setCurTool(tool.select);
-
-	}
-	function activateDrawTool() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.setCurrentTool('draw');
-		setCurTool(tool.draw);
-	}
-	function activateEraseTool() {
-		const editor = editorRef.current
-		if (!editor) return;
-		editor.setCurrentTool('eraser');
-		setCurTool(tool.eraser);
-	}
+	const tldrawContainerElRef = useRef<HTMLDivElement>(null);
+	const tlEditorRef = useRef<Editor>();
+	const [tlStoreSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareDrawingSnapshot(props.pageData.tldraw))
 	
 	const handleMount = (_editor: Editor) => {
-		const editor = editorRef.current = _editor;
+		const editor = tlEditorRef.current = _editor;
 
 		// General setup
 		preventTldrawCanvasesCausingObsidianGestures(editor);
@@ -98,7 +70,6 @@ export function TldrawDrawingEditor(props: {
 		
 		// view setup
 		initDrawingCamera(editor);
-		activateDrawTool();
 		if (props.embedded) {
 			editor.setCameraOptions({
 				isLocked: true,
@@ -154,17 +125,10 @@ export function TldrawDrawingEditor(props: {
 			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
-		// Runs on any change to the store, caused by user, system, undo, anything, etc.
-		const removeStoreChangeListener = editor.store.listen((entry) => {
-			setCanUndo(editor.getCanUndo());
-			setCanRedo(editor.getCanRedo());
-		})
-
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
-			removeStoreChangeListener();
 		}
 
 		if(props.registerControls) {
@@ -186,6 +150,13 @@ export function TldrawDrawingEditor(props: {
 
 	const embedPostProcess = (editor: Editor) => {
 		// resizeContainerIfEmbed(editor);
+	}
+
+
+	const queueOrRunStorePostProcesses = (editor: Editor) => {
+		instantInputPostProcess(editor);
+		smallDelayInputPostProcess(editor);
+		longDelayInputPostProcess(editor);
 	}
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
@@ -274,46 +245,45 @@ export function TldrawDrawingEditor(props: {
 		return;
 	}
 
-	// TODO: Assets
-	// const assetUrls = {
-	// 	icons: {
-	// 		'tool-hand': './custom-tool-hand.svg',
-	// 	},
-	// }
+	const getTlEditor = (): Editor | undefined => {
+		return tlEditorRef.current;
+	};
 
 	//////////////
 
 	return <>
 		<div
-			className = "ddc_ink_drawing-editor"
+			ref = {tldrawContainerElRef}
+			className = {classNames([
+				"ddc_ink_drawing-editor"
+			])}
 			style = {{
 				height: '100%',
 				position: 'relative'
 			}}
 		>
-			<Tldraw
-				snapshot = {storeSnapshot}
+			<TldrawEditor
+				options = {tlOptions}
+				shapeUtils = {[...defaultShapeUtils]}
+				tools = {[...defaultTools, ...defaultShapeTools]}
+				initialState = "draw"
+				snapshot = {tlStoreSnapshot}
+				// persistenceKey = {props.fileRef.path}
+
+				// bindingUtils = {defaultBindingUtils}
+				components = {defaultComponents}
+
 				onMount = {handleMount}
-				// persistenceKey = {props.filepath}
-				// assetUrls = {assetUrls}
-				// shapeUtils={MyCustomShapes}
-				overrides = {myOverrides}
-				hideUi // REVIEW: Does this do anything?
+
 				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
 				autoFocus = {props.embedded ? false : true}
-				options = {tlOptions}
 			/>
+			
 			<PrimaryMenuBar>
 				<DrawingMenu
-					canUndo = {canUndo}
-					canRedo = {canRedo}
-					curTool = {curTool}
-					onUndoClick = {undo}
-					onRedoClick = {redo}
-					onSelectClick = {activateSelectTool}
-					onDrawClick = {activateDrawTool}
-					onEraseClick = {activateEraseTool}
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
 				{props.embedded && props.commonExtendedOptions && (
 					<ExtendedDrawingMenu

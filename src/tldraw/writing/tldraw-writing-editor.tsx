@@ -165,7 +165,7 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 
-		// if(props.onReady) props.onReady()
+		if(props.onReady) props.onReady()
 
 		return () => {
 			console.log('UNMOUNTING');

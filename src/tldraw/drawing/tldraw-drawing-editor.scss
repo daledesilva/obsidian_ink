@@ -6,7 +6,6 @@
 
 .ddc_ink_drawing-editor {
     transition: height 0.5s ease;
-    &.prevent-transitions { transition: none; }
 
     .tl-canvas {
         background: none;   // This is needed because tldraw Obsidian plugin adds a background here?

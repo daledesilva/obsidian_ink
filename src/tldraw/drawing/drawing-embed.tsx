@@ -31,14 +31,13 @@ export function DrawingEmbed (props: {
 	remove: Function,
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
-	const embedContainerRef = useRef<HTMLDivElement>(null);
+	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	const dispatch = useDispatch();
-	const [staticEmbedHeight, setStaticEmbedHeight] = useState<number|null>(null);
 
 	// On first mount
 	React.useEffect( () => {
@@ -51,6 +50,16 @@ export function DrawingEmbed (props: {
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: DrawingEditorControls) => {
 		editorControlsRef.current = handlers;
+	}
+
+	const applyStaticEmbedHeight = (height: number | null) => {
+		if(!embedContainerElRef.current) return;
+
+		if(height) {
+			embedContainerElRef.current.style.height = height + 'px';
+		} else {
+			embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
+		}
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
@@ -85,7 +94,7 @@ export function DrawingEmbed (props: {
 
 	return <>
 		<div
-			ref = {embedContainerRef}
+			ref = {embedContainerElRef}
 			className = 'ddc_ink_drawing-embed'
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
@@ -98,7 +107,7 @@ export function DrawingEmbed (props: {
 			{(state === 'preview') && (
 				<DrawingEmbedPreview
 					plugin = {props.plugin}
-					onReady = {() => setStaticEmbedHeight(null)}
+					onReady = {() => applyStaticEmbedHeight(null)}
 					isActive = {isActive}
 					src = {curPageData.previewUri || emptyDrawingSvgStr}
 					// src = {previewFilePath}
@@ -116,7 +125,7 @@ export function DrawingEmbed (props: {
 			)}
 			{state === 'edit' && (
 				<TldrawDrawingEditor
-					onReady = {() => setStaticEmbedHeight(null)}
+					onReady = {() => applyStaticEmbedHeight(null)}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 					pageData = {curPageData}
@@ -134,7 +143,10 @@ export function DrawingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
+		// If it already has an auto generated height, then hard code that height
+		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
+		console.log('embedContainerElRef.current?.offsetHeight', embedContainerElRef.current?.offsetHeight);
+		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('edit');
 	}
 
@@ -144,7 +156,7 @@ export function DrawingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		// setStaticEmbedHeight(embedContainerRef.current?.offsetHeight || null);
+		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 		

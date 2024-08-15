@@ -62,7 +62,7 @@ export function WritingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
-	const setStaticEmbedHeight = (height: number | null) => {
+	const applyStaticEmbedHeight = (height: number | null) => {
 		if(!embedContainerElRef.current) return;
 
 		if(height) {
@@ -116,7 +116,7 @@ export function WritingEmbed (props: {
 				<WritingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => {
-						setStaticEmbedHeight(null);
+						applyStaticEmbedHeight(null);
 					}}
 					isActive = {isActive}
 					src = {curPageData.previewUri || emptyWritingSvg }
@@ -136,7 +136,7 @@ export function WritingEmbed (props: {
 			{state === 'edit' && (
 				<TldrawWritingEditor
 					onReady = {() => {
-						setStaticEmbedHeight(null)	// TODO: Set with ref and style edit to prevent child rerenders
+						applyStaticEmbedHeight(null);
 					}}
 					plugin = {props.plugin}
 					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
@@ -157,7 +157,7 @@ export function WritingEmbed (props: {
 	function switchToEditMode() {
 		// If it already has an auto generated height, then hard code that height
 		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
-		setStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
+		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('edit');
 	}
 	
@@ -169,7 +169,7 @@ export function WritingEmbed (props: {
 		setCurPageData(newPageData);
 		// If it already has an auto generated height, then hard code that height
 		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
-		setStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
+		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 	

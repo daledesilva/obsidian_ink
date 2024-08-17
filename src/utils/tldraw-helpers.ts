@@ -1,5 +1,5 @@
-import { Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, TLSerializedStore } from "@tldraw/tldraw";
-import { WRITE_STROKE_LIMIT } from "src/constants";
+import { Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, TLSerializedStore, Box } from "@tldraw/tldraw";
+import { WRITE_STROKE_LIMIT, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
 import { WritingContainer } from "src/tldraw/writing-shapes/writing-container";
@@ -576,4 +576,202 @@ export function lockShape(editor: Editor, shape: TLUnknownShape) {
 
 }
 
+export function getWritingContainerBounds(editor: Editor): Box {
+	const bounds = editor.getShapePageBounds('shape:writing-container' as TLShapeId)
+	
+	if(bounds) {
+		return bounds;
+	} else {
+		return new Box();
+	}
+}
 
+
+
+
+
+
+interface svgObj {
+	height: number,
+	width: number,
+	svg: string,
+};
+
+export async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+	let svgObj: undefined | svgObj;
+	resizeWritingTemplateTightly(editor);
+	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+	svgObj = await editor.getSvgString(allShapeIds);
+	resizeWritingTemplateInvitingly(editor);
+	return svgObj;
+}
+
+// REVIEW: This could recieve the handwritingContainer id and only check the obejcts that sit within it.
+// Then again, I should parent them to it anyway, in which case it could just check it's descendants.
+export function getAllStrokeBounds(editor: Editor): Box {
+	const allStrokeBounds = getDrawShapeBounds(editor);
+	
+	// Set static width
+	allStrokeBounds.x = 0;
+	allStrokeBounds.w = WRITING_PAGE_WIDTH;
+	
+	// Add gap from above text as users stroke won't touch the top edge and may not be on the first line.
+	allStrokeBounds.h += allStrokeBounds.y;
+	allStrokeBounds.y = 0;
+
+	return allStrokeBounds;
+}
+
+export function getDrawShapeBounds(editor: Editor): Box {
+	hideWritingTemplate(editor);
+	let bounds = editor.getCurrentPageBounds() || new Box(0,0)
+	unhideWritingTemplate(editor);
+	return bounds
+}
+
+export function simplifyWritingLines(editor: Editor, entry: HistoryEntry<TLRecord>) {
+	// const updatedRecords = Object.values(entry.changes.updated);
+
+	// editor.run(() => {
+
+	// 	updatedRecords.forEach( (record) => {
+	// 		const toRecord = record[1];
+	// 		if (toRecord.typeName == 'shape' && toRecord.type == 'draw') {
+	// 			editor.updateShape({
+	// 				id: toRecord.id,
+	// 				type: 'draw',
+	// 				props: {
+	// 					...toRecord.props,
+	// 					// dash: 'draw', // Sets to dynamic stroke thickness
+	// 					dash: 'solid', // Sets to constant stroke thickness
+	// 					// isPen: true,
+	// 				},
+	// 			}, {
+	// 				ephemeral: true
+	// 			})
+	// 		}
+	// 	})
+
+	// })
+
+}
+
+
+// export function isEmptyWritingFile(editor: Editor): boolean {
+// 	let contentBounds = getDrawShapeBounds(editor);
+// 	if(contentBounds.height === 0) {
+// 		return true;
+// 	} else {
+// 		return false;
+// 	}
+// }
+
+/***
+ * Convert an existing writing height to a value with just enough space under writing strokes to view baseline.
+ * Good for screenshots and other non-interactive states.
+ */
+export function cropWritingStrokeHeightTightly(height: number): number {
+	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 0.5) * WRITING_LINE_HEIGHT;
+	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
+}
+
+/***
+ * Convert an existing writing height to a value with excess space under writing strokes to to enable further writing.
+ * Good for while in editing mode.
+ */
+export function cropWritingStrokeHeightInvitingly(height: number): number {
+	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numOfLines + 1.5) * WRITING_LINE_HEIGHT;
+	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
+}
+
+
+/***
+ * Add excess space under writing strokes to to enable further writing.
+ * Good for while in editing mode.
+ */
+export const resizeWritingTemplateInvitingly = (editor: Editor) => {
+	console.log('resizeWritingTemplateInvitingly');
+	let contentBounds = getAllStrokeBounds(editor);
+	if (!contentBounds) return;
+
+	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h);
+
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	
+	if(!writingLinesShape) return;
+	if(!writingContainerShape) return;
+	
+	silentlyChangeStore( editor, () => {
+		unlockShape(editor, writingContainerShape);
+		unlockShape(editor, writingLinesShape);
+		// resize container and lines
+		editor.updateShape({
+			id: writingContainerShape.id,
+			type: writingContainerShape.type,
+			props: {
+				h: contentBounds.h,
+			}
+		})
+		editor.updateShape({
+			id: writingLinesShape.id,
+			type: writingLinesShape.type,
+			props: {
+				h: contentBounds.h,
+			}
+		})
+		lockShape(editor, writingContainerShape);
+		lockShape(editor, writingLinesShape);
+	})
+	
+}
+
+/***
+ * Add just enough space under writing strokes to view baseline.
+ * Good for screenshots and other non-interactive states.
+ */
+export const resizeWritingTemplateTightly = (editor: Editor) => {
+	console.log('resizeWritingTemplateTightly')
+	let contentBounds = getAllStrokeBounds(editor);
+	if (!contentBounds) return;
+
+	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h);
+
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	
+	
+	silentlyChangeStore( editor, () => {
+		unlockShape(editor, writingContainerShape);
+		unlockShape(editor, writingLinesShape);
+		// resize container and lines
+		editor.updateShape({
+			id: writingContainerShape.id,
+			type: writingContainerShape.type,
+			props: {
+				h: contentBounds.h,
+			}
+		})
+		editor.updateShape({
+			id: writingLinesShape.id,
+			type: writingLinesShape.type,
+			props: {
+				h: contentBounds.h,
+			}
+		})
+		lockShape(editor, writingContainerShape);
+		lockShape(editor, writingLinesShape);
+	})
+
+	
+}
+
+
+
+export async function getDrawingSvg(editor: Editor): Promise<svgObj | undefined> {
+	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+	const svgObj = await editor.getSvgString(allShapeIds);
+	return svgObj;
+}

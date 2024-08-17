@@ -144,8 +144,7 @@ export function DrawingEmbed (props: {
 
 	function switchToEditMode() {
 		// If it already has an auto generated height, then hard code that height
-		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
-		console.log('embedContainerElRef.current?.offsetHeight', embedContainerElRef.current?.offsetHeight);
+		// REVIEW: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
 		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('edit');
 	}

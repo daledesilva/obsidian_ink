@@ -115,9 +115,7 @@ export function WritingEmbed (props: {
 			{(state === 'preview') && (
 				<WritingEmbedPreview
 					plugin = {props.plugin}
-					onReady = {() => {
-						applyStaticEmbedHeight(null);
-					}}
+					onReady = {() => applyStaticEmbedHeight(null)}
 					isActive = {isActive}
 					src = {curPageData.previewUri || emptyWritingSvg }
 					// src = {previewFilePath}
@@ -156,7 +154,7 @@ export function WritingEmbed (props: {
 
 	function switchToEditMode() {
 		// If it already has an auto generated height, then hard code that height
-		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
+		// REVIEW: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
 		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('edit');
 	}

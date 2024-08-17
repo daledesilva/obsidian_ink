@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
@@ -64,8 +64,7 @@ export function TldrawDrawingEditor(props: {
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
 		editor.updateInstanceState({
-			isDebugMode: false,
-			// isGridMode: true,	// REVIEW: Turned off for now because it forces snapping
+			isGridMode: true,
 		})
 		
 		// view setup
@@ -98,24 +97,18 @@ export function TldrawDrawingEditor(props: {
 					break;
 
 				case Activity.DrawingCompleted:
-					instantInputPostProcess(editor, entry);
+					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);
-					smallDelayInputPostProcess(editor);
-					longDelayInputPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
+					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);	// REVIEW: This could go inside a post process
-					instantInputPostProcess(editor, entry);
-					smallDelayInputPostProcess(editor);
-					longDelayInputPostProcess(editor);
 					break;
 
 				default:
 					// Catch anything else not specifically mentioned (ie. erase, draw shape, etc.)
-					instantInputPostProcess(editor, entry);
-					smallDelayInputPostProcess(editor);
-					longDelayInputPostProcess(editor);
+					queueOrRunStorePostProcesses(editor);
 					// console.log('Activity not recognised.');
 					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
@@ -152,7 +145,6 @@ export function TldrawDrawingEditor(props: {
 		// resizeContainerIfEmbed(editor);
 	}
 
-
 	const queueOrRunStorePostProcesses = (editor: Editor) => {
 		instantInputPostProcess(editor);
 		smallDelayInputPostProcess(editor);
@@ -160,7 +152,7 @@ export function TldrawDrawingEditor(props: {
 	}
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
-	const instantInputPostProcess = (editor: Editor, entry?: HistoryEntry<TLRecord>) => {
+	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
 		// simplifyLines(editor, entry);
 	};
 
@@ -275,7 +267,8 @@ export function TldrawDrawingEditor(props: {
 
 				onMount = {handleMount}
 
-				// NOTE: False prevents tldraw scrolling the page to the top of the embed when turning on.
+				// Ensure cursor remains and embed IS NOT focussed if it's an embed.
+				// This prevents tldraw scrolling the page to the top of the embed when turning on.
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
 				autoFocus = {props.embedded ? false : true}
 			/>
@@ -299,18 +292,3 @@ export function TldrawDrawingEditor(props: {
 	</>;
 
 };
-
-//////////
-//////////
-
-interface svgObj {
-	height: number,
-	width: number,
-	svg: string,
-};
-
-async function getDrawingSvg(editor: Editor): Promise<svgObj | undefined> {
-	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
-	const svgObj = await editor.getSvgString(allShapeIds);
-	return svgObj;
-}

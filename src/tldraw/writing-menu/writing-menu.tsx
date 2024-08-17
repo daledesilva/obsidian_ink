@@ -16,12 +16,12 @@ export enum tool {
 	draw = 'draw',
 	eraser = 'eraser',
 }
-interface MenuBarProps {
+interface WritingMenuProps {
     getTlEditor: () => Editor | undefined,
     onStoreChange: (elEditor: Editor) => void,
 }
 
-export const WritingMenu = (props: MenuBarProps) => {
+export const WritingMenu = (props: WritingMenuProps) => {
 
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);

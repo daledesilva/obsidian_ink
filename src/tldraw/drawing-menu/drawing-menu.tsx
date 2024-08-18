@@ -6,6 +6,7 @@ import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
 import { Editor } from "@tldraw/tldraw";
+import { silentlyChangeStore } from "src/utils/tldraw-helpers";
 
 //////////
 //////////
@@ -54,6 +55,46 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 
     ///////////
 
+    function undo() {
+		const editor = props.getTlEditor();
+		if (!editor) return;
+		silentlyChangeStore( editor, () => {
+			editor.undo();
+		});
+		props.onStoreChange(editor)
+	}
+	function redo() {
+		const editor = props.getTlEditor();
+		if (!editor) return;
+		silentlyChangeStore( editor, () => {
+			editor.redo();
+		});
+		props.onStoreChange(editor)
+
+	}
+	function activateSelectTool() {
+		const editor = props.getTlEditor();
+		if (!editor) return;
+		editor.setCurrentTool('select');
+		setCurTool(tool.select);
+
+	}
+	function activateDrawTool() {
+		const editor = props.getTlEditor();
+		if (!editor) return;
+		editor.setCurrentTool('draw');
+		setCurTool(tool.draw);
+	}
+	function activateEraseTool() {
+		const editor = props.getTlEditor();
+		if (!editor) return;
+		editor.setCurrentTool('eraser');
+		setCurTool(tool.eraser);
+	}
+
+    ///////////
+    ///////////
+
     return <>
         <div
             ref = {ref}
@@ -63,14 +104,14 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                 className='ink_quick-menu'
             >
                 <button
-                    onPointerDown={props.onUndoClick}
-                    disabled={!props.canUndo}
+                    onPointerDown={undo}
+                    disabled={!canUndo}
                 >
                     <UndoIcon/>
                 </button>
                 <button
-                    onPointerDown={props.onRedoClick}
-                    disabled={!props.canRedo}
+                    onPointerDown={redo}
+                    disabled={!canRedo}
                 >
                     <RedoIcon/>
                 </button>
@@ -79,20 +120,20 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                 className='ink_tool-menu'
             >
                 <button
-                    onPointerDown={props.onSelectClick}
-                    disabled={props.curTool === tool.select}
+                    onPointerDown={activateSelectTool}
+                    disabled={curTool === tool.select}
                 >
                     <SelectIcon/>
                 </button>
                 <button
-                    onPointerDown={props.onDrawClick}
-                    disabled={props.curTool === tool.draw}
+                    onPointerDown={activateDrawTool}
+                    disabled={curTool === tool.draw}
                 >
                     <DrawIcon/>
                 </button>
                 <button
-                    onPointerDown={props.onEraseClick}
-                    disabled={props.curTool === tool.eraser}
+                    onPointerDown={activateEraseTool}
+                    disabled={curTool === tool.eraser}
                 >
                     <EraseIcon/>
                 </button>

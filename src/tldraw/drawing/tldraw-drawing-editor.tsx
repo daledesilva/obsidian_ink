@@ -134,7 +134,7 @@ export function TldrawDrawingEditor(props: {
 			})
 		}
 		
-		if(props.onReady) props.onReady()
+		if(props.onReady) props.onReady();
 
 		return () => {
 			unmountActions();

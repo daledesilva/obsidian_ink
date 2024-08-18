@@ -155,7 +155,16 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 
-		if(props.onReady) props.onReady()
+		if(props.onReady) props.onReady();
+
+		
+		console.log('tldrawContainerElRef.current', tldrawContainerElRef.current);
+		tldrawContainerElRef.current?.addEventListener('focusin', () => {
+			console.log('focusin');
+		})
+		tldrawContainerElRef.current?.addEventListener('focusout', () => {
+			console.log('focusout');
+		})
 
 		return () => {
 			unmountActions();

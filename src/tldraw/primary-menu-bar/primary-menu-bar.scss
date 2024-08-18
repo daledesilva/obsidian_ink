@@ -17,5 +17,11 @@
 
 // If inside an embed block
 .cm-embed-block .ink_write_primary-menu-bar {
-    transform: translate(0, -100%);
+    transition-property: transform;
+    transition-duration: 0.2s;
+    transition-timing-function: cubic-bezier(0, 0.5, 0, 1);
+
+    &.ddc_ink_active {
+        transform: translate(0, -100%);
+    }
 }

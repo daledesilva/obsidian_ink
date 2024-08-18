@@ -12,6 +12,7 @@ import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-previ
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
+import classNames from "classnames";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -95,11 +96,17 @@ export function DrawingEmbed (props: {
 	return <>
 		<div
 			ref = {embedContainerElRef}
-			className = 'ddc_ink_drawing-embed'
+			className = {classNames([
+				'ddc_ink_embed',
+				'ddc_ink_drawing-embed',
+			])}
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
-				paddingTop: state=='edit' ? '3em' : '1em',
-				paddingBottom: state=='edit' ? '2em' : '0.5em',
+				// paddingTop: state=='edit' ? '3em' : '1em',
+				// paddingBottom: state=='edit' ? '2em' : '0.5em',
+				paddingTop: '1em',
+				paddingBottom: '0.5em',
+
 				// height: transitioning ? staticEmbedHeight + 'px' : (state === 'edit' ? '600px' : 'auto'),
 				height: state === 'edit' ? '600px' : 'auto',
 			}}

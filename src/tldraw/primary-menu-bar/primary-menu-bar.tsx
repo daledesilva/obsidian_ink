@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import './primary-menu-bar.scss';
 import * as React from 'react';
 
@@ -11,13 +12,17 @@ interface PrimaryMenuBarProps {
 export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     const scrollContainerElRef = React.useRef<HTMLDivElement>(null);
 	const primaryMenuBarElRef = React.useRef<HTMLDivElement>(null);
+    const [menuActive, setMenuActive] = React.useState<boolean>(true);
 
     React.useEffect(() => {
+        console.log('MOUNTING PRIMARY MENU BAR');
         initScrollHandler();
-
+        initFocusHandlers();
+        
         // When unmounting
         return () => {
             cleanUpScrollHandler();
+            cleanUpFocusHandlers();
         }
     })
 
@@ -26,7 +31,10 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     return <>
         <div
             ref = {primaryMenuBarElRef}
-            className = 'ink_write_primary-menu-bar'
+            className = {classNames([
+                'ink_write_primary-menu-bar',
+                menuActive && 'ddc_ink_active',
+            ])}
         >
             {props.children}
         </div>
@@ -45,6 +53,28 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     function cleanUpScrollHandler() {
         const scrollEl = scrollContainerElRef.current;
         scrollEl?.removeEventListener('scroll', handleScrolling);
+    }
+
+    function initFocusHandlers() {
+        const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
+        if(!parentEmbedEl) return;
+        parentEmbedEl.addEventListener('focusin', handleFocusIn)
+        parentEmbedEl.addEventListener('focusout', handleFocusOut)
+    }
+    function cleanUpFocusHandlers() {
+        const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
+        if(!parentEmbedEl) return;
+        parentEmbedEl.removeEventListener('focusin', handleFocusIn)
+        parentEmbedEl.removeEventListener('focusout', handleFocusOut)
+    }
+
+    function handleFocusIn(e: Event): void {
+        console.log('focusin from menu');
+        setMenuActive(true);
+    }
+    function handleFocusOut(e: Event): void {
+        console.log('focusout from menu');
+        setMenuActive(false);
     }
 
     function handleScrolling(e: Event): void {

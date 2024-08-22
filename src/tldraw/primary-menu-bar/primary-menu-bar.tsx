@@ -87,13 +87,14 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
         if (!primaryMenuBar) return;
         if (!containerEl) return;
 
-        let containerPosY = containerEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
-
-        // Because the menu bar is translated outside of the container by it's height
-        // So considering the container position that much lower means it will stay visible without changing the translation
         const menuBarHeight = primaryMenuBar.getBoundingClientRect().height;
         const containerHeight = containerEl.getBoundingClientRect().height;
-        containerPosY -= Number(menuBarHeight);
+        
+        let containerPosY = containerEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
+        if(menuActive) {
+            // When the menu bar is translated outside of the container, correct for that by moving it down
+            containerPosY -= Number(menuBarHeight);
+        }
 
         const containerOffsetY = containerPosY;// - pageScrollY;
 

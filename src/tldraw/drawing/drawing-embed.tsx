@@ -37,13 +37,13 @@ export function DrawingEmbed (props: {
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
-	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
-	const dispatch = useDispatch();
+	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
+	// const dispatch = useDispatch();
 
 	// On first mount
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately()) {
-			dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			switchToEditMode();
 		}
 	})
@@ -65,10 +65,10 @@ export function DrawingEmbed (props: {
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = (embedId === activeEmbedId);
-	if(!isActive && state === 'edit') {
-		saveAndSwitchToPreviewMode();
-	}
+	// let isActive = (embedId === activeEmbedId);
+	// if(!isActive && state === 'edit') {
+	// 	saveAndSwitchToPreviewMode();
+	// }
 
 	const commonExtendedOptions = [
 		{
@@ -118,7 +118,7 @@ export function DrawingEmbed (props: {
 					src = {curPageData.previewUri || emptyDrawingSvgStr}
 					// src = {previewFilePath}
 					onClick = { async () => {
-						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
 						setCurPageData(newPageData);
 						switchToEditMode();

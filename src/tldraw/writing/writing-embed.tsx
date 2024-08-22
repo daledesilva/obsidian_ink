@@ -40,13 +40,13 @@ export function WritingEmbed (props: {
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
-	const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
-	const dispatch = useDispatch();
+	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
+	// const dispatch = useDispatch();
 	
 	// On first mount
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately()) {
-			dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			switchToEditMode();
 		}
 	})
@@ -75,10 +75,10 @@ export function WritingEmbed (props: {
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
-	let isActive = (embedId === activeEmbedId);
-	if(!isActive && state === 'edit'){
-		saveAndSwitchToPreviewMode();
-	}
+	// let isActive = (embedId === activeEmbedId);
+	// if(!isActive && state === 'edit'){
+	// 	saveAndSwitchToPreviewMode();
+	// }
 
 	const commonExtendedOptions = [
 		{
@@ -125,7 +125,7 @@ export function WritingEmbed (props: {
 					src = {curPageData.previewUri || emptyWritingSvg }
 					// src = {previewFilePath}
 					onClick = {async (event) => {
-						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
 						setCurPageData(newPageData);
 						switchToEditMode();

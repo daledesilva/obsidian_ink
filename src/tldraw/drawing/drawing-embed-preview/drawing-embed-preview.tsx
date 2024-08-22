@@ -14,7 +14,6 @@ interface DrawingEmbedProps {
     onReady: Function,
     src: string,
 	onClick: React.MouseEventHandler,
-	commonExtendedOptions: any[],
 }
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {

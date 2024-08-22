@@ -15,7 +15,6 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     const [menuActive, setMenuActive] = React.useState<boolean>(true);
 
     React.useEffect(() => {
-        console.log('MOUNTING PRIMARY MENU BAR');
         initScrollHandler();
         initFocusHandlers();
         
@@ -89,7 +88,7 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
 
         const menuBarHeight = primaryMenuBar.getBoundingClientRect().height;
         const containerHeight = containerEl.getBoundingClientRect().height;
-        
+
         let containerPosY = containerEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
         if(menuActive) {
             // When the menu bar is translated outside of the container, correct for that by moving it down

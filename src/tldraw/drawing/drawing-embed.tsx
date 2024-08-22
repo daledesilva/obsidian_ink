@@ -115,19 +115,14 @@ export function DrawingEmbed (props: {
 				<DrawingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => applyStaticEmbedHeight(null)}
-					isActive = {isActive}
 					src = {curPageData.previewUri || emptyDrawingSvgStr}
 					// src = {previewFilePath}
-					onClick = {(event) => {
-						event.preventDefault();
+					onClick = { async () => {
 						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-					}}
-					onEditClick = { async () => {
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
 						setCurPageData(newPageData);
 						switchToEditMode();
 					}}
-					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
 			{state === 'edit' && (

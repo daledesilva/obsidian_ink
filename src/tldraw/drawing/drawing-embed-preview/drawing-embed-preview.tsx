@@ -13,9 +13,7 @@ interface DrawingEmbedProps {
     plugin: InkPlugin,
     onReady: Function,
     src: string,
-    isActive: boolean,
 	onClick: React.MouseEventHandler,
-	onEditClick: React.MouseEventHandler,
 	commonExtendedOptions: any[],
 }
 
@@ -69,15 +67,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedProps> = (props) => {
                     />
                 )}
             </>)}
-
-            {props.isActive && (
-                <PrimaryMenuBar>
-                    <TransitionMenu
-                        onEditClick = {props.onEditClick}
-                        menuOptions = {props.commonExtendedOptions}
-                    />
-                </PrimaryMenuBar>
-            )}
         </div>
     </>;
 

@@ -9,17 +9,14 @@ import InkPlugin from 'src/main';
 //////////
 //////////
 
-interface WritingEmbedProps {
+interface WritingEmbedPreviewProps {
     plugin: InkPlugin,
     onReady: Function,
     src: string,
-    isActive: boolean,
 	onClick: React.MouseEventHandler,
-	onEditClick: React.MouseEventHandler,
-	commonExtendedOptions: any[],
 }
 
-export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
+export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     const svgRef = React.useRef(null);
 
     // Check if src is a pnd DataURI. If not, it's an SVG
@@ -71,14 +68,6 @@ export const WritingEmbedPreview: React.FC<WritingEmbedProps> = (props) => {
                 />
             </>)}
             
-            {props.isActive && (
-                <PrimaryMenuBar>
-                    <TransitionMenu
-                        onEditClick = {props.onEditClick}
-                        menuOptions = {props.commonExtendedOptions}
-                    />
-                </PrimaryMenuBar>
-            )}
         </div>
     </>;
 

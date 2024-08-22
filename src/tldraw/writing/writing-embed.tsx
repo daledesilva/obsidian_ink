@@ -122,19 +122,14 @@ export function WritingEmbed (props: {
 				<WritingEmbedPreview
 					plugin = {props.plugin}
 					onReady = {() => applyStaticEmbedHeight(null)}
-					isActive = {isActive}
 					src = {curPageData.previewUri || emptyWritingSvg }
 					// src = {previewFilePath}
-					onClick = {(event) => {
-						event.preventDefault();
+					onClick = {async (event) => {
 						dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-					}}
-					onEditClick = { async () => {
 						const newPageData = await refreshPageData(props.plugin, props.fileRef);
 						setCurPageData(newPageData);
 						switchToEditMode();
 					}}
-					commonExtendedOptions = {commonExtendedOptions}
 				/>
 			)}
 			{state === 'edit' && (

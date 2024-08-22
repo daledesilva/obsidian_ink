@@ -57,6 +57,7 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
 
     function initFocusHandlers() {
         const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
+        console.log('parentEmbedEl', parentEmbedEl)
         if(!parentEmbedEl) return;
         parentEmbedEl.addEventListener('focusin', handleFocusIn)
         parentEmbedEl.addEventListener('focusout', handleFocusOut)

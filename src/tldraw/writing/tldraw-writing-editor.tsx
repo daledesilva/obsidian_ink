@@ -27,17 +27,8 @@ const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
 
-const defaultComponents = {
-	Scribble: TldrawScribble,
-	ShapeIndicators: TldrawShapeIndicators,
-	CollaboratorScribble: TldrawScribble,
-	SelectionForeground: TldrawSelectionForeground,
-	SelectionBackground: TldrawSelectionBackground,
-	Handles: TldrawHandles,
-}
-
 export function TldrawWritingEditor(props: {
-	onReady?: Function,
+	onResize?: Function,
 	plugin: InkPlugin,
 	fileRef: TFile,
 	pageData: InkFileData,
@@ -53,7 +44,6 @@ export function TldrawWritingEditor(props: {
 
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const tldrawContainerElRef = useRef<HTMLDivElement>(null);
 	const tlEditorRef = useRef<Editor>();
 	const [tlStoreSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>(prepareWritingSnapshot(props.pageData.tldraw))
 
@@ -61,7 +51,24 @@ export function TldrawWritingEditor(props: {
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
+	const defaultComponents = {
+		Scribble: TldrawScribble,
+		ShapeIndicators: TldrawShapeIndicators,
+		CollaboratorScribble: TldrawScribble,
+		SelectionForeground: TldrawSelectionForeground,
+		SelectionBackground: TldrawSelectionBackground,
+		Handles: TldrawHandles,
+	
+		InFrontOfTheCanvas: () => {
+			React.useEffect( () => {
+				console.log('PAINTED');
+			}, []);
+			return null;
+		}
+	}
+
 	const handleMount = (_editor: Editor) => {
+		console.log('TLDRAW MOUNTED')
 		const editor = tlEditorRef.current = _editor;
 
 		updateWritingStoreIfNeeded(editor);
@@ -154,18 +161,9 @@ export function TldrawWritingEditor(props: {
 				}
 			})
 		}
-
-		if(props.onReady) props.onReady();
-
 		
-		console.log('tldrawContainerElRef.current', tldrawContainerElRef.current);
-		tldrawContainerElRef.current?.addEventListener('focusin', () => {
-			console.log('focusin');
-		})
-		tldrawContainerElRef.current?.addEventListener('focusout', () => {
-			console.log('focusout');
-		})
-
+		resizeContainerIfEmbed(editor);
+		
 		return () => {
 			unmountActions();
 		};
@@ -173,10 +171,9 @@ export function TldrawWritingEditor(props: {
 
 	///////////////
 
-	const resizeContainerIfEmbed = (editor: Editor) => {
-		console.log('resizeContainerIfEmbed');
-		if (!props.embedded) return;
-		if (!tldrawContainerElRef.current) return;
+	function resizeContainerIfEmbed (editor: Editor) {
+		// console.log('resizeContainerIfEmbed');
+		if (!props.embedded || !props.onResize) return;
 
 		const embedBounds = editor.getViewportScreenBounds();
 		const contentBounds = getWritingContainerBounds(editor);
@@ -184,7 +181,7 @@ export function TldrawWritingEditor(props: {
 		if (contentBounds) {
 			const contentRatio = contentBounds.w / contentBounds.h;
 			const newEmbedHeight = embedBounds.w / contentRatio;
-			tldrawContainerElRef.current.style.height = newEmbedHeight + 'px';
+			props.onResize(newEmbedHeight);
 		}
 
 	}
@@ -294,7 +291,6 @@ export function TldrawWritingEditor(props: {
 
 	return <>
 		<div
-			ref = {tldrawContainerElRef}
 			className = {classNames([
 				"ddc_ink_writing-editor",
 			])}

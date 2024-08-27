@@ -1,7 +1,13 @@
 
 
 .ddc_ink_writing-embed {
-    transition-property: padding, height;
+    transition-property: padding;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}
+
+.ddc_ink_resize-container {
+    transition-property: height;
     transition-duration: 0.5s;
     transition-timing-function: ease-out;
 }

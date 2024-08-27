@@ -36,6 +36,7 @@ export function WritingEmbed (props: {
 }) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
+	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const [state, setState] = useState<'preview'|'edit'>('preview');
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
@@ -63,14 +64,9 @@ export function WritingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
-	const applyStaticEmbedHeight = (height: number | null) => {
-		if(!embedContainerElRef.current) return;
-
-		if(height) {
-			embedContainerElRef.current.style.height = height + 'px';
-		} else {
-			embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
-		}
+	const resizeContainer = (height: number) => {
+		if(!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.style.height = height + 'px';
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
@@ -118,35 +114,43 @@ export function WritingEmbed (props: {
 				paddingBottom: '0.5em',
 			}}
 		>
-			{(state === 'preview') && (
-				<WritingEmbedPreview
-					plugin = {props.plugin}
-					onReady = {() => applyStaticEmbedHeight(null)}
-					src = {curPageData.previewUri || emptyWritingSvg }
-					// src = {previewFilePath}
-					onClick = {async (event) => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setCurPageData(newPageData);
-						switchToEditMode();
-					}}
-				/>
-			)}
-			{state === 'edit' && (
-				<TldrawWritingEditor
-					onReady = {() => {
-						applyStaticEmbedHeight(null);
-					}}
-					plugin = {props.plugin}
-					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
-					pageData = {curPageData}
-					save = {props.save}
-					embedded
-					registerControls = {registerEditorControls}
-					closeEditor = {saveAndSwitchToPreviewMode}
-					commonExtendedOptions = {commonExtendedOptions}
-				/>
-			)}
+			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
+			<div
+				className = 'ddc_ink_resize-container'
+				ref = {resizeContainerElRef}
+			>
+
+				{(state === 'preview') && (
+					<WritingEmbedPreview
+						plugin = {props.plugin}
+						onResize = {(height: number) => resizeContainer(height)}
+						src = {curPageData.previewUri || emptyWritingSvg }
+						// src = {previewFilePath}
+						onClick = {async (event) => {
+							// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+							const newPageData = await refreshPageData(props.plugin, props.fileRef);
+							setCurPageData(newPageData);
+							switchToEditMode();
+						}}
+					/>
+				)}
+
+				{state === 'edit' && (
+					<TldrawWritingEditor
+						onResize = {(height: number) => resizeContainer(height)}
+						plugin = {props.plugin}
+						fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
+						pageData = {curPageData}
+						save = {props.save}
+						embedded
+						registerControls = {registerEditorControls}
+						closeEditor = {saveAndSwitchToPreviewMode}
+						commonExtendedOptions = {commonExtendedOptions}
+					/>
+				)}
+
+			</div>
+
 		</div>
 	</>;
 	
@@ -154,9 +158,6 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		// If it already has an auto generated height, then hard code that height
-		// REVIEW: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
-		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('edit');
 	}
 	
@@ -166,9 +167,6 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		// If it already has an auto generated height, then hard code that height
-		// TODO: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
-		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
 		setState('preview');
 	}
 	

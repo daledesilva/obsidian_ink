@@ -11,13 +11,13 @@ import InkPlugin from 'src/main';
 
 interface WritingEmbedPreviewProps {
     plugin: InkPlugin,
-    onReady: Function,
+    onResize: Function,
     src: string,
 	onClick: React.MouseEventHandler,
 }
 
 export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
-    const svgRef = React.useRef(null);
+    const containerElRef = React.useRef<HTMLDivElement>(null);
 
     // Check if src is a pnd DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
@@ -28,7 +28,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
 
 	return <>
         <div
-            ref = {svgRef}
+            ref = {containerElRef}
             className = {classNames([
                 'ddc_ink_writing-embed-preview',
                 props.plugin.settings.writingLinesWhenLocked && 'ddc_ink_visible-lines',
@@ -51,7 +51,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
                         cursor: 'pointer',
                         pointerEvents: 'all',
                     }}
-                    onLoad = {() => props.onReady()}
+                    onLoad = {onLoad}
                 />
             </>)}
             
@@ -64,11 +64,20 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
-                    onLoad = {() => props.onReady()}
+                    onLoad = {onLoad}
                 />
             </>)}
             
         </div>
     </>;
+
+    ////////////
+
+    function onLoad() {
+        if(!containerElRef.current) return;
+
+        const rect = containerElRef.current.getBoundingClientRect();
+        props.onResize(rect.height);
+    }
 
 };

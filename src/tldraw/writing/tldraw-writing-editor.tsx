@@ -45,6 +45,7 @@ export function TldrawWritingEditor(props: {
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
+	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const [tlStoreSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>(prepareWritingSnapshot(props.pageData.tldraw))
 
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
@@ -59,17 +60,23 @@ export function TldrawWritingEditor(props: {
 		SelectionBackground: TldrawSelectionBackground,
 		Handles: TldrawHandles,
 	
-		InFrontOfTheCanvas: () => {
-			React.useEffect( () => {
-				console.log('PAINTED');
-			}, []);
-			return null;
-		}
+		// InFrontOfTheCanvas: () => {
+		// 	React.useEffect( () => {
+		// 		if(!tlEditorRef.current) return;
+		// 		resizeContainerIfEmbed(tlEditorRef.current);
+		// 	}, []);
+		// 	return null;
+		// }
 	}
 
 	const handleMount = (_editor: Editor) => {
 		console.log('TLDRAW MOUNTED')
 		const editor = tlEditorRef.current = _editor;
+
+		resizeContainerIfEmbed(tlEditorRef.current);
+		if(editorWrapperRefEl.current) {
+			editorWrapperRefEl.current.style.opacity = '1';
+		}
 
 		updateWritingStoreIfNeeded(editor);
 
@@ -162,7 +169,6 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 		
-		resizeContainerIfEmbed(editor);
 		
 		return () => {
 			unmountActions();
@@ -291,12 +297,14 @@ export function TldrawWritingEditor(props: {
 
 	return <>
 		<div
+			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_writing-editor",
 			])}
 			style={{
 				height: '100%',
 				position: 'relative',
+				opacity: 0, // So it's invisible while it loads
 			}}
 		>
 			<TldrawEditor

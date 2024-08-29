@@ -17,10 +17,22 @@ import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
+import { create } from 'zustand'
 const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
 ///////
+
+
+// interface EmbedStore {
+// 	state: 'preview' | 'loadingEditor' | 'editor' | 'loadingPreview',
+// }
+// const useEmbedStore = create<EmbedStore>( (set) => ({
+// 	state: 'preview',
+// 	setState: () => set((state) => {
+
+// 	})
+// }))
 
 export type WritingEditorControls = {
 	// save: Function,
@@ -137,8 +149,8 @@ export function WritingEmbed (props: {
 
 				{state === 'edit' && (
 					<TldrawWritingEditor
-						onResize = {(height: number) => resizeContainer(height)}
 						plugin = {props.plugin}
+						onResize = {(height: number) => resizeContainer(height)}
 						fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
 						pageData = {curPageData}
 						save = {props.save}

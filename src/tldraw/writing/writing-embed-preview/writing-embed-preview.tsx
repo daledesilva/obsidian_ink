@@ -35,7 +35,8 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
                 props.plugin.settings.writingBackgroundWhenLocked && 'ddc_ink_visible-background',
             ])}
             style={{
-                position: 'relative'
+                position: 'absolute',
+                width: '100%',
             }}
             onClick = {props.onClick}
 

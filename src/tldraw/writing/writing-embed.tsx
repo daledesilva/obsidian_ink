@@ -24,12 +24,20 @@ const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 ///////
 
 
-interface EmbedStore {
-	embedState: 'preview' | 'loadingEditor' | 'editor' | 'unloadingEditor',
+export enum EmbedState {
+	'preview',
+	'loadingEditor',
+	'editorLoaded',
+	'unloadingEditor',
 }
-export const useEmbedStore = create<EmbedStore>( (set) => ({
-	embedState: 'preview',
-}))
+interface EmbedStore {
+	embedState: EmbedState,
+	setEmbedState: (embedState: EmbedState) => void,
+}
+export const EmbedContext = React.createContext<EmbedStore>({
+	embedState: EmbedState.preview,
+	setEmbedState: (embedState: EmbedState) => {},
+});
 
 export type WritingEditorControls = {
 	// save: Function,
@@ -47,6 +55,7 @@ export function WritingEmbed (props: {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const [editorVisible, setEditorVisible] = useState<boolean>(false);
+	const [embedState, setEmbedState] = useState<EmbedState>(EmbedState.preview);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
@@ -109,64 +118,66 @@ export function WritingEmbed (props: {
 	////////////
 
 	return <>
-		<div
-			ref = {embedContainerElRef}
-			className = {classNames([
-				'ddc_ink_embed',
-				'ddc_ink_writing-embed',
-			])}
-			style = {{
-				// Must be padding as margin creates codemirror calculation issues
-				// paddingTop: state=='edit' ? '3em' : '1em',
-				// paddingBottom: state=='edit' ? '2em' : '0.5em',
-				paddingTop: '1em',
-				paddingBottom: '0.5em',
-			}}
-		>
-			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
+		<EmbedContext.Provider value={{embedState, setEmbedState}}>
 			<div
-				className = 'ddc_ink_resize-container'
-				ref = {resizeContainerElRef}
+				ref = {embedContainerElRef}
+				className = {classNames([
+					'ddc_ink_embed',
+					'ddc_ink_writing-embed',
+				])}
+				style = {{
+					// Must be padding as margin creates codemirror calculation issues
+					// paddingTop: state=='edit' ? '3em' : '1em',
+					// paddingBottom: state=='edit' ? '2em' : '0.5em',
+					paddingTop: '1em',
+					paddingBottom: '0.5em',
+				}}
 			>
+				{/* Include another container so that it's height isn't affected by the padding of the outer container */}
+				<div
+					className = 'ddc_ink_resize-container'
+					ref = {resizeContainerElRef}
+				>
 
-			
-				<WritingEmbedPreview
-					plugin = {props.plugin}
-					onResize = {(height: number) => resizeContainer(height)}
-					src = {curPageData.previewUri || emptyWritingSvg }
-					// src = {previewFilePath}
-					onClick = {async (event) => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setCurPageData(newPageData);
-						switchToEditMode();
-					}}
-				/>
-
-				{editorVisible && (
-					<TldrawWritingEditor
+				
+					<WritingEmbedPreview
 						plugin = {props.plugin}
 						onResize = {(height: number) => resizeContainer(height)}
-						fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
-						pageData = {curPageData}
-						save = {props.save}
-						embedded
-						registerControls = {registerEditorControls}
-						closeEditor = {saveAndSwitchToPreviewMode}
-						commonExtendedOptions = {commonExtendedOptions}
+						src = {curPageData.previewUri || emptyWritingSvg }
+						// src = {previewFilePath}
+						onClick = {async (event) => {
+							// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+							const newPageData = await refreshPageData(props.plugin, props.fileRef);
+							setCurPageData(newPageData);
+							switchToEditMode();
+						}}
 					/>
-				)}
+
+					{editorVisible && (
+						<TldrawWritingEditor
+							plugin = {props.plugin}
+							onResize = {(height: number) => resizeContainer(height)}
+							fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
+							pageData = {curPageData}
+							save = {props.save}
+							embedded
+							registerControls = {registerEditorControls}
+							closeEditor = {saveAndSwitchToPreviewMode}
+							commonExtendedOptions = {commonExtendedOptions}
+						/>
+					)}
+
+				</div>
 
 			</div>
-
-		</div>
+		</EmbedContext.Provider>
 	</>;
 	
 	// Helper functions
 	///////////////////
 
 	function switchToEditMode() {
-		useEmbedStore.setState({ embedState: 'loadingEditor'});
+		setEmbedState(EmbedState.loadingEditor);
 		setEditorVisible(true);
 	}
 	
@@ -176,7 +187,7 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		useEmbedStore.setState({ embedState: 'unloadingEditor'});
+		setEmbedState(EmbedState.unloadingEditor);
 		setEditorVisible(false);
 	}
 	

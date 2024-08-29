@@ -55,7 +55,7 @@ export function WritingEmbed (props: {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const [editorVisible, setEditorVisible] = useState<boolean>(false);
-	const [embedState, setEmbedState] = useState<EmbedState>(EmbedState.preview);
+	const embedStateRef = useRef<EmbedState>(EmbedState.preview);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
@@ -118,7 +118,7 @@ export function WritingEmbed (props: {
 	////////////
 
 	return <>
-		<EmbedContext.Provider value={{embedState, setEmbedState}}>
+		<EmbedContext.Provider value={{embedState: embedStateRef.current, setEmbedState: (newState) => embedStateRef.current = newState}}>
 			<div
 				ref = {embedContainerElRef}
 				className = {classNames([
@@ -177,7 +177,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setEmbedState(EmbedState.loadingEditor);
+		embedStateRef.current = EmbedState.loadingEditor;
 		setEditorVisible(true);
 	}
 	
@@ -187,7 +187,7 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setEmbedState(EmbedState.unloadingEditor);
+		embedStateRef.current = EmbedState.unloadingEditor;
 		setEditorVisible(false);
 	}
 	

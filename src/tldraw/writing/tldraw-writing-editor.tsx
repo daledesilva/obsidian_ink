@@ -15,6 +15,7 @@ import classNames from 'classnames';
 import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
 import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import {getAssetUrlsByImport} from '@tldraw/assets/imports';
+import { useEmbedStore } from './writing-embed';
 
 ///////
 ///////
@@ -169,6 +170,9 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 		
+		useEmbedStore.setState({
+			embedState: 'editor',
+		});
 		
 		return () => {
 			unmountActions();

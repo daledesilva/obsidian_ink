@@ -24,15 +24,12 @@ const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 ///////
 
 
-// interface EmbedStore {
-// 	state: 'preview' | 'loadingEditor' | 'editor' | 'loadingPreview',
-// }
-// const useEmbedStore = create<EmbedStore>( (set) => ({
-// 	state: 'preview',
-// 	setState: () => set((state) => {
-
-// 	})
-// }))
+interface EmbedStore {
+	embedState: 'preview' | 'loadingEditor' | 'editor' | 'unloadingEditor',
+}
+export const useEmbedStore = create<EmbedStore>( (set) => ({
+	embedState: 'preview',
+}))
 
 export type WritingEditorControls = {
 	// save: Function,
@@ -49,7 +46,7 @@ export function WritingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
-	const [state, setState] = useState<'preview'|'edit'>('preview');
+	const [editorVisible, setEditorVisible] = useState<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
@@ -66,10 +63,10 @@ export function WritingEmbed (props: {
 
 	// Whenever switching between readonly and edit mode
 	React.useEffect( () => {
-		if(state === 'preview') {
+		if(editorVisible === false) {
 			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
 		}
-	}, [state])
+	}, [editorVisible])
 
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: WritingEditorControls) => {
@@ -132,22 +129,21 @@ export function WritingEmbed (props: {
 				ref = {resizeContainerElRef}
 			>
 
-				{(state === 'preview') && (
-					<WritingEmbedPreview
-						plugin = {props.plugin}
-						onResize = {(height: number) => resizeContainer(height)}
-						src = {curPageData.previewUri || emptyWritingSvg }
-						// src = {previewFilePath}
-						onClick = {async (event) => {
-							// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-							const newPageData = await refreshPageData(props.plugin, props.fileRef);
-							setCurPageData(newPageData);
-							switchToEditMode();
-						}}
-					/>
-				)}
+			
+				<WritingEmbedPreview
+					plugin = {props.plugin}
+					onResize = {(height: number) => resizeContainer(height)}
+					src = {curPageData.previewUri || emptyWritingSvg }
+					// src = {previewFilePath}
+					onClick = {async (event) => {
+						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+						const newPageData = await refreshPageData(props.plugin, props.fileRef);
+						setCurPageData(newPageData);
+						switchToEditMode();
+					}}
+				/>
 
-				{state === 'edit' && (
+				{editorVisible && (
 					<TldrawWritingEditor
 						plugin = {props.plugin}
 						onResize = {(height: number) => resizeContainer(height)}
@@ -170,7 +166,8 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		setState('edit');
+		useEmbedStore.setState({ embedState: 'loadingEditor'});
+		setEditorVisible(true);
 	}
 	
 	async function saveAndSwitchToPreviewMode() {
@@ -179,7 +176,8 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		setState('preview');
+		useEmbedStore.setState({ embedState: 'unloadingEditor'});
+		setEditorVisible(false);
 	}
 	
 };

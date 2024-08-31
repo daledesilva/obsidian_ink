@@ -8,6 +8,8 @@ import InkPlugin from 'src/main';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { EmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
 import { TFile } from 'obsidian';
+import { getInkFileData } from 'src/utils/getInkFileData';
+const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 //////////
 //////////
@@ -15,7 +17,7 @@ import { TFile } from 'obsidian';
 interface WritingEmbedPreviewProps {
     plugin: InkPlugin,
     onResize: Function,
-    src: string,
+    writingFile: TFile,
 	onClick: React.MouseEventHandler,
 }
 
@@ -34,22 +36,19 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
 const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     const containerElRef = React.useRef<HTMLDivElement>(null);
 	const setEmbedState = useSetAtom(embedStateAtom);
-
-    // Check if src is a DataURI. If not, it's an SVG
-    const isImg = props.src.slice(0,4) === 'data';
-
-    // const handleImageLoad = () => {
-    //     this.setState({ loaded: true });
-    // }
+    const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
 
     React.useEffect( () => {
-        console.log('PREVIEW mounted');
+        // console.log('PREVIEW mounted');
+        fetchFileData();
         return () => {
-            console.log('PREVIEW unmounting');
+            // console.log('PREVIEW unmounting');
         }
     })
-    console.log('PREVIEW rendering');
+    // console.log('PREVIEW rendering');
 
+    // Check if src is a DataURI. If not, it's an SVG
+    const isImg = fileSrc.slice(0,4) === 'data';
 
 	return <>
         <div
@@ -71,7 +70,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         >
             {isImg && (<>
                 <img
-                    src = {props.src}
+                    src = {fileSrc}
                     style = {{
                         width: '100%',
                         cursor: 'pointer',
@@ -83,7 +82,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             
             {!isImg && (<>
                 <SVG
-                    src = {props.src}
+                    src = {fileSrc}
                     style = {{
                         width: '100%',
                         height: 'unset',
@@ -107,6 +106,11 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         
         console.log('--------------- SET EMBED STATE TO preview')
         setEmbedState(EmbedState.preview);
+    }
+
+    async function fetchFileData() {
+        const inkFileData = await getInkFileData(props.plugin, props.writingFile)
+        if(inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
     }
 
 };

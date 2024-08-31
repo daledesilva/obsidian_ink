@@ -78,7 +78,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 				<JotaiProvider>
 					<WritingEmbed
 						plugin = {this.plugin}
-						fileRef = {this.fileRef}
+						writingFile = {this.fileRef}
 						pageData = {pageData}
 						save = {this.save}
 						remove = {this.embedCtrls.removeEmbed}

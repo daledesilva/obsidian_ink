@@ -17,7 +17,6 @@ import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { getInkFileData } from "src/utils/getInkFileData";
-const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
 ///////
@@ -49,7 +48,7 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
-	fileRef: TFile,
+	writingFile: TFile,
 	pageData: InkFileData,
 	save: (pageData: InkFileData) => void,
 	remove: Function,
@@ -63,7 +62,6 @@ export function WritingEmbed (props: {
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
-	// const setPageData = useSetAtom(pageDataAtom);
 	const setEmbedState = useSetAtom(embedStateAtom);
 	
 	// On first mount
@@ -106,7 +104,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Copy writing',
 			action: async () => {
-				await rememberWritingFile(props.plugin, props.fileRef);
+				await rememberWritingFile(props.plugin, props.writingFile);
 			}
 		},
 		// {
@@ -149,8 +147,7 @@ export function WritingEmbed (props: {
 				<WritingEmbedPreviewWrapper
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
-					// writingFile = {props.fileRef}
-					src = {curPageDataRef.current.previewUri || emptyWritingSvg }
+					writingFile = {props.writingFile}
 					onClick = {async (event) => {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						// setPageData( await refreshPageData(props.plugin, props.fileRef) );
@@ -161,7 +158,7 @@ export function WritingEmbed (props: {
 				<TldrawWritingEditorWrapper
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
-					writingFile = {props.fileRef}
+					writingFile = {props.writingFile}
 					pageData = {curPageDataRef.current}
 					save = {props.save}
 					embedded
@@ -188,7 +185,7 @@ export function WritingEmbed (props: {
 			await editorControlsRef.current.saveAndHalt();
 		}
 		// setPageData( await getInkFileData(props.plugin, props.fileRef) );
-		curPageDataRef.current = await getInkFileData(props.plugin, props.fileRef);
+		curPageDataRef.current = await getInkFileData(props.plugin, props.writingFile);
 
 		console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(EmbedState.loadingPreview);

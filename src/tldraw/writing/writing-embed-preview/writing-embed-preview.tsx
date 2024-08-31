@@ -9,7 +9,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { EmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
 import { TFile } from 'obsidian';
 import { getInkFileData } from 'src/utils/getInkFileData';
-const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
+const emptyWritingSvg = require('../../../placeholders/empty-writing-embed.svg');
 
 //////////
 //////////

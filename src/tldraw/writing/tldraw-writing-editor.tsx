@@ -17,6 +17,7 @@ import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import {getAssetUrlsByImport} from '@tldraw/assets/imports';
 import { editorActiveAtom, EmbedState, embedStateAtom } from './writing-embed';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { getInkFileData } from 'src/utils/getInkFileData';
 
 ///////
 ///////
@@ -25,8 +26,7 @@ interface TldrawWritingEditorProps {
 	onResize?: Function,
 	plugin: InkPlugin,
 	writingFile: TFile,
-	pageData: InkFileData,
-	save: (pageData: InkFileData) => void,
+	save: (inkFileData: InkFileData) => void,
 
 	// For embeds
 	embedded?: boolean,
@@ -55,17 +55,24 @@ const tlOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
+	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>()
 	const setEmbedState = useSetAtom(embedStateAtom);
-
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
-	const [tlStoreSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>(prepareWritingSnapshot(props.pageData.tldraw))
-
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
+
+	// On mount
+	React.useEffect( ()=> {
+		fetchFileData();
+	}, [])
+
+	if(!tlStoreSnapshot) return <></>
+
+	////////
 
 	const defaultComponents = {
 		Scribble: TldrawScribble,
@@ -74,14 +81,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		SelectionForeground: TldrawSelectionForeground,
 		SelectionBackground: TldrawSelectionBackground,
 		Handles: TldrawHandles,
-	
-		// InFrontOfTheCanvas: () => {
-		// 	React.useEffect( () => {
-		// 		if(!tlEditorRef.current) return;
-		// 		resizeContainerIfEmbed(tlEditorRef.current);
-		// 	}, []);
-		// 	return null;
-		// }
 	}
 
 	const handleMount = (_editor: Editor) => {
@@ -361,5 +360,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		</div>
 	</>;
+
+
+	/////////
+	/////////
+
+    async function fetchFileData() {
+        const inkFileData = await getInkFileData(props.plugin, props.writingFile)
+        if(inkFileData.tldraw) setTldrawSnapshot( prepareWritingSnapshot(inkFileData.tldraw) )
+    }
 
 };

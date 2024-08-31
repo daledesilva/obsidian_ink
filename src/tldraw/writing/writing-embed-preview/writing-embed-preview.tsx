@@ -7,6 +7,7 @@ import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { EmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
+import { TFile } from 'obsidian';
 
 //////////
 //////////
@@ -42,7 +43,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     // }
 
     React.useEffect( () => {
-        console.log('PREVIEW mounting');
+        console.log('PREVIEW mounted');
         return () => {
             console.log('PREVIEW unmounting');
         }
@@ -104,6 +105,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         const rect = containerElRef.current.getBoundingClientRect();
         props.onResize(rect.height);
         
+        console.log('--------------- SET EMBED STATE TO preview')
         setEmbedState(EmbedState.preview);
     }
 

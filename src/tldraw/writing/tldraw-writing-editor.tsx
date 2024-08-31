@@ -24,7 +24,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 interface TldrawWritingEditorProps {
 	onResize?: Function,
 	plugin: InkPlugin,
-	fileRef: TFile,
+	writingFile: TFile,
 	pageData: InkFileData,
 	save: (pageData: InkFileData) => void,
 
@@ -87,6 +87,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const handleMount = (_editor: Editor) => {
 		console.log('EDITOR mounted')
 
+		console.log('--------------- SET EMBED STATE TO editor')
 		setEmbedState(EmbedState.editor);
 
 		const editor = tlEditorRef.current = _editor;

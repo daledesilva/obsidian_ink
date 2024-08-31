@@ -5,10 +5,8 @@ import { TldrawWritingEditorWrapper } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
-import { needsTranscriptUpdate, saveWriteFileTranscript } from "src/utils/needsTranscriptUpdate";
 import { duplicateWritingFile, rememberDrawingFile, rememberWritingFile } from "src/utils/rememberDrawingFile";
 import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
-import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 import { useSelector } from "react-redux";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch } from 'react-redux';
@@ -17,9 +15,8 @@ import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
-import { create, StoreApi } from 'zustand'
-import { createContext } from "zustand-di";
-import { atom, useAtom, useSetAtom } from "jotai";
+import { atom, useSetAtom } from "jotai";
+import { getInkFileData } from "src/utils/getInkFileData";
 const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
@@ -35,14 +32,13 @@ export enum EmbedState {
 export const embedStateAtom = atom(EmbedState.preview)
 export const previewActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
-	console.log('EMBED STATE', embedState);
 	return embedState !== EmbedState.editor
 })
 export const editorActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
-	console.log('EMBED STATE', embedState);
 	return embedState !== EmbedState.preview
 })
+export const pageDataAtom = atom<InkFileData>();
 
 ///////
 
@@ -61,26 +57,31 @@ export function WritingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
-	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
+	const curPageDataRef = useRef<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
+	// const setPageData = useSetAtom(pageDataAtom);
 	const setEmbedState = useSetAtom(embedStateAtom);
 	
 	// On first mount
 	React.useEffect( () => {
+		// setPageData(props.pageData);
+
+		console.log('EMBED mounting')
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			switchToEditMode();
 		}
-	})
+	}, [])
+	console.log('EMBED rendering')
 
 	// Whenever switching between readonly and edit mode
 	// React.useEffect( () => {
 	// 	if(embedState === EmbedState.preview) {
-	// 		fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
+	// 		fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData.current);
 	// 	}
 	// }, [embedState])
 
@@ -148,12 +149,11 @@ export function WritingEmbed (props: {
 				<WritingEmbedPreviewWrapper
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
-					src = {curPageData.previewUri || emptyWritingSvg }
-					// src = {previewFilePath}
+					// writingFile = {props.fileRef}
+					src = {curPageDataRef.current.previewUri || emptyWritingSvg }
 					onClick = {async (event) => {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setCurPageData(newPageData);
+						// setPageData( await refreshPageData(props.plugin, props.fileRef) );
 						switchToEditMode();
 					}}
 				/>
@@ -161,8 +161,8 @@ export function WritingEmbed (props: {
 				<TldrawWritingEditorWrapper
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
-					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
-					pageData = {curPageData}
+					writingFile = {props.fileRef}
+					pageData = {curPageDataRef.current}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
@@ -179,6 +179,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
+		console.log('--------------- SET EMBED STATE TO loadingEditor')
 		setEmbedState(EmbedState.loadingEditor);
 	}
 	
@@ -186,32 +187,13 @@ export function WritingEmbed (props: {
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
-		const newPageData = await refreshPageData(props.plugin, props.fileRef);
-		setCurPageData(newPageData);
+		// setPageData( await getInkFileData(props.plugin, props.fileRef) );
+		curPageDataRef.current = await getInkFileData(props.plugin, props.fileRef);
 
+		console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(EmbedState.loadingPreview);
 	}
 	
 };
 
 export default WritingEmbed;
-
-/////////
-/////////
-
-// REVIEW: Move to a helper file
-const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
-	if(needsTranscriptUpdate(pageData)) {
-		fetchWriteFileTranscript()
-			.then((transcript) => {
-				saveWriteFileTranscript(plugin, fileRef, transcript)
-			})
-	}
-}
-
-async function refreshPageData(plugin: InkPlugin, file: TFile): Promise<InkFileData> {
-	const v = plugin.app.vault;
-	const pageDataStr = await v.read(file);
-	const pageData = JSON.parse(pageDataStr) as InkFileData;
-	return pageData;
-}

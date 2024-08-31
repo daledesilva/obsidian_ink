@@ -17,7 +17,8 @@ import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
-import { create } from 'zustand'
+import { create, StoreApi } from 'zustand'
+import { createContext } from "zustand-di";
 const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
@@ -25,19 +26,27 @@ const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 
 export enum EmbedState {
-	'preview',
-	'loadingEditor',
-	'editorLoaded',
-	'unloadingEditor',
+	preview = 'preview',
+	loadingEditor = 'loadingEditor',
+	editorLoaded = 'editorLoaded',
+	unloadingEditor = 'unloadingEditor',
 }
 interface EmbedStore {
 	embedState: EmbedState,
-	setEmbedState: (embedState: EmbedState) => void,
+	setEmbedState: (newState: EmbedState) => void
 }
-export const EmbedContext = React.createContext<EmbedStore>({
-	embedState: EmbedState.preview,
-	setEmbedState: (embedState: EmbedState) => {},
-});
+const [Provider, useStore] = createContext<EmbedStore>();
+export {useStore};
+
+const createStore = () => {
+	return create<EmbedStore>((set) => ({
+		embedState: EmbedState.preview,
+		setEmbedState: (newState) => set({embedState: newState})
+	}))
+};
+
+
+///////
 
 export type WritingEditorControls = {
 	// save: Function,
@@ -55,12 +64,13 @@ export function WritingEmbed (props: {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const [editorVisible, setEditorVisible] = useState<boolean>(false);
-	const embedStateRef = useRef<EmbedState>(EmbedState.preview);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
+
+	const setEmbedState = useStore((state) => state.setEmbedState)
 	
 	// On first mount
 	React.useEffect( () => {
@@ -118,7 +128,7 @@ export function WritingEmbed (props: {
 	////////////
 
 	return <>
-		<EmbedContext.Provider value={{embedState: embedStateRef.current, setEmbedState: (newState) => embedStateRef.current = newState}}>
+		<Provider createStore={() => createStore()}>
 			<div
 				ref = {embedContainerElRef}
 				className = {classNames([
@@ -170,14 +180,16 @@ export function WritingEmbed (props: {
 				</div>
 
 			</div>
-		</EmbedContext.Provider>
+		</Provider>
 	</>;
 	
 	// Helper functions
 	///////////////////
 
 	function switchToEditMode() {
-		embedStateRef.current = EmbedState.loadingEditor;
+		setEmbedState(EmbedState.loadingEditor);
+
+		// embedStoreRef.current.embedState = EmbedState.loadingEditor;
 		setEditorVisible(true);
 	}
 	
@@ -187,7 +199,10 @@ export function WritingEmbed (props: {
 		}
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
-		embedStateRef.current = EmbedState.unloadingEditor;
+
+		setEmbedState(EmbedState.unloadingEditor);
+
+		// embedStoreRef.current.embedState = EmbedState.unloadingEditor;
 		setEditorVisible(false);
 	}
 	

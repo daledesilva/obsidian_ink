@@ -15,7 +15,7 @@ import classNames from 'classnames';
 import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
 import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import {getAssetUrlsByImport} from '@tldraw/assets/imports';
-import { EmbedContext, EmbedState } from './writing-embed';
+import { EmbedContext, EmbedState, useStore } from './writing-embed';
 
 ///////
 ///////
@@ -42,7 +42,8 @@ export function TldrawWritingEditor(props: {
 	closeEditor?: Function,
 	commonExtendedOptions?: any[],
 }) {
-	const { embedState, setEmbedState } = React.useContext(EmbedContext);
+	const { embedState, setEmbedState } = useStore((state) => state)
+
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
@@ -170,6 +171,7 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 		
+		console.log('setting EmbedState')
 		setEmbedState(EmbedState.editorLoaded);
 		
 		return () => {

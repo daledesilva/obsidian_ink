@@ -5,7 +5,7 @@ import SVG from 'react-inlinesvg';
 import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
-import { EmbedContext, EmbedState } from '../writing-embed';
+import { EmbedContext, EmbedState, useStore } from '../writing-embed';
 
 //////////
 //////////
@@ -19,7 +19,7 @@ interface WritingEmbedPreviewProps {
 
 export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     const containerElRef = React.useRef<HTMLDivElement>(null);
-    const { embedState, setEmbedState } = React.useContext(EmbedContext);
+    const {embedState, setEmbedState} = useStore((state) => state)
 
     // Check if src is a pnd DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
@@ -27,6 +27,8 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
     // const handleImageLoad = () => {
     //     this.setState({ loaded: true });
     // }
+
+    console.log('RERENDING PREVIEW --------- embedState:', embedState)
 
     if(embedState === EmbedState.editorLoaded) {
         return <></>;
@@ -85,6 +87,8 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
 
         const rect = containerElRef.current.getBoundingClientRect();
         props.onResize(rect.height);
+
+        
         setEmbedState(EmbedState.preview);
     }
 

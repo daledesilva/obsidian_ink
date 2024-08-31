@@ -15,20 +15,13 @@ import classNames from 'classnames';
 import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
 import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import {getAssetUrlsByImport} from '@tldraw/assets/imports';
-import { EmbedContext, EmbedState, useStore } from './writing-embed';
+import { editorActiveAtom, EmbedState, embedStateAtom } from './writing-embed';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 ///////
 ///////
 
-const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
-
-const myOverrides: TLUiOverrides = {}
-
-const tlOptions: Partial<TldrawOptions> = {
-	defaultSvgPadding: 0,
-}
-
-export function TldrawWritingEditor(props: {
+interface TldrawWritingEditorProps {
 	onResize?: Function,
 	plugin: InkPlugin,
 	fileRef: TFile,
@@ -41,8 +34,28 @@ export function TldrawWritingEditor(props: {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
 	commonExtendedOptions?: any[],
-}) {
-	const { embedState, setEmbedState } = useStore((state) => state)
+}
+
+// Wraps the component so that it can full unmount when inactive
+export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (props) => {
+    const editorActive = useAtomValue(editorActiveAtom);
+	console.log('EDITOR ACTIVE', editorActive)
+
+    if(editorActive) {
+        return <TldrawWritingEditor {...props} />
+    } else {
+        return <></>
+    }
+}
+
+const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
+const myOverrides: TLUiOverrides = {}
+const tlOptions: Partial<TldrawOptions> = {
+	defaultSvgPadding: 0,
+}
+
+export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
+	const setEmbedState = useSetAtom(embedStateAtom);
 
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -72,7 +85,10 @@ export function TldrawWritingEditor(props: {
 	}
 
 	const handleMount = (_editor: Editor) => {
-		console.log('TLDRAW MOUNTED')
+		console.log('EDITOR mounted')
+
+		setEmbedState(EmbedState.editor);
+
 		const editor = tlEditorRef.current = _editor;
 
 		resizeContainerIfEmbed(tlEditorRef.current);
@@ -171,10 +187,8 @@ export function TldrawWritingEditor(props: {
 			})
 		}
 		
-		console.log('setting EmbedState')
-		setEmbedState(EmbedState.editorLoaded);
-		
 		return () => {
+			console.log('EDITOR unmounting')
 			unmountActions();
 		};
 	}

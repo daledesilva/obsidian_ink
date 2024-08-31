@@ -5,7 +5,8 @@ import SVG from 'react-inlinesvg';
 import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
-import { EmbedContext, EmbedState, useStore } from '../writing-embed';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { EmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
 
 //////////
 //////////
@@ -17,22 +18,37 @@ interface WritingEmbedPreviewProps {
 	onClick: React.MouseEventHandler,
 }
 
-export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
-    const containerElRef = React.useRef<HTMLDivElement>(null);
-    const {embedState, setEmbedState} = useStore((state) => state)
+// Wraps the component so that it can full unmount when inactive
+export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (props) => {
+    const previewActive = useAtomValue(previewActiveAtom);
+    console.log('PREVIEW ACTIVE', previewActive)
 
-    // Check if src is a pnd DataURI. If not, it's an SVG
+    if(previewActive) {
+        return <WritingEmbedPreview {...props} />
+    } else {
+        return <></>
+    }
+}
+
+const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
+    const containerElRef = React.useRef<HTMLDivElement>(null);
+	const setEmbedState = useSetAtom(embedStateAtom);
+
+    // Check if src is a DataURI. If not, it's an SVG
     const isImg = props.src.slice(0,4) === 'data';
 
     // const handleImageLoad = () => {
     //     this.setState({ loaded: true });
     // }
 
-    console.log('RERENDING PREVIEW --------- embedState:', embedState)
+    React.useEffect( () => {
+        console.log('PREVIEW mounting');
+        return () => {
+            console.log('PREVIEW unmounting');
+        }
+    })
+    console.log('PREVIEW rendering');
 
-    if(embedState === EmbedState.editorLoaded) {
-        return <></>;
-    }
 
 	return <>
         <div
@@ -87,7 +103,6 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
 
         const rect = containerElRef.current.getBoundingClientRect();
         props.onResize(rect.height);
-
         
         setEmbedState(EmbedState.preview);
     }

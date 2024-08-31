@@ -1,7 +1,7 @@
 import "./writing-embed.scss";
 import * as React from "react";
 import { useRef, useState } from "react";
-import { TldrawWritingEditor } from "./tldraw-writing-editor";
+import { TldrawWritingEditorWrapper } from "./tldraw-writing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
@@ -12,13 +12,14 @@ import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 import { useSelector } from "react-redux";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch } from 'react-redux';
-import { WritingEmbedPreview } from "./writing-embed-preview/writing-embed-preview";
+import { WritingEmbedPreviewWrapper } from "./writing-embed-preview/writing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { create, StoreApi } from 'zustand'
 import { createContext } from "zustand-di";
+import { atom, useAtom, useSetAtom } from "jotai";
 const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 
 ///////
@@ -28,23 +29,20 @@ const emptyWritingSvg = require('../../placeholders/empty-writing-embed.svg');
 export enum EmbedState {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
-	editorLoaded = 'editorLoaded',
-	unloadingEditor = 'unloadingEditor',
+	editor = 'editor',
+	loadingPreview = 'unloadingEditor',
 }
-interface EmbedStore {
-	embedState: EmbedState,
-	setEmbedState: (newState: EmbedState) => void
-}
-const [Provider, useStore] = createContext<EmbedStore>();
-export {useStore};
-
-const createStore = () => {
-	return create<EmbedStore>((set) => ({
-		embedState: EmbedState.preview,
-		setEmbedState: (newState) => set({embedState: newState})
-	}))
-};
-
+export const embedStateAtom = atom(EmbedState.preview)
+export const previewActiveAtom = atom<boolean>((get) => {
+	const embedState = get(embedStateAtom);
+	console.log('EMBED STATE', embedState);
+	return embedState !== EmbedState.editor
+})
+export const editorActiveAtom = atom<boolean>((get) => {
+	const embedState = get(embedStateAtom);
+	console.log('EMBED STATE', embedState);
+	return embedState !== EmbedState.preview
+})
 
 ///////
 
@@ -63,14 +61,13 @@ export function WritingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
-	const [editorVisible, setEditorVisible] = useState<boolean>(false);
 	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
-	const setEmbedState = useStore((state) => state.setEmbedState)
+	const setEmbedState = useSetAtom(embedStateAtom);
 	
 	// On first mount
 	React.useEffect( () => {
@@ -81,11 +78,11 @@ export function WritingEmbed (props: {
 	})
 
 	// Whenever switching between readonly and edit mode
-	React.useEffect( () => {
-		if(editorVisible === false) {
-			fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
-		}
-	}, [editorVisible])
+	// React.useEffect( () => {
+	// 	if(embedState === EmbedState.preview) {
+	// 		fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData);
+	// 	}
+	// }, [embedState])
 
 	// This fires the first time it enters edit mode
 	const registerEditorControls = (handlers: WritingEditorControls) => {
@@ -127,60 +124,55 @@ export function WritingEmbed (props: {
 
 	////////////
 
-	return <>
-		<Provider createStore={() => createStore()}>
+	return <>		
+		<div
+			ref = {embedContainerElRef}
+			className = {classNames([
+				'ddc_ink_embed',
+				'ddc_ink_writing-embed',
+			])}
+			style = {{
+				// Must be padding as margin creates codemirror calculation issues
+				// paddingTop: state=='edit' ? '3em' : '1em',
+				// paddingBottom: state=='edit' ? '2em' : '0.5em',
+				paddingTop: '1em',
+				paddingBottom: '0.5em',
+			}}
+		>
+			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
 			<div
-				ref = {embedContainerElRef}
-				className = {classNames([
-					'ddc_ink_embed',
-					'ddc_ink_writing-embed',
-				])}
-				style = {{
-					// Must be padding as margin creates codemirror calculation issues
-					// paddingTop: state=='edit' ? '3em' : '1em',
-					// paddingBottom: state=='edit' ? '2em' : '0.5em',
-					paddingTop: '1em',
-					paddingBottom: '0.5em',
-				}}
+				className = 'ddc_ink_resize-container'
+				ref = {resizeContainerElRef}
 			>
-				{/* Include another container so that it's height isn't affected by the padding of the outer container */}
-				<div
-					className = 'ddc_ink_resize-container'
-					ref = {resizeContainerElRef}
-				>
+			
+				<WritingEmbedPreviewWrapper
+					plugin = {props.plugin}
+					onResize = {(height: number) => resizeContainer(height)}
+					src = {curPageData.previewUri || emptyWritingSvg }
+					// src = {previewFilePath}
+					onClick = {async (event) => {
+						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+						const newPageData = await refreshPageData(props.plugin, props.fileRef);
+						setCurPageData(newPageData);
+						switchToEditMode();
+					}}
+				/>
 
-				
-					<WritingEmbedPreview
-						plugin = {props.plugin}
-						onResize = {(height: number) => resizeContainer(height)}
-						src = {curPageData.previewUri || emptyWritingSvg }
-						// src = {previewFilePath}
-						onClick = {async (event) => {
-							// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-							const newPageData = await refreshPageData(props.plugin, props.fileRef);
-							setCurPageData(newPageData);
-							switchToEditMode();
-						}}
-					/>
-
-					{editorVisible && (
-						<TldrawWritingEditor
-							plugin = {props.plugin}
-							onResize = {(height: number) => resizeContainer(height)}
-							fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
-							pageData = {curPageData}
-							save = {props.save}
-							embedded
-							registerControls = {registerEditorControls}
-							closeEditor = {saveAndSwitchToPreviewMode}
-							commonExtendedOptions = {commonExtendedOptions}
-						/>
-					)}
-
-				</div>
+				<TldrawWritingEditorWrapper
+					plugin = {props.plugin}
+					onResize = {(height: number) => resizeContainer(height)}
+					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
+					pageData = {curPageData}
+					save = {props.save}
+					embedded
+					registerControls = {registerEditorControls}
+					closeEditor = {saveAndSwitchToPreviewMode}
+					commonExtendedOptions = {commonExtendedOptions}
+				/>
 
 			</div>
-		</Provider>
+
+		</div>
 	</>;
 	
 	// Helper functions
@@ -188,9 +180,6 @@ export function WritingEmbed (props: {
 
 	function switchToEditMode() {
 		setEmbedState(EmbedState.loadingEditor);
-
-		// embedStoreRef.current.embedState = EmbedState.loadingEditor;
-		setEditorVisible(true);
 	}
 	
 	async function saveAndSwitchToPreviewMode() {
@@ -200,10 +189,7 @@ export function WritingEmbed (props: {
 		const newPageData = await refreshPageData(props.plugin, props.fileRef);
 		setCurPageData(newPageData);
 
-		setEmbedState(EmbedState.unloadingEditor);
-
-		// embedStoreRef.current.embedState = EmbedState.unloadingEditor;
-		setEditorVisible(false);
+		setEmbedState(EmbedState.loadingPreview);
 	}
 	
 };

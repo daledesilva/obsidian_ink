@@ -62,8 +62,7 @@ export class WritingView extends TextFileView {
 		this.root.render(
             <TldrawWritingEditor
                 plugin = {this.plugin}
-                fileRef = {this.file}
-                pageData = {this.pageData}
+                writingFile = {this.file}
                 save = {this.saveFile}
                 registerControls = {(controls: any) => {
                     this.tldrawControls.resize = controls.resize;

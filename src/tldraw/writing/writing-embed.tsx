@@ -37,7 +37,6 @@ export const editorActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
 	return embedState !== EmbedState.preview
 })
-export const pageDataAtom = atom<InkFileData>();
 
 ///////
 
@@ -56,7 +55,6 @@ export function WritingEmbed (props: {
 	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
-	const curPageDataRef = useRef<InkFileData>(props.pageData);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
@@ -66,9 +64,7 @@ export function WritingEmbed (props: {
 	
 	// On first mount
 	React.useEffect( () => {
-		// setPageData(props.pageData);
-
-		console.log('EMBED mounting')
+		console.log('EMBED mounted')
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			switchToEditMode();
@@ -159,7 +155,6 @@ export function WritingEmbed (props: {
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
 					writingFile = {props.writingFile}
-					pageData = {curPageDataRef.current}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
@@ -184,8 +179,6 @@ export function WritingEmbed (props: {
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
-		// setPageData( await getInkFileData(props.plugin, props.fileRef) );
-		curPageDataRef.current = await getInkFileData(props.plugin, props.writingFile);
 
 		console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(EmbedState.loadingPreview);

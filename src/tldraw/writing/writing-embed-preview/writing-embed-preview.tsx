@@ -25,7 +25,7 @@ interface WritingEmbedPreviewProps {
 export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (props) => {
     const previewActive = useAtomValue(previewActiveAtom);
     console.log('PREVIEW ACTIVE', previewActive)
-
+    
     if(previewActive) {
         return <WritingEmbedPreview {...props} />
     } else {
@@ -39,13 +39,13 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
 
     React.useEffect( () => {
-        // console.log('PREVIEW mounted');
+        console.log('PREVIEW mounted');
         fetchFileData();
         return () => {
-            // console.log('PREVIEW unmounting');
+            console.log('PREVIEW unmounting');
         }
     })
-    // console.log('PREVIEW rendering');
+    console.log('PREVIEW rendering');
 
     // Check if src is a DataURI. If not, it's an SVG
     const isImg = fileSrc.slice(0,4) === 'data';

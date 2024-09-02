@@ -51,32 +51,25 @@ Below are the high level features in my current development plan along with thei
 - [x] Proof of concept drawing input.
 - [x] Embeddable in markdown files.
 - [x] Automatic screenshotting.
-- [x] Begin using internally.
 - [x] Proof of concept OCR (Transcripts).
-- [x] Basic UI Refinement. *(March 2024)*
-- [x] Improve interaction of markdown files while using embeds. *(March)*
-- [x] Simplify drawing functionality ***March***
-- [x] Clean up and refactor for release ***March***
-- [x] **ALPHA release March 2024.**
-- [x] Bug fixes. ***April 2024***
+- [x] Refined UI.
 </details>
 
 <details open>
-<summary>Upcoming</summary>
+<summary>Current feature focus</summary>
 
-- [ ] More intuitive UI/UX refinements & functionality. ***May***
-- [ ] Multiple pen styles. ***June***
-- [ ] More intuitive touch/stylus input refinement. ***June***
+- [ ] Ability to reframe embedded drawings.
+- [ ] Pen smoothing enhancements (Not eReader related).
 </details>
 
 <details>
 <summary>Speculative</summary>
 
-- [ ] Convert embed format to persist beyond uninstall. ***June***
+- [ ] Convert embed format to persist beyond uninstall.
+- [ ] Separate touch interactions.
+- [ ] Multiple pen styles.
 - [ ] Automatic OCR (Transcripts).
-- [ ] Convert to canvas framework (Improve writing memory).
-- [ ] Intuitive selection of words.
-- [ ] Ability to reorder text.
+- [ ] Writing edit interactions.
 </details>
 
 ## ⚠️ Be careful

@@ -1,5 +1,7 @@
 // TODO: Can use .theme-dark and .theme-light on the body element to adjust colors - Or use the CSS variables
 
+// TODO: This also applies to drawing menus, so should be abstract to common components like ink_menu-bar and button
+
 .ink_menu-bar {
     flex-grow: 1;
     
@@ -25,6 +27,7 @@
         }
         &:disabled {
             animation: scale-up 0.3s ease-out;
+            opacity: 1; // Remove tldraw defaiult transparency because button can sit on top of text.
 
             cursor: default;
             color: var(--text-on-accent);

@@ -35,7 +35,7 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
 
 const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     console.log('PREVIEW rendering');
-    
+
     const containerElRef = React.useRef<HTMLDivElement>(null);
 	const setEmbedState = useSetAtom(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
@@ -105,8 +105,11 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         const rect = containerElRef.current.getBoundingClientRect();
         props.onResize(rect.height);
         
-        console.log('--------------- SET EMBED STATE TO preview')
-        setEmbedState(EmbedState.preview);
+        // Slight delay on transition because otherwise a flicker is sometimes seen
+        setTimeout( () => {
+            console.log('--------------- SET EMBED STATE TO preview')
+            setEmbedState(EmbedState.preview);
+        }, 100);
     }
 
     async function fetchFileData() {

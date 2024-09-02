@@ -87,6 +87,11 @@ export function WritingEmbed (props: {
 	const resizeContainer = (height: number) => {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
+		// Applies after slight delay so it doesn't affect the first resize
+		setTimeout( () => {
+			if(!resizeContainerElRef.current) return;
+			resizeContainerElRef.current.classList.add('ddc_ink_smooth-transition');
+		}, 100)
 	}
 
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)

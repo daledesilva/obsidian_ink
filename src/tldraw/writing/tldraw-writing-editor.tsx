@@ -55,6 +55,8 @@ const tlOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
+	console.log('EDITOR rendering')
+
 	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>()
 	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -67,10 +69,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	// On mount
 	React.useEffect( ()=> {
+		console.log('EDITOR mounted');
 		fetchFileData();
+		return () => {
+			console.log('EDITOR unmounting');
+		}
 	}, [])
 
 	if(!tlStoreSnapshot) return <></>
+	console.log('EDITOR snapshot loaded')
 
 	////////
 
@@ -84,7 +91,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const handleMount = (_editor: Editor) => {
-		console.log('EDITOR mounted')
+		console.log('EDITOR TLDRAW INSTANCE mounted')
 
 		console.log('--------------- SET EMBED STATE TO editor')
 		setEmbedState(EmbedState.editor);
@@ -163,7 +170,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		})
 
 		const unmountActions = () => {
-			console.log('Running unmount actions');
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
@@ -188,7 +194,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 		
 		return () => {
-			console.log('EDITOR unmounting')
+			console.log('EDITOR TLDRAW INSTANCE unmounting')
 			unmountActions();
 		};
 	}

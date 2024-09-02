@@ -34,6 +34,8 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
 }
 
 const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
+    console.log('PREVIEW rendering');
+    
     const containerElRef = React.useRef<HTMLDivElement>(null);
 	const setEmbedState = useSetAtom(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
@@ -45,7 +47,6 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             console.log('PREVIEW unmounting');
         }
     })
-    console.log('PREVIEW rendering');
 
     // Check if src is a DataURI. If not, it's an SVG
     const isImg = fileSrc.slice(0,4) === 'data';

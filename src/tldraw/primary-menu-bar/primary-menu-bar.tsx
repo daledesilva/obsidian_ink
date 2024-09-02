@@ -16,12 +16,12 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
 
     React.useEffect(() => {
         initScrollHandler();
-        initFocusHandlers();
+        // initFocusHandlers();
         
         // When unmounting
         return () => {
             cleanUpScrollHandler();
-            cleanUpFocusHandlers();
+            // cleanUpFocusHandlers();
         }
     })
 
@@ -54,25 +54,25 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
         scrollEl?.removeEventListener('scroll', handleScrolling);
     }
 
-    function initFocusHandlers() {
-        const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
-        if(!parentEmbedEl) return;
-        parentEmbedEl.addEventListener('focusin', handleFocusIn)
-        parentEmbedEl.addEventListener('focusout', handleFocusOut)
-    }
-    function cleanUpFocusHandlers() {
-        const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
-        if(!parentEmbedEl) return;
-        parentEmbedEl.removeEventListener('focusin', handleFocusIn)
-        parentEmbedEl.removeEventListener('focusout', handleFocusOut)
-    }
+    // function initFocusHandlers() {
+    //     const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
+    //     if(!parentEmbedEl) return;
+    //     parentEmbedEl.addEventListener('focusin', handleFocusIn)
+    //     parentEmbedEl.addEventListener('focusout', handleFocusOut)
+    // }
+    // function cleanUpFocusHandlers() {
+    //     const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
+    //     if(!parentEmbedEl) return;
+    //     parentEmbedEl.removeEventListener('focusin', handleFocusIn)
+    //     parentEmbedEl.removeEventListener('focusout', handleFocusOut)
+    // }
 
-    function handleFocusIn(e: Event): void {
-        setMenuActive(true);
-    }
-    function handleFocusOut(e: Event): void {
-        setMenuActive(false);
-    }
+    // function handleFocusIn(e: Event): void {
+    //     setMenuActive(true);
+    // }
+    // function handleFocusOut(e: Event): void {
+    //     setMenuActive(false);
+    // }
 
     function handleScrolling(e: Event): void {
         const scrollEl = e.target as HTMLDivElement;

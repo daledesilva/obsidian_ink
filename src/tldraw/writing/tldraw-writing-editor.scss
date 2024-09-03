@@ -6,17 +6,20 @@
 .ddc_ink_writing-editor {
     transition: height 0.5s ease;
     
-    .tl-canvas {
-        background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    .tl-container {
+        // tldraw seems to put a black background when the container is focussed. This negates that
+        outline: none !important;
 
-        overflow: hidden;
-        border-radius: 10px;
-        border: 1px solid var(--color-base-20);
-        
-        .tl-background {
-            background: none;
+        .tl-canvas {
+            background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    
+            overflow: hidden;
+            
+            .tl-background {
+                background: none;
+            }
+    
         }
-
     }
 }
 
@@ -32,8 +35,15 @@
 ////////////////////////
 
 .ddc_ink_writing-editor {
-    border: solid 1px var(--color-base-20);
+
+    // outline thickened bu not coloured
+    outline: solid 8px var(--color-base-10);
     border-radius: 20px;
+
+    // Left side coloured
+    // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
+    // border-radius: 5px 20px 20px 5px;
+
     background-color: var(--color-base-05);
 
     // Writing lines

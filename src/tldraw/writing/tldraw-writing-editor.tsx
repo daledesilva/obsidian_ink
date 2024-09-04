@@ -93,6 +93,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const handleMount = (_editor: Editor) => {
 		console.log('EDITOR TLDRAW INSTANCE mounted')
 
+		
+		focusChildTldrawEditor(editorWrapperRefEl.current);
+
 		console.log('--------------- SET EMBED STATE TO editor')
 		setEmbedState(EmbedState.editor);
 
@@ -345,7 +348,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				onMount = {handleMount}
 
 				// Ensure cursor disappears and embed IS focussed
-				autoFocus = {true}
+				autoFocus = {false}
 			/>
 
 			<PrimaryMenuBar>
@@ -377,3 +380,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
     }
 
 };
+
+
+
+/***
+ * Focus the tldraw editor contained inside the passed in html element without scrolling.
+ * If element doesn't exist, function will do nothing.
+ */
+function focusChildTldrawEditor(containerEl: HTMLElement | null) {
+	if(containerEl) {
+		containerEl.find('.tl-container').focus({preventScroll: true});
+	}
+}

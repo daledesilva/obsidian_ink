@@ -39,7 +39,7 @@ interface TldrawWritingEditorProps {
 // Wraps the component so that it can full unmount when inactive
 export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (props) => {
     const editorActive = useAtomValue(editorActiveAtom);
-	console.log('EDITOR ACTIVE', editorActive)
+	//console.log('EDITOR ACTIVE', editorActive)
 
     if(editorActive) {
         return <TldrawWritingEditor {...props} />
@@ -55,7 +55,7 @@ const tlOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
-	console.log('EDITOR rendering')
+	//console.log('EDITOR rendering')
 
 	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>()
 	const setEmbedState = useSetAtom(embedStateAtom);
@@ -69,15 +69,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	// On mount
 	React.useEffect( ()=> {
-		console.log('EDITOR mounted');
+		//console.log('EDITOR mounted');
 		fetchFileData();
 		return () => {
-			console.log('EDITOR unmounting');
+			//console.log('EDITOR unmounting');
 		}
 	}, [])
 
 	if(!tlStoreSnapshot) return <></>
-	console.log('EDITOR snapshot loaded')
+	//console.log('EDITOR snapshot loaded')
 
 	////////
 
@@ -91,12 +91,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const handleMount = (_editor: Editor) => {
-		console.log('EDITOR TLDRAW INSTANCE mounted')
+		//console.log('EDITOR TLDRAW INSTANCE mounted')
 
 		
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 
-		console.log('--------------- SET EMBED STATE TO editor')
+		//console.log('--------------- SET EMBED STATE TO editor')
 		setEmbedState(EmbedState.editor);
 
 		const editor = tlEditorRef.current = _editor;
@@ -160,11 +160,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					break;
 					
 				default:
-					// console.log('DEFAULT');
+					//// console.log('DEFAULT');
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
 					// queueOrRunStorePostProcesses(editor);
-					// console.log('Activity not recognised.');
-					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
+					//// console.log('Activity not recognised.');
+					//// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
 
 		}, {
@@ -182,12 +182,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			props.registerControls({
 				// save: () => completeSave(editor),
 				saveAndHalt: async (): Promise<void> => {
-					console.log('saveAndHalt');
+					//console.log('saveAndHalt');
 					await completeSave(editor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 				resize: () => {
-					console.log('resize');
+					//console.log('resize');
 					const camera = editor.getCamera()
 					const cameraY = camera.y;
 					initWritingCamera(editor);
@@ -197,7 +197,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 		
 		return () => {
-			console.log('EDITOR TLDRAW INSTANCE unmounting')
+			//console.log('EDITOR TLDRAW INSTANCE unmounting')
 			unmountActions();
 		};
 	}
@@ -205,7 +205,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	///////////////
 
 	function resizeContainerIfEmbed (editor: Editor) {
-		// console.log('resizeContainerIfEmbed');
+		//// console.log('resizeContainerIfEmbed');
 		if (!props.embedded || !props.onResize) return;
 
 		const embedBounds = editor.getViewportScreenBounds();
@@ -270,7 +270,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
-		console.log('incrementalSave');
+		//console.log('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
@@ -284,7 +284,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
-		console.log('completeSave');
+		//console.log('completeSave');
 		let previewUri;
 		
 		unstashStaleContent(editor);

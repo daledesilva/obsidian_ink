@@ -64,13 +64,13 @@ export function WritingEmbed (props: {
 	
 	// On first mount
 	React.useEffect( () => {
-		console.log('EMBED mounted')
+		//console.log('EMBED mounted')
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			switchToEditMode();
 		}
 	}, [])
-	console.log('EMBED rendering')
+	//console.log('EMBED rendering')
 
 	// Whenever switching between readonly and edit mode
 	// React.useEffect( () => {
@@ -176,7 +176,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		console.log('--------------- SET EMBED STATE TO loadingEditor')
+		//console.log('--------------- SET EMBED STATE TO loadingEditor')
 		setEmbedState(EmbedState.loadingEditor);
 	}
 	
@@ -185,7 +185,7 @@ export function WritingEmbed (props: {
 			await editorControlsRef.current.saveAndHalt();
 		}
 
-		console.log('--------------- SET EMBED STATE TO loadingPreview')
+		//console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(EmbedState.loadingPreview);
 	}
 	

@@ -24,7 +24,7 @@ interface WritingEmbedPreviewProps {
 // Wraps the component so that it can full unmount when inactive
 export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (props) => {
     const previewActive = useAtomValue(previewActiveAtom);
-    console.log('PREVIEW ACTIVE', previewActive)
+    //console.log('PREVIEW ACTIVE', previewActive)
     
     if(previewActive) {
         return <WritingEmbedPreview {...props} />
@@ -34,17 +34,17 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
 }
 
 const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
-    console.log('PREVIEW rendering');
+    //console.log('PREVIEW rendering');
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
 	const setEmbedState = useSetAtom(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
 
     React.useEffect( () => {
-        console.log('PREVIEW mounted');
+        //console.log('PREVIEW mounted');
         fetchFileData();
         return () => {
-            console.log('PREVIEW unmounting');
+            //console.log('PREVIEW unmounting');
         }
     })
 
@@ -107,7 +107,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout( () => {
-            console.log('--------------- SET EMBED STATE TO preview')
+            //console.log('--------------- SET EMBED STATE TO preview')
             setEmbedState(EmbedState.preview);
         }, 100);
     }

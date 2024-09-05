@@ -25,8 +25,8 @@ export async function showWelcomeTips(plugin: InkPlugin) {
         primaryBtnEl,
         tertiaryBtnEl
     } = createNoticeCtaBar(noticeBody, {
-        primaryLabel: `Let's go!`,
-        tertiaryLabel: 'Dismiss for now',
+        primaryLabel: `Read now`,
+        tertiaryLabel: 'Read later',
     })
     
     const notice = launchPersistentInkNotice(noticeBody);

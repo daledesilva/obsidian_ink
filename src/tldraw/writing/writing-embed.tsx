@@ -67,7 +67,9 @@ export function WritingEmbed (props: {
 		//console.log('EMBED mounted')
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-			switchToEditMode();
+			setTimeout( () => {
+				switchToEditMode();
+			},200);
 		}
 	}, [])
 	//console.log('EMBED rendering')
@@ -176,7 +178,7 @@ export function WritingEmbed (props: {
 	///////////////////
 
 	function switchToEditMode() {
-		//console.log('--------------- SET EMBED STATE TO loadingEditor')
+		console.log('--------------- SET EMBED STATE TO loadingEditor')
 		setEmbedState(EmbedState.loadingEditor);
 	}
 	

@@ -32,8 +32,8 @@ export const WritingMenu = (props: WritingMenuProps) => {
         
         let removeUserActionListener: () => void;
         
-        const mountDelayMs = 100;
-        setTimeout( () => {
+        // const mountDelayMs = 100;
+        // setTimeout( () => {
             const tlEditor = props.getTlEditor();
             if(!tlEditor) return;
 
@@ -48,9 +48,11 @@ export const WritingMenu = (props: WritingMenuProps) => {
                 source: 'all',
                 scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
             })
-        }, mountDelayMs);
+        // }, mountDelayMs);
 
-        return () => removeUserActionListener();
+        return () => {
+            removeUserActionListener()
+        };
     }, []);
 
     ///////////

@@ -6,7 +6,7 @@ import { SelectIcon } from "src/graphics/icons/select-icon";
 import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { Editor } from "@tldraw/tldraw";
-import { silentlyChangeStore } from "src/utils/tldraw-helpers";
+import { Activity, getActivityType, silentlyChangeStore } from "src/utils/tldraw-helpers";
 
 //////////
 //////////
@@ -32,23 +32,28 @@ export const WritingMenu = (props: WritingMenuProps) => {
         
         let removeUserActionListener: () => void;
         
-        // const mountDelayMs = 100;
-        // setTimeout( () => {
+        // Arbitrary delay to know when editor has fully mounted and exists
+        // TODO: Could try every 100ms until succeeds?
+        const mountDelayMs = 200;
+        setTimeout( () => {
             const tlEditor = props.getTlEditor();
             if(!tlEditor) return;
 
             let timeout: NodeJS.Timeout;
             removeUserActionListener = tlEditor.store.listen((entry) => {
+                const activity = getActivityType(entry);
+                if (activity === Activity.PointerMoved) return;
+				
                 clearTimeout(timeout);
                 timeout = setTimeout( () => { // TODO: Create a debounce helper
                     setCanUndo( tlEditor.getCanUndo() );
                     setCanRedo( tlEditor.getCanRedo() );
                 }, 100);
             }, {
-                source: 'all',
+                source: 'user',
                 scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
             })
-        // }, mountDelayMs);
+        }, mountDelayMs);
 
         return () => {
             removeUserActionListener()
@@ -58,39 +63,41 @@ export const WritingMenu = (props: WritingMenuProps) => {
     ///////////
 
     function undo() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		silentlyChangeStore( editor, () => {
-			editor.undo();
+		const tlEditor = props.getTlEditor();
+		if (!tlEditor) return;
+		silentlyChangeStore( tlEditor, () => {
+			tlEditor.undo();
 		});
-		props.onStoreChange(editor)
+        setCanUndo( tlEditor.getCanUndo() );
+		props.onStoreChange(tlEditor)
 	}
 	function redo() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		silentlyChangeStore( editor, () => {
-			editor.redo();
+		const tlEditor = props.getTlEditor();
+		if (!tlEditor) return;
+		silentlyChangeStore( tlEditor, () => {
+			tlEditor.redo();
 		});
-		props.onStoreChange(editor)
+        setCanRedo( tlEditor.getCanRedo() );
+		props.onStoreChange(tlEditor)
 
 	}
 	function activateSelectTool() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		editor.setCurrentTool('select');
+		const tlEditor = props.getTlEditor();
+		if (!tlEditor) return;
+		tlEditor.setCurrentTool('select');
 		setCurTool(tool.select);
 
 	}
 	function activateDrawTool() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		editor.setCurrentTool('draw');
+		const tlEditor = props.getTlEditor();
+		if (!tlEditor) return;
+		tlEditor.setCurrentTool('draw');
 		setCurTool(tool.draw);
 	}
 	function activateEraseTool() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		editor.setCurrentTool('eraser');
+		const tlEditor = props.getTlEditor();
+		if (!tlEditor) return;
+		tlEditor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
 

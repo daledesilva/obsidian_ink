@@ -18,15 +18,15 @@ interface WritingEmbedPreviewProps {
     plugin: InkPlugin,
     onResize: Function,
     writingFile: TFile,
-	onClick: React.MouseEventHandler,
+    onClick: React.MouseEventHandler,
 }
 
 // Wraps the component so that it can full unmount when inactive
 export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (props) => {
     const previewActive = useAtomValue(previewActiveAtom);
     //console.log('PREVIEW ACTIVE', previewActive)
-    
-    if(previewActive) {
+
+    if (previewActive) {
         return <WritingEmbedPreview {...props} />
     } else {
         return <></>
@@ -37,10 +37,10 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     //console.log('PREVIEW rendering');
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
-	const setEmbedState = useSetAtom(embedStateAtom);
+    const setEmbedState = useSetAtom(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
 
-    React.useEffect( () => {
+    React.useEffect(() => {
         //console.log('PREVIEW mounted');
         fetchFileData();
         return () => {
@@ -49,12 +49,12 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     })
 
     // Check if src is a DataURI. If not, it's an SVG
-    const isImg = fileSrc.slice(0,4) === 'data';
+    const isImg = fileSrc.slice(0, 4) === 'data';
 
-	return <>
+    return <>
         <div
-            ref = {containerElRef}
-            className = {classNames([
+            ref={containerElRef}
+            className={classNames([
                 'ddc_ink_writing-embed-preview',
                 props.plugin.settings.writingLinesWhenLocked && 'ddc_ink_visible-lines',
                 props.plugin.settings.writingBackgroundWhenLocked && 'ddc_ink_visible-background',
@@ -63,50 +63,48 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
                 position: 'absolute',
                 width: '100%',
             }}
-            onClick = {props.onClick}
+            onClick={props.onClick}
 
-            // Not currently doing this cause it can mean users easily lose their undo history
-            // onMouseUp = {props.onEditClick}
-            // onMouseEnter = {props.onClick}
+        // Not currently doing this cause it can mean users easily lose their undo history
+        // onMouseUp = {props.onEditClick}
+        // onMouseEnter = {props.onClick}
         >
             {isImg && (<>
                 <img
-                    src = {fileSrc}
-                    style = {{
+                    src={fileSrc}
+                    style={{
                         width: '100%',
                         cursor: 'pointer',
                         pointerEvents: 'all',
                     }}
-                    onLoad = {onLoad}
+                    onLoad={onLoad}
                 />
             </>)}
-            
+
             {!isImg && (<>
                 <SVG
-                    src = {fileSrc}
-                    style = {{
+                    src={fileSrc}
+                    style={{
                         width: '100%',
                         height: 'unset',
                         cursor: 'pointer'
                     }}
-                    pointerEvents = "visible"
-                    onLoad = {onLoad}
+                    pointerEvents="visible"
+                    onLoad={onLoad}
                 />
             </>)}
-            
+
         </div>
     </>;
 
     ////////////
 
     function onLoad() {
-        if(!containerElRef.current) return;
 
-        const rect = containerElRef.current.getBoundingClientRect();
-        props.onResize(rect.height);
-        
+        recalcHeight();
+
         // Slight delay on transition because otherwise a flicker is sometimes seen
-        setTimeout( () => {
+        setTimeout(() => {
             //console.log('--------------- SET EMBED STATE TO preview')
             setEmbedState(EmbedState.preview);
         }, 100);
@@ -114,7 +112,26 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
 
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.plugin, props.writingFile)
-        if(inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
+        if (inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
+    }
+
+    function recalcHeight() {
+        if (!containerElRef.current) return;
+        
+        // Only run when embed is first in view area and then stop.
+        // This makes sure it has been rendered and has a height.
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.target !== containerElRef.current) return;
+                if (!entry.isIntersecting) return;
+
+                const rect = containerElRef.current.getBoundingClientRect();
+                props.onResize(rect.height);
+                observer.unobserve(containerElRef.current);
+            });
+        });
+        observer.observe(containerElRef.current);
+
     }
 
 };

@@ -15,9 +15,7 @@ import insertRememberedWritingFile from './commands/insert-remembered-writing-fi
 import { showWelcomeTips_maybe } from './notices/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import * as semver from "semver";
-import { showVersionNotice, show_0_2_4_changes } from './notices/version-notices';
-import createNewDrawingFile from './commands/create-new-drawing-file';
-import { openInkFile } from './utils/open-file';
+import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
 
 ////////

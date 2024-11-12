@@ -18,6 +18,7 @@ import * as semver from "semver";
 import { showVersionNotice, show_0_2_4_changes } from './notices/version-notices';
 import createNewDrawingFile from './commands/create-new-drawing-file';
 import { openInkFile } from './utils/open-file';
+import { atom, useSetAtom } from 'jotai';
 
 ////////
 ////////
@@ -27,6 +28,9 @@ export default class InkPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// const setPlugin = useSetAtom(inkPluginAtom);
+		// setPlugin(this);
 
 		addIcon('bluesky', blueskySvgStr);
 		addIcon('mastodon', mastodonSvgStr);
@@ -78,20 +82,25 @@ export default class InkPlugin extends Plugin {
 	}
 }
 
+export const inkPluginAtom = atom<InkPlugin>();
+
 function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'create-handwritten-section',
-		name: 'Insert new handwriting section',
+		name: 'New handwriting section',
+		icon: 'pen-line',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file',
-		name: 'Insert existing handwriting section',
+		name: 'Existing handwriting section',
+		icon: 'pen-line',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'insert-copied-writing',
-		name: 'Insert copied handwriting section',
+		name: 'Copied handwriting section',
+		icon: 'pen-line',
 		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
 	});
 }
@@ -99,17 +108,20 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'create-drawing-section',
-		name: 'Insert new drawing section',
+		name: 'New drawing',
+		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-drawing-file',
-		name: 'Insert existing drawing section',
+		name: 'Existing drawing',
+		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'insert-copied-drawing',
-		name: 'Insert copied drawing',
+		name: 'Copied drawing',
+		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 }

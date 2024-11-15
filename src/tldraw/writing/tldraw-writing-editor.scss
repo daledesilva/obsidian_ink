@@ -1,4 +1,4 @@
-
+@use '../tldraw-defaults.scss';
 
 /////////
 /////////
@@ -24,19 +24,12 @@
 }
 
 
-
-
-
-
-// TODO: Should be placed in a separate file for writing-file-styles
-
-
 // Auto adapts to themes
 ////////////////////////
 
 .ddc_ink_writing-editor {
 
-    // outline thickened bu not coloured
+    // outline thickened but not coloured
     outline: solid 8px var(--color-base-10);
     border-radius: 20px;
 
@@ -46,6 +39,7 @@
 
     background-color: var(--color-base-05);
 
+    // TODO: Should be placed in a separate file for writing-file-styles
     // Writing lines
     line {
         stroke: var(--color-base-50);

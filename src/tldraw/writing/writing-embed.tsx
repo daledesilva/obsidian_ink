@@ -22,41 +22,41 @@ import { getInkFileData } from "src/utils/getInkFileData";
 ///////
 
 
-export enum EmbedState {
+export enum WritingEmbedState {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom = atom(EmbedState.preview)
+export const embedStateAtom = atom(WritingEmbedState.preview)
 export const previewActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
-	return embedState !== EmbedState.editor
+	return embedState !== WritingEmbedState.editor
 })
 export const editorActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
-	return embedState !== EmbedState.preview
+	return embedState !== WritingEmbedState.preview
 })
 
 ///////
 
 export type WritingEditorControls = {
-	// save: Function,
+	save: Function,
 	saveAndHalt: Function,
 }
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
-	writingFile: TFile,
+	writingFileRef: TFile,
 	pageData: InkFileData,
 	save: (pageData: InkFileData) => void,
 	remove: Function,
 }) {
-	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<WritingEditorControls>();
-	const [embedId] = useState<string>(nanoid());
+	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
+	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
@@ -69,10 +69,9 @@ export function WritingEmbed (props: {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			setTimeout( () => {
 				switchToEditMode();
-			},200);
+			},200);	// TODO: Why is there a delay?
 		}
 	}, [])
-	//console.log('EMBED rendering')
 
 	// Whenever switching between readonly and edit mode
 	// React.useEffect( () => {
@@ -80,23 +79,6 @@ export function WritingEmbed (props: {
 	// 		fetchTranscriptIfNeeded(props.plugin, props.fileRef, curPageData.current);
 	// 	}
 	// }, [embedState])
-
-	// This fires the first time it enters edit mode
-	const registerEditorControls = (handlers: WritingEditorControls) => {
-		editorControlsRef.current = handlers;
-	}
-
-	const resizeContainer = (height: number) => {
-		if(!resizeContainerElRef.current) return;
-		resizeContainerElRef.current.style.height = height + 'px';
-		// Applies after slight delay so it doesn't affect the first resize
-		setTimeout( () => {
-			if(!resizeContainerElRef.current) return;
-			resizeContainerElRef.current.classList.add('ddc_ink_smooth-transition');
-		}, 100)
-	}
-
-	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	// let isActive = (embedId === activeEmbedId);
 	// if(!isActive && state === 'edit'){
@@ -107,7 +89,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Copy writing',
 			action: async () => {
-				await rememberWritingFile(props.plugin, props.writingFile);
+				await rememberWritingFile(props.plugin, props.writingFileRef);
 			}
 		},
 		// {
@@ -135,8 +117,6 @@ export function WritingEmbed (props: {
 			])}
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
-				// paddingTop: state=='edit' ? '3em' : '1em',
-				// paddingBottom: state=='edit' ? '2em' : '0.5em',
 				paddingTop: '1em',
 				paddingBottom: '0.5em',
 			}}
@@ -150,7 +130,7 @@ export function WritingEmbed (props: {
 				<WritingEmbedPreviewWrapper
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
-					writingFile = {props.writingFile}
+					writingFile = {props.writingFileRef}
 					onClick = {async (event) => {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						// setPageData( await refreshPageData(props.plugin, props.fileRef) );
@@ -159,9 +139,9 @@ export function WritingEmbed (props: {
 				/>
 
 				<TldrawWritingEditorWrapper
-					plugin = {props.plugin}
+					plugin = {props.plugin} // TODO: Try and remove this
 					onResize = {(height: number) => resizeContainer(height)}
-					writingFile = {props.writingFile}
+					writingFile = {props.writingFileRef}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
@@ -177,9 +157,23 @@ export function WritingEmbed (props: {
 	// Helper functions
 	///////////////////
 
+	function registerEditorControls(handlers: WritingEditorControls) {
+		editorControlsRef.current = handlers;
+	}
+
+	function resizeContainer(height: number) {
+		if(!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.style.height = height + 'px';
+		setTimeout( () => {
+			// Applies after slight delay so it doesn't affect the first resize
+			if(!resizeContainerElRef.current) return;
+			resizeContainerElRef.current.classList.add('ddc_ink_smooth-transition');
+		}, 100)
+	}
+
 	function switchToEditMode() {
 		console.log('--------------- SET EMBED STATE TO loadingEditor')
-		setEmbedState(EmbedState.loadingEditor);
+		setEmbedState(WritingEmbedState.loadingEditor);
 	}
 	
 	async function saveAndSwitchToPreviewMode() {
@@ -188,7 +182,7 @@ export function WritingEmbed (props: {
 		}
 
 		//console.log('--------------- SET EMBED STATE TO loadingPreview')
-		setEmbedState(EmbedState.loadingPreview);
+		setEmbedState(WritingEmbedState.loadingPreview);
 	}
 	
 };

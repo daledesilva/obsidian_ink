@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
@@ -15,7 +15,7 @@ import classNames from 'classnames';
 import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
 import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import {getAssetUrlsByImport} from '@tldraw/assets/imports';
-import { editorActiveAtom, EmbedState, embedStateAtom } from './writing-embed';
+import { editorActiveAtom, WritingEmbedState, embedStateAtom } from './writing-embed';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/utils/getInkFileData';
 
@@ -91,15 +91,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const handleMount = (_editor: Editor) => {
-		//console.log('EDITOR TLDRAW INSTANCE mounted')
-
-		
-		focusChildTldrawEditor(editorWrapperRefEl.current);
-
-		//console.log('--------------- SET EMBED STATE TO editor')
-		setEmbedState(EmbedState.editor);
-
 		const editor = tlEditorRef.current = _editor;
+		setEmbedState(WritingEmbedState.editor);
+		focusChildTldrawEditor(editorWrapperRefEl.current);
+		preventTldrawCanvasesCausingObsidianGestures(editor);
 
 		resizeContainerIfEmbed(tlEditorRef.current);
 		if(editorWrapperRefEl.current) {
@@ -107,9 +102,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 
 		updateWritingStoreIfNeeded(editor);
-
-		// General setup
-		preventTldrawCanvasesCausingObsidianGestures(editor);
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
@@ -347,7 +339,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 				onMount = {handleMount}
 
-				// Ensure cursor disappears and embed IS focussed
+				// Prevent autoFocussing so it can be handled in the handleMount
 				autoFocus = {false}
 			/>
 
@@ -371,8 +363,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	</>;
 
 
-	/////////
-	/////////
+	// Helper functions
+	///////////////////
 
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.plugin, props.writingFile)
@@ -383,12 +375,3 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 
 
-/***
- * Focus the tldraw editor contained inside the passed in html element without scrolling.
- * If element doesn't exist, function will do nothing.
- */
-function focusChildTldrawEditor(containerEl: HTMLElement | null) {
-	if(containerEl) {
-		containerEl.find('.tl-container').focus({preventScroll: true});
-	}
-}

@@ -6,7 +6,7 @@ import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { EmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
+import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
 import { TFile } from 'obsidian';
 import { getInkFileData } from 'src/utils/getInkFileData';
 const emptyWritingSvg = require('../../../placeholders/empty-writing-embed.svg');
@@ -65,9 +65,9 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             }}
             onClick={props.onClick}
 
-        // Not currently doing this cause it can mean users easily lose their undo history
-        // onMouseUp = {props.onEditClick}
-        // onMouseEnter = {props.onClick}
+            // Not currently doing this cause it can mean users easily lose their undo history
+            // onMouseUp = {props.onEditClick}
+            // onMouseEnter = {props.onClick}
         >
             {isImg && (<>
                 <img
@@ -97,16 +97,15 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         </div>
     </>;
 
-    ////////////
+    // Helper functions
+    ///////////////////
 
     function onLoad() {
-
         recalcHeight();
-
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
             //console.log('--------------- SET EMBED STATE TO preview')
-            setEmbedState(EmbedState.preview);
+            setEmbedState(WritingEmbedState.preview);
         }, 100);
     }
 

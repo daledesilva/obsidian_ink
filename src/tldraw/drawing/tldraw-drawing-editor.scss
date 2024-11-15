@@ -1,63 +1,47 @@
 @use '../tldraw-defaults.scss';
-// @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
 /////////
 /////////
 
 .ddc_ink_drawing-editor {
     transition: height 0.5s ease;
+    
+    .tl-container {
+        // tldraw seems to put a black background when the container is focussed. This negates that
+        outline: none !important;
 
-    .tl-canvas {
-        background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
-        .tl-background {
-            background: none;
+        .tl-canvas {
+            background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    
+            overflow: hidden;
+            
+            .tl-background {
+                background: none;
+            }
+    
         }
-        overflow: hidden;
-        
-        border: 2px solid var(--color-base-30);
-        border-radius: 20px;
-        background-color: var(--color-base-05);
-
-        // .view-content {
-
-        //     .tlui-button.tlui-menu__trigger {
-        //         display: none;
-        //     }
-            
-        //     .tlui-navigation-zone {
-        //         display: none;
-        //     }
-            
-        //     .tlui-help-menu {
-        //         display: none;
-        //     }
-            
-            
-        //     .tlui-layout__top {
-        //         grid-row: 1;
-        //         position: absolute;
-        //         top: 0;
-        //         right: 0;
-        //     }
-        //     .tlui-layout__bottom {
-        //         grid-row: 1;
-        //         position: absolute;
-        //         top: 0;
-        //         left: 0;
-        //     }
-
-        //     // collapse space left by undo bar
-        //     .tlui-toolbar__extras {
-        //         height: fit-content;
-        //     }
-        // }
-
-        // // Remove the option to pattern fill because that cripples saving to PNG
-        // .tlui-button[data-id="pattern"] {
-        //     display: none;
-        // }
-
-
     }
+}
 
+
+// Auto adapts to themes
+////////////////////////
+
+.ddc_ink_drawing-editor {
+
+    // outline thickened but not coloured
+    outline: solid 8px var(--color-base-10);
+    border-radius: 20px;
+
+    // Left side coloured
+    // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
+    // border-radius: 5px 20px 20px 5px;
+
+    background-color: var(--color-base-05);
+
+    // Writing lines
+    // line {
+    //     stroke: var(--color-base-50);
+    //     stroke-width: 2px;
+    // }
 }

@@ -775,3 +775,14 @@ export async function getDrawingSvg(editor: Editor): Promise<svgObj | undefined>
 	const svgObj = await editor.getSvgString(allShapeIds);
 	return svgObj;
 }
+
+
+/***
+ * Focus the tldraw editor contained inside the passed in html element without scrolling.
+ * If element doesn't exist, function will do nothing.
+ */
+export function focusChildTldrawEditor(containerEl: HTMLElement | null) {
+	if(containerEl) {
+		containerEl.find('.tl-container').focus({preventScroll: true});
+	}
+}

@@ -9,7 +9,9 @@ import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
 import { Provider } from "react-redux";
 import { store } from "src/logic/stores";
-import { Editor } from 'obsidian';
+import { 
+	Provider as JotaiProvider
+} from "jotai";
 
 ////////
 ////////
@@ -72,15 +74,15 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 
 		this.root = createRoot(this.el);
 		this.root.render(
-			<Provider store={store}>
+			<JotaiProvider>
 				<DrawingEmbed
 					plugin = {this.plugin}
-					fileRef = {this.fileRef}
+					drawingFileRef = {this.fileRef}
 					pageData = {pageData}
 					save = {this.save}
 					remove = {this.embedCtrls.removeEmbed}
 				/>
-			</Provider>
+			</JotaiProvider>
         );
 
 		applyCommonAncestorStyling(this.el)

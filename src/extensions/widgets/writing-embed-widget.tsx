@@ -7,8 +7,6 @@ import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling, remov
 import InkPlugin from "src/main";
 import WritingEmbed from "src/tldraw/writing/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
-import { Provider } from "react-redux";
-import { store } from "src/logic/stores";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
@@ -71,20 +69,16 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 		const pageData = JSON.parse(pageDataStr) as InkFileData;
 
 		if(!this.root) this.root = createRoot(this.el);
-
 		this.root.render(
-				// This probably isn't needed anymore?
-			<Provider store={store}>
-				<JotaiProvider>
-					<WritingEmbed
-						plugin = {this.plugin}
-						writingFile = {this.fileRef}
-						pageData = {pageData}
-						save = {this.save}
-						remove = {this.embedCtrls.removeEmbed}
-					/>
-				</JotaiProvider>
-			</Provider>
+			<JotaiProvider>
+				<WritingEmbed
+					plugin = {this.plugin}
+					writingFileRef = {this.fileRef}
+					pageData = {pageData}
+					save = {this.save}
+					remove = {this.embedCtrls.removeEmbed}
+				/>
+			</JotaiProvider>
 		);
 
 		applyCommonAncestorStyling(this.el)

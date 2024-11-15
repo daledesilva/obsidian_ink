@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
@@ -15,30 +15,17 @@ import DrawingMenu from '../drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
 import { openInkFile } from 'src/utils/open-file';
 import classNames from 'classnames';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from './drawing-embed';
+import { getInkFileData } from 'src/utils/getInkFileData';
 
 ///////
 ///////
 
-const myOverrides: TLUiOverrides = {}
-
-const tlOptions: Partial<TldrawOptions> = {
-	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
-}
-
-const defaultComponents = {
-	Scribble: TldrawScribble,
-	ShapeIndicators: TldrawShapeIndicators,
-	CollaboratorScribble: TldrawScribble,
-	SelectionForeground: TldrawSelectionForeground,
-	SelectionBackground: TldrawSelectionBackground,
-	Handles: TldrawHandles,
-}
-
-export function TldrawDrawingEditor(props: {
-	onReady?: Function,
+interface TldrawDrawingEditorProps {
+    onReady?: Function,
 	plugin: InkPlugin,
-	fileRef: TFile,
-	pageData: InkFileData,
+	drawingFile: TFile,
 	save: (pageData: InkFileData) => void,
 
 	// For embeds
@@ -47,18 +34,60 @@ export function TldrawDrawingEditor(props: {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
 	commonExtendedOptions?: any[]
-}) {
+}
 
+// Wraps the component so that it can full unmount when inactive
+export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditorProps> = (props) => {
+    const editorActive = useAtomValue(editorActiveAtom);
+	console.log('EDITOR ACTIVE', editorActive)
+
+    if(editorActive) {
+        return <TldrawDrawingEditor {...props} />
+    } else {
+        return <></>
+    }
+}
+
+const myOverrides: TLUiOverrides = {}
+
+const tlOptions: Partial<TldrawOptions> = {
+	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
+}
+
+export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
+
+	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>()
+	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const tldrawContainerElRef = useRef<HTMLDivElement>(null);
 	const tlEditorRef = useRef<Editor>();
-	const [tlStoreSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareDrawingSnapshot(props.pageData.tldraw))
+	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	
+	// On mount
+	React.useEffect( ()=> {
+		//console.log('EDITOR mounted');
+		fetchFileData();
+		return () => {
+			//console.log('EDITOR unmounting');
+		}
+	}, [])
+
+	if(!tlStoreSnapshot) return <></>
+	//console.log('EDITOR snapshot loaded')
+
+	const defaultComponents = {
+		Scribble: TldrawScribble,
+		ShapeIndicators: TldrawShapeIndicators,
+		CollaboratorScribble: TldrawScribble,
+		SelectionForeground: TldrawSelectionForeground,
+		SelectionBackground: TldrawSelectionBackground,
+		Handles: TldrawHandles,
+	}
+
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-
-		// General setup
+		setEmbedState(DrawingEmbedState.editor);
+		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
 		// tldraw content setup
@@ -75,13 +104,18 @@ export function TldrawDrawingEditor(props: {
 			})
 		}
 
+		// Make visible once prepared
+		if(editorWrapperRefEl.current) {
+			editorWrapperRefEl.current.style.opacity = '1';
+		}
+
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = editor.store.listen((entry) => {
 
 			const activity = getActivityType(entry);
 			switch (activity) {
 				case Activity.PointerMoved:
-					// TODO: Consider whether things are being erased
+					// REVIEW: Consider whether things are being erased
 					break;
 
 				case Activity.CameraMovedAutomatically:
@@ -140,6 +174,14 @@ export function TldrawDrawingEditor(props: {
 			unmountActions();
 		};
 	}
+
+	// Helper functions
+	///////////////////
+
+    async function fetchFileData() {
+        const inkFileData = await getInkFileData(props.plugin, props.drawingFile)
+        if(inkFileData.tldraw) setTldrawSnapshot( prepareDrawingSnapshot(inkFileData.tldraw) )
+    }
 
 	const embedPostProcess = (editor: Editor) => {
 		// resizeContainerIfEmbed(editor);
@@ -245,13 +287,14 @@ export function TldrawDrawingEditor(props: {
 
 	return <>
 		<div
-			ref = {tldrawContainerElRef}
+			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_drawing-editor"
 			])}
 			style = {{
 				height: '100%',
-				position: 'relative'
+				position: 'relative',
+				opacity: 0, // So it's invisible while it loads
 			}}
 		>
 			<TldrawEditor
@@ -267,10 +310,8 @@ export function TldrawDrawingEditor(props: {
 
 				onMount = {handleMount}
 
-				// Ensure cursor remains and embed IS NOT focussed if it's an embed.
-				// This prevents tldraw scrolling the page to the top of the embed when turning on.
-				// But a side effect of false is preventing mousewheel scrolling and zooming.
-				autoFocus = {props.embedded ? false : true}
+				// Prevent autoFocussing so it can be handled in the handleMount
+				autoFocus = {false}
 			/>
 			
 			<PrimaryMenuBar>

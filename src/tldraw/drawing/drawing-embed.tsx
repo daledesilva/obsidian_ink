@@ -1,23 +1,42 @@
 import "./drawing-embed.scss";
 import * as React from "react";
 import { useRef, useState } from "react";
-import { TldrawDrawingEditor } from "./tldraw-drawing-editor";
+import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "./tldraw-drawing-editor";
 import InkPlugin from "../../main";
 import { InkFileData } from "../../utils/page-file";
 import { TFile } from "obsidian";
 import { rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";
-import { DrawingEmbedPreview } from "./drawing-embed-preview/drawing-embed-preview";
+import { DrawingEmbedPreview, DrawingEmbedPreviewWrapper } from "./drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
+import { atom, useSetAtom } from "jotai";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
 ///////
 
+
+export enum DrawingEmbedState {
+	preview = 'preview',
+	loadingEditor = 'loadingEditor',
+	editor = 'editor',
+	loadingPreview = 'unloadingEditor',
+}
+export const embedStateAtom = atom(DrawingEmbedState.preview)
+export const previewActiveAtom = atom<boolean>((get) => {
+	const embedState = get(embedStateAtom);
+	return embedState !== DrawingEmbedState.editor
+})
+export const editorActiveAtom = atom<boolean>((get) => {
+	const embedState = get(embedStateAtom);
+	return embedState !== DrawingEmbedState.preview
+})
+
+///////
 
 export type DrawingEditorControls = {
 	save: Function,
@@ -26,44 +45,30 @@ export type DrawingEditorControls = {
 
 export function DrawingEmbed (props: {
 	plugin: InkPlugin,
-	fileRef: TFile,
+	drawingFileRef: TFile,
 	pageData: InkFileData,
 	save: (pageData: InkFileData) => {},
 	remove: Function,
 }) {
-	// const assetUrls = getAssetUrlsByMetaUrl();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
-	const [state, setState] = useState<'preview'|'edit'>('preview');
-	const [curPageData, setCurPageData] = useState<InkFileData>(props.pageData);
+	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
-	const [embedId] = useState<string>(nanoid());
+	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
+	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
+
+	const setEmbedState = useSetAtom(embedStateAtom);
 
 	// On first mount
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-			switchToEditMode();
+			setTimeout( () => {
+				switchToEditMode();
+			},200);
 		}
 	})
-
-	// This fires the first time it enters edit mode
-	const registerEditorControls = (handlers: DrawingEditorControls) => {
-		editorControlsRef.current = handlers;
-	}
-
-	const applyStaticEmbedHeight = (height: number | null) => {
-		if(!embedContainerElRef.current) return;
-
-		if(height) {
-			embedContainerElRef.current.style.height = height + 'px';
-		} else {
-			embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
-		}
-	}
-
-	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 
 	// let isActive = (embedId === activeEmbedId);
 	// if(!isActive && state === 'edit') {
@@ -74,13 +79,13 @@ export function DrawingEmbed (props: {
 		{
 			text: 'Copy drawing',
 			action: async () => {
-				await rememberDrawingFile(props.plugin, props.fileRef);
+				await rememberDrawingFile(props.plugin, props.drawingFileRef);
 			}
 		},
 		{
 			text: 'Open drawing',
 			action: async () => {
-				openInkFile(props.plugin, props.fileRef)
+				openInkFile(props.plugin, props.drawingFileRef)
 			}
 		},
 		{
@@ -102,63 +107,82 @@ export function DrawingEmbed (props: {
 			])}
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
-				// paddingTop: state=='edit' ? '3em' : '1em',
-				// paddingBottom: state=='edit' ? '2em' : '0.5em',
 				paddingTop: '1em',
 				paddingBottom: '0.5em',
 
 				// height: transitioning ? staticEmbedHeight + 'px' : (state === 'edit' ? '600px' : 'auto'),
-				height: state === 'edit' ? '600px' : 'auto',
+				height: '300px',
 			}}
 		>
-			{(state === 'preview') && (
-				<DrawingEmbedPreview
+			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
+			<div
+				className = 'ddc_ink_resize-container'
+				ref = {resizeContainerElRef}
+				style = {{
+					height: '300px',
+					position: 'relative', // For absolute positioning inside
+				}}
+			>
+			
+				<DrawingEmbedPreviewWrapper
 					plugin = {props.plugin}
-					onReady = {() => applyStaticEmbedHeight(null)}
-					src = {curPageData.previewUri || emptyDrawingSvgStr}
-					// src = {previewFilePath}
+					onReady = {() => {}}
+					drawingFile = {props.drawingFileRef}
 					onClick = { async () => {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						const newPageData = await refreshPageData(props.plugin, props.fileRef);
-						setCurPageData(newPageData);
 						switchToEditMode();
 					}}
 				/>
-			)}
-			{state === 'edit' && (
-				<TldrawDrawingEditor
-					onReady = {() => applyStaticEmbedHeight(600)}	// TODO: This should be a dynamic number as saved in the embed
+			
+				<TldrawDrawingEditorWrapper
+					onReady = {() => {}}
 					plugin = {props.plugin}
-					fileRef = {props.fileRef}	// REVIEW: Convert this to an open function so the embed controls the open?
-					pageData = {curPageData}
+					drawingFile = {props.drawingFileRef}
 					save = {props.save}
 					embedded
 					registerControls = {registerEditorControls}
 					closeEditor = {saveAndSwitchToPreviewMode}
 					commonExtendedOptions = {commonExtendedOptions}
 				/>
-			)}
+
+			</div>				
 		</div>
 	</>;
 
 	// Helper functions
 	///////////////////
 
+	function registerEditorControls(handlers: DrawingEditorControls) {
+		editorControlsRef.current = handlers;
+	}
+
+	function applyEmbedHeight() {
+		if(!embedContainerElRef.current) return;
+		embedContainerElRef.current.style.height = '300px';
+	}
+
+	function resetEmbedHeight() {
+		if(!embedContainerElRef.current) return;
+		const newHeight = embedContainerElRef.current?.offsetHeight;
+		if(newHeight) {
+			embedContainerElRef.current.style.height = newHeight + 'px';
+		} else {
+			embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
+		}
+	}
+
 	function switchToEditMode() {
-		// If it already has an auto generated height, then hard code that height
-		// REVIEW: WIth the new setStaticEmbedHeight method, this could be passed into the editor to control
-		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
-		setState('edit');
+		applyEmbedHeight();
+		setEmbedState(DrawingEmbedState.loadingEditor);
 	}
 
 	async function saveAndSwitchToPreviewMode() {
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
-		const newPageData = await refreshPageData(props.plugin, props.fileRef);
-		setCurPageData(newPageData);
-		applyStaticEmbedHeight(embedContainerElRef.current?.offsetHeight || null);
-		setState('preview');
+
+		console.log('--------------- SET EMBED STATE TO loadingPreview')
+		setEmbedState(DrawingEmbedState.loadingPreview);
 	}
 		
 };

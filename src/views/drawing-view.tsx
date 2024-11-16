@@ -1,15 +1,30 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { TldrawDrawingEditor } from "src/tldraw/drawing/tldraw-drawing-editor";
+import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "src/tldraw/drawing/tldraw-drawing-editor";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
+import { 
+	Provider as JotaiProvider
+} from "jotai";
+import { rememberDrawingFile } from "src/utils/rememberDrawingFile";
 
 ////////
 ////////
 
 export const DRAWING_VIEW_TYPE = "ink_drawing-view";
+
+function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
+    return [
+        {
+            text: 'Copy drawing',
+            action: async () => {
+                await rememberDrawingFile(plugin, fileRef);
+            }
+        },
+    ]
+}
 
 ////////
 
@@ -54,12 +69,15 @@ export class DrawingView extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawDrawingEditor
-                plugin = {this.plugin}
-                fileRef = {this.file}
-                pageData = {this.pageData}
-                save = {this.saveFile}
-			/>
+            <JotaiProvider>
+                <TldrawDrawingEditor
+					onReady = {() => {}}
+					plugin = {this.plugin}
+					drawingFile = {this.file}
+					save = {this.saveFile}
+					extendedMenu = {getExtendedOptions(this.plugin, this.file)}
+				/>
+            </JotaiProvider>
         );
     }
 

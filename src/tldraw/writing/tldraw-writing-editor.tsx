@@ -27,13 +27,13 @@ interface TldrawWritingEditorProps {
 	plugin: InkPlugin,
 	writingFile: TFile,
 	save: (inkFileData: InkFileData) => void,
+	extendedMenu?: any[],
 
 	// For embeds
 	embedded?: boolean,
-	registerControls?: Function,
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
-	commonExtendedOptions?: any[],
+	saveControlsReference?: Function,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -170,8 +170,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			removeUserActionListener();
 		}
 
-		if(props.registerControls) {
-			props.registerControls({
+		if(props.saveControlsReference) {
+			props.saveControlsReference({
 				// save: () => completeSave(editor),
 				saveAndHalt: async (): Promise<void> => {
 					//console.log('saveAndHalt');
@@ -348,13 +348,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
-				{props.embedded && props.commonExtendedOptions && (
+				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
 							// REVIEW: Save immediately? incase it hasn't been saved yet
 							if(props.closeEditor) props.closeEditor();
 						}}
-						menuOptions = {props.commonExtendedOptions}
+						menuOptions = {props.extendedMenu}
 					/>
 				)}
 			</PrimaryMenuBar>

@@ -8,7 +8,7 @@ import OverflowMenu from "../overflow-menu/overflow-menu";
 //////////
 
 export const ExtendedDrawingMenu: React.FC<{
-	onLockClick: Function,
+	onLockClick?: Function,
 	menuOptions: any[],
 }> = (props) => {
 
@@ -16,11 +16,13 @@ export const ExtendedDrawingMenu: React.FC<{
 		<div
             className = 'ink_extended-writing-menu'
         >
-            <button
-                onPointerDown = {() => props.onLockClick()}
-            >
-                <LockIcon/>
-            </button>            
+            {props.onLockClick && (
+                <button
+                    onPointerDown = {() => props.onLockClick()}
+                >
+                    <LockIcon/>
+                </button>            
+            )}
             <OverflowMenu
                 menuOptions = {props.menuOptions}
             />

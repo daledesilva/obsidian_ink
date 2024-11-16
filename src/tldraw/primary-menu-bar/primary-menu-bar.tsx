@@ -31,7 +31,7 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
         <div
             ref = {primaryMenuBarElRef}
             className = {classNames([
-                'ink_write_primary-menu-bar',
+                'ink_primary-menu-bar',
                 menuActive && 'ddc_ink_active',
             ])}
         >

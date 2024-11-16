@@ -144,9 +144,9 @@ export function WritingEmbed (props: {
 					writingFile = {props.writingFileRef}
 					save = {props.save}
 					embedded
-					registerControls = {registerEditorControls}
+					saveControlsReference = {registerEditorControls}
 					closeEditor = {saveAndSwitchToPreviewMode}
-					commonExtendedOptions = {commonExtendedOptions}
+					extendedMenu = {commonExtendedOptions}
 				/>
 
 			</div>

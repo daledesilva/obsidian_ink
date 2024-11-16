@@ -64,7 +64,7 @@ export class WritingView extends TextFileView {
                 plugin = {this.plugin}
                 writingFile = {this.file}
                 save = {this.saveFile}
-                registerControls = {(controls: any) => {
+                saveControlsReference = {(controls: any) => {
                     this.tldrawControls.resize = controls.resize;
                 }}
 			/>

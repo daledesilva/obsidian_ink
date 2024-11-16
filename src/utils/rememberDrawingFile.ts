@@ -13,7 +13,7 @@ export const rememberDrawingFile = async (plugin: InkPlugin, existingFileRef: TF
     }
 
     saveLocally('rememberedDrawingFile', existingFileRef.path);
-    new Notice(`Drawing file copied.\nRun 'Insert drawing file' where desired.`);
+    new Notice(`Drawing file copied.\nRun 'Copied Drawing' where desired in a note.`);  // TODO: The aciton name here should be referenced to the actual action name from localisation
 };
 
 export const rememberWritingFile = async (plugin: InkPlugin, existingFileRef: TFile) => {
@@ -25,7 +25,7 @@ export const rememberWritingFile = async (plugin: InkPlugin, existingFileRef: TF
     }
 
     saveLocally('rememberedWritingFile', existingFileRef.path);
-    new Notice(`Writing file copied.\nRun 'Insert writing file' where desired.`);
+    new Notice(`Writing file copied.\nRun 'Copied Writing Section' where desired in a note.`);  // TODO: The aciton name here should be referenced to the actual action name from localisation
 };
 
 export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile, instigatingFile?: TFile | null): Promise<TFile | null> => {

@@ -1,0 +1,39 @@
+
+
+.ddc_ink_resize-handle {
+    position: absolute;
+    z-index: 1000;
+    right: var(--file-margins);
+    bottom: 0;
+    transform: translate(0, 50%);
+
+    pointer-events: auto;
+    background-color: var(--interactive-normal);
+    color: var(--color-base-60);
+    fill: var(--color-base-60); // for svg icon elements
+    &:hover {
+        cursor: ns-resize;
+        background-color: var(--interactive-hover);
+        color: var(--color-base-100);
+        fill: var(--color-base-100);
+    }
+
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 2.5em;
+    padding: 0 !important;
+
+    svg {
+        width: 1.5em !important;
+        height: 1.5em !important;
+    }
+}
+
+
+// Animation
+.ddc_ink_resize-handle {
+    // animation: scale-up 0.3s 0.1s ease-out;
+    animation-fill-mode: both;
+}
+
+

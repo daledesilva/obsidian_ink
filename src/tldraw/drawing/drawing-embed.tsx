@@ -13,7 +13,7 @@ import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
-import { atom, useSetAtom } from "jotai";
+import { atom, useAtom, useSetAtom } from "jotai";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -36,6 +36,8 @@ export const editorActiveAtom = atom<boolean>((get) => {
 	return embedState !== DrawingEmbedState.preview
 })
 
+const INITIAL_EMBED_HEIGHT = 300;
+
 ///////
 
 export type DrawingEditorControls = {
@@ -53,6 +55,7 @@ export function DrawingEmbed (props: {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
+	const embedHeightRef = useRef<number>(INITIAL_EMBED_HEIGHT);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
@@ -109,9 +112,6 @@ export function DrawingEmbed (props: {
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: '1em',
 				paddingBottom: '0.5em',
-
-				// height: transitioning ? staticEmbedHeight + 'px' : (state === 'edit' ? '600px' : 'auto'),
-				height: '300px',
 			}}
 		>
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
@@ -119,7 +119,7 @@ export function DrawingEmbed (props: {
 				className = 'ddc_ink_resize-container'
 				ref = {resizeContainerElRef}
 				style = {{
-					height: '300px',
+					height: embedHeightRef.current + 'px',
 					position: 'relative', // For absolute positioning inside
 				}}
 			>
@@ -143,6 +143,7 @@ export function DrawingEmbed (props: {
 					saveControlsReference = {registerEditorControls}
 					closeEditor = {saveAndSwitchToPreviewMode}
 					extendedMenu = {commonExtendedOptions}
+					resizeEmbed = {resizeEmbed}
 				/>
 
 			</div>				
@@ -156,9 +157,14 @@ export function DrawingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
+	function resizeEmbed(pxHeightDiff: number) {
+		if(!resizeContainerElRef.current) return;
+		embedHeightRef.current += pxHeightDiff;
+		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
+	}
 	function applyEmbedHeight() {
-		if(!embedContainerElRef.current) return;
-		embedContainerElRef.current.style.height = '300px';
+		if(!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.style.height = '300px';
 	}
 
 	function resetEmbedHeight() {

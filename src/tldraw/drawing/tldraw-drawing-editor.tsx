@@ -18,6 +18,7 @@ import classNames from 'classnames';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from './drawing-embed';
 import { getInkFileData } from 'src/utils/getInkFileData';
+import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 
 ///////
 ///////
@@ -31,7 +32,7 @@ interface TldrawDrawingEditorProps {
 
 	// For embeds
 	embedded?: boolean,
-	resizeEmbedContainer?: (pxHeight: number) => void,
+	resizeEmbed?: (pxHeightDiff: number) => void,
 	closeEditor?: Function,
 	saveControlsReference?: Function,
 }
@@ -335,6 +336,21 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 				)}
 			</PrimaryMenuBar>
 		</div>
+
+		{props.resizeEmbed && (
+			<ResizeHandle
+				resizeEmbed = {resizeEmbed}
+			/>
+		)}
 	</>;
+
+	// Helpers
+	///////////////
+
+	function resizeEmbed(pxHeightDiff: number) {
+		if(!props.resizeEmbed) return;
+		props.resizeEmbed(pxHeightDiff);
+		console.log(pxHeightDiff);
+	}
 
 };

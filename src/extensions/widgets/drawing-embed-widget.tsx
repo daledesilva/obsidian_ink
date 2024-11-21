@@ -27,6 +27,9 @@ export function registerDrawingEmbed(plugin: InkPlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		DRAW_EMBED_KEY,
 		(source, el, ctx) => {
+			console.log('source', source);
+			console.log('ctx', ctx);
+			console.log('sectionInfo', ctx.getSectionInfo(ctx.el));
 			const embedData = JSON.parse(source) as DrawingEmbedData;
 			const embedCtrls: EmbedCtrls = {
 				removeEmbed: () => removeEmbed(plugin, ctx, el),
@@ -79,8 +82,10 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 					plugin = {this.plugin}
 					drawingFileRef = {this.fileRef}
 					pageData = {pageData}
-					save = {this.save}
+					saveSrcFile = {this.save}
+					setEmbedProps = {this.setEmbedProps}
 					remove = {this.embedCtrls.removeEmbed}
+					height = {this.embedData.height}
 				/>
 			</JotaiProvider>
         );
@@ -99,6 +104,10 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 		if(!this.fileRef) return;
 		const pageDataStr = stringifyPageData(pageData);
 		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
+	}
+
+	setEmbedProps = async (height: number) => {
+		console.log('setting embed props');
 	}
 
 }

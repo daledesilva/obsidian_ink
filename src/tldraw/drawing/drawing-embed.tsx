@@ -14,6 +14,7 @@ import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { atom, useAtom, useSetAtom } from "jotai";
+import { DRAWING_INITIAL_HEIGHT } from "src/constants";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -36,8 +37,6 @@ export const editorActiveAtom = atom<boolean>((get) => {
 	return embedState !== DrawingEmbedState.preview
 })
 
-const INITIAL_EMBED_HEIGHT = 300;
-
 ///////
 
 export type DrawingEditorControls = {
@@ -49,13 +48,15 @@ export function DrawingEmbed (props: {
 	plugin: InkPlugin,
 	drawingFileRef: TFile,
 	pageData: InkFileData,
-	save: (pageData: InkFileData) => {},
+	saveSrcFile: (pageData: InkFileData) => {},
+	setEmbedProps: (height: number) => void,
 	remove: Function,
+	height?: number,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
-	const embedHeightRef = useRef<number>(INITIAL_EMBED_HEIGHT);
+	const embedHeightRef = useRef<number>(props.height || DRAWING_INITIAL_HEIGHT);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
@@ -138,7 +139,7 @@ export function DrawingEmbed (props: {
 					onReady = {() => {}}
 					plugin = {props.plugin}
 					drawingFile = {props.drawingFileRef}
-					save = {props.save}
+					save = {props.saveSrcFile}
 					embedded
 					saveControlsReference = {registerEditorControls}
 					closeEditor = {saveAndSwitchToPreviewMode}
@@ -161,10 +162,11 @@ export function DrawingEmbed (props: {
 		if(!resizeContainerElRef.current) return;
 		embedHeightRef.current += pxHeightDiff;
 		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
+		props.setEmbedProps(embedHeightRef.current);
 	}
 	function applyEmbedHeight() {
 		if(!resizeContainerElRef.current) return;
-		resizeContainerElRef.current.style.height = '300px';
+		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
 	}
 
 	function resetEmbedHeight() {

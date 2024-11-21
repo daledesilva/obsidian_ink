@@ -14,6 +14,7 @@ export const DRAW_FILE_EXT = 'drawing';
 export const WRITE_EMBED_KEY = 'handwritten-ink';
 export const DRAW_EMBED_KEY = 'handdrawn-ink';
 export const MENUBAR_HEIGHT_PX = 100;
+
 export const WRITE_SHORT_DELAY_MS = 500;
 export const WRITE_LONG_DELAY_MS = 2000;
 export const WRITE_STROKE_LIMIT = 200;
@@ -25,3 +26,5 @@ export const DRAW_STROKE_LIMIT = 200;
 export const WRITING_PAGE_WIDTH = 2000;
 export const WRITING_LINE_HEIGHT = 150;
 export const WRITING_MIN_PAGE_HEIGHT = WRITING_LINE_HEIGHT * 1.5;
+
+export const DRAWING_INITIAL_HEIGHT = 400;

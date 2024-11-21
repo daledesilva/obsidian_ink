@@ -36,9 +36,6 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 		removeEventListener("mouseup", stopResizing);
 	}
 	function monitorResizing(e: MouseEvent) {
-		// const pxHeight = props.initialPxHeight + e.movementY;
-		// props.resizeEmbed(pxHeight);
-
 		props.resizeEmbed(e.movementY);
 	}
 

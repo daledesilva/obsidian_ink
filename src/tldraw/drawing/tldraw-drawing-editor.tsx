@@ -350,7 +350,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	function resizeEmbed(pxHeightDiff: number) {
 		if(!props.resizeEmbed) return;
 		props.resizeEmbed(pxHeightDiff);
-		console.log(pxHeightDiff);
 	}
 
 };

@@ -54,7 +54,7 @@ export function TldrawDrawingEditor(props: {
 	const tldrawContainerElRef = useRef<HTMLDivElement>(null);
 	const tlEditorRef = useRef<Editor>();
 	const [tlStoreSnapshot] = React.useState<StoreSnapshot<TLRecord>>(prepareDrawingSnapshot(props.pageData.tldraw))
-	
+
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
 
@@ -66,7 +66,7 @@ export function TldrawDrawingEditor(props: {
 		editor.updateInstanceState({
 			isGridMode: true,
 		})
-		
+
 		// view setup
 		initDrawingCamera(editor);
 		if (props.embedded) {
@@ -109,8 +109,8 @@ export function TldrawDrawingEditor(props: {
 				default:
 					// Catch anything else not specifically mentioned (ie. erase, draw shape, etc.)
 					queueOrRunStorePostProcesses(editor);
-					// console.log('Activity not recognised.');
-					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
+				// console.log('Activity not recognised.');
+				// console.log('entry', JSON.parse(JSON.stringify(entry)) );
 			}
 
 		}, {
@@ -124,7 +124,7 @@ export function TldrawDrawingEditor(props: {
 			removeUserActionListener();
 		}
 
-		if(props.registerControls) {
+		if (props.registerControls) {
 			props.registerControls({
 				save: () => completeSave(editor),
 				saveAndHalt: async (): Promise<void> => {
@@ -133,8 +133,8 @@ export function TldrawDrawingEditor(props: {
 				},
 			})
 		}
-		
-		if(props.onReady) props.onReady();
+
+		if (props.onReady) props.onReady();
 
 		return () => {
 			unmountActions();
@@ -218,8 +218,8 @@ export function TldrawDrawingEditor(props: {
 			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
-		
-		if(previewUri) {
+
+		if (previewUri) {
 			const pageData = buildDrawingFileData({
 				tlStoreSnapshot,
 				previewUri,
@@ -241,50 +241,63 @@ export function TldrawDrawingEditor(props: {
 		return tlEditorRef.current;
 	};
 
+	function handleSignal(signal: string) {
+		switch (signal) {
+			case "toggle-fullscreen":
+				if (tldrawContainerElRef.current)
+					if (document.fullscreenElement)
+						document.exitFullscreen();
+					else
+						tldrawContainerElRef.current.requestFullscreen();
+				break;
+		}
+	}
+
 	//////////////
 
 	return <>
 		<div
-			ref = {tldrawContainerElRef}
-			className = {classNames([
+			ref={tldrawContainerElRef}
+			className={classNames([
 				"ddc_ink_drawing-editor"
 			])}
-			style = {{
+			style={{
 				height: '100%',
 				position: 'relative'
 			}}
 		>
 			<TldrawEditor
-				options = {tlOptions}
-				shapeUtils = {[...defaultShapeUtils]}
-				tools = {[...defaultTools, ...defaultShapeTools]}
-				initialState = "draw"
-				snapshot = {tlStoreSnapshot}
+				options={tlOptions}
+				shapeUtils={[...defaultShapeUtils]}
+				tools={[...defaultTools, ...defaultShapeTools]}
+				initialState="draw"
+				snapshot={tlStoreSnapshot}
 				// persistenceKey = {props.fileRef.path}
 
 				// bindingUtils = {defaultBindingUtils}
-				components = {defaultComponents}
+				components={defaultComponents}
 
-				onMount = {handleMount}
+				onMount={handleMount}
 
 				// Ensure cursor remains and embed IS NOT focussed if it's an embed.
 				// This prevents tldraw scrolling the page to the top of the embed when turning on.
 				// But a side effect of false is preventing mousewheel scrolling and zooming.
-				autoFocus = {props.embedded ? false : true}
+				autoFocus={props.embedded ? false : true}
 			/>
-			
+
 			<PrimaryMenuBar>
 				<DrawingMenu
-					getTlEditor = {getTlEditor}
-					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+					getTlEditor={getTlEditor}
+					onStoreChange={(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+					sendSignal={(signal: string) => handleSignal(signal)}
 				/>
 				{props.embedded && props.commonExtendedOptions && (
 					<ExtendedDrawingMenu
-						onLockClick = { async () => {
+						onLockClick={async () => {
 							// TODO: Save immediately incase it hasn't been saved yet?
-							if(props.closeEditor) props.closeEditor();
+							if (props.closeEditor) props.closeEditor();
 						}}
-						menuOptions = {props.commonExtendedOptions}
+						menuOptions={props.commonExtendedOptions}
 					/>
 				)}
 			</PrimaryMenuBar>

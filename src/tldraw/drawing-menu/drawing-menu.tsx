@@ -5,6 +5,8 @@ import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
+import { FullscreenIcon } from "src/graphics/icons/fullscreen-icon";
+import { ExitFullscreenIcon } from "src/graphics/icons/exit-fullscreen-icon";
 import { Editor } from "@tldraw/tldraw";
 import { silentlyChangeStore } from "src/utils/tldraw-helpers";
 
@@ -17,48 +19,49 @@ export enum tool {
 	eraser = 'eraser',
 }
 interface DrawingMenuProps {
-    getTlEditor: () => Editor | undefined,
-    onStoreChange: (elEditor: Editor) => void,
+	getTlEditor: () => Editor | undefined,
+	onStoreChange: (elEditor: Editor) => void,
+	sendSignal: (signal: string) => void
 }
 
 export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((props, ref) => {
 
-    const [curTool, setCurTool] = React.useState<tool>(tool.draw);
+	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
-    React.useEffect( () => {
-        console.log('MENUBAR MOUNTED');
-        
-        let removeUserActionListener: () => void;
-        
-        const mountDelayMs = 100;
-        setTimeout( () => {
-            const tlEditor = props.getTlEditor();
-            if(!tlEditor) return;
+	React.useEffect(() => {
+		console.log('MENUBAR MOUNTED');
 
-            let timeout: NodeJS.Timeout;
-            removeUserActionListener = tlEditor.store.listen((entry) => {
-                clearTimeout(timeout);
-                timeout = setTimeout( () => { // TODO: Create a debounce helper
-                    setCanUndo( tlEditor.getCanUndo() );
-                    setCanRedo( tlEditor.getCanRedo() );
-                }, 100);
-            }, {
-                source: 'all',
-                scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
-            })
-        }, mountDelayMs);
+		let removeUserActionListener: () => void;
 
-        return () => removeUserActionListener();
-    }, []);
+		const mountDelayMs = 100;
+		setTimeout(() => {
+			const tlEditor = props.getTlEditor();
+			if (!tlEditor) return;
 
-    ///////////
+			let timeout: NodeJS.Timeout;
+			removeUserActionListener = tlEditor.store.listen((entry) => {
+				clearTimeout(timeout);
+				timeout = setTimeout(() => { // TODO: Create a debounce helper
+					setCanUndo(tlEditor.getCanUndo());
+					setCanRedo(tlEditor.getCanRedo());
+				}, 100);
+			}, {
+				source: 'all',
+				scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
+			})
+		}, mountDelayMs);
 
-    function undo() {
+		return () => removeUserActionListener();
+	}, []);
+
+	///////////
+
+	function undo() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
-		silentlyChangeStore( editor, () => {
+		silentlyChangeStore(editor, () => {
 			editor.undo();
 		});
 		props.onStoreChange(editor)
@@ -66,7 +69,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 	function redo() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
-		silentlyChangeStore( editor, () => {
+		silentlyChangeStore(editor, () => {
 			editor.redo();
 		});
 		props.onStoreChange(editor)
@@ -91,60 +94,70 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
+	function activateFullscreen() {
+		const editor = props.getTlEditor();
+		if (!editor || !props.sendSignal) return;
+		props.sendSignal("toggle-fullscreen");
+	}
 
-    ///////////
-    ///////////
+	///////////
+	///////////
 
-    return <>
-        <div
-            ref = {ref}
-            className = 'ink_menu-bar'
-        >
-            <div
-                className='ink_quick-menu'
-            >
-                <button
-                    onPointerDown={undo}
-                    disabled={!canUndo}
-                >
-                    <UndoIcon/>
-                </button>
-                <button
-                    onPointerDown={redo}
-                    disabled={!canRedo}
-                >
-                    <RedoIcon/>
-                </button>
-            </div>
-            <div
-                className='ink_tool-menu'
-            >
-                <button
-                    onPointerDown={activateSelectTool}
-                    disabled={curTool === tool.select}
-                >
-                    <SelectIcon/>
-                </button>
-                <button
-                    onPointerDown={activateDrawTool}
-                    disabled={curTool === tool.draw}
-                >
-                    <DrawIcon/>
-                </button>
-                <button
-                    onPointerDown={activateEraseTool}
-                    disabled={curTool === tool.eraser}
-                >
-                    <EraseIcon/>
-                </button>
-            </div>
-            <div
-                className='ink_other-menu'
-            >
-                
-            </div>
-        </div>
-    </>;
+	return <>
+		<div
+			ref={ref}
+			className='ink_menu-bar'
+		>
+			<div
+				className='ink_quick-menu'
+			>
+				<button
+					onPointerDown={undo}
+					disabled={!canUndo}
+				>
+					<UndoIcon />
+				</button>
+				<button
+					onPointerDown={redo}
+					disabled={!canRedo}
+				>
+					<RedoIcon />
+				</button>
+			</div>
+			<div
+				className='ink_tool-menu'
+			>
+				<button
+					onPointerDown={activateSelectTool}
+					disabled={curTool === tool.select}
+				>
+					<SelectIcon />
+				</button>
+				<button
+					onPointerDown={activateDrawTool}
+					disabled={curTool === tool.draw}
+				>
+					<DrawIcon />
+				</button>
+				<button
+					onPointerDown={activateEraseTool}
+					disabled={curTool === tool.eraser}
+				>
+					<EraseIcon />
+				</button>
+			</div>
+			<div
+				className='ink_other-menu'
+			>
+				<button
+					onPointerDown={activateFullscreen}
+				>
+					{document.fullscreenElement ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+
+				</button>
+			</div>
+		</div>
+	</>;
 
 });
 

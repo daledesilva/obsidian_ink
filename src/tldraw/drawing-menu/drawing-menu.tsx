@@ -28,7 +28,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
     React.useEffect( () => {
-        console.log('MENUBAR MOUNTED');
+        // console.log('MENUBAR MOUNTED');
         
         let removeUserActionListener: () => void;
         

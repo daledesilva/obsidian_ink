@@ -3,9 +3,10 @@
 .ddc_ink_resize-handle {
     position: absolute;
     z-index: 1000;
-    right: var(--file-margins);
+    // right: var(--file-margins, 5%);
+    right: 5%;
     bottom: 0;
-    transform: translate(0, 50%);
+    translate: 0 50%;
 
     pointer-events: auto;
     background-color: var(--interactive-normal);
@@ -32,8 +33,7 @@
 
 // Animation
 .ddc_ink_resize-handle {
-    // animation: scale-up 0.3s 0.1s ease-out;
+    animation: menu-button_scale-up 0.3s 0.1s ease-out;
+    animation-delay: 0.5s;
     animation-fill-mode: both;
 }
-
-

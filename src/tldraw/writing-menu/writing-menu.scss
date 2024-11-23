@@ -13,7 +13,7 @@
 
     button {
 
-        animation: scale-up 0.3s 0.1s ease-out;
+        animation: menu-button_scale-up 0.3s 0.1s ease-out;
         animation-fill-mode: both;
 
         pointer-events: auto;
@@ -26,7 +26,7 @@
             fill: var(--color-base-100);
         }
         &:disabled {
-            animation: scale-up 0.3s ease-out;
+            animation: menu-button_scale-up 0.3s ease-out;
             opacity: 1; // Remove tldraw defaiult transparency because button can sit on top of text.
 
             cursor: default;
@@ -40,10 +40,10 @@
     }
 }
 
-@keyframes scale-up {
+@keyframes menu-button_scale-up {
     from { transform: scale(0); }
     to { transform: scale(1); }
-  }
+}
 
 .ink_quick-menu {
     display: flex;

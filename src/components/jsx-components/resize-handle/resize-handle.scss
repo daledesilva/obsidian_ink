@@ -4,7 +4,7 @@
     position: absolute;
     z-index: 1000;
     // right: var(--file-margins, 5%);
-    right: 5%;
+    right: 2%;
     bottom: 0;
     translate: 0 50%;
 
@@ -34,6 +34,6 @@
 // Animation
 .ddc_ink_resize-handle {
     animation: menu-button_scale-up 0.3s 0.1s ease-out;
-    animation-delay: 0.5s;
+    animation-delay: 0.2s;
     animation-fill-mode: both;
 }

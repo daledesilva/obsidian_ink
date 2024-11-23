@@ -40,7 +40,7 @@ interface TldrawDrawingEditorProps {
 // Wraps the component so that it can full unmount when inactive
 export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditorProps> = (props) => {
     const editorActive = useAtomValue(editorActiveAtom);
-	console.log('EDITOR ACTIVE', editorActive)
+	// console.log('EDITOR ACTIVE', editorActive)
 
     if(editorActive) {
         return <TldrawDrawingEditor {...props} />
@@ -237,7 +237,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
-		console.log('incrementalSave');
+		// console.log('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
 
@@ -249,7 +249,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
-		console.log('completeSave');
+		// console.log('completeSave');
 		let previewUri;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);

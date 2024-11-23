@@ -61,6 +61,17 @@ export const buildDrawingEmbed = (filepath: string) => {
 	return embedStr;
 };
 
+export function stringifyEmbedData(embedData: DrawingEmbedData): string {
+	return JSON.stringify(embedData, null, '\t');
+}
+export const rebuildDrawingEmbed = (embedData: DrawingEmbedData) => {
+	let embedStr = "";
+    embedStr += "\n```" + DRAW_EMBED_KEY;
+    embedStr += "\n" + stringifyEmbedData(embedData);
+    embedStr += "\n```";
+	return embedStr;
+};
+
 // This function came from Notion like tables code
 export const getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
 	const parent = el.parentElement;

@@ -28,7 +28,7 @@ export const WritingMenu = (props: WritingMenuProps) => {
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
     React.useEffect( () => {
-        console.log('MENUBAR MOUNTED');
+        // console.log('MENUBAR MOUNTED');
         
         let removeUserActionListener: () => void;
         

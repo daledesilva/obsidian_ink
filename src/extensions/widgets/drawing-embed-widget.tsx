@@ -3,7 +3,7 @@ import { EditorPosition, MarkdownPostProcessorContext, MarkdownRenderChild, TFil
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
-import { DrawingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/utils/embed";
+import { DrawingEmbedData, applyCommonAncestorStyling, rebuildDrawingEmbed, removeEmbed, stringifyEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
@@ -27,19 +27,42 @@ export function registerDrawingEmbed(plugin: InkPlugin) {
 	plugin.registerMarkdownCodeBlockProcessor(
 		DRAW_EMBED_KEY,
 		(source, el, ctx) => {
-			console.log('source', source);
-			console.log('ctx', ctx);
-			console.log('sectionInfo', ctx.getSectionInfo(ctx.el));
 			const embedData = JSON.parse(source) as DrawingEmbedData;
 			const embedCtrls: EmbedCtrls = {
 				removeEmbed: () => removeEmbed(plugin, ctx, el),
 			}
 			if(embedData.filepath) {
-				ctx.addChild(new DrawingEmbedWidget(el, plugin, embedData, embedCtrls));
+				ctx.addChild(new DrawingEmbedWidget(el, plugin, embedData, embedCtrls, (newEmbedData) => updateEmbed(plugin, ctx, el, newEmbedData)));
 			}
 		}
 	);
 
+}
+
+// let updateTimer: NodeJS.Timeout;
+function updateEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el: HTMLElement, embedData: DrawingEmbedData) {
+	// clearTimeout(updateTimer);
+
+	// updateTimer = setTimeout( () => {
+		
+		const cmEditor = plugin.app.workspace.activeEditor?.editor;
+		if(!cmEditor) return;
+	
+		const sectionInfo = ctx.getSectionInfo(el);
+		if(sectionInfo?.lineStart === undefined || sectionInfo.lineEnd === undefined) return;
+	
+		const embedStart: EditorPosition = {
+			line: sectionInfo.lineStart + 1,
+			ch: 0,
+		}
+		const embedEnd: EditorPosition = {
+			line: sectionInfo.lineEnd - 1,
+			ch: 1, // To allow for the closing } bracket
+		}
+		
+		cmEditor.replaceRange( stringifyEmbedData(embedData), embedStart, embedEnd );
+	// }, 1000)
+	
 }
 
 class DrawingEmbedWidget extends MarkdownRenderChild {
@@ -49,18 +72,21 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	embedCtrls: EmbedCtrls;
 	root: Root;
 	fileRef: TFile | null;
+	updateEmbed: Function;
 
 	constructor(
 		el: HTMLElement,
 		plugin: InkPlugin,
 		embedData: DrawingEmbedData,
 		embedCtrls: EmbedCtrls,
+		updateEmbed: (embedData: DrawingEmbedData) => void,
 	) {
 		super(el);
 		this.el = el;
 		this.plugin = plugin;
 		this.embedData = embedData;
 		this.embedCtrls = embedCtrls;
+		this.updateEmbed = updateEmbed;
 	}
 
 	async onload() {
@@ -107,7 +133,11 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	}
 
 	setEmbedProps = async (height: number) => {
-		console.log('setting embed props');
+		const newEmbedData: DrawingEmbedData = {
+			...this.embedData,
+			height,
+		}
+		this.updateEmbed(newEmbedData);
 	}
 
 }

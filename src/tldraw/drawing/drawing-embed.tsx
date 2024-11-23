@@ -162,7 +162,7 @@ export function DrawingEmbed (props: {
 		if(!resizeContainerElRef.current) return;
 		embedHeightRef.current += pxHeightDiff;
 		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
-		props.setEmbedProps(embedHeightRef.current);
+		// props.setEmbedProps(embedHeightRef.current);
 	}
 	function applyEmbedHeight() {
 		if(!resizeContainerElRef.current) return;
@@ -188,11 +188,12 @@ export function DrawingEmbed (props: {
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
-
-		console.log('--------------- SET EMBED STATE TO loadingPreview')
-		setEmbedState(DrawingEmbedState.loadingPreview);
-	}
 		
+		// console.log('--------------- SET EMBED STATE TO loadingPreview')
+		setEmbedState(DrawingEmbedState.loadingPreview);
+
+		props.setEmbedProps(embedHeightRef.current);
+	}
 };
 
 export default DrawingEmbed;

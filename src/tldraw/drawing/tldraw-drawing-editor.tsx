@@ -32,7 +32,7 @@ interface TldrawDrawingEditorProps {
 
 	// For embeds
 	embedded?: boolean,
-	resizeEmbed?: (pxHeightDiff: number) => void,
+	resizeEmbed?: (pxWidthDiff: number, pxHeightDiff: number) => void,
 	closeEditor?: Function,
 	saveControlsReference?: Function,
 }
@@ -347,9 +347,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	// Helpers
 	///////////////
 
-	function resizeEmbed(pxHeightDiff: number) {
+	function resizeEmbed(pxWidthDiff: number, pxHeightDiff: number) {
 		if(!props.resizeEmbed) return;
-		props.resizeEmbed(pxHeightDiff);
+		props.resizeEmbed(pxWidthDiff, pxHeightDiff);
 	}
 
 };

@@ -3,7 +3,7 @@
 ///////
 
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownViewModeType } from "obsidian";
-import { DRAW_EMBED_KEY, DRAWING_INITIAL_HEIGHT, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
+import { DRAW_EMBED_KEY, DRAWING_INITIAL_HEIGHT, DRAWING_INITIAL_WIDTH, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
 import InkPlugin from "src/main";
 
 export type WritingEmbedData = {
@@ -40,6 +40,7 @@ export const buildWritingEmbed = (filepath: string, transcript?: string) => {
 export type DrawingEmbedData = {
 	versionAtEmbed: string;
 	filepath: string;
+	width?: number,
 	height?: number,
 };
 
@@ -47,6 +48,7 @@ export const buildDrawingEmbed = (filepath: string) => {
 	let embedContent: DrawingEmbedData = {
 		versionAtEmbed: PLUGIN_VERSION,
 		filepath,
+		width: DRAWING_INITIAL_WIDTH,
 		height: DRAWING_INITIAL_HEIGHT,
 	}
 

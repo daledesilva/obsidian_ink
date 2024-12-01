@@ -14,7 +14,7 @@ import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { atom, useAtom, useSetAtom } from "jotai";
-import { DRAWING_INITIAL_HEIGHT } from "src/constants";
+import { DRAWING_INITIAL_HEIGHT, DRAWING_INITIAL_WIDTH } from "src/constants";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -49,13 +49,15 @@ export function DrawingEmbed (props: {
 	drawingFileRef: TFile,
 	pageData: InkFileData,
 	saveSrcFile: (pageData: InkFileData) => {},
-	setEmbedProps: (height: number) => void,
+	setEmbedProps: (width: number, height: number) => void,
 	remove: Function,
+	width?: number,
 	height?: number,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
+	const embedWidthRef = useRef<number>(props.width || DRAWING_INITIAL_WIDTH);
 	const embedHeightRef = useRef<number>(props.height || DRAWING_INITIAL_HEIGHT);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
@@ -120,8 +122,12 @@ export function DrawingEmbed (props: {
 				className = 'ddc_ink_resize-container'
 				ref = {resizeContainerElRef}
 				style = {{
+					width: embedWidthRef.current + 'px',
 					height: embedHeightRef.current + 'px',
+					maxWidth: '100%',
 					position: 'relative', // For absolute positioning inside
+					left: '50%',
+					translate: '-50%',
 				}}
 			>
 			
@@ -158,26 +164,29 @@ export function DrawingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
-	function resizeEmbed(pxHeightDiff: number) {
+	function resizeEmbed(pxWidthDiff: number, pxHeightDiff: number) {
 		if(!resizeContainerElRef.current) return;
+		embedWidthRef.current += pxWidthDiff;
 		embedHeightRef.current += pxHeightDiff;
+		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
 		// props.setEmbedProps(embedHeightRef.current);
 	}
 	function applyEmbedHeight() {
 		if(!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
 	}
 
-	function resetEmbedHeight() {
-		if(!embedContainerElRef.current) return;
-		const newHeight = embedContainerElRef.current?.offsetHeight;
-		if(newHeight) {
-			embedContainerElRef.current.style.height = newHeight + 'px';
-		} else {
-			embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
-		}
-	}
+	// function resetEmbedHeight() {
+	// 	if(!embedContainerElRef.current) return;
+	// 	const newHeight = embedContainerElRef.current?.offsetHeight;
+	// 	if(newHeight) {
+	// 		embedContainerElRef.current.style.height = newHeight + 'px';
+	// 	} else {
+	// 		embedContainerElRef.current.style.height = 'unset'; // TODO: CSS transition doesn't work between number and unset
+	// 	}
+	// }
 
 	function switchToEditMode() {
 		applyEmbedHeight();
@@ -192,7 +201,7 @@ export function DrawingEmbed (props: {
 		// console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(DrawingEmbedState.loadingPreview);
 
-		props.setEmbedProps(embedHeightRef.current);
+		props.setEmbedProps(embedWidthRef.current, embedHeightRef.current);
 	}
 };
 

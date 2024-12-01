@@ -9,11 +9,12 @@ import { VerticalResizeIcon } from 'src/graphics/icons/vertical-resize-icon';
 //////////
 
 interface ResizeHandleProps {
-    resizeEmbed: (pxHeightDiff: number) => void,
+    resizeEmbed: (pxWidthDiff: number, pxHeightDiff: number) => void,
 }
 
 export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
-	const lastPointerPosition = React.useRef<number>();
+	const lastPointerXPosition = React.useRef<number>();
+	const lastPointerYPosition = React.useRef<number>();
 
 	return <button
 		className = {classNames([
@@ -44,10 +45,14 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 		document.removeEventListener("touchmove", handleTouchResizing);
 		document.removeEventListener("touchend", stopResizing);
 
-		delete lastPointerPosition.current;
+		delete lastPointerXPosition.current;
+		delete lastPointerYPosition.current;
 	}
 	function handleMouseResizing(e: MouseEvent) {
-		props.resizeEmbed(e.movementY);
+		let horzDiff = e.movementX;
+		horzDiff *= 2; // Multiply by 2 to compensate for image alignment to centre.
+		let vertDiff = e.movementY;
+		props.resizeEmbed(horzDiff, vertDiff);
 	}
 	function handleTouchResizing(e: TouchEvent) {
 		// Prevent page scrolling while dragging
@@ -60,12 +65,15 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 		const touchPointer = e.changedTouches.item(0);
 		if(!touchPointer || e.changedTouches.length!==1) return;
 
-		if(lastPointerPosition.current) {
-			const vertDiff = touchPointer.pageY - lastPointerPosition.current;
-			props.resizeEmbed(vertDiff);
+		if(lastPointerXPosition.current && lastPointerYPosition.current) {
+			let horzDiff = touchPointer.pageX - lastPointerXPosition.current;
+			horzDiff *= 2; // Multiply by 2 to compensate for image alignment to centre.
+			const vertDiff = touchPointer.pageY - lastPointerYPosition.current;
+			props.resizeEmbed(horzDiff, vertDiff);
 		}
 
-		lastPointerPosition.current = touchPointer.pageY;
+		lastPointerXPosition.current = touchPointer.pageX;
+		lastPointerYPosition.current = touchPointer.pageY;
 	}
 
 };

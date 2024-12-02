@@ -4,16 +4,16 @@
     position: absolute;
     z-index: 1000;
     // right: var(--file-margins, 5%);
-    right: 2%;
+    right: 0;
     bottom: 0;
-    translate: 0 50%;
+    translate: 25% 50%;
 
     pointer-events: auto;
     background-color: var(--interactive-normal);
     color: var(--color-base-60);
     fill: var(--color-base-60); // for svg icon elements
     &:hover {
-        cursor: ns-resize;
+        cursor: nwse-resize;
         background-color: var(--interactive-hover);
         color: var(--color-base-100);
         fill: var(--color-base-100);

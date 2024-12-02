@@ -3,7 +3,7 @@ import './resize-handle.scss';
 import classNames from "classnames";
 import * as React from "react";
 import { SelectIcon } from 'src/graphics/icons/select-icon';
-import { VerticalResizeIcon } from 'src/graphics/icons/vertical-resize-icon';
+import { ResizeDiagonalIcon } from 'src/graphics/icons/resize-diagonal-icon';
 
 //////////
 //////////
@@ -24,7 +24,7 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 		// onMouseDown={startResizing}
 		onPointerDown={startResizing}
 	>
-		<VerticalResizeIcon/>
+		<ResizeDiagonalIcon/>
 	</button>
 
 	// Helpers

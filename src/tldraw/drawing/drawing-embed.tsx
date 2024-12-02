@@ -14,7 +14,8 @@ import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { atom, useAtom, useSetAtom } from "jotai";
-import { DRAWING_INITIAL_HEIGHT, DRAWING_INITIAL_WIDTH } from "src/constants";
+import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
+import { getFullPageWidth } from "src/utils/getFullPageWidth";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -52,13 +53,13 @@ export function DrawingEmbed (props: {
 	setEmbedProps: (width: number, height: number) => void,
 	remove: Function,
 	width?: number,
-	height?: number,
+	aspectRatio?: number,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const embedWidthRef = useRef<number>(props.width || DRAWING_INITIAL_WIDTH);
-	const embedHeightRef = useRef<number>(props.height || DRAWING_INITIAL_HEIGHT);
+	const embedAspectRatioRef = useRef<number>(props.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
@@ -74,7 +75,14 @@ export function DrawingEmbed (props: {
 				switchToEditMode();
 			},200);
 		}
-	})
+		
+		window.addEventListener('resize', handleResize);
+		handleResize();
+
+        return () => {
+			window.removeEventListener('resize', handleResize);
+		}
+	}, [])
 
 	// let isActive = (embedId === activeEmbedId);
 	// if(!isActive && state === 'edit') {
@@ -123,8 +131,7 @@ export function DrawingEmbed (props: {
 				ref = {resizeContainerElRef}
 				style = {{
 					width: embedWidthRef.current + 'px',
-					height: embedHeightRef.current + 'px',
-					maxWidth: '100%',
+					height: embedWidthRef.current / embedAspectRatioRef.current + 'px',
 					position: 'relative', // For absolute positioning inside
 					left: '50%',
 					translate: '-50%',
@@ -166,16 +173,28 @@ export function DrawingEmbed (props: {
 
 	function resizeEmbed(pxWidthDiff: number, pxHeightDiff: number) {
 		if(!resizeContainerElRef.current) return;
-		embedWidthRef.current += pxWidthDiff;
-		embedHeightRef.current += pxHeightDiff;
+		const maxWidth = getFullPageWidth(embedContainerElRef.current)
+		if(!maxWidth) return;
+
+		let destWidth = embedWidthRef.current + pxWidthDiff;
+		if(destWidth < 350) destWidth = 350;
+		if(destWidth > maxWidth) destWidth = maxWidth;
+		
+		const curHeight = resizeContainerElRef.current.getBoundingClientRect().height;
+		let destHeight = curHeight + pxHeightDiff;
+		if(destHeight < 150) destHeight = 150;
+
+		embedWidthRef.current = destWidth;
+		embedAspectRatioRef.current = destWidth / destHeight;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
-		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
-		// props.setEmbedProps(embedHeightRef.current);
+		resizeContainerElRef.current.style.height = destHeight + 'px';
+		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
 	}
 	function applyEmbedHeight() {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
-		resizeContainerElRef.current.style.height = embedHeightRef.current + 'px';
+		const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+		resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
 	}
 
 	// function resetEmbedHeight() {
@@ -201,9 +220,19 @@ export function DrawingEmbed (props: {
 		// console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(DrawingEmbedState.loadingPreview);
 
-		props.setEmbedProps(embedWidthRef.current, embedHeightRef.current);
+		props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
 	}
+
+	function handleResize() {
+		const maxWidth = getFullPageWidth(embedContainerElRef.current);
+		if (resizeContainerElRef.current) {
+			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
+			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
+		}
+	};
 };
+
 
 export default DrawingEmbed;
 

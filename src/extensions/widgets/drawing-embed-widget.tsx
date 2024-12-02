@@ -112,7 +112,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 					setEmbedProps = {this.setEmbedProps}
 					remove = {this.embedCtrls.removeEmbed}
 					width = {this.embedData.width}
-					height = {this.embedData.height}
+					aspectRatio = {this.embedData.aspectRatio}
 				/>
 			</JotaiProvider>
         );
@@ -133,11 +133,11 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 
-	setEmbedProps = async (width: number, height: number) => {
+	setEmbedProps = async (width: number, aspectRatio: number) => {
 		const newEmbedData: DrawingEmbedData = {
 			...this.embedData,
 			width,
-			height,
+			aspectRatio,
 		}
 		this.updateEmbed(newEmbedData);
 	}

@@ -1,8 +1,8 @@
 name: Draft latest release
 
-# To Run:
+# To Run (From main branch):
 # Update manifest version
-# push change
+# Commit & push
 # git tag <version number>
 # git push origin --tags
 

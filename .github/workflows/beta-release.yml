@@ -1,8 +1,8 @@
 name: Draft beta release
 
-# To Run:
+# To Run (From release branch):
 # Update manifest-beta version
-# push branch
+# Commit & push
 # git tag <version number>
 # git push origin --tags
 

@@ -284,6 +284,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		return tlEditorRef.current;
 	};
 
+	const customExtendedMenu = [
+		{
+			text: 'Grid on/off',
+			action: () => {
+				const editor = getTlEditor();
+				if(editor) {
+					editor.updateInstanceState({ isGridMode: !editor.getInstanceState().isGridMode })
+				}
+			}
+		},
+		...(props.extendedMenu || []),
+	]
+
 	//////////////
 
 	return <>
@@ -326,12 +339,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 							// TODO: Save immediately incase it hasn't been saved yet?
 							if(props.closeEditor) props.closeEditor();
 						}}
-						menuOptions = {props.extendedMenu}
+						menuOptions = {customExtendedMenu}
 					/>
 				)}
-				{!props.embedded && props.extendedMenu && (
+				{!props.embedded && props.extendedMenu && (	// TODO: I think this can be removed as it will never show?
 					<ExtendedDrawingMenu
-						menuOptions = {props.extendedMenu}
+						menuOptions = {customExtendedMenu}
 					/>
 				)}
 			</PrimaryMenuBar>

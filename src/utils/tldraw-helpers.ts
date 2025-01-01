@@ -6,6 +6,7 @@ import { WritingContainer } from "src/tldraw/writing-shapes/writing-container";
 import { WritingLines } from "src/tldraw/writing-shapes/writing-lines";
 import { showStrokeLimitTips_maybe } from "src/notices/stroke-limit-notice";
 import { Notice } from "obsidian";
+import { debug, warn, info, error, http, verbose } from "./log-to-console";
 
 //////////
 //////////
@@ -692,7 +693,8 @@ export function cropWritingStrokeHeightInvitingly(height: number): number {
  * Good for while in editing mode.
  */
 export const resizeWritingTemplateInvitingly = (editor: Editor) => {
-	console.log('resizeWritingTemplateInvitingly');
+	verbose('resizeWritingTemplateInvitingly');
+	
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 

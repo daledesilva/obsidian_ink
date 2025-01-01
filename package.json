@@ -39,7 +39,7 @@
 		"@tldraw/assets": "^2.4.3",
 		"@tldraw/tldraw": "^2.4.3",
 		"canvg": "^4.0.1",
-		"chalk": "^4.1.2",
+		"chalk": "^5.4.1",
 		"classnames": "^2.5.1",
 		"esbuild-plugin-copy": "^2.0.1",
 		"esbuild-sass-plugin": "^2.4.4",

@@ -31,14 +31,12 @@ export default class InkPlugin extends Plugin {
 		// const setPlugin = useSetAtom(inkPluginAtom);
 		// setPlugin(this);
 
-		debug('onload');
-
 		addIcon('bluesky', blueskySvgStr);
 		addIcon('mastodon', mastodonSvgStr);
 		addIcon('threads', threadsSvgStr);
 		addIcon('twitter', twitterSvgStr);
 
-		// NOTE: For testing only
+		//: NOTE: For testing only
 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
@@ -56,7 +54,7 @@ export default class InkPlugin extends Plugin {
 		}
 		
 		registerSettingsTab(this);
-		
+
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
 		// // this.registerDomEvent(document, 'click', (evt: MouseEvent) => {

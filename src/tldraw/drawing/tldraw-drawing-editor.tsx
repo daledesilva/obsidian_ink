@@ -19,6 +19,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from './drawing-embed';
 import { getInkFileData } from 'src/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
+import { verbose } from 'src/utils/log-to-console';
 
 ///////
 ///////
@@ -40,7 +41,7 @@ interface TldrawDrawingEditorProps {
 // Wraps the component so that it can full unmount when inactive
 export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditorProps> = (props) => {
     const editorActive = useAtomValue(editorActiveAtom);
-	// console.log('EDITOR ACTIVE', editorActive)
+	verbose('EDITOR ACTIVE', editorActive)
 
     if(editorActive) {
         return <TldrawDrawingEditor {...props} />

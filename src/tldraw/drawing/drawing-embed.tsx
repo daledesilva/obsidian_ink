@@ -16,6 +16,7 @@ import classNames from "classnames";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/utils/getFullPageWidth";
+import { verbose } from "src/utils/log-to-console";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -217,7 +218,7 @@ export function DrawingEmbed (props: {
 			await editorControlsRef.current.saveAndHalt();
 		}
 		
-		// console.log('--------------- SET EMBED STATE TO loadingPreview')
+		verbose('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(DrawingEmbedState.loadingPreview);
 
 		props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);

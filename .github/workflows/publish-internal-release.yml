@@ -1,18 +1,14 @@
-name: Draft latest release
+name: Publish internal release
+run-name: Internal Release by @${{ github.actor }} - ${{ github.event.head_commit.message }}
 
-# To Run (From main branch):
-# Update manifest version
-# Commit & push
-# git tag <version number>
-# git push origin --tags
+# TO AUTO PUBLISH THE RELEASE AS A PRERELEASE
+# 1. Update manifest-beta.json version if necessary
+# 2. npm run internal-release
 
 on:
   push:
-    # Sequence of patterns matched against refs/tags
-    # branches:
-    #   - main
     tags:
-    - '*' # Push events to matching any tag format, i.e. 1.0, 20.15.10
+      - 'internal-test'
 
 jobs:
   build:
@@ -21,16 +17,13 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+        
     - name: Use Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20.x' # You might need to adjust this value to your own version
 
-    # Get the version number and put it in a variable
-    # - name: Get Version
-    #   id: version
-    #   run: |
-    #     echo "{name}={tag::$(git describe --abbrev=0)}" >> $GITHUB_OUTPUT
+
 
     # Build the plugin
     - name: Build
@@ -39,15 +32,18 @@ jobs:
         npm install
         npm run build --if-present
 
+
     # Package the required files into a zip
+    # Using manifest-beta.json in place of manifest.json
     - name: Package
       run: |
         mkdir ${{ github.event.repository.name }}
-        cp ./dist/manifest.json ${{ github.event.repository.name }}
+        cp ./dist/manifest-beta.json ${{ github.event.repository.name }}/manifest.json
         cp ./dist/main.js ${{ github.event.repository.name }}
         cp ./dist/styles.css ${{ github.event.repository.name }}
         cp README.md ${{ github.event.repository.name }}
         zip -r ${{ github.event.repository.name }}.zip ${{ github.event.repository.name }}
+
 
     # Create the release on github
     - name: Create Release
@@ -55,12 +51,16 @@ jobs:
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        VERSION: ${{ github.ref_name }}
       with:
-        tag_name: ${{ github.ref_name }}
-        release_name: ${{ github.ref_name }}
-        draft: true
-        prerelease: false
+        tag_name: internal-test
+        release_name: internal-test
+        body: |
+          ### This is an internal release for testing. Do not install.
+          This will not install automatically through the plugin directory or through BRAT, and you shouldn't attempt to force it to install.
+          It is for internal testing only and may negatively impact your files.
+        draft: false
+        prerelease: true
+
 
     # Upload the packaged release file
     - name: Upload zip file
@@ -71,7 +71,7 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./${{ github.event.repository.name }}.zip
-        asset_name: ${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip
+        asset_name: ${{ github.event.repository.name }}.zip
         asset_content_type: application/zip
     
     # Upload the main.js
@@ -109,5 +109,3 @@ jobs:
         asset_path: ${{ github.event.repository.name }}/styles.css
         asset_name: styles.css
         asset_content_type: text/css
-
-    # TODO: release notes???

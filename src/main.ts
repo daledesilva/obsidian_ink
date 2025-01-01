@@ -17,6 +17,7 @@ import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './g
 import * as semver from "semver";
 import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
+import { debug } from './utils/log-to-console';
 
 ////////
 ////////
@@ -29,6 +30,8 @@ export default class InkPlugin extends Plugin {
 
 		// const setPlugin = useSetAtom(inkPluginAtom);
 		// setPlugin(this);
+
+		debug('onload');
 
 		addIcon('bluesky', blueskySvgStr);
 		addIcon('mastodon', mastodonSvgStr);

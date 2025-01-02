@@ -32,27 +32,24 @@ interface LogOptions {
 }
 
 export function info(_data: any|any[], _options: LogOptions = {}) {
-    // TODO: check production environment?
     print(chalk.blue.bold('Ink info:'), _data, _options);
 }
 export function warn(_data: any|any[], _options: LogOptions = {}) {
-    // TODO: check production environment?
     print(chalk.yellow.bold('Ink warn:'), _data, _options);
 }
 export function error(_data: any|any[], _options: LogOptions = {}) {
-    // TODO: check production environment?
     print(chalk.red.bold('Ink error:'), _data, _options);
 }
 export function debug(_data: any|any[], _options: LogOptions = {}) {
-    // TODO: check production environment?
+    if(process.env.NODE_ENV === 'production') return;
     print(chalk.green.bold('Ink debug:'), _data, _options);
 }
 export function http(_data: any|any[], _options: LogOptions = {}) {
-    // TODO: check production environment?
+    if(process.env.NODE_ENV === 'production') return;
     print(chalk.magenta.bold('Ink http:'), _data, _options);
 }
 export function verbose(_data: any|any[], _options: LogOptions = {}) {
-    // TODO: check production environment?
+    if(process.env.NODE_ENV === 'production') return;
     print(chalk.cyan.bold('Ink verbose:'), _data, _options);
 }
 

@@ -308,7 +308,7 @@ export const useStash = (plugin: InkPlugin) => {
 			// REVIEW: This often throws an error on ipad. I'm not sure why.
 			if(staleShapeIds.length >= 5) showStrokeLimitTips_maybe(plugin);
 		} catch(error) {
-			console.log('stashStaleContent when calling showStrokeLimitTips_maybe', error);
+			verbose('Error from stashing stale content (when calling showStrokeLimitTips_maybe)', error);
 		}
 
 	};
@@ -507,7 +507,7 @@ export function deleteObsoleteTemplateShapes(tlStoreSnapshot: TLStoreSnapshot): 
 		([key, tlRecord]) => {
 			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);
 			if (isObsoleteObj) {
-				console.log('Removing old ink element to update file:', tlRecord)
+				info(['Removing old ink elements to update file:', tlRecord])
 				return false;
 			}
 			return true
@@ -739,7 +739,7 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
  * Good for screenshots and other non-interactive states.
  */
 export const resizeWritingTemplateTightly = (editor: Editor) => {
-	console.log('resizeWritingTemplateTightly')
+	verbose('resizeWritingTemplateTightly')
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return;
 

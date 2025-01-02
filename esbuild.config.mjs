@@ -106,6 +106,9 @@ esbuild.build({
 		// Renames main.css to styles.css as that's what obsidian expects
 		renamePlugin(),
 	],
+	define: {
+		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development')
+	}
 }).catch(() => process.exit(1));
 
 

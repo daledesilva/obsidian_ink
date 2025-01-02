@@ -150,4 +150,8 @@ export function removeEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext
 	}
 
 	cmEditor.replaceRange( '', editorStart, editorEnd );
+
+	// NOTE: The page scroll position can jump significantly off when an embed is removed.
+	// This puts it back where the user expects.
+	cmEditor.setCursor(editorStart);
 }

@@ -27,6 +27,7 @@ export const WRITING_PAGE_WIDTH = 2000;
 export const WRITING_LINE_HEIGHT = 150;
 export const WRITING_MIN_PAGE_HEIGHT = WRITING_LINE_HEIGHT * 1.5;
 
-export const DRAWING_INITIAL_WIDTH = 500;
+// export const DRAWING_INITIAL_CANVAS_WIDTH = 4000;
+export const DRAWING_INITIAL_WIDTH = 500;   // 750 // HACK: This sizing is a guestimation. It won't work for all themes.
 export const DRAWING_INITIAL_ASPECT_RATIO = 1;
 export const DRAWING_INITIAL_HEIGHT = Math.round(DRAWING_INITIAL_WIDTH * DRAWING_INITIAL_ASPECT_RATIO);

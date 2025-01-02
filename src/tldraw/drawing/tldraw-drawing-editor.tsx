@@ -9,7 +9,7 @@ import { TFile } from 'obsidian';
 import { savePngExport } from "src/utils/savePngExport";
 import { duplicateWritingFile, rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
-import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
+import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS, DRAWING_INITIAL_CANVAS_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from 'src/constants';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import DrawingMenu from '../drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
@@ -19,7 +19,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from './drawing-embed';
 import { getInkFileData } from 'src/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
-import { verbose } from 'src/utils/log-to-console';
+import { debug, verbose, warn } from 'src/utils/log-to-console';
 
 ///////
 ///////
@@ -41,7 +41,6 @@ interface TldrawDrawingEditorProps {
 // Wraps the component so that it can full unmount when inactive
 export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditorProps> = (props) => {
     const editorActive = useAtomValue(editorActiveAtom);
-	verbose(['EDITOR ACTIVE', editorActive])
 
     if(editorActive) {
         return <TldrawDrawingEditor {...props} />
@@ -67,15 +66,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	
 	// On mount
 	React.useEffect( ()=> {
-		//console.log('EDITOR mounted');
+		verbose('EDITOR mounted');
 		fetchFileData();
 		return () => {
-			//console.log('EDITOR unmounting');
+			verbose('EDITOR unmounting');
 		}
 	}, [])
 
 	if(!tlStoreSnapshot) return <></>
-	//console.log('EDITOR snapshot loaded')
+	verbose('EDITOR snapshot loaded')
 
 	const defaultComponents = {
 		Scribble: TldrawScribble,
@@ -101,10 +100,16 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		// view setup
 		initDrawingCamera(editor);
 		if (props.embedded) {
+			
+			// HACK: Adjust zoom to to make line thickness similar to writing
+			// Abandone this because it requires more to know if the file is new or not
+			// editor.setCamera({ ...curCameraProps, z: 0.5 })
+
 			editor.setCameraOptions({
 				isLocked: true,
 			})
 		}
+
 
 		// Make visible once prepared
 		if(editorWrapperRefEl.current) {
@@ -145,8 +150,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 				default:
 					// Catch anything else not specifically mentioned (ie. erase, draw shape, etc.)
 					queueOrRunStorePostProcesses(editor);
-					// console.log('Activity not recognised.');
-					// console.log('entry', JSON.parse(JSON.stringify(entry)) );
+					verbose('Activity not recognised.');
+					verbose(['entry', entry], {freeze: true});
 			}
 
 		}, {
@@ -242,7 +247,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
-		// console.log('incrementalSave');
+		verbose('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const tlStoreSnapshot = tlEditorSnapshot.document;
 
@@ -254,7 +259,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
-		// console.log('completeSave');
+		verbose('completeSave');
 		let previewUri;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);

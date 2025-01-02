@@ -7,7 +7,10 @@
 		"dev": "node esbuild.config.mjs",
 		"test": "jest",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"version": "node version-bump.mjs && git add manifest.json versions.json"
+		"version": "node version-bump.mjs && git add manifest.json versions.json",
+		"internal-release": "sh ./scripts/internal-release.sh",
+		"beta-release": "sh ./scripts/beta-release.sh",
+		"public-release": "sh ./scripts/public-release.sh"
 	},
 	"keywords": [],
 	"author": "",

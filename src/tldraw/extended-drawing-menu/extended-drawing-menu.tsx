@@ -18,7 +18,7 @@ export const ExtendedDrawingMenu: React.FC<{
         >
             {props.onLockClick && (
                 <button
-                    onPointerDown = {() => props.onLockClick()}
+                    onPointerDown = {() => props.onLockClick?.()}
                 >
                     <LockIcon/>
                 </button>            

@@ -12,7 +12,7 @@ const insertRememberedWritingFile = async (plugin: InkPlugin, editor: Editor) =>
     const v = plugin.app.vault;
 
     const existingFilePath = fetchLocally('rememberedWritingFile');
-    if(!existingFilePath) {
+    if(!existingFilePath || typeof existingFilePath !== 'string') {
         new Notice('Copy a writing embed first.');
         return;
     }

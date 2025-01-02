@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -41,7 +41,7 @@ interface TldrawDrawingEditorProps {
 // Wraps the component so that it can full unmount when inactive
 export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditorProps> = (props) => {
     const editorActive = useAtomValue(editorActiveAtom);
-	verbose('EDITOR ACTIVE', editorActive)
+	verbose(['EDITOR ACTIVE', editorActive])
 
     if(editorActive) {
         return <TldrawDrawingEditor {...props} />
@@ -58,7 +58,7 @@ const tlOptions: Partial<TldrawOptions> = {
 
 export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 
-	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>()
+	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -182,7 +182,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.plugin, props.drawingFile)
-        if(inkFileData.tldraw) setTldrawSnapshot( prepareDrawingSnapshot(inkFileData.tldraw) )
+        if(inkFileData.tldraw) {
+			// FIXME: Probably an issue here that needs fixing as I'm not sure the inkFileData is the right format for this
+            const snapshot = prepareDrawingSnapshot(inkFileData.tldraw as TLStoreSnapshot) as TLStoreSnapshot;
+            setTldrawSnapshot(snapshot);
+        }
     }
 
 	const embedPostProcess = (editor: Editor) => {

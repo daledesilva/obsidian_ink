@@ -368,7 +368,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.plugin, props.writingFile)
-        if(inkFileData.tldraw) setTldrawSnapshot( prepareWritingSnapshot(inkFileData.tldraw) )
+        if(inkFileData.tldraw) {
+			// FIXME: Probably an issue here that needs fixing as I'm not sure the inkFileData is the right format for this
+            const snapshot = prepareWritingSnapshot(inkFileData.tldraw as TLStoreSnapshot) as TLStoreSnapshot;
+            setTldrawSnapshot(snapshot);
+        }
     }
 
 };

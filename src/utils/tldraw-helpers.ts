@@ -57,7 +57,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 			const record = addedRecords[i];
 			if (record.typeName == 'shape' && record.type == 'draw') {
 				summary.drawShapesStarted += 1;
-				if (record.props.isComplete === true) {
+				if ('isComplete' in record.props && record.props.isComplete === true) {
 					summary.drawShapesCompleted += 1;
 				};
 			}
@@ -69,7 +69,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 		for (let i = 0; i < updatedRecords.length; i++) {
 			const recordFinalState = updatedRecords[i][1];
 			if (recordFinalState.typeName == 'shape' && recordFinalState.type == 'draw') {
-				if (recordFinalState.props.isComplete === true) {
+				if ('isComplete' in recordFinalState.props && recordFinalState.props.isComplete === true) {
 					summary.drawShapesCompleted += 1;
 				} else {
 					summary.drawShapesContinued += 1;
@@ -256,7 +256,9 @@ function getCompleteShapes(editor: Editor) {
 	let completeShapes: TLShape[] = [];
 	for (let i = 0; i < allShapes.length; i++) {
 		const shape = allShapes[i];
-		if (shape.props.isComplete === true) completeShapes.push(shape);
+		if ('isComplete' in shape.props && shape.props.isComplete === true) {
+			completeShapes.push(shape);
+		}
 	}
 
 	// Order according to y position
@@ -272,7 +274,9 @@ function getIncompleteShapes(editor: Editor) {
 	let incompleteShapes: TLShape[] = [];
 	for (let i = 0; i < allShapes.length; i++) {
 		const shape = allShapes[i];
-		if (shape.props.isComplete === false) incompleteShapes.push(shape);
+		if ('isComplete' in shape.props && shape.props.isComplete === false) {
+			incompleteShapes.push(shape);
+		}
 	}
 	return incompleteShapes;
 }

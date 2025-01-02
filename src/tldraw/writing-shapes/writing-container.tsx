@@ -1,4 +1,4 @@
-import { HTMLContainer, Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnBeforeUpdateHandler, TLOnResizeHandler, TLOnTranslateHandler, resizeBox } from '@tldraw/tldraw';
+import { HTMLContainer, Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnBeforeUpdateHandler, TLOnResizeHandler, TLOnTranslateHandler, TLShapeUtilCanBindOpts, resizeBox } from '@tldraw/tldraw';
 import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -53,7 +53,7 @@ export class WritingContainerUtil extends ShapeUtil<WritingContainer> {
 	// }
 
 	// Don't let arrows or lines bind one of their ends to it
-	override canBind = (shape: WritingContainer) => false
+	override canBind = (opts: TLShapeUtilCanBindOpts<WritingContainer>) => false
 
 	// Prevent rotating the container
 	override hideRotateHandle = (shape: WritingContainer) => true

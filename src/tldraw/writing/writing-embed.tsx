@@ -17,6 +17,7 @@ import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { getInkFileData } from "src/utils/getInkFileData";
+import { verbose } from "src/utils/log-to-console";
 
 ///////
 ///////
@@ -172,16 +173,17 @@ export function WritingEmbed (props: {
 	}
 
 	function switchToEditMode() {
-		console.log('--------------- SET EMBED STATE TO loadingEditor')
+		verbose('Set WritingEmbedState: loadingEditor')
 		setEmbedState(WritingEmbedState.loadingEditor);
 	}
 	
 	async function saveAndSwitchToPreviewMode() {
+		verbose('Set WritingEmbedState: loadingPreview');
+
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
 
-		//console.log('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(WritingEmbedState.loadingPreview);
 	}
 	

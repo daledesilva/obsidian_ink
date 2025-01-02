@@ -7,11 +7,12 @@ import { getBaseAttachmentPath } from "./getBaseAttachmentPath";
 import { getWritingSubfolderPath, getDrawingSubfolderPath } from "./getSubfolderPaths";
 import { parseFilepath } from "./parseFilepath";
 import { getObsidianAttachmentFolderPath } from "./obsidian-interfaces";
+import { debug } from "./log-to-console";
 
 /////////
 /////////
 
-export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin, instigatingFile?: TFile | null) => {
+export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin, instigatingFile?: TFile | null): Promise<string> => {
     const obsAttachmentFolderPath = await getObsidianAttachmentFolderPath(plugin);
     const instigatingFileFolderPath = instigatingFile ? parseFilepath(instigatingFile?.path).folderpath : null;
     let basePath = await getBaseAttachmentPath(plugin, {
@@ -19,7 +20,8 @@ export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin, instig
         instigatingFileFolderPath,
     });
     let subFolderPath = getWritingSubfolderPath(plugin);
-    return getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, `${basePath}/${subFolderPath}`);
+    const fullPath = await getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, `${basePath}/${subFolderPath}`);
+    return fullPath;
 }
 
 export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin, instigatingFile?: TFile | null) => {
@@ -30,7 +32,8 @@ export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin, instig
         instigatingFileFolderPath,
     });
     let subFolderPath = getDrawingSubfolderPath(plugin);
-    return getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, `${basePath}/${subFolderPath}`);
+    const fullPath = await getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, `${basePath}/${subFolderPath}`);
+    return fullPath;
 }
 
 const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, folderPath: string): Promise<string> => {

@@ -12,6 +12,7 @@ import { store } from "src/logic/stores";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
+import { debug } from "src/utils/log-to-console";
 
 ////////
 ////////
@@ -43,6 +44,7 @@ export function registerDrawingEmbed(plugin: InkPlugin) {
 function updateEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el: HTMLElement, embedData: DrawingEmbedData) {
 	// clearTimeout(updateTimer);
 
+	// NOTE: The timeout stuff was here because I was trying to do this on every save... but it remounts the whole embed.
 	// updateTimer = setTimeout( () => {
 		
 		const cmEditor = plugin.app.workspace.activeEditor?.editor;
@@ -61,6 +63,11 @@ function updateEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el: H
 		}
 		
 		cmEditor.replaceRange( stringifyEmbedData(embedData), embedStart, embedEnd );
+
+		// So even though it doesn't activate the visible cursor again when the embed updates & locks, it scrolls the cursors last position.
+		// This prevents that.
+		cmEditor.setCursor(embedStart);
+
 	// }, 1000)
 	
 }

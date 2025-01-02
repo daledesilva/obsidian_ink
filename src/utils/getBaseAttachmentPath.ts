@@ -2,6 +2,7 @@ import { Notice, TFile } from "obsidian";
 import InkPlugin from "src/main";
 import { parseFilepath } from "./parseFilepath";
 import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
+import { warn } from "./log-to-console";
 
 /////////////
 /////////////
@@ -29,7 +30,6 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instiga
         if(options.obsAttachmentFolderPath) {
             baseAttachmentPath = options.obsAttachmentFolderPath;
         } else {
-            console.warn(`Ink Plugin: There was an error accessing the default Obsidian attachment folder. Placing the new file in the vault's root instead.`);
             baseAttachmentPath = '';
         }
 
@@ -38,7 +38,7 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instiga
         if(options.instigatingFileFolderPath) {
             baseAttachmentPath = options.instigatingFileFolderPath;
         } else {
-            console.warn(`Ink Plugin: There was an error accessing the note's folder. Placing the new file in the vault's root instead.`);
+            warn(`There was an error accessing the note's folder. Placing the new file in the vault's root instead.`);
             baseAttachmentPath = '';
         }
         
@@ -48,8 +48,6 @@ export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instiga
     }
 
     return baseAttachmentPath;
-
-    
 };
 
 

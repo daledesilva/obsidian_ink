@@ -209,18 +209,19 @@ export function DrawingEmbed (props: {
 	// }
 
 	function switchToEditMode() {
+		verbose('Set DrawingEmbedState: loadingEditor')
 		applyEmbedHeight();
 		setEmbedState(DrawingEmbedState.loadingEditor);
 	}
 
 	async function saveAndSwitchToPreviewMode() {
+		verbose('Set DrawingEmbedState: loadingPreview');
+
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
 		
-		verbose('--------------- SET EMBED STATE TO loadingPreview')
 		setEmbedState(DrawingEmbedState.loadingPreview);
-
 		props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
 	}
 

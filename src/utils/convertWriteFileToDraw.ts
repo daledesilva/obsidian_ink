@@ -2,7 +2,7 @@ import { TFile } from "obsidian";
 import { DRAW_FILE_EXT, WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
-import { TLShapeId, TLStoreSnapshot } from "@tldraw/tldraw";
+import { TLEditorSnapshot, TLShapeId, TLStoreSnapshot } from "@tldraw/tldraw";
 
 
 export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => {
@@ -14,7 +14,7 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
 
     // Remove the page container from the file
     if ('store' in pageData.tldraw) {
-        const store = (pageData.tldraw as TLStoreSnapshot).store;
+        const store = (pageData.tldraw as TLEditorSnapshot).document.store;
         if (store['shape:writing-container' as TLShapeId]) {
             delete store['shape:writing-container' as TLShapeId];
             await v.modify(file, JSON.stringify(pageData));

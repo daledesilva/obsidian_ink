@@ -165,8 +165,8 @@ export function DrawingEmbed (props: {
 		</div>
 	</>;
 
-	// Helper functions
-	///////////////////
+	//// Helper functions
+	/////////////////////
 
 	function registerEditorControls(handlers: DrawingEditorControls) {
 		editorControlsRef.current = handlers;

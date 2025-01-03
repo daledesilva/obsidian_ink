@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, TLSerializedStore, Box } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, Box, TLEditorSnapshot } from "@tldraw/tldraw";
 import { WRITE_STROKE_LIMIT, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
@@ -486,12 +486,12 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 // }
 
 
-export function prepareWritingSnapshot(tlStoreSnapshot: TLStoreSnapshot): TLStoreSnapshot {
-	return deleteObsoleteTemplateShapes(tlStoreSnapshot);
+export function prepareWritingSnapshot(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
+	return deleteObsoleteWritingTemplateShapes(TLEditorSnapshot);
 }
 
-export function prepareDrawingSnapshot(tlStoreSnapshot: TLStoreSnapshot): TLStoreSnapshot {
-	return tlStoreSnapshot;
+export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
+	return tlEditorSnapshot;
 }
 
 
@@ -500,15 +500,22 @@ export function prepareDrawingSnapshot(tlStoreSnapshot: TLStoreSnapshot): TLStor
  * See updateWritingStoreIfNeeded.
  * // TODO: This desperately needs unit testing as it can delete elements from the users file
  */
-export function deleteObsoleteTemplateShapes(tlStoreSnapshot: TLStoreSnapshot): TLStoreSnapshot {
-	const updatedSnapshot = JSON.parse(JSON.stringify(tlStoreSnapshot));
+export function deleteObsoleteWritingTemplateShapes(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
+	const updatedSnapshot = JSON.parse(JSON.stringify(TLEditorSnapshot));
 	
 	let obsoleteShapeIds: TLShapeId[] = [
 		'shape:primary_container' as TLShapeId,	// From before version 0.1.192
 		'shape:handwriting_lines' as TLShapeId,	// From while testing
 	];
 
-	const filteredStore = Object.entries(tlStoreSnapshot.store).filter(
+	let updatedStore = TLEditorSnapshot?.document?.store;
+	if(!updatedStore) {
+		// Old format (Will update on save);
+		// @ts-ignore
+		updatedStore = TLEditorSnapshot.store;
+	}
+	
+	const filteredStore = Object.entries(updatedStore).filter(
 		([key, tlRecord]) => {
 			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);
 			if (isObsoleteObj) {
@@ -518,7 +525,7 @@ export function deleteObsoleteTemplateShapes(tlStoreSnapshot: TLStoreSnapshot): 
 			return true
 		}
 	);
-	updatedSnapshot.store = Object.fromEntries(filteredStore);
+	updatedStore = Object.fromEntries(filteredStore);
 
 	return updatedSnapshot;
 }

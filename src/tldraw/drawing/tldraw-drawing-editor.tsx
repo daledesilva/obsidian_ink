@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore, TLEditorSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -57,7 +57,7 @@ const tlOptions: Partial<TldrawOptions> = {
 
 export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 
-	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot>()
+	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -73,7 +73,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		}
 	}, [])
 
-	if(!tlStoreSnapshot) return <></>
+	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')
 
 	const defaultComponents = {
@@ -183,9 +183,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.plugin, props.drawingFile)
         if(inkFileData.tldraw) {
-			// FIXME: Probably an issue here that needs fixing as I'm not sure the inkFileData is the right format for this
-            const snapshot = prepareDrawingSnapshot(inkFileData.tldraw as TLStoreSnapshot) as TLStoreSnapshot;
-            setTldrawSnapshot(snapshot);
+            const snapshot = prepareDrawingSnapshot(inkFileData.tldraw as TLEditorSnapshot);
+            setTlEditorSnapshot(snapshot);
         }
     }
 
@@ -244,10 +243,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	const incrementalSave = async (editor: Editor) => {
 		verbose('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const tlStoreSnapshot = tlEditorSnapshot.document;
-
 		const pageData = buildDrawingFileData({
-			tlStoreSnapshot,
+			tlEditorSnapshot: tlEditorSnapshot,
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
@@ -258,9 +255,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		let previewUri;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const tlStoreSnapshot = tlEditorSnapshot.document;
 		const svgObj = await getDrawingSvg(editor);
-
 
 		if (svgObj) {
 			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
@@ -269,7 +264,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		
 		if(previewUri) {
 			const pageData = buildDrawingFileData({
-				tlStoreSnapshot,
+				tlEditorSnapshot,
 				previewUri,
 			})
 			props.save(pageData);
@@ -277,7 +272,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 
 		} else {
 			const pageData = buildDrawingFileData({
-				tlStoreSnapshot,
+				tlEditorSnapshot: tlEditorSnapshot,
 			})
 			props.save(pageData);
 		}
@@ -321,7 +316,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 				shapeUtils = {[...defaultShapeUtils]}
 				tools = {[...defaultTools, ...defaultShapeTools]}
 				initialState = "draw"
-				snapshot = {tlStoreSnapshot}
+				snapshot = {tlEditorSnapshot}
 				// persistenceKey = {props.fileRef.path}
 
 				// bindingUtils = {defaultBindingUtils}

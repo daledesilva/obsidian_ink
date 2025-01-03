@@ -1,4 +1,4 @@
-import { TLSerializedStore, TLStoreSnapshot } from '@tldraw/tldraw';
+import { TLEditorSnapshot } from '@tldraw/tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 
 ///////
@@ -13,7 +13,7 @@ type Metadata = {
 
 export type InkFileData = {
 	meta: Metadata;
-	tldraw: TLStoreSnapshot | TLSerializedStore;
+	tldraw: TLEditorSnapshot;
 	previewUri?: string;
 };
 
@@ -21,7 +21,7 @@ export type InkFileData = {
 ///////
 
 export const buildWritingFileData = (props: {
-	tlStoreSnapshot: TLStoreSnapshot | TLSerializedStore,
+	tlEditorSnapshot: TLEditorSnapshot,
 	previewIsOutdated?: boolean;
 	transcript?: string;
 	previewUri?: string,
@@ -31,7 +31,7 @@ export const buildWritingFileData = (props: {
 }
 
 export const buildDrawingFileData = (props: {
-	tlStoreSnapshot: TLStoreSnapshot | TLSerializedStore,
+	tlEditorSnapshot: TLEditorSnapshot,
 	previewIsOutdated?: boolean;
 	previewUri?: string,
 }): InkFileData => {
@@ -40,14 +40,14 @@ export const buildDrawingFileData = (props: {
 }
 
 const buildFileData = (props: {
-	tlStoreSnapshot: TLStoreSnapshot | TLSerializedStore,
+	tlEditorSnapshot: TLEditorSnapshot,
 	previewIsOutdated?: boolean;
 	transcript?: string;
 	previewUri?: string,
 }): InkFileData => {
 
 	const {
-		tlStoreSnapshot,
+		tlEditorSnapshot: tlEditorSnapshot,
 		previewUri,
 		previewIsOutdated = false,
 	} = props;
@@ -57,7 +57,7 @@ const buildFileData = (props: {
 			pluginVersion: PLUGIN_VERSION,
 			tldrawVersion: TLDRAW_VERSION,
 		},
-		tldraw: tlStoreSnapshot,
+		tldraw: tlEditorSnapshot,
 	}
 
 	if(previewIsOutdated) pageData.meta.previewIsOutdated = previewIsOutdated;

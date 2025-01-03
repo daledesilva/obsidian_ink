@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteWritingTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
 import { WritingMenu } from "../writing-menu/writing-menu";
 import InkPlugin from "../../main";
@@ -56,7 +56,7 @@ const tlOptions: Partial<TldrawOptions> = {
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
-	const [tlStoreSnapshot, setTldrawSnapshot] = React.useState<TLStoreSnapshot | TLSerializedStore>()
+	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -75,7 +75,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 	}, [])
 
-	if(!tlStoreSnapshot) return <></>
+	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')
 
 	////////
@@ -259,11 +259,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		verbose('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const tlStoreSnapshot = tlEditorSnapshot.document;
 		stashStaleContent(editor);
 
 		const pageData = buildWritingFileData({
-			tlStoreSnapshot,
+			tlEditorSnapshot: tlEditorSnapshot,
 			previewIsOutdated: true,
 		})
 		props.save(pageData);
@@ -275,7 +274,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const tlStoreSnapshot = tlEditorSnapshot.document;
 		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 		
@@ -286,7 +284,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		if(previewUri) {
 			const pageData = buildWritingFileData({
-				tlStoreSnapshot,
+				tlEditorSnapshot: tlEditorSnapshot,
 				previewUri,
 			})
 			props.save(pageData);
@@ -294,7 +292,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		} else {
 			const pageData = buildWritingFileData({
-				tlStoreSnapshot,
+				tlEditorSnapshot: tlEditorSnapshot,
 			})
 			props.save(pageData);
 		}
@@ -325,7 +323,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes]}
 				tools = {[...defaultTools, ...defaultShapeTools]}
 				initialState = "draw"
-				snapshot = {tlStoreSnapshot}
+				snapshot = {tlEditorSnapshot}
 				// persistenceKey = {props.fileRef.path}
 
 				// bindingUtils = {defaultBindingUtils}
@@ -363,9 +361,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.plugin, props.writingFile)
         if(inkFileData.tldraw) {
-			// FIXME: Probably an issue here that needs fixing as I'm not sure the inkFileData is the right format for this
-            const snapshot = prepareWritingSnapshot(inkFileData.tldraw as TLStoreSnapshot) as TLStoreSnapshot;
-            setTldrawSnapshot(snapshot);
+            const snapshot = prepareWritingSnapshot(inkFileData.tldraw as TLEditorSnapshot);
+            setTlEditorSnapshot(snapshot);
         }
     }
 

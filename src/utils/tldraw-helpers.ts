@@ -139,7 +139,12 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 
 export function initDrawingCamera(editor: Editor) {
 	const allShapesBounds = editor.getCurrentPageBounds();
-	if (!allShapesBounds) return;
+	if (!allShapesBounds) {
+		// Adjust zoom to to make line thickness similar to writing
+		const curCameraProps = editor.getCamera();
+		editor.setCamera({ ...curCameraProps, z: 0.3 })
+		return;
+	};
 
 	const targetZoom = 1;
 	editor.zoomToBounds(allShapesBounds, { targetZoom });

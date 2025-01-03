@@ -100,11 +100,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		// view setup
 		initDrawingCamera(editor);
 		if (props.embedded) {
-			
-			// HACK: Adjust zoom to to make line thickness similar to writing
-			// Abandone this because it requires more to know if the file is new or not
-			// editor.setCamera({ ...curCameraProps, z: 0.5 })
-
 			editor.setCameraOptions({
 				isLocked: true,
 			})

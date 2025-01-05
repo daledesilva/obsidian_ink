@@ -32,6 +32,7 @@ function showChanges(plugin: InkPlugin) {
     listEl.createEl('li').setText(`Single click unlock for embeds & multiple embeds unlocked at once.`);
     listEl.createEl('li').setText(`More seamless transitions between locked and unlocked writing embeds.`);
     listEl.createEl('li').setText(`Visible grid in drawing mode (Toggle from dropdown).`);
+    listEl.createEl('li').setText(`Drawing stroke/zoom now defaults similar to writing.`);
     listEl.createEl('li').setText(`Insert commands now have temporary icons.`);
     listEl.createEl('li').setText(`Many bug fixes and tweaks under the hood to lay groundwork for future updates and better efficiency.`);
     

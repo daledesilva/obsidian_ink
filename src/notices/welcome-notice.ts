@@ -26,7 +26,7 @@ export async function showWelcomeTips(plugin: InkPlugin) {
         tertiaryBtnEl
     } = createNoticeCtaBar(noticeBody, {
         primaryLabel: `Read now`,
-        tertiaryLabel: 'Read later',
+        tertiaryLabel: 'Remind me later',
     })
     
     const notice = launchPersistentInkNotice(noticeBody);
@@ -49,7 +49,7 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
     noticeBody.createEl('p').setText(`In any markdown note, run the following command to begin writing where your cursor is.`);
-    noticeBody.createEl('blockquote').setText(`"Insert new handwriting section"`);
+    noticeBody.createEl('blockquote').setText(`"Ink: New handwriting section"`);
     noticeBody.createEl('p').setText(`( Cmd+P or swipe down )`);
     
     const {
@@ -74,8 +74,8 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
 function showDrawingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Drawing sections...`);
-    noticeBody.createEl('p').setText(`Drawing sections are in early development.`);
-    noticeBody.createEl('p').setText(`You can turn them on in the settings (and restart Obsidian) if you'd like to begin using them.`);
+    noticeBody.createEl('p').setText(`These can be added too and can be resized right in your markdown file.`);
+    noticeBody.createEl('blockquote').setText(`"Ink: New drawing"`);
 
     const {
         primaryBtnEl,
@@ -124,9 +124,15 @@ function showSyncingWelcomeTip(plugin: InkPlugin) {
 
 function showDevelopmentWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
-    noticeBody.createEl('h1').setText(`Help improve Ink...`);
-    noticeBody.createEl('p').setText(`Ink is under construction. This means it has features missing and sometimes has bugs.`);
-    noticeBody.createEl('p').setText(`If you notice any, please report them through the link in the settings.`);
+    noticeBody.createEl('h1').setText(`Get involved...`);
+    noticeBody.createEl('p').setText(`If you notice any bugs, please report them through the link in the settings.`);
+    noticeBody.createEl('p').setText(`You can also follow along with development and let me know which features are important to you at the link below.`);
+
+    const link = noticeBody.createEl('a');
+    link.setAttribute('href', 'https://youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL&si=GVp9ILvCAaRTwyYd')
+    link.setText(`Ink development diaries`);
+    // Prevent clicking link from closing notice
+    link.onClickEvent( e => e.stopPropagation())
     
     const {
         tertiaryBtnEl

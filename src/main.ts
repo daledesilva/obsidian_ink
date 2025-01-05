@@ -87,19 +87,19 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'create-handwritten-section',
 		name: 'New handwriting section',
-		icon: 'pen-line',
+		icon: 'signature',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file',
 		name: 'Existing handwriting section',
-		icon: 'pen-line',
+		icon: 'folder-pen',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'insert-copied-writing',
 		name: 'Copied handwriting section',
-		icon: 'pen-line',
+		icon: 'clipboard-pen',
 		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
 	});
 }
@@ -114,13 +114,13 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'embed-drawing-file',
 		name: 'Existing drawing',
-		icon: 'shapes',
+		icon: 'folder-dot',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'insert-copied-drawing',
 		name: 'Copied drawing',
-		icon: 'shapes',
+		icon: 'clipboard-pen-line',
 		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 }

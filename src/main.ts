@@ -19,6 +19,7 @@ import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
 import { debug } from './utils/log-to-console';
 import { drawingEmbedExtension } from './extensions/decorations/drawing-embed-extension';
+import { setGlobals } from './stores/global-store';
 
 ////////
 ////////
@@ -29,8 +30,9 @@ export default class InkPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// const setPlugin = useSetAtom(inkPluginAtom);
-		// setPlugin(this);
+		setGlobals({
+			plugin: this,
+		})
 
 		addIcon('bluesky', blueskySvgStr);
 		addIcon('mastodon', mastodonSvgStr);

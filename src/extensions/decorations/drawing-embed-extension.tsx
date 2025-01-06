@@ -11,8 +11,11 @@ import {
     EditorView,
     WidgetType,
 } from "@codemirror/view";
+import { MarkdownView } from 'obsidian';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
+import { getGlobals } from 'src/stores/global-store';
+import DrawingEmbed from 'src/tldraw/drawing/drawing-embed';
 import { debug } from 'src/utils/log-to-console';
 
 /////////////////////
@@ -32,6 +35,18 @@ export class DrawingEmbedWidget extends WidgetType {
         const rootEl = document.createElement('div');
         const root = createRoot(rootEl);
         root.render(
+            // <JotaiProvider>
+			// 	<DrawingEmbed
+			// 		plugin = {this.plugin}
+			// 		drawingFileRef = {this.fileRef}
+			// 		pageData = {pageData}
+			// 		saveSrcFile = {this.save}
+			// 		setEmbedProps = {this.setEmbedProps}
+			// 		remove = {this.embedCtrls.removeEmbed}
+			// 		width = {this.embedData.width}
+			// 		aspectRatio = {this.embedData.aspectRatio}
+			// 	/>
+			// </JotaiProvider>
             <p>
                 {this.filepath}<br/>
                 {JSON.stringify(this.embedSettings, null, 2)}
@@ -50,17 +65,18 @@ const embedStateField = StateField.define<DecorationSet>({
     },
 
     update(oldState: DecorationSet, transaction: Transaction): DecorationSet {
-        const builder = new RangeSetBuilder<Decoration>();
+        const {plugin} = getGlobals();
+
+        
 
         // TODO: This doesn't work - need to get editor from plugin
-        // const activeEditor = app.workspace.getActiveViewOfType(MarkdownView)?.editor;
-        // if (!activeEditor) {
-        //     return oldState;
-        // }
-        // const isSourceMode = activeEditor.getMode() === "source";
-        // if(isSourceMode) {
-        //     return Decoration.none;
-        // }
+        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+        const activeEditor = activeView?.editor;
+        if (!activeEditor) return oldState;
+
+        if(activeView.currentMode.sourceMode) {
+            return Decoration.none;
+        }
 
         // NOTE: This is the order expected in the syntax tree
         // formatting-link_formatting-link-start
@@ -70,6 +86,8 @@ const embedStateField = StateField.define<DecorationSet>({
         // hmd-internal-link_link-alias-pipe
         // hmd-internal-link_link-alias --> Settings
         // formatting-link_formatting-link-end
+
+        const builder = new RangeSetBuilder<Decoration>();
 
         syntaxTree(transaction.state).iterate({
             enter(node) {

@@ -18,6 +18,7 @@ import * as semver from "semver";
 import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
 import { debug } from './utils/log-to-console';
+import { drawingEmbedExtension } from './extensions/decorations/drawing-embed-extension';
 
 ////////
 ////////
@@ -45,12 +46,18 @@ export default class InkPlugin extends Plugin {
 			registerWritingView(this);
 			registerWritingEmbed(this);
 			implementWritingEmbedActions(this);
+			// this.registerEditorExtension([
+			// 	writingEmbedExtension(),
+			// ]);
 		}
 		
 		if(this.settings.drawingEnabled) {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);		
 			implementDrawingEmbedActions(this);
+			this.registerEditorExtension([
+				drawingEmbedExtension(),
+			]);
 		}
 		
 		registerSettingsTab(this);
@@ -62,6 +69,7 @@ export default class InkPlugin extends Plugin {
 		// // });
 
 		showOnboardingTips_maybe(this);
+
 	}
 	
 	onunload() {}

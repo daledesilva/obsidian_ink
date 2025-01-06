@@ -17,6 +17,11 @@ import { createRoot } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
 import DrawingEmbed from 'src/tldraw/drawing/drawing-embed';
 import { debug } from 'src/utils/log-to-console';
+import { 
+	Provider as JotaiProvider
+} from "jotai";
+import DrawingEmbedNew from 'src/tldraw/drawing/drawing-embed-new';
+import { InkFileData } from 'src/utils/page-file';
 
 /////////////////////
 /////////////////////
@@ -34,23 +39,21 @@ export class DrawingEmbedWidget extends WidgetType {
     toDOM(view: EditorView): HTMLElement {
         const rootEl = document.createElement('div');
         const root = createRoot(rootEl);
+
+        const {plugin} = getGlobals();
+
         root.render(
-            // <JotaiProvider>
-			// 	<DrawingEmbed
-			// 		plugin = {this.plugin}
-			// 		drawingFileRef = {this.fileRef}
-			// 		pageData = {pageData}
-			// 		saveSrcFile = {this.save}
-			// 		setEmbedProps = {this.setEmbedProps}
-			// 		remove = {this.embedCtrls.removeEmbed}
-			// 		width = {this.embedData.width}
-			// 		aspectRatio = {this.embedData.aspectRatio}
-			// 	/>
-			// </JotaiProvider>
-            <p>
-                {this.filepath}<br/>
-                {JSON.stringify(this.embedSettings, null, 2)}
-            </p>
+            <JotaiProvider>
+				<DrawingEmbedNew
+					filepath = {this.filepath}
+					embedSettings = {this.embedSettings}
+					remove = {() => {}}
+				/>
+			</JotaiProvider>
+            // <p>
+            //     {this.filepath}<br/>
+            //     {JSON.stringify(this.embedSettings, null, 2)}
+            // </p>
         );
         return rootEl;
     }
@@ -79,56 +82,71 @@ const embedStateField = StateField.define<DecorationSet>({
         }
 
         // NOTE: This is the order expected in the syntax tree
-        // formatting-link_formatting-link-start
-        // hmd-internal-link_link-has-alias --> Filename
-        // hmd-internal-link_link-alias-pipe
-        // hmd-internal-link_link-alias --> Embed Type
-        // hmd-internal-link_link-alias-pipe
-        // hmd-internal-link_link-alias --> Settings
-        // formatting-link_formatting-link-end
+
+        // formatting-embed_formatting-link_formatting-link-start --> ![[
+        // hmd-embed_hmd-internal-link_link-has-alias --> Filename
+        // hmd-embed_hmd-internal-link_link-alias-pipe --> |
+        // hmd-embed_hmd-internal-link_link-alias --> Embed Type
+        // hmd-embed_hmd-internal-link_link-alias-pipe --> |
+        // hmd-embed_hmd-internal-link_link-alias --> Settings
+        // formatting-link_formatting-link-end --> ]]
 
         const builder = new RangeSetBuilder<Decoration>();
 
         syntaxTree(transaction.state).iterate({
             enter(node) {
 
-                if (node.type.name === 'hmd-internal-link_link-has-alias') {
-                    const filepathNode = node.node;
+                // ![[
+                if (node.name === 'formatting-embed_formatting-link_formatting-link-start') {
+                    // debug(['Image link node', node.type.name]);
 
-                    let firstPipeNode = node.node.nextSibling;
-                    if(firstPipeNode && firstPipeNode.name === 'hmd-internal-link_link-alias-pipe') {
-                        
-                        // Check if the link's Display Text is used for the embed type name
-                        const embedTypeAndVersionNode = firstPipeNode.node.nextSibling;
-                        if(embedTypeAndVersionNode) {
-                            const embedTypeStr = transaction.state.doc.sliceString(embedTypeAndVersionNode.from, embedTypeAndVersionNode.to);
-                            // Not trimmed because I want to keep as performent as possible.
-                            // So spaces will break it.
-                            if(embedTypeStr === 'InkDrawing') {
+                    const filepathNode = node.node.nextSibling;
+                    if (filepathNode && filepathNode.name === 'hmd-embed_hmd-internal-link_link-has-alias') {
+                        // debug(['filepathNode', filepathNode.name]);
 
-                                const secondPipeNode = embedTypeAndVersionNode.node.nextSibling;
-                                if(secondPipeNode && secondPipeNode.name === 'hmd-internal-link_link-alias-pipe') {
-                                    
-                                    const settingsNode = secondPipeNode.node.nextSibling;
-                                    if(settingsNode) {
-                                        const settingsStr = transaction.state.doc.sliceString(settingsNode.from, settingsNode.to);
+                        let firstPipeNode = filepathNode.nextSibling;
+                        if(firstPipeNode && firstPipeNode.name === 'hmd-embed_hmd-internal-link_link-alias-pipe') {
+                            // debug(['firstPipeNode', firstPipeNode.name]);
+                            
+                            // Check if the link's Display Text is used for the embed type name
+                            const embedTypeAndVersionNode = firstPipeNode.node.nextSibling;
+                            if(embedTypeAndVersionNode) {
+                                // debug(['embedTypeAndVersionNode', embedTypeAndVersionNode.name]);
+
+                                const embedTypeStr = transaction.state.doc.sliceString(embedTypeAndVersionNode.from, embedTypeAndVersionNode.to);
+                                // Not trimmed because I want to keep as performent as possible.
+                                // So spaces will break it.
+                                if(embedTypeStr === 'InkDrawing') {
+
+                                    const secondPipeNode = embedTypeAndVersionNode.node.nextSibling;
+                                    if(secondPipeNode && secondPipeNode.name === 'hmd-embed_hmd-internal-link_link-alias-pipe') {
+                                        // debug(['secondPipeNode', secondPipeNode.name]);
                                         
-                                        const endOfLinkNode = settingsNode.node.nextSibling;
-                                        if(endOfLinkNode) {
-                                            // The link is properly closed, now we can add the decoration
-                                            
-                                            const startOfLinkBrackets = filepathNode.from - 2;
-                                            const endOfLinkBrackets = endOfLinkNode.to;
-                                            const filepath = transaction.state.doc.sliceString(filepathNode.from, filepathNode.to);
-                                            const embedSettings = JSON.parse(settingsStr);
+                                        const settingsNode = secondPipeNode.node.nextSibling;
+                                        if(settingsNode) {
+                                            // debug(['settingsNode', settingsNode.name]);
 
-                                            builder.add(
-                                                startOfLinkBrackets,
-                                                endOfLinkBrackets,
-                                                Decoration.replace({
-                                                    widget: new DrawingEmbedWidget(filepath, embedSettings),
-                                                })
-                                            );
+                                            const settingsStr = transaction.state.doc.sliceString(settingsNode.from, settingsNode.to);
+                                            
+                                            const endOfLinkNode = settingsNode.node.nextSibling;
+                                            if(endOfLinkNode && endOfLinkNode.name === 'formatting-link_formatting-link-end') {
+                                                // debug(['endOfLinkNode', endOfLinkNode.name]);
+                                                // The link is properly closed, now we can add the decoration
+                                                
+                                                const startOfLinkBrackets = filepathNode.from - 3;
+                                                const endOfLinkBrackets = endOfLinkNode.to;
+                                                const filepath = transaction.state.doc.sliceString(filepathNode.from, filepathNode.to);
+                                                const embedSettings = JSON.parse(settingsStr);
+
+                                                builder.add(
+                                                    startOfLinkBrackets,
+                                                    endOfLinkBrackets,
+                                                    Decoration.replace({
+                                                        widget: new DrawingEmbedWidget(filepath, embedSettings),
+                                                    })
+                                                );
+
+                                            }
                                         }
                                     }
                                 }

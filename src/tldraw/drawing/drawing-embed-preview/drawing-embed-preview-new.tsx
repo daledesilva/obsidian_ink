@@ -9,54 +9,55 @@ import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from '../drawing-embed';
 import { getInkFileData } from 'src/utils/getInkFileData';
+import { debug, verbose } from 'src/utils/log-to-console';
+import { getGlobals } from 'src/stores/global-store';
 const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg');
 
 //////////
 //////////
 
 interface DrawingEmbedPreviewProps {
-    plugin: InkPlugin,
     onReady: Function,
-    drawingFile: TFile,
+    partialFilepath: string,
+    embedSettings: any,
 	onClick: React.MouseEventHandler,
 }
 
 // Wraps the component so that it can full unmount when inactive
-export const DrawingEmbedPreviewWrapper: React.FC<DrawingEmbedPreviewProps> = (props) => {
+export const DrawingEmbedPreviewWrapperNew: React.FC<DrawingEmbedPreviewProps> = (props) => {
     const previewActive = useAtomValue(previewActiveAtom);
 
     if (previewActive) {
-        return <DrawingEmbedPreview {...props} />
+        return <DrawingEmbedPreviewNew {...props} />
     } else {
         return <></>
     }
 }
 
-export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) => {
+export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props) => {
+    const {plugin} = getGlobals();
     const svgRef = React.useRef(null);
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
-    const [fileSrc, setFileSrc] = React.useState<string>(emptyDrawingSvg);
+
+    const file = plugin.app.vault.getAbstractFileByPath(props.partialFilepath);
+    const filepath = file ? plugin.app.vault.adapter.getResourcePath(file.path) : '';
 
     React.useEffect(() => {
-        //console.log('PREVIEW mounted');
-        fetchFileData();
+        verbose('PREVIEW mounted');
         return () => {
-            //console.log('PREVIEW unmounting');
+            verbose('PREVIEW unmounting');
         }
-    })
-
-    // Check if src is a DataURI. If not, it's an SVG
-    const isImg = fileSrc.slice(0, 4) === 'data';
+    }, [])
 
 	return <>
         <div
             ref = {containerElRef}
             className = {classNames([
                 'ddc_ink_drawing-embed-preview',
-                props.plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
-                props.plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
+                plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
+                plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
             ])}
             style = {{
                 position: 'absolute',
@@ -70,24 +71,10 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {isImg && (
-                <img
-                    src = {fileSrc}
-                    style = {{
-                        height: '100%',
-                        cursor: 'pointer',
-                        pointerEvents: 'all',
-                    }}
-                    onLoad = {onLoad}
-                />
-            )}
-
-            {!isImg && (
+            {file && (<>
                 <SVG
-                    src = {fileSrc}
+                    src = {filepath}
                     style = {{
-                        // width: 'auto',
-                        // height: '100%',
                         maxWidth: '100%',
                         maxHeight: '100%',
                         cursor: 'pointer'
@@ -95,7 +82,10 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                     pointerEvents = "visible"
                     onLoad = {onLoad}
                 />
-            )}
+            </>)}
+            {!file && (<>
+                '{props.partialFilepath}' not found
+            </>)}
         </div>
     </>;
 
@@ -105,15 +95,9 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
-            //console.log('--------------- SET EMBED STATE TO preview')
             setEmbedState(DrawingEmbedState.preview);
             props.onReady();
         }, 100);
-    }
-
-    async function fetchFileData() {
-        const inkFileData = await getInkFileData(props.plugin, props.drawingFile)
-        if (inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
     }
 
 };

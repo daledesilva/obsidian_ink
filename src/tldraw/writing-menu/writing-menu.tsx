@@ -26,7 +26,17 @@ export const WritingMenu = (props: WritingMenuProps) => {
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-
+    const [brushSize, setBrushSize] = React.useState(2);
+    const [brushColor, setBrushColor] = React.useState("light-blue"); // 默认颜色为 light-blue
+    const defaultColorNames = [
+        "black",
+        "light-blue", 
+        "blue",
+        "green",
+        "red",
+        "yellow",
+        "purple"
+    ];
     React.useEffect( () => {
         // console.log('MENUBAR MOUNTED');
         
@@ -100,7 +110,55 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		tlEditor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
-
+    const handleBrushSizeChange = (e) => {
+        e.stopPropagation();
+        const size = parseInt(e.target.value);
+        setBrushSize(size);
+      
+        const tlEditor = props.getTlEditor();
+        if (tlEditor && tlEditor.styleProps && tlEditor.styleProps.geo) {
+          // 将笔刷大小映射到 DefaultSizeStyle 的枚举值
+          let sizeLevel;
+          if (size === 1) {
+            sizeLevel = "s"; // 小
+          } else if (size === 2) {
+            sizeLevel = "m"; // 中
+          } else if (size === 3) {
+            sizeLevel = "l"; // 大
+          } else if (size === 4) {
+            sizeLevel = "xl"; // 超大
+          }
+      
+          // 找到 size 的样式属性对象
+          for (const [key, value] of tlEditor.styleProps.geo.entries()) {
+            if (value === "size") {
+              key.defaultValue = sizeLevel; // 修改 size 的默认值
+              break;
+            }
+          }
+      
+          props.onStoreChange(tlEditor); // 通知编辑器更新
+        }
+      };
+      
+      const handleBrushColorChange = (e) => {
+        e.stopPropagation();
+        const color = e.target.value;
+        setBrushColor(color);
+      
+        const tlEditor = props.getTlEditor();
+        if (tlEditor && tlEditor.styleProps && tlEditor.styleProps.geo) {
+          // 找到 color 的样式属性对象
+          for (const [key, value] of tlEditor.styleProps.geo.entries()) {
+            if (value === "color") {
+              key.defaultValue = color; // 修改 color 的默认值
+              break;
+            }
+          }
+      
+          props.onStoreChange(tlEditor); // 通知编辑器更新
+        }
+      };
     ///////////
     ///////////
 
@@ -145,6 +203,31 @@ export const WritingMenu = (props: WritingMenuProps) => {
                 >
                     <EraseIcon/>
                 </button>
+                <div className="ink_brush-controls">
+                    <input
+                        type="range"
+                        min="1"
+                        max="4"
+                        value={brushSize}
+                        onChange={handleBrushSizeChange}
+                        className="ink_brush-size"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                    <select
+                        value={brushColor}
+                        onChange={handleBrushColorChange}
+                        className="ink_brush-color"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {defaultColorNames.map((color) => (
+                            <option key={color} value={color}>
+                                {color}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
             <div
                 className='ink_other-menu'

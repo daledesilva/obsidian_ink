@@ -19,3 +19,20 @@
     }
 }
 
+button.ink_brush-controls {
+    display: flex;
+    gap: 8px;
+    border-radius: 10px;
+    width: 100px !important;
+    align-items: center;
+    background: none;
+    border: none;
+}
+input.ink_brush-size {
+    margin-left: 100px !important;
+}
+select.ink_brush-color {
+    background: none !important;
+    border-radius: 10px;
+    border: none;
+}

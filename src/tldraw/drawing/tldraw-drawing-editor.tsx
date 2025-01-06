@@ -63,7 +63,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
-	
+	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
+	const cameraLimitsRef = useRef<WritingCameraLimits>();
+	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);	
 	// On mount
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
@@ -85,9 +87,21 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		Handles: TldrawHandles,
 	}
 
-	const handleMount = (_editor: Editor) => {
+	const handleMount = (_editor) => {
 		const editor = tlEditorRef.current = _editor;
-		setEmbedState(DrawingEmbedState.editor);
+  
+		// 设置默认笔刷颜色和大小
+		if (editor.styleProps && editor.styleProps.geo) {
+		  // 找到 color 的样式属性对象
+		  for (const [key, value] of editor.styleProps.geo.entries()) {
+			if (value === "color") {
+			  key.defaultValue = "light-blue"; // 默认颜色
+			} else if (value === "size") {
+			  key.defaultValue = "m"; // 默认大小
+			}
+		  }
+		}
+	  setEmbedState("editor" /* editor */);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
@@ -257,19 +271,29 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getDrawingSvg(editor);
 
+		// 获取所有选中的形状
+		const selectedShapeIds = editor.getSelectedShapeIds();
+		const shapes = selectedShapeIds.map((id) => editor.getShape(id));
+
+		// 获取形状的颜色和大小
+		const brushStyles = shapes.map((shape) => {
+			return {
+				color: shape.props.color, // 获取形状的颜色
+				size: shape.props.size, // 获取形状的大小
+			};
+		});
+
 		if (svgObj) {
-			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
-			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
+			previewUri = svgObj.svg;
 		}
 		
 		if(previewUri) {
 			const pageData = buildDrawingFileData({
 				tlEditorSnapshot,
 				previewUri,
+				brushStyles, // 保存所有选中形状的笔刷样式
 			})
 			props.save(pageData);
-			// savePngExport(props.plugin, previewUri, props.fileRef)
-
 		} else {
 			const pageData = buildDrawingFileData({
 				tlEditorSnapshot: tlEditorSnapshot,

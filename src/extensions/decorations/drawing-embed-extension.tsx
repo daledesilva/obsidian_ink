@@ -98,18 +98,25 @@ const embedStateField = StateField.define<DecorationSet>({
                 if(alterFlow === 'continue-traversal') return true;
 
                 if (embedLinkInfo) {
+
+                    // The -1 ensures the obsidian decoration doesn't hide it.
+                    // (But it doesn't work on first character of first line because it it)
                     builder.add(
-                        embedLinkInfo.startPosition,
+                        embedLinkInfo.startPosition-1,  
                         embedLinkInfo.endPosition,
                         Decoration.replace({
                             widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
                         })
                     );
 
-                    // Add Ink embed just above
+                    // Anothr approach. Not sure if there's any difference:
+                    // (Also doesn't work on first character of first line)
+                    // Or, if not set to -1, the obsidian decoration causes it to disappear.
+
+                    // // Add Ink embed just above
                     // builder.add(
-                    //     embedLinkInfo.startPosition-1,
-                    //     embedLinkInfo.startPosition-1,
+                    //     embedLinkInfo.startPosition,
+                    //     embedLinkInfo.startPosition,
                     //     Decoration.widget({
                     //         widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
                     //     })
@@ -216,7 +223,7 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     
     // It's an InkDrawing, so prepare the data needed for decoration
     // NOTE: -1 enables it to superced the auto-hiding of markdown line caused by the default Obsidian decoration
-    const startOfReplacement = linkStartNode.from-1;
+    const startOfReplacement = linkStartNode.from;
     const endOfReplacement = urlEndNode.to;
     const {partialFilepath, embedSettings} = parseDrawingUrlText( transaction.state.doc.sliceString(urlTextNode.from, urlTextNode.to) );
 

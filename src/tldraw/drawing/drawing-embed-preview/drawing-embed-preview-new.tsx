@@ -75,12 +75,15 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                 <SVG
                     src = {filepath}
                     style = {{
+                        width: '100%',
+                        height: '100%',
                         maxWidth: '100%',
                         maxHeight: '100%',
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
                     onLoad = {onLoad}
+                    viewBox = "0 0 250 250" // TODO: This needs to be set to the actual width and height of the SVG
                 />
             </>)}
             {!file && (<>

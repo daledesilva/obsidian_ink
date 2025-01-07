@@ -20,6 +20,7 @@ import { atom, useSetAtom } from 'jotai';
 import { debug } from './utils/log-to-console';
 import { drawingEmbedExtension } from './extensions/decorations/drawing-embed-extension';
 import { setGlobals } from './stores/global-store';
+import { Prec } from '@codemirror/state';
 
 ////////
 ////////
@@ -58,6 +59,7 @@ export default class InkPlugin extends Plugin {
 			registerDrawingEmbed(this);		
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([
+				// Prec.highest(drawingEmbedExtension()),
 				drawingEmbedExtension(),
 			]);
 		}

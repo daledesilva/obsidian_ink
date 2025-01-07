@@ -1,0 +1,8 @@
+
+
+div.internal-embed:has(img[alt*="InkDrawing"]) {
+	display: none !important;
+}
+img[alt*="InkDrawing"] {
+	display: none !important;
+}

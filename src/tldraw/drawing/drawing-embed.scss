@@ -87,7 +87,9 @@
             path { stroke: rgb(242, 242, 242) !important; }
             rect, circle { stroke: rgb(242, 242, 242) !important; }
         }
-        rect, circle { stroke: rgb(242, 242, 242); }
+        .frame-children {
+            rect, circle { stroke: rgb(242, 242, 242); }
+        }
 
         // NOTE: Seems like an attribute selector on fill doesn't work.
         // May have to iterate through SVG string before save and add id's for the paths with matching fills so I select them here

@@ -31,20 +31,17 @@ import './drawing-embed-extension.scss';
 
 /////////////////////
 
-export class EmptyWidget extends WidgetType {
-    toDOM(view: EditorView): HTMLElement {
-        const el = document.createElement('span');
-        el.textContent = '';
-        return el;
-    }
-}
+const mountedDecorationIds: string[] = [];
 
 export class DrawingEmbedWidget extends WidgetType {
+    id: string;
     filepath: string;
     embedSettings: any;
+    // mounted = false;
 
     constructor(filepath: string, embedSettings: {}) {
         super();
+        this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere?
         this.filepath = filepath;
         this.embedSettings = embedSettings;
     }
@@ -54,6 +51,8 @@ export class DrawingEmbedWidget extends WidgetType {
 
         const rootEl = document.createElement('div');
         const root = createRoot(rootEl);
+
+        mountedDecorationIds.push(this.id);
 
         root.render(
             <JotaiProvider>
@@ -68,6 +67,7 @@ export class DrawingEmbedWidget extends WidgetType {
     }
 }
 
+
 // Define a StateField to monitor the state of all decorations on the page
 const embedStateField = StateField.define<DecorationSet>({
 
@@ -78,6 +78,18 @@ const embedStateField = StateField.define<DecorationSet>({
 
     update(oldState: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
+
+        // if it's not the first run, check if widgets need to be reinitialized first.
+        // Skip updates if there are no changes to the markdown content.
+        // To prevent the react components in the widgets remounting.
+        const firstRun = oldState.size === 0;
+        if ( !firstRun && transaction.changes.empty) {
+                return oldState;
+        }
+        // debug(['transaction.changes', transaction.changes], {freeze: true});
+
+        
+
 
         // TODO: This isn't correct.
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
@@ -97,38 +109,48 @@ const embedStateField = StateField.define<DecorationSet>({
                 if(alterFlow === 'ignore-children') return false;
                 if(alterFlow === 'continue-traversal') return true;
 
+                
                 if (embedLinkInfo) {
 
                     // The -1 ensures the obsidian decoration doesn't hide it.
                     // (But it doesn't work on first character of first line because it it)
-                    builder.add(
-                        embedLinkInfo.startPosition-1,  
-                        embedLinkInfo.endPosition,
-                        Decoration.replace({
-                            widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
-                        })
-                    );
+                    embedLinkInfo.startPosition -= 1;
 
-                    // Anothr approach. Not sure if there's any difference:
-                    // (Also doesn't work on first character of first line)
-                    // Or, if not set to -1, the obsidian decoration causes it to disappear.
+                    // const oldStartPosition = transaction.changes.mapPos(embedLinkInfo.startPosition);
+                    // const oldEndPosition = transaction.changes.mapPos(embedLinkInfo.endPosition);
 
-                    // // Add Ink embed just above
-                    // builder.add(
-                    //     embedLinkInfo.startPosition,
-                    //     embedLinkInfo.startPosition,
-                    //     Decoration.widget({
-                    //         widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
-                    //     })
-                    // );
-                    // // Add empty widget to actual line (This removes the code);
-                    // builder.add(
-                    //     embedLinkInfo.startPosition,
-                    //     embedLinkInfo.endPosition,
-                    //     Decoration.replace({
-                    //         widget: new EmptyWidget(),
-                    //     })
-                    // );
+                    // oldState.between(embedLinkInfo.startPosition, embedLinkInfo.endPosition, (value) => {
+                    //     debug(['decoration', decoration], {freeze: true});
+                    // });
+
+                    
+
+                    let decorationAlreadyExists = false;
+                    const oldDecoration = oldState.iter();
+                    while(oldDecoration.value) {
+                        const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
+                        const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
+                        decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
+                        if(decorationAlreadyExists) break;
+                        oldDecoration.next();
+                    }                    
+
+                    if(oldDecoration.value && decorationAlreadyExists) {
+                        builder.add(
+                            embedLinkInfo.startPosition,
+                            embedLinkInfo.endPosition,
+                            oldDecoration.value
+                        );
+                    } else {
+                        builder.add(
+                            embedLinkInfo.startPosition,  
+                            embedLinkInfo.endPosition,
+                            Decoration.replace({
+                                widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
+                            })
+                        );
+                    }
+
                 }
 
             }

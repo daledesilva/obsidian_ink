@@ -76,15 +76,26 @@ const embedStateField = StateField.define<DecorationSet>({
         return Decoration.none;
     },
 
-    update(oldState: DecorationSet, transaction: Transaction): DecorationSet {
+    update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
+
+
+        // TODO: This should map the changes first?
+        // prevEmbeds = prevEmbeds.map(transaction.changes);
+
+        // TODO: See here and use transaction.effects to add things:
+        // https://codemirror.net/examples/decoration/
+        // But this will mean inserting an embed will need to cause an effect.
+        // Which would be good, but also won't help when document loads?
+
+
 
         // if it's not the first run, check if widgets need to be reinitialized first.
         // Skip updates if there are no changes to the markdown content.
         // To prevent the react components in the widgets remounting.
-        const firstRun = oldState.size === 0;
+        const firstRun = prevEmbeds.size === 0;
         if ( !firstRun && transaction.changes.empty) {
-                return oldState;
+                return prevEmbeds;
         }
         // debug(['transaction.changes', transaction.changes], {freeze: true});
 
@@ -94,12 +105,14 @@ const embedStateField = StateField.define<DecorationSet>({
         // TODO: This isn't correct.
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
         const activeEditor = activeView?.editor;
-        if (!activeEditor) return oldState;
+        if (!activeEditor) return prevEmbeds;
 
         if (activeView.currentMode.sourceMode) {
             return Decoration.none;
         }
 
+
+        
         const builder = new RangeSetBuilder<Decoration>();
 
         syntaxTree(transaction.state).iterate({
@@ -112,21 +125,18 @@ const embedStateField = StateField.define<DecorationSet>({
                 
                 if (embedLinkInfo) {
 
-                    // The -1 ensures the obsidian decoration doesn't hide it.
-                    // (But it doesn't work on first character of first line because it it)
+                    // The -1 enables Ink's decoration to swallow up Obsidian's default decoation.
+                    // This is necessary because the default decoration dynamically shows and hides source text preventing INk's decoration from working when the cursor is't touching it.
+                    // The default decoration is set to highest precedense to there's no getting around it that way.
+                    // THe downside to using the -1 technique is that Ink's decoration doesn't work on first character of first line because it's an invalid character position.
                     embedLinkInfo.startPosition -= 1;
+                    // Adding 1 to the end also enables the block widget to force text written below to be on a different line.
+                    embedLinkInfo.endPosition += 1;
 
-                    // const oldStartPosition = transaction.changes.mapPos(embedLinkInfo.startPosition);
-                    // const oldEndPosition = transaction.changes.mapPos(embedLinkInfo.endPosition);
-
-                    // oldState.between(embedLinkInfo.startPosition, embedLinkInfo.endPosition, (value) => {
-                    //     debug(['decoration', decoration], {freeze: true});
-                    // });
-
-                    
+                                        
 
                     let decorationAlreadyExists = false;
-                    const oldDecoration = oldState.iter();
+                    const oldDecoration = prevEmbeds.iter();
                     while(oldDecoration.value) {
                         const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
                         const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
@@ -136,17 +146,37 @@ const embedStateField = StateField.define<DecorationSet>({
                     }                    
 
                     if(oldDecoration.value && decorationAlreadyExists) {
+                        // Reuse previous decoration
                         builder.add(
                             embedLinkInfo.startPosition,
                             embedLinkInfo.endPosition,
                             oldDecoration.value
                         );
                     } else {
+                        // create new decoration
                         builder.add(
                             embedLinkInfo.startPosition,  
                             embedLinkInfo.endPosition,
                             Decoration.replace({
                                 widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
+                                isBlock: true,
+
+                                // Notable issues:
+                                // 1. Place cursor above embed.
+                                // 2. Press the down arrow until you're just below the embed.
+                                // 3. Typing now will cause letters to type in backward.
+                                // 4. Pressing down again will exit that state but remain in place.
+                                // This doesn't occur if pressing the right arrow.
+
+                                // Inclusive start fixes the above issue of having a weird state that types backward.
+                                // But it also adds an extra blank line above the embed.
+                                // inclusiveStart: false,
+                                // Inclusive end doesn't have any effect.
+                                // inclusiveEnd: true,
+
+                                // Ongoing Issue ( Caused by inclusiveStart=true ):
+                                // On first load of the page and widget, a phantom empty row appears above the widget which disappears once the cusor is placed there and doesn't come back.
+                                // This occurs only when the widget has an empty row above it. If this is removed in source mode, then this doesn't occur until you manually pres enter above it.
                             })
                         );
                     }
@@ -161,7 +191,31 @@ const embedStateField = StateField.define<DecorationSet>({
 
     // Tell the editor to use these decorations (ie. provide them from this statefield)
     provide(stateField: StateField<DecorationSet>): Extension {
-        return EditorView.decorations.from(stateField);
+        // return EditorView.decorations.from(stateField);
+
+        // return EditorView.atomicRanges.of( (view: EditorView) => {
+        //     return EditorView.decorations.from(stateField) || Decoration.none
+        // });
+        
+        return [
+            EditorView.decorations.from(stateField),
+
+            // Providing atomice ranges like either of these makes it atomic but still has 1 extra cursor movement before and 1 after.
+            // EditorView.atomicRanges.of(stateField),
+            // OR
+            // EditorView.atomicRanges.of( (view: EditorView) => {
+            //     return EditorView.decorations.from(stateField) || Decoration.none
+            // })
+            
+            // This one only has 1 extra cursor movement AFTER.
+            // Typing in the after section doesn't break anything, but does type in reverse order.
+            // TODO: The side setting might be confused. So it's typing on the wrong side of the cursor.
+            EditorView.atomicRanges.of( (view: EditorView) => {
+                const decorations = view.state.field(embedStateField, false);
+                return decorations || Decoration.none;
+            })
+            
+        ];
     },
 })
 

@@ -1,8 +1,11 @@
 
 
-div.internal-embed:has(img[alt*="InkDrawing"]) {
-	display: none !important;
-}
-img[alt*="InkDrawing"] {
-	display: none !important;
-}
+// This was necessary when I wasn't using both the -1 and +1 techniques.
+// Keeping until I decide completely to remove it.
+
+// div.internal-embed:has(img[alt*="InkDrawing"]) {
+// 	display: none !important;
+// }
+// img[alt*="InkDrawing"] {
+// 	display: none !important;
+// }

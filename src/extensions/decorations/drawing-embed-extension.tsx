@@ -125,27 +125,37 @@ const embedStateField = StateField.define<DecorationSet>({
                 
                 if (embedLinkInfo) {
 
-                    // The -1 enables Ink's decoration to swallow up Obsidian's default decoation.
-                    // This is necessary because the default decoration dynamically shows and hides source text preventing INk's decoration from working when the cursor is't touching it.
-                    // The default decoration is set to highest precedense to there's no getting around it that way.
-                    // THe downside to using the -1 technique is that Ink's decoration doesn't work on first character of first line because it's an invalid character position.
-                    embedLinkInfo.startPosition -= 1;
-                    // Adding 1 to the end also enables the block widget to force text written below to be on a different line.
-                    embedLinkInfo.endPosition += 1;
+                    // embedLinkInfo.startPosition -= 1;
+                    // embedLinkInfo.endPosition += 1;
+                    // The -1 enables Ink's decoration to swallow up Obsidian's default decoration.
+                    // This is necessary because the default decoration dynamically shows and hides source text preventing Ink's decoration from working when the cursor is't touching it.
+                    // The default decoration is set to highest precedence, so there's no getting around it with precedence.
 
-                                        
+                    embedLinkInfo.startPosition -= 2;
+                    embedLinkInfo.endPosition += 2;
+                    // -2 and +2 fixes the backward typing issue in both directions. So it can behave like a normal atomic embed.
+                    // The detection must therefore ensure there is an empty line before and after the embed.
+                    // NOTE:
+                    // It actually keeps working if the embed text is on the first or second line, but then you can't get the cursor above it unless you go into source mode.
+                    // It appears to work if there's no blank lines below it, but typing after it doesn't register in the document and therefore doesn't save.
+                    // So it doesn't have to force two new lines above it, but it has to force two new lines below it.
+                    // Forcing 2 lines before as well anyway, this ensure the user can always type above it.
+                    // If they remove hte lines in source mode, it will just show as a standard SVG until they add extra lines.
+                    // Or until the plugin adds extra lines automatically.
 
                     let decorationAlreadyExists = false;
                     const oldDecoration = prevEmbeds.iter();
+
+                    // Find the relevant decoration reference if it already exists
                     while(oldDecoration.value) {
                         const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
                         const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
                         decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
                         if(decorationAlreadyExists) break;
                         oldDecoration.next();
-                    }                    
+                    }
 
-                    if(oldDecoration.value && decorationAlreadyExists) {
+                    if(decorationAlreadyExists && oldDecoration.value) {
                         // Reuse previous decoration
                         builder.add(
                             embedLinkInfo.startPosition,
@@ -168,11 +178,13 @@ const embedStateField = StateField.define<DecorationSet>({
                                 // 4. Pressing down again will exit that state but remain in place.
                                 // This doesn't occur if pressing the right arrow.
 
-                                // Inclusive start fixes the above issue of having a weird state that types backward.
-                                // But it also adds an extra blank line above the embed.
-                                // inclusiveStart: false,
+                                // Inclusive start fixes the issue of getting backwards typing when moving the cursor down to bottom.
+                                // But the backward typing mode can still be entered from below
+                                // It also adds an extra blank line above the embed that mysteriously disappears when the cursor is placed there.
+                                // inclusiveStart: true,
+                                
                                 // Inclusive end doesn't have any effect.
-                                // inclusiveEnd: true,
+                                // inclusiveEnd: false,
 
                                 // Ongoing Issue ( Caused by inclusiveStart=true ):
                                 // On first load of the page and widget, a phantom empty row appears above the widget which disappears once the cusor is placed there and doesn't come back.
@@ -200,7 +212,7 @@ const embedStateField = StateField.define<DecorationSet>({
         return [
             EditorView.decorations.from(stateField),
 
-            // Providing atomice ranges like either of these makes it atomic but still has 1 extra cursor movement before and 1 after.
+            // Providing atomic ranges like either of these makes it atomic but still has 1 extra cursor movement before and 1 after.
             // EditorView.atomicRanges.of(stateField),
             // OR
             // EditorView.atomicRanges.of( (view: EditorView) => {
@@ -239,6 +251,7 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     alterFlow?: 'ignore-children' | 'continue-traversal'
 } {
 
+    // \n                   
     // !                    formatting_formatting-image_image_image-marker
     // [                    formatting_formatting-image_image_image-alt-text_link
     // altText              image_image-alt-text_link
@@ -246,9 +259,19 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     // (                    formatting_formatting-link-string_string_url
     // partialFilePath      string_url
     // )                    formatting_formatting-link-string_string_url
+    // \n                   
+
+    debug(['linkStartNode', linkStartNode.name]);
+
 
     // Check for "!"
     if (!linkStartNode || linkStartNode.name !== 'formatting_formatting-image_image_image-marker') {
+        return {alterFlow: 'continue-traversal'};
+    }
+    
+    // Ensure there's 1 full blank line before the embed (two new line characters)
+    const blankLineBefore = transaction.state.doc.sliceString(linkStartNode.from - 2, linkStartNode.from);
+    if(blankLineBefore !== '\n\n') {
         return {alterFlow: 'continue-traversal'};
     }
         
@@ -261,6 +284,12 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     // Check for potential "InkDrawing"
     const altTextNode = altTextStartNode.node.nextSibling;
     if(!altTextNode || altTextNode.name !== 'image_image-alt-text_link') {
+        return {alterFlow: 'continue-traversal'};
+    }
+
+    // Check it's an InkDrawing embed
+    const altText = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to).trim();
+    if(altText !== 'InkDrawing') {
         return {alterFlow: 'continue-traversal'};
     }
 
@@ -287,17 +316,16 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     if(!urlEndNode || urlEndNode.name !== 'formatting_formatting-link-string_string_url') {
         return {alterFlow: 'continue-traversal'};
     }
-    
-    // It made it all the way, so it's a valid markdown embed
-    
-    const altText = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to).trim();
 
-    // It's not an InkDrawing, so ignore these nodes without decorating
-    if(altText !== 'InkDrawing') {
+    // Ensure there's 1 full blank line after the embed (two new line characters)
+    const blankLineAfter = transaction.state.doc.sliceString(urlEndNode.to, urlEndNode.to + 2);
+    if(blankLineAfter !== '\n\n') {
         return {alterFlow: 'continue-traversal'};
     }
     
-    // It's an InkDrawing, so prepare the data needed for decoration
+    // It made it all the way, so it's a valid InkDrawing markdown embed
+    
+    // Prepare the data needed for decoration
     // NOTE: -1 enables it to superced the auto-hiding of markdown line caused by the default Obsidian decoration
     const startOfReplacement = linkStartNode.from;
     const endOfReplacement = urlEndNode.to;

@@ -1,10 +1,11 @@
 import { TFile } from "obsidian";
 import InkPlugin from "src/main";
+import { getGlobals } from "src/stores/global-store";
 
-////////
-////////
+////////////////////////////////
+////////////////////////////////
 
-export async function openInkFile(plugin: InkPlugin, fileRef: TFile) {
+export async function openInkFile(fileRef: TFile) {
     // switch(position) {
         // case ViewPosition.replacement:      openInActiveView(plugin, fileRef); break;
         // case ViewPosition.tab:              activateTabView(plugin, fileRef); break;
@@ -13,11 +14,11 @@ export async function openInkFile(plugin: InkPlugin, fileRef: TFile) {
         // default: openInCurrentView(plugin, fileRef); break;
     // }
 
-    openInActiveView(plugin, fileRef);
+    openInActiveView(fileRef);
 }
 
-export async function openInActiveView(plugin: InkPlugin, fileRef: TFile) {
-    let { workspace }  = plugin.app;
+export async function openInActiveView(fileRef: TFile) {
+    let { workspace }  = getGlobals().plugin.app;
 	let leaf = workspace.getLeaf();
     await leaf.openFile(fileRef);
 }

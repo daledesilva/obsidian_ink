@@ -48,11 +48,13 @@ export type DrawingEditorControls = {
 	saveAndHalt: Function,
 }
 
-export function DrawingEmbedNew (props: {
-	filepath: string,
+interface DrawingEmbedNewProps {
+	partialPreviewFilepath: string,
 	embedSettings: any,
 	remove: Function,
-}) {
+}
+
+export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 	const {plugin} = getGlobals();
 
 	const width = 1000;
@@ -134,7 +136,7 @@ export function DrawingEmbedNew (props: {
 			>
 			
 				<DrawingEmbedPreviewWrapperNew
-					partialFilepath = {props.filepath}
+					partialPreviewFilepath = {props.partialPreviewFilepath}
 					embedSettings = {props.embedSettings}
 					onReady = {() => {}}
 					onClick = { async () => {

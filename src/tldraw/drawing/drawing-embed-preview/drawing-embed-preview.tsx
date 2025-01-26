@@ -2,22 +2,18 @@ import classNames from 'classnames';
 import './drawing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
-import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
-import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
-import InkPlugin from 'src/main';
-import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from '../drawing-embed';
-import { getInkFileData } from 'src/utils/getInkFileData';
+import { getGlobals } from 'src/stores/global-store';
+import { verbose } from 'src/utils/log-to-console';
 const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg');
 
 //////////
 //////////
 
 interface DrawingEmbedPreviewProps {
-    plugin: InkPlugin,
+    previewFilepath: string,
     onReady: Function,
-    drawingFile: TFile,
 	onClick: React.MouseEventHandler,
 }
 
@@ -33,6 +29,7 @@ export const DrawingEmbedPreviewWrapper: React.FC<DrawingEmbedPreviewProps> = (p
 }
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) => {
+    const { plugin } = getGlobals();
     const svgRef = React.useRef(null);
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
@@ -40,23 +37,19 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     const [fileSrc, setFileSrc] = React.useState<string>(emptyDrawingSvg);
 
     React.useEffect(() => {
-        //console.log('PREVIEW mounted');
-        fetchFileData();
+        verbose('PREVIEW mounted');
         return () => {
-            //console.log('PREVIEW unmounting');
+            verbose('PREVIEW unmounting');
         }
     })
-
-    // Check if src is a DataURI. If not, it's an SVG
-    const isImg = fileSrc.slice(0, 4) === 'data';
 
 	return <>
         <div
             ref = {containerElRef}
             className = {classNames([
                 'ddc_ink_drawing-embed-preview',
-                props.plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
-                props.plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
+                plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
+                plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
             ])}
             style = {{
                 position: 'absolute',
@@ -70,32 +63,18 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {isImg && (
-                <img
-                    src = {fileSrc}
-                    style = {{
-                        height: '100%',
-                        cursor: 'pointer',
-                        pointerEvents: 'all',
-                    }}
-                    onLoad = {onLoad}
-                />
-            )}
-
-            {!isImg && (
-                <SVG
-                    src = {fileSrc}
-                    style = {{
-                        // width: 'auto',
-                        // height: '100%',
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        cursor: 'pointer'
-                    }}
-                    pointerEvents = "visible"
-                    onLoad = {onLoad}
-                />
-            )}
+            <SVG
+                src = {props.previewFilepath}
+                style = {{
+                    // width: 'auto',
+                    // height: '100%',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    cursor: 'pointer'
+                }}
+                pointerEvents = "visible"
+                onLoad = {onLoad}
+            />
         </div>
     </>;
 
@@ -105,15 +84,10 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
-            //console.log('--------------- SET EMBED STATE TO preview')
+            verbose('SET EMBED STATE TO preview')
             setEmbedState(DrawingEmbedState.preview);
             props.onReady();
         }, 100);
-    }
-
-    async function fetchFileData() {
-        const inkFileData = await getInkFileData(props.plugin, props.drawingFile)
-        if (inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
     }
 
 };

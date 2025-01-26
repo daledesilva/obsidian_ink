@@ -17,9 +17,9 @@ const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg')
 //////////
 
 interface DrawingEmbedPreviewProps {
-    onReady: Function,
-    partialFilepath: string,
+    partialPreviewFilepath: string,
     embedSettings: any,
+    onReady: Function,
 	onClick: React.MouseEventHandler,
 }
 
@@ -41,7 +41,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
 
-    const file = plugin.app.vault.getAbstractFileByPath(props.partialFilepath);
+    const file = plugin.app.vault.getAbstractFileByPath(props.partialPreviewFilepath);
     const filepath = file ? plugin.app.vault.adapter.getResourcePath(file.path) : '';
 
     React.useEffect(() => {
@@ -87,7 +87,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                 />
             </>)}
             {!file && (<>
-                '{props.partialFilepath}' not found
+                '{props.partialPreviewFilepath}' not found
             </>)}
         </div>
     </>;

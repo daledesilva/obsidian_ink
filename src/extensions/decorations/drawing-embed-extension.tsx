@@ -11,7 +11,7 @@ import {
     EditorView,
     WidgetType,
 } from "@codemirror/view";
-import { MarkdownView } from 'obsidian';
+import { editorLivePreviewField, MarkdownView } from 'obsidian';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
@@ -35,14 +35,14 @@ const mountedDecorationIds: string[] = [];
 
 export class DrawingEmbedWidget extends WidgetType {
     id: string;
-    filepath: string;
+    partialPreviewFilepath: string;
     embedSettings: any;
     // mounted = false;
 
-    constructor(filepath: string, embedSettings: {}) {
+    constructor(partialPreviewFilepath: string, embedSettings: {}) {
         super();
-        this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere?
-        this.filepath = filepath;
+        this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
+        this.partialPreviewFilepath = partialPreviewFilepath;
         this.embedSettings = embedSettings;
     }
 
@@ -57,7 +57,7 @@ export class DrawingEmbedWidget extends WidgetType {
         root.render(
             <JotaiProvider>
                 <DrawingEmbedNew
-                    filepath={this.filepath}
+                    partialPreviewFilepath={this.partialPreviewFilepath}
                     embedSettings={this.embedSettings}
                     remove={() => { }}
                 />
@@ -100,14 +100,17 @@ const embedStateField = StateField.define<DecorationSet>({
         // debug(['transaction.changes', transaction.changes], {freeze: true});
 
         
-
-
-        // TODO: This isn't correct.
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
         const activeEditor = activeView?.editor;
         if (!activeEditor) return prevEmbeds;
 
-        if (activeView.currentMode.sourceMode) {
+        // @ts-expect-error, not typed
+        const cmEditorView = activeEditor.cm as EditorView;
+        const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
+
+        // const isReadingView = activeView.getMode() === 'preview';
+        
+        if (!isLivePreview) {
             return Decoration.none;
         }
 
@@ -125,23 +128,10 @@ const embedStateField = StateField.define<DecorationSet>({
                 
                 if (embedLinkInfo) {
 
-                    // embedLinkInfo.startPosition -= 1;
-                    // embedLinkInfo.endPosition += 1;
-                    // The -1 enables Ink's decoration to swallow up Obsidian's default decoration.
-                    // This is necessary because the default decoration dynamically shows and hides source text preventing Ink's decoration from working when the cursor is't touching it.
-                    // The default decoration is set to highest precedence, so there's no getting around it with precedence.
-
+                    // Require a blank line before and after the embed
+                    // TODO: Could put this into the detectMarkdownEmbedLink function.
                     embedLinkInfo.startPosition -= 2;
                     embedLinkInfo.endPosition += 2;
-                    // -2 and +2 fixes the backward typing issue in both directions. So it can behave like a normal atomic embed.
-                    // The detection must therefore ensure there is an empty line before and after the embed.
-                    // NOTE:
-                    // It actually keeps working if the embed text is on the first or second line, but then you can't get the cursor above it unless you go into source mode.
-                    // It appears to work if there's no blank lines below it, but typing after it doesn't register in the document and therefore doesn't save.
-                    // So it doesn't have to force two new lines above it, but it has to force two new lines below it.
-                    // Forcing 2 lines before as well anyway, this ensure the user can always type above it.
-                    // If they remove hte lines in source mode, it will just show as a standard SVG until they add extra lines.
-                    // Or until the plugin adds extra lines automatically.
 
                     let decorationAlreadyExists = false;
                     const oldDecoration = prevEmbeds.iter();
@@ -170,25 +160,6 @@ const embedStateField = StateField.define<DecorationSet>({
                             Decoration.replace({
                                 widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
                                 isBlock: true,
-
-                                // Notable issues:
-                                // 1. Place cursor above embed.
-                                // 2. Press the down arrow until you're just below the embed.
-                                // 3. Typing now will cause letters to type in backward.
-                                // 4. Pressing down again will exit that state but remain in place.
-                                // This doesn't occur if pressing the right arrow.
-
-                                // Inclusive start fixes the issue of getting backwards typing when moving the cursor down to bottom.
-                                // But the backward typing mode can still be entered from below
-                                // It also adds an extra blank line above the embed that mysteriously disappears when the cursor is placed there.
-                                // inclusiveStart: true,
-                                
-                                // Inclusive end doesn't have any effect.
-                                // inclusiveEnd: false,
-
-                                // Ongoing Issue ( Caused by inclusiveStart=true ):
-                                // On first load of the page and widget, a phantom empty row appears above the widget which disappears once the cusor is placed there and doesn't come back.
-                                // This occurs only when the widget has an empty row above it. If this is removed in source mode, then this doesn't occur until you manually pres enter above it.
                             })
                         );
                     }
@@ -260,8 +231,6 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     // partialFilePath      string_url
     // )                    formatting_formatting-link-string_string_url
     // \n                   
-
-    debug(['linkStartNode', linkStartNode.name]);
 
 
     // Check for "!"
@@ -342,13 +311,13 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
 
 }
 
-interface embedSettings {
+export interface EmbedSettings {
     version: number,
     embedDisplay: {
         width: number,
         aspectRatio: string,
     },
-    canvasView: {
+    viewBox: {
         x: number,
         y: number,
         width: number,
@@ -362,13 +331,13 @@ function parseDrawingUrlText(urlText: string): {
     embedSettings: any,
 } {
     let partialFilepath: string | undefined;
-    const embedSettings: embedSettings = {
+    const embedSettings: EmbedSettings = {
         version: 0,
         embedDisplay: {
             width: 500,
             aspectRatio: '16/9',
         },
-        canvasView: {
+        viewBox: {
             x: 0,
             y: 0,
             width: 1920,
@@ -395,10 +364,10 @@ function parseDrawingUrlText(urlText: string): {
         embedSettings.version =  Number.parseInt(versioning?.substring(1) || '1');
         embedSettings.embedDisplay.width = Number.parseInt(displaySettings[0] || '500');
         embedSettings.embedDisplay.aspectRatio = displaySettings[1] || '16/9';
-        embedSettings.canvasView.x = Number.parseInt(viewSettings[0] || '0');
-        embedSettings.canvasView.y = Number.parseInt(viewSettings[1] || '0');
-        embedSettings.canvasView.width = Number.parseInt(viewSettings[2] || '1920');
-        embedSettings.canvasView.height = Number.parseInt(viewSettings[3] || '1080');
+        embedSettings.viewBox.x = Number.parseInt(viewSettings[0] || '0');
+        embedSettings.viewBox.y = Number.parseInt(viewSettings[1] || '0');
+        embedSettings.viewBox.width = Number.parseInt(viewSettings[2] || '1920');
+        embedSettings.viewBox.height = Number.parseInt(viewSettings[3] || '1080');
 
         
     } catch(e) {

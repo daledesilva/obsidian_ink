@@ -2,10 +2,13 @@ import { Notice, TFile } from "obsidian";
 import InkPlugin from "src/main";
 import { saveLocally } from "./storage";
 import { getNewTimestampedDrawingFilepath, getNewTimestampedWritingFilepath } from "./file-manipulation";
+import { getGlobals } from "src/stores/global-store";
 
+////////////////////////
+////////////////////////
 
-export const rememberDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile) => {
-    const v = plugin.app.vault;
+export const rememberDrawingFile = async (existingFileRef: TFile) => {
+    const v = getGlobals().plugin.app.vault;
 
     if (!(existingFileRef instanceof TFile)) {
         new Notice('No file found to copy');

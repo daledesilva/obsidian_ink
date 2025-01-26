@@ -13,6 +13,8 @@ import {
 	Provider as JotaiProvider
 } from "jotai";
 import { debug } from "src/utils/log-to-console";
+import { getGlobals } from "src/stores/global-store";
+import { DrawingEmbedNew } from "src/tldraw/drawing/drawing-embed-new";
 
 ////////
 ////////
@@ -74,7 +76,6 @@ function updateEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el: H
 
 class DrawingEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
-	plugin: InkPlugin;
 	embedData: DrawingEmbedData;
 	embedCtrls: EmbedCtrls;
 	root: Root;
@@ -90,36 +91,37 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	) {
 		super(el);
 		this.el = el;
-		this.plugin = plugin;
 		this.embedData = embedData;
 		this.embedCtrls = embedCtrls;
 		this.updateEmbed = updateEmbed;
 	}
 
 	async onload() {
-		const v = this.plugin.app.vault;
-		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
+		const v = getGlobals().plugin.app.vault;
+		// this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
 		
-		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
-			this.el.createEl('p').textContent = 'Ink drawing file not found.';
-			return;
-		}
+		// if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
+		// 	this.el.createEl('p').textContent = 'Ink drawing file not found.';
+		// 	return;
+		// }
 
-		const pageDataStr = await v.read(this.fileRef);
-		const pageData = JSON.parse(pageDataStr) as InkFileData;
+		// const pageDataStr = await v.read(this.fileRef);
+		// const pageData = JSON.parse(pageDataStr) as InkFileData;
 
 		this.root = createRoot(this.el);
 		this.root.render(
 			<JotaiProvider>
-				<DrawingEmbed
-					plugin = {this.plugin}
-					drawingFileRef = {this.fileRef}
-					pageData = {pageData}
-					saveSrcFile = {this.save}
-					setEmbedProps = {this.setEmbedProps}
+				<DrawingEmbedNew
+					partialPreviewFilepath = {this.embedData.filepath}
+					// width = {this.embedData.width || 250}
+					// aspectRatio = {this.embedData.aspectRatio || 1}
+					// previewBox = {this.embedData.previewBox || {x: 0, y: 0, width: 250, height: 250}}
+
+					// drawingFileRef = {this.fileRef}
+					// pageData = {pageData}
+					// saveSrcFile = {this.save}
+					// setEmbedProps = {this.setEmbedProps}
 					remove = {this.embedCtrls.removeEmbed}
-					width = {this.embedData.width}
-					aspectRatio = {this.embedData.aspectRatio}
 				/>
 			</JotaiProvider>
         );

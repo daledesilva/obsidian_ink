@@ -244,37 +244,39 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
         return {alterFlow: 'continue-traversal'};
     }
         
-    // Check for "["
+    // Check for "[" or "[]"
     const altTextStartNode = linkStartNode.node.nextSibling;
     if(!altTextStartNode || altTextStartNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
         return {alterFlow: 'continue-traversal'};
     }
 
-    // Check for potential "InkDrawing"
-    const altTextNode = altTextStartNode.node.nextSibling;
-    if(!altTextNode || altTextNode.name !== 'image_image-alt-text_link') {
+    // Get the next node, which could be alt text or could be "("
+    let nextNode = altTextStartNode.node.nextSibling;
+    if(!nextNode) {
         return {alterFlow: 'continue-traversal'};
     }
+    
+    // Containers for alt text nodes if they exist
+    let altTextNode: SyntaxNodeRef | null = null;
+    let altTextEndNode: SyntaxNodeRef | null = null;
 
-    // Check it's an InkDrawing embed
-    const altText = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to).trim();
-    if(altText !== 'InkDrawing') {
-        return {alterFlow: 'continue-traversal'};
+    // If the start node was "[", then the next node must be alt text
+    if(altTextStartNode.to-altTextStartNode.from === 1) {
+        altTextNode = nextNode;
+        altTextEndNode = altTextNode.node.nextSibling;
+        if(!altTextEndNode || altTextEndNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
+            return {alterFlow: 'continue-traversal'};
+        }
+        nextNode = altTextEndNode.node.nextSibling;
     }
-
-    // Check for "]"
-    const altTextEndNode = altTextNode.node.nextSibling;
-    if(!altTextEndNode || altTextEndNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
-        return {alterFlow: 'continue-traversal'};
-    }
-
+    
     // Check for "("
-    const urlStartNode = altTextEndNode.node.nextSibling;
+    const urlStartNode = nextNode;
     if(!urlStartNode || urlStartNode.name !== 'formatting_formatting-link-string_string_url') {
         return {alterFlow: 'continue-traversal'};
     }
 
-    // Check for partialFilepath
+    // Check for filepath section
     const urlTextNode = urlStartNode.node.nextSibling;
     if(!urlTextNode || urlTextNode.name !== 'string_url') {
         return {alterFlow: 'continue-traversal'};
@@ -292,13 +294,23 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
         return {alterFlow: 'continue-traversal'};
     }
     
-    // It made it all the way, so it's a valid InkDrawing markdown embed
+    // It's definitely a markdown embed, let's not focus on the urlText to check it's an Ink embed.
+    const urlText = transaction.state.doc.sliceString(urlTextNode.from, urlTextNode.to);
+    
+    // Check it's an InkDrawing embed
+    if(!urlText.includes('| InkDrawing v')) {   // TODO: Put this in a constant
+        return {alterFlow: 'continue-traversal'};
+    }
     
     // Prepare the data needed for decoration
-    // NOTE: -1 enables it to superced the auto-hiding of markdown line caused by the default Obsidian decoration
     const startOfReplacement = linkStartNode.from;
     const endOfReplacement = urlEndNode.to;
-    const {partialFilepath, embedSettings} = parseDrawingUrlText( transaction.state.doc.sliceString(urlTextNode.from, urlTextNode.to) );
+    const {partialFilepath, embedSettings} = parseDrawingUrlText( urlText );
+
+    // If altText exists, then it is the transcription
+    // if(altTextNode) {
+    //     embedSettings.transcription = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to);
+    // }
 
     return {
         embedLinkInfo: {
@@ -323,12 +335,13 @@ export interface EmbedSettings {
         width: number,
         height: number,
         // rotation: number,
-    }
+    },
+    transcription?: string,
 }
 
 function parseDrawingUrlText(urlText: string): {
     partialFilepath: string,
-    embedSettings: any,
+    embedSettings: EmbedSettings,
 } {
     let partialFilepath: string | undefined;
     const embedSettings: EmbedSettings = {
@@ -352,16 +365,16 @@ function parseDrawingUrlText(urlText: string): {
             throw new Error();
         }
         
-        const versioning = urlTextParts.shift()?.trim();
+        const format = urlTextParts.shift()?.trim();
         const displaySettings = urlTextParts.shift()?.trim().split(',');
         const viewSettings = urlTextParts.shift()?.trim().split(',');
 
-        if(!versioning || !displaySettings || !viewSettings) {
+        if(!format || !displaySettings || !viewSettings) {
             error(`There's an error in the settings after the filepath of the embed with this text: '${urlText}'`);
             throw new Error();
         }
 
-        embedSettings.version =  Number.parseInt(versioning?.substring(1) || '1');
+        embedSettings.version =  Number.parseInt(format.split('v').pop() || '0');
         embedSettings.embedDisplay.width = Number.parseInt(displaySettings[0] || '500');
         embedSettings.embedDisplay.aspectRatio = displaySettings[1] || '16/9';
         embedSettings.viewBox.x = Number.parseInt(viewSettings[0] || '0');
@@ -369,6 +382,7 @@ function parseDrawingUrlText(urlText: string): {
         embedSettings.viewBox.width = Number.parseInt(viewSettings[2] || '1920');
         embedSettings.viewBox.height = Number.parseInt(viewSettings[3] || '1080');
 
+        debug(['embedSettings', embedSettings]);
         
     } catch(e) {
         throw new Error(`Error parsing Drawing embed, see above to problem solve. ${e}`);

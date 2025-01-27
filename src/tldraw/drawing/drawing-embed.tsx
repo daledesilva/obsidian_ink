@@ -46,7 +46,7 @@ export type DrawingEditorControls = {
 	saveAndHalt: Function,
 }
 
-export function DrawingEmbed (props: {
+export type DrawingEmbedProps = {
 	plugin: InkPlugin,
 	drawingFileRef: TFile,
 	pageData: InkFileData,
@@ -55,7 +55,9 @@ export function DrawingEmbed (props: {
 	remove: Function,
 	width?: number,
 	aspectRatio?: number,
-}) {
+}
+
+export function DrawingEmbed (props: DrawingEmbedProps) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
@@ -94,13 +96,13 @@ export function DrawingEmbed (props: {
 		{
 			text: 'Copy drawing',
 			action: async () => {
-				await rememberDrawingFile(props.plugin, props.drawingFileRef);
+				await rememberDrawingFile(props.drawingFileRef);
 			}
 		},
 		{
 			text: 'Open drawing',
 			action: async () => {
-				openInkFile(props.plugin, props.drawingFileRef)
+				openInkFile(props.drawingFileRef)
 			}
 		},
 		{

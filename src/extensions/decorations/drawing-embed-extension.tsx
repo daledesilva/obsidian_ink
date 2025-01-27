@@ -33,7 +33,7 @@ import './drawing-embed-extension.scss';
 
 const mountedDecorationIds: string[] = [];
 
-export class DrawingEmbedWidget extends WidgetType {
+export class DrawingEmbedWidgetNew extends WidgetType {
     id: string;
     partialPreviewFilepath: string;
     embedSettings: any;
@@ -158,7 +158,7 @@ const embedStateField = StateField.define<DecorationSet>({
                             embedLinkInfo.startPosition,  
                             embedLinkInfo.endPosition,
                             Decoration.replace({
-                                widget: new DrawingEmbedWidget(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
+                                widget: new DrawingEmbedWidgetNew(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
                                 isBlock: true,
                             })
                         );

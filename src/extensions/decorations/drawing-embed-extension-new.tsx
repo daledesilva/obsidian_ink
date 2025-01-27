@@ -204,7 +204,7 @@ const embedStateField = StateField.define<DecorationSet>({
 
 
 
-export function drawingEmbedExtension(): Extension {
+export function drawingEmbedExtensionNew(): Extension {
     return embedStateField;
 }
 

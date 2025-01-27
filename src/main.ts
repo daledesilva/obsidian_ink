@@ -9,7 +9,6 @@ import { registerWritingView } from './views/writing-view';
 import insertNewDrawingFile from './commands/insert-new-drawing-file';
 import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
 import { registerDrawingView } from './views/drawing-view';
-import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import { showWelcomeTips_maybe } from './notices/welcome-notice';
@@ -18,9 +17,10 @@ import * as semver from "semver";
 import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
 import { debug } from './utils/log-to-console';
-import { drawingEmbedExtension } from './extensions/decorations/drawing-embed-extension';
 import { setGlobals } from './stores/global-store';
 import { Prec } from '@codemirror/state';
+import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
+import { drawingEmbedExtensionNew } from './extensions/decorations/drawing-embed-extension-new';
 
 ////////
 ////////
@@ -56,12 +56,16 @@ export default class InkPlugin extends Plugin {
 		
 		if(this.settings.drawingEnabled) {
 			registerDrawingView(this);
+
+			// Old embed format
 			registerDrawingEmbed(this);		
-			implementDrawingEmbedActions(this);
+
+			// New embed format
 			this.registerEditorExtension([
-				// Prec.highest(drawingEmbedExtension()),
-				drawingEmbedExtension(),
+				drawingEmbedExtensionNew(),
 			]);
+
+			implementDrawingEmbedActions(this);
 		}
 		
 		registerSettingsTab(this);

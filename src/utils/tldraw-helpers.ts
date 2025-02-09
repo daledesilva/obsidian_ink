@@ -688,8 +688,8 @@ export function simplifyWritingLines(editor: Editor, entry: HistoryEntry<TLRecor
  * Good for screenshots and other non-interactive states.
  */
 export function cropWritingStrokeHeightTightly(height: number): number {
-	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
-	const newLineHeight = (numOfLines + 0.5) * WRITING_LINE_HEIGHT;
+	const numFilledLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numFilledLines + 0.5) * WRITING_LINE_HEIGHT;
 	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
 }
 
@@ -698,8 +698,8 @@ export function cropWritingStrokeHeightTightly(height: number): number {
  * Good for while in editing mode.
  */
 export function cropWritingStrokeHeightInvitingly(height: number): number {
-	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
-	const newLineHeight = (numOfLines + 1.5) * WRITING_LINE_HEIGHT;
+	const numFilledLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numFilledLines + 2 + 0.5) * WRITING_LINE_HEIGHT; // TODO: Convert the 2 to a user definable setting
 	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
 }
 

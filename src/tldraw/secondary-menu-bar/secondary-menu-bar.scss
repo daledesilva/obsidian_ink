@@ -1,0 +1,29 @@
+.ink_secondary-menu-bar {
+    // background-color: red;
+
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: 8px;
+
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+
+    pointer-events: none;
+}
+
+// If inside an embed block
+.cm-embed-block .ink_secondary-menu-bar {
+    padding: 8px var(--file-margins);
+
+    transition-property: transform;
+    transition-duration: 0.2s;
+    transition-timing-function: cubic-bezier(0, 0.5, 0, 1);
+
+    &.ddc_ink_active {
+        transform: translate(0, 100%);
+    }
+}

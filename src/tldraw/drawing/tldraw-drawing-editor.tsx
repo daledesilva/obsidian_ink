@@ -20,6 +20,8 @@ import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from './drawing-e
 import { getInkFileData } from 'src/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { debug, verbose, warn } from 'src/utils/log-to-console';
+import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
+import ModifyMenu from '../modify-menu/modify-menu';
 
 ///////
 ///////
@@ -348,6 +350,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 					/>
 				)}
 			</PrimaryMenuBar>
+			<SecondaryMenuBar>
+				<ModifyMenu
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				/>
+			</SecondaryMenuBar>
 		</div>
 
 		{props.resizeEmbed && (

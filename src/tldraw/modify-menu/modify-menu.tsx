@@ -1,35 +1,25 @@
-import "./drawing-menu.scss";
+import "./modify-menu.scss";
 import * as React from "react";
 import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
-import { SelectIcon } from "src/graphics/icons/select-icon";
-import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { Editor } from "@tldraw/tldraw";
 import { silentlyChangeStore } from "src/utils/tldraw-helpers";
-import { DrawIcon } from "src/graphics/icons/draw-icon";
 import classNames from "classnames";
 
 //////////
 //////////
 
-export enum tool {
-	select = 'select',
-	draw = 'draw',
-	eraser = 'eraser',
-}
-interface DrawingMenuProps {
+interface ModifyMenuProps {
     getTlEditor: () => Editor | undefined,
     onStoreChange: (elEditor: Editor) => void,
 }
 
-export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((props, ref) => {
+export const ModifyMenu = React.forwardRef<HTMLDivElement, ModifyMenuProps>((props, ref) => {
 
-    const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
     React.useEffect( () => {
-        // console.log('MENUBAR MOUNTED');
         
         let removeUserActionListener: () => void;
         
@@ -73,25 +63,6 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		props.onStoreChange(editor)
 
 	}
-	function activateSelectTool() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		editor.setCurrentTool('select');
-		setCurTool(tool.select);
-
-	}
-	function activateDrawTool() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		editor.setCurrentTool('draw');
-		setCurTool(tool.draw);
-	}
-	function activateEraseTool() {
-		const editor = props.getTlEditor();
-		if (!editor) return;
-		editor.setCurrentTool('eraser');
-		setCurTool(tool.eraser);
-	}
 
     ///////////
     ///////////
@@ -101,11 +72,11 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
             ref = {ref}
             className = {classNames([
                 'ink_menu-bar',
-                'ink_menu-bar_full',
+                'ink_menu-bar_floating'
             ])}
         >
-            {/* <div
-                className='ink_quick-menu'
+            <div
+                className='ink_modify-menu'
             >
                 <button
                     onPointerDown={undo}
@@ -119,37 +90,10 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                 >
                     <RedoIcon/>
                 </button>
-            </div> */}
-            <div
-                className='ink_tool-menu'
-            >
-                <button
-                    onPointerDown={activateSelectTool}
-                    disabled={curTool === tool.select}
-                >
-                    <SelectIcon/>
-                </button>
-                <button
-                    onPointerDown={activateDrawTool}
-                    disabled={curTool === tool.draw}
-                >
-                    <DrawIcon/>
-                </button>
-                <button
-                    onPointerDown={activateEraseTool}
-                    disabled={curTool === tool.eraser}
-                >
-                    <EraseIcon/>
-                </button>
-            </div>
-            <div
-                className='ink_other-menu'
-            >
-                
             </div>
         </div>
     </>;
 
 });
 
-export default DrawingMenu;
+export default ModifyMenu;

@@ -7,6 +7,7 @@ import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { Editor } from "@tldraw/tldraw";
 import { Activity, getActivityType, silentlyChangeStore } from "src/utils/tldraw-helpers";
+import classNames from "classnames";
 
 //////////
 //////////
@@ -106,7 +107,10 @@ export const WritingMenu = (props: WritingMenuProps) => {
 
     return <>
         <div
-            className = 'ink_menu-bar'
+            className = {classNames([
+                'ink_menu-bar',
+                'ink_menu-bar_full',
+            ])}
         >
             <div
                 className='ink_quick-menu'

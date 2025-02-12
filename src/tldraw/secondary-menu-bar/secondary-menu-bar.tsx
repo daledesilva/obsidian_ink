@@ -75,38 +75,43 @@ export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
     // }
 
     function handleScrolling(e: Event): void {
-        const scrollEl = e.target as HTMLDivElement;
-        const pageScrollY = scrollEl.scrollTop;
+        const scrollAreaEl = e.target as HTMLDivElement;
+        
+        const pageScrollY = scrollAreaEl.scrollTop;
 
         const SecondaryMenuBar = SecondaryMenuBarElRef.current;
-        const containerEl = SecondaryMenuBar?.parentElement;
+        const embedEl = SecondaryMenuBar?.parentElement;
         if (!SecondaryMenuBar) return;
-        if (!containerEl) return;
+        if (!embedEl) return;
 
+        const scrollAreaHeight = scrollAreaEl.getBoundingClientRect().height;
         const menuBarHeight = SecondaryMenuBar.getBoundingClientRect().height;
-        const containerHeight = containerEl.getBoundingClientRect().height;
+        const embedHeight = embedEl.getBoundingClientRect().height;
 
-        let containerPosY = containerEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
+        let embedPosY = embedEl.getBoundingClientRect().top - scrollAreaEl.getBoundingClientRect().top || 0;
         if(menuActive) {
-            // When the menu bar is translated outside of the container, correct for that by moving it down
-            containerPosY -= Number(menuBarHeight);
+            // When the menu bar is translated outside of the container, correct for that
+            embedPosY += Number(menuBarHeight);
         }
 
-        const containerOffsetY = containerPosY;// - pageScrollY;
-
-        const scrolledOffTopEdge = containerOffsetY < 0;
-        const scrolledOffBottomEdge = containerOffsetY+containerHeight < 0;
+        const embedOffsetY = embedPosY;
         
-        if (scrolledOffBottomEdge) {
-            const top = containerHeight + 'px';
-            SecondaryMenuBar.style.top = top;
-
-        } else if (scrolledOffTopEdge) {
-            const top = Math.abs(containerOffsetY) + 'px';
-            SecondaryMenuBar.style.top = top;
-
+        const embedBottomScrolledOffScrollAreaBottom = embedOffsetY+embedHeight > scrollAreaHeight;
+        const embedTopScrolledOffScrollAreaBottom = embedOffsetY > scrollAreaHeight;
+        
+        if (embedTopScrolledOffScrollAreaBottom) {
+            // So the menu isn't sticky past the bottom edge of the embed.
+            // And this takes priority.
+            const bottom = embedHeight + 'px';
+            SecondaryMenuBar.style.bottom = bottom;            
+            
+        } else if (embedBottomScrolledOffScrollAreaBottom) {
+            // So the menu is sticky when the bottom edge is off screen
+            const bottom = (embedOffsetY+embedHeight-scrollAreaHeight) + 'px';
+            SecondaryMenuBar.style.bottom = bottom;
+            
         } else {
-            SecondaryMenuBar.style.removeProperty('top');
+            SecondaryMenuBar.style.removeProperty('bottom');
         }
     }
 }

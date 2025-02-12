@@ -4,9 +4,9 @@ import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
-import { DrawIcon } from "src/graphics/icons/draw-icon";
 import { Editor } from "@tldraw/tldraw";
 import { silentlyChangeStore } from "src/utils/tldraw-helpers";
+import { DrawIcon } from "src/graphics/icons/draw-icon";
 
 //////////
 //////////

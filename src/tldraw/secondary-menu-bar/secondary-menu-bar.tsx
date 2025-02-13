@@ -96,7 +96,8 @@ export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
 
         const embedOffsetY = embedPosY;
         
-        const embedBottomScrolledOffScrollAreaBottom = embedOffsetY+embedHeight > scrollAreaHeight;
+        // the addition of menuBarHeight/2 is because it's only shifted 50% in css (Same with line further down)
+        const embedBottomScrolledOffScrollAreaBottom = embedOffsetY+embedHeight - menuBarHeight/2 > scrollAreaHeight;
         const embedTopScrolledOffScrollAreaBottom = embedOffsetY > scrollAreaHeight;
         
         if (embedTopScrolledOffScrollAreaBottom) {
@@ -107,7 +108,8 @@ export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
             
         } else if (embedBottomScrolledOffScrollAreaBottom) {
             // So the menu is sticky when the bottom edge is off screen
-            const bottom = (embedOffsetY+embedHeight-scrollAreaHeight) + 'px';
+            // const bottom = (embedOffsetY+(embedHeight)-scrollAreaHeight) + 'px'; // embedHeight is divided by two because it's only shift 50% in css
+            const bottom = (embedOffsetY+embedHeight-scrollAreaHeight - menuBarHeight/2) + 'px'; 
             SecondaryMenuBar.style.bottom = bottom;
             
         } else {

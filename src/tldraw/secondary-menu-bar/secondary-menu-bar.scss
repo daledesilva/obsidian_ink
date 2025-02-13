@@ -24,6 +24,6 @@
     transition-timing-function: cubic-bezier(0, 0.5, 0, 1);
 
     &.ddc_ink_active {
-        transform: translate(0, 100%);
+        transform: translate(0, 50%);
     }
 }

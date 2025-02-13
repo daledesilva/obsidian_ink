@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore, TLEditorSnapshot, TLUiActionsContextType } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
@@ -318,6 +318,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 				shapeUtils = {[...defaultShapeUtils]}
 				tools = {[...defaultTools, ...defaultShapeTools]}
 				initialState = "draw"
+				overrides={myOverrides}
 				snapshot = {tlEditorSnapshot}
 				// persistenceKey = {props.fileRef.path}
 

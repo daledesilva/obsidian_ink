@@ -19,6 +19,8 @@ import { editorActiveAtom, WritingEmbedState, embedStateAtom } from './writing-e
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/utils/getInkFileData';
 import { verbose } from 'src/utils/log-to-console';
+import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
+import ModifyMenu from '../modify-menu/modify-menu';
 
 ///////
 ///////
@@ -351,6 +353,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				)}
 			</PrimaryMenuBar>
 
+			<SecondaryMenuBar>
+				<ModifyMenu
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				/>
+			</SecondaryMenuBar>
+			
 		</div>
 	</>;
 

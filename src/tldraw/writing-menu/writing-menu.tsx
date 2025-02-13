@@ -25,41 +25,6 @@ interface WritingMenuProps {
 export const WritingMenu = (props: WritingMenuProps) => {
 
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
-	const [canUndo, setCanUndo] = React.useState<boolean>(false);
-	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-
-    React.useEffect( () => {
-        // console.log('MENUBAR MOUNTED');
-        
-        let removeUserActionListener: () => void;
-        
-        // Arbitrary delay to know when editor has fully mounted and exists
-        // TODO: Could try every 100ms until succeeds?
-        const mountDelayMs = 200;
-        setTimeout( () => {
-            const tlEditor = props.getTlEditor();
-            if(!tlEditor) return;
-
-            let timeout: NodeJS.Timeout;
-            removeUserActionListener = tlEditor.store.listen((entry) => {
-                const activity = getActivityType(entry);
-                if (activity === Activity.PointerMoved) return;
-				
-                clearTimeout(timeout);
-                timeout = setTimeout( () => { // TODO: Create a debounce helper
-                    setCanUndo( tlEditor.getCanUndo() );
-                    setCanRedo( tlEditor.getCanRedo() );
-                }, 100);
-            }, {
-                source: 'user',
-                scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
-            })
-        }, mountDelayMs);
-
-        return () => {
-            removeUserActionListener()
-        };
-    }, []);
 
     ///////////
 
@@ -69,7 +34,6 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		silentlyChangeStore( tlEditor, () => {
 			tlEditor.undo();
 		});
-        setCanUndo( tlEditor.getCanUndo() );
 		props.onStoreChange(tlEditor)
 	}
 	function redo() {
@@ -78,7 +42,6 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		silentlyChangeStore( tlEditor, () => {
 			tlEditor.redo();
 		});
-        setCanRedo( tlEditor.getCanRedo() );
 		props.onStoreChange(tlEditor)
 
 	}
@@ -112,7 +75,7 @@ export const WritingMenu = (props: WritingMenuProps) => {
                 'ink_menu-bar_full',
             ])}
         >
-            <div
+            {/* <div
                 className='ink_quick-menu'
             >
                 <button
@@ -127,7 +90,7 @@ export const WritingMenu = (props: WritingMenuProps) => {
                 >
                     <RedoIcon/>
                 </button>
-            </div>
+            </div> */}
             <div
                 className='ink_tool-menu'
             >

@@ -25,34 +25,6 @@ interface DrawingMenuProps {
 export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((props, ref) => {
 
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
-	const [canUndo, setCanUndo] = React.useState<boolean>(false);
-	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-
-    React.useEffect( () => {
-        // console.log('MENUBAR MOUNTED');
-        
-        let removeUserActionListener: () => void;
-        
-        const mountDelayMs = 100;
-        setTimeout( () => {
-            const tlEditor = props.getTlEditor();
-            if(!tlEditor) return;
-
-            let timeout: NodeJS.Timeout;
-            removeUserActionListener = tlEditor.store.listen((entry) => {
-                clearTimeout(timeout);
-                timeout = setTimeout( () => { // TODO: Create a debounce helper
-                    setCanUndo( tlEditor.getCanUndo() );
-                    setCanRedo( tlEditor.getCanRedo() );
-                }, 100);
-            }, {
-                source: 'all',
-                scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
-            })
-        }, mountDelayMs);
-
-        return () => removeUserActionListener();
-    }, []);
 
     ///////////
 

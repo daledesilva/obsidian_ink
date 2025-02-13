@@ -1,5 +1,6 @@
 import { createInkNoticeTemplate, createNoticeCtaBar, launchPersistentInkNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
+import { isIpad } from 'src/utils/isIpad';
 
 ///////////
 ///////////
@@ -90,6 +91,35 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
             notice.hide();
+            if(isIpad()) {
+                showiPadWelcomeTip(plugin);
+            } else {
+                showSyncingWelcomeTip(plugin);
+            }
+        });
+    }
+    
+}
+
+function showiPadWelcomeTip(plugin: InkPlugin) {
+    const noticeBody = createInkNoticeTemplate();
+    noticeBody.createEl('h1').setText(`If you're using an iPad...`);
+    noticeBody.createEl('p').setText(`The 'Scribble' feature of the Apple Pencil can interfere with the ability to write in Ink embeds.`);
+    noticeBody.createEl('p').setText(`To use Ink you will need to turn off Scribble in your device settings.`);
+
+    const {
+        primaryBtnEl,
+        tertiaryBtnEl
+    } = createNoticeCtaBar(noticeBody, {
+        primaryLabel: 'Continue',
+        tertiaryLabel: 'Dismiss for now',
+    })
+
+    const notice = launchPersistentInkNotice(noticeBody);
+
+    if(primaryBtnEl) {
+        primaryBtnEl.addEventListener('click', () => {
+            notice.hide();
             showSyncingWelcomeTip(plugin);
         });
     }
@@ -126,13 +156,21 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createInkNoticeTemplate();
     noticeBody.createEl('h1').setText(`Get involved...`);
     noticeBody.createEl('p').setText(`If you notice any bugs, please report them through the link in the settings.`);
-    noticeBody.createEl('p').setText(`You can also follow along with development and let me know which features are important to you at the link below.`);
+    noticeBody.createEl('p').setText(`You can also follow along with development and let me know which features are important to you at the links below.`);
 
-    const link = noticeBody.createEl('a');
-    link.setAttribute('href', 'https://youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL&si=GVp9ILvCAaRTwyYd')
-    link.setText(`Ink development diaries`);
+    const link1 = noticeBody.createEl('a');
+    link1.setAttribute('href', 'https://youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL&si=GVp9ILvCAaRTwyYd')
+    link1.setText(`View development diaries`);
     // Prevent clicking link from closing notice
-    link.onClickEvent( e => e.stopPropagation())
+    link1.onClickEvent( e => e.stopPropagation())
+
+    noticeBody.createEl('br');
+    
+    const link2 = noticeBody.createEl('a');
+    link2.setAttribute('href', 'https://designdebt.club/socials')
+    link2.setText(`Follow on socials`);
+    // Prevent clicking link from closing notice
+    link2.onClickEvent( e => e.stopPropagation())
     
     const {
         tertiaryBtnEl

@@ -28,13 +28,14 @@ function showChanges(plugin: InkPlugin) {
     noticeBody.createEl('h1').setText(`Changes in Ink v0.3.4`);
     const listEl = noticeBody.createEl('ul');
     
+    listEl.createEl('li').setText(`Fixed update notice text colour in light mode (That's why you can read this!).`);
     listEl.createEl('li').setText(`Moved Undo/Redo buttons to prevent accidental back button taps.`);
     listEl.createEl('li').setText(`Added new command icons.`);
     listEl.createEl('li').setText(`Added extra blank lines while writing.`);
     listEl.createEl('li').setText(`Fixed some visual theming bugs.`);
     
     const link = noticeBody.createEl('a');
-    link.setAttribute('href', 'https://youtube.com/live/aCMJidESZoE?feature=share')
+    link.setAttribute('href', 'https://youtube.com/live/50EpBdPwrxY')
     link.setText(`View release video`);
     // Prevent clicking link from closing notice
     link.onClickEvent( e => e.stopPropagation())

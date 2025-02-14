@@ -47,7 +47,11 @@
         list-style-position: outside;
         li {
             margin-block-end: 1ch;
-        }
+            color: var(--text-normal);
+            &::marker {
+                color: var(--text-accent);
+            }
+        }        
     }
     a {
         pointer-events: all;

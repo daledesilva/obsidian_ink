@@ -22,6 +22,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { debug, verbose, warn } from 'src/utils/log-to-console';
 import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from '../modify-menu/modify-menu';
+import { connectBooxWebSocket } from 'src/connections/local-websocket/local-websocket';
 
 ///////
 ///////
@@ -70,6 +71,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
 		fetchFileData();
+		connectBooxWebSocket({
+			onStrokePoints: (strokePoints: any) => {
+				if(!tlEditorRef.current) return;
+				if(!editorWrapperRefEl.current) return;
+
+				const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+				const offset = {
+					x: embedRect.left,
+					y: embedRect.top,
+				}
+				createStroke(tlEditorRef.current, strokePoints, offset);
+			}
+		});
 		return () => {
 			verbose('EDITOR unmounting');
 		}
@@ -375,3 +389,23 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	}
 
 };
+
+
+function createStroke(tlEditor: Editor, strokePoints: any, offset: {x: number, y: number}) {
+	verbose("Creating stroke");
+	tlEditor.createShape({
+		type: 'draw',
+		props: {
+			segments: [
+				{
+					type: 'free',
+					points: strokePoints.map( (point: any) => ({
+						x: point.x - offset.x,
+						y: point.y - offset.y,
+						z: 0.5,
+					})),
+				}
+			]
+		}
+	})
+}

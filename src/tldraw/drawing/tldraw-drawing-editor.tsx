@@ -22,7 +22,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { debug, verbose, warn } from 'src/utils/log-to-console';
 import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from '../modify-menu/modify-menu';
-import { connectBooxWebSocket } from 'src/connections/local-websocket/local-websocket';
+import { connectWebSocket, sendDimensions } from 'src/connections/local-websocket/local-websocket';
 
 ///////
 ///////
@@ -71,19 +71,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
 		fetchFileData();
-		connectBooxWebSocket({
-			onStrokePoints: (strokePoints: any) => {
-				if(!tlEditorRef.current) return;
-				if(!editorWrapperRefEl.current) return;
-
-				const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-				const offset = {
-					x: embedRect.left,
-					y: embedRect.top,
-				}
-				createStroke(tlEditorRef.current, strokePoints, offset);
-			}
-		});
+		(async () => {
+			connectWebSocket({
+				onConnected: () => {
+					debug('Connected to WebSocket');
+					sendDimensionsToWebSocket();
+				},
+				onStrokePoints: createStrokeFromBoox
+			});
+		})();
 		return () => {
 			verbose('EDITOR unmounting');
 		}
@@ -388,24 +384,73 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		props.resizeEmbed(pxWidthDiff, pxHeightDiff);
 	}
 
+
+	function sendDimensionsToWebSocket() {
+		if(!editorWrapperRefEl.current) return;
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+		sendDimensions({
+			x: Math.round(embedRect.x),
+			y: Math.round(embedRect.y),
+			width: Math.round(embedRect.width),
+			height: Math.round(embedRect.height),
+		})
+	}
+
+
+	/**
+	 * Converts Boox formatted stroke points to a common format
+	 */
+	interface BooxStrokePoint {
+		pressure: number,
+		size: number,
+		tiltX: number,
+		tiltY: number,
+		timestamp: number,
+		x: number,
+		y: number
+	}
+	function createStrokeFromBoox(booxStrokePoints: BooxStrokePoint[]) {
+		if(!editorWrapperRefEl.current) return;
+		if(!tlEditorRef.current) return;
+
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+		const offset = {
+			x: embedRect.left,
+			y: embedRect.top,
+		}
+		const strokePoints = booxStrokePoints.map( (point: BooxStrokePoint) => ({
+			x: point.x,// - offset.x,
+			y: point.y,// - offset.y,
+			z: 0.5,
+		}))
+		debug(["Stroke points:", strokePoints]);
+		createStroke(strokePoints);
+	}
+
+
+	interface StrokePoint {
+		x: number,
+		y: number,
+		z: number,
+	}
+	function createStroke(strokePoints: StrokePoint[]) {
+		if(!tlEditorRef.current) return;
+		verbose("Creating stroke");
+	
+		tlEditorRef.current.createShape({
+			type: 'draw',
+			props: {
+				segments: [
+					{
+						type: 'free',
+						points: strokePoints,
+					}
+				]
+			}
+		})
+	}
+
 };
 
 
-function createStroke(tlEditor: Editor, strokePoints: any, offset: {x: number, y: number}) {
-	verbose("Creating stroke");
-	tlEditor.createShape({
-		type: 'draw',
-		props: {
-			segments: [
-				{
-					type: 'free',
-					points: strokePoints.map( (point: any) => ({
-						x: point.x - offset.x,
-						y: point.y - offset.y,
-						z: 0.5,
-					})),
-				}
-			]
-		}
-	})
-}
+

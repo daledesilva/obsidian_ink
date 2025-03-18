@@ -16,7 +16,7 @@ import classNames from "classnames";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/utils/getFullPageWidth";
-import { verbose } from "src/utils/log-to-console";
+import { debug, verbose } from "src/utils/log-to-console";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////

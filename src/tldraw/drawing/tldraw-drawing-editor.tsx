@@ -413,16 +413,18 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		if(!editorWrapperRefEl.current) return;
 		if(!tlEditorRef.current) return;
 
-		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		const offset = {
-			x: embedRect.left,
-			y: embedRect.top,
-		}
-		const strokePoints = booxStrokePoints.map( (point: BooxStrokePoint) => ({
-			x: point.x,// - offset.x,
-			y: point.y,// - offset.y,
-			z: 0.5,
+		const tlBounds = tlEditorRef.current.getViewportPageBounds();
+		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
+
+		// convert from embed coordinates to tldraw camera coordinates
+		const xScaleCoeff = tlBounds.w / embedBounds.width;
+		const yScaleCoeff = tlBounds.h / embedBounds.height;
+		const strokePoints = booxStrokePoints.map( (embedPoint: BooxStrokePoint) => ({
+			x: tlBounds.x + embedPoint.x * xScaleCoeff,
+			y: tlBounds.y + embedPoint.y * yScaleCoeff,
+			// z doesn't seem to do anything :(`
 		}))
+
 		debug(["Stroke points:", strokePoints]);
 		createStroke(strokePoints);
 	}
@@ -431,7 +433,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	interface StrokePoint {
 		x: number,
 		y: number,
-		z: number,
+		z?: number,
 	}
 	function createStroke(strokePoints: StrokePoint[]) {
 		if(!tlEditorRef.current) return;

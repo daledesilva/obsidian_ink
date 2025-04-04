@@ -22,7 +22,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { debug, verbose, warn } from 'src/utils/log-to-console';
 import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from '../modify-menu/modify-menu';
-import { connectWebSocket, sendDimensions } from 'src/connections/local-websocket/local-websocket';
+import { connectWebSocket, sendCloseDrawingArea, sendNewDrawingArea } from 'src/connections/local-websocket/local-websocket';
 
 ///////
 ///////
@@ -75,13 +75,14 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 			connectWebSocket({
 				onConnected: () => {
 					debug('Connected to WebSocket');
-					sendDimensionsToWebSocket();
+					setUpNewDrawingAreaThroughWebSocket();
 				},
 				onStrokePoints: createStrokeFromBoox
 			});
 		})();
 		return () => {
 			verbose('EDITOR unmounting');
+			closeDrawingAreaThroughWebSocket();
 		}
 	}, [])
 
@@ -385,15 +386,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 	}
 
 
-	function sendDimensionsToWebSocket() {
+	function setUpNewDrawingAreaThroughWebSocket() {
 		if(!editorWrapperRefEl.current) return;
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		sendDimensions({
+		sendNewDrawingArea({
 			x: Math.round(embedRect.x),
 			y: Math.round(embedRect.y),
 			width: Math.round(embedRect.width),
 			height: Math.round(embedRect.height),
 		})
+	}
+
+	function closeDrawingAreaThroughWebSocket() {
+		sendCloseDrawingArea();
 	}
 
 

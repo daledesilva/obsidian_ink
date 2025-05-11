@@ -21,6 +21,7 @@ export class MySettingsTab extends PluginSettingTab {
 	constructor(app: App, plugin: MyPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+		this.refresh = this.refresh.bind(this);
 	}
 
 	display(): void {
@@ -36,12 +37,12 @@ export class MySettingsTab extends PluginSettingTab {
 		insertPrereleaseWarning(containerEl);
 		insertSetupGuide(this.plugin, containerEl);
 
-		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
-		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
+		insertHighLevelSettings(containerEl, this.plugin, this.refresh);
+		insertSubfolderSettings(containerEl, this.plugin, this.refresh);
 
 		containerEl.createEl('hr');
-		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
-		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
+		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, this.refresh);
+		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, this.refresh);
 	
 		new Setting(containerEl)
 			.addButton( (button) => {
@@ -61,8 +62,10 @@ export class MySettingsTab extends PluginSettingTab {
 			})
 
 		createSupportButtonSet(containerEl);
-		
+	}
 
+	refresh(): void {
+		this.display();
 	}
 }
 

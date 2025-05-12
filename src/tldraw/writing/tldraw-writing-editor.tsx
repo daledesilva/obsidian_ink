@@ -368,9 +368,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							const cmScroller = document.querySelector('.cm-scroller');
 							if (cmScroller) {
 								(cmScroller as HTMLElement).style.overflow = 'hidden';
-								setTimeout(() => {
-									(cmScroller as HTMLElement).style.overflow = 'auto';
-								}, 5000);
 							}
 
 						}
@@ -378,37 +375,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						new Notice('touch input');
 					}
 				}}
-				// TODO: This is firing on any more, not just after pointer down
-				// onPointerMove={(e) => {
-				// 	console.log('pointer move');
-				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-						
-				// 		// NOTE: This stops the scrolling but it's real hacky
-				// 		const cmScroller = document.querySelector('.cm-scroller');
-				// 		if (cmScroller) {
-				// 			(cmScroller as HTMLElement).style.overflow = 'hidden';
-				// 			setTimeout(() => {
-				// 				(cmScroller as HTMLElement).style.overflow = 'auto';
-				// 			}, 100);
-				// 		}
-
-				// 		const tlCanvas = document.querySelector('.tl-canvas');
-				// 		if (tlCanvas) {
-				// 			const newEvent = new PointerEvent('pointermove', {
-				// 				pointerId: e.pointerId,
-				// 				pointerType: e.pointerType,
-				// 				clientX: e.clientX,
-				// 				clientY: e.clientY,
-				// 				bubbles: true
-				// 			});
-				// 			tlCanvas.dispatchEvent(newEvent);
-				// 			// e.stopPropagation();
-				// 			// e.preventDefault();
-				// 		}
-				// 	} else {
-				// 		// It's finger, so allow scrolling, unless it moves horizontally first, then do selecting of words.
-				// 	}
-				// }}
+				
+				onPointerMove={(e) => {
+					console.log('pointer move');
+					const cmScroller = document.querySelector('.cm-scroller');
+					if (cmScroller) {
+						(cmScroller as HTMLElement).style.overflow = 'auto';
+					}
+				}}
 				
 				// TODO: This isn't firing
 				// onPointerUpCapture={(e) => {

@@ -8,7 +8,7 @@ import InkPlugin from "../../main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
-import { TFile } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
@@ -336,7 +336,105 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				// Prevent autoFocussing so it can be handled in the handleMount
 				autoFocus = {false}
 			/>
+			<div
+				style={{
+					position: 'absolute',
+					inset: 0,
+					backgroundColor: 'rgba(255,0,0,0.3)',
+					// pointerEvents: 'none', // Don't capture pointerEvents, let them through the the canvas below.
+					// touchAction: 'auto', // But capture touch events so tldraw doesn't use them
+					zIndex: 1000,
+				}}
+				draggable = "false"
 
+				// This works, but doesn't stop the scrolling, which takes over and stops the drawing.
+				onPointerDown={(e) => {
+					console.log('pointer down');
+					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+						const tlCanvas = document.querySelector('.tl-canvas');
+						if (tlCanvas) {
+							const newEvent = new PointerEvent('pointerdown', {
+								pointerId: e.pointerId,
+								pointerType: e.pointerType,
+								clientX: e.clientX,
+								clientY: e.clientY,
+								bubbles: true
+							});
+							tlCanvas.dispatchEvent(newEvent);
+							// e.stopPropagation();
+							// e.preventDefault();
+
+							// NOTE: This stops the scrolling but it's real hacky
+							const cmScroller = document.querySelector('.cm-scroller');
+							if (cmScroller) {
+								(cmScroller as HTMLElement).style.overflow = 'hidden';
+								setTimeout(() => {
+									(cmScroller as HTMLElement).style.overflow = 'auto';
+								}, 5000);
+							}
+
+						}
+					} else {
+						new Notice('touch input');
+					}
+				}}
+				// TODO: This is firing on any more, not just after pointer down
+				// onPointerMove={(e) => {
+				// 	console.log('pointer move');
+				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+						
+				// 		// NOTE: This stops the scrolling but it's real hacky
+				// 		const cmScroller = document.querySelector('.cm-scroller');
+				// 		if (cmScroller) {
+				// 			(cmScroller as HTMLElement).style.overflow = 'hidden';
+				// 			setTimeout(() => {
+				// 				(cmScroller as HTMLElement).style.overflow = 'auto';
+				// 			}, 100);
+				// 		}
+
+				// 		const tlCanvas = document.querySelector('.tl-canvas');
+				// 		if (tlCanvas) {
+				// 			const newEvent = new PointerEvent('pointermove', {
+				// 				pointerId: e.pointerId,
+				// 				pointerType: e.pointerType,
+				// 				clientX: e.clientX,
+				// 				clientY: e.clientY,
+				// 				bubbles: true
+				// 			});
+				// 			tlCanvas.dispatchEvent(newEvent);
+				// 			// e.stopPropagation();
+				// 			// e.preventDefault();
+				// 		}
+				// 	} else {
+				// 		// It's finger, so allow scrolling, unless it moves horizontally first, then do selecting of words.
+				// 	}
+				// }}
+				
+				// TODO: This isn't firing
+				// onPointerUpCapture={(e) => {
+				// 	console.log('pointer up');
+				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				// 		const tlCanvas = document.querySelector('.tl-canvas');
+				// 		if (tlCanvas) {
+				// 			const newEvent = new PointerEvent('pointerup', {
+				// 				pointerId: e.pointerId,
+				// 				pointerType: e.pointerType,
+				// 				clientX: e.clientX,
+				// 				clientY: e.clientY,
+				// 				bubbles: true
+				// 			});
+				// 			tlCanvas.dispatchEvent(newEvent);
+				// 			// e.stopPropagation();
+				// 			// e.preventDefault();
+				// 		}
+				// 	}
+
+				// 	const cmScroller = document.querySelector('.cm-scroller');
+				// 	if (cmScroller) {
+				// 		(cmScroller as HTMLElement).style.overflow = 'auto';
+				// 	}
+				// }}
+			/>
 			<PrimaryMenuBar>
 				<WritingMenu
 					getTlEditor = {getTlEditor}

@@ -104,10 +104,19 @@ export function preventTldrawCanvasesCausingObsidianGestures(tlEditor: Editor) {
 	if (!tlCanvas) return;
 
 	// Prevent fingers and capacitive pens causing Obsidian gestures
+	// NOTE: Must be touchmove, doesn't work with pointermove
 	tlCanvas.addEventListener('touchmove', (e: Event) => {
 		e.stopPropagation();
 	})
 
+	// This works, to stop drawing input, but doesn't allow scrolling.
+	// tlCanvas.addEventListener('pointermove', (e: PointerEvent) => {
+	// 	if(e.pointerType !== 'pen' && e.pointerType !== 'mouse') {
+	// 		e.stopPropagation(); // Stops the tldraw canvas using finger touches as drawing input.
+	// 	}
+	// })
+
+	
 	// NOTE: This might be a more appropriate method than above, but I don't know how to get a reference to the event object to stop propogation
 	// editor.addListener('event', (e: TLEventInfo) => {
 	// 	// if(e instanceof TLPointerEventInfo)

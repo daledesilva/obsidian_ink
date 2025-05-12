@@ -2,13 +2,14 @@ import './ddc-library/settings-styles.scss';
 import { Editor, Notice, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './tabs/settings-tab/settings-tab';
-import {registerWritingEmbed} from './extensions/widgets/writing-embed-widget'
+import {registerWritingEmbed} from './extensions_v1/widgets/writing-embed-widget'
 import insertExistingWritingFile from './commands/insert-existing-writing-file';
 import insertNewWritingFile from './commands/insert-new-writing-file';
 import { registerWritingView } from './views/writing-view';
 import insertNewDrawingFile from './commands/insert-new-drawing-file';
 import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
 import { registerDrawingView } from './views/drawing-view';
+import { registerDrawingEmbed } from './extensions_v1/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import { showWelcomeTips_maybe } from './notices/welcome-notice';
@@ -17,10 +18,9 @@ import * as semver from "semver";
 import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
 import { debug } from './utils/log-to-console';
+import { drawingEmbedExtension } from './extensions_v1/decorations/drawing-embed-extension';
 import { setGlobals } from './stores/global-store';
 import { Prec } from '@codemirror/state';
-import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
-import { drawingEmbedExtensionNew } from './extensions/decorations/drawing-embed-extension-new';
 
 ////////
 ////////
@@ -56,16 +56,12 @@ export default class InkPlugin extends Plugin {
 		
 		if(this.settings.drawingEnabled) {
 			registerDrawingView(this);
-
-			// Old embed format
 			registerDrawingEmbed(this);		
-
-			// New embed format
-			this.registerEditorExtension([
-				drawingEmbedExtensionNew(),
-			]);
-
 			implementDrawingEmbedActions(this);
+			// this.registerEditorExtension([
+			// 	// Prec.highest(drawingEmbedExtension()),
+			// 	drawingEmbedExtension(),
+			// ]);
 		}
 		
 		registerSettingsTab(this);

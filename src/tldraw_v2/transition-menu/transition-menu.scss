@@ -1,0 +1,53 @@
+
+
+.ink_transition_menu {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 4px;
+
+    pointer-events: none;
+
+    button {
+        width: auto;
+        pointer-events: auto;
+        background-color: var(--interactive-normal);
+        color: var(--color-base-60);
+        fill: var(--color-base-60);
+        &:hover {
+            background-color: var(--interactive-hover);
+            color: var(--color-base-100);
+            fill: var(--color-base-100);
+        }
+        &:disabled {
+            cursor: default;
+            color: var(--text-on-accent);
+            fill: var(--text-on-accent);
+            background-color: var(--interactive-accent);
+            &:hover {
+                box-shadow: var(--input-shadow);
+            }
+        }
+    }
+
+    button {
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 0.8em;
+        padding: 0 !important;
+        overflow: visible;
+        
+        &.ddc_ink_btn-slim {
+            width: 1.9em;
+            height: 2.5em;
+            border-radius: 0.8em;
+            padding: 0;
+
+        }
+
+        svg {
+            width: 1.5em !important;
+            height: 1.5em !important;
+        }
+    }
+}

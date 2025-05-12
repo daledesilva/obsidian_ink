@@ -22,6 +22,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "src/tldraw/writing/writing-embed-preview",
+    "src/tldraw_v1/writing/writing-embed-preview",
+    "src/tldraw_v2/writing/writing-embed-preview",
   ],
 }

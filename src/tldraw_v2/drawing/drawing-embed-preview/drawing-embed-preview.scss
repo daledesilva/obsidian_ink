@@ -1,0 +1,23 @@
+.ddc_ink_drawing-embed-preview {
+    pointer-events: none;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    img {
+        pointer-events: auto;
+        cursor: pointer;
+    }
+
+    &.ddc_ink_visible-background {
+        background-color: var(--color-base-05);
+        border-radius: 20px;
+    }
+    
+    &.ddc_ink_visible-frame {
+        border: 2px solid var(--color-base-30);
+        border-radius: 20px;
+    }    
+    
+}

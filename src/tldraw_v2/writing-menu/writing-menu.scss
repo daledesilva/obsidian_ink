@@ -1,0 +1,97 @@
+// TODO: Can use .theme-dark and .theme-light on the body element to adjust colors - Or use the CSS variables
+
+// TODO: This also applies to drawing menus, so should be abstract to common components like ink_menu-bar and button
+
+.ink_menu-bar {
+    flex-grow: 1;
+    
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+
+    pointer-events: none;
+
+    button {
+
+        animation: menu-button_scale-up 0.3s 0.1s ease-out;
+        animation-fill-mode: both;
+
+        pointer-events: auto;
+        background-color: var(--interactive-normal);
+        color: var(--color-base-60);
+        fill: var(--color-base-60); // for svg icon elements
+        &:hover {
+            background-color: var(--interactive-hover);
+            color: var(--color-base-100);
+            fill: var(--color-base-100);
+        }
+        &:disabled {
+            animation: menu-button_scale-up 0.3s ease-out;
+            opacity: 1; // Remove tldraw defaiult transparency because button can sit on top of text.
+
+            cursor: default;
+            color: var(--text-on-accent);
+            fill: var(--text-on-accent);
+            background-color: var(--interactive-accent);
+            &:hover {
+                box-shadow: var(--input-shadow);
+            }
+        }
+    }
+}
+
+@keyframes menu-button_scale-up {
+    from { transform: scale(0); }
+    to { transform: scale(1); }
+}
+
+.ink_quick-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+
+    button {
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 0.8em;
+        padding: 0 !important;
+
+        svg {
+            width: 1.5em !important;
+            height: 1.5em !important;
+        }
+
+        &:disabled {
+            visibility: hidden;
+        }
+    }
+}
+
+.ink_tool-menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50% );
+
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+
+    button {
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 2.5em;
+        padding: 0 !important;
+
+        svg {
+            width: 1.5em !important;
+            height: 1.5em !important;
+        }
+    }
+}
+
+.ink_other-menu {
+    display: flex;
+    flex-direction: row;
+}

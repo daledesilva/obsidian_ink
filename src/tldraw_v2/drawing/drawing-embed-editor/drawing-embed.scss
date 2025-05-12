@@ -1,0 +1,108 @@
+
+
+// Enables placing elements outside of the embed
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ddc_ink_drawing-embed),
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ddc_ink_drawing-embed):hover {
+    contain: unset !important;
+    overflow: visible;
+}
+
+
+.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ddc_ink_drawing-embed) {
+    // Extend through page horizontal margin
+    margin: 0 calc(-1 * var(--file-margins)) !important;
+
+    // Prevent default obsidian cod-block hover outline
+    &:hover {
+        box-shadow: none;
+    }
+    
+    // Prevent default Obsidian 'edit block' button appearing
+    .edit-block-button {
+        display: none;
+    }
+
+    .ddc_ink_drawing-editor {
+
+        .tl-container {
+            // Allow tldraw right click menu to overflow container
+            overflow: visible;
+            clip: unset;
+            contain: none !important;
+            
+            .tlui-layout {
+                // Allow tldraw right click menu to overflow container
+                overflow: visible;
+                clip: unset;
+                contain: none !important;
+
+                .tlui-button.tlui-menu__trigger {
+                    display: none;
+                }
+                
+                .tlui-navigation-zone {
+                    display: none;
+                }
+                
+                .tlui-help-menu {
+                    display: none;
+                }
+                
+                
+                .tlui-layout__top {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    translate: 0 -100%;
+                }
+                .tlui-layout__bottom {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    translate: 0 -100%;
+                }
+            }
+        }
+    }
+}
+
+
+
+
+.ddc_ink_drawing-embed {
+    box-sizing: content-box;
+    transition-property: padding;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}
+
+
+.theme-dark {
+    .ddc_ink_drawing-embed-preview {
+        path { fill: rgb(242, 242, 242); }
+
+        .ddc_ink_drawing-placeholder {
+            path { stroke: rgb(242, 242, 242) !important; }
+            rect, circle { stroke: rgb(242, 242, 242) !important; }
+        }
+        .frame-children {
+            rect, circle { stroke: rgb(242, 242, 242); }
+        }
+
+        // NOTE: Seems like an attribute selector on fill doesn't work.
+        // May have to iterate through SVG string before save and add id's for the paths with matching fills so I select them here
+    }
+}
+
+.theme-light {
+    .ddc_ink_drawing-embed-preview {
+        path { fill: rgb(29, 29, 29); }
+        
+        .ddc_ink_drawing-placeholder {
+            path { stroke: rgb(29, 29, 29) !important; }
+            rect, circle { stroke: rgb(29, 29, 29) !important; }
+        }
+    }
+}

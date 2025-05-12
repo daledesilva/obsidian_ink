@@ -1,0 +1,51 @@
+@use '../tldraw-defaults.scss';
+
+/////////
+/////////
+
+.ddc_ink_writing-editor {
+    transition: height 0.5s ease;
+    
+    .tl-container {
+        // tldraw seems to put a black background when the container is focussed. This negates that
+        outline: none !important;
+
+        .tl-canvas {
+            background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    
+            overflow: hidden;
+            
+            .tl-background {
+                background: none;
+            }
+    
+        }
+    }
+}
+
+
+// Auto adapts to themes
+////////////////////////
+
+.ddc_ink_writing-editor {
+
+    // outline thickened but not coloured
+    outline: solid 8px var(--color-base-10);
+    border-radius: 20px;
+
+    // Left side coloured
+    // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
+    // border-radius: 5px 20px 20px 5px;
+
+    background-color: var(--color-base-05);
+
+    // TODO: Should be placed in a separate file for writing-file-styles
+    // Writing lines
+    line {
+        stroke: var(--color-base-50);
+        stroke-width: 2px;
+    }
+}
+
+
+

@@ -1,0 +1,33 @@
+
+
+
+.ddc_ink_resize-container.ddc_ink_smooth-transition {
+    transition-property: height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}
+
+
+
+
+// TODO: This is common to drawing and writing files. It should be moved to a common area.
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered.ddc_ink_embed-block,
+.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered.ddc_ink_embed-block:hover {
+    
+    // Enables placing elements outside of the embed
+    contain: unset !important;
+    overflow: visible !important;
+
+    // Extends ink area into margins of writing area
+    // NOTE: The above was removed and moved to javascript applyCommonAncestorStyling function. Because file-margin couldn't be trusted to be a single value. Sometimes it would bve something like '8px 22px'
+    // margin: 0 calc(-1 * var(--file-margins) + 4px) !important;
+
+    // Prevent default obsidian code-block hover outline
+    box-shadow: none;
+    
+    // Prevent default Obsidian 'edit block' button appearing
+    .edit-block-button {
+        display: none;
+    }
+}
+

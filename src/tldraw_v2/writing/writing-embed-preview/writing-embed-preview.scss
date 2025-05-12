@@ -1,0 +1,69 @@
+
+
+
+// Auto adapts to themes
+////////////////////////
+
+.ddc_ink_writing-embed-preview {
+    pointer-events: none;
+
+    overflow: visible;
+
+    // img {
+    //     pointer-events: auto;
+    //     cursor: pointer;
+    // }
+
+    // Pens
+    // path[fill="rgb(242, 242, 242)"] {
+    //     fill: red;
+    // }
+
+    
+
+    &.ddc_ink_visible-background {
+        border: solid 1px var(--color-base-20);
+        border-radius: 20px;
+        background-color: var(--color-base-05);
+    }
+
+    // Writing lines
+    line {
+        stroke: var(--color-base-50);
+        stroke-width: 2px;
+    }
+    
+    &:not(.ddc_ink_visible-lines) {
+        line { display: none; }
+    }
+
+}
+
+
+
+
+
+
+// Customised for themes
+////////////////////////
+
+.theme-dark {
+    .ddc_ink_writing-embed-preview {
+        
+        // Pens
+        path { fill: rgb(242, 242, 242); }  // TODO: Have a separate file for pen colors? that defines the colours as variables that can be used here?
+        // NOTE: Seems like an attribute selector on fill doesn't work.
+        // May have to iterate through SVG string before save and add class name's for the paths with matching fills so I can select them here
+
+    }
+}
+
+.theme-light {
+    .ddc_ink_writing-embed-preview {
+
+        // Pens
+        path { fill: rgb(29, 29, 29); }
+
+    }
+}
+

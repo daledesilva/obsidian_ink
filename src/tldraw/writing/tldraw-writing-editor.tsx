@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteWritingTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
 import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
@@ -63,7 +63,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
-	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
+	const tlEditorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -91,37 +91,38 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		Handles: TldrawHandles,
 	}
 
-	const handleMount = (_editor: Editor) => {
-		const editor = tlEditorRef.current = _editor;
+	const handleMount = (_tlEditor: Editor) => {
+		const tlEditor = tlEditorRef.current = _tlEditor;
 		setEmbedState(WritingEmbedState.editor);
-		focusChildTldrawEditor(editorWrapperRefEl.current);
-		preventTldrawCanvasesCausingObsidianGestures(editor);
+		focusChildTldrawEditor(tlEditorWrapperRefEl.current);
+		preventTldrawCanvasesCausingObsidianGestures(tlEditor);
 
 		resizeContainerIfEmbed(tlEditorRef.current);
-		if(editorWrapperRefEl.current) {
-			editorWrapperRefEl.current.style.opacity = '1';
+		if(tlEditorWrapperRefEl.current) {
+			tlEditorWrapperRefEl.current.style.opacity = '1';
 		}
 
-		updateWritingStoreIfNeeded(editor);
+		updateWritingStoreIfNeeded(tlEditor);
 		
 		// tldraw content setup
-		adaptTldrawToObsidianThemeMode(editor);
-		resizeWritingTemplateInvitingly(editor);
-		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
+		adaptTldrawToObsidianThemeMode(tlEditor);
+		resizeWritingTemplateInvitingly(tlEditor);
+		resizeContainerIfEmbed(tlEditor);	// Has an effect if the embed is new and started at 0
 				
 		// view set up
 		if(props.embedded) {
-			initWritingCamera(editor);
-			editor.setCameraOptions({
+			initWritingCamera(tlEditor);
+			tlEditor.setCameraOptions({
 				isLocked: true,
 			})
 		} else {
-			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
-			cameraLimitsRef.current = initWritingCameraLimits(editor);
+			initWritingCamera(tlEditor, MENUBAR_HEIGHT_PX);
+			cameraLimitsRef.current = initWritingCameraLimits(tlEditor);
 		}
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
-		const removeUserActionListener = editor.store.listen((entry) => {
+		const removeUserActionListener = tlEditor.store.listen((entry) => {
+			if(!tlEditorWrapperRefEl.current) return;
 
 			const activity = getActivityType(entry);
 			switch (activity) {
@@ -131,13 +132,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
-					if(cameraLimitsRef.current) restrictWritingCamera(editor, cameraLimitsRef.current);
-					unstashStaleContent(editor);
+					if(cameraLimitsRef.current) restrictWritingCamera(tlEditor, cameraLimitsRef.current);
+					unstashStaleContent(tlEditor);
 					break;
 
 				case Activity.DrawingStarted:
 					resetInputPostProcessTimers();
-					stashStaleContent(editor);
+					stashStaleContent(tlEditor);
+					lockPageScrolling(tlEditorWrapperRefEl.current);
 					break;
 					
 				case Activity.DrawingContinued:
@@ -145,11 +147,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					break;
 							
 				case Activity.DrawingCompleted:
-					queueOrRunStorePostProcesses(editor);
+					queueOrRunStorePostProcesses(tlEditor);
+					debouncedUnlockPageScrolling(tlEditorWrapperRefEl.current);
 					break;
 					
 				case Activity.DrawingErased:
-					queueOrRunStorePostProcesses(editor);
+					queueOrRunStorePostProcesses(tlEditor);
 					break;
 					
 				default:
@@ -174,14 +177,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			props.saveControlsReference({
 				// save: () => completeSave(editor),
 				saveAndHalt: async (): Promise<void> => {
-					await completeSave(editor);
+					await completeSave(tlEditor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
 				resize: () => {
-					const camera = editor.getCamera()
+					const camera = tlEditor.getCamera()
 					const cameraY = camera.y;
-					initWritingCamera(editor);
-					editor.setCamera({x: camera.x, y: cameraY})
+					initWritingCamera(tlEditor);
+					tlEditor.setCamera({x: camera.x, y: cameraY})
 				}
 			})
 		}
@@ -310,7 +313,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	return <>
 		<div
-			ref = {editorWrapperRefEl}
+			ref = {tlEditorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_writing-editor",
 			])}
@@ -340,18 +343,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				style={{
 					position: 'absolute',
 					inset: 0,
-					backgroundColor: 'rgba(255,0,0,0.3)',
-					// pointerEvents: 'none', // Don't capture pointerEvents, let them through the the canvas below.
-					// touchAction: 'auto', // But capture touch events so tldraw doesn't use them
+					// backgroundColor: 'rgba(255,0,0,0.3)',
 					zIndex: 1000,
 				}}
-				draggable = "false"
 
-				// This works, but doesn't stop the scrolling, which takes over and stops the drawing.
+				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
 				onPointerDown={(e) => {
-					console.log('pointer down');
 					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-						const tlCanvas = document.querySelector('.tl-canvas');
+						const tlCanvas = tlEditorWrapperRefEl.current?.querySelector('.tl-canvas');
 						if (tlCanvas) {
 							const newEvent = new PointerEvent('pointerdown', {
 								pointerId: e.pointerId,
@@ -361,53 +360,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 								bubbles: true
 							});
 							tlCanvas.dispatchEvent(newEvent);
-							// e.stopPropagation();
-							// e.preventDefault();
-
-							// NOTE: This stops the scrolling but it's real hacky
-							const cmScroller = document.querySelector('.cm-scroller');
-							if (cmScroller) {
-								(cmScroller as HTMLElement).style.overflow = 'hidden';
-							}
-
 						}
-					} else {
-						new Notice('touch input');
-					}
-				}}
-				
-				onPointerMove={(e) => {
-					console.log('pointer move');
-					const cmScroller = document.querySelector('.cm-scroller');
-					if (cmScroller) {
-						(cmScroller as HTMLElement).style.overflow = 'auto';
-					}
-				}}
-				
-				// TODO: This isn't firing
-				// onPointerUpCapture={(e) => {
-				// 	console.log('pointer up');
-				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				// 		const tlCanvas = document.querySelector('.tl-canvas');
-				// 		if (tlCanvas) {
-				// 			const newEvent = new PointerEvent('pointerup', {
-				// 				pointerId: e.pointerId,
-				// 				pointerType: e.pointerType,
-				// 				clientX: e.clientX,
-				// 				clientY: e.clientY,
-				// 				bubbles: true
-				// 			});
-				// 			tlCanvas.dispatchEvent(newEvent);
-				// 			// e.stopPropagation();
-				// 			// e.preventDefault();
-				// 		}
-				// 	}
+						// NOTE: The lock and unlock scrolling is handled in the the tldraw listeners
 
-				// 	const cmScroller = document.querySelector('.cm-scroller');
-				// 	if (cmScroller) {
-				// 		(cmScroller as HTMLElement).style.overflow = 'auto';
-				// 	}
-				// }}
+					} else {
+						// It's a finger touch, so don't pass it through and let the page scroll.
+					}
+				}}
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -450,4 +409,30 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 };
 
 
+function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	clearTimeout(unlockPageScrollingTimeout);
 
+	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+	if (cmScroller) {
+		(cmScroller as HTMLElement).style.overflow = 'hidden';
+	}
+}
+
+let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
+function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	clearTimeout(unlockPageScrollingTimeout);
+
+	// NOTE: Thie timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
+	unlockPageScrollingTimeout = setTimeout(() => {
+		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+		if (cmScroller) {
+			(cmScroller as HTMLElement).style.overflow = 'auto';
+		}
+
+		const selection = document.getSelection();
+		if(selection) {
+			new Notice(JSON.stringify(selection, null, 2));
+			// selection.empty();
+		}
+	}, 500);
+}

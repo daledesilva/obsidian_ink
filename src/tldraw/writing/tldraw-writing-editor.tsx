@@ -137,10 +137,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					break;
 
 				case Activity.DrawingStarted:
-					closeKeyboard(tlEditorWrapperRefEl.current);
 					resetInputPostProcessTimers();
 					stashStaleContent(tlEditor);
 					lockPageScrolling(tlEditorWrapperRefEl.current);
+					closeKeyboard(tlEditorWrapperRefEl.current);
 					break;
 					
 				case Activity.DrawingContinued:
@@ -444,7 +444,7 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 function closeKeyboard(tlEditorWrapper: HTMLDivElement) {
 	// Blurring focus closes the keyboard, whereas focusing the tlEditorWrapper didn't.
 	// It partly helps with iOS scribble support by prevent scribbling taking over, but it seems to block a lot of input.
-	// NOTE: Try focusing the wrapper though as that would help with iOS scribble support.
+	// Tried focusing the tlEditor container but it didn't solve the scribble issue and also caused the scrolling to jump to fit that element on screen.
 	if (document.activeElement instanceof HTMLElement) {
 		document.activeElement.blur();
 	}

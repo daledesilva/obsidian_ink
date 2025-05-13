@@ -439,19 +439,29 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
 		}
 
-		setTimeout(() => {
-			const selection = document.getSelection();
-			if(selection) {
-				new Notice(selection.getRangeAt(0).startOffset.toString());
-				new Notice(selection.getRangeAt(0).toString());
-				new Notice(selection.getRangeAt(0).endOffset.toString());
-				selection.empty();
-				new Notice('emptied');
-			}
-		}, 1000)
+		// setTimeout(() => {
+		// 	const selection = document.getSelection();
+		// 	if(selection) {
+		// 		selection.empty();
+		// 	}
+		// }, 1000)
 
 	}, 500);
 }
+
+// This removes selections when they happen, but on iPad they visible flash up still
+document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    if (selection) {
+        selection.empty();
+    }
+});
+
+// Not sure this works for the selections that are created (As I'm not sure they're user created),
+// But they still flash regardless, so I don't think it works at all. (I still had the above turned on).
+document.addEventListener('selectstart', (e) => {
+    e.preventDefault();
+});
 
 function focusWritingEditor(tlEditorWrapper: HTMLDivElement) {
 	tlEditorWrapper.focus();

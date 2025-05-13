@@ -346,7 +346,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					inset: 0,
 					// backgroundColor: 'rgba(255,0,0,0.3)',
 					zIndex: 1000,
-					// pointerEvents: 'none',
+
+					// These ensure that the writing can't erroneously cause text selections around the whole canvas element (which happens on iPad)
+					userSelect: 'none',
+					WebkitUserSelect: 'none',
+					MozUserSelect: 'none',
+					msUserSelect: 'none'
 				}}
 
 				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
@@ -417,15 +422,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
-
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
-
-	
-	
 	if (cmScroller) {
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 	}
-
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
@@ -438,56 +438,9 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		if (cmScroller) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
 		}
-
-		// setTimeout(() => {
-		// 	const selection = document.getSelection();
-		// 	if(selection) {
-		// 		selection.empty();
-		// 	}
-		// }, 1000)
-
 	}, 500);
 }
 
-// This removes selections when they happen, but on iPad they visible flash up still
-document.addEventListener('selectionchange', () => {
-    const selection = window.getSelection();
-    if (selection) {
-        selection.empty();
-    }
-});
-
-// Not sure this works for the selections that are created (As I'm not sure they're user created),
-// But they still flash regardless, so I don't think it works at all. (I still had the above turned on).
-document.addEventListener('selectstart', (e) => {
-    e.preventDefault();
-});
-
 function focusWritingEditor(tlEditorWrapper: HTMLDivElement) {
 	tlEditorWrapper.focus();
-	console.log('focusing')
 }
-
-// document.addEventListener('pointerup', (e) => {
-// 	console.log('pointerup', e)
-
-// 	const selection = document.getSelection();
-		
-// 	// console.log('document', document)
-// 	if(selection) {
-// 		// new Notice(selection.rangeCount.toString());
-// 		// new Notice(selection.getRangeAt(0).startOffset.toString());
-// 		// new Notice(selection.getRangeAt(0).toString());
-// 		// new Notice(selection.getRangeAt(0).endOffset.toString());
-
-// 		// const range = document.createRange();
-// 		// range.setStart(document.body, 0);
-// 		// range.setEnd(document.body, 10);
-// 		// selection.addRange(range);
-
-// 		setTimeout(() => {
-// 			selection.empty();
-// 		}, 1000)
-// 	}
-
-// })

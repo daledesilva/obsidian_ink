@@ -137,6 +137,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					break;
 
 				case Activity.DrawingStarted:
+					focusWritingEditor(tlEditorWrapperRefEl.current);
 					resetInputPostProcessTimers();
 					stashStaleContent(tlEditor);
 					lockPageScrolling(tlEditorWrapperRefEl.current);
@@ -345,6 +346,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					inset: 0,
 					// backgroundColor: 'rgba(255,0,0,0.3)',
 					zIndex: 1000,
+					// pointerEvents: 'none',
 				}}
 
 				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
@@ -362,6 +364,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							tlCanvas.dispatchEvent(newEvent);
 						}
 						// NOTE: The lock and unlock scrolling is handled in the the tldraw listeners
+						if(tlEditorWrapperRefEl.current) {
+							lockPageScrolling(tlEditorWrapperRefEl.current);
+						}
+
 
 					} else {
 						// It's a finger touch, so don't pass it through and let the page scroll.
@@ -413,9 +419,13 @@ function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
 
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+
+	
+	
 	if (cmScroller) {
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 	}
+
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
@@ -429,10 +439,45 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
 		}
 
-		const selection = document.getSelection();
-		if(selection) {
-			new Notice(JSON.stringify(selection, null, 2));
-			// selection.empty();
-		}
+		setTimeout(() => {
+			const selection = document.getSelection();
+			if(selection) {
+				new Notice(selection.getRangeAt(0).startOffset.toString());
+				new Notice(selection.getRangeAt(0).toString());
+				new Notice(selection.getRangeAt(0).endOffset.toString());
+				selection.empty();
+				new Notice('emptied');
+			}
+		}, 1000)
+
 	}, 500);
 }
+
+function focusWritingEditor(tlEditorWrapper: HTMLDivElement) {
+	tlEditorWrapper.focus();
+	console.log('focusing')
+}
+
+// document.addEventListener('pointerup', (e) => {
+// 	console.log('pointerup', e)
+
+// 	const selection = document.getSelection();
+		
+// 	// console.log('document', document)
+// 	if(selection) {
+// 		// new Notice(selection.rangeCount.toString());
+// 		// new Notice(selection.getRangeAt(0).startOffset.toString());
+// 		// new Notice(selection.getRangeAt(0).toString());
+// 		// new Notice(selection.getRangeAt(0).endOffset.toString());
+
+// 		// const range = document.createRange();
+// 		// range.setStart(document.body, 0);
+// 		// range.setEnd(document.body, 10);
+// 		// selection.addRange(range);
+
+// 		setTimeout(() => {
+// 			selection.empty();
+// 		}, 1000)
+// 	}
+
+// })

@@ -99,7 +99,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		resizeContainerIfEmbed(tlEditorRef.current);
 		if(tlEditorWrapperRefEl.current) {
+			// Makes the editor visible inly after it's fully mounted
 			tlEditorWrapperRefEl.current.style.opacity = '1';
+
+			// Initialise common handlers for default tool selected
+			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
 		}
 
 		updateWritingStoreIfNeeded(tlEditor);
@@ -108,6 +112,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		adaptTldrawToObsidianThemeMode(tlEditor);
 		resizeWritingTemplateInvitingly(tlEditor);
 		resizeContainerIfEmbed(tlEditor);	// Has an effect if the embed is new and started at 0
+
 				
 		// view set up
 		if(props.embedded) {
@@ -139,8 +144,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				case Activity.DrawingStarted:
 					resetInputPostProcessTimers();
 					stashStaleContent(tlEditor);
-					lockPageScrolling(tlEditorWrapperRefEl.current);
-					closeKeyboard(tlEditorWrapperRefEl.current);
 					break;
 					
 				case Activity.DrawingContinued:
@@ -149,7 +152,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							
 				case Activity.DrawingCompleted:
 					queueOrRunStorePostProcesses(tlEditor);
-					debouncedUnlockPageScrolling(tlEditorWrapperRefEl.current);
 					break;
 					
 				case Activity.DrawingErased:
@@ -159,8 +161,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				default:
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
 					// queueOrRunStorePostProcesses(editor);
-					verbose('Activity not recognised.');
-					verbose(['entry', entry], {freeze: true});
+					// verbose('Activity not recognised.');
+					// verbose(['entry', entry], {freeze: true});
 			}
 
 		}, {
@@ -262,7 +264,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const incrementalSave = async (editor: Editor) => {
-		verbose('incrementalSave');
+		// verbose('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		stashStaleContent(editor);
@@ -275,7 +277,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {
-		verbose('completeSave');
+		// verbose('completeSave');
 		let previewUri;
 		
 		unstashStaleContent(editor);
@@ -383,6 +385,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				<WritingMenu
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+					onToolChange = {() => {
+						if(!tlEditorRef.current) return;
+						if(!tlEditorWrapperRefEl.current) return;
+						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
+					}}
 				/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
@@ -417,8 +424,27 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
         }
     }
 
+	
 };
 
+function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement) {
+	const curTool = tlEditor.getCurrentTool();
+	if(curTool) {
+		curTool.onPointerDown = (e: TLEventInfo) => {
+			lockPageScrolling(tlEditorWrapperEl);
+			closeKeyboard(tlEditorWrapperEl);
+
+			curTool.onPointerMove = (e: TLEventInfo) =>  {
+				// Nothing yet
+			}
+			curTool.onPointerUp = (e: TLEventInfo) => {
+				debouncedUnlockPageScrolling(tlEditorWrapperEl);
+				curTool.onPointerMove = undefined;
+			}
+
+		}
+	}
+}
 
 function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
@@ -438,7 +464,9 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		if (cmScroller) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
 		}
-	}, 500);
+	}, 300);
+	// TODO: This debounce delay could be lower on iPads and other devices where scrollbars are hidden.
+	// But too low on desktop and scrollbars will appear to flicker while writing.
 }
 
 function closeKeyboard(tlEditorWrapper: HTMLDivElement) {

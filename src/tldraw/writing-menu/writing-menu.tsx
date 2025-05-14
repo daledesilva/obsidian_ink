@@ -19,7 +19,8 @@ export enum tool {
 }
 interface WritingMenuProps {
     getTlEditor: () => Editor | undefined,
-    onStoreChange: (elEditor: Editor) => void,
+    onStoreChange: (tlEditor: Editor) => void,
+    onToolChange: () => void,
 }
 
 export const WritingMenu = (props: WritingMenuProps) => {
@@ -50,19 +51,21 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		if (!tlEditor) return;
 		tlEditor.setCurrentTool('select');
 		setCurTool(tool.select);
-
+		props.onToolChange();
 	}
 	function activateDrawTool() {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
 		tlEditor.setCurrentTool('draw');
 		setCurTool(tool.draw);
+		props.onToolChange();
 	}
 	function activateEraseTool() {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
 		tlEditor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
+		props.onToolChange();
 	}
 
     ///////////

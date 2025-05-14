@@ -450,13 +450,18 @@ function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	if (cmScroller) {
+		// prevent scrolling so that the page doesn't move while using tools
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
+		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
+		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
 	}
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
+let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
 function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
+	clearTimeout(unhidePageScrollerTimeout);
 
 	// NOTE: Thie timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
 	unlockPageScrollingTimeout = setTimeout(() => {
@@ -464,9 +469,15 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		if (cmScroller) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
 		}
-	}, 300);
-	// TODO: This debounce delay could be lower on iPads and other devices where scrollbars are hidden.
-	// But too low on desktop and scrollbars will appear to flicker while writing.
+	}, 100);
+
+	// THe visibility of hte scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
+	unhidePageScrollerTimeout = setTimeout(() => {
+		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+		if (cmScroller) {
+			(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
+		}
+	}, 1000);
 }
 
 function closeKeyboard(tlEditorWrapper: HTMLDivElement) {

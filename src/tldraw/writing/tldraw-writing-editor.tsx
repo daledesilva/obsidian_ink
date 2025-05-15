@@ -64,7 +64,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const tlEditorWrapperRefEl = useRef<HTMLDivElement>(null);
-	const touchDivRef = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -99,12 +98,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		preventTldrawCanvasesCausingObsidianGestures(tlEditor);
 
 		resizeContainerIfEmbed(tlEditorRef.current);
-		if(tlEditorWrapperRefEl.current && touchDivRef.current) {
+		if(tlEditorWrapperRefEl.current) {
 			// Makes the editor visible inly after it's fully mounted
 			tlEditorWrapperRefEl.current.style.opacity = '1';
 
 			// Initialise common handlers for default tool selected
-			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current, touchDivRef.current);
+			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
 		}
 
 		updateWritingStoreIfNeeded(tlEditor);
@@ -344,7 +343,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				autoFocus = {false}
 			/>
 			<div
-				ref = {touchDivRef}
 				style={{
 					position: 'absolute',
 					inset: 0,
@@ -392,8 +390,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					onToolChange = {() => {
 						if(!tlEditorRef.current) return;
 						if(!tlEditorWrapperRefEl.current) return;
-						if(!touchDivRef.current) return;
-						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current, touchDivRef.current);
+						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
 					}}
 				/>
 				{props.embedded && props.extendedMenu && (
@@ -432,18 +429,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	
 };
 
-function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement, touchDiv: HTMLDivElement) {
+function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement) {
 	const curTool = tlEditor.getCurrentTool();
 	if(curTool) {
 		curTool.onPointerDown = (e: TLEventInfo) => {
-			lockPageScrolling(tlEditorWrapperEl, touchDiv);
+			lockPageScrolling(tlEditorWrapperEl);
 			closeKeyboard();
 
 			curTool.onPointerMove = (e: TLEventInfo) =>  {
 				// Nothing yet
 			}
 			curTool.onPointerUp = (e: TLEventInfo) => {
-				debouncedUnlockPageScrolling(tlEditorWrapperEl, touchDiv);
+				debouncedUnlockPageScrolling(tlEditorWrapperEl);
 				curTool.onPointerMove = undefined;
 			}
 
@@ -451,7 +448,7 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 	}
 }
 
-function lockPageScrolling(tlEditorWrapper: HTMLDivElement, touchDiv: HTMLDivElement) {
+function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	if (cmScroller) {
@@ -459,20 +456,12 @@ function lockPageScrolling(tlEditorWrapper: HTMLDivElement, touchDiv: HTMLDivEle
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
 		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
-
-		// Hide the div that captures touches so it can't accidentally block input to the canvas.
-		// This usually isn't necessary but occasionally tldraw seems to lose visibility of events.
-		if(touchDiv) {
-			touchDiv.style.display = 'none';
-			// This actually made it worse...
-			// It still stops displaying pen input, but half detects now and updates with a unintelligble scribble later.
-		}
 	}
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
 let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
-function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement, touchDiv: HTMLDivElement) {
+function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
 	clearTimeout(unhidePageScrollerTimeout);
 
@@ -481,9 +470,6 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement, touchDiv:
 		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 		if (cmScroller) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
-			if(touchDiv) {
-				touchDiv.style.display = 'block';
-			}
 		}
 	}, 100);
 

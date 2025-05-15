@@ -64,6 +64,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const tlEditorWrapperRefEl = useRef<HTMLDivElement>(null);
+	const touchDivRef = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -98,12 +99,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		preventTldrawCanvasesCausingObsidianGestures(tlEditor);
 
 		resizeContainerIfEmbed(tlEditorRef.current);
-		if(tlEditorWrapperRefEl.current) {
+		if(tlEditorWrapperRefEl.current && touchDivRef.current) {
 			// Makes the editor visible inly after it's fully mounted
 			tlEditorWrapperRefEl.current.style.opacity = '1';
 
 			// Initialise common handlers for default tool selected
-			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
+			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current, touchDivRef.current);
 		}
 
 		updateWritingStoreIfNeeded(tlEditor);
@@ -343,6 +344,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				autoFocus = {false}
 			/>
 			<div
+				ref = {touchDivRef}
 				style={{
 					position: 'absolute',
 					inset: 0,
@@ -359,6 +361,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
 				onPointerDown={(e) => {
 					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+						console.log('pointer down');
 						const tlCanvas = tlEditorWrapperRefEl.current?.querySelector('.tl-canvas');
 						if (tlCanvas) {
 							const newEvent = new PointerEvent('pointerdown', {
@@ -369,17 +372,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 								bubbles: true
 							});
 							tlCanvas.dispatchEvent(newEvent);
+							new Notice('Pen Down' + e.pointerId);
 						}
 						// NOTE: The lock and unlock scrolling is handled in the the tldraw listeners
-						if(tlEditorWrapperRefEl.current) {
-							lockPageScrolling(tlEditorWrapperRefEl.current);
-						}
-
+						// if(tlEditorWrapperRefEl.current) {
+						// 	lockPageScrolling(tlEditorWrapperRefEl.current);
+						// }
 
 					} else {
 						// It's a finger touch, so don't pass it through and let the page scroll.
 					}
 				}}
+
 			/>
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -388,7 +392,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					onToolChange = {() => {
 						if(!tlEditorRef.current) return;
 						if(!tlEditorWrapperRefEl.current) return;
-						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
+						if(!touchDivRef.current) return;
+						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current, touchDivRef.current);
 					}}
 				/>
 				{props.embedded && props.extendedMenu && (
@@ -427,18 +432,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	
 };
 
-function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement) {
+function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement, touchDiv: HTMLDivElement) {
 	const curTool = tlEditor.getCurrentTool();
 	if(curTool) {
 		curTool.onPointerDown = (e: TLEventInfo) => {
-			lockPageScrolling(tlEditorWrapperEl);
-			closeKeyboard(tlEditorWrapperEl);
+			lockPageScrolling(tlEditorWrapperEl, touchDiv);
+			closeKeyboard();
 
 			curTool.onPointerMove = (e: TLEventInfo) =>  {
 				// Nothing yet
 			}
 			curTool.onPointerUp = (e: TLEventInfo) => {
-				debouncedUnlockPageScrolling(tlEditorWrapperEl);
+				debouncedUnlockPageScrolling(tlEditorWrapperEl, touchDiv);
 				curTool.onPointerMove = undefined;
 			}
 
@@ -446,7 +451,7 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 	}
 }
 
-function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+function lockPageScrolling(tlEditorWrapper: HTMLDivElement, touchDiv: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	if (cmScroller) {
@@ -454,12 +459,20 @@ function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
 		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
+
+		// Hide the div that captures touches so it can't accidentally block input to the canvas.
+		// This usually isn't necessary but occasionally tldraw seems to lose visibility of events.
+		if(touchDiv) {
+			touchDiv.style.display = 'none';
+			// This actually made it worse...
+			// It still stops displaying pen input, but half detects now and updates with a unintelligble scribble later.
+		}
 	}
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
 let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
-function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement, touchDiv: HTMLDivElement) {
 	clearTimeout(unlockPageScrollingTimeout);
 	clearTimeout(unhidePageScrollerTimeout);
 
@@ -468,6 +481,9 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 		if (cmScroller) {
 			(cmScroller as HTMLElement).style.overflow = 'auto';
+			if(touchDiv) {
+				touchDiv.style.display = 'block';
+			}
 		}
 	}, 100);
 
@@ -480,11 +496,13 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	}, 1000);
 }
 
-function closeKeyboard(tlEditorWrapper: HTMLDivElement) {
+function closeKeyboard() {
 	// Blurring focus closes the keyboard, whereas focusing the tlEditorWrapper didn't.
 	// It partly helps with iOS scribble support by prevent scribbling taking over, but it seems to block a lot of input.
 	// Tried focusing the tlEditor container but it didn't solve the scribble issue and also caused the scrolling to jump to fit that element on screen.
 	if (document.activeElement instanceof HTMLElement) {
-		document.activeElement.blur();
+		if(!document.activeElement.hasClass('tl-canvas')) {
+			document.activeElement.blur();
+		}
 	}
 }

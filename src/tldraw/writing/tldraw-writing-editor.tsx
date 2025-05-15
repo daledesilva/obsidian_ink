@@ -358,8 +358,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
 				onPointerDown={(e) => {
+					new Notice('pointerType: ' + e.pointerType);
 					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-						console.log('pointer down');
 						const tlCanvas = tlEditorWrapperRefEl.current?.querySelector('.tl-canvas');
 						if (tlCanvas) {
 							const newEvent = new PointerEvent('pointerdown', {
@@ -370,7 +370,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 								bubbles: true
 							});
 							tlCanvas.dispatchEvent(newEvent);
-							new Notice('Pen Down' + e.pointerId);
 						}
 						// NOTE: The lock and unlock scrolling is handled in the the tldraw listeners
 						// if(tlEditorWrapperRefEl.current) {
@@ -433,13 +432,15 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 	const curTool = tlEditor.getCurrentTool();
 	if(curTool) {
 		curTool.onPointerDown = (e: TLEventInfo) => {
+			// new Notice('Pen Down');
 			lockPageScrolling(tlEditorWrapperEl);
 			closeKeyboard();
-
+			
 			curTool.onPointerMove = (e: TLEventInfo) =>  {
 				// Nothing yet
 			}
 			curTool.onPointerUp = (e: TLEventInfo) => {
+				// new Notice('Pen Up');
 				debouncedUnlockPageScrolling(tlEditorWrapperEl);
 				curTool.onPointerMove = undefined;
 			}

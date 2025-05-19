@@ -358,8 +358,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
 				onPointerDown={(e) => {
-					new Notice('pointerType: ' + e.pointerType);
 					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+						// new Notice('Pointer Down on Blocker');
 						const tlCanvas = tlEditorWrapperRefEl.current?.querySelector('.tl-canvas');
 						if (tlCanvas) {
 							const newEvent = new PointerEvent('pointerdown', {
@@ -425,60 +425,90 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
         }
     }
 
-	
+
 };
 
 function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement) {
 	const curTool = tlEditor.getCurrentTool();
 	if(curTool) {
 		curTool.onPointerDown = (e: TLEventInfo) => {
-			// new Notice('Pen Down');
+			// new Notice('Tldraw Pen Down');
+			activePointerCount++; // Increment counter
 			lockPageScrolling(tlEditorWrapperEl);
 			closeKeyboard();
 			
 			curTool.onPointerMove = (e: TLEventInfo) =>  {
+				
 				// Nothing yet
 			}
 			curTool.onPointerUp = (e: TLEventInfo) => {
-				// new Notice('Pen Up');
+				// new Notice('Pointer Up');
+				activePointerCount = Math.max(0, activePointerCount - 1); // Decrement counter, never go below 0
 				debouncedUnlockPageScrolling(tlEditorWrapperEl);
 				curTool.onPointerMove = undefined;
 			}
 
 		}
 	}
-}
+};
 
 function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
-	clearTimeout(unlockPageScrollingTimeout);
+	clearPageScrollingTimeouts();
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	if (cmScroller) {
+		// new Notice('Lock Page Scrolling');
+		if (scrollingLocked) return;
 		// prevent scrolling so that the page doesn't move while using tools
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
 		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
+		scrollingLocked = true;
 	}
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
 let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
-function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+let activePointerCount = 0; // Track number of active pointer interactions
+let scrollingLocked = false;
+
+function clearPageScrollingTimeouts() {
 	clearTimeout(unlockPageScrollingTimeout);
 	clearTimeout(unhidePageScrollerTimeout);
+	unlockPageScrollingTimeout = undefined;
+	unhidePageScrollerTimeout = undefined;
+}
 
-	// NOTE: Thie timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
+function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	clearPageScrollingTimeouts();
+	
+	// NOTE: This timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
 	unlockPageScrollingTimeout = setTimeout(() => {
+		// new Notice('Unlock Page Scrolling');
 		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 		if (cmScroller) {
-			(cmScroller as HTMLElement).style.overflow = 'auto';
+			// Only unlock if there are no active pointers
+			// if (activePointerCount === 0) {
+			// if (scrollingLocked) {
+				(cmScroller as HTMLElement).style.overflow = 'auto';
+				// scrollingLocked = false;
+			// } 
+			// else {
+			// 	new Notice('unlock Race condition prevented');
+			// }
 		}
 	}, 100);
 
-	// THe visibility of hte scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
+	// The visibility of the scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
 	unhidePageScrollerTimeout = setTimeout(() => {
+		// Only unhide if there are no active pointers
 		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 		if (cmScroller) {
-			(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
+			// if (activePointerCount === 0) {
+			// 	(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
+			// }
+			// } else {
+			// 	new Notice('unHIDE Race condition prevented');
+			// }
 		}
 	}, 1000);
 }

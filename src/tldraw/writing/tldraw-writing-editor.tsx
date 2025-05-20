@@ -63,7 +63,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
-	const tlEditorWrapperRefEl = useRef<HTMLDivElement>(null);
+	const tlEditorWrapperElRef = useRef<HTMLDivElement>(null);
+	const fingerBlockerElRef = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -94,16 +95,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const handleMount = (_tlEditor: Editor) => {
 		const tlEditor = tlEditorRef.current = _tlEditor;
 		setEmbedState(WritingEmbedState.editor);
-		focusChildTldrawEditor(tlEditorWrapperRefEl.current);
+		focusChildTldrawEditor(tlEditorWrapperElRef.current);
 		preventTldrawCanvasesCausingObsidianGestures(tlEditor);
 
 		resizeContainerIfEmbed(tlEditorRef.current);
-		if(tlEditorWrapperRefEl.current) {
+		if(tlEditorWrapperElRef.current) {
 			// Makes the editor visible inly after it's fully mounted
-			tlEditorWrapperRefEl.current.style.opacity = '1';
+			tlEditorWrapperElRef.current.style.opacity = '1';
 
 			// Initialise common handlers for default tool selected
-			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
+			setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperElRef.current);
 		}
 
 		updateWritingStoreIfNeeded(tlEditor);
@@ -127,7 +128,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = tlEditor.store.listen((entry) => {
-			if(!tlEditorWrapperRefEl.current) return;
+			if(!tlEditorWrapperElRef.current) return;
 
 			const activity = getActivityType(entry);
 			switch (activity) {
@@ -316,7 +317,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	return <>
 		<div
-			ref = {tlEditorWrapperRefEl}
+			ref = {tlEditorWrapperElRef}
 			className = {classNames([
 				"ddc_ink_writing-editor",
 			])}
@@ -343,6 +344,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				autoFocus = {false}
 			/>
 			<div
+				ref = {fingerBlockerElRef}
 				style={{
 					position: 'absolute',
 					inset: 0,
@@ -356,11 +358,39 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					msUserSelect: 'none'
 				}}
 
+				// Locking here makes the first pen stroke more reliable.
+				onPointerEnter={(e) => {
+					if(!tlEditorWrapperElRef.current) return;
+					if(!fingerBlockerElRef.current) return;
+
+					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+						lockPageScrolling(tlEditorWrapperElRef.current);
+						closeKeyboard();
+					} else {
+						// NOTE: This still doesn't let the first finger touch after pen use scroll. You have to touch twice.
+						unlockPageScrolling(tlEditorWrapperElRef.current);
+						closeKeyboard();
+					}
+				}}
+
+				// This works for pens that detect hover.
+				// But also causes issues with unfinished lines.
+				// onPointerOut={(e) => {
+				// 	if(!tlEditorWrapperElRef.current) return;
+				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				// 		unlockPageScrolling(tlEditorWrapperElRef.current);
+				// 		closeKeyboard();
+				// 	}
+				// }}
+				
 				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
 				onPointerDown={(e) => {
+					if(!tlEditorWrapperElRef.current) return;
+					if(!fingerBlockerElRef.current) return;
+
 					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-						// new Notice('Pointer Down on Blocker');
-						const tlCanvas = tlEditorWrapperRefEl.current?.querySelector('.tl-canvas');
+
+						const tlCanvas = tlEditorWrapperElRef.current?.querySelector('.tl-canvas');
 						if (tlCanvas) {
 							const newEvent = new PointerEvent('pointerdown', {
 								pointerId: e.pointerId,
@@ -371,15 +401,34 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							});
 							tlCanvas.dispatchEvent(newEvent);
 						}
-						// NOTE: The lock and unlock scrolling is handled in the the tldraw listeners
-						// if(tlEditorWrapperRefEl.current) {
-						// 	lockPageScrolling(tlEditorWrapperRefEl.current);
-						// }
 
 					} else {
-						// It's a finger touch, so don't pass it through and let the page scroll.
+						// Ignore touch events as they just control scrolling atm.
 					}
 				}}
+
+
+				// onPointerMove={(e) => {
+				// 	if(!tlEditorWrapperElRef.current) return;
+				// 	if(!fingerBlockerElRef.current) return;
+
+				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+
+
+				// 	} else {
+				// 		// Ignore it if it was dispatched manually (So it doesn't create an infinite loop)
+				// 		// if(!e.isTrusted) return;
+				// 		new Notice('Pointer Move');
+						
+				// 		const cmScroller = tlEditorWrapperElRef.current.closest('.cm-scroller');
+				// 		if (cmScroller) {
+				// 			cmScroller.scrollTo({
+				// 				top: cmScroller.scrollTop + e.movementY,
+				// 				left: cmScroller.scrollLeft + e.movementX,
+				// 			})
+				// 		}
+				// 	}
+				// }}
 
 			/>
 			<PrimaryMenuBar>
@@ -388,8 +437,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 					onToolChange = {() => {
 						if(!tlEditorRef.current) return;
-						if(!tlEditorWrapperRefEl.current) return;
-						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperRefEl.current);
+						if(!tlEditorWrapperElRef.current) return;
+						setCommonToolUseListeners(tlEditorRef.current, tlEditorWrapperElRef.current);
 					}}
 				/>
 				{props.embedded && props.extendedMenu && (
@@ -433,9 +482,8 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 	if(curTool) {
 		curTool.onPointerDown = (e: TLEventInfo) => {
 			// new Notice('Tldraw Pen Down');
-			activePointerCount++; // Increment counter
-			lockPageScrolling(tlEditorWrapperEl);
-			closeKeyboard();
+			// activePointerCount++; // Increment counter
+			// closeKeyboard();
 			
 			curTool.onPointerMove = (e: TLEventInfo) =>  {
 				
@@ -443,8 +491,8 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 			}
 			curTool.onPointerUp = (e: TLEventInfo) => {
 				// new Notice('Pointer Up');
-				activePointerCount = Math.max(0, activePointerCount - 1); // Decrement counter, never go below 0
-				debouncedUnlockPageScrolling(tlEditorWrapperEl);
+				// activePointerCount = Math.max(0, activePointerCount - 1); // Decrement counter, never go below 0
+				// debouncedUnlockPageScrolling(tlEditorWrapperEl);
 				curTool.onPointerMove = undefined;
 			}
 
@@ -457,12 +505,12 @@ function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	if (cmScroller) {
 		// new Notice('Lock Page Scrolling');
-		if (scrollingLocked) return;
+		// if (scrollingLocked) return;
 		// prevent scrolling so that the page doesn't move while using tools
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
 		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
-		scrollingLocked = true;
+		// scrollingLocked = true;
 	}
 }
 
@@ -482,20 +530,21 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearPageScrollingTimeouts();
 	
 	// NOTE: This timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
+	// const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	unlockPageScrollingTimeout = setTimeout(() => {
+		// if (cmScroller) {
 		// new Notice('Unlock Page Scrolling');
-		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
-		if (cmScroller) {
 			// Only unlock if there are no active pointers
 			// if (activePointerCount === 0) {
 			// if (scrollingLocked) {
-				(cmScroller as HTMLElement).style.overflow = 'auto';
+				// (cmScroller as HTMLElement).style.overflow = 'auto';
 				// scrollingLocked = false;
 			// } 
 			// else {
 			// 	new Notice('unlock Race condition prevented');
 			// }
-		}
+		// }
+		unlockPageScrolling(tlEditorWrapper);
 	}, 100);
 
 	// The visibility of the scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
@@ -511,6 +560,13 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 			// }
 		}
 	}, 1000);
+}
+
+function unlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+	if (cmScroller) {
+		(cmScroller as HTMLElement).style.overflow = 'auto';
+	}
 }
 
 function closeKeyboard() {

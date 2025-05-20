@@ -68,6 +68,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
+	const recentPenInput = useRef<boolean>(false);
 
 	// On mount
 	React.useEffect( ()=> {
@@ -400,6 +401,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 								bubbles: true
 							});
 							tlCanvas.dispatchEvent(newEvent);
+							recentPenInput.current = true;
 						}
 
 					} else {
@@ -407,28 +409,30 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					}
 				}}
 
+				onPointerUp={(e) => {
+					if (e.pointerType === 'touch') {
+						recentPenInput.current = false;
+					}
+				}}
 
-				// onPointerMove={(e) => {
-				// 	if(!tlEditorWrapperElRef.current) return;
-				// 	if(!fingerBlockerElRef.current) return;
+				onPointerMove={(e) => {
+					if(e.pointerType !== 'touch') return; // Let tldraw handle all pen input
+					if(!tlEditorWrapperElRef.current) return;
+					if(!fingerBlockerElRef.current) return;
+					
+					if(!recentPenInput.current) return; // Only fake scrolling for the first touch event after a pen event
 
-				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+					// HACK: This fakes the scroll for the first touch event after a pen event.
+					// TODO: This doesn't yet allow for flicking.
+					const cmScroller = tlEditorWrapperElRef.current.closest('.cm-scroller');
+					if (cmScroller) {
+						cmScroller.scrollTo({
+							top: cmScroller.scrollTop - e.movementY,
+							left: cmScroller.scrollLeft - e.movementX, // TODO: Haven't actually tested X
+						})
+					}
 
-
-				// 	} else {
-				// 		// Ignore it if it was dispatched manually (So it doesn't create an infinite loop)
-				// 		// if(!e.isTrusted) return;
-				// 		new Notice('Pointer Move');
-						
-				// 		const cmScroller = tlEditorWrapperElRef.current.closest('.cm-scroller');
-				// 		if (cmScroller) {
-				// 			cmScroller.scrollTo({
-				// 				top: cmScroller.scrollTop + e.movementY,
-				// 				left: cmScroller.scrollLeft + e.movementX,
-				// 			})
-				// 		}
-				// 	}
-				// }}
+				}}
 
 			/>
 			<PrimaryMenuBar>
@@ -510,13 +514,12 @@ function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		(cmScroller as HTMLElement).style.overflow = 'hidden';
 		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
 		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
-		// scrollingLocked = true;
+		scrollingLocked = true;
 	}
 }
 
 let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
 let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
-let activePointerCount = 0; // Track number of active pointer interactions
 let scrollingLocked = false;
 
 function clearPageScrollingTimeouts() {
@@ -535,14 +538,10 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 		// if (cmScroller) {
 		// new Notice('Unlock Page Scrolling');
 			// Only unlock if there are no active pointers
-			// if (activePointerCount === 0) {
 			// if (scrollingLocked) {
 				// (cmScroller as HTMLElement).style.overflow = 'auto';
 				// scrollingLocked = false;
 			// } 
-			// else {
-			// 	new Notice('unlock Race condition prevented');
-			// }
 		// }
 		unlockPageScrolling(tlEditorWrapper);
 	}, 100);
@@ -566,6 +565,7 @@ function unlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	if (cmScroller) {
 		(cmScroller as HTMLElement).style.overflow = 'auto';
+		scrollingLocked = false;
 	}
 }
 

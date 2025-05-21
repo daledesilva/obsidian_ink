@@ -409,12 +409,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					}
 				}}
 
-				onPointerUp={(e) => {
-					if (e.pointerType === 'touch') {
-						recentPenInput.current = false;
-					}
-				}}
-
 				onPointerMove={(e) => {
 					if(e.pointerType !== 'touch') return; // Let tldraw handle all pen input
 					if(!tlEditorWrapperElRef.current) return;
@@ -431,7 +425,27 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							left: cmScroller.scrollLeft - e.movementX, // TODO: Haven't actually tested X
 						})
 					}
+				}}
 
+				onPointerUp={(e) => {
+					if (e.pointerType === 'touch') {
+						recentPenInput.current = false;
+					}
+				}}
+
+				onPointerLeave={(e) => {
+					if(pointerDown) return; // don't unlock the user's drawing (This as it leaves the div to focus the canvas)
+					if(!tlEditorWrapperElRef.current) return;
+					console.log('Pointer Leave');
+					recentPenInput.current = false;
+					unlockPageScrolling(tlEditorWrapperElRef.current);
+				}}
+				
+				onScroll={(e) => {
+					if(!tlEditorWrapperElRef.current) return;
+					console.log('Pointer Leave');
+					recentPenInput.current = false;
+					unlockPageScrolling(tlEditorWrapperElRef.current);
 				}}
 
 			/>
@@ -481,6 +495,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 };
 
+// This should probably be encapsulated
+let pointerDown = false;
+
 function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement) {
 	const curTool = tlEditor.getCurrentTool();
 	if(curTool) {
@@ -488,6 +505,7 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 			// new Notice('Tldraw Pen Down');
 			// activePointerCount++; // Increment counter
 			// closeKeyboard();
+			pointerDown = true;
 			
 			curTool.onPointerMove = (e: TLEventInfo) =>  {
 				
@@ -498,6 +516,7 @@ function setCommonToolUseListeners(tlEditor: Editor, tlEditorWrapperEl: HTMLDivE
 				// activePointerCount = Math.max(0, activePointerCount - 1); // Decrement counter, never go below 0
 				// debouncedUnlockPageScrolling(tlEditorWrapperEl);
 				curTool.onPointerMove = undefined;
+				pointerDown = false;
 			}
 
 		}
@@ -533,32 +552,10 @@ function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	clearPageScrollingTimeouts();
 	
 	// NOTE: This timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
-	// const cmScroller = tlEditorWrapper.closest('.cm-scroller');
 	unlockPageScrollingTimeout = setTimeout(() => {
-		// if (cmScroller) {
-		// new Notice('Unlock Page Scrolling');
-			// Only unlock if there are no active pointers
-			// if (scrollingLocked) {
-				// (cmScroller as HTMLElement).style.overflow = 'auto';
-				// scrollingLocked = false;
-			// } 
-		// }
 		unlockPageScrolling(tlEditorWrapper);
 	}, 100);
 
-	// The visibility of the scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
-	unhidePageScrollerTimeout = setTimeout(() => {
-		// Only unhide if there are no active pointers
-		const cmScroller = tlEditorWrapper.closest('.cm-scroller');
-		if (cmScroller) {
-			// if (activePointerCount === 0) {
-			// 	(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
-			// }
-			// } else {
-			// 	new Notice('unHIDE Race condition prevented');
-			// }
-		}
-	}, 1000);
 }
 
 function unlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
@@ -566,6 +563,18 @@ function unlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
 	if (cmScroller) {
 		(cmScroller as HTMLElement).style.overflow = 'auto';
 		scrollingLocked = false;
+	}
+
+	// The visibility of the scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
+	unhidePageScrollerTimeout = setTimeout(() => {
+		unhidePageScroller(tlEditorWrapper);
+	}, 200);
+}
+
+function unhidePageScroller(tlEditorWrapper: HTMLDivElement) {
+	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+	if (cmScroller) {
+		(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
 	}
 }
 

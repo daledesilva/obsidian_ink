@@ -18,7 +18,7 @@ import * as semver from "semver";
 import { showVersionNotice } from './notices/version-notices';
 import { atom, useSetAtom } from 'jotai';
 import { debug } from './utils/log-to-console';
-import { drawingEmbedExtension } from './extensions_v1/decorations/drawing-embed-extension';
+import { drawingEmbedExtensionNew } from './extensions_v2/decorations/drawing-embed-extension';
 import { setGlobals } from './stores/global-store';
 import { Prec } from '@codemirror/state';
 
@@ -58,10 +58,10 @@ export default class InkPlugin extends Plugin {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);		
 			implementDrawingEmbedActions(this);
-			// this.registerEditorExtension([
-			// 	// Prec.highest(drawingEmbedExtension()),
-			// 	drawingEmbedExtension(),
-			// ]);
+			this.registerEditorExtension([
+				// Prec.highest(drawingEmbedExtension()),
+				drawingEmbedExtensionNew(),
+			]);
 		}
 		
 		registerSettingsTab(this);

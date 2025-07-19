@@ -69,7 +69,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
 
 
 // Define a StateField to monitor the state of all decorations on the page
-const embedStateField = StateField.define<DecorationSet>({
+const embedStateFieldNew = StateField.define<DecorationSet>({
 
     // Starts with an empty DecorationSet
     create(): DecorationSet {
@@ -120,7 +120,7 @@ const embedStateField = StateField.define<DecorationSet>({
 
         syntaxTree(transaction.state).iterate({
             enter(syntaxNodeRef) {
-                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLink(syntaxNodeRef, transaction);
+                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLinkNew(syntaxNodeRef, transaction);
                 
                 if(alterFlow === 'ignore-children') return false;
                 if(alterFlow === 'continue-traversal') return true;
@@ -194,7 +194,7 @@ const embedStateField = StateField.define<DecorationSet>({
             // Typing in the after section doesn't break anything, but does type in reverse order.
             // TODO: The side setting might be confused. So it's typing on the wrong side of the cursor.
             EditorView.atomicRanges.of( (view: EditorView) => {
-                const decorations = view.state.field(embedStateField, false);
+                const decorations = view.state.field(embedStateFieldNew, false);
                 return decorations || Decoration.none;
             })
             
@@ -205,10 +205,11 @@ const embedStateField = StateField.define<DecorationSet>({
 
 
 export function drawingEmbedExtensionNew(): Extension {
-    return embedStateField;
+    console.log(`---- drawingEmbedExtensionNew`);
+    return embedStateFieldNew;
 }
 
-interface embedLinkInfo {
+interface embedLinkInfoNew {
     startPosition: number,
     endPosition: number,
     partialFilepath: string,
@@ -217,10 +218,12 @@ interface embedLinkInfo {
 
 
 
-function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Transaction): {
-    embedLinkInfo?: embedLinkInfo,
+function detectMarkdownEmbedLinkNew(previewLinkStartNode: SyntaxNodeRef, transaction: Transaction): {
+    embedLinkInfo?: embedLinkInfoNew,
     alterFlow?: 'ignore-children' | 'continue-traversal'
 } {
+
+    let nextNode: SyntaxNodeRef | null = null;
 
     // \n                   
     // !                    formatting_formatting-image_image_image-marker
@@ -230,82 +233,162 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
     // (                    formatting_formatting-link-string_string_url
     // partialFilePath      string_url
     // )                    formatting_formatting-link-string_string_url
-    // \n                   
+    // [
+    // Edit Drawing
+    // ]
+    // (
+    // urlAndSettings                  
+    // )
 
 
     // Check for "!"
-    if (!linkStartNode || linkStartNode.name !== 'formatting_formatting-image_image_image-marker') {
+    if (!previewLinkStartNode || previewLinkStartNode.name !== 'formatting_formatting-image_image_image-marker') {
         return {alterFlow: 'continue-traversal'};
     }
+    console.log(`---- Found "!" marker:`, `"${transaction.state.doc.sliceString(previewLinkStartNode.from, previewLinkStartNode.to)}"`);
+    
     
     // Ensure there's 1 full blank line before the embed (two new line characters)
-    const blankLineBefore = transaction.state.doc.sliceString(linkStartNode.from - 2, linkStartNode.from);
+    const blankLineBefore = transaction.state.doc.sliceString(previewLinkStartNode.from - 2, previewLinkStartNode.from);
     if(blankLineBefore !== '\n\n') {
         return {alterFlow: 'continue-traversal'};
     }
         
     // Check for "[" or "[]"
-    const altTextStartNode = linkStartNode.node.nextSibling;
-    if(!altTextStartNode || altTextStartNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
+    const transcriptStartNode = previewLinkStartNode.node.nextSibling;
+    if(!transcriptStartNode || transcriptStartNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
         return {alterFlow: 'continue-traversal'};
     }
+    console.log(`---- Found transcript start:`, `"${transaction.state.doc.sliceString(transcriptStartNode.from, transcriptStartNode.to)}"`);
 
     // Get the next node, which could be alt text or could be "("
-    let nextNode = altTextStartNode.node.nextSibling;
+    nextNode = transcriptStartNode.node.nextSibling;
     if(!nextNode) {
         return {alterFlow: 'continue-traversal'};
     }
     
     // Containers for alt text nodes if they exist
-    let altTextNode: SyntaxNodeRef | null = null;
-    let altTextEndNode: SyntaxNodeRef | null = null;
+    let transcriptTextNode: SyntaxNodeRef | null = null;
+    let transcriptEndNode: SyntaxNodeRef | null = null;
 
     // If the start node was "[", then the next node must be alt text
-    if(altTextStartNode.to-altTextStartNode.from === 1) {
-        altTextNode = nextNode;
-        altTextEndNode = altTextNode.node.nextSibling;
-        if(!altTextEndNode || altTextEndNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
+    if(transcriptStartNode.to-transcriptStartNode.from === 1) {
+        transcriptTextNode = nextNode;
+        console.log(`---- Found transcript text:`, `"${transaction.state.doc.sliceString(transcriptTextNode.from, transcriptTextNode.to)}"`);
+        transcriptEndNode = transcriptTextNode.node.nextSibling;
+        if(!transcriptEndNode || transcriptEndNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
             return {alterFlow: 'continue-traversal'};
         }
-        nextNode = altTextEndNode.node.nextSibling;
+        console.log(`---- Found transcript end:`, `"${transaction.state.doc.sliceString(transcriptEndNode.from, transcriptEndNode.to)}"`);
+        nextNode = transcriptEndNode.node.nextSibling;
     }
     
     // Check for "("
-    const urlStartNode = nextNode;
-    if(!urlStartNode || urlStartNode.name !== 'formatting_formatting-link-string_string_url') {
+    const previewUrlStartNode = nextNode;
+    if(!previewUrlStartNode || previewUrlStartNode.name !== 'formatting_formatting-link-string_string_url') {
         return {alterFlow: 'continue-traversal'};
     }
+    console.log(`---- Found preview URL start:`, `"${transaction.state.doc.sliceString(previewUrlStartNode.from, previewUrlStartNode.to)}"`);
 
     // Check for filepath section
-    const urlTextNode = urlStartNode.node.nextSibling;
-    if(!urlTextNode || urlTextNode.name !== 'string_url') {
+    const previewUrlPathNode = previewUrlStartNode.node.nextSibling;
+    if(!previewUrlPathNode || previewUrlPathNode.name !== 'string_url') {
         return {alterFlow: 'continue-traversal'};
     }
+    console.log(`---- Found preview URL path:`, `"${transaction.state.doc.sliceString(previewUrlPathNode.from, previewUrlPathNode.to)}"`);
 
     // Check for ")"
-    const urlEndNode = urlTextNode.node.nextSibling;
-    if(!urlEndNode || urlEndNode.name !== 'formatting_formatting-link-string_string_url') {
+    const previewUrlEndNode = previewUrlPathNode.node.nextSibling;
+    if(!previewUrlEndNode || previewUrlEndNode.name !== 'formatting_formatting-link-string_string_url') {
         return {alterFlow: 'continue-traversal'};
     }
+    console.log(`---- Found preview URL end:`, `"${transaction.state.doc.sliceString(previewUrlEndNode.from, previewUrlEndNode.to)}"`);
 
-    // Ensure there's 1 full blank line after the embed (two new line characters)
-    const blankLineAfter = transaction.state.doc.sliceString(urlEndNode.to, urlEndNode.to + 2);
-    if(blankLineAfter !== '\n\n') {
+
+    // Now check for the settings section
+    /////////////////////////////////////
+
+    // Check for "[" or "[]"
+    const editTextStartNode = previewUrlEndNode.node.nextSibling;
+    if(!editTextStartNode || editTextStartNode.name !== 'formatting_formatting-link_link') {
+        console.log(`ERROR! editTextStartNode`, editTextStartNode);
+        console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
+        return {alterFlow: 'continue-traversal'};
+    }
+    console.log(`---- Found edit text start:`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
+
+    // Get the next node, which could be alt text or could be "("
+    nextNode = editTextStartNode.node.nextSibling;
+    if(!nextNode) {
         return {alterFlow: 'continue-traversal'};
     }
     
-    // It's definitely a markdown embed, let's not focus on the urlText to check it's an Ink embed.
-    const urlText = transaction.state.doc.sliceString(urlTextNode.from, urlTextNode.to);
+    // Containers for alt text nodes if they exist
+    let editTextNode: SyntaxNodeRef | null = null;
+    let editTextEndNode: SyntaxNodeRef | null = null;
+
+    // If the start node was "[", then the next node must be alt text
+    if(editTextStartNode.to-editTextStartNode.from === 1) {
+        editTextNode = nextNode;
+        console.log(`---- Found edit text:`, `"${transaction.state.doc.sliceString(editTextNode.from, editTextNode.to)}"`);
+        editTextEndNode = editTextNode.node.nextSibling;
+        if(!editTextEndNode || editTextEndNode.name !== 'formatting_formatting-link_link') {
+            console.log(`ERROR! editTextEndNode`, editTextEndNode);
+            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
+            return {alterFlow: 'continue-traversal'};
+        }
+        console.log(`---- Found edit text end:`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
+        nextNode = editTextEndNode.node.nextSibling;
+    }
     
-    // Check it's an InkDrawing embed
-    if(!urlText.includes('| InkDrawing v')) {   // TODO: Put this in a constant
+    // Check for "("
+    const settingsUrlStartNode = nextNode;
+    if(!settingsUrlStartNode || settingsUrlStartNode.name !== 'formatting_formatting-link-string_string_url') {
         return {alterFlow: 'continue-traversal'};
     }
+    console.log(`---- Found settings URL start:`, `"${transaction.state.doc.sliceString(settingsUrlStartNode.from, settingsUrlStartNode.to)}"`);
+
+    // Check for url and settings section
+    const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
+    if(!settingsUrlPathNode || settingsUrlPathNode.name !== 'string_url') {
+        console.log(`ERROR! settingsUrlPathNode`, settingsUrlPathNode);
+        console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
+        return {alterFlow: 'continue-traversal'};
+    }
+    console.log(`---- Found settings URL path:`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
+
+    // Check for ")"
+    const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
+    if(!settingsUrlEndNode || settingsUrlEndNode.name !== 'formatting_formatting-link-string_string_url') {
+        console.log(`ERROR! settingsUrlEndNode`, settingsUrlEndNode);
+        console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
+        return {alterFlow: 'continue-traversal'};
+    }
+    console.log(`---- Found settings URL end:`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
+    
+    // It's definitely a markdown embed, let's now focus on the urlText to check it's an Ink embed.
+    const previewUrl = transaction.state.doc.sliceString(previewUrlPathNode.from, previewUrlPathNode.to);
+    const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
+    
+    // // Check it's an InkDrawing embed
+    // if(!previewUrlText.includes('| InkDrawing v')) {   // TODO: Put this in a constant
+    //     console.log(`---- It's an ink embed`)
+    //     return {alterFlow: 'continue-traversal'};
+    // }
     
     // Prepare the data needed for decoration
-    const startOfReplacement = linkStartNode.from;
-    const endOfReplacement = urlEndNode.to;
-    const {partialFilepath, embedSettings} = parseDrawingUrlText( urlText );
+    const startOfReplacement = previewLinkStartNode.from;
+    const endOfReplacement = settingsUrlEndNode.to;
+    // const {partialFilepath, embedSettings} = parseDrawingUrlTextNew( previewUrlText );
+
+    const {embedSettings} = parseSettingsFromUrl(urlAndSettings);
+
+    // Log the complete detected embed structure
+    console.log(`---- Successfully detected complete embed structure:`);
+    console.log(`---- Preview URL:`, previewUrl);
+    console.log(`---- Edit Url:`, urlAndSettings);
+    console.log(`---- Settings:`, embedSettings);
+    console.log(`---- Full replacement range:`, transaction.state.doc.sliceString(startOfReplacement, endOfReplacement));
 
     // If altText exists, then it is the transcription
     // if(altTextNode) {
@@ -316,14 +399,14 @@ function detectMarkdownEmbedLink(linkStartNode: SyntaxNodeRef, transaction: Tran
         embedLinkInfo: {
             startPosition: startOfReplacement,
             endPosition: endOfReplacement,
-            partialFilepath,
-            embedSettings,
+            partialFilepath: previewUrl,
+            embedSettings: {},
         },
     }
 
 }
 
-export interface EmbedSettings {
+export interface EmbedSettingsNew {
     version: number,
     embedDisplay: {
         width: number,
@@ -336,15 +419,14 @@ export interface EmbedSettings {
         height: number,
         // rotation: number,
     },
-    transcription?: string,
 }
 
-function parseDrawingUrlText(urlText: string): {
+function parseDrawingUrlTextNew(urlText: string): {
     partialFilepath: string,
-    embedSettings: EmbedSettings,
+    embedSettings: EmbedSettingsNew,
 } {
     let partialFilepath: string | undefined;
-    const embedSettings: EmbedSettings = {
+    const embedSettings: EmbedSettingsNew = {
         version: 0,
         embedDisplay: {
             width: 500,
@@ -358,6 +440,8 @@ function parseDrawingUrlText(urlText: string): {
         }
     }
     try {
+
+        console.log(`---- urlText`, urlText);
         
         // Get the first part, which is the filepath.
         const urlTextParts = urlText.split('|');
@@ -400,83 +484,58 @@ function parseDrawingUrlText(urlText: string): {
     }
 }
 
-// function detectInternalEmbedLink(syntaxNodeRef: SyntaxNodeRef, transaction: Transaction): {
-//     startPosition: number,
-//     endPosition: number,
-//     partialFilepath: string,
-//     embedSettings: any,
-// } | null {
-    
-//     // NOTE: This is the order expected in the syntax tree
 
-//     // formatting-embed_formatting-link_formatting-link-start --> ![[
-//     // hmd-embed_hmd-internal-link_link-has-alias --> Filename
-//     // hmd-embed_hmd-internal-link_link-alias-pipe --> |
-//     // hmd-embed_hmd-internal-link_link-alias --> Embed Type
-//     // hmd-embed_hmd-internal-link_link-alias-pipe --> |
-//     // hmd-embed_hmd-internal-link_link-alias --> Settings
-//     // formatting-link_formatting-link-end --> ]]
+function parseSettingsFromUrl(urlAndSettings: string): { infoUrl: string, embedSettings: EmbedSettingsNew } {
+    // Create a default settings object
+    const defaultEmbedSettings: EmbedSettingsNew = {
+        version: 1,
+        embedDisplay: {
+            width: 500,
+            aspectRatio: '16/9',
+        },
+        viewBox: {
+            x: 0,
+            y: 0,
+            width: 500,
+            height: 281,
+        },
+    };
 
+    let infoUrl = urlAndSettings;
+    let embedSettings: EmbedSettingsNew = { ...defaultEmbedSettings };
 
-//     if (syntaxNodeRef.name === 'formatting-embed_formatting-link_formatting-link-start') {
-//         // debug(['Image link node', node.type.name]);
+    const questionMarkIndex = urlAndSettings.indexOf('?');
+    if (questionMarkIndex !== -1) {
+        infoUrl = urlAndSettings.substring(0, questionMarkIndex);
+        const settingsString = urlAndSettings.substring(questionMarkIndex + 1);
+        const settingsObj = settingsString.split('&').reduce((acc, pair) => {
+            const [key, value] = pair.split('=');
+            if (key) acc[key] = value;
+            return acc;
+        }, {} as Record<string, string>);
 
-//         const filepathNode = syntaxNodeRef.node.nextSibling;
-//         if (filepathNode && filepathNode.name === 'hmd-embed_hmd-internal-link_link-has-alias') {
-//             // debug(['filepathNode', filepathNode.name]);
-
-//             let firstPipeNode = filepathNode.nextSibling;
-//             if (firstPipeNode && firstPipeNode.name === 'hmd-embed_hmd-internal-link_link-alias-pipe') {
-//                 // debug(['firstPipeNode', firstPipeNode.name]);
-
-//                 // Check if the link's Display Text is used for the embed type name
-//                 const embedTypeAndVersionNode = firstPipeNode.node.nextSibling;
-//                 if (embedTypeAndVersionNode) {
-//                     // debug(['embedTypeAndVersionNode', embedTypeAndVersionNode.name]);
-
-//                     const embedTypeStr = transaction.state.doc.sliceString(embedTypeAndVersionNode.from, embedTypeAndVersionNode.to);
-//                     // Not trimmed because I want to keep as performent as possible.
-//                     // So spaces will break it.
-//                     if (embedTypeStr === 'InkDrawing') {
-
-//                         const secondPipeNode = embedTypeAndVersionNode.node.nextSibling;
-//                         if (secondPipeNode && secondPipeNode.name === 'hmd-embed_hmd-internal-link_link-alias-pipe') {
-//                             // debug(['secondPipeNode', secondPipeNode.name]);
-
-//                             const settingsNode = secondPipeNode.node.nextSibling;
-//                             if (settingsNode) {
-//                                 // debug(['settingsNode', settingsNode.name]);
-
-//                                 const settingsStr = transaction.state.doc.sliceString(settingsNode.from, settingsNode.to);
-
-//                                 const endOfLinkNode = settingsNode.node.nextSibling;
-//                                 if (endOfLinkNode && endOfLinkNode.name === 'formatting-link_formatting-link-end') {
-//                                     // debug(['endOfLinkNode', endOfLinkNode.name]);
-//                                     // The link is properly closed, now we can add the decoration
-
-//                                     const startOfLinkBrackets = filepathNode.from - 3;
-//                                     const endOfLinkBrackets = endOfLinkNode.to;
-//                                     const partialFilepath = transaction.state.doc.sliceString(filepathNode.from, filepathNode.to);
-//                                     const displayName = JSON.parse(settingsStr);
-
-//                                     return {
-//                                         startPosition: startOfLinkBrackets,
-//                                         endPosition: endOfLinkBrackets,
-//                                         partialFilepath,
-//                                         embedSettings: displayName,
-//                                     }
-
-//                                 }
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-
-//         }
-//     }
-
-//     return null;
-// }
-
-
+        // Populate embedSettings with values from settingsObj if present
+        if (settingsObj.version) {
+            embedSettings.version = parseInt(settingsObj.version, 10);
+        }
+        if (settingsObj.width) {
+            embedSettings.embedDisplay.width = parseInt(settingsObj.width, 10);
+        }
+        if (settingsObj.aspectRatio) {
+            embedSettings.embedDisplay.aspectRatio = settingsObj.aspectRatio;
+        }
+        if (settingsObj.viewBoxX) {
+            embedSettings.viewBox.x = parseInt(settingsObj.viewBoxX, 10);
+        }
+        if (settingsObj.viewBoxY) {
+            embedSettings.viewBox.y = parseInt(settingsObj.viewBoxY, 10);
+        }
+        if (settingsObj.viewBoxWidth) {
+            embedSettings.viewBox.width = parseInt(settingsObj.viewBoxWidth, 10);
+        }
+        if (settingsObj.viewBoxHeight) {
+            embedSettings.viewBox.height = parseInt(settingsObj.viewBoxHeight, 10);
+        }
+    }
+    return { infoUrl, embedSettings };
+}

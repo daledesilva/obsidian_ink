@@ -19,7 +19,6 @@ import { getFullPageWidth } from "src/utils/getFullPageWidth";
 import { verbose } from "src/utils/log-to-console";
 import { getGlobals } from "src/stores/global-store";
 import { DrawingEmbedPreviewWrapperNew } from "../drawing-embed-preview/drawing-embed-preview";
-const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
 ///////

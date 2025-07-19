@@ -440,12 +440,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					recentPenInput.current = false;
 					unlockPageScrolling(tlEditorWrapperElRef.current);
 				}}
-				
-				onScroll={(e) => {
+
+				onWheel={(e) => {
 					if(!tlEditorWrapperElRef.current) return;
-					console.log('Pointer Leave');
-					recentPenInput.current = false;
-					unlockPageScrolling(tlEditorWrapperElRef.current);
+					const cmScroller = tlEditorWrapperElRef.current.closest('.cm-scroller');
+					if (cmScroller) {
+						cmScroller.scrollTo({
+							top: cmScroller.scrollTop + e.deltaY,
+							left: cmScroller.scrollLeft + e.deltaX
+						});
+					}
 				}}
 
 			/>

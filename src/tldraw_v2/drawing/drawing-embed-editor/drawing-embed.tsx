@@ -48,6 +48,7 @@ export type DrawingEditorControls = {
 }
 
 interface DrawingEmbedNewProps {
+	mdFile: TFile,
 	partialPreviewFilepath: string,
 	embedSettings: any,
 	remove: Function,
@@ -135,6 +136,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 			>
 			
 				<DrawingEmbedPreviewWrapperNew
+					mdFile = {props.mdFile}
 					partialPreviewFilepath = {props.partialPreviewFilepath}
 					embedSettings = {props.embedSettings}
 					onReady = {() => {}}

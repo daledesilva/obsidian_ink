@@ -11,7 +11,7 @@ import {
     EditorView,
     WidgetType,
 } from "@codemirror/view";
-import { editorLivePreviewField, MarkdownView } from 'obsidian';
+import { editorLivePreviewField, MarkdownView, TFile } from 'obsidian';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
@@ -35,12 +35,14 @@ const mountedDecorationIds: string[] = [];
 
 export class DrawingEmbedWidgetNew extends WidgetType {
     id: string;
+    mdFile: TFile;
     partialPreviewFilepath: string;
     embedSettings: any;
     // mounted = false;
 
-    constructor(partialPreviewFilepath: string, embedSettings: {}) {
+    constructor(mdFile: TFile, partialPreviewFilepath: string, embedSettings: {}) {
         super();
+        this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
         this.partialPreviewFilepath = partialPreviewFilepath;
         this.embedSettings = embedSettings;
@@ -57,6 +59,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
         root.render(
             <JotaiProvider>
                 <DrawingEmbedNew
+                    mdFile={this.mdFile}
                     partialPreviewFilepath={this.partialPreviewFilepath}
                     embedSettings={this.embedSettings}
                     remove={() => { }}
@@ -158,7 +161,7 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
                             embedLinkInfo.startPosition,  
                             embedLinkInfo.endPosition,
                             Decoration.replace({
-                                widget: new DrawingEmbedWidgetNew(embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
+                                widget: new DrawingEmbedWidgetNew(activeView.file, embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
                                 isBlock: true,
                             })
                         );
@@ -367,7 +370,7 @@ function detectMarkdownEmbedLinkNew(previewLinkStartNode: SyntaxNodeRef, transac
     console.log(`---- Found settings URL end:`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
     
     // It's definitely a markdown embed, let's now focus on the urlText to check it's an Ink embed.
-    const previewUrl = transaction.state.doc.sliceString(previewUrlPathNode.from, previewUrlPathNode.to);
+    const previewUrl = transaction.state.doc.sliceString(previewUrlPathNode.from+1, previewUrlPathNode.to-1); // +&- to remove <> brackets
     const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
     
     // // Check it's an InkDrawing embed

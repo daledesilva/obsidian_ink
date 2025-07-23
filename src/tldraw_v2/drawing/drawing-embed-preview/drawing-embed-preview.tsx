@@ -5,7 +5,7 @@ import SVG from 'react-inlinesvg';
 import { PrimaryMenuBar } from 'src/tldraw_v1/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/tldraw_v1/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
-import { TFile } from 'obsidian';
+import { normalizePath, TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from '../../../tldraw_v1/drawing/drawing-embed-editor/drawing-embed';
 import { debug, verbose } from 'src/utils/log-to-console';
@@ -16,6 +16,7 @@ const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg')
 //////////
 
 interface DrawingEmbedPreviewProps {
+    mdFile: TFile,
     partialPreviewFilepath: string,
     embedSettings: any,
     onReady: Function,
@@ -25,6 +26,8 @@ interface DrawingEmbedPreviewProps {
 // Wraps the component so that it can full unmount when inactive
 export const DrawingEmbedPreviewWrapperNew: React.FC<DrawingEmbedPreviewProps> = (props) => {
     const previewActive = useAtomValue(previewActiveAtom);
+
+    console.log('props', props);
 
     if (previewActive) {
         return <DrawingEmbedPreviewNew {...props} />
@@ -40,8 +43,11 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
 
-    const file = plugin.app.vault.getAbstractFileByPath(props.partialPreviewFilepath);
-    const filepath = file ? plugin.app.vault.adapter.getResourcePath(file.path) : '';
+    const embedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(props.partialPreviewFilepath), props.mdFile.path)
+    let filepath: string | undefined
+    if(embedFile) {
+        filepath = plugin.app.vault.getResourcePath(embedFile);
+    };
 
     React.useEffect(() => {
         verbose('PREVIEW mounted');
@@ -70,7 +76,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {file && (<>
+            {filepath && (<>
                 <SVG
                     src = {filepath}
                     style = {{
@@ -85,7 +91,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                     viewBox = "0 0 250 250" // TODO: This needs to be set to the actual width and height of the SVG
                 />
             </>)}
-            {!file && (<>
+            {!filepath && (<>
                 '{props.partialPreviewFilepath}' not found
             </>)}
         </div>

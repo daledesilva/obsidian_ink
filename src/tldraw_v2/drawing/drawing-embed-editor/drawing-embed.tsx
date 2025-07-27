@@ -46,6 +46,7 @@ interface DrawingEmbedNewProps {
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
 	remove: Function,
+	partialEmbedFilepath: string,
 }
 
 export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
@@ -138,6 +139,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						switchToEditMode();
 					}}
+					partialEmbedFilepath = {props.partialEmbedFilepath}
 				/>
 			
 				{/* <TldrawDrawingEditorWrapper

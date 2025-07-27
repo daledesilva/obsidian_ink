@@ -39,14 +39,16 @@ export class DrawingEmbedWidgetNew extends WidgetType {
     mdFile: TFile;
     embeddedFile: TFile | null;
     embedSettings: any;
+    partialEmbedFilepath: string;
     // mounted = false;
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
         this.embeddedFile = embeddedFile;
         this.embedSettings = embedSettings;
+        this.partialEmbedFilepath = partialEmbedFilepath;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -63,6 +65,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     remove={() => { }}
+                    partialEmbedFilepath={this.partialEmbedFilepath}
                 />
             </JotaiProvider>
         );
@@ -160,7 +163,7 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
                         embedLinkInfo.startPosition,  
                         embedLinkInfo.endPosition,
                         Decoration.replace({
-                            widget: new DrawingEmbedWidgetNew(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings),
+                            widget: new DrawingEmbedWidgetNew(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
                             isBlock: true,
                         })
                     );
@@ -214,6 +217,7 @@ interface embedLinkInfoNew {
     endPosition: number,
     embeddedFile: TFile | null,
     embedSettings: any,
+    partialEmbedFilepath: string,
 }
 
 
@@ -415,6 +419,7 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
             endPosition: endOfReplacement,
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
+            partialEmbedFilepath: previewPartialFilepath,
         },
     }
 

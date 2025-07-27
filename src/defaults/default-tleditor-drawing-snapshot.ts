@@ -3,7 +3,7 @@ import { SerializedStore, TLEditorSnapshot, TLPageId, TLRecord } from '@tldraw/t
 ////////////////////
 ////////////////////
 
-export const defaultTLEditorDrawingSnapshot: TLEditorSnapshot = {
+export const DEFAULT_TLEDITOR_DRAWING_SNAPSHOT: TLEditorSnapshot = {
     "document": {
 		"store": {
 			"document:document": {

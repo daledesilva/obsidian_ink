@@ -4,7 +4,7 @@ import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 /////
 /////
 
-export const defaultTLEditorWritingSnapshot: TLEditorSnapshot = {
+export const DEFAULT_TLEDITOR_WRITING_SNAPSHOT: TLEditorSnapshot = {
     "document": {
         "store": {
             "document:document": {

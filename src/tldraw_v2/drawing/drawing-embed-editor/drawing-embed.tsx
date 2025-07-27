@@ -5,20 +5,14 @@ import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "../../../tldraw
 import InkPlugin from "../../../main";
 import { InkFileData } from "../../../utils/page-file";
 import { TFile } from "obsidian";
-import { rememberDrawingFile } from "src/utils/rememberDrawingFile";
-import { GlobalSessionState } from "src/logic/stores";
-import { useDispatch, useSelector } from "react-redux";
-import { DrawingEmbedPreview, DrawingEmbedPreviewWrapper } from "../../../tldraw_v1/drawing/drawing-embed-preview/drawing-embed-preview";
-import { openInkFile } from "src/utils/open-file";
-import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
 import classNames from "classnames";
 import { atom, useAtom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/utils/getFullPageWidth";
 import { verbose } from "src/utils/log-to-console";
-import { getGlobals } from "src/stores/global-store";
 import { DrawingEmbedPreviewWrapperNew } from "../drawing-embed-preview/drawing-embed-preview";
+import { EmbedSettings } from "src/types/embed-settings";
 
 ///////
 ///////
@@ -50,21 +44,19 @@ export type DrawingEditorControls = {
 interface DrawingEmbedNewProps {
 	mdFile: TFile,
 	embeddedFile: TFile | null,
-	embedSettings: any,
+	embedSettings: EmbedSettings,
 	remove: Function,
 }
 
 export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
-	const {plugin} = getGlobals();
 
-	const width = 1000;
-	const aspectRatio = 16/9;
+	console.log('props.embedSettings', props.embedSettings);
 
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
-	const embedWidthRef = useRef<number>(width || DRAWING_INITIAL_WIDTH);
-	const embedAspectRatioRef = useRef<number>(aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
+	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
+	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 
 	const setEmbedState = useSetAtom(embedStateAtom);
 

@@ -48,14 +48,19 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
         embeddedFilepath = plugin.app.vault.getResourcePath(props.embeddedFile);
     };
 
-    console.log('embeddedFilepath', embeddedFilepath);
-
     React.useEffect(() => {
         verbose('PREVIEW mounted');
         return () => {
             verbose('PREVIEW unmounting');
         }
     }, [])
+
+    // viewBox: {
+    //     x: 0,
+    //     y: 0,
+    //     width: 500,
+    //     height: 281,
+    // },
 
 	return <>
         <div
@@ -89,7 +94,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                     }}
                     pointerEvents = "visible"
                     onLoad = {onLoad}
-                    viewBox = "0 0 250 250" // TODO: This needs to be set to the actual width and height of the SVG
+                    viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`}
                 />
             </>)}
             {!embeddedFilepath && (<>

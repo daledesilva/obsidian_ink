@@ -23,6 +23,7 @@ import {
 import DrawingEmbedNew from 'src/tldraw_v2/drawing/drawing-embed-editor/drawing-embed';
 import { InkFileData } from 'src/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
+import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 
 /////////////////////
 /////////////////////
@@ -374,7 +375,6 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     // Prepare the data needed for decoration
     const startOfReplacement = previewLinkStartNode.from;
     const endOfReplacement = settingsUrlEndNode.to;
-    // const {partialFilepath, embedSettings} = parseDrawingUrlTextNew( previewUrlText );
 
     const {embedSettings} = parseSettingsFromUrl(urlAndSettings);
 
@@ -397,109 +397,18 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
             startPosition: startOfReplacement,
             endPosition: endOfReplacement,
             embeddedFile: embeddedFile,
-            embedSettings: {},
+            embedSettings: embedSettings,
         },
     }
 
 }
 
-export interface EmbedSettingsNew {
-    version: number,
-    embedDisplay: {
-        width: number,
-        aspectRatio: string,
-    },
-    viewBox: {
-        x: number,
-        y: number,
-        width: number,
-        height: number,
-        // rotation: number,
-    },
-}
-
-function parseDrawingUrlTextNew(urlText: string): {
-    partialFilepath: string,
-    embedSettings: EmbedSettingsNew,
-} {
-    let partialFilepath: string | undefined;
-    const embedSettings: EmbedSettingsNew = {
-        version: 0,
-        embedDisplay: {
-            width: 500,
-            aspectRatio: '16/9',
-        },
-        viewBox: {
-            x: 0,
-            y: 0,
-            width: 1920,
-            height: 1080,
-        }
-    }
-    try {
-
-        console.log(`---- urlText`, urlText);
-        
-        // Get the first part, which is the filepath.
-        const urlTextParts = urlText.split('|');
-        // Trim it's white space.
-        const bracketedFilepath = urlTextParts.shift()?.trim();
-        // Remove the first and last characters, which are the <> brackets to support spaces in filenames.
-        partialFilepath = bracketedFilepath?.slice(1,-1);
-
-        if(!partialFilepath) {
-            error(`There's an error in the filepath of the embed with this text: '${urlText}'`);
-            throw new Error();
-        }
-        
-        const format = urlTextParts.shift()?.trim();
-        const displaySettings = urlTextParts.shift()?.trim().split(',');
-        const viewSettings = urlTextParts.shift()?.trim().split(',');
-
-        if(!format || !displaySettings || !viewSettings) {
-            error(`There's an error in the settings after the filepath of the embed with this text: '${urlText}'`);
-            throw new Error();
-        }
-
-        embedSettings.version =  Number.parseInt(format.split('v').pop() || '0');
-        embedSettings.embedDisplay.width = Number.parseInt(displaySettings[0] || '500');
-        embedSettings.embedDisplay.aspectRatio = displaySettings[1] || '16/9';
-        embedSettings.viewBox.x = Number.parseInt(viewSettings[0] || '0');
-        embedSettings.viewBox.y = Number.parseInt(viewSettings[1] || '0');
-        embedSettings.viewBox.width = Number.parseInt(viewSettings[2] || '1920');
-        embedSettings.viewBox.height = Number.parseInt(viewSettings[3] || '1080');
-
-        debug(['embedSettings', embedSettings]);
-        
-    } catch(e) {
-        throw new Error(`Error parsing Drawing embed, see above to problem solve. ${e}`);
-    }
-
-    return {
-        partialFilepath,
-        embedSettings,
-    }
-}
 
 
-function parseSettingsFromUrl(urlAndSettings: string): { infoUrl: string, embedSettings: EmbedSettingsNew } {
-    // Create a default settings object
-    const defaultEmbedSettings: EmbedSettingsNew = {
-        version: 1,
-        embedDisplay: {
-            width: 500,
-            aspectRatio: '16/9',
-        },
-        viewBox: {
-            x: 0,
-            y: 0,
-            width: 500,
-            height: 281,
-        },
-    };
-
+function parseSettingsFromUrl(urlAndSettings: string): { infoUrl: string, embedSettings: EmbedSettings } {
+    
     let infoUrl = urlAndSettings;
-    let embedSettings: EmbedSettingsNew = { ...defaultEmbedSettings };
+    let embedSettings: EmbedSettings = JSON.parse(JSON.stringify(DEFAULT_EMBED_SETTINGS));
 
     const questionMarkIndex = urlAndSettings.indexOf('?');
     if (questionMarkIndex !== -1) {
@@ -511,7 +420,7 @@ function parseSettingsFromUrl(urlAndSettings: string): { infoUrl: string, embedS
             return acc;
         }, {} as Record<string, string>);
 
-        // Populate embedSettings with values from settingsObj if present
+        // Populate embedSettings with values from settingsObj where present
         if (settingsObj.version) {
             embedSettings.version = parseInt(settingsObj.version, 10);
         }
@@ -519,7 +428,7 @@ function parseSettingsFromUrl(urlAndSettings: string): { infoUrl: string, embedS
             embedSettings.embedDisplay.width = parseInt(settingsObj.width, 10);
         }
         if (settingsObj.aspectRatio) {
-            embedSettings.embedDisplay.aspectRatio = settingsObj.aspectRatio;
+            embedSettings.embedDisplay.aspectRatio = Number.parseFloat(settingsObj.aspectRatio);
         }
         if (settingsObj.viewBoxX) {
             embedSettings.viewBox.x = parseInt(settingsObj.viewBoxX, 10);

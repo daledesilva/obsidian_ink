@@ -291,19 +291,20 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     console.log(`---- Found preview URL start:`, `"${transaction.state.doc.sliceString(previewUrlStartNode.from, previewUrlStartNode.to)}"`);
 
     // Check for filepath section
-    const previewUrlPathNode = previewUrlStartNode.node.nextSibling;
-    if(!previewUrlPathNode || previewUrlPathNode.name !== 'string_url') {
+    const previewFilepathNode = previewUrlStartNode.node.nextSibling;
+    if(!previewFilepathNode || previewFilepathNode.name !== 'string_url') {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found preview URL path:`, `"${transaction.state.doc.sliceString(previewUrlPathNode.from, previewUrlPathNode.to)}"`);
+    console.log(`---- Found preview URL path:`, `"${transaction.state.doc.sliceString(previewFilepathNode.from, previewFilepathNode.to)}"`);
 
     // Check for ")"
-    const previewUrlEndNode = previewUrlPathNode.node.nextSibling;
+    const previewUrlEndNode = previewFilepathNode.node.nextSibling;
     if(!previewUrlEndNode || previewUrlEndNode.name !== 'formatting_formatting-link-string_string_url') {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found preview URL end:`, `"${transaction.state.doc.sliceString(previewUrlEndNode.from, previewUrlEndNode.to)}"`);
 
+    // Allows any amount of white space inbetween
 
     // Now check for the settings section
     /////////////////////////////////////
@@ -367,14 +368,8 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     console.log(`---- Found settings URL end:`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
     
     // It's definitely a markdown embed, let's now focus on the urlText to check it's an Ink embed.
-    const previewUrl = transaction.state.doc.sliceString(previewUrlPathNode.from+1, previewUrlPathNode.to-1); // +&- to remove <> brackets
+    const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from+1, previewFilepathNode.to-1); // +&- to remove <> brackets
     const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
-    
-    // // Check it's an InkDrawing embed
-    // if(!previewUrlText.includes('| InkDrawing v')) {   // TODO: Put this in a constant
-    //     console.log(`---- It's an ink embed`)
-    //     return {alterFlow: 'continue-traversal'};
-    // }
     
     // Prepare the data needed for decoration
     const startOfReplacement = previewLinkStartNode.from;
@@ -385,7 +380,7 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
 
     // Log the complete detected embed structure
     console.log(`---- Successfully detected complete embed structure:`);
-    console.log(`---- Preview URL:`, previewUrl);
+    console.log(`---- Preview URL:`, previewPartialFilepath);
     console.log(`---- Edit Url:`, urlAndSettings);
     console.log(`---- Settings:`, embedSettings);
     console.log(`---- Full replacement range:`, transaction.state.doc.sliceString(startOfReplacement, endOfReplacement));
@@ -395,7 +390,7 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     //     embedSettings.transcription = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to);
     // }
 
-    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewUrl), mdFile.path)
+    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path)
 
     return {
         embedLinkInfo: {

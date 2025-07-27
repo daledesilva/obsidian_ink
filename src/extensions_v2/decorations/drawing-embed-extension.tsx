@@ -11,7 +11,7 @@ import {
     EditorView,
     WidgetType,
 } from "@codemirror/view";
-import { editorLivePreviewField, MarkdownView, TFile } from 'obsidian';
+import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
@@ -36,20 +36,19 @@ const mountedDecorationIds: string[] = [];
 export class DrawingEmbedWidgetNew extends WidgetType {
     id: string;
     mdFile: TFile;
-    partialPreviewFilepath: string;
+    embeddedFile: TFile | null;
     embedSettings: any;
     // mounted = false;
 
-    constructor(mdFile: TFile, partialPreviewFilepath: string, embedSettings: {}) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
-        this.partialPreviewFilepath = partialPreviewFilepath;
+        this.embeddedFile = embeddedFile;
         this.embedSettings = embedSettings;
     }
 
     toDOM(view: EditorView): HTMLElement {
-        const { plugin } = getGlobals();
 
         const rootEl = document.createElement('div');
         const root = createRoot(rootEl);
@@ -60,7 +59,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
             <JotaiProvider>
                 <DrawingEmbedNew
                     mdFile={this.mdFile}
-                    partialPreviewFilepath={this.partialPreviewFilepath}
+                    embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     remove={() => { }}
                 />
@@ -117,56 +116,53 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
             return Decoration.none;
         }
 
-
-        
         const builder = new RangeSetBuilder<Decoration>();
 
         syntaxTree(transaction.state).iterate({
             enter(syntaxNodeRef) {
-                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLinkNew(syntaxNodeRef, transaction);
+                const mdFile = activeView.file;
+                if (!mdFile) return true; // continue traversal
+
+                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLinkNew(mdFile, syntaxNodeRef, transaction);
                 
+                if(!embedLinkInfo) return true; // continue traversal
                 if(alterFlow === 'ignore-children') return false;
                 if(alterFlow === 'continue-traversal') return true;
-
                 
-                if (embedLinkInfo) {
+                // Require a blank line before and after the embed
+                // TODO: Could put this into the detectMarkdownEmbedLink function.
+                embedLinkInfo.startPosition -= 2;
+                embedLinkInfo.endPosition += 2;
 
-                    // Require a blank line before and after the embed
-                    // TODO: Could put this into the detectMarkdownEmbedLink function.
-                    embedLinkInfo.startPosition -= 2;
-                    embedLinkInfo.endPosition += 2;
+                let decorationAlreadyExists = false;
+                const oldDecoration = prevEmbeds.iter();
 
-                    let decorationAlreadyExists = false;
-                    const oldDecoration = prevEmbeds.iter();
+                // Find the relevant decoration reference if it already exists
+                while(oldDecoration.value) {
+                    const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
+                    const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
+                    decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
+                    if(decorationAlreadyExists) break;
+                    oldDecoration.next();
+                }
 
-                    // Find the relevant decoration reference if it already exists
-                    while(oldDecoration.value) {
-                        const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
-                        const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
-                        decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
-                        if(decorationAlreadyExists) break;
-                        oldDecoration.next();
-                    }
-
-                    if(decorationAlreadyExists && oldDecoration.value) {
-                        // Reuse previous decoration
-                        builder.add(
-                            embedLinkInfo.startPosition,
-                            embedLinkInfo.endPosition,
-                            oldDecoration.value
-                        );
-                    } else {
-                        // create new decoration
-                        builder.add(
-                            embedLinkInfo.startPosition,  
-                            embedLinkInfo.endPosition,
-                            Decoration.replace({
-                                widget: new DrawingEmbedWidgetNew(activeView.file, embedLinkInfo.partialFilepath, embedLinkInfo.embedSettings),
-                                isBlock: true,
-                            })
-                        );
-                    }
-
+                if(decorationAlreadyExists && oldDecoration.value) {
+                    // Reuse previous decoration
+                    builder.add(
+                        embedLinkInfo.startPosition,
+                        embedLinkInfo.endPosition,
+                        oldDecoration.value
+                    );
+                } else {
+                    // create new decoration
+                    builder.add(
+                        embedLinkInfo.startPosition,  
+                        embedLinkInfo.endPosition,
+                        Decoration.replace({
+                            widget: new DrawingEmbedWidgetNew(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings),
+                            isBlock: true,
+                        })
+                    );
                 }
 
             }
@@ -215,16 +211,17 @@ export function drawingEmbedExtensionNew(): Extension {
 interface embedLinkInfoNew {
     startPosition: number,
     endPosition: number,
-    partialFilepath: string,
+    embeddedFile: TFile | null,
     embedSettings: any,
 }
 
 
 
-function detectMarkdownEmbedLinkNew(previewLinkStartNode: SyntaxNodeRef, transaction: Transaction): {
+function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxNodeRef, transaction: Transaction): {
     embedLinkInfo?: embedLinkInfoNew,
     alterFlow?: 'ignore-children' | 'continue-traversal'
 } {
+    const { plugin } = getGlobals();
 
     let nextNode: SyntaxNodeRef | null = null;
 
@@ -243,7 +240,7 @@ function detectMarkdownEmbedLinkNew(previewLinkStartNode: SyntaxNodeRef, transac
     // urlAndSettings                  
     // )
 
-
+    console.log('previewLinkStartNode', previewLinkStartNode.name);
     // Check for "!"
     if (!previewLinkStartNode || previewLinkStartNode.name !== 'formatting_formatting-image_image_image-marker') {
         return {alterFlow: 'continue-traversal'};
@@ -398,11 +395,13 @@ function detectMarkdownEmbedLinkNew(previewLinkStartNode: SyntaxNodeRef, transac
     //     embedSettings.transcription = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to);
     // }
 
+    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewUrl), mdFile.path)
+
     return {
         embedLinkInfo: {
             startPosition: startOfReplacement,
             endPosition: endOfReplacement,
-            partialFilepath: previewUrl,
+            embeddedFile: embeddedFile,
             embedSettings: {},
         },
     }

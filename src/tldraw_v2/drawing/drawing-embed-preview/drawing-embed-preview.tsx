@@ -17,7 +17,7 @@ const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg')
 
 interface DrawingEmbedPreviewProps {
     mdFile: TFile,
-    partialPreviewFilepath: string,
+    embeddedFile: TFile | null,
     embedSettings: any,
     onReady: Function,
 	onClick: React.MouseEventHandler,
@@ -43,11 +43,12 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
 
-    const embedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(props.partialPreviewFilepath), props.mdFile.path)
-    let filepath: string | undefined
-    if(embedFile) {
-        filepath = plugin.app.vault.getResourcePath(embedFile);
+    let embeddedFilepath: undefined | string;
+    if(props.embeddedFile) {
+        embeddedFilepath = plugin.app.vault.getResourcePath(props.embeddedFile);
     };
+
+    console.log('embeddedFilepath', embeddedFilepath);
 
     React.useEffect(() => {
         verbose('PREVIEW mounted');
@@ -76,9 +77,9 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {filepath && (<>
+            {embeddedFilepath && (<>
                 <SVG
-                    src = {filepath}
+                    src = {embeddedFilepath}
                     style = {{
                         width: '100%',
                         height: '100%',
@@ -91,8 +92,8 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                     viewBox = "0 0 250 250" // TODO: This needs to be set to the actual width and height of the SVG
                 />
             </>)}
-            {!filepath && (<>
-                '{props.partialPreviewFilepath}' not found
+            {!embeddedFilepath && (<>
+                '{embeddedFilepath}' not found
             </>)}
         </div>
     </>;

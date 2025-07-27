@@ -9,3 +9,16 @@
 // img[alt*="InkDrawing"] {
 // 	display: none !important;
 // }
+
+
+// This prevents erroneous line padding when embed is inside a line or quote section.
+.cm-line:has(.ddc_ink_drawing-embed) {
+    padding-inline-start: 0 !important;
+    text-indent: 0 !important;
+    
+    .ddc_ink_embed.ddc_ink_drawing-embed {
+        margin-left: 0;
+        position: relative;
+        left: 0;
+    }
+}

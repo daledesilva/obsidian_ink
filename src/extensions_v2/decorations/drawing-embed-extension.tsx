@@ -130,10 +130,10 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
                 if(alterFlow === 'ignore-children') return false;
                 if(alterFlow === 'continue-traversal') return true;
                 
-                // Require a blank line before and after the embed
-                // TODO: Could put this into the detectMarkdownEmbedLink function.
+                // Require a space before and new line after the embed.
+                // But consume two characters before to collapse the space and the new line before
                 embedLinkInfo.startPosition -= 2;
-                embedLinkInfo.endPosition += 2;
+                embedLinkInfo.endPosition += 1;
 
                 let decorationAlreadyExists = false;
                 const oldDecoration = prevEmbeds.iter();
@@ -226,7 +226,7 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
 
     let nextNode: SyntaxNodeRef | null = null;
 
-    // \n                   
+    // space                   
     // !                    formatting_formatting-image_image_image-marker
     // [                    formatting_formatting-image_image_image-alt-text_link
     // altText              image_image-alt-text_link
@@ -243,21 +243,21 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
 
     console.log('previewLinkStartNode', previewLinkStartNode.name);
     // Check for "!"
-    if (!previewLinkStartNode || previewLinkStartNode.name !== 'formatting_formatting-image_image_image-marker') {
+    if (!previewLinkStartNode || !previewLinkStartNode.name.includes('formatting_formatting-image_image_image-marker')) {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found "!" marker:`, `"${transaction.state.doc.sliceString(previewLinkStartNode.from, previewLinkStartNode.to)}"`);
     
     
-    // Ensure there's 1 full blank line before the embed (two new line characters)
-    const blankLineBefore = transaction.state.doc.sliceString(previewLinkStartNode.from - 2, previewLinkStartNode.from);
-    if(blankLineBefore !== '\n\n') {
+    // Ensure there's a space before the embed
+    const spaceBefore = transaction.state.doc.sliceString(previewLinkStartNode.from - 1, previewLinkStartNode.from);
+    if(spaceBefore !== ' ') {
         return {alterFlow: 'continue-traversal'};
     }
         
     // Check for "[" or "[]"
     const transcriptStartNode = previewLinkStartNode.node.nextSibling;
-    if(!transcriptStartNode || transcriptStartNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
+    if(!transcriptStartNode || !transcriptStartNode.name.includes('formatting_formatting-image_image_image-alt-text_link')) {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found transcript start:`, `"${transaction.state.doc.sliceString(transcriptStartNode.from, transcriptStartNode.to)}"`);
@@ -277,7 +277,7 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
         transcriptTextNode = nextNode;
         console.log(`---- Found transcript text:`, `"${transaction.state.doc.sliceString(transcriptTextNode.from, transcriptTextNode.to)}"`);
         transcriptEndNode = transcriptTextNode.node.nextSibling;
-        if(!transcriptEndNode || transcriptEndNode.name !== 'formatting_formatting-image_image_image-alt-text_link') {
+        if(!transcriptEndNode || !transcriptEndNode.name.includes('formatting_formatting-image_image_image-alt-text_link')) {
             return {alterFlow: 'continue-traversal'};
         }
         console.log(`---- Found transcript end:`, `"${transaction.state.doc.sliceString(transcriptEndNode.from, transcriptEndNode.to)}"`);
@@ -286,35 +286,45 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     
     // Check for "("
     const previewUrlStartNode = nextNode;
-    if(!previewUrlStartNode || previewUrlStartNode.name !== 'formatting_formatting-link-string_string_url') {
+    // Allows for quote_quote inbetween
+    if(!previewUrlStartNode || (!previewUrlStartNode.name.includes('formatting_formatting-link-string') && !previewUrlStartNode.name.includes('string_url'))) {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found preview URL start:`, `"${transaction.state.doc.sliceString(previewUrlStartNode.from, previewUrlStartNode.to)}"`);
 
     // Check for filepath section
     const previewFilepathNode = previewUrlStartNode.node.nextSibling;
-    if(!previewFilepathNode || previewFilepathNode.name !== 'string_url') {
+    if(!previewFilepathNode || !previewFilepathNode.name.includes('string_url')) {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found preview URL path:`, `"${transaction.state.doc.sliceString(previewFilepathNode.from, previewFilepathNode.to)}"`);
 
     // Check for ")"
     const previewUrlEndNode = previewFilepathNode.node.nextSibling;
-    if(!previewUrlEndNode || previewUrlEndNode.name !== 'formatting_formatting-link-string_string_url') {
+    // Allows for quote_quote inbetween
+    if(!previewUrlEndNode || (!previewUrlEndNode.name.includes('formatting_formatting-link-string') && !previewUrlEndNode.name.includes('string_url'))) {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found preview URL end:`, `"${transaction.state.doc.sliceString(previewUrlEndNode.from, previewUrlEndNode.to)}"`);
 
     // Allows any amount of white space inbetween
+    // Skip any number of nodes with name "quote_quote-1" (Blank spaces within a quote section)
+    let quoteNode = previewUrlEndNode.node.nextSibling;
+    while (quoteNode && quoteNode.name === "quote_quote-1") {
+        quoteNode = quoteNode.node.nextSibling;
+    }
+    nextNode = quoteNode;
 
     // Now check for the settings section
     /////////////////////////////////////
 
     // Check for "[" or "[]"
-    const editTextStartNode = previewUrlEndNode.node.nextSibling;
-    if(!editTextStartNode || editTextStartNode.name !== 'formatting_formatting-link_link') {
+    const editTextStartNode = nextNode;
+    if(!editTextStartNode || !editTextStartNode.name.includes('formatting_formatting-link_link')) {
         console.log(`ERROR! editTextStartNode`, editTextStartNode);
-        console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
+        if(editTextStartNode) {
+            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
+        }
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found edit text start:`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
@@ -334,9 +344,10 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
         editTextNode = nextNode;
         console.log(`---- Found edit text:`, `"${transaction.state.doc.sliceString(editTextNode.from, editTextNode.to)}"`);
         editTextEndNode = editTextNode.node.nextSibling;
-        if(!editTextEndNode || editTextEndNode.name !== 'formatting_formatting-link_link') {
-            console.log(`ERROR! editTextEndNode`, editTextEndNode);
-            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
+        if(!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
+            if(editTextEndNode) {
+                console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
+            }
             return {alterFlow: 'continue-traversal'};
         }
         console.log(`---- Found edit text end:`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
@@ -345,25 +356,31 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     
     // Check for "("
     const settingsUrlStartNode = nextNode;
-    if(!settingsUrlStartNode || settingsUrlStartNode.name !== 'formatting_formatting-link-string_string_url') {
+    // Allows for quote_quote inbetween
+    if(!settingsUrlStartNode || !settingsUrlStartNode.name.includes('formatting_formatting-link-string') && !settingsUrlStartNode.name.includes('string_url')) {
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found settings URL start:`, `"${transaction.state.doc.sliceString(settingsUrlStartNode.from, settingsUrlStartNode.to)}"`);
 
     // Check for url and settings section
     const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
-    if(!settingsUrlPathNode || settingsUrlPathNode.name !== 'string_url') {
+    if(!settingsUrlPathNode || !settingsUrlPathNode.name.includes('string_url')) {
         console.log(`ERROR! settingsUrlPathNode`, settingsUrlPathNode);
-        console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
+        if(settingsUrlPathNode) {
+            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
+        }
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found settings URL path:`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
 
     // Check for ")"
     const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
-    if(!settingsUrlEndNode || settingsUrlEndNode.name !== 'formatting_formatting-link-string_string_url') {
+    // Allows for quote_quote inbetween
+    if(!settingsUrlEndNode || (!settingsUrlEndNode.name.includes('formatting_formatting-link-string') && !settingsUrlEndNode.name.includes('string_url'))) {
         console.log(`ERROR! settingsUrlEndNode`, settingsUrlEndNode);
-        console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
+        if(settingsUrlEndNode) {
+            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
+        }
         return {alterFlow: 'continue-traversal'};
     }
     console.log(`---- Found settings URL end:`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);

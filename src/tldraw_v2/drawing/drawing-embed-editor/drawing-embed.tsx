@@ -13,25 +13,26 @@ import { getFullPageWidth } from "src/utils/getFullPageWidth";
 import { verbose } from "src/utils/log-to-console";
 import { DrawingEmbedPreviewWrapperNew } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
+import { TldrawDrawingEditorWrapperNew } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 
 ///////
 ///////
 
 
-export enum DrawingEmbedNewState {
+export enum DrawingEmbedStateNew {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom = atom(DrawingEmbedNewState.preview)
+export const embedStateAtom = atom(DrawingEmbedStateNew.preview)
 export const previewActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
-	return embedState !== DrawingEmbedNewState.editor
+	return embedState !== DrawingEmbedStateNew.editor
 })
 export const editorActiveAtom = atom<boolean>((get) => {
 	const embedState = get(embedStateAtom);
-	return embedState !== DrawingEmbedNewState.preview
+	return embedState !== DrawingEmbedStateNew.preview
 })
 
 ///////
@@ -42,9 +43,9 @@ export type DrawingEditorControls = {
 }
 
 interface DrawingEmbedNewProps {
-	mdFile: TFile,
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
+	saveSrcFile: (pageData: InkFileData) => {},
 	remove: Function,
 	partialEmbedFilepath: string,
 }
@@ -149,7 +150,6 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 			>
 			
 				<DrawingEmbedPreviewWrapperNew
-					mdFile = {props.mdFile}
 					embeddedFile = {props.embeddedFile}
 					embedSettings = {props.embedSettings}
 					onReady = {() => {}}
@@ -159,18 +159,16 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 					}}
 				/>
 			
-				{/* <TldrawDrawingEditorWrapper
+				<TldrawDrawingEditorWrapperNew
 					onReady = {() => {}}
-					plugin = {plugin}
-					filepath = {props.filepath}
-					embedSettings = {props.embedSettings}
-					save = {saveSrcFile}
+					drawingFile = {props.embeddedFile}
+					save = {props.saveSrcFile}
+					extendedMenu = {commonExtendedOptions}
 					embedded
 					saveControlsReference = {registerEditorControls}
 					closeEditor = {saveAndSwitchToPreviewMode}
-					extendedMenu = {commonExtendedOptions}
 					resizeEmbed = {resizeEmbed}
-				/> */}
+				/>
 
 			</div>				
 		</div>
@@ -222,7 +220,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 	function switchToEditMode() {
 		verbose('Set DrawingEmbedState: loadingEditor')
 		applyEmbedHeight();
-		setEmbedState(DrawingEmbedNewState.loadingEditor);
+		setEmbedState(DrawingEmbedStateNew.loadingEditor);
 	}
 
 	async function saveAndSwitchToPreviewMode() {
@@ -232,7 +230,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 			await editorControlsRef.current.saveAndHalt();
 		}
 		
-		setEmbedState(DrawingEmbedNewState.loadingPreview);
+		setEmbedState(DrawingEmbedStateNew.loadingPreview);
 		// props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
 	}
 

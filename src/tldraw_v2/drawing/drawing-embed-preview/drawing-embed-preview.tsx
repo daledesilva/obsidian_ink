@@ -16,7 +16,6 @@ const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg')
 //////////
 
 interface DrawingEmbedPreviewProps {
-    mdFile: TFile,
     embeddedFile: TFile | null,
     embedSettings: any,
     onReady: Function,

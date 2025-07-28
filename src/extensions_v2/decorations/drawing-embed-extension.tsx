@@ -21,7 +21,7 @@ import {
     Provider as JotaiProvider
 } from "jotai";
 import DrawingEmbedNew from 'src/tldraw_v2/drawing/drawing-embed-editor/drawing-embed';
-import { InkFileData } from 'src/utils/page-file';
+import { InkFileData, stringifyPageData } from 'src/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 
@@ -29,6 +29,7 @@ import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings'
 /////////////////////
 
 import './drawing-embed-extension.scss';
+import { DrawingEmbedData } from 'src/utils/embed';
 
 /////////////////////
 
@@ -61,9 +62,9 @@ export class DrawingEmbedWidgetNew extends WidgetType {
         root.render(
             <JotaiProvider>
                 <DrawingEmbedNew
-                    mdFile={this.mdFile}
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
+                    saveSrcFile={this.save}
                     remove={() => { }}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                 />
@@ -71,6 +72,25 @@ export class DrawingEmbedWidgetNew extends WidgetType {
         );
         return rootEl;
     }
+
+	// Helper functions
+	///////////////////
+
+	save = async (pageData: InkFileData) => {
+		if(!this.embeddedFile) return;
+		const plugin = getGlobals().plugin;
+		const pageDataStr = stringifyPageData(pageData);
+		await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
+	}
+
+	setEmbedProps = async (width: number, aspectRatio: number) => {
+		const newEmbedSettings: EmbedSettings = {
+			...this.embedSettings,
+			width,
+			aspectRatio,
+		}
+		this.updateEmbed(newEmbedSettings);
+	}
 }
 
 

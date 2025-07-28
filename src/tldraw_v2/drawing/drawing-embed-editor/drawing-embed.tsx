@@ -104,6 +104,24 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 
 	////////////
 
+	// TODO: style this
+	if (!props.embeddedFile) {
+		return <>
+		<div
+			style = {{
+				padding: '1em',
+				marginBlock: '0.5em',
+				color: 'red',
+				backgroundColor: 'rgba(255, 0, 0, 0.1)',
+				borderRadius: '0.5em',
+				textAlign: 'center',
+			}}
+		>
+			'{props.partialEmbedFilepath}' not found
+		</div>
+		</>
+	}
+
 	return <>
 		<div
 			ref = {embedContainerElRef}
@@ -139,7 +157,6 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						switchToEditMode();
 					}}
-					partialEmbedFilepath = {props.partialEmbedFilepath}
 				/>
 			
 				{/* <TldrawDrawingEditorWrapper

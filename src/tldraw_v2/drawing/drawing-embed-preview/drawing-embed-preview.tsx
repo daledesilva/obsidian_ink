@@ -21,7 +21,6 @@ interface DrawingEmbedPreviewProps {
     embedSettings: any,
     onReady: Function,
 	onClick: React.MouseEventHandler,
-    partialEmbedFilepath: string,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -97,9 +96,6 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                     onLoad = {onLoad}
                     viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`}
                 />
-            </>)}
-            {!embeddedFilepath && (<>
-                '{props.partialEmbedFilepath}' not found
             </>)}
         </div>
     </>;

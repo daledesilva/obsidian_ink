@@ -1,5 +1,5 @@
 import { LOCAL_STORAGE_PREFIX } from "src/constants";
-import { WritableAtom, atom, createStore, getDefaultStore } from 'jotai'
+import { createStore } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 
 

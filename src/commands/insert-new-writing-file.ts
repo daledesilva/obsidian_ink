@@ -1,8 +1,8 @@
 import InkPlugin from "src/main";
 import createNewWritingFile from "./create-new-writing-file";
 import { Editor } from "obsidian";
-import { buildWritingEmbed } from "src/utils/embed";
-import { activateNextEmbed } from "src/utils/storage";
+import { buildWritingEmbed } from "src/logic/utils/embed";
+import { activateNextEmbed } from "src/logic/utils/storage";
 
 /////////
 /////////

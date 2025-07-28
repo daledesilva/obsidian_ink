@@ -5,6 +5,7 @@ const manifest = require('../manifest.json');
 
 export const PLUGIN_VERSION = manifest.version;
 export const TLDRAW_VERSION = '2.1.0';
+export const LOCAL_STORAGE_PREFIX = 'ddc_ink_';
 export const PLUGIN_KEY = 'ddc_ink';
 export const ATTACHMENT_SUBFOLDER_NAME = 'Ink';
 export const WRITING_SUBFOLDER_NAME = 'Writing';

@@ -1,8 +1,8 @@
 import InkPlugin from "src/main";
 import { Editor } from "obsidian";
-import { buildDrawingEmbed } from "src/utils/embed";
+import { buildDrawingEmbed } from "src/logic/utils/embed";
 import createNewDrawingFile from "./create-new-drawing-file";
-import { activateNextEmbed } from "src/utils/storage";
+import { activateNextEmbed } from "src/logic/utils/storage";
 
 //////////
 //////////

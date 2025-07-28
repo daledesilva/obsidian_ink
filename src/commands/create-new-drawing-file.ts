@@ -1,8 +1,8 @@
 import InkPlugin from "src/main";
-import { buildDrawingFileData, stringifyPageData } from "src/utils/page-file";
+import { buildDrawingFileData, stringifyPageData } from "src/logic/utils/page-file";
 import {DEFAULT_TLEDITOR_DRAWING_SNAPSHOT} from "src/defaults/default-tleditor-drawing-snapshot";
-import { getNewTimestampedDrawingFilepath } from "src/utils/file-manipulation";
-import { createFoldersForFilepath } from "src/utils/createFoldersForFilepath";
+import { getNewTimestampedDrawingFilepath } from "src/logic/utils/file-manipulation";
+import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
 import { TFile } from "obsidian";
 
 ////////

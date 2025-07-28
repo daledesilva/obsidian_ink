@@ -1,11 +1,9 @@
 import InkPlugin from "src/main";
-import { Editor, Menu, Notice, TFile } from "obsidian";
-import { buildDrawingEmbed } from "src/utils/embed";
-import createNewDrawingFile from "./create-new-drawing-file";
-import { PLUGIN_KEY } from "src/constants";
-import { fetchLocally } from "src/utils/storage";
-import { InsertCopiedFileModal } from "src/modals/confirmation-modal/insert-copied-file-modal";
-import { duplicateDrawingFile } from "src/utils/rememberDrawingFile";
+import { Editor, Notice, TFile } from "obsidian";
+import { buildDrawingEmbed } from "src/logic/utils/embed";
+import { fetchLocally } from "src/logic/utils/storage";
+import { InsertCopiedFileModal } from "src/components/dom-components/modals/confirmation-modal/insert-copied-file-modal";
+import { duplicateDrawingFile } from "src/logic/utils/rememberDrawingFile";
 
 //////////
 //////////

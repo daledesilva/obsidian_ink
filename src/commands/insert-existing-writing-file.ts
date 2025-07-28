@@ -1,7 +1,7 @@
 import { App, Editor, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { buildWritingEmbed } from "src/utils/embed";
+import { buildWritingEmbed } from "src/logic/utils/embed";
 
 ////////
 ////////

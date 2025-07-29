@@ -2,7 +2,7 @@
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { InkFileData, stringifyPageData } from "src/logic/utils/page-file";
+import { InkFileData, buildFileStr } from "src/logic/utils/page-file";
 import { DrawingEmbedData, applyCommonAncestorStyling, removeEmbed, stringifyEmbedData } from "src/logic/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/components/formats/tldraw_v1/drawing/drawing-embed-editor/drawing-embed";
@@ -131,7 +131,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 	save = async (pageData: InkFileData) => {
 		if(!this.fileRef) return;
 		const plugin = getGlobals().plugin;
-		const pageDataStr = stringifyPageData(pageData);
+		const pageDataStr = buildFileStr(pageData);
 		await plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 

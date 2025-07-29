@@ -14,8 +14,8 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
-import { getGlobals } from 'src/stores/global-store';
 import { DrawingEmbedStateNew, editorActiveAtom, embedStateAtom } from '../drawing-embed/drawing-embed';
+import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 
 ///////
 ///////
@@ -52,7 +52,6 @@ const tlOptions: Partial<TldrawOptions> = {
 
 export function TldrawDrawingEditorNew(props: TldrawDrawingEditorNewProps) {
 	
-	const plugin = getGlobals().plugin;
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -177,10 +176,13 @@ export function TldrawDrawingEditorNew(props: TldrawDrawingEditorNewProps) {
 	///////////////////
 
     async function fetchFileData() {
-        const inkFileData = await getInkFileData(props.drawingFile)
-        if(inkFileData.tldraw) {
-            const snapshot = prepareDrawingSnapshot(inkFileData.tldraw as TLEditorSnapshot);
-            setTlEditorSnapshot(snapshot);
+		const svg = await props.drawingFile.vault.read(props.drawingFile);
+        if(svg) {
+			const tldrawJson = extractInkJsonFromSvg(svg);
+			if(tldrawJson) {
+				const snapshot = prepareDrawingSnapshot(tldrawJson as TLEditorSnapshot);
+				setTlEditorSnapshot(snapshot);
+			}
         }
     }
 
@@ -362,3 +364,5 @@ export function TldrawDrawingEditorNew(props: TldrawDrawingEditorNewProps) {
 	}
 
 };
+
+

@@ -1,5 +1,5 @@
 import InkPlugin from "src/main";
-import { buildWritingFileData, stringifyPageData } from "src/logic/utils/page-file";
+import { buildWritingFileData, buildFileStr } from "src/logic/utils/page-file";
 import { DEFAULT_TLEDITOR_WRITING_SNAPSHOT } from "src/defaults/default-tleditor-writing-snapshot";
 import { getNewTimestampedWritingFilepath } from "src/logic/utils/file-manipulation";
 import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
@@ -14,7 +14,7 @@ const createNewWritingFile = async (plugin: InkPlugin, instigatingFile?: TFile |
         tlEditorSnapshot: DEFAULT_TLEDITOR_WRITING_SNAPSHOT,
     });
     await createFoldersForFilepath(plugin, filepath);
-    const fileRef = await plugin.app.vault.create(filepath, stringifyPageData(pageData));
+    const fileRef = await plugin.app.vault.create(filepath, buildFileStr(pageData));
     return fileRef;
 }
 

@@ -4,7 +4,7 @@ import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "src/components/formats/tldraw_v1/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
-import { InkFileData, stringifyPageData } from "src/logic/utils/page-file";
+import { InkFileData, buildFileStr } from "src/logic/utils/page-file";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
@@ -87,7 +87,7 @@ export class DrawingView extends TextFileView {
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        return stringifyPageData(this.pageData);
+        return buildFileStr(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

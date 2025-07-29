@@ -1,5 +1,6 @@
 import InkPlugin from "src/main";
-import { buildDrawingFileData, buildFileStr } from "src/logic/utils/page-file";
+import { buildDrawingFileData } from "src/logic/utils/page-file";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 import {DEFAULT_TLEDITOR_DRAWING_SNAPSHOT} from "src/defaults/default-tleditor-drawing-snapshot";
 import { getNewTimestampedDrawingFilepath } from "src/logic/utils/file-manipulation";
 import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";

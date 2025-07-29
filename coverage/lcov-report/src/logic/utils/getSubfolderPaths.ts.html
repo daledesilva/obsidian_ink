@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/20</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/20</span>
+                <span class='fraction'>20/20</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -90,39 +90,39 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import InkPlugin from "src/main";
 import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
 &nbsp;
 //////////////
 //////////////
 &nbsp;
-export const getWritingSubfolderPath = (<span class="fstat-no" title="function not covered" >plugin: InkPlugin): string =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    let subFolderPath = DEFAULT_SETTINGS.writingSubfolder;</span>
-<span class="cstat-no" title="statement not covered" >    if (plugin.settings.customAttachmentFolders) {</span>
-<span class="cstat-no" title="statement not covered" >        subFolderPath = plugin.settings.writingSubfolder || '';</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >    return subFolderPath.trim();</span>
-<span class="cstat-no" title="statement not covered" >};</span>
-export const getDrawingSubfolderPath = (<span class="fstat-no" title="function not covered" >plugin: InkPlugin): string =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    let subFolderPath = DEFAULT_SETTINGS.drawingSubfolder;</span>
-<span class="cstat-no" title="statement not covered" >    if (plugin.settings.customAttachmentFolders) {</span>
-<span class="cstat-no" title="statement not covered" >        subFolderPath = plugin.settings.drawingSubfolder || '';</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >    return subFolderPath.trim();</span>
-<span class="cstat-no" title="statement not covered" >};</span>
+export const getWritingSubfolderPath = (plugin: InkPlugin): string =&gt; {
+    let subFolderPath = DEFAULT_SETTINGS.writingSubfolder;
+    if (plugin.settings.customAttachmentFolders) {
+        subFolderPath = plugin.settings.writingSubfolder || '';
+    }
+    return subFolderPath.trim();
+};
+export const getDrawingSubfolderPath = (plugin: InkPlugin): string =&gt; {
+    let subFolderPath = DEFAULT_SETTINGS.drawingSubfolder;
+    if (plugin.settings.customAttachmentFolders) {
+        subFolderPath = plugin.settings.drawingSubfolder || '';
+    }
+    return subFolderPath.trim();
+};
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -130,7 +130,7 @@ export const getDrawingSubfolderPath = (<span class="fstat-no" title="function n
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-29T12:15:56.944Z
+                at 2025-07-29T12:32:38.895Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

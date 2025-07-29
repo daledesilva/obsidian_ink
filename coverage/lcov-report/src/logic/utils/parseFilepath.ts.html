@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/18</span>
+                <span class='fraction'>18/18</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">42.85% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>3/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
-                <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
-            </div>
-        
-            
-            <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.66% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>3/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -84,39 +84,39 @@
 <a name='L19'></a><a href='#L19'>19</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">&nbsp;
 &nbsp;
-export <span class="fstat-no" title="function not covered" >function parseFilepath(filepath: string): { folderpath: string; basename: string; ext: string; } {</span>
-<span class="cstat-no" title="statement not covered" >    const segments = filepath.split('/');</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >    // Handle root directory (/)</span>
-<span class="cstat-no" title="statement not covered" >    let folderpath = segments[0] === '' ? '/' : '';</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >    // Extract filename and extension</span>
-<span class="cstat-no" title="statement not covered" >    const filename = segments.pop() || '';</span>
-<span class="cstat-no" title="statement not covered" >    const extIndex = filename.lastIndexOf('.');</span>
-<span class="cstat-no" title="statement not covered" >    const ext = extIndex &gt;= 0 ? filename.slice(extIndex) : '';</span>
-<span class="cstat-no" title="statement not covered" >    const basename = extIndex &gt;= 0 ? filename.slice(0, extIndex) : filename;</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >    folderpath = segments.join('/');</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >    return { folderpath, basename, ext: ext.startsWith('.') ? ext.slice(1) : ext };</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+export function parseFilepath(filepath: string): { folderpath: string; basename: string; ext: string; } {
+    const segments = filepath.split('/');
+&nbsp;
+    // Handle root directory (/)
+    let folderpath = segments[0] === '' ? '/' : '';
+&nbsp;
+    // Extract filename and extension
+    const filename = segments.pop()<span class="branch-0 cbranch-no" title="branch not covered" > || '';</span>
+    const extIndex = filename.lastIndexOf('.');
+    const ext = extIndex &gt;= 0 ? filename.slice(extIndex)<span class="branch-0 cbranch-no" title="branch not covered" > : '';</span>
+    const basename = extIndex &gt;= 0 ? filename.slice(0, extIndex)<span class="branch-0 cbranch-no" title="branch not covered" > : filename;</span>
+&nbsp;
+    folderpath = segments.join('/');
+&nbsp;
+    return { folderpath, basename, ext: ext.startsWith('.') ? ext.slice(1)<span class="branch-0 cbranch-no" title="branch not covered" > : ext }</span>;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -124,7 +124,7 @@ export <span class="fstat-no" title="function not covered" >function parseFilepa
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-29T12:15:56.944Z
+                at 2025-07-29T12:32:38.895Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -52,7 +52,6 @@ export function DrawingEmbed (props: {
 	width?: number,
 	aspectRatio?: number,
 }) {
-	const plugin = getGlobals().plugin;
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();

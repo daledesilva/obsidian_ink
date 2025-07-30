@@ -4,11 +4,12 @@ import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "src/components/formats/tldraw_v1/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
-import { InkFileData, buildFileStr } from "src/logic/utils/page-file";
+import { InkFileData } from "src/logic/utils/page-file";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////

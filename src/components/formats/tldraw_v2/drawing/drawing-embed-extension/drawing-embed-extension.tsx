@@ -19,7 +19,7 @@ import {
     Provider as JotaiProvider
 } from "jotai";
 import DrawingEmbedNew from 'src/components/formats/tldraw_v2/drawing/drawing-embed/drawing-embed';
-import { InkFileData, buildFileStr } from 'src/logic/utils/page-file';
+import { InkFileData } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 
@@ -27,6 +27,7 @@ import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings'
 /////////////////////
 
 import './drawing-embed-extension.scss';
+import { buildFileStr } from 'src/logic/utils/buildFileStr';
 
 /////////////////////
 
@@ -444,42 +445,46 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
 
 
 
-function parseSettingsFromUrl(urlAndSettings: string): { infoUrl: string, embedSettings: EmbedSettings } {
+function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: string, embedSettings: EmbedSettings } {
     
-    let infoUrl = urlAndSettings;
+    let infoUrl = urlAndEmbedSettings;
     let embedSettings: EmbedSettings = JSON.parse(JSON.stringify(DEFAULT_EMBED_SETTINGS));
 
-    const questionMarkIndex = urlAndSettings.indexOf('?');
+    const questionMarkIndex = urlAndEmbedSettings.indexOf('?');
     if (questionMarkIndex !== -1) {
-        infoUrl = urlAndSettings.substring(0, questionMarkIndex);
-        const settingsString = urlAndSettings.substring(questionMarkIndex + 1);
-        const settingsObj = settingsString.split('&').reduce((acc, pair) => {
+        infoUrl = urlAndEmbedSettings.substring(0, questionMarkIndex);
+        const embedSettingsStr = urlAndEmbedSettings.substring(questionMarkIndex + 1);
+        
+        // Parse URL parameters into a flat object first
+        const urlParams = embedSettingsStr.split('&').reduce((acc, pair) => {
             const [key, value] = pair.split('=');
-            if (key) acc[key] = value;
+            if (key && value) {
+                acc[key] = decodeURIComponent(value);
+            }
             return acc;
         }, {} as Record<string, string>);
 
-        // Populate embedSettings with values from settingsObj where present
-        if (settingsObj.version) {
-            embedSettings.version = parseInt(settingsObj.version, 10);
+        // Apply parsed values to embedSettings with proper type conversion
+        if (urlParams.version) {
+            embedSettings.version = parseInt(urlParams.version, 10);
         }
-        if (settingsObj.width) {
-            embedSettings.embedDisplay.width = parseInt(settingsObj.width, 10);
+        if (urlParams.width) {
+            embedSettings.embedDisplay.width = parseFloat(urlParams.width);
         }
-        if (settingsObj.aspectRatio) {
-            embedSettings.embedDisplay.aspectRatio = Number.parseFloat(settingsObj.aspectRatio);
+        if (urlParams.aspectRatio) {
+            embedSettings.embedDisplay.aspectRatio = parseFloat(urlParams.aspectRatio);
         }
-        if (settingsObj.viewBoxX) {
-            embedSettings.viewBox.x = parseInt(settingsObj.viewBoxX, 10);
+        if (urlParams.viewBoxX) {
+            embedSettings.viewBox.x = parseFloat(urlParams.viewBoxX);
         }
-        if (settingsObj.viewBoxY) {
-            embedSettings.viewBox.y = parseInt(settingsObj.viewBoxY, 10);
+        if (urlParams.viewBoxY) {
+            embedSettings.viewBox.y = parseFloat(urlParams.viewBoxY);
         }
-        if (settingsObj.viewBoxWidth) {
-            embedSettings.viewBox.width = parseInt(settingsObj.viewBoxWidth, 10);
+        if (urlParams.viewBoxWidth) {
+            embedSettings.viewBox.width = parseFloat(urlParams.viewBoxWidth);
         }
-        if (settingsObj.viewBoxHeight) {
-            embedSettings.viewBox.height = parseInt(settingsObj.viewBoxHeight, 10);
+        if (urlParams.viewBoxHeight) {
+            embedSettings.viewBox.height = parseFloat(urlParams.viewBoxHeight);
         }
     }
     return { infoUrl, embedSettings };

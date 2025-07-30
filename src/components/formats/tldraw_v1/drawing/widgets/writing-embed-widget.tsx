@@ -2,7 +2,7 @@
 import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { InkFileData, buildFileStr } from "src/logic/utils/page-file";
+import { InkFileData } from "src/logic/utils/page-file";
 import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/logic/utils/embed";
 import InkPlugin from "src/main";
 import WritingEmbed from "src/components/formats/tldraw_v1/writing/writing-embed";
@@ -10,6 +10,7 @@ import { WRITE_EMBED_KEY } from "src/constants";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////

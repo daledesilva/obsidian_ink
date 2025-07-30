@@ -4,7 +4,8 @@ import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawWritingEditor } from "src/components/formats/tldraw_v1/writing/tldraw-writing-editor";
-import { InkFileData, buildFileStr } from "src/logic/utils/page-file";
+import { InkFileData } from "src/logic/utils/page-file";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////

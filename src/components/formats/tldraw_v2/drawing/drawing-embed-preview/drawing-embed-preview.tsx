@@ -90,7 +90,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                     }}
                     pointerEvents = "visible"
                     onLoad = {onLoad}
-                    viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`}
+                    viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.height}`}
                 />
             </>)}
         </div>

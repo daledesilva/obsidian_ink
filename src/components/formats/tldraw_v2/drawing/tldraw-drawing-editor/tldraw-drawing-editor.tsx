@@ -178,9 +178,9 @@ export function TldrawDrawingEditorNew(props: TldrawDrawingEditorNewProps) {
     async function fetchFileData() {
 		const svg = await props.drawingFile.vault.read(props.drawingFile);
         if(svg) {
-			const tldrawJson = extractInkJsonFromSvg(svg);
-			if(tldrawJson) {
-				const snapshot = prepareDrawingSnapshot(tldrawJson as TLEditorSnapshot);
+			const svgSettings = extractInkJsonFromSvg(svg);
+			if(svgSettings) {
+				const snapshot = prepareDrawingSnapshot(svgSettings.tldraw);
 				setTlEditorSnapshot(snapshot);
 			}
         }

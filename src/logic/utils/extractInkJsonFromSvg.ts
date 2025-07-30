@@ -1,11 +1,16 @@
 import { DOMParser } from 'xmldom';
+import { TLEditorSnapshot } from '@tldraw/tldraw';
+import { InkFileData } from './page-file';
+
+/////////////////////
+/////////////////////
 
 /**
  * Extracts JSON content from an inkdrawing XML element within SVG metadata
  * @param svgString - The SVG string containing the inkdrawing element in metadata
  * @returns The parsed JSON object from the inkdrawing element, or null if not found/invalid
  */
-export function extractInkJsonFromSvg<TLEditorSnapshot>(svgString: string): TLEditorSnapshot | null {
+export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
     try {
         // Parse the SVG string as XML
         const parser = new DOMParser();
@@ -45,7 +50,7 @@ export function extractInkJsonFromSvg<TLEditorSnapshot>(svgString: string): TLEd
         
         // Parse the JSON content
         const jsonData = JSON.parse(jsonText);
-        return jsonData as TLEditorSnapshot;
+        return jsonData as InkFileData;
         
     } catch (error) {
         console.error('Error extracting inkdrawing JSON:', error);

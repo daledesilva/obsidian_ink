@@ -22,13 +22,10 @@ import DrawingEmbedNew from 'src/components/formats/tldraw_v2/drawing/drawing-em
 import { InkFileData } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
-
-/////////////////////
-/////////////////////
-
 import './drawing-embed-extension.scss';
 import { buildFileStr } from 'src/logic/utils/buildFileStr';
 
+/////////////////////
 /////////////////////
 
 const mountedDecorationIds: string[] = [];

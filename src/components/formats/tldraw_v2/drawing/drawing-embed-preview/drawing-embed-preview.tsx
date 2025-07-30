@@ -1,6 +1,7 @@
 import classNames from 'classnames';
 import './drawing-embed-preview.scss';
 import * as React from 'react';
+// @ts-ignore
 import SVG from 'react-inlinesvg';
 import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -34,7 +35,6 @@ export const DrawingEmbedPreviewWrapperNew: React.FC<DrawingEmbedPreviewProps> =
 
 export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props) => {
     const {plugin} = getGlobals();
-    const svgRef = React.useRef(null);
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
@@ -50,13 +50,6 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
             verbose('PREVIEW unmounting');
         }
     }, [])
-
-    // viewBox: {
-    //     x: 0,
-    //     y: 0,
-    //     width: 500,
-    //     height: 281,
-    // },
 
 	return <>
         <div

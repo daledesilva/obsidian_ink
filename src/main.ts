@@ -2,7 +2,7 @@ import './ddc-library/settings-styles.scss';
 import { Editor, Notice, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './tabs/settings-tab/settings-tab';
-import {registerWritingEmbed} from './components/formats/tldraw_v1/drawing/widgets/writing-embed-widget'
+import {registerWritingEmbed} from './components/formats/tldraw_v1/writing/widgets/writing-embed-widget'
 import insertExistingWritingFile from './commands/insert-existing-writing-file';
 import insertNewWritingFile from './commands/insert-new-writing-file';
 import { registerWritingView } from './views/writing-view';

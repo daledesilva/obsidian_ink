@@ -60,7 +60,8 @@ export class DrawingEmbedWidgetNew extends WidgetType {
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     saveSrcFile={this.save}
-                    remove={() => { }}
+                    remove={() => { this.removeEmbed(view); }}
+                    setEmbedProps={(width, aspectRatio) => this.setEmbedProps(view, width, aspectRatio)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                 />
             </JotaiProvider>
@@ -78,14 +79,67 @@ export class DrawingEmbedWidgetNew extends WidgetType {
 		await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
 	}
 
-	setEmbedProps = async (width: number, aspectRatio: number) => {
-		const newEmbedSettings: EmbedSettings = {
-			...this.embedSettings,
-			width,
-			aspectRatio,
-		}
-		this.updateEmbed(newEmbedSettings);
+	setEmbedProps = async (view: EditorView, width: number, aspectRatio: number) => {
+        const newEmbedSettings: EmbedSettings = {
+            ...this.embedSettings,
+            embedDisplay: {
+                ...this.embedSettings?.embedDisplay,
+                width,
+                aspectRatio,
+            },
+            viewBox: {
+                ...this.embedSettings?.viewBox,
+            },
+        }
+        this.updateEmbed(view, newEmbedSettings);
 	}
+
+    private removeEmbed(view: EditorView) {
+        // Find this widget's decoration range and remove it
+        const decorations = view.state.field(embedStateFieldNew, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidgetNew | undefined;
+            if (widget && widget.id === this.id) {
+                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
+                view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private updateEmbed(view: EditorView, newEmbedSettings: EmbedSettings) {
+        // Find this widget's decoration range and update settings inside it
+        const decorations = view.state.field(embedStateFieldNew, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidgetNew | undefined;
+            if (widget && widget.id === this.id) {
+                // Keep instance settings in sync
+                this.embedSettings = newEmbedSettings;
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                let updated = currentText;
+                // Replace if present
+                if (/width=[^&\)]+/.test(updated)) {
+                    updated = updated.replace(/(width=)([^&\)]+)/, `$1${newEmbedSettings.embedDisplay.width}`);
+                }
+                if (/aspectRatio=[^&\)]+/.test(updated)) {
+                    updated = updated.replace(/(aspectRatio=)([^&\)]+)/, `$1${newEmbedSettings.embedDisplay.aspectRatio}`);
+                }
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
 }
 
 

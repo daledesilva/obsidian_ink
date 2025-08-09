@@ -5,7 +5,7 @@ import * as React from 'react';
 import SVG from 'react-inlinesvg';
 import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from 'src/components/formats/tldraw_v1/drawing/drawing-embed-editor/drawing-embed';
+import { DrawingEmbedStateNew, embedStateAtom, previewActiveAtom } from 'src/components/formats/tldraw_v2/drawing/drawing-embed/drawing-embed';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { getGlobals } from 'src/stores/global-store';
 const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
@@ -83,7 +83,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
                     }}
                     pointerEvents = "visible"
                     onLoad = {onLoad}
-                    viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.height}`}
+                    viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`}
                 />
             </>)}
         </div>
@@ -95,7 +95,7 @@ export const DrawingEmbedPreviewNew: React.FC<DrawingEmbedPreviewProps> = (props
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
-            setEmbedState(DrawingEmbedState.preview);
+            setEmbedState(DrawingEmbedStateNew.preview);
             props.onReady();
         }, 100);
     }

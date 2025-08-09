@@ -13,6 +13,8 @@ import { verbose } from "src/logic/utils/log-to-console";
 import { DrawingEmbedPreviewWrapperNew } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapperNew } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { openInkFile } from "src/logic/utils/open-file";
 
 ///////
 ///////
@@ -45,7 +47,8 @@ interface DrawingEmbedNewProps {
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
 	saveSrcFile: (pageData: InkFileData) => {},
-	remove: Function,
+    remove: Function,
+    setEmbedProps?: (width: number, aspectRatio: number) => void,
 	partialEmbedFilepath: string,
 }
 
@@ -79,26 +82,25 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 	}, [])
 
 	const commonExtendedOptions = [
-		// TODO: Bring these back
-		// {
-		// 	text: 'Copy drawing',
-		// 	action: async () => {
-		// 		await rememberDrawingFile(plugin, props.drawingFileRef);
-		// 	}
-		// },
-		// {
-		// 	text: 'Open drawing',
-		// 	action: async () => {
-		// 		openInkFile(plugin, props.drawingFileRef)
-		// 	}
-		// },
+		{
+			text: 'Copy drawing',
+			action: async () => {
+				await rememberDrawingFile(props.embeddedFile as TFile);
+			}
+		},
+		{
+			text: 'Open drawing',
+			action: async () => {
+				await openInkFile(props.embeddedFile as TFile);
+			}
+		},
 		{
 			text: 'Remove embed',
 			action: () => {
 				props.remove()
 			},
 		},
-	]
+	].filter(Boolean)
 
 	console.log('props.embeddedFile', props.embeddedFile);
 
@@ -222,7 +224,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 		setEmbedState(DrawingEmbedStateNew.loadingEditor);
 	}
 
-	async function saveAndSwitchToPreviewMode() {
+    async function saveAndSwitchToPreviewMode() {
 		verbose('Set DrawingEmbedState: loadingPreview');
 
 		if(editorControlsRef.current) {
@@ -230,7 +232,9 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 		}
 		
 		setEmbedState(DrawingEmbedStateNew.loadingPreview);
-		// props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
+        if (props.setEmbedProps) {
+            props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
+        }
 	}
 
 	function handleResize() {

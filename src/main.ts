@@ -18,7 +18,7 @@ import { showWelcomeTips_maybe } from './components/dom-components/welcome-notic
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
-import { drawingEmbedExtensionNew } from './components/formats/tldraw_v2/drawing/drawing-embed-extension/drawing-embed-extension';
+import { drawingEmbedExtension_v2 } from './components/formats/tldraw_v2/drawing/drawing-embed-extension/drawing-embed-extension';
 import { setGlobals } from './stores/global-store';
 
 ////////
@@ -59,7 +59,7 @@ export default class InkPlugin extends Plugin {
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([
 				// Prec.highest(drawingEmbedExtension()),
-				drawingEmbedExtensionNew(),
+                drawingEmbedExtension_v2(),
 			]);
 		}
 		

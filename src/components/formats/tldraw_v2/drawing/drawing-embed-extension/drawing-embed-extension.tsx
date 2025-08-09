@@ -18,7 +18,7 @@ import { getGlobals } from 'src/stores/global-store';
 import {
     Provider as JotaiProvider
 } from "jotai";
-import DrawingEmbedNew from 'src/components/formats/tldraw_v2/drawing/drawing-embed/drawing-embed';
+import { DrawingEmbed_v2 } from 'src/components/formats/tldraw_v2/drawing/drawing-embed/drawing-embed';
 import { InkFileData } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
@@ -30,7 +30,7 @@ import { buildFileStr } from 'src/logic/utils/buildFileStr';
 
 const mountedDecorationIds: string[] = [];
 
-export class DrawingEmbedWidgetNew extends WidgetType {
+export class DrawingEmbedWidget_v2 extends WidgetType {
     id: string;
     mdFile: TFile;
     embeddedFile: TFile | null;
@@ -56,7 +56,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
 
         root.render(
             <JotaiProvider>
-                <DrawingEmbedNew
+                <DrawingEmbed_v2
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     saveSrcFile={this.save}
@@ -100,7 +100,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidgetNew | undefined;
+            const widget = it.value.spec?.widget as DrawingEmbedWidget_v2 | undefined;
             if (widget && widget.id === this.id) {
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
                 view.dispatch(tr);
@@ -116,7 +116,7 @@ export class DrawingEmbedWidgetNew extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidgetNew | undefined;
+            const widget = it.value.spec?.widget as DrawingEmbedWidget_v2 | undefined;
             if (widget && widget.id === this.id) {
                 // Keep instance settings in sync
                 this.embedSettings = newEmbedSettings;
@@ -232,7 +232,7 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
                         embedLinkInfo.startPosition,  
                         embedLinkInfo.endPosition,
                         Decoration.replace({
-                            widget: new DrawingEmbedWidgetNew(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
+                            widget: new DrawingEmbedWidget_v2(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
                             isBlock: true,
                         })
                     );
@@ -276,8 +276,8 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
 
 
 
-export function drawingEmbedExtensionNew(): Extension {
-    console.log(`---- drawingEmbedExtensionNew`);
+export function drawingEmbedExtension_v2(): Extension {
+    console.log(`---- drawingEmbedExtension_v2`);
     return embedStateFieldNew;
 }
 

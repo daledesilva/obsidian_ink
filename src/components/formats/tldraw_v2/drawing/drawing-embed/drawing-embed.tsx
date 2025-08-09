@@ -10,9 +10,9 @@ import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
-import { DrawingEmbedPreviewWrapperNew } from "../drawing-embed-preview/drawing-embed-preview";
+import { DrawingEmbedPreviewWrapper_v2 } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
-import { TldrawDrawingEditorWrapperNew } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { TldrawDrawingEditorWrapper_v2 } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { openInkFile } from "src/logic/utils/open-file";
 
@@ -20,20 +20,20 @@ import { openInkFile } from "src/logic/utils/open-file";
 ///////
 
 
-export enum DrawingEmbedStateNew {
+export enum DrawingEmbedState_v2 {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom = atom(DrawingEmbedStateNew.preview)
-export const previewActiveAtom = atom<boolean>((get) => {
-	const embedState = get(embedStateAtom);
-	return embedState !== DrawingEmbedStateNew.editor
+export const embedStateAtom_v2 = atom(DrawingEmbedState_v2.preview)
+export const previewActiveAtom_v2 = atom<boolean>((get) => {
+    const embedState = get(embedStateAtom_v2);
+    return embedState !== DrawingEmbedState_v2.editor
 })
-export const editorActiveAtom = atom<boolean>((get) => {
-	const embedState = get(embedStateAtom);
-	return embedState !== DrawingEmbedStateNew.preview
+export const editorActiveAtom_v2 = atom<boolean>((get) => {
+    const embedState = get(embedStateAtom_v2);
+    return embedState !== DrawingEmbedState_v2.preview
 })
 
 ///////
@@ -43,7 +43,7 @@ export type DrawingEditorControls = {
 	saveAndHalt: Function,
 }
 
-interface DrawingEmbedNewProps {
+interface DrawingEmbed_v2_Props {
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
 	saveSrcFile: (pageData: InkFileData) => {},
@@ -52,7 +52,7 @@ interface DrawingEmbedNewProps {
 	partialEmbedFilepath: string,
 }
 
-export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
+export function DrawingEmbed_v2 (props: DrawingEmbed_v2_Props) {
 
 	console.log('props.embedSettings', props.embedSettings);
 
@@ -62,7 +62,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 
-	const setEmbedState = useSetAtom(embedStateAtom);
+    const setEmbedState = useSetAtom(embedStateAtom_v2);
 
 	// On first mount
 	React.useEffect( () => {
@@ -150,7 +150,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 				}}
 			>
 			
-				<DrawingEmbedPreviewWrapperNew
+                <DrawingEmbedPreviewWrapper_v2
 					embeddedFile = {props.embeddedFile}
 					embedSettings = {props.embedSettings}
 					onReady = {() => {}}
@@ -160,7 +160,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 					}}
 				/>
 			
-				<TldrawDrawingEditorWrapperNew
+                <TldrawDrawingEditorWrapper_v2
 					onReady = {() => {}}
 					drawingFile = {props.embeddedFile}
 					save = {props.saveSrcFile}
@@ -221,7 +221,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 	function switchToEditMode() {
 		verbose('Set DrawingEmbedState: loadingEditor')
 		applyEmbedHeight();
-		setEmbedState(DrawingEmbedStateNew.loadingEditor);
+        setEmbedState(DrawingEmbedState_v2.loadingEditor);
 	}
 
     async function saveAndSwitchToPreviewMode() {
@@ -231,7 +231,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 			await editorControlsRef.current.saveAndHalt();
 		}
 		
-		setEmbedState(DrawingEmbedStateNew.loadingPreview);
+        setEmbedState(DrawingEmbedState_v2.loadingPreview);
         if (props.setEmbedProps) {
             props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
         }
@@ -248,7 +248,7 @@ export function DrawingEmbedNew (props: DrawingEmbedNewProps) {
 };
 
 
-export default DrawingEmbedNew;
+export default DrawingEmbed_v2;
 
 ////////
 ////////

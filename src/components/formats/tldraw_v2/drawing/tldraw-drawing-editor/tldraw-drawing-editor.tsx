@@ -14,13 +14,13 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
-import { DrawingEmbedStateNew, editorActiveAtom, embedStateAtom } from '../drawing-embed/drawing-embed';
+import { DrawingEmbedState_v2, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 
 ///////
 ///////
 
-interface TldrawDrawingEditorNewProps {
+interface TldrawDrawingEditor_v2_Props {
     onReady?: Function,
 	drawingFile: TFile,
 	save: (pageData: InkFileData) => void,
@@ -34,11 +34,11 @@ interface TldrawDrawingEditorNewProps {
 }
 
 // Wraps the component so that it can full unmount when inactive
-export const TldrawDrawingEditorWrapperNew: React.FC<TldrawDrawingEditorNewProps> = (props) => {
-    const editorActive = useAtomValue(editorActiveAtom);
+export const TldrawDrawingEditorWrapper_v2: React.FC<TldrawDrawingEditor_v2_Props> = (props) => {
+    const editorActive = useAtomValue(editorActiveAtom_v2);
 
     if(editorActive) {
-        return <TldrawDrawingEditorNew {...props} />
+        return <TldrawDrawingEditor_v2 {...props} />
     } else {
         return <></>
     }
@@ -50,10 +50,10 @@ const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
 }
 
-export function TldrawDrawingEditorNew(props: TldrawDrawingEditorNewProps) {
+export function TldrawDrawingEditor_v2(props: TldrawDrawingEditor_v2_Props) {
 	
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
-	const setEmbedState = useSetAtom(embedStateAtom);
+    const setEmbedState = useSetAtom(embedStateAtom_v2);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
@@ -82,7 +82,7 @@ export function TldrawDrawingEditorNew(props: TldrawDrawingEditorNewProps) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-		setEmbedState(DrawingEmbedStateNew.editor);
+        setEmbedState(DrawingEmbedState_v2.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 

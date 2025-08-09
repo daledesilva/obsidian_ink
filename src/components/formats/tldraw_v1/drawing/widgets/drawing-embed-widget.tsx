@@ -5,7 +5,7 @@ import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
 import { DrawingEmbedData, applyCommonAncestorStyling, rebuildDrawingEmbed, removeEmbed, stringifyEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
-import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
+import DrawingEmbed from "src/components/formats/tldraw_v1/drawing/drawing-embed-editor/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
 import { Provider } from "react-redux";
 import { store } from "src/logic/stores";

@@ -2,14 +2,14 @@ import classNames from 'classnames';
 import './writing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
-import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
-import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
+import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
+import TransitionMenu from 'src/components/jsx-components/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
+import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed-editor/writing-embed';
 import { TFile } from 'obsidian';
 import { getInkFileData } from 'src/utils/getInkFileData';
-const emptyWritingSvg = require('../../../placeholders/empty-writing-embed.svg');
+const emptyWritingSvg = require('src/placeholders/empty-writing-embed.svg');
 
 //////////
 //////////

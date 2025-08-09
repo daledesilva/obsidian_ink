@@ -2,14 +2,14 @@ import classNames from 'classnames';
 import './drawing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
-import { PrimaryMenuBar } from 'src/tldraw/primary-menu-bar/primary-menu-bar';
-import TransitionMenu from 'src/tldraw/transition-menu/transition-menu';
+import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
+import TransitionMenu from 'src/components/jsx-components/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
 import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from '../drawing-embed';
+import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/utils/getInkFileData';
-const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg');
+const emptyDrawingSvg = require('src/placeholders/empty-drawing-embed.svg');
 
 //////////
 //////////

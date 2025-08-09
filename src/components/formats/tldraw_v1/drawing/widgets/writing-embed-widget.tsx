@@ -5,7 +5,7 @@ import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
 import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/utils/embed";
 import InkPlugin from "src/main";
-import WritingEmbed from "src/tldraw/writing/writing-embed";
+import WritingEmbed from "src/components/formats/tldraw_v1/writing/writing-embed-editor/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
 import { 
 	Provider as JotaiProvider

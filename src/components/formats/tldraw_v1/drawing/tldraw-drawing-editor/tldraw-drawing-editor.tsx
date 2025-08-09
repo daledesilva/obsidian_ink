@@ -1,8 +1,8 @@
 import './tldraw-drawing-editor.scss';
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore, TLEditorSnapshot, TLUiActionsContextType } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
-import InkPlugin from "../../main";
+import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/utils/tldraw-helpers";
+import InkPlugin from "src/main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
 import { TFile } from 'obsidian';
@@ -10,18 +10,18 @@ import { savePngExport } from "src/utils/savePngExport";
 import { duplicateWritingFile, rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { InkFileData, buildDrawingFileData } from 'src/utils/page-file';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS, DRAWING_INITIAL_ASPECT_RATIO } from 'src/constants';
-import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
-import DrawingMenu from '../drawing-menu/drawing-menu';
-import ExtendedDrawingMenu from '../extended-drawing-menu/extended-drawing-menu';
+import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
+import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
+import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
 import { openInkFile } from 'src/utils/open-file';
 import classNames from 'classnames';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from './drawing-embed';
+import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { debug, verbose, warn } from 'src/utils/log-to-console';
-import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
-import ModifyMenu from '../modify-menu/modify-menu';
+import { SecondaryMenuBar } from 'src/components/jsx-components/secondary-menu-bar/secondary-menu-bar';
+import ModifyMenu from 'src/components/jsx-components/modify-menu/modify-menu';
 
 ///////
 ///////

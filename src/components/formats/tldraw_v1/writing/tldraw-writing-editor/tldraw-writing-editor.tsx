@@ -1,26 +1,26 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteWritingTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../utils/tldraw-helpers";
-import { WritingContainer, WritingContainerUtil } from "../writing-shapes/writing-container"
-import { WritingMenu } from "../writing-menu/writing-menu";
-import InkPlugin from "../../main";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteWritingTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "src/utils/tldraw-helpers";
+import { WritingContainer, WritingContainerUtil } from "src/components/formats/tldraw_v1/writing/writing-shapes/writing-container"
+import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
+import InkPlugin from "src/main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
 import { Notice, TFile } from 'obsidian';
-import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
-import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
+import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
+import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
 import { WritingLines, WritingLinesUtil } from '../writing-shapes/writing-lines';
 import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
 import {getAssetUrlsByImport} from '@tldraw/assets/imports';
-import { editorActiveAtom, WritingEmbedState, embedStateAtom } from './writing-embed';
+import { editorActiveAtom, WritingEmbedState, embedStateAtom } from '../writing-embed-editor/writing-embed';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/utils/getInkFileData';
 import { verbose } from 'src/utils/log-to-console';
-import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
-import ModifyMenu from '../modify-menu/modify-menu';
+import { SecondaryMenuBar } from 'src/components/jsx-components/secondary-menu-bar/secondary-menu-bar';
+import ModifyMenu from 'src/components/jsx-components/modify-menu/modify-menu';
 
 ///////
 ///////

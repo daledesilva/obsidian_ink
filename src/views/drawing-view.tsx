@@ -3,7 +3,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "src/tldraw/drawing/tldraw-drawing-editor";
+import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "src/components/formats/tldraw_v1/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
 import { 
 	Provider as JotaiProvider

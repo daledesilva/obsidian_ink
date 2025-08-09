@@ -1,14 +1,14 @@
 import "./drawing-embed.scss";
 import * as React from "react";
 import { useRef, useState } from "react";
-import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "./tldraw-drawing-editor";
-import InkPlugin from "../../main";
-import { InkFileData } from "../../utils/page-file";
+import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import InkPlugin from "../../../../../main";
+import { InkFileData } from "../../../../../utils/page-file";
 import { TFile } from "obsidian";
 import { rememberDrawingFile } from "src/utils/rememberDrawingFile";
 import { GlobalSessionState } from "src/logic/stores";
 import { useDispatch, useSelector } from "react-redux";
-import { DrawingEmbedPreview, DrawingEmbedPreviewWrapper } from "./drawing-embed-preview/drawing-embed-preview";
+import { DrawingEmbedPreview, DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/utils/open-file";
 import { nanoid } from "nanoid";
 import { embedShouldActivateImmediately } from "src/utils/storage";
@@ -17,7 +17,7 @@ import { atom, useAtom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/utils/getFullPageWidth";
 import { verbose } from "src/utils/log-to-console";
-const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
+const emptyDrawingSvgStr = require('src/placeholders/empty-drawing-embed.svg');
 
 ///////
 ///////

@@ -1,6 +1,7 @@
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownViewModeType } from "obsidian";
 import { DRAW_EMBED_KEY, DRAWING_INITIAL_ASPECT_RATIO, DRAWING_INITIAL_WIDTH, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
 import InkPlugin from "src/main";
+import { DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 
 ///////
 ///////
@@ -71,6 +72,24 @@ export const rebuildDrawingEmbed = (embedData: DrawingEmbedData) => {
     embedStr += "\n" + stringifyEmbedData(embedData);
     embedStr += "\n```";
 	return embedStr;
+};
+
+// V2 builder: Inserts an image embed + settings link that the v2 CM6 extension detects
+export const buildDrawingEmbedV2 = (filepath: string): string => {
+    const s = DEFAULT_EMBED_SETTINGS;
+    const params = new URLSearchParams({
+        version: String(s.version),
+        width: String(s.embedDisplay.width),
+        aspectRatio: String(s.embedDisplay.aspectRatio),
+        viewBoxX: String(s.viewBox.x),
+        viewBoxY: String(s.viewBox.y),
+        viewBoxWidth: String(s.viewBox.width),
+        viewBoxHeight: String(s.viewBox.height),
+    });
+
+    // Leading space before '!' and newline after are important for the CM6 detector
+    const line = ` ![InkDrawing](<${filepath}>) [Edit Drawing](ink?${params.toString()})`;
+    return `\n${line}\n`;
 };
 
 // This function came from Notion like tables code

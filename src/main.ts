@@ -11,6 +11,8 @@ import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
 import { registerDrawingView } from './components/views/drawing-view';
 import { registerDrawingEmbed } from './components/formats/tldraw_v1/drawing/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
+import insertNewDrawingFileV2 from './commands/insert-new-drawing-file-v2';
+import insertRememberedDrawingFileV2 from './commands/insert-remembered-drawing-file-v2';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import { showWelcomeTips_maybe } from './components/dom-components/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
@@ -120,6 +122,12 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
 	});
+    plugin.addCommand({
+        id: 'create-drawing-section-v2',
+        name: 'New drawing (v2)',
+        icon: 'shapes',
+        editorCallback: (editor: Editor) => insertNewDrawingFileV2(plugin, editor)
+    });
 	plugin.addCommand({
 		id: 'embed-drawing-file',
 		name: 'Existing drawing',
@@ -132,6 +140,12 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		icon: 'clipboard-pen-line',
 		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
+    plugin.addCommand({
+        id: 'insert-copied-drawing-v2',
+        name: 'Copied drawing (v2)',
+        icon: 'clipboard-pen-line',
+        editorCallback: (editor: Editor) => insertRememberedDrawingFileV2(plugin, editor)
+    });
 }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {

@@ -2,8 +2,8 @@ import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TL
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
-import { WritingContainer } from "src/components/formats/tldraw_v1/writing/shapes/writing-container";
-import { WritingLines } from "src/components/formats/tldraw_v1/writing/shapes/writing-lines";
+import { WritingContainer } from "src/components/formats/tldraw_v1/writing/writing-shapes/writing-container";
+import { WritingLines } from "src/components/formats/tldraw_v1/writing/writing-shapes/writing-lines";
 import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-limit-notice";
 import { info, verbose } from "./log-to-console";
 

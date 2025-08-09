@@ -2,7 +2,7 @@ import './tldraw-writing-editor.scss';
 import { Editor, TLUiOverrides, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TldrawOptions, getSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/logic/utils/tldraw-helpers";
-import { WritingContainerUtil } from "./shapes/writing-container"
+import { WritingContainerUtil } from "../writing-shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
 import * as React from "react";
@@ -12,8 +12,8 @@ import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
-import { WritingLinesUtil } from './shapes/writing-lines';
-import { editorActiveAtom, WritingEmbedState, embedStateAtom } from './writing-embed';
+import { WritingLinesUtil } from '../writing-shapes/writing-lines';
+import { editorActiveAtom, WritingEmbedState, embedStateAtom } from '../writing-embed-editor/writing-embed';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 import { verbose } from 'src/logic/utils/log-to-console';

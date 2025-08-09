@@ -4,7 +4,7 @@ import * as React from 'react';
 import SVG from 'react-inlinesvg';
 import InkPlugin from 'src/main';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed';
+import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed-editor/writing-embed';
 import { TFile } from 'obsidian';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');

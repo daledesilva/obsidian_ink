@@ -1,12 +1,12 @@
 import "./writing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
-import { TldrawWritingEditorWrapper } from "./tldraw-writing-editor";
+import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/logic/utils/page-file";
 import { TFile } from "obsidian";
 import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
-import { WritingEmbedPreviewWrapper } from "./writing-embed-preview/writing-embed-preview";
+import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";

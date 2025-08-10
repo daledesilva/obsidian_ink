@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/logic/utils/extractInkJsonFromSvg.ts</title>
+    <title>Code coverage report for src/logic/utils/getBaseAttachmentPath.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../prettify.css" />
     <link rel="stylesheet" href="../../../base.css" />
@@ -19,20 +19,20 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/logic/utils</a> extractInkJsonFromSvg.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/logic/utils</a> getBaseAttachmentPath.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">89.83% </span>
+                <span class="strong">89.79% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>53/59</span>
+                <span class='fraction'>44/49</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">77.77% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>7/9</span>
+                <span class='fraction'>10/12</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">89.83% </span>
+                <span class="strong">89.79% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>53/59</span>
+                <span class='fraction'>44/49</span>
             </div>
         
             
@@ -114,14 +114,7 @@
 <a name='L49'></a><a href='#L49'>49</a>
 <a name='L50'></a><a href='#L50'>50</a>
 <a name='L51'></a><a href='#L51'>51</a>
-<a name='L52'></a><a href='#L52'>52</a>
-<a name='L53'></a><a href='#L53'>53</a>
-<a name='L54'></a><a href='#L54'>54</a>
-<a name='L55'></a><a href='#L55'>55</a>
-<a name='L56'></a><a href='#L56'>56</a>
-<a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L52'></a><a href='#L52'>52</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -129,115 +122,101 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">4x</span></td><td class="text"><pre class="prettyprint lang-js">import { DOMParser } from 'xmldom';
-import { TLEditorSnapshot } from '@tldraw/tldraw';
-import { InkFileData } from './page-file';
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import InkPlugin from "src/main";
+import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
+import { warn } from "./log-to-console";
 &nbsp;
-/////////////////////
-/////////////////////
+/////////////
+/////////////
 &nbsp;
-/**
- * Extracts JSON content from an inkdrawing XML element within SVG metadata
- * @param svgString - The SVG string containing the inkdrawing element in metadata
- * @returns The parsed JSON object from the inkdrawing element, or null if not found/invalid
- */
-export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
-    try {
-        // Parse the SVG string as XML
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(svgString, 'image/svg+xml');
-        
-        // Check for parsing errors
-        const parseError = doc.getElementsByTagName('parsererror');
-        if (parseError.length &gt; 0) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >            console.warn('Failed to parse SVG as XML');</span>
-<span class="cstat-no" title="statement not covered" >            return null;</span>
-<span class="cstat-no" title="statement not covered" >        }</span>
-        
-        // Find the metadata element
-        const metadataElements = doc.getElementsByTagName('metadata');
-        if (metadataElements.length === 0) {
-            console.warn('No metadata element found in SVG');
-            return null;
+export const getBaseAttachmentPath = async (plugin: InkPlugin, options: {instigatingFileFolderPath?: string | null, obsAttachmentFolderPath?: string | null}): Promise&lt;string&gt; =&gt; {
+    let baseAttachmentPath: string = '';
+    let attachmentFolderLocation;
+&nbsp;
+    if(options.instigatingFileFolderPath) {
+        if(plugin.settings.customAttachmentFolders) {
+            attachmentFolderLocation = plugin.settings.noteAttachmentFolderLocation;
+        } else {
+            attachmentFolderLocation = DEFAULT_SETTINGS.noteAttachmentFolderLocation;
         }
-        
-        // Look for inkdrawing element within metadata
-        const metadataElement = metadataElements[0];
-        const inkdrawingElements = metadataElement.getElementsByTagName('inkdrawing');
-        
-        if (inkdrawingElements.length === 0) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >            console.warn('No inkdrawing element found in metadata');</span>
-<span class="cstat-no" title="statement not covered" >            return null;</span>
-<span class="cstat-no" title="statement not covered" >        }</span>
-        
-        // Get the content of the inkdrawing element
-        const inkdrawingElement = inkdrawingElements[0];
-        const jsonText = inkdrawingElement.textContent?.trim();
-        
-        if (!jsonText) {
-            console.warn('No JSON content found in inkdrawing element');
-            return null;
+    } else {
+        if(plugin.settings.customAttachmentFolders) {
+            attachmentFolderLocation = plugin.settings.notelessAttachmentFolderLocation;
+        } else {
+            attachmentFolderLocation = DEFAULT_SETTINGS.notelessAttachmentFolderLocation;
         }
-        
-        // Parse the JSON content
-        const jsonData = JSON.parse(jsonText);
-        return jsonData as InkFileData;
-        
-    } catch (error) {
-        console.error('Error extracting inkdrawing JSON:', error);
-        return null;
     }
-} </pre></td></tr></table></pre>
+    
+    if (attachmentFolderLocation === 'obsidian') {
+        
+        if(options.obsAttachmentFolderPath) {
+            baseAttachmentPath = options.obsAttachmentFolderPath;
+        }<span class="branch-0 cbranch-no" title="branch not covered" > else {</span>
+<span class="cstat-no" title="statement not covered" >            baseAttachmentPath = '';</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
+&nbsp;
+    } else if(attachmentFolderLocation === 'note') {
+        
+        if(options.instigatingFileFolderPath) {
+            baseAttachmentPath = options.instigatingFileFolderPath;
+        }<span class="branch-0 cbranch-no" title="branch not covered" > else {</span>
+<span class="cstat-no" title="statement not covered" >            warn(`There was an error accessing the note's folder. Placing the new file in the vault's root instead.`);</span>
+<span class="cstat-no" title="statement not covered" >            baseAttachmentPath = '';</span>
+<span class="cstat-no" title="statement not covered" >        }</span>
+        
+    } else {
+        // Use vault root
+        baseAttachmentPath = '';
+    }
+&nbsp;
+    return baseAttachmentPath;
+};
+&nbsp;
+&nbsp;
+&nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->

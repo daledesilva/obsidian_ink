@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
 import { extractInkJsonFromSvg } from './extractInkJsonFromSvg';
-import { buildFileStr } from './buildFileStr';
+// Note: buildFileStr_v2 is tested separately; not needed here.
 import { DEFAULT_TLEDITOR_DRAWING_SNAPSHOT } from 'src/defaults/default-tleditor-drawing-snapshot';
 
 describe('extractInkJsonFromSvg', () => {

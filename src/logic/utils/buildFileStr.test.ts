@@ -1,9 +1,9 @@
 import { describe, expect, test } from "@jest/globals";
-import { buildFileStr, type InkFileData } from './buildFileStr';
+import { buildFileStr_v2, type InkFileData } from './buildFileStr';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { DEFAULT_TLEDITOR_DRAWING_SNAPSHOT } from 'src/defaults/default-tleditor-drawing-snapshot';
 
-describe('buildFileStr', () => {
+describe('buildFileStr_v2', () => {
 	const mockTLEditorSnapshot = DEFAULT_TLEDITOR_DRAWING_SNAPSHOT;
 
 	const createMockInkFileData = (overrides: Partial<InkFileData> = {}): InkFileData => ({
@@ -20,7 +20,7 @@ describe('buildFileStr', () => {
 			previewUri: '<svg><rect width="100" height="100"/></svg>'
 		});
 
-		const result = buildFileStr(pageData);
+    const result = buildFileStr_v2(pageData);
 
 		expect(result).toContain('<svg>');
 		expect(result).toContain('<metadata>');
@@ -33,7 +33,7 @@ describe('buildFileStr', () => {
 	test('should create SVG with default empty SVG when previewUri is not provided', () => {
 		const pageData = createMockInkFileData();
 
-		const result = buildFileStr(pageData);
+        const result = buildFileStr_v2(pageData);
 
 		expect(result).toContain('<svg>');
 		expect(result).toContain('<metadata>');
@@ -47,7 +47,7 @@ describe('buildFileStr', () => {
 			previewUri: '<svg><circle cx="50" cy="50" r="25"/></svg>'
 		});
 
-		const result = buildFileStr(pageData);
+        const result = buildFileStr_v2(pageData);
 
 		expect(result).toContain('<circle cx="50" cy="50" r="25"/>');
 		expect(result).not.toContain('"previewUri"');
@@ -63,7 +63,7 @@ describe('buildFileStr', () => {
 			}
 		});
 
-		const result = buildFileStr(pageData);
+        const result = buildFileStr_v2(pageData);
 
 		expect(result).toContain('"previewIsOutdated": true');
 		expect(result).toContain('"transcript": "Sample transcript text"');
@@ -72,7 +72,7 @@ describe('buildFileStr', () => {
 	test('should format the output with proper indentation', () => {
 		const pageData = createMockInkFileData();
 
-		const result = buildFileStr(pageData);
+        const result = buildFileStr_v2(pageData);
 
 		// Check that the output is properly formatted with tabs
 		const lines = result.split('\n');
@@ -102,7 +102,7 @@ describe('buildFileStr', () => {
 			previewUri: complexSvg
 		});
 
-		const result = buildFileStr(pageData);
+        const result = buildFileStr_v2(pageData);
 
 		expect(result).toContain('<svg width="200" height="200">');
 		expect(result).toContain('<defs>');

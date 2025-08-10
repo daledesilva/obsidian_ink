@@ -106,7 +106,7 @@ const embedStateFieldWriting_v2: StateField<DecorationSet> = StateField.define<D
                 const mdFile = activeView.file;
                 if (!mdFile) return true;
 
-                const { embedLinkInfo, alterFlow } = detectMarkdownEmbedLinkWriting(mdFile, syntaxNodeRef, transaction);
+                const { embedLinkInfo, alterFlow } = detectMarkdownEmbedLinkWriting_v2(mdFile, syntaxNodeRef, transaction);
                 if (!embedLinkInfo) return true;
                 if (alterFlow === 'ignore-children') return false;
                 if (alterFlow === 'continue-traversal') return true;
@@ -172,7 +172,7 @@ interface EmbedLinkInfoWriting_v2 {
     partialEmbedFilepath: string;
 }
 
-function detectMarkdownEmbedLinkWriting(
+function detectMarkdownEmbedLinkWriting_v2(
     mdFile: TFile,
     previewLinkStartNode: SyntaxNodeRef,
     transaction: Transaction
@@ -237,17 +237,17 @@ function detectMarkdownEmbedLinkWriting(
     nextNode = editTextStartNode.node.nextSibling;
     if (!nextNode) return { alterFlow: 'continue-traversal' };
 
-  if (editTextStartNode.to - editTextStartNode.from === 1) {
-    const editTextNode = nextNode;
-    const editText = transaction.state.doc.sliceString(editTextNode.from, editTextNode.to);
-    // Disambiguate: Require correct writing label
-    if (editText.trim() !== 'Edit Writing') {
-      return { alterFlow: 'continue-traversal' };
-    }
-    const editTextEndNode = editTextNode.node.nextSibling;
-    if (!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
-      return { alterFlow: 'continue-traversal' };
-    }
+    if (editTextStartNode.to - editTextStartNode.from === 1) {
+        const editTextNode = nextNode;
+        const editText = transaction.state.doc.sliceString(editTextNode.from, editTextNode.to);
+        // Disambiguate: Require correct writing label
+        if (editText.trim() !== 'Edit Writing') {
+            return { alterFlow: 'continue-traversal' };
+        }
+        const editTextEndNode = editTextNode.node.nextSibling;
+        if (!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
+            return { alterFlow: 'continue-traversal' };
+        }
         nextNode = editTextEndNode.node.nextSibling;
     }
 
@@ -256,18 +256,18 @@ function detectMarkdownEmbedLinkWriting(
         return { alterFlow: 'continue-traversal' };
     }
 
-  const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
+    const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
     if (!settingsUrlPathNode || !settingsUrlPathNode.name.includes('string_url')) {
         return { alterFlow: 'continue-traversal' };
     }
 
-  // Require query param to include type=InkWriting (host agnostic)
-  const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
-  if (!urlAndSettings.includes('type=InkWriting')) {
-    return { alterFlow: 'continue-traversal' };
-  }
+    // Require query param to include type=InkWriting (host agnostic)
+    const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
+    if (!urlAndSettings.includes('type=InkWriting')) {
+        return { alterFlow: 'continue-traversal' };
+    }
 
-  const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
+    const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
     if (!settingsUrlEndNode || (!settingsUrlEndNode.name.includes('formatting_formatting-link-string') && !settingsUrlEndNode.name.includes('string_url'))) {
         return { alterFlow: 'continue-traversal' };
     }

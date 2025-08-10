@@ -97,7 +97,7 @@ export class DrawingEmbedWidget_v2 extends WidgetType {
 
     private removeEmbed(view: EditorView) {
         // Find this widget's decoration range and remove it
-        const decorations = view.state.field(embedStateFieldNew, false);
+        const decorations = view.state.field(embedStateField_v2, false);
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
@@ -113,7 +113,7 @@ export class DrawingEmbedWidget_v2 extends WidgetType {
 
     private updateEmbed(view: EditorView, newEmbedSettings: EmbedSettings) {
         // Find this widget's decoration range and update settings inside it
-        const decorations = view.state.field(embedStateFieldNew, false);
+        const decorations = view.state.field(embedStateField_v2, false);
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
@@ -145,7 +145,7 @@ export class DrawingEmbedWidget_v2 extends WidgetType {
 
 
 // Define a StateField to monitor the state of all decorations on the page
-const embedStateFieldNew = StateField.define<DecorationSet>({
+const embedStateField_v2: StateField<DecorationSet> = StateField.define<DecorationSet>({
 
     // Starts with an empty DecorationSet
     create(): DecorationSet {
@@ -197,7 +197,7 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
                 const mdFile = activeView.file;
                 if (!mdFile) return true; // continue traversal
 
-                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLinkNew(mdFile, syntaxNodeRef, transaction);
+                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLink_v2(mdFile, syntaxNodeRef, transaction);
                 
                 if(!embedLinkInfo) return true; // continue traversal
                 if(alterFlow === 'ignore-children') return false;
@@ -267,7 +267,7 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
             // Typing in the after section doesn't break anything, but does type in reverse order.
             // TODO: The side setting might be confused. So it's typing on the wrong side of the cursor.
             EditorView.atomicRanges.of( (view: EditorView) => {
-                const decorations = view.state.field(embedStateFieldNew, false);
+                const decorations = view.state.field(embedStateField_v2, false);
                 return decorations || Decoration.none;
             })
             
@@ -279,7 +279,7 @@ const embedStateFieldNew = StateField.define<DecorationSet>({
 
 export function drawingEmbedExtension_v2(): Extension {
     console.log(`---- drawingEmbedExtension_v2`);
-    return embedStateFieldNew;
+    return embedStateField_v2;
 }
 
 export function registerDrawingEmbed_v2(plugin: InkPlugin) {
@@ -298,7 +298,7 @@ interface embedLinkInfoNew {
 
 
 
-function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxNodeRef, transaction: Transaction): {
+function detectMarkdownEmbedLink_v2(mdFile: TFile, previewLinkStartNode: SyntaxNodeRef, transaction: Transaction): {
     embedLinkInfo?: embedLinkInfoNew,
     alterFlow?: 'ignore-children' | 'continue-traversal'
 } {

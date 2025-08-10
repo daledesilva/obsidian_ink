@@ -20,8 +20,8 @@ import { showWelcomeTips_maybe } from './components/dom-components/welcome-notic
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
-import { drawingEmbedExtension_v2 } from './components/formats/tldraw_v2/drawing/drawing-embed-extension/drawing-embed-extension';
-import { writingEmbedExtension_v2 } from './components/formats/tldraw_v2/writing/writing-embed-extension/writing-embed-extension';
+import { drawingEmbedExtension_v2, registerDrawingEmbed_v2 } from './components/formats/tldraw_v2/drawing/drawing-embed-extension/drawing-embed-extension';
+import { registerWritingEmbed_v2, writingEmbedExtension_v2 } from './components/formats/tldraw_v2/writing/writing-embed-extension/writing-embed-extension';
 import { setGlobals } from './stores/global-store';
 
 ////////
@@ -50,15 +50,17 @@ export default class InkPlugin extends Plugin {
 		if (this.settings.writingEnabled) {
 			registerWritingView(this);
 			registerWritingEmbed(this);
+			registerWritingEmbed_v2(this);
 			implementWritingEmbedActions(this);
 			this.registerEditorExtension([
 				writingEmbedExtension_v2(),
 			]);
 		}
-
+		
 		if (this.settings.drawingEnabled) {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
+			registerDrawingEmbed_v2(this);
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([
 				// Prec.highest(drawingEmbedExtension()),

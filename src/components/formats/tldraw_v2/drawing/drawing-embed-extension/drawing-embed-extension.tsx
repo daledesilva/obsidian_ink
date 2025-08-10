@@ -12,6 +12,7 @@ import {
     WidgetType,
 } from "@codemirror/view";
 import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
+import InkPlugin from 'src/main';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
@@ -281,6 +282,12 @@ export function drawingEmbedExtension_v2(): Extension {
     return embedStateFieldNew;
 }
 
+export function registerDrawingEmbed_v2(plugin: InkPlugin) {
+    plugin.registerEditorExtension([
+        drawingEmbedExtension_v2(),
+    ]);
+}
+
 interface embedLinkInfoNew {
     startPosition: number,
     endPosition: number,
@@ -415,7 +422,12 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     // If the start node was "[", then the next node must be alt text
     if(editTextStartNode.to-editTextStartNode.from === 1) {
         editTextNode = nextNode;
-        console.log(`---- Found edit text:`, `"${transaction.state.doc.sliceString(editTextNode.from, editTextNode.to)}"`);
+        const editText = transaction.state.doc.sliceString(editTextNode.from, editTextNode.to);
+        console.log(`---- Found edit text:`, `"${editText}"`);
+        // Disambiguate: Require correct drawing label
+        if (editText.trim() !== 'Edit Drawing') {
+            return {alterFlow: 'continue-traversal'};
+        }
         editTextEndNode = editTextNode.node.nextSibling;
         if(!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
             if(editTextEndNode) {
@@ -461,6 +473,10 @@ function detectMarkdownEmbedLinkNew(mdFile: TFile, previewLinkStartNode: SyntaxN
     // It's definitely a markdown embed, let's now focus on the urlText to check it's an Ink embed.
     const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from+1, previewFilepathNode.to-1); // +&- to remove <> brackets
     const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
+    // Require query param to include type=InkDrawing (host agnostic)
+    if (!urlAndSettings.includes('type=InkDrawing')) {
+        return {alterFlow: 'continue-traversal'};
+    }
     
     // Prepare the data needed for decoration
     const startOfReplacement = previewLinkStartNode.from;

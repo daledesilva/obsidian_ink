@@ -1,5 +1,5 @@
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownViewModeType } from "obsidian";
-import { DRAW_EMBED_KEY, DRAWING_INITIAL_ASPECT_RATIO, DRAWING_INITIAL_WIDTH, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
+import { DRAW_EMBED_KEY, DRAWING_INITIAL_ASPECT_RATIO, DRAWING_INITIAL_WIDTH, INK_EMBED_BASE_URL, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
 import InkPlugin from "src/main";
 import { DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 
@@ -88,7 +88,9 @@ export const buildDrawingEmbedV2 = (filepath: string): string => {
     });
 
     // Leading space before '!' and newline after are important for the CM6 detector
-    const line = ` ![InkDrawing](<${filepath}>) [Edit Drawing](ink?${params.toString()})`;
+    // Full URL with type=InkDrawing
+    const url = `${INK_EMBED_BASE_URL}?type=InkDrawing&${params.toString()}`;
+    const line = ` ![InkDrawing](<${filepath}>) [Edit Drawing](${url})`;
     return `\n${line}\n`;
 };
 
@@ -99,8 +101,10 @@ export const buildWritingEmbedV2 = (filepath: string): string => {
         version: String(s.version),
     });
 
+    // Full URL with type=InkWriting
+    const url = `${INK_EMBED_BASE_URL}?type=InkWriting&${params.toString()}`;
     // Leading space before '!' and newline after are important for the CM6 detector
-    const line = ` ![InkWriting](<${filepath}>) [Edit Writing](ink?${params.toString()})`;
+    const line = ` ![InkWriting](<${filepath}>) [Edit Writing](${url})`;
     return `\n${line}\n`;
 };
 

@@ -2,6 +2,7 @@ import { syntaxTree } from '@codemirror/language';
 import { Extension, RangeSetBuilder, StateField, Transaction } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
+import InkPlugin from 'src/main';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import { getGlobals } from 'src/stores/global-store';
@@ -158,6 +159,12 @@ export function writingEmbedExtension_v2(): Extension {
     return embedStateFieldWriting_v2;
 }
 
+export function registerWritingEmbed_v2(plugin: InkPlugin) {
+    plugin.registerEditorExtension([
+        writingEmbedExtension_v2(),
+    ]);
+}
+
 interface EmbedLinkInfoWriting_v2 {
     startPosition: number;
     endPosition: number;
@@ -230,12 +237,17 @@ function detectMarkdownEmbedLinkWriting(
     nextNode = editTextStartNode.node.nextSibling;
     if (!nextNode) return { alterFlow: 'continue-traversal' };
 
-    if (editTextStartNode.to - editTextStartNode.from === 1) {
-        const editTextNode = nextNode;
-        const editTextEndNode = editTextNode.node.nextSibling;
-        if (!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
-            return { alterFlow: 'continue-traversal' };
-        }
+  if (editTextStartNode.to - editTextStartNode.from === 1) {
+    const editTextNode = nextNode;
+    const editText = transaction.state.doc.sliceString(editTextNode.from, editTextNode.to);
+    // Disambiguate: Require correct writing label
+    if (editText.trim() !== 'Edit Writing') {
+      return { alterFlow: 'continue-traversal' };
+    }
+    const editTextEndNode = editTextNode.node.nextSibling;
+    if (!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
+      return { alterFlow: 'continue-traversal' };
+    }
         nextNode = editTextEndNode.node.nextSibling;
     }
 
@@ -244,12 +256,18 @@ function detectMarkdownEmbedLinkWriting(
         return { alterFlow: 'continue-traversal' };
     }
 
-    const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
+  const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
     if (!settingsUrlPathNode || !settingsUrlPathNode.name.includes('string_url')) {
         return { alterFlow: 'continue-traversal' };
     }
 
-    const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
+  // Require query param to include type=InkWriting (host agnostic)
+  const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
+  if (!urlAndSettings.includes('type=InkWriting')) {
+    return { alterFlow: 'continue-traversal' };
+  }
+
+  const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
     if (!settingsUrlEndNode || (!settingsUrlEndNode.name.includes('formatting_formatting-link-string') && !settingsUrlEndNode.name.includes('string_url'))) {
         return { alterFlow: 'continue-traversal' };
     }

@@ -5,6 +5,8 @@ const manifest = require('../manifest.json');
 
 export const PLUGIN_VERSION = manifest.version;
 export const TLDRAW_VERSION = '2.1.0';
+// Base URL used when creating v2 embed links
+export const INK_EMBED_BASE_URL = 'https://almostuseful.xyz';
 export const LOCAL_STORAGE_PREFIX = 'ddc_ink_';
 export const PLUGIN_KEY = 'ddc_ink';
 export const ATTACHMENT_SUBFOLDER_NAME = 'Ink';

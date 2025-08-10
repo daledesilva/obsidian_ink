@@ -2,6 +2,7 @@ import './tldraw-drawing-editor.scss';
 import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/logic/utils/tldraw-helpers";
+import InkPlugin from "src/main";
 import * as React from "react";
 import { TFile } from 'obsidian';
 import { InkFileData, buildDrawingFileData } from 'src/logic/utils/page-file';
@@ -15,13 +16,13 @@ import { DrawingEmbedState, editorActiveAtom, embedStateAtom } from '../drawing-
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
-import { getGlobals } from 'src/stores/global-store';
 
 ///////
 ///////
 
 interface TldrawDrawingEditorProps {
     onReady?: Function,
+	plugin: InkPlugin,
 	drawingFile: TFile,
 	save: (pageData: InkFileData) => void,
 	extendedMenu?: any[]
@@ -51,8 +52,7 @@ const tlOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
-	
-	const plugin = getGlobals().plugin;
+
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -264,7 +264,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 				previewUri,
 			})
 			props.save(pageData);
-			// savePngExport(plugin, previewUri, props.fileRef)
+			// savePngExport(props.plugin, previewUri, props.fileRef)
 
 		} else {
 			const pageData = buildDrawingFileData({
@@ -312,6 +312,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 				shapeUtils = {[...defaultShapeUtils]}
 				tools = {[...defaultTools, ...defaultShapeTools]}
 				initialState = "draw"
+				overrides={myOverrides}
 				snapshot = {tlEditorSnapshot}
 				// persistenceKey = {props.fileRef.path}
 

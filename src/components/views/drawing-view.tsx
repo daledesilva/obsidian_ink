@@ -9,7 +9,7 @@ import {
 	Provider as JotaiProvider
 } from "jotai";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
-import { buildFileStr } from "src/logic/utils/buildFileStr";
+import { buildFileStr_v1 } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////
@@ -72,11 +72,12 @@ export class DrawingView extends TextFileView {
 		this.root.render(
             <JotaiProvider>
                 <TldrawDrawingEditor
-					onReady = {() => {}}
-					drawingFile = {this.file}
-					save = {this.saveFile}
-					extendedMenu = {getExtendedOptions(this.plugin, this.file)}
-				/>
+                    plugin={this.plugin}
+                    onReady = {() => {}}
+                    drawingFile = {this.file}
+                    save = {this.saveFile}
+                    extendedMenu = {getExtendedOptions(this.plugin, this.file)}
+                />
             </JotaiProvider>
         );
     }
@@ -88,7 +89,7 @@ export class DrawingView extends TextFileView {
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        return buildFileStr(this.pageData);
+        return buildFileStr_v1(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

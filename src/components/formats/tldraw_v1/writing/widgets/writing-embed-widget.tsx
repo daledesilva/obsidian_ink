@@ -3,8 +3,7 @@ import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData } from "src/logic/utils/page-file";
-import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
-import { WritingEmbedData as WritingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/logic/utils/embed";
+import { WritingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/logic/utils/embed";
 import InkPlugin from "src/main";
 import WritingEmbed from "src/components/formats/tldraw_v1/writing/writing-embed-editor/writing-embed";
 import { WRITE_EMBED_KEY } from "src/constants";
@@ -67,17 +66,8 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 			return;
 		}
 
-        const pageDataStr = await v.read(this.fileRef);
-        let pageData: InkFileData | null = null;
-        try {
-            pageData = JSON.parse(pageDataStr) as InkFileData;
-        } catch (e) {
-            pageData = extractInkJsonFromSvg(pageDataStr);
-        }
-        if (!pageData) {
-            this.el.createEl('p').textContent = 'Ink writing file invalid.';
-            return;
-        }
+		const pageDataStr = await v.read(this.fileRef);
+		const pageData = JSON.parse(pageDataStr) as InkFileData;
 
 		if(!this.root) this.root = createRoot(this.el);
 		this.root.render(

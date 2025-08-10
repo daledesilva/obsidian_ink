@@ -5,7 +5,7 @@ import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawWritingEditor } from "src/components/formats/tldraw_v1/writing/tldraw-writing-editor/tldraw-writing-editor";
 import { InkFileData } from "src/logic/utils/page-file";
-import { buildFileStr } from "src/logic/utils/buildFileStr";
+import { buildFileStr_v1 } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////
@@ -76,7 +76,7 @@ export class WritingView extends TextFileView {
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        return buildFileStr(this.pageData);
+        return buildFileStr_v1(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

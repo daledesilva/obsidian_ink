@@ -2,17 +2,18 @@ import classNames from 'classnames';
 import './drawing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
+import InkPlugin from 'src/main';
 import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState, embedStateAtom, previewActiveAtom } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
-import { getGlobals } from 'src/stores/global-store';
 const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
 
 //////////
 //////////
 
 interface DrawingEmbedPreviewProps {
+    plugin: InkPlugin,
     onReady: Function,
     drawingFile: TFile,
 	onClick: React.MouseEventHandler,
@@ -31,7 +32,6 @@ export const DrawingEmbedPreviewWrapper: React.FC<DrawingEmbedPreviewProps> = (p
 }
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) => {
-    const plugin = getGlobals().plugin;
     const svgRef = React.useRef(null);
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
@@ -54,8 +54,8 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             ref = {containerElRef}
             className = {classNames([
                 'ddc_ink_drawing-embed-preview',
-                plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
-                plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
+                props.plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
+                props.plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
             ])}
             style = {{
                 position: 'absolute',

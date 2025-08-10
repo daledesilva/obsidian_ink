@@ -16,7 +16,8 @@ export type InkFileData = {
 	previewUri?: string;
 };
 
-export const buildFileStr = (pageData: InkFileData): string => {
+// V2 format: SVG file with JSON metadata embedded
+export const buildFileStr_v2 = (pageData: InkFileData): string => {
 	let fileStr = pageData.previewUri || '<svg></svg>';
 
 	// Create svg/xml document
@@ -42,3 +43,8 @@ export const buildFileStr = (pageData: InkFileData): string => {
 		lineSeparator: '\n'
 	});
 } 
+
+// V1 format: Plain JSON string
+export const buildFileStr_v1 = (pageData: InkFileData): string => {
+    return JSON.stringify(pageData, null, '\t');
+}

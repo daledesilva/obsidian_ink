@@ -2,10 +2,9 @@ import "./drawing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
-import InkPlugin from "../../../../../main";
+import InkPlugin from "src/main";
 import { InkFileData } from "src/logic/utils/page-file";
 import { TFile } from "obsidian";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { openInkFile } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
@@ -14,6 +13,8 @@ import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
+import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+const emptyDrawingSvgStr = require('src/defaults/empty-drawing-embed.svg');
 
 ///////
 ///////
@@ -43,6 +44,7 @@ export type DrawingEditorControls = {
 }
 
 export function DrawingEmbed (props: {
+	plugin: InkPlugin,
 	drawingFileRef: TFile,
 	pageData: InkFileData,
 	saveSrcFile: (pageData: InkFileData) => {},
@@ -56,7 +58,7 @@ export function DrawingEmbed (props: {
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const embedWidthRef = useRef<number>(props.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
-	// const previewFilePath = getPreviewFileResourcePath(plugin, props.fileRef)
+	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
@@ -135,6 +137,7 @@ export function DrawingEmbed (props: {
 			>
 			
 				<DrawingEmbedPreviewWrapper
+					plugin = {props.plugin}
 					onReady = {() => {}}
 					drawingFile = {props.drawingFileRef}
 					onClick = { async () => {
@@ -145,6 +148,7 @@ export function DrawingEmbed (props: {
 			
 				<TldrawDrawingEditorWrapper
 					onReady = {() => {}}
+					plugin = {props.plugin}
 					drawingFile = {props.drawingFileRef}
 					save = {props.saveSrcFile}
 					embedded

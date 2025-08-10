@@ -24,7 +24,7 @@ import { InkFileData } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 import './drawing-embed-extension.scss';
-import { buildFileStr } from 'src/logic/utils/buildFileStr';
+import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
 
 /////////////////////
 /////////////////////
@@ -76,7 +76,7 @@ export class DrawingEmbedWidget_v2 extends WidgetType {
 	save = async (pageData: InkFileData) => {
 		if(!this.embeddedFile) return;
 		const plugin = getGlobals().plugin;
-		const pageDataStr = buildFileStr(pageData);
+		const pageDataStr = buildFileStr_v2(pageData);
 		await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
 	}
 

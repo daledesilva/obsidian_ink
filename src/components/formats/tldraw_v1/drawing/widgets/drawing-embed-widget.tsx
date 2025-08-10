@@ -10,8 +10,7 @@ import { DRAW_EMBED_KEY } from "src/constants";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
-import { getGlobals } from "src/stores/global-store";
-import { buildFileStr } from "src/logic/utils/buildFileStr";
+import { buildFileStr_v1 } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////
@@ -32,7 +31,7 @@ export function registerDrawingEmbed(plugin: InkPlugin) {
 				removeEmbed: () => removeEmbed(plugin, ctx, el),
 			}
 			if(embedData.filepath) {
-				ctx.addChild(new DrawingEmbedWidget(el, embedData, embedCtrls, (newEmbedData) => updateEmbed(plugin, ctx, el, newEmbedData)));
+				ctx.addChild(new DrawingEmbedWidget(el, plugin, embedData, embedCtrls, (newEmbedData) => updateEmbed(plugin, ctx, el, newEmbedData)));
 			}
 		}
 	);
@@ -73,6 +72,7 @@ function updateEmbed(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el: H
 
 class DrawingEmbedWidget extends MarkdownRenderChild {
 	el: HTMLElement;
+	plugin: InkPlugin;
 	embedData: DrawingEmbedData;
 	embedCtrls: EmbedCtrls;
 	root: Root;
@@ -81,19 +81,21 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 
 	constructor(
 		el: HTMLElement,
+		plugin: InkPlugin,
 		embedData: DrawingEmbedData,
 		embedCtrls: EmbedCtrls,
 		updateEmbed: (embedData: DrawingEmbedData) => void,
 	) {
 		super(el);
 		this.el = el;
+		this.plugin = plugin;
 		this.embedData = embedData;
 		this.embedCtrls = embedCtrls;
 		this.updateEmbed = updateEmbed;
 	}
 
 	async onload() {
-		const v = getGlobals().plugin.app.vault;
+		const v = this.plugin.app.vault;
 		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
 		
 		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
@@ -108,6 +110,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 		this.root.render(
 			<JotaiProvider>
 				<DrawingEmbed
+					plugin = {this.plugin}
 					drawingFileRef = {this.fileRef}
 					pageData = {pageData}
 					saveSrcFile = {this.save}
@@ -131,9 +134,8 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 
 	save = async (pageData: InkFileData) => {
 		if(!this.fileRef) return;
-		const plugin = getGlobals().plugin;
-		const pageDataStr = buildFileStr(pageData);
-		await plugin.app.vault.modify(this.fileRef, pageDataStr);
+        const pageDataStr = buildFileStr_v1(pageData);
+		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 
 	setEmbedProps = async (width: number, aspectRatio: number) => {

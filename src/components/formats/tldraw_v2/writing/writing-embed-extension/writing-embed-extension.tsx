@@ -10,8 +10,7 @@ import { Provider as JotaiProvider } from 'jotai';
 import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
-import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
-import { buildFileStr } from 'src/logic/utils/buildFileStr';
+import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
@@ -56,7 +55,7 @@ export class WritingEmbedWidget_v2 extends WidgetType {
     save = async (pageData: InkFileData) => {
         if (!this.embeddedFile) return;
         const plugin = getGlobals().plugin;
-        const pageDataStr = buildFileStr(pageData);
+        const pageDataStr = buildFileStr_v2(pageData);
         await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
     };
 

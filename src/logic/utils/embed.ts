@@ -92,6 +92,18 @@ export const buildDrawingEmbedV2 = (filepath: string): string => {
     return `\n${line}\n`;
 };
 
+// V2 builder: Inserts an image embed + settings link that the v2 CM6 writing extension detects
+export const buildWritingEmbedV2 = (filepath: string): string => {
+    const s = DEFAULT_EMBED_SETTINGS;
+    const params = new URLSearchParams({
+        version: String(s.version),
+    });
+
+    // Leading space before '!' and newline after are important for the CM6 detector
+    const line = ` ![InkWriting](<${filepath}>) [Edit Writing](ink?${params.toString()})`;
+    return `\n${line}\n`;
+};
+
 // This function came from Notion like tables code
 export const getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
 	const parent = el.parentElement;

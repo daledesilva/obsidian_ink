@@ -2,9 +2,10 @@ import './ddc-library/settings-styles.scss';
 import { Editor, Notice, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
-import {registerWritingEmbed} from './components/formats/tldraw_v1/drawing/widgets/writing-embed-widget'
+import { registerWritingEmbed } from './components/formats/tldraw_v1/drawing/widgets/writing-embed-widget'
 import insertExistingWritingFile from './commands/insert-existing-writing-file';
 import insertNewWritingFile from './commands/insert-new-writing-file';
+import insertNewWritingFileV2 from './commands/insert-new-writing-file-v2';
 import { registerWritingView } from './components/views/writing-view';
 import insertNewDrawingFile from './commands/insert-new-drawing-file';
 import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
@@ -14,11 +15,13 @@ import insertRememberedDrawingFile from './commands/insert-remembered-drawing-fi
 import insertNewDrawingFileV2 from './commands/insert-new-drawing-file-v2';
 import insertRememberedDrawingFileV2 from './commands/insert-remembered-drawing-file-v2';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
+import insertRememberedWritingFileV2 from './commands/insert-remembered-writing-file-v2';
 import { showWelcomeTips_maybe } from './components/dom-components/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
 import { drawingEmbedExtension_v2 } from './components/formats/tldraw_v2/drawing/drawing-embed-extension/drawing-embed-extension';
+import { writingEmbedExtension_v2 } from './components/formats/tldraw_v2/writing/writing-embed-extension/writing-embed-extension';
 import { setGlobals } from './stores/global-store';
 
 ////////
@@ -44,25 +47,25 @@ export default class InkPlugin extends Plugin {
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
 
-		if(this.settings.writingEnabled) {
+		if (this.settings.writingEnabled) {
 			registerWritingView(this);
 			registerWritingEmbed(this);
 			implementWritingEmbedActions(this);
-			// this.registerEditorExtension([
-			// 	writingEmbedExtension(),
-			// ]);
+			this.registerEditorExtension([
+				writingEmbedExtension_v2(),
+			]);
 		}
-		
-		if(this.settings.drawingEnabled) {
+
+		if (this.settings.drawingEnabled) {
 			registerDrawingView(this);
-			registerDrawingEmbed(this);		
+			registerDrawingEmbed(this);
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([
 				// Prec.highest(drawingEmbedExtension()),
-                drawingEmbedExtension_v2(),
+				drawingEmbedExtension_v2(),
 			]);
 		}
-		
+
 		registerSettingsTab(this);
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
@@ -74,8 +77,8 @@ export default class InkPlugin extends Plugin {
 		showOnboardingTips_maybe(this);
 
 	}
-	
-	onunload() {}
+
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -86,7 +89,7 @@ export default class InkPlugin extends Plugin {
 	}
 
 	async resetSettings() {
-		this.settings = JSON.parse( JSON.stringify(DEFAULT_SETTINGS) );
+		this.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 		this.saveSettings();
 		new Notice('Ink plugin settings reset');
 	}
@@ -102,6 +105,12 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
+		id: 'create-handwritten-section-v2',
+		name: 'New handwriting section (v2)',
+		icon: 'signature',
+		editorCallback: (editor: Editor) => insertNewWritingFileV2(plugin, editor)
+	});
+	plugin.addCommand({
 		id: 'embed-writing-file',
 		name: 'Existing handwriting section',
 		icon: 'folder-pen',
@@ -113,6 +122,12 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		icon: 'clipboard-pen',
 		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
 	});
+	plugin.addCommand({
+		id: 'insert-copied-handwriting-v2',
+		name: 'Copied handwriting section (v2)',
+		icon: 'clipboard-pen',
+		editorCallback: (editor: Editor) => insertRememberedWritingFileV2(plugin, editor)
+	});
 }
 
 function implementDrawingEmbedActions(plugin: InkPlugin) {
@@ -122,12 +137,12 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
 	});
-    plugin.addCommand({
-        id: 'create-drawing-section-v2',
-        name: 'New drawing (v2)',
-        icon: 'shapes',
-        editorCallback: (editor: Editor) => insertNewDrawingFileV2(plugin, editor)
-    });
+	plugin.addCommand({
+		id: 'create-drawing-section-v2',
+		name: 'New drawing (v2)',
+		icon: 'shapes',
+		editorCallback: (editor: Editor) => insertNewDrawingFileV2(plugin, editor)
+	});
 	plugin.addCommand({
 		id: 'embed-drawing-file',
 		name: 'Existing drawing',
@@ -140,12 +155,12 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		icon: 'clipboard-pen-line',
 		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
-    plugin.addCommand({
-        id: 'insert-copied-drawing-v2',
-        name: 'Copied drawing (v2)',
-        icon: 'clipboard-pen-line',
-        editorCallback: (editor: Editor) => insertRememberedDrawingFileV2(plugin, editor)
-    });
+	plugin.addCommand({
+		id: 'insert-copied-drawing-v2',
+		name: 'Copied drawing (v2)',
+		icon: 'clipboard-pen-line',
+		editorCallback: (editor: Editor) => insertRememberedDrawingFileV2(plugin, editor)
+	});
 }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {
@@ -181,7 +196,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 function showOnboardingTips_maybe(plugin: InkPlugin) {
 	const newInstall = showWelcomeTips_maybe(plugin);
 
-	if(!newInstall) {
+	if (!newInstall) {
 		showVersionNotice(plugin);
 	}
 }

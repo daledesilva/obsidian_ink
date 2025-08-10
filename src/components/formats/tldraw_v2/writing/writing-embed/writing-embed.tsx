@@ -1,22 +1,16 @@
 import "./writing-embed.scss";
 import * as React from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
-import InkPlugin from "../../../../../main";
-import { InkFileData } from "../../../../utils/page-file";
+import InkPlugin from "src/main";
+import { InkFileData } from "src/logic/utils/page-file";
 import { TFile } from "obsidian";
-import { duplicateWritingFile, rememberDrawingFile, rememberWritingFile } from "src/utils/rememberDrawingFile";
-import { isEmptyWritingFile } from "src/utils/tldraw-helpers";
-import { useSelector } from "react-redux";
-import { GlobalSessionState } from "src/logic/stores";
-import { useDispatch } from 'react-redux';
+import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
-import { openInkFile } from "src/utils/open-file";
-import { nanoid } from "nanoid";
-import { embedShouldActivateImmediately } from "src/utils/storage";
+import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
-import { verbose } from "src/utils/log-to-console";
+import { verbose } from "src/logic/utils/log-to-console";
 
 ///////
 ///////
@@ -48,7 +42,7 @@ export type WritingEditorControls = {
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	writingFileRef: TFile,
-	pageData: InkFileData,
+	pageData?: InkFileData,
 	save: (pageData: InkFileData) => void,
 	remove: Function,
 }) {

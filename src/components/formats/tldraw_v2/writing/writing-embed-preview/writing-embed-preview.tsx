@@ -8,7 +8,7 @@ import InkPlugin from 'src/main';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed/writing-embed';
 import { TFile } from 'obsidian';
-import { getInkFileData } from 'src/utils/getInkFileData';
+import { getInkFileData } from 'src/logic/utils/getInkFileData';
 const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
 
 //////////

@@ -1,24 +1,22 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, HistoryEntry, StoreSnapshot, TLStoreSnapshot, TLRecord, TLShapeId, TLStore, TLUiOverrides, TLUnknownShape, Tldraw, getSnapshot, TLSerializedStore, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, defaultBindingUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, deleteObsoleteWritingTemplateShapes, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, hideWritingContainer, hideWritingLines, hideWritingTemplate, initWritingCamera, initWritingCameraLimits, lockShape, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, silentlyChangeStore, unhideWritingContainer, unhideWritingLines, unhideWritingTemplate, unlockShape, updateWritingStoreIfNeeded, useStash } from "../../../../utils/tldraw-helpers";
-import { WritingContainer, WritingContainerUtil } from "../shapes/writing-container"
-import { WritingMenu } from "../../../../jsx-components/writing-menu/writing-menu";
-import InkPlugin from "../../../../../main";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/logic/utils/tldraw-helpers";
+import { WritingContainerUtil } from "../shapes/writing-container"
+import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
+import InkPlugin from "src/main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
-import { InkFileData, buildWritingFileData } from 'src/utils/page-file';
+import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
+import { InkFileData, buildWritingFileData } from 'src/logic/utils/page-file';
 import { TFile } from 'obsidian';
-import { PrimaryMenuBar } from '../primary-menu-bar/primary-menu-bar';
-import ExtendedWritingMenu from '../extended-writing-menu/extended-writing-menu';
+import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
+import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
-import { WritingLines, WritingLinesUtil } from '../shapes/writing-lines';
-import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import {getAssetUrlsByImport} from '@tldraw/assets/imports';
+import { WritingLinesUtil } from '../shapes/writing-lines';
 import { editorActiveAtom, WritingEmbedState, embedStateAtom } from '../writing-embed/writing-embed';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { getInkFileData } from 'src/utils/getInkFileData';
-import { verbose } from 'src/utils/log-to-console';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
+import { verbose } from 'src/logic/utils/log-to-console';
 
 ///////
 ///////
@@ -49,7 +47,7 @@ export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (p
 }
 
 const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
-const myOverrides: TLUiOverrides = {}
+const myOverrides: Record<string, never> = {}
 const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
@@ -359,10 +357,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	///////////////////
 
     async function fetchFileData() {
-        const inkFileData = await getInkFileData(props.writingFile)
-        if(inkFileData.tldraw) {
-            const snapshot = prepareWritingSnapshot(inkFileData.tldraw as TLEditorSnapshot);
-            setTlEditorSnapshot(snapshot);
+        const svg = await props.writingFile.vault.read(props.writingFile);
+        if(svg) {
+            const svgSettings = extractInkJsonFromSvg(svg);
+            if(svgSettings && svgSettings.tldraw) {
+                const snapshot = prepareWritingSnapshot(svgSettings.tldraw as TLEditorSnapshot);
+                setTlEditorSnapshot(snapshot);
+            }
         }
     }
 

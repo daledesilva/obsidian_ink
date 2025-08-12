@@ -11,7 +11,7 @@ import { WRITE_EMBED_KEY } from "src/constants";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
-import { buildFileStr_v1 } from "src/logic/utils/buildFileStr";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////
@@ -105,7 +105,7 @@ class WritingEmbedWidget extends MarkdownRenderChild {
 	save = async (pageData: InkFileData) => {
 		
 		if(!this.fileRef) return;
-        const pageDataStr = buildFileStr_v1(pageData);
+        const pageDataStr = buildFileStr(pageData);
 		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 

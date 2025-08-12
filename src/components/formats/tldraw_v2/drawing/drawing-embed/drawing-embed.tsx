@@ -2,7 +2,7 @@ import "./drawing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
 import InkPlugin from "src/main";
-import { InkFileData } from "src/logic/utils/page-file";
+import { InkFileData_v2 } from "src/logic/utils/page-file";
 import { TFile } from "obsidian";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import classNames from "classnames";
@@ -46,7 +46,7 @@ export type DrawingEditorControls = {
 interface DrawingEmbed_v2_Props {
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
-	saveSrcFile: (pageData: InkFileData) => {},
+	saveSrcFile: (pageData: InkFileData_v2) => {},
     remove: Function,
     setEmbedProps?: (width: number, aspectRatio: number) => void,
 	partialEmbedFilepath: string,
@@ -253,9 +253,9 @@ export default DrawingEmbed_v2;
 ////////
 ////////
 
-async function refreshPageData(plugin: InkPlugin, file: TFile): Promise<InkFileData> {
+async function refreshPageData(plugin: InkPlugin, file: TFile): Promise<InkFileData_v2> {
 	const v = plugin.app.vault;
 	const pageDataStr = await v.read(file);
-	const pageData = JSON.parse(pageDataStr) as InkFileData;
+	const pageData = JSON.parse(pageDataStr) as InkFileData_v2;
 	return pageData;
 }

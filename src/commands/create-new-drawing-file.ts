@@ -1,6 +1,6 @@
 import InkPlugin from "src/main";
 import { buildDrawingFileData } from "src/logic/utils/page-file";
-import { buildFileStr_v1 } from "src/logic/utils/buildFileStr";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 import {DEFAULT_TLEDITOR_DRAWING_SNAPSHOT} from "src/defaults/default-tleditor-drawing-snapshot";
 import { getNewTimestampedDrawingFilepath } from "src/logic/utils/file-manipulation";
 import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
@@ -15,7 +15,7 @@ const createNewDrawingFile = async (plugin: InkPlugin, instigatingFile?: TFile |
         tlEditorSnapshot: DEFAULT_TLEDITOR_DRAWING_SNAPSHOT,
     });
     await createFoldersForFilepath(plugin, filepath);
-    const fileRef = await plugin.app.vault.create(filepath, buildFileStr_v1(pageData));
+    const fileRef = await plugin.app.vault.create(filepath, buildFileStr(pageData));
     return fileRef;
 }
 

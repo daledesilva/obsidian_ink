@@ -20,7 +20,7 @@ import {
     Provider as JotaiProvider
 } from "jotai";
 import { DrawingEmbed_v2 } from 'src/components/formats/tldraw_v2/drawing/drawing-embed/drawing-embed';
-import { InkFileData } from 'src/logic/utils/page-file';
+import { InkFileData_v2 } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 import './drawing-embed-extension.scss';
@@ -73,7 +73,7 @@ export class DrawingEmbedWidget_v2 extends WidgetType {
 	// Helper functions
 	///////////////////
 
-	save = async (pageData: InkFileData) => {
+	save = async (pageData: InkFileData_v2) => {
 		if(!this.embeddedFile) return;
 		const plugin = getGlobals().plugin;
 		const pageDataStr = buildFileStr_v2(pageData);

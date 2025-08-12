@@ -13,12 +13,14 @@ type Metadata = {
 export type InkFileData = {
 	meta: Metadata;
 	tldraw: TLEditorSnapshot;
-	previewUri?: string;
+    previewUri?: string;
+    svgString?: string;
 };
 
 // V2 format: SVG file with JSON metadata embedded
 export const buildFileStr_v2 = (pageData: InkFileData): string => {
-	let fileStr = pageData.previewUri || '<svg></svg>';
+    // Prefer svgString for v2; fall back to previewUri for backward compatibility
+    let fileStr = pageData.svgString || pageData.previewUri || '<svg></svg>';
 
 	// Create svg/xml document
 	const parser = new DOMParser();
@@ -26,8 +28,10 @@ export const buildFileStr_v2 = (pageData: InkFileData): string => {
 	const svgElement = doc.documentElement;
 
 	// Prep settings for xml
-	const jsonSettings = JSON.parse(JSON.stringify(pageData)) as unknown as InkFileData;
-	delete jsonSettings.previewUri;
+    const jsonSettings = JSON.parse(JSON.stringify(pageData)) as unknown as InkFileData;
+    // Exclude raw SVG content from embedded metadata
+    delete jsonSettings.svgString;
+    delete jsonSettings.previewUri;
 	
 	// Create settings in xml
 	const metadataElement = doc.createElement('metadata');
@@ -45,6 +49,6 @@ export const buildFileStr_v2 = (pageData: InkFileData): string => {
 } 
 
 // V1 format: Plain JSON string
-export const buildFileStr_v1 = (pageData: InkFileData): string => {
+export const buildFileStr = (pageData: InkFileData): string => {
     return JSON.stringify(pageData, null, '\t');
 }

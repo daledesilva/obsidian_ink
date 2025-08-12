@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/logic/utils/tldraw-helpers";
 import * as React from "react";
 import { TFile } from 'obsidian';
-import { InkFileData, buildDrawingFileData } from 'src/logic/utils/page-file';
+import { InkFileData_v2, buildDrawingFileData_v2 } from 'src/logic/utils/page-file';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
@@ -23,7 +23,7 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 interface TldrawDrawingEditor_v2_Props {
     onReady?: Function,
 	drawingFile: TFile,
-	save: (pageData: InkFileData) => void,
+	save: (pageData: InkFileData_v2) => void,
 	extendedMenu?: any[]
 
 	// For embeds
@@ -241,7 +241,7 @@ export function TldrawDrawingEditor_v2(props: TldrawDrawingEditor_v2_Props) {
 	const incrementalSave = async (editor: Editor) => {
 		verbose('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const pageData = buildDrawingFileData({
+		const pageData = buildDrawingFileData_v2({
 			tlEditorSnapshot: tlEditorSnapshot,
 			previewIsOutdated: true,
 		})
@@ -250,26 +250,22 @@ export function TldrawDrawingEditor_v2(props: TldrawDrawingEditor_v2_Props) {
 
 	const completeSave = async (editor: Editor): Promise<void> => {
 		verbose('completeSave');
-		let previewUri;
+		let svgString;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getDrawingSvg(editor);
 
-		if (svgObj) {
-			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
-			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
-		}
 		
-		if(previewUri) {
-			const pageData = buildDrawingFileData({
+		if(svgObj?.svg) {
+			const pageData = buildDrawingFileData_v2({
 				tlEditorSnapshot,
-				previewUri,
+				svgString: svgObj.svg,
 			})
 			props.save(pageData);
 			// savePngExport(plugin, previewUri, props.fileRef)
 
 		} else {
-			const pageData = buildDrawingFileData({
+			const pageData = buildDrawingFileData_v2({
 				tlEditorSnapshot: tlEditorSnapshot,
 			})
 			props.save(pageData);

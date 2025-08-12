@@ -3,7 +3,7 @@ import * as React from "react";
 import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
 import InkPlugin from "src/main";
-import { InkFileData } from "src/logic/utils/page-file";
+import { InkFileData_v2 } from "src/logic/utils/page-file";
 import { TFile } from "obsidian";
 import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
@@ -42,8 +42,8 @@ export type WritingEditorControls = {
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	writingFileRef: TFile,
-	pageData?: InkFileData,
-	save: (pageData: InkFileData) => void,
+    pageData?: InkFileData_v2,
+    save: (pageData: InkFileData_v2) => void,
 	remove: Function,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);

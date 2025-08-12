@@ -62,6 +62,22 @@ export const buildDrawingFileData_v2 = (props: {
     });
 }
 
+export const buildWritingFileData_v2 = (props: {
+    tlEditorSnapshot: TLEditorSnapshot,
+    previewIsOutdated?: boolean;
+    transcript?: string;
+    svgString?: string,
+}): InkFileData_v2 => {
+
+    const { tlEditorSnapshot, previewIsOutdated, svgString } = props;
+
+    return buildFileData_v2({
+        tlEditorSnapshot,
+        previewIsOutdated,
+        svgString,
+    });
+}
+
 export const buildFileData_v2 = (props: {
     tlEditorSnapshot: TLEditorSnapshot,
     previewIsOutdated?: boolean;

@@ -7,7 +7,7 @@ import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-
 import InkPlugin from "src/main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
-import { InkFileData, buildWritingFileData } from 'src/logic/utils/page-file';
+import { InkFileData_v2, buildWritingFileData_v2 } from 'src/logic/utils/page-file';
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
@@ -25,7 +25,7 @@ interface TldrawWritingEditorProps {
 	onResize?: Function,
 	plugin: InkPlugin,
 	writingFile: TFile,
-	save: (inkFileData: InkFileData) => void,
+    save: (inkFileData: InkFileData_v2) => void,
 	extendedMenu?: any[],
 
 	// For embeds
@@ -259,7 +259,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		stashStaleContent(editor);
 
-		const pageData = buildWritingFileData({
+        const pageData = buildWritingFileData_v2({
 			tlEditorSnapshot: tlEditorSnapshot,
 			previewIsOutdated: true,
 		})
@@ -268,28 +268,28 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const completeSave = async (editor: Editor): Promise<void> => {
 		verbose('completeSave');
-		let previewUri;
+        let svgString;
 		
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 		
-		if (svgObj) {
-			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
+        if (svgObj) {
+            svgString = svgObj.svg;
 			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
 		}
 
-		if(previewUri) {
-			const pageData = buildWritingFileData({
-				tlEditorSnapshot: tlEditorSnapshot,
-				previewUri,
-			})
+        if(svgString) {
+            const pageData = buildWritingFileData_v2({
+                tlEditorSnapshot: tlEditorSnapshot,
+                svgString,
+            })
 			props.save(pageData);
 			// await savePngExport(props.plugin, previewUri, props.fileRef) // REVIEW: Still need a png?
 
 		} else {
-			const pageData = buildWritingFileData({
+            const pageData = buildWritingFileData_v2({
 				tlEditorSnapshot: tlEditorSnapshot,
 			})
 			props.save(pageData);

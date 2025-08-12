@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { getGlobals } from 'src/stores/global-store';
 import { Provider as JotaiProvider } from 'jotai';
 import { WritingEmbed } from '../writing-embed/writing-embed';
-import { InkFileData } from 'src/logic/utils/page-file';
+import { InkFileData_v2 } from 'src/logic/utils/page-file';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
 
@@ -52,7 +52,7 @@ export class WritingEmbedWidget_v2 extends WidgetType {
     // Helper functions
     ///////////////////
 
-    save = async (pageData: InkFileData) => {
+    save = async (pageData: InkFileData_v2) => {
         if (!this.embeddedFile) return;
         const plugin = getGlobals().plugin;
         const pageDataStr = buildFileStr_v2(pageData);

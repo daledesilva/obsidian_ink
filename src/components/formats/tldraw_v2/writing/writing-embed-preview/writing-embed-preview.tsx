@@ -8,7 +8,7 @@ import InkPlugin from 'src/main';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed/writing-embed';
 import { TFile } from 'obsidian';
-import { getInkFileData } from 'src/logic/utils/getInkFileData';
+import { getGlobals } from 'src/stores/global-store';
 const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
 
 //////////
@@ -110,8 +110,9 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     }
 
     async function fetchFileData() {
-        const inkFileData = await getInkFileData(props.writingFile)
-        if (inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
+        const { plugin } = getGlobals();
+        const embeddedFilepath = plugin.app.vault.getResourcePath(props.writingFile);
+        if (embeddedFilepath) setFileSrc(embeddedFilepath);
     }
 
     function recalcHeight() {

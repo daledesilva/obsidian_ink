@@ -2,12 +2,12 @@ import InkPlugin from 'src/main';
 import { Editor } from 'obsidian';
 import createNewWritingFile from './create-new-writing-file';
 import { activateNextEmbed } from 'src/logic/utils/storage';
-import { buildWritingEmbedV2 } from 'src/logic/utils/embed';
+import { buildWritingEmbed_v2 } from 'src/logic/utils/embed';
 
 const insertNewWritingFileV2 = async (plugin: InkPlugin, editor: Editor) => {
     const activeFile = plugin.app.workspace.getActiveFile();
     const fileRef = await createNewWritingFile(plugin, activeFile);
-    const embedStr = buildWritingEmbedV2(fileRef.path);
+    const embedStr = buildWritingEmbed_v2(fileRef.path);
 
     activateNextEmbed();
     const positionForEmbed = editor.getCursor();

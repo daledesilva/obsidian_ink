@@ -12,7 +12,7 @@ import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
 import { registerDrawingView } from './components/views/drawing-view';
 import { registerDrawingEmbed } from './components/formats/tldraw_v1/drawing/widgets/drawing-embed-widget';
 import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
-import insertNewDrawingFileV2 from './commands/insert-new-drawing-file-v2';
+import insertNewDrawingFile_v2 from './commands/insert-new-drawing-file-v2';
 import insertRememberedDrawingFileV2 from './commands/insert-remembered-drawing-file-v2';
 import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
 import insertRememberedWritingFileV2 from './commands/insert-remembered-writing-file-v2';
@@ -143,7 +143,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		id: 'create-drawing-section-v2',
 		name: 'New drawing (v2)',
 		icon: 'shapes',
-		editorCallback: (editor: Editor) => insertNewDrawingFileV2(plugin, editor)
+		editorCallback: (editor: Editor) => insertNewDrawingFile_v2(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-drawing-file',

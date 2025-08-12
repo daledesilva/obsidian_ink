@@ -3,7 +3,7 @@ import { Editor, Notice, TFile } from 'obsidian';
 import { fetchLocally } from 'src/logic/utils/storage';
 import { InsertCopiedFileModal } from 'src/components/dom-components/modals/confirmation-modal/insert-copied-file-modal';
 import { duplicateWritingFile } from 'src/logic/utils/rememberDrawingFile';
-import { buildWritingEmbedV2 } from 'src/logic/utils/embed';
+import { buildWritingEmbed_v2 } from 'src/logic/utils/embed';
 
 const insertRememberedWritingFileV2 = async (plugin: InkPlugin, editor: Editor) => {
     const v = plugin.app.vault;
@@ -24,7 +24,7 @@ const insertRememberedWritingFileV2 = async (plugin: InkPlugin, editor: Editor) 
         plugin,
         filetype: 'writing',
         instanceAction: () => {
-            const embedStr = buildWritingEmbedV2(existingFileRef.path);
+            const embedStr = buildWritingEmbed_v2(existingFileRef.path);
             editor.replaceRange(embedStr, editor.getCursor());
         },
         duplicateAction: async () => {
@@ -33,7 +33,7 @@ const insertRememberedWritingFileV2 = async (plugin: InkPlugin, editor: Editor) 
             if (!duplicatedFileRef) return;
 
             new Notice('Writing file duplicated');
-            const embedStr = buildWritingEmbedV2(duplicatedFileRef.path);
+            const embedStr = buildWritingEmbed_v2(duplicatedFileRef.path);
             editor.replaceRange(embedStr, editor.getCursor());
         },
         cancelAction: () => {

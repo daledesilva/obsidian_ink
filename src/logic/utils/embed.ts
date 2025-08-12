@@ -75,7 +75,7 @@ export const rebuildDrawingEmbed = (embedData: DrawingEmbedData) => {
 };
 
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 extension detects
-export const buildDrawingEmbedV2 = (filepath: string): string => {
+export const buildDrawingEmbed_v2 = (filepath: string): string => {
     const s = DEFAULT_EMBED_SETTINGS;
     const params = new URLSearchParams({
         version: String(s.version),
@@ -89,20 +89,20 @@ export const buildDrawingEmbedV2 = (filepath: string): string => {
 
     // Leading space before '!' and newline after are important for the CM6 detector
     // Full URL with type=InkDrawing
-    const url = `${INK_EMBED_BASE_URL}?type=InkDrawing&${params.toString()}`;
+    const url = `${INK_EMBED_BASE_URL}?type=inkDrawing&${params.toString()}`;
     const line = ` ![InkDrawing](<${filepath}>) [Edit Drawing](${url})`;
     return `\n${line}\n`;
 };
 
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 writing extension detects
-export const buildWritingEmbedV2 = (filepath: string): string => {
+export const buildWritingEmbed_v2 = (filepath: string): string => {
     const s = DEFAULT_EMBED_SETTINGS;
     const params = new URLSearchParams({
         version: String(s.version),
     });
 
     // Full URL with type=InkWriting
-    const url = `${INK_EMBED_BASE_URL}?type=InkWriting&${params.toString()}`;
+    const url = `${INK_EMBED_BASE_URL}?type=inkWriting&${params.toString()}`;
     // Leading space before '!' and newline after are important for the CM6 detector
     const line = ` ![InkWriting](<${filepath}>) [Edit Writing](${url})`;
     return `\n${line}\n`;

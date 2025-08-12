@@ -47,6 +47,17 @@ export const getNewTimestampedDrawingSvgFilepath = async (plugin: InkPlugin, ins
     const fullPath = await getNewTimestampedFilepath(plugin, 'svg', `${basePath}/${subFolderPath}`);
     return fullPath;
 }
+export const getNewTimestampedWritingSvgFilepath = async (plugin: InkPlugin, instigatingFile?: TFile | null) => {
+    const obsAttachmentFolderPath = await getObsidianAttachmentFolderPath(plugin);
+    const instigatingFileFolderPath = instigatingFile ? parseFilepath(instigatingFile?.path).folderpath : null;
+    let basePath = await getBaseAttachmentPath(plugin, {
+        obsAttachmentFolderPath,
+        instigatingFileFolderPath,
+    });
+    let subFolderPath = getWritingSubfolderPath(plugin);
+    const fullPath = await getNewTimestampedFilepath(plugin, 'svg', `${basePath}/${subFolderPath}`);
+    return fullPath;
+}
 
 const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, folderPath: string): Promise<string> => {
     const filename = getDateFilename() + '.' + ext

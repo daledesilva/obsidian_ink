@@ -3,7 +3,7 @@ import { Editor, Notice, TFile } from "obsidian";
 import { fetchLocally } from "src/logic/utils/storage";
 import { InsertCopiedFileModal } from "src/components/dom-components/modals/confirmation-modal/insert-copied-file-modal";
 import { duplicateDrawingFileV2 } from "src/logic/utils/rememberDrawingFile";
-import { buildDrawingEmbedV2 } from "src/logic/utils/embed";
+import { buildDrawingEmbed_v2 } from "src/logic/utils/embed";
 
 //////////
 //////////
@@ -27,7 +27,7 @@ const insertRememberedDrawingFileV2 = async (plugin: InkPlugin, editor: Editor) 
         plugin,
         filetype: 'drawing',
         instanceAction: () => {
-            const embedStr = buildDrawingEmbedV2(existingFileRef.path);
+            const embedStr = buildDrawingEmbed_v2(existingFileRef.path);
             editor.replaceRange(embedStr, editor.getCursor());
         },
         duplicateAction: async () => {
@@ -36,7 +36,7 @@ const insertRememberedDrawingFileV2 = async (plugin: InkPlugin, editor: Editor) 
             if (!duplicatedFileRef) return;
 
             new Notice("Drawing file duplicated");
-            const embedStr = buildDrawingEmbedV2(duplicatedFileRef.path);
+            const embedStr = buildDrawingEmbed_v2(duplicatedFileRef.path);
             editor.replaceRange(embedStr, editor.getCursor());
         },
         cancelAction: () => {

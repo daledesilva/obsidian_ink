@@ -474,7 +474,7 @@ function detectMarkdownEmbedLink_v2(mdFile: TFile, previewLinkStartNode: SyntaxN
     const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from+1, previewFilepathNode.to-1); // +&- to remove <> brackets
     const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
     // Require query param to include type=InkDrawing (host agnostic)
-    if (!urlAndSettings.includes('type=InkDrawing')) {
+    if (!urlAndSettings.includes('type=inkDrawing')) {
         return {alterFlow: 'continue-traversal'};
     }
     

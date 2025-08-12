@@ -262,7 +262,7 @@ function detectMarkdownEmbedLinkWriting_v2(
 
     // Require query param to include type=InkWriting (host agnostic)
     const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
-    if (!urlAndSettings.includes('type=InkWriting')) {
+    if (!urlAndSettings.includes('type=inkWriting')) {
         return { alterFlow: 'continue-traversal' };
     }
 

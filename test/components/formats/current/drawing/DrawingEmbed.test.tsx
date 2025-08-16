@@ -5,7 +5,7 @@ import { DrawingEmbed } from 'src/components/formats/current/drawing/drawing-emb
 
 const makeEmbedSettings = () => ({ embedDisplay: { width: 400, aspectRatio: 1.6 }, viewBox: { x: 0, y: 0, width: 100, height: 100 } });
 
-describe('DrawingEmbed (v2)', () => {
+describe('DrawingEmbed', () => {
   it('shows not found message when embeddedFile is null', () => {
     render(
       <JotaiProvider>

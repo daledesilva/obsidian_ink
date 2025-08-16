@@ -5,7 +5,7 @@ import { DrawingEmbedPreviewWrapper } from 'src/components/formats/current/drawi
 
 const makeTFile = (): any => ({ path: 'path/to/drawing.svg', vault: { read: jest.fn() } });
 
-describe('DrawingEmbedPreview (v2)', () => {
+describe('DrawingEmbedPreview', () => {
   it('renders preview root element when active', () => {
     render(
       <JotaiProvider>

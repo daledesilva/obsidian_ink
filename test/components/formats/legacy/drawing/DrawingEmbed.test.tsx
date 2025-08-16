@@ -12,7 +12,7 @@ const makePlugin = (overrides: Partial<any> = {}) => ({
 
 const makeTFile = (): any => ({ path: 'path/to/file' });
 
-describe('DrawingEmbed (v1)', () => {
+describe('DrawingEmbed (legacy)', () => {
   it('renders container and children', () => {
     render(
       <JotaiProvider>

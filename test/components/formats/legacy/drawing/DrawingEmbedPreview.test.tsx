@@ -14,7 +14,7 @@ const makePlugin = (overrides: Partial<any> = {}) => ({
 
 const makeTFile = (): any => ({ path: 'path/to/file' });
 
-describe('DrawingEmbedPreview (v1)', () => {
+describe('DrawingEmbedPreview (legacy)', () => {
   it('renders wrapper and applies class names', () => {
     render(
       <JotaiProvider>

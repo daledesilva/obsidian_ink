@@ -3,18 +3,11 @@ import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
 import { WritingEmbedPreviewWrapper } from 'src/components/formats/current/writing/writing-embed-preview/writing-embed-preview';
 
-const makePlugin = (overrides: Partial<any> = {}) => ({
-  settings: {
-    writingLinesWhenLocked: true,
-    writingBackgroundWhenLocked: true,
-  },
-  ...overrides,
-});
-
+const makePlugin = () => ({ settings: { writingLinesWhenLocked: true, writingBackgroundWhenLocked: true } });
 const makeTFile = (): any => ({ path: 'path/to/file' });
 
-describe('WritingEmbedPreview (v1)', () => {
-  it('renders wrapper root element', () => {
+describe('WritingEmbedPreview', () => {
+  it('renders preview root', () => {
     render(
       <JotaiProvider>
         <WritingEmbedPreviewWrapper

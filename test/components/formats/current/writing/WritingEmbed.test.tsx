@@ -11,7 +11,7 @@ const makePlugin = (overrides: Partial<any> = {}) => ({
 
 const makeTFile = (): any => ({ path: 'path/to/file' });
 
-describe('WritingEmbed (v2)', () => {
+describe('WritingEmbed', () => {
   it('renders container element', () => {
     render(
       <JotaiProvider>

@@ -5,7 +5,7 @@ import { TldrawDrawingEditorWrapper } from 'src/components/formats/current/drawi
 
 const makeTFile = (): any => ({ path: 'path/to/file', vault: { read: jest.fn().mockResolvedValue('<svg></svg>') } });
 
-describe('TldrawDrawingEditorWrapper (v2)', () => {
+describe('TldrawDrawingEditorWrapper', () => {
   it('mounts wrapper without crashing when editorActive is default false', () => {
     render(
       <JotaiProvider>

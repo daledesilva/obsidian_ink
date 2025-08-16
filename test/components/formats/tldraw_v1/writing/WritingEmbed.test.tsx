@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import WritingEmbed from 'src/components/formats/tldraw_v1/writing/writing-embed-editor/writing-embed';
+import WritingEmbed from 'src/components/formats/current/writing/writing-embed/writing-embed';
 
 const makePlugin = (overrides: Partial<any> = {}) => ({
   app: { vault: {} },

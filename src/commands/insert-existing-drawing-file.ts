@@ -1,7 +1,7 @@
 import { App, Editor, FuzzySuggestModal, TFile } from "obsidian";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { buildDrawingEmbed } from "src/logic/utils/embed";
+import { buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
 
 /////////
 /////////
@@ -41,5 +41,3 @@ export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
         this.onSubmit(file.path);
     }
 }
-
-export default insertExistingDrawingFile;

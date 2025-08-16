@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import { WritingEmbedPreviewWrapper } from 'src/components/formats/tldraw_v1/writing/writing-embed-preview/writing-embed-preview';
+import { WritingEmbedPreviewWrapper } from 'src/components/formats/current/writing/writing-embed-preview/writing-embed-preview';
 
 const makePlugin = (overrides: Partial<any> = {}) => ({
   settings: {

@@ -2,27 +2,29 @@ import './ddc-library/settings-styles.scss';
 import { Editor, Notice, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
-import { registerWritingEmbed } from './components/formats/tldraw_v1/drawing/widgets/writing-embed-widget'
-import insertExistingWritingFile from './commands/insert-existing-writing-file';
-import insertNewWritingFile from './commands/insert-new-writing-file';
-import insertNewWritingFileV2 from './commands/insert-new-writing-file-v2';
+import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
+import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
+import { insertNewWritingFile_v1 } from './commands/insert-new-writing-file-v1';
+import { insertNewWritingFile } from './commands/insert-new-writing-file';
 import { registerWritingView } from './components/views/writing-view';
-import insertNewDrawingFile from './commands/insert-new-drawing-file';
-import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
+import { insertNewDrawingFile_v1 } from './commands/insert-new-drawing-file-v1';
+import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
 import { registerDrawingView } from './components/views/drawing-view';
-import { registerDrawingEmbed } from './components/formats/tldraw_v1/drawing/widgets/drawing-embed-widget';
-import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
-import insertNewDrawingFile_v2 from './commands/insert-new-drawing-file-v2';
-import insertRememberedDrawingFileV2 from './commands/insert-remembered-drawing-file-v2';
-import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
-import insertRememberedWritingFileV2 from './commands/insert-remembered-writing-file-v2';
+import { registerDrawingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/drawing-embed-widget';
+import { insertNewDrawingFile } from './commands/insert-new-drawing-file';
 import { showWelcomeTips_maybe } from './components/dom-components/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
-import { drawingEmbedExtension_v2, registerDrawingEmbed_v2 } from './components/formats/tldraw_v2/drawing/drawing-embed-extension/drawing-embed-extension';
-import { registerWritingEmbed_v2, writingEmbedExtension_v2 } from './components/formats/tldraw_v2/writing/writing-embed-extension/writing-embed-extension';
+import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
+import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
 import { setGlobals } from './stores/global-store';
+import { insertRememberedWritingFile_v1 } from './commands/insert-remembered-writing-file-v1';
+import { insertExistingWritingFile_v1 } from './commands/insert-existing-writing-file-v1';
+import { insertExistingDrawingFile_v1 } from './commands/insert-existing-drawing-file-v1';
+import { insertRememberedDrawingFile_v1 } from './commands/insert-remembered-drawing-file-v1';
+import { insertRememberedDrawingFile } from './commands/insert-remembered-drawing-file';
+import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
 
 ////////
 ////////
@@ -50,22 +52,24 @@ export default class InkPlugin extends Plugin {
 		if (this.settings.writingEnabled) {
 			registerWritingView(this);
 			registerWritingEmbed(this);
-			registerWritingEmbed_v2(this);
 			implementWritingEmbedActions(this);
 			this.registerEditorExtension([
-				writingEmbedExtension_v2(),
+				writingEmbedExtension(),
 			]);
+			// Legacy
+			registerWritingEmbed_v1(this);
 		}
 		
 		if (this.settings.drawingEnabled) {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
-			registerDrawingEmbed_v2(this);
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([
 				// Prec.highest(drawingEmbedExtension()),
-				drawingEmbedExtension_v2(),
+				drawingEmbedExtension(),
 			]);
+			// Legacy
+			registerDrawingEmbed_v1(this);
 		}
 
 		registerSettingsTab(this);
@@ -100,6 +104,8 @@ export default class InkPlugin extends Plugin {
 export const inkPluginAtom = atom<InkPlugin>();
 
 function implementWritingEmbedActions(plugin: InkPlugin) {
+
+	// Current
 	plugin.addCommand({
 		id: 'create-handwritten-section',
 		name: 'New handwriting section',
@@ -107,10 +113,10 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'create-handwritten-section-v2',
-		name: 'New handwriting section (v2)',
-		icon: 'signature',
-		editorCallback: (editor: Editor) => insertNewWritingFileV2(plugin, editor)
+		id: 'insert-copied-handwriting',
+		name: 'Copied handwriting section',
+		icon: 'clipboard-pen',
+		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file',
@@ -118,38 +124,37 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		icon: 'folder-pen',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
+
+	// Legacy
 	plugin.addCommand({
-		id: 'insert-copied-writing',
-		name: 'Copied handwriting section',
-		icon: 'clipboard-pen',
-		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
+		id: 'create-handwritten-section-v1',
+		name: 'New handwriting section (Legacy)',
+		icon: 'signature',
+		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'insert-copied-handwriting-v2',
-		name: 'Copied handwriting section (v2)',
+		id: 'insert-copied-writing-v1',
+		name: 'Copied handwriting section (Legacy)',
 		icon: 'clipboard-pen',
-		editorCallback: (editor: Editor) => insertRememberedWritingFileV2(plugin, editor)
+		editorCallback: (editor: Editor) => insertRememberedWritingFile_v1(plugin, editor)
 	});
+	plugin.addCommand({
+		id: 'embed-writing-file-v1',
+		name: 'Existing handwriting section (Legacy)',
+		icon: 'folder-pen',
+		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
+	});
+
 }
 
 function implementDrawingEmbedActions(plugin: InkPlugin) {
+
+	// Current
 	plugin.addCommand({
 		id: 'create-drawing-section',
 		name: 'New drawing',
 		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'create-drawing-section-v2',
-		name: 'New drawing (v2)',
-		icon: 'shapes',
-		editorCallback: (editor: Editor) => insertNewDrawingFile_v2(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'embed-drawing-file',
-		name: 'Existing drawing',
-		icon: 'folder-dot',
-		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'insert-copied-drawing',
@@ -158,11 +163,32 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'insert-copied-drawing-v2',
-		name: 'Copied drawing (v2)',
-		icon: 'clipboard-pen-line',
-		editorCallback: (editor: Editor) => insertRememberedDrawingFileV2(plugin, editor)
+		id: 'embed-drawing-file',
+		name: 'Existing drawing',
+		icon: 'folder-dot',
+		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
+	
+	// Legacy
+	plugin.addCommand({
+		id: 'create-drawing-section-v1',
+		name: 'New drawing (Legacy)',
+		icon: 'shapes',
+		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'insert-copied-drawing-v1',
+		name: 'Copied drawing (Legacy)',
+		icon: 'clipboard-pen-line',
+		editorCallback: (editor: Editor) => insertRememberedDrawingFile_v1(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'embed-drawing-file-v1',
+		name: 'Existing drawing (Legacy)',
+		icon: 'folder-dot',
+		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
+	});
+
 }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {

@@ -1,7 +1,7 @@
 import { App, Editor, FuzzySuggestModal, Notice, TFile } from "obsidian";
 import { WRITE_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { buildWritingEmbed } from "src/logic/utils/embed";
+import { buildWritingEmbed } from "src/components/formats/current/utils/build-embeds";
 
 ////////
 ////////
@@ -40,5 +40,3 @@ export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
         this.onSubmit(file.path);
     }
 }
-
-export default insertExistingWritingFile;

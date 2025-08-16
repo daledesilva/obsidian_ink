@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import { DrawingEmbedPreviewWrapper } from 'src/components/formats/tldraw_v1/drawing/drawing-embed-preview/drawing-embed-preview';
+import { DrawingEmbedPreviewWrapper } from 'src/components/formats/current/drawing/drawing-embed-preview/drawing-embed-preview';
 
 // Minimal InkPlugin and TFile stubs
 const makePlugin = (overrides: Partial<any> = {}) => ({

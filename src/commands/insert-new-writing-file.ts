@@ -1,26 +1,22 @@
-import InkPlugin from "src/main";
-import createNewWritingFile from "./create-new-writing-file";
-import { Editor } from "obsidian";
-import { buildWritingEmbed } from "src/logic/utils/embed";
-import { activateNextEmbed } from "src/logic/utils/storage";
+import InkPlugin from 'src/main';
+import { Editor } from 'obsidian';
+import { activateNextEmbed } from 'src/logic/utils/storage';
+import { buildWritingEmbed } from "src/components/formats/current/utils/build-embeds";
+import { createNewWritingFile } from './create-new-writing-file';
 
-/////////
-/////////
-
-const insertNewWritingFile = async (plugin: InkPlugin, editor: Editor) => {
+export const insertNewWritingFile = async (plugin: InkPlugin, editor: Editor) => {
     const activeFile = plugin.app.workspace.getActiveFile();
     const fileRef = await createNewWritingFile(plugin, activeFile);
-    let embedStr = buildWritingEmbed(fileRef.path);
-    
+    const embedStr = buildWritingEmbed(fileRef.path);
+
     activateNextEmbed();
     const positionForEmbed = editor.getCursor();
-    editor.replaceRange( embedStr, positionForEmbed );
-    const positionForCursor = {...positionForEmbed};
-    
-    // Move the cursor to after the embed (Doesn't do anything if the embed is activated by default)
+    editor.replaceRange(embedStr, positionForEmbed);
+
+    const positionForCursor = { ...positionForEmbed };
     const embedLines = embedStr.split(/\r\n|\r|\n/);
     positionForCursor.line += embedLines.length;
-    editor.setCursor(positionForCursor)
-}
+    editor.setCursor(positionForCursor);
+};
 
-export default insertNewWritingFile;
+

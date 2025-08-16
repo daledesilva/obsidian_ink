@@ -1,7 +1,8 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import DrawingEmbed from 'src/components/formats/tldraw_v1/drawing/drawing-embed-editor/drawing-embed';
+import DrawingEmbed from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
+import { DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
 
 const makePlugin = (overrides: Partial<any> = {}) => ({
   app: { vault: {} },
@@ -16,12 +17,11 @@ describe('DrawingEmbed (v1)', () => {
     render(
       <JotaiProvider>
         <DrawingEmbed
-          plugin={makePlugin() as any}
-          drawingFileRef={makeTFile()}
-          pageData={{} as any}
+          embeddedFile={makeTFile()}
+          embedSettings={DEFAULT_EMBED_SETTINGS}
           saveSrcFile={() => {}}
-          setEmbedProps={() => {}}
           remove={() => {}}
+          partialEmbedFilepath="test-drawing.svg"
         />
       </JotaiProvider>
     );

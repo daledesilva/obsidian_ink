@@ -1,14 +1,14 @@
 import InkPlugin from "src/main";
 import { Editor, Notice, TFile } from "obsidian";
-import { buildDrawingEmbed } from "src/logic/utils/embed";
 import { fetchLocally } from "src/logic/utils/storage";
 import { InsertCopiedFileModal } from "src/components/dom-components/modals/confirmation-modal/insert-copied-file-modal";
-import { duplicateDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { duplicateDrawingFileV2 } from "src/logic/utils/rememberDrawingFile";
+import { buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
 
 //////////
 //////////
 
-const insertRememberedDrawingFile = async (plugin: InkPlugin, editor: Editor) => {
+export const insertRememberedDrawingFile = async (plugin: InkPlugin, editor: Editor) => {
     const v = plugin.app.vault;
 
     const existingFilePath = fetchLocally('rememberedDrawingFile');
@@ -27,23 +27,22 @@ const insertRememberedDrawingFile = async (plugin: InkPlugin, editor: Editor) =>
         plugin,
         filetype: 'drawing',
         instanceAction: () => {
-            let embedStr = buildDrawingEmbed(existingFileRef.path);
+            const embedStr = buildDrawingEmbed(existingFileRef.path);
             editor.replaceRange(embedStr, editor.getCursor());
         },
         duplicateAction: async () => {
             const activeFile = plugin.app.workspace.getActiveFile();
-            const duplicatedFileRef = await duplicateDrawingFile(plugin, existingFileRef, activeFile);
-            if(!duplicatedFileRef) return;
+            const duplicatedFileRef = await duplicateDrawingFileV2(plugin, existingFileRef, activeFile);
+            if (!duplicatedFileRef) return;
 
             new Notice("Drawing file duplicated");
-            let embedStr = buildDrawingEmbed(duplicatedFileRef.path);
+            const embedStr = buildDrawingEmbed(duplicatedFileRef.path);
             editor.replaceRange(embedStr, editor.getCursor());
         },
         cancelAction: () => {
             new Notice('Insert cancelled.');
         }
     }).open();
-    
-}
+};
 
-export default insertRememberedDrawingFile;
+

@@ -3,7 +3,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { TldrawDrawingEditor, TldrawDrawingEditorWrapper } from "src/components/formats/tldraw_v1/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
+import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "src/logic/utils/page-file";
 import { 
 	Provider as JotaiProvider
@@ -71,7 +71,7 @@ export class DrawingView extends TextFileView {
         this.root = createRoot(viewContent);
 		this.root.render(
             <JotaiProvider>
-                <TldrawDrawingEditor
+                <TldrawDrawingEditor_v1
                     plugin={this.plugin}
                     onReady = {() => {}}
                     drawingFile = {this.file}

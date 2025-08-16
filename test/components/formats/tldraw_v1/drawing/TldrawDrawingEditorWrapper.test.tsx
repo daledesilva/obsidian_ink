@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import { TldrawDrawingEditorWrapper } from 'src/components/formats/tldraw_v1/drawing/tldraw-drawing-editor/tldraw-drawing-editor';
+import { TldrawDrawingEditorWrapper } from 'src/components/formats/current/drawing/tldraw-drawing-editor/tldraw-drawing-editor';
 
 const makeTFile = (): any => ({ path: 'path/to/file' });
 

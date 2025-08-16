@@ -1,7 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import { TldrawWritingEditorWrapper } from 'src/components/formats/tldraw_v2/writing/tldraw-writing-editor/tldraw-writing-editor';
+import { TldrawWritingEditorWrapper } from 'src/components/formats/current/writing/tldraw-writing-editor/tldraw-writing-editor';
 
 const makeTFile = (): any => ({ path: 'path/to/file', vault: { read: jest.fn().mockResolvedValue('<svg></svg>') } });
 

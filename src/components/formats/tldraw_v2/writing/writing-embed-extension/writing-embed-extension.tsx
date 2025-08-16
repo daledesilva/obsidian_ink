@@ -8,9 +8,9 @@ import { createRoot } from 'react-dom/client';
 import { getGlobals } from 'src/stores/global-store';
 import { Provider as JotaiProvider } from 'jotai';
 import { WritingEmbed } from '../writing-embed/writing-embed';
-import { InkFileData_v2 } from 'src/logic/utils/page-file';
-import { SyntaxNodeRef } from '@lezer/common';
+import { InkFileData_v2 } from 'src/components/formats/tldraw_v2/types/file-data';
 import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
+import { SyntaxNodeRef } from '@lezer/common';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 

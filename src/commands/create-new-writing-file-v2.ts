@@ -1,5 +1,5 @@
 import InkPlugin from "src/main";
-import { buildWritingFileData_v2 } from "src/logic/utils/page-file";
+import { buildWritingFileData_v2 } from "src/components/formats/tldraw_v2/utils/build-file-data";
 import { buildFileStr_v2 } from "src/logic/utils/buildFileStr";
 import { DEFAULT_TLEDITOR_WRITING_SNAPSHOT } from "src/defaults/default-tleditor-writing-snapshot";
 import { getNewTimestampedWritingFilepath, getNewTimestampedWritingSvgFilepath } from "src/logic/utils/file-manipulation";

@@ -7,7 +7,8 @@ import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-
 import InkPlugin from "src/main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
-import { InkFileData_v2, buildWritingFileData_v2 } from 'src/logic/utils/page-file';
+import { InkFileData_v2 } from 'src/components/formats/tldraw_v2/types/file-data';
+import { buildWritingFileData_v2 } from 'src/components/formats/tldraw_v2/utils/build-file-data';
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';

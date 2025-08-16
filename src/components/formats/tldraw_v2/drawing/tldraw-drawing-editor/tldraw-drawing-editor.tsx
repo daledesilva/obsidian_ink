@@ -4,7 +4,8 @@ import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/logic/utils/tldraw-helpers";
 import * as React from "react";
 import { TFile } from 'obsidian';
-import { InkFileData_v2, buildDrawingFileData_v2 } from 'src/logic/utils/page-file';
+import { InkFileData_v2 } from 'src/components/formats/tldraw_v2/types/file-data';
+import { buildDrawingFileData_v2 } from 'src/components/formats/tldraw_v2/utils/build-file-data';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
@@ -14,8 +15,8 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
-import { DrawingEmbedState_v2, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
+import { DrawingEmbedState_v2, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 
 ///////
 ///////

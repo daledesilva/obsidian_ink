@@ -2,15 +2,15 @@
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { InkFileData } from "src/logic/utils/page-file";
+import { InkFileData } from "src/components/formats/tldraw_v1/types/file-data";
 import { DrawingEmbedData, applyCommonAncestorStyling, removeEmbed, stringifyEmbedData } from "src/logic/utils/embed";
+import { buildFileStr } from "src/logic/utils/buildFileStr";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/components/formats/tldraw_v1/drawing/drawing-embed-editor/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
-import { buildFileStr } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////

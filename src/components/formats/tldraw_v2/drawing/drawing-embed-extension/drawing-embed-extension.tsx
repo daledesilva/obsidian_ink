@@ -20,11 +20,11 @@ import {
     Provider as JotaiProvider
 } from "jotai";
 import { DrawingEmbed_v2 } from 'src/components/formats/tldraw_v2/drawing/drawing-embed/drawing-embed';
-import { InkFileData_v2 } from 'src/logic/utils/page-file';
+import { InkFileData_v2 } from 'src/components/formats/tldraw_v2/types/file-data';
+import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
 import { SyntaxNodeRef } from '@lezer/common';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 import './drawing-embed-extension.scss';
-import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
 
 /////////////////////
 /////////////////////

@@ -2,19 +2,19 @@ import "./drawing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
 import InkPlugin from "src/main";
-import { InkFileData_v2 } from "src/logic/utils/page-file";
-import { TFile } from "obsidian";
+import { InkFileData_v2 } from "src/components/formats/tldraw_v2/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
+import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
+import { verbose } from "src/logic/utils/log-to-console";
+import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { openInkFile } from "src/logic/utils/open-file";
+import { TFile } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
-import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
-import { verbose } from "src/logic/utils/log-to-console";
 import { DrawingEmbedPreviewWrapper_v2 } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper_v2 } from "../tldraw-drawing-editor/tldraw-drawing-editor";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
-import { openInkFile } from "src/logic/utils/open-file";
 
 ///////
 ///////

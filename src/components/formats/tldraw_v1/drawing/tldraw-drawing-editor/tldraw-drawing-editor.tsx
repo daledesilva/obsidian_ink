@@ -5,7 +5,8 @@ import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getAc
 import InkPlugin from "src/main";
 import * as React from "react";
 import { TFile } from 'obsidian';
-import { InkFileData, buildDrawingFileData } from 'src/logic/utils/page-file';
+import { InkFileData } from 'src/components/formats/tldraw_v1/types/file-data';
+import { buildDrawingFileData } from 'src/components/formats/tldraw_v1/utils/build-file-data';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';

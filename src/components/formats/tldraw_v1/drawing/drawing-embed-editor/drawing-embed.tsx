@@ -3,17 +3,18 @@ import * as React from "react";
 import { useRef } from "react";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import InkPlugin from "src/main";
-import { InkFileData } from "src/logic/utils/page-file";
-import { TFile } from "obsidian";
-import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
+import { InkFileData } from "src/components/formats/tldraw_v1/types/file-data";
 import { openInkFile } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
-import classNames from "classnames";
-import { atom, useSetAtom } from "jotai";
-import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { TFile } from "obsidian";
+import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
+import classNames from "classnames";
+import { atom, useSetAtom } from "jotai";
+import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
+ 
 const emptyDrawingSvgStr = require('src/defaults/empty-drawing-embed.svg');
 
 ///////

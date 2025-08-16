@@ -3,14 +3,14 @@ import * as React from "react";
 import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
 import InkPlugin from "src/main";
-import { InkFileData_v2 } from "src/logic/utils/page-file";
-import { TFile } from "obsidian";
+import { InkFileData_v2 } from "src/components/formats/tldraw_v2/types/file-data";
 import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
-import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
+import { verbose } from "src/logic/utils/log-to-console";
+import { TFile } from "obsidian";
+import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
-import { verbose } from "src/logic/utils/log-to-console";
 
 ///////
 ///////

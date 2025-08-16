@@ -91,7 +91,13 @@ const config: Config = {
   ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  moduleNameMapper: {
+    "\\.(css|scss)$": "<rootDir>/test/__mocks__/styleMock.js",
+    "\\.(svg)$": "<rootDir>/test/__mocks__/fileMock.js",
+    "^src/(.*)$": "<rootDir>/src/$1",
+    "^src/main$": "<rootDir>/test/__mocks__/mainMock.js",
+    "^obsidian$": "<rootDir>/test/__mocks__/obsidianMock.js"
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -146,7 +152,9 @@ const config: Config = {
   // setupFiles: [],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  // setupFilesAfterEnv: [],
+  setupFilesAfterEnv: [
+    "<rootDir>/test/setupTests.ts"
+  ],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,
@@ -155,7 +163,14 @@ const config: Config = {
   // snapshotSerializers: [],
 
   // The test environment that will be used for testing
-  // testEnvironment: "jest-environment-node",
+  testEnvironment: "jest-environment-jsdom",
+
+  transform: {
+    "^.+\\.(t|j)sx?$": "babel-jest",
+  },
+  transformIgnorePatterns: [
+    "/node_modules/(?!(chalk)/).*"
+  ],
 
   // Options that will be passed to the testEnvironment
   testEnvironmentOptions: {

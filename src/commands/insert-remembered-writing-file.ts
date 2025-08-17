@@ -5,6 +5,9 @@ import { InsertCopiedFileModal } from 'src/components/dom-components/modals/conf
 import { duplicateWritingFile } from 'src/logic/utils/rememberDrawingFile';
 import { buildWritingEmbed } from "src/components/formats/current/utils/build-embeds";
 
+//////////
+//////////
+
 export const insertRememberedWritingFile = async (plugin: InkPlugin, editor: Editor) => {
     const v = plugin.app.vault;
 

@@ -6,8 +6,6 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 ////////
 ////////
 
-// TODO: This file isn't yet implemented
-
 export const insertExistingWritingFile = async (plugin: InkPlugin, editor: Editor) => {
     // Build a list of valid handwriting SVGs before opening the modal
     const allFiles = plugin.app.vault.getFiles();

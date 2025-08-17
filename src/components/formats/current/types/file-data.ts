@@ -1,8 +1,13 @@
 import { TLEditorSnapshot } from '@tldraw/tldraw';
 
+export enum InkFileType {
+    Writing = 'writing',
+    Drawing = 'drawing',
+}
+
 export type InkFileMetadata = {
     pluginVersion: string;
-    fileType: 'writing' | 'drawing';
+    fileType: InkFileType;
     tldrawVersion: string;
     previewIsOutdated?: boolean;
     transcript?: string;

@@ -1,8 +1,11 @@
 import { TLEditorSnapshot } from '@tldraw/tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
-import { InkFileData } from '../types/file-data';
+import { InkFileData, InkFileType } from '../types/file-data';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const emptyDrawingSvgStr: string = require('src/defaults/empty-drawing-embed.svg');
+
+////////
+////////
 
 export const buildDrawingFileData = (props: {
   tlEditorSnapshot: TLEditorSnapshot,
@@ -14,7 +17,7 @@ export const buildDrawingFileData = (props: {
     tlEditorSnapshot,
     previewIsOutdated,
     svgString,
-    fileType: 'drawing',
+    fileType: InkFileType.Drawing,
   });
 }
 
@@ -30,7 +33,7 @@ export const buildWritingFileData = (props: {
     previewIsOutdated,
     svgString,
     transcript,
-    fileType: 'writing'
+    fileType: InkFileType.Writing,
   });
 }
 
@@ -39,7 +42,7 @@ export const buildFileData = (props: {
   previewIsOutdated?: boolean,
   transcript?: string,
   svgString?: string,
-  fileType: 'writing' | 'drawing',
+  fileType: InkFileType,
 }): InkFileData => {
   const { tlEditorSnapshot, svgString, previewIsOutdated = false, fileType } = props;
 

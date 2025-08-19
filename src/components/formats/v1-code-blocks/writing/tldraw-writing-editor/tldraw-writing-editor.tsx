@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo, TldrawSelectionForeground, TldrawSelectionBackground } from "@tldraw/tldraw";
+import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TldrawSelectionForeground, TldrawSelectionBackground } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/logic/utils/tldraw-helpers";
 import { WritingContainerUtil_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container"
@@ -18,6 +18,7 @@ import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1 } from '..
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/logic/utils/getInkFileData';
 import { verbose } from 'src/logic/utils/log-to-console';
+import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 
 ///////
 ///////
@@ -61,7 +62,6 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const tlEditorWrapperElRef = useRef<HTMLDivElement>(null);
-	const fingerBlockerElRef = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -100,9 +100,6 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		if(tlEditorWrapperElRef.current) {
 			// Makes the editor visible inly after it's fully mounted
 			tlEditorWrapperElRef.current.style.opacity = '1';
-
-			// Initialise common handlers for default tool selected
-			setCommonToolUseListeners_v1(tlEditorRef.current, tlEditorWrapperElRef.current);
 		}
 
 		updateWritingStoreIfNeeded(tlEditor);
@@ -341,115 +338,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 				// Prevent autoFocussing so it can be handled in the handleMount
 				autoFocus = {false}
 			/>
-			<div
-				ref = {fingerBlockerElRef}
-				style={{
-					position: 'absolute',
-					inset: 0,
-					// backgroundColor: 'rgba(255,0,0,0.3)',
-					zIndex: 1000,
-
-					// These ensure that the writing can't erroneously cause text selections around the whole canvas element (which happens on iPad)
-					userSelect: 'none',
-					WebkitUserSelect: 'none',
-					MozUserSelect: 'none',
-					msUserSelect: 'none'
-				}}
-
-				// Locking here makes the first pen stroke more reliable.
-				onPointerEnter={(e) => {
-					if(!tlEditorWrapperElRef.current) return;
-					if(!fingerBlockerElRef.current) return;
-
-					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-						lockPageScrolling_v1(tlEditorWrapperElRef.current);
-						closeKeyboard_v1();
-					} else {
-						// NOTE: This still doesn't let the first finger touch after pen use scroll. You have to touch twice.
-						unlockPageScrolling_v1(tlEditorWrapperElRef.current);
-						closeKeyboard_v1();
-					}
-				}}
-
-				// This works for pens that detect hover.
-				// But also causes issues with unfinished lines.
-				// onPointerOut={(e) => {
-				// 	if(!tlEditorWrapperElRef.current) return;
-				// 	if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				// 		unlockPageScrolling(tlEditorWrapperElRef.current);
-				// 		closeKeyboard();
-				// 	}
-				// }}
-				
-				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
-				onPointerDown={(e) => {
-					if(!tlEditorWrapperElRef.current) return;
-					if(!fingerBlockerElRef.current) return;
-
-					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-
-						const tlCanvas = tlEditorWrapperElRef.current?.querySelector('.tl-canvas');
-						if (tlCanvas) {
-							const newEvent = new PointerEvent('pointerdown', {
-								pointerId: e.pointerId,
-								pointerType: e.pointerType,
-								clientX: e.clientX,
-								clientY: e.clientY,
-								bubbles: true
-							});
-							tlCanvas.dispatchEvent(newEvent);
-							recentPenInput.current = true;
-						}
-
-					} else {
-						// Ignore touch events as they just control scrolling atm.
-					}
-				}}
-
-				onPointerMove={(e) => {
-					if(e.pointerType !== 'touch') return; // Let tldraw handle all pen input
-					if(!tlEditorWrapperElRef.current) return;
-					if(!fingerBlockerElRef.current) return;
-					
-					if(!recentPenInput.current) return; // Only fake scrolling for the first touch event after a pen event
-
-					// HACK: This fakes the scroll for the first touch event after a pen event.
-					// TODO: This doesn't yet allow for flicking.
-					const cmScroller = tlEditorWrapperElRef.current.closest('.cm-scroller');
-					if (cmScroller) {
-						cmScroller.scrollTo({
-							top: cmScroller.scrollTop - e.movementY,
-							left: cmScroller.scrollLeft - e.movementX, // TODO: Haven't actually tested X
-						})
-					}
-				}}
-
-				onPointerUp={(e) => {
-					if (e.pointerType === 'touch') {
-						recentPenInput.current = false;
-					}
-				}}
-
-				onPointerLeave={(e) => {
-					if(pointerDown) return; // don't unlock the user's drawing (This as it leaves the div to focus the canvas)
-					if(!tlEditorWrapperElRef.current) return;
-					console.log('Pointer Leave');
-					recentPenInput.current = false;
-					unlockPageScrolling_v1(tlEditorWrapperElRef.current);
-				}}
-
-				onWheel={(e) => {
-					if(!tlEditorWrapperElRef.current) return;
-					const cmScroller = tlEditorWrapperElRef.current.closest('.cm-scroller');
-					if (cmScroller) {
-						cmScroller.scrollTo({
-							top: cmScroller.scrollTop + e.deltaY,
-							left: cmScroller.scrollLeft + e.deltaX
-						});
-					}
-				}}
-
-			/>
+			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={tlEditorWrapperElRef} />
 			<PrimaryMenuBar>
                 <WritingMenu
                     getTlEditor = {getTlEditor}
@@ -483,97 +372,3 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 
 
 };
-
-// This should probably be encapsulated
-let pointerDown = false;
-
-function setCommonToolUseListeners_v1(tlEditor: Editor, tlEditorWrapperEl: HTMLDivElement) {
-	const curTool = tlEditor.getCurrentTool();
-	if(curTool) {
-		curTool.onPointerDown = (e: TLEventInfo) => {
-			// new Notice('Tldraw Pen Down');
-			// activePointerCount++; // Increment counter
-			// closeKeyboard();
-			pointerDown = true;
-			
-			curTool.onPointerMove = (e: TLEventInfo) =>  {
-				
-				// Nothing yet
-			}
-			curTool.onPointerUp = (e: TLEventInfo) => {
-				// new Notice('Pointer Up');
-				// activePointerCount = Math.max(0, activePointerCount - 1); // Decrement counter, never go below 0
-				// debouncedUnlockPageScrolling(tlEditorWrapperEl);
-				curTool.onPointerMove = undefined;
-				pointerDown = false;
-			}
-
-		}
-	}
-};
-
-function lockPageScrolling_v1(tlEditorWrapper: HTMLDivElement) {
-	clearPageScrollingTimeouts_v1();
-	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
-	if (cmScroller) {
-		// new Notice('Lock Page Scrolling');
-		// if (scrollingLocked) return;
-		// prevent scrolling so that the page doesn't move while using tools
-		(cmScroller as HTMLElement).style.overflow = 'hidden';
-		// also hide the scrollbar so that the scrolling can be turned back on quickly without appearing to flicker between consecutive strokes.
-		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
-		scrollingLocked = true;
-	}
-}
-
-let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
-let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
-let scrollingLocked = false;
-
-function clearPageScrollingTimeouts_v1() {
-	clearTimeout(unlockPageScrollingTimeout);
-	clearTimeout(unhidePageScrollerTimeout);
-	unlockPageScrollingTimeout = undefined;
-	unhidePageScrollerTimeout = undefined;
-}
-
-function debouncedUnlockPageScrolling_v1(tlEditorWrapper: HTMLDivElement) {
-	clearPageScrollingTimeouts_v1();
-	
-	// NOTE: This timeout is necessary because otherwise a scroller that has just turned back on or off can interfere with the tldraw canvas reporting the next completed drawing (very occasionally).
-	unlockPageScrollingTimeout = setTimeout(() => {
-		unlockPageScrolling_v1(tlEditorWrapper);
-	}, 100);
-
-}
-
-function unlockPageScrolling_v1(tlEditorWrapper: HTMLDivElement) {
-	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
-	if (cmScroller) {
-		(cmScroller as HTMLElement).style.overflow = 'auto';
-		scrollingLocked = false;
-	}
-
-	// The visibility of the scrollbar waits longer so that it doesn't appear to flicker between writing strokes.
-	unhidePageScrollerTimeout = setTimeout(() => {
-		unhidePageScroller_v1(tlEditorWrapper);
-	}, 200);
-}
-
-function unhidePageScroller_v1(tlEditorWrapper: HTMLDivElement) {
-	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
-	if (cmScroller) {
-		(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
-	}
-}
-
-function closeKeyboard_v1() {
-	// Blurring focus closes the keyboard, whereas focusing the tlEditorWrapper didn't.
-	// It partly helps with iOS scribble support by prevent scribbling taking over, but it seems to block a lot of input.
-	// Tried focusing the tlEditor container but it didn't solve the scribble issue and also caused the scrolling to jump to fit that element on screen.
-	if (document.activeElement instanceof HTMLElement) {
-		if(!document.activeElement.hasClass('tl-canvas')) {
-			document.activeElement.blur();
-		}
-	}
-}

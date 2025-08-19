@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/logic/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
@@ -61,6 +61,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
+	const fingerBlockerElRef = useRef<HTMLDivElement>(null);
+	const recentPenInput = useRef<boolean>(false);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -97,6 +99,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		resizeContainerIfEmbed(tlEditorRef.current);
 		if(editorWrapperRefEl.current) {
 			editorWrapperRefEl.current.style.opacity = '1';
+
+			// Initialise common handlers for default tool selected
+			setCommonToolUseListeners(tlEditorRef.current, editorWrapperRefEl.current);
 		}
 
 		updateWritingStoreIfNeeded(editor);
@@ -333,6 +338,104 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				// Prevent autoFocussing so it can be handled in the handleMount
 				autoFocus = {false}
 			/>
+			<div
+				ref = {fingerBlockerElRef}
+				style={{
+					position: 'absolute',
+					inset: 0,
+					// backgroundColor: 'rgba(255,0,0,0.3)',
+					zIndex: 1000,
+
+					// These ensure that the writing can't erroneously cause text selections around the whole canvas element (which happens on iPad)
+					userSelect: 'none',
+					WebkitUserSelect: 'none',
+					MozUserSelect: 'none',
+					msUserSelect: 'none'
+				}}
+
+				// Locking here makes the first pen stroke more reliable.
+				onPointerEnter={(e) => {
+					if(!editorWrapperRefEl.current) return;
+					if(!fingerBlockerElRef.current) return;
+
+					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+						lockPageScrolling(editorWrapperRefEl.current);
+						closeKeyboard();
+					} else {
+						// NOTE: This still doesn't let the first finger touch after pen use scroll. You have to touch twice.
+						unlockPageScrolling(editorWrapperRefEl.current);
+						closeKeyboard();
+					}
+				}}
+
+				// NOTE: This allows initial pointer down events to be stopped and only sent to tldraw if they're related to drawing
+				onPointerDown={(e) => {
+					if(!editorWrapperRefEl.current) return;
+					if(!fingerBlockerElRef.current) return;
+
+					if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+
+						const tlCanvas = editorWrapperRefEl.current?.querySelector('.tl-canvas');
+						if (tlCanvas) {
+							const newEvent = new PointerEvent('pointerdown', {
+								pointerId: e.pointerId,
+								pointerType: e.pointerType,
+								clientX: e.clientX,
+								clientY: e.clientY,
+								bubbles: true
+							});
+							tlCanvas.dispatchEvent(newEvent);
+							recentPenInput.current = true;
+						}
+
+					} else {
+						// Ignore touch events as they just control scrolling atm.
+					}
+				}}
+
+				onPointerMove={(e) => {
+					if(e.pointerType !== 'touch') return; // Let tldraw handle all pen input
+					if(!editorWrapperRefEl.current) return;
+					if(!fingerBlockerElRef.current) return;
+					
+					if(!recentPenInput.current) return; // Only fake scrolling for the first touch event after a pen event
+
+					// HACK: This fakes the scroll for the first touch event after a pen event.
+					// TODO: This doesn't yet allow for flicking.
+					const cmScroller = editorWrapperRefEl.current.closest('.cm-scroller');
+					if (cmScroller) {
+						cmScroller.scrollTo({
+							top: cmScroller.scrollTop - e.movementY,
+							left: cmScroller.scrollLeft - e.movementX, // TODO: Haven't actually tested X
+						})
+					}
+				}}
+
+				onPointerUp={(e) => {
+					if (e.pointerType === 'touch') {
+						recentPenInput.current = false;
+					}
+				}}
+
+				onPointerLeave={(e) => {
+					if(pointerDown) return; // don't unlock the user's drawing (This as it leaves the div to focus the canvas)
+					if(!editorWrapperRefEl.current) return;
+					recentPenInput.current = false;
+					unlockPageScrolling(editorWrapperRefEl.current);
+				}}
+
+				onWheel={(e) => {
+					if(!editorWrapperRefEl.current) return;
+					const cmScroller = editorWrapperRefEl.current.closest('.cm-scroller');
+					if (cmScroller) {
+						cmScroller.scrollTo({
+							top: cmScroller.scrollTop + e.deltaY,
+							left: cmScroller.scrollLeft + e.deltaX
+						});
+					}
+				}}
+
+			/>
 
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -369,6 +472,81 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
     }
 
 };
+
+// This should probably be encapsulated
+let pointerDown = false;
+
+function setCommonToolUseListeners(tlEditor: Editor | undefined, tlEditorWrapperEl: HTMLDivElement) {
+	if(!tlEditor) return;
+	const curTool = tlEditor.getCurrentTool();
+	if(curTool) {
+		curTool.onPointerDown = (e: TLEventInfo) => {
+			pointerDown = true;
+			curTool.onPointerMove = (e: TLEventInfo) =>  {}
+			curTool.onPointerUp = (e: TLEventInfo) => {
+				curTool.onPointerMove = undefined;
+				pointerDown = false;
+			}
+
+		}
+	}
+}
+
+function lockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	clearPageScrollingTimeouts();
+	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+	if (cmScroller) {
+		(cmScroller as HTMLElement).style.overflow = 'hidden';
+		(cmScroller as HTMLElement).style.scrollbarColor = 'transparent transparent';
+		scrollingLocked = true;
+	}
+}
+
+let unlockPageScrollingTimeout: NodeJS.Timeout | undefined;
+let unhidePageScrollerTimeout: NodeJS.Timeout | undefined;
+let scrollingLocked = false;
+
+function clearPageScrollingTimeouts() {
+	clearTimeout(unlockPageScrollingTimeout);
+	clearTimeout(unhidePageScrollerTimeout);
+	unlockPageScrollingTimeout = undefined;
+	unhidePageScrollerTimeout = undefined;
+}
+
+function debouncedUnlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	clearPageScrollingTimeouts();
+	unlockPageScrollingTimeout = setTimeout(() => {
+		unlockPageScrolling(tlEditorWrapper);
+	}, 100);
+}
+
+function unlockPageScrolling(tlEditorWrapper: HTMLDivElement) {
+	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+	if (cmScroller) {
+		(cmScroller as HTMLElement).style.overflow = 'auto';
+		scrollingLocked = false;
+	}
+	unhidePageScrollerTimeout = setTimeout(() => {
+		unhidePageScroller(tlEditorWrapper);
+	}, 200);
+}
+
+function unhidePageScroller(tlEditorWrapper: HTMLDivElement) {
+	const cmScroller = tlEditorWrapper.closest('.cm-scroller');
+	if (cmScroller) {
+		(cmScroller as HTMLElement).style.scrollbarColor = 'auto';
+	}
+}
+
+function closeKeyboard() {
+	if (document.activeElement instanceof HTMLElement) {
+		if(!document.activeElement.hasClass('tl-canvas')) {
+			document.activeElement.blur();
+		}
+	}
+}
+
+// (Reverted overlay helpers per v1-only change policy)
 
 
 

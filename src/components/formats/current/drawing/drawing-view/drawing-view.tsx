@@ -53,10 +53,8 @@ export function registerDrawingView (plugin: InkPlugin) {
                 if (!svgString || !svgString.trim().startsWith('<svg')) return;
 
                 const inkFileData = extractInkJsonFromSvg(svgString);
-                console.log('inkFileData', inkFileData);
                 if (!inkFileData) return;
-                const fileType = inkFileData.meta.fileType;
-                if (fileType !== "inkDrawing") return;
+                if (inkFileData.meta.fileType !== "inkDrawing") return;
 
                 await activeLeaf.setViewState({
                     type: DRAWING_VIEW_TYPE,

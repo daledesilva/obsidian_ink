@@ -5,7 +5,6 @@ import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
 import { buildFileStr } from "../../utils/buildFileStr";
-import { prepareDrawingSnapshot, prepareWritingSnapshot } from "src/logic/utils/tldraw-helpers";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 
 ////////

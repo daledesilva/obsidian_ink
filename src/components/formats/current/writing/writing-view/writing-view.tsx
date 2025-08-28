@@ -3,6 +3,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/logic/utils/page-file";
+import { InkFileType } from "src/components/formats/current/types/file-data";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { prepareDrawingSnapshot, prepareWritingSnapshot } from "src/logic/utils/tldraw-helpers";
@@ -20,7 +21,36 @@ export function registerWritingView (plugin: InkPlugin) {
         WRITING_VIEW_TYPE,
         (leaf) => new WritingView(leaf, plugin)
     );
-    plugin.registerExtensions(['svgw'], WRITING_VIEW_TYPE);
+
+    // Intercept .svg opens and switch to writing view when metadata indicates a writing file
+    plugin.registerEvent(
+        plugin.app.workspace.on('file-open', async (file) => {
+            try {
+                if (!file || file.extension !== 'svg') return;
+
+                // Avoid re-entrancy if we're already in the writing view
+                const activeLeaf = plugin.app.workspace.activeLeaf;
+                if (!activeLeaf) return;
+                const currentViewType = (activeLeaf as any).view?.getViewType?.();
+                if (currentViewType === WRITING_VIEW_TYPE) return;
+
+                const svgString = await plugin.app.vault.read(file);
+                if (!svgString || !svgString.trim().startsWith('<svg')) return;
+
+                const inkData = extractInkJsonFromSvg(svgString) as unknown as InkFileData | null;
+                const fileType = (inkData as any)?.meta?.fileType as InkFileType | undefined;
+                if (!inkData || fileType !== InkFileType.Writing) return;
+
+                await activeLeaf.setViewState({
+                    type: WRITING_VIEW_TYPE,
+                    state: { file: file.path },
+                    active: true,
+                });
+            } catch (_) {
+                // Fail silently; fall back to default SVG handling
+            }
+        })
+    );
 }
 
 export class WritingView extends TextFileView {

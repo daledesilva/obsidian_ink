@@ -12,6 +12,7 @@ import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { InkFileType } from "src/components/formats/current/types/file-data";
 
 ////////
 ////////
@@ -36,7 +37,36 @@ export function registerDrawingView (plugin: InkPlugin) {
         DRAWING_VIEW_TYPE,
         (leaf) => new DrawingView(leaf, plugin)
     );
-    plugin.registerExtensions(['svgd'], DRAWING_VIEW_TYPE);
+
+    // Intercept .svg opens and switch to drawing view when metadata indicates a drawing file
+    plugin.registerEvent(
+        plugin.app.workspace.on('file-open', async (file) => {
+            try {
+                if (!file || file.extension !== 'svg') return;
+
+                // Avoid re-entrancy if we're already in the drawing view
+                const activeLeaf = plugin.app.workspace.activeLeaf;
+                if (!activeLeaf) return;
+                const currentViewType = (activeLeaf as any).view?.getViewType?.();
+                if (currentViewType === DRAWING_VIEW_TYPE) return;
+
+                const svgString = await plugin.app.vault.read(file);
+                if (!svgString || !svgString.trim().startsWith('<svg')) return;
+
+                const inkData = extractInkJsonFromSvg(svgString);
+                const fileType = (inkData as any)?.meta?.fileType as InkFileType | undefined;
+                if (!inkData || fileType !== InkFileType.Drawing) return;
+
+                await activeLeaf.setViewState({
+                    type: DRAWING_VIEW_TYPE,
+                    state: { file: file.path },
+                    active: true,
+                });
+            } catch (_) {
+                // Fail silently; fall back to default SVG handling
+            }
+        })
+    );
 }
 
 export class DrawingView extends TextFileView {

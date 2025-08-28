@@ -1,14 +1,16 @@
 import { DOMParser } from 'xmldom';
 import { TLEditorSnapshot } from '@tldraw/tldraw';
-import { InkFileData } from './page-file';
+import { InkFileData } from '../../components/formats/current/types/file-data';
 
 /////////////////////
 /////////////////////
 
 /**
- * Extracts JSON content from an inkdrawing XML element within SVG metadata
- * @param svgString - The SVG string containing the inkdrawing element in metadata
- * @returns The parsed JSON object from the inkdrawing element, or null if not found/invalid
+ * Extracts JSON content from a <tldraw> XML element within SVG metadata.
+ * Falls back to legacy <inkdrawing> element for backward compatibility.
+ * Also reads an optional <filetype> sibling and merges into meta.fileType if present.
+ * @param svgString - The SVG string containing the metadata element
+ * @returns The parsed JSON object or null if not found/invalid
  */
 export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
     try {
@@ -30,30 +32,66 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
             return null;
         }
         
-        // Look for inkdrawing element within metadata
+        // Look for tldraw element within metadata
         const metadataElement = metadataElements[0];
-        const inkdrawingElements = metadataElement.getElementsByTagName('inkdrawing');
+
+        // Gate on filetype being 'inkDrawing' or 'inkWriting' before parsing tldraw
+        // Prefer <ink fileType="..."> attribute; fall back to <filetype> element if present
+        const inkElements = metadataElement.getElementsByTagName('ink');
+        let fileTypeText: string | undefined;
+        if (inkElements.length > 0) {
+            fileTypeText = inkElements[0].getAttribute('file-type') || undefined;
+        }
+        if (!fileTypeText) {
+            console.warn('No filetype found in metadata');
+            return null;
+        }
+        if (fileTypeText !== 'inkDrawing' && fileTypeText !== 'inkWriting') {
+            console.warn('Unsupported or missing filetype in metadata');
+            return null;
+        }
+
+        const tldrawElements = metadataElement.getElementsByTagName('tldraw');
         
-        if (inkdrawingElements.length === 0) {
-            console.warn('No inkdrawing element found in metadata');
+        // Ensure tldraw exists
+        const hasTldraw = tldrawElements.length > 0;
+        if (!hasTldraw) {
+            console.warn('No tldraw element found in metadata');
             return null;
         }
         
-        // Get the content of the inkdrawing element
-        const inkdrawingElement = inkdrawingElements[0];
-        const jsonText = inkdrawingElement.textContent?.trim();
+        // Get the content of the tldraw element
+        const settingsElement = tldrawElements[0];
+        const jsonText = settingsElement.textContent?.trim();
         
         if (!jsonText) {
-            console.warn('No JSON content found in inkdrawing element');
+            console.warn('No JSON content found in metadata settings element');
             return null;
         }
         
-        // Parse the JSON content
-        const jsonData = JSON.parse(jsonText);
-        return jsonData as InkFileData;
+        // Parse the JSON content (tldraw snapshot only)
+        const tldrawSnapshot = JSON.parse(jsonText) as TLEditorSnapshot;
+
+        // Also read pluginVersion from <ink>
+        const pluginVersionAttr = inkElements.length > 0 ? (inkElements[0].getAttribute('plugin-version') || undefined) : undefined;
+
+        // Read tldraw version from <tldraw version="...">
+        const tldrawVersionAttr = settingsElement.getAttribute('version') || undefined;
+
+        // Construct InkFileData result
+        const inkFileData: InkFileData = {
+            meta: {
+                pluginVersion: pluginVersionAttr || '',
+                tldrawVersion: tldrawVersionAttr || '',
+                fileType: fileTypeText,
+            },
+            tldraw: tldrawSnapshot,
+        } as InkFileData;
+
+        return inkFileData;
         
     } catch (error) {
-        console.error('Error extracting inkdrawing JSON:', error);
+        console.error('Error extracting tldraw metadata JSON:', error);
         return null;
     }
 } 

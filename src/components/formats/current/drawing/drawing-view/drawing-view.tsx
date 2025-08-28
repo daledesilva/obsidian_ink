@@ -4,7 +4,6 @@ import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
-import { InkFileData } from "src/logic/utils/page-file";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
@@ -12,7 +11,7 @@ import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
-import { InkFileType } from "src/components/formats/current/types/file-data";
+import { InkFileData } from "../../types/file-data";
 
 ////////
 ////////
@@ -53,9 +52,11 @@ export function registerDrawingView (plugin: InkPlugin) {
                 const svgString = await plugin.app.vault.read(file);
                 if (!svgString || !svgString.trim().startsWith('<svg')) return;
 
-                const inkData = extractInkJsonFromSvg(svgString);
-                const fileType = (inkData as any)?.meta?.fileType as InkFileType | undefined;
-                if (!inkData || fileType !== InkFileType.Drawing) return;
+                const inkFileData = extractInkJsonFromSvg(svgString);
+                console.log('inkFileData', inkFileData);
+                if (!inkFileData) return;
+                const fileType = inkFileData.meta.fileType;
+                if (fileType !== "inkDrawing") return;
 
                 await activeLeaf.setViewState({
                     type: DRAWING_VIEW_TYPE,
@@ -72,7 +73,7 @@ export function registerDrawingView (plugin: InkPlugin) {
 export class DrawingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    pageData: InkFileData;
+    inkFileData: InkFileData;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -91,9 +92,9 @@ export class DrawingView extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = extractInkJsonFromSvg(fileContents);
-        if(pageData) {
-            this.pageData = pageData;
+        const inkFileData = extractInkJsonFromSvg(fileContents);
+        if(inkFileData) {
+            this.inkFileData = inkFileData;
         }
 
         const viewContent = this.containerEl.children[1];
@@ -116,13 +117,13 @@ export class DrawingView extends TextFileView {
     }
 
     saveFile = (pageData: InkFileData) => {
-        this.pageData = pageData;
+        this.inkFileData = pageData;
         this.save(false);   // Obsidian will call getViewData during this method
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        return buildFileStr(this.pageData);
+        return buildFileStr(this.inkFileData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

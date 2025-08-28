@@ -3,7 +3,6 @@ import InkPlugin from "src/main";
 import { buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { SvgFilePickerModal } from "src/components/dom-components/modals/svg-picker-modal/svg-picker-modal";
-import { InkFileData, InkFileType } from "src/components/formats/current/types/file-data";
 
 /////////
 /////////
@@ -19,9 +18,9 @@ export const insertExistingDrawingFile = async (plugin: InkPlugin, editor: Edito
         try {
             const svgString = await plugin.app.vault.read(file);
             if (!svgString || !svgString.trim().startsWith('<svg')) continue;
-            const inkData = extractInkJsonFromSvg(svgString);
-            const fileType = (inkData as InkFileData)?.meta?.fileType;
-            if (inkData && fileType === InkFileType.Drawing) validFiles.push(file);
+            const inkFileData = extractInkJsonFromSvg(svgString);
+            if (!inkFileData) continue;
+            if (inkFileData.meta.fileType === "inkDrawing") validFiles.push(file);
         } catch (_) {
             // ignore invalid/unreadable files
         }

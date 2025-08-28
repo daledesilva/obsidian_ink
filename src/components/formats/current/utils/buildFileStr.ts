@@ -3,6 +3,9 @@ import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { DOMParser } from 'xmldom';
 import format from 'xml-formatter';
 
+//////////////////////////
+//////////////////////////
+
 type Metadata = {
 	pluginVersion: string;
 	tldrawVersion: string;
@@ -10,7 +13,7 @@ type Metadata = {
 	transcript?: string;
 };
 
-export type InkFileData = {
+type InkFileData = {
 	meta: Metadata;
 	tldraw: TLEditorSnapshot;
     previewUri?: string;
@@ -18,7 +21,7 @@ export type InkFileData = {
 };
 
 // V2 format: SVG file with JSON metadata embedded
-export const buildFileStr_v2 = (pageData: InkFileData): string => {
+export const buildFileStr = (pageData: InkFileData): string => {
     // Prefer svgString for v2; fall back to previewUri for backward compatibility
     let fileStr = pageData.svgString || pageData.previewUri || '<svg></svg>';
 
@@ -46,9 +49,4 @@ export const buildFileStr_v2 = (pageData: InkFileData): string => {
 		indentation: '\t',
 		lineSeparator: '\n'
 	});
-} 
-
-// V1 format: Plain JSON string
-export const buildFileStr = (pageData: InkFileData): string => {
-    return JSON.stringify(pageData, null, '\t');
 }

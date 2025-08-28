@@ -1,5 +1,5 @@
 import { TFile, normalizePath } from "obsidian";
-import { DRAW_FILE_EXT, WRITE_FILE_EXT } from "src/constants";
+import { DRAW_FILE_V1_EXT, WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { getDateFilename } from "./getDateFilename";
 import { getVersionedFilepath } from "./getVersionedFilepath";
@@ -19,7 +19,7 @@ export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin, instig
         instigatingFileFolderPath,
     });
     let subFolderPath = getWritingSubfolderPath(plugin);
-    const fullPath = await getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, `${basePath}/${subFolderPath}`);
+    const fullPath = await getNewTimestampedFilepath(plugin, WRITE_FILE_V1_EXT, `${basePath}/${subFolderPath}`);
     return fullPath;
 }
 
@@ -31,7 +31,7 @@ export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin, instig
         instigatingFileFolderPath,
     });
     let subFolderPath = getDrawingSubfolderPath(plugin);
-    const fullPath = await getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, `${basePath}/${subFolderPath}`);
+    const fullPath = await getNewTimestampedFilepath(plugin, DRAW_FILE_V1_EXT, `${basePath}/${subFolderPath}`);
     return fullPath;
 }
 

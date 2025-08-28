@@ -1,5 +1,5 @@
 import { TFile } from "obsidian";
-import { WRITE_FILE_EXT } from "src/constants";
+import { WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 
@@ -16,7 +16,7 @@ export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
 };
 
 export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile, transcript: string) => {
-    if (fileRef.extension !== WRITE_FILE_EXT) return;
+    if (fileRef.extension !== WRITE_FILE_V1_EXT) return;
     const v = plugin.app.vault;
 
     // console.log('saving transcript to', fileRef.path);

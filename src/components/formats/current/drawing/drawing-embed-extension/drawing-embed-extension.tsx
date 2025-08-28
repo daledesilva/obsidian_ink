@@ -21,11 +21,11 @@ import {
 } from "jotai";
 import { DrawingEmbed } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
-import { buildFileStr_v2 } from 'src/logic/utils/buildFileStr';
 import { SyntaxNodeRef } from '@lezer/common';
 import { EmbedSettings } from 'src/types/embed-settings';
 import './drawing-embed-extension.scss';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
+import { buildFileStr } from '../../utils/buildFileStr';
 
 /////////////////////
 /////////////////////
@@ -77,7 +77,7 @@ export class DrawingEmbedWidget extends WidgetType {
 	save = async (pageData: InkFileData) => {
 		if(!this.embeddedFile) return;
 		const plugin = getGlobals().plugin;
-		const pageDataStr = buildFileStr_v2(pageData);
+		const pageDataStr = buildFileStr(pageData);
 		await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
 	}
 

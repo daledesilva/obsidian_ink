@@ -1,5 +1,5 @@
 import { App, Editor, FuzzySuggestModal, TFile } from "obsidian";
-import { DRAW_FILE_EXT } from "src/constants";
+import { DRAW_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { buildDrawingEmbed_v1 } from "src/components/formats/v1-code-blocks/utils/build-embeds";
 
@@ -28,7 +28,7 @@ export class SelectHandwritingFileModal_v1 extends FuzzySuggestModal<TFile> {
         const files: TFile[] = [];
         for(let i=0; i<allFiles.length; i++) {
             const file = allFiles[i];
-            if(file.extension === DRAW_FILE_EXT) files.push(file);
+            if(file.extension === DRAW_FILE_V1_EXT) files.push(file);
         }
         return files;
     }

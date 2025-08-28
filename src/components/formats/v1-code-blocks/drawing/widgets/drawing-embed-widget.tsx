@@ -5,7 +5,7 @@ import { Root, createRoot } from "react-dom/client";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { applyCommonAncestorStyling, removeEmbed, stringifyEmbedData } from "src/logic/utils/embed";
 import { DrawingEmbedData_v1 } from "src/components/formats/v1-code-blocks/utils/build-embeds";
-import { buildFileStr } from "src/logic/utils/buildFileStr";
+import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/components/formats/v1-code-blocks/drawing/drawing-embed-editor/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
@@ -135,7 +135,7 @@ class DrawingEmbedWidget_v1 extends MarkdownRenderChild {
 
 	save = async (pageData: InkFileData_v1) => {
 		if(!this.fileRef) return;
-        const pageDataStr = buildFileStr(pageData);
+        const pageDataStr = buildFileStr_v1(pageData);
 		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 

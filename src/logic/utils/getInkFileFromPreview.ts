@@ -1,6 +1,6 @@
 import { TFile } from "obsidian";
 import { getGlobals } from "src/stores/global-store";
-import { DRAW_FILE_EXT } from "src/constants";
+import { DRAW_FILE_V1_EXT } from "src/constants";
 
 ////////////////////////
 ////////////////////////
@@ -12,7 +12,7 @@ export async function getInkFileFromPreview(previewFilepath: string): Promise<TF
 
 	let filepathArr = previewFilepath.split('.');
 	filepathArr.pop();
-	filepathArr.push(`.${DRAW_FILE_EXT}`);
+	filepathArr.push(`.${DRAW_FILE_V1_EXT}`);
 	const inkFilepath = filepathArr.join('.');
 	const inkFile = v.getAbstractFileByPath(inkFilepath);
 	if(!inkFile) return null; // TODO: Handle this non-silently

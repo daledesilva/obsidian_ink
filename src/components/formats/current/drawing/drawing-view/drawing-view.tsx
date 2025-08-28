@@ -9,12 +9,12 @@ import {
 	Provider as JotaiProvider
 } from "jotai";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
-import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
+import { buildFileStr } from "../../utils/buildFileStr";
 
 ////////
 ////////
 
-export const DRAWING_VIEW_V1_TYPE = "ink_drawing-view";
+export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
     return [
@@ -29,15 +29,15 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
 
 ////////
 
-export function registerDrawingView_v1 (plugin: InkPlugin) {
+export function registerDrawingView (plugin: InkPlugin) {
     plugin.registerView(
-        DRAWING_VIEW_V1_TYPE,
-        (leaf) => new DrawingView_v1(leaf, plugin)
+        DRAWING_VIEW_TYPE,
+        (leaf) => new DrawingView(leaf, plugin)
     );
-    plugin.registerExtensions([DRAW_FILE_V1_EXT], DRAWING_VIEW_V1_TYPE);
+    plugin.registerExtensions([DRAW_FILE_V1_EXT], DRAWING_VIEW_TYPE);
 }
 
-export class DrawingView_v1 extends TextFileView {
+export class DrawingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     pageData: InkFileData;
@@ -48,7 +48,7 @@ export class DrawingView_v1 extends TextFileView {
     }
 
     getViewType(): string {
-        return DRAWING_VIEW_V1_TYPE;
+        return DRAWING_VIEW_TYPE;
     }
 
     getDisplayText = () => {
@@ -89,7 +89,7 @@ export class DrawingView_v1 extends TextFileView {
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        return buildFileStr_v1(this.pageData);
+        return buildFileStr(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

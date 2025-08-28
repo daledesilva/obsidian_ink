@@ -1,29 +1,27 @@
 import { TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { TldrawWritingEditor_v1 } from "src/components/formats/v1-code-blocks/writing/tldraw-writing-editor/tldraw-writing-editor";
 import { InkFileData } from "src/logic/utils/page-file";
-import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
-import { buildWritingFileData_v1 } from "../../utils/build-file-data";
+import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
+import { buildFileStr } from "../../utils/buildFileStr";
 
 ////////
 ////////
 
-export const WRITING_VIEW_V1_TYPE = "ink_writing-view";
+export const WRITING_VIEW_TYPE = "ink_writing-view";
 
 ////////
 
-export function registerWritingView_v1 (plugin: InkPlugin) {
+export function registerWritingView (plugin: InkPlugin) {
     plugin.registerView(
-        WRITING_VIEW_V1_TYPE,
-        (leaf) => new WritingView_v1(leaf, plugin)
+        WRITING_VIEW_TYPE,
+        (leaf) => new WritingView(leaf, plugin)
     );
-    plugin.registerExtensions([WRITE_FILE_V1_EXT], WRITING_VIEW_V1_TYPE);
+    plugin.registerExtensions(['svg'], WRITING_VIEW_TYPE);
 }
 
-export class WritingView_v1 extends TextFileView {
+export class WritingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     pageData: InkFileData;
@@ -37,7 +35,7 @@ export class WritingView_v1 extends TextFileView {
     }
 
     getViewType(): string {
-        return WRITING_VIEW_V1_TYPE;
+        return WRITING_VIEW_TYPE;
     }
 
     getDisplayText = () => {
@@ -59,7 +57,7 @@ export class WritingView_v1 extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawWritingEditor_v1
+            <TldrawWritingEditor
                 plugin = {this.plugin}
                 writingFile = {this.file}
                 save = {this.saveFile}
@@ -77,13 +75,7 @@ export class WritingView_v1 extends TextFileView {
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        
-        buildWritingFileData_v1({
-            tlEditorSnapshot: this.pageData.tldraw,
-            previewIsOutdated: this.pageData.meta.previewIsOutdated,
-            transcript: this.pageData.meta.transcript,
-        })
-        return buildFileStr_v1(this.pageData);
+        return buildFileStr(this.pageData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes

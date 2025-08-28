@@ -1,5 +1,5 @@
 import { TFile } from "obsidian";
-import { DRAW_FILE_EXT, WRITE_FILE_EXT } from "src/constants";
+import { DRAW_FILE_V1_EXT, WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData } from "./page-file";
 import { TLEditorSnapshot, TLShapeId } from "@tldraw/tldraw";
@@ -8,7 +8,7 @@ import { TLEditorSnapshot, TLShapeId } from "@tldraw/tldraw";
 ////////
 
 export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => {
-    if (file.extension !== WRITE_FILE_EXT) return;
+    if (file.extension !== WRITE_FILE_V1_EXT) return;
     const v = plugin.app.vault;
 
     const pageDataStr = await v.read(file);
@@ -27,6 +27,6 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     if (file.parent) {
         folderPath = file.parent.path + '/';
     }
-    const newPath = folderPath + file.basename + '.' + DRAW_FILE_EXT;
+    const newPath = folderPath + file.basename + '.' + DRAW_FILE_V1_EXT;
     await v.rename(file, newPath);
 };

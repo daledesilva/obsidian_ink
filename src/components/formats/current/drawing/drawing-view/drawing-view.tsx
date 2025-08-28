@@ -10,6 +10,8 @@ import {
 } from "jotai";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
+import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 
 ////////
 ////////
@@ -34,7 +36,7 @@ export function registerDrawingView (plugin: InkPlugin) {
         DRAWING_VIEW_TYPE,
         (leaf) => new DrawingView(leaf, plugin)
     );
-    plugin.registerExtensions([DRAW_FILE_V1_EXT], DRAWING_VIEW_TYPE);
+    plugin.registerExtensions(['svgd'], DRAWING_VIEW_TYPE);
 }
 
 export class DrawingView extends TextFileView {
@@ -59,8 +61,10 @@ export class DrawingView extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = JSON.parse(fileContents) as InkFileData;
-        this.pageData = pageData;
+        const pageData = extractInkJsonFromSvg(fileContents);
+        if(pageData) {
+            this.pageData = pageData;
+        }
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
@@ -71,8 +75,7 @@ export class DrawingView extends TextFileView {
         this.root = createRoot(viewContent);
 		this.root.render(
             <JotaiProvider>
-                <TldrawDrawingEditor_v1
-                    plugin={this.plugin}
+                <TldrawDrawingEditor
                     onReady = {() => {}}
                     drawingFile = {this.file}
                     save = {this.saveFile}

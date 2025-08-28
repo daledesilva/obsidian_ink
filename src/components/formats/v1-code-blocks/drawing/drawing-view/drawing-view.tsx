@@ -14,7 +14,7 @@ import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/bui
 ////////
 ////////
 
-export const DRAWING_VIEW_V1_TYPE = "ink_drawing-view";
+export const DRAWING_VIEW_V1_TYPE = "ink_drawing-v1-view";
 
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
     return [

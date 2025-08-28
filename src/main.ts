@@ -25,6 +25,8 @@ import { insertExistingDrawingFile_v1 } from './commands/insert-existing-drawing
 import { insertRememberedDrawingFile_v1 } from './commands/insert-remembered-drawing-file-v1';
 import { insertRememberedDrawingFile } from './commands/insert-remembered-drawing-file';
 import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
+import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
+import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 
 ////////
 ////////
@@ -50,26 +52,36 @@ export default class InkPlugin extends Plugin {
 		// implementHandDrawnNoteAction(this)
 
 		if (this.settings.writingEnabled) {
-			registerWritingView_v1(this);
+
+			// Current
+			registerWritingView(this);
 			registerWritingEmbed(this);
 			implementWritingEmbedActions(this);
 			this.registerEditorExtension([
 				writingEmbedExtension(),
 			]);
+			
 			// Legacy
+			registerWritingView_v1(this);
 			registerWritingEmbed_v1(this);
+			implementWritingEmbedActions_v1(this);
 		}
 		
 		if (this.settings.drawingEnabled) {
-			registerDrawingView_v1(this);
+
+			// Current
+			registerDrawingView(this);
 			registerDrawingEmbed(this);
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([
 				// Prec.highest(drawingEmbedExtension()),
 				drawingEmbedExtension(),
 			]);
+
 			// Legacy
+			registerDrawingView_v1(this);
 			registerDrawingEmbed_v1(this);
+			implementDrawingEmbedActions_v1(this);
 		}
 
 		registerSettingsTab(this);
@@ -125,6 +137,9 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
 
+}
+function implementWritingEmbedActions_v1(plugin: InkPlugin) {
+
 	// Legacy
 	plugin.addCommand({
 		id: 'create-handwritten-section-v1',
@@ -168,6 +183,10 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		icon: 'folder-dot',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
+
+}
+
+function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
 	
 	// Legacy
 	plugin.addCommand({

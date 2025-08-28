@@ -5,6 +5,8 @@ import InkPlugin from "src/main";
 import { InkFileData } from "src/logic/utils/page-file";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
 import { buildFileStr } from "../../utils/buildFileStr";
+import { prepareDrawingSnapshot, prepareWritingSnapshot } from "src/logic/utils/tldraw-helpers";
+import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 
 ////////
 ////////
@@ -18,7 +20,7 @@ export function registerWritingView (plugin: InkPlugin) {
         WRITING_VIEW_TYPE,
         (leaf) => new WritingView(leaf, plugin)
     );
-    plugin.registerExtensions(['svg'], WRITING_VIEW_TYPE);
+    plugin.registerExtensions(['svgw'], WRITING_VIEW_TYPE);
 }
 
 export class WritingView extends TextFileView {
@@ -46,8 +48,10 @@ export class WritingView extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = JSON.parse(fileContents) as InkFileData;
-        this.pageData = pageData;
+        const pageData = extractInkJsonFromSvg(fileContents);
+        if(pageData) {
+            this.pageData = pageData;
+        }
 
         const viewContent = this.containerEl.children[1];
         viewContent.setAttr('style', 'padding: 0;');
@@ -103,6 +107,7 @@ export class WritingView extends TextFileView {
     //     })
     //     super.onPaneMenu(menu, source);
     // }
+
 
 }
 

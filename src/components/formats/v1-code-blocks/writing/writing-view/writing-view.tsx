@@ -11,7 +11,7 @@ import { buildWritingFileData_v1 } from "../../utils/build-file-data";
 ////////
 ////////
 
-export const WRITING_VIEW_V1_TYPE = "ink_writing-view";
+export const WRITING_VIEW_V1_TYPE = "ink_writing-v1-view";
 
 ////////
 

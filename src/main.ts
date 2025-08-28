@@ -6,10 +6,10 @@ import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/dra
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
 import { insertNewWritingFile_v1 } from './commands/insert-new-writing-file-v1';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
-import { registerWritingView } from './components/views/writing-view';
+import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
 import { insertNewDrawingFile_v1 } from './commands/insert-new-drawing-file-v1';
 import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
-import { registerDrawingView } from './components/views/drawing-view';
+import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
 import { registerDrawingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/drawing-embed-widget';
 import { insertNewDrawingFile } from './commands/insert-new-drawing-file';
 import { showWelcomeTips_maybe } from './components/dom-components/welcome-notice';
@@ -50,7 +50,7 @@ export default class InkPlugin extends Plugin {
 		// implementHandDrawnNoteAction(this)
 
 		if (this.settings.writingEnabled) {
-			registerWritingView(this);
+			registerWritingView_v1(this);
 			registerWritingEmbed(this);
 			implementWritingEmbedActions(this);
 			this.registerEditorExtension([
@@ -61,7 +61,7 @@ export default class InkPlugin extends Plugin {
 		}
 		
 		if (this.settings.drawingEnabled) {
-			registerDrawingView(this);
+			registerDrawingView_v1(this);
 			registerDrawingEmbed(this);
 			implementDrawingEmbedActions(this);
 			this.registerEditorExtension([

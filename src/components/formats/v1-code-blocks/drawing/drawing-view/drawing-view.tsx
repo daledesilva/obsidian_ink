@@ -1,34 +1,46 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { WRITE_FILE_EXT } from "src/constants";
+import { DRAW_FILE_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { TldrawWritingEditor_v1 } from "src/components/formats/v1-code-blocks/writing/tldraw-writing-editor/tldraw-writing-editor";
+import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "src/logic/utils/page-file";
+import { 
+	Provider as JotaiProvider
+} from "jotai";
+import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "src/logic/utils/buildFileStr";
 
 ////////
 ////////
 
-export const WRITING_VIEW_TYPE = "ink_writing-view";
+export const DRAWING_VIEW_V1_TYPE = "ink_drawing-view";
+
+function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
+    return [
+        {
+            text: 'Copy drawing',
+            action: async () => {
+                await rememberDrawingFile(fileRef);
+            }
+        },
+    ]
+}
 
 ////////
 
-export function registerWritingView (plugin: InkPlugin) {
+export function registerDrawingView_v1 (plugin: InkPlugin) {
     plugin.registerView(
-        WRITING_VIEW_TYPE,
-        (leaf) => new WritingView(leaf, plugin)
+        DRAWING_VIEW_V1_TYPE,
+        (leaf) => new DrawingView_v1(leaf, plugin)
     );
-    plugin.registerExtensions([WRITE_FILE_EXT], WRITING_VIEW_TYPE);
+    plugin.registerExtensions([DRAW_FILE_EXT], DRAWING_VIEW_V1_TYPE);
 }
 
-export class WritingView extends TextFileView {
+export class DrawingView_v1 extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     pageData: InkFileData;
-    tldrawControls: {
-        resize?: Function,
-    } = {}
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -36,14 +48,14 @@ export class WritingView extends TextFileView {
     }
 
     getViewType(): string {
-        return WRITING_VIEW_TYPE;
+        return DRAWING_VIEW_V1_TYPE;
     }
 
     getDisplayText = () => {
-        return this.file?.basename || "Handwritten note";
+        return this.file?.basename || "Drawing";
     }
     
-    // This provides the data from the file for placing into the view (Called by Obsidian when file is opening)
+    // This provides the data from the file for placing into the view (Called when file is opening)
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
@@ -58,14 +70,15 @@ export class WritingView extends TextFileView {
         
         this.root = createRoot(viewContent);
 		this.root.render(
-            <TldrawWritingEditor_v1
-                plugin = {this.plugin}
-                writingFile = {this.file}
-                save = {this.saveFile}
-                saveControlsReference = {(controls: any) => {
-                    this.tldrawControls.resize = controls.resize;
-                }}
-			/>
+            <JotaiProvider>
+                <TldrawDrawingEditor_v1
+                    plugin={this.plugin}
+                    onReady = {() => {}}
+                    drawingFile = {this.file}
+                    save = {this.saveFile}
+                    extendedMenu = {getExtendedOptions(this.plugin, this.file)}
+                />
+            </JotaiProvider>
         );
     }
 
@@ -81,25 +94,20 @@ export class WritingView extends TextFileView {
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
-        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data over new files)
+        // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data into new ones)
         this.root?.unmount();
     }
 
-    onResize = () => {
-        // TODO: Currently this doesn't refresh the width stored in the camera limits, so removed it for now
-        // if(this.tldrawControls.resize) this.tldrawControls.resize();
-    }
+    // onResize()
 
     // TODO: Consider converting between drawings and writing files in future
-
+    
     // onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
     //     menu.addItem((item) => {
-    //         item.setTitle('Convert to Drawing');
+    //         item.setTitle('Convert to Write file');
     //         item.setSection('action');
-    //         item.onClick( async () => {
-    //             if(!this.file) return;
-    //             await convertWriteFileToDraw(this.plugin, this.file);
-    //             openInkFile(this.plugin, this.file);
+    //         item.onClick( () => {
+    //             console.log('clicked');
     //         })
     //     })
     //     super.onPaneMenu(menu, source);

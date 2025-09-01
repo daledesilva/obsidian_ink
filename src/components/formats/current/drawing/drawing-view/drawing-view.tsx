@@ -72,10 +72,12 @@ export class DrawingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     inkFileData: InkFileData;
+    hostEl: HTMLElement | null;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
         this.plugin = plugin;
+        this.hostEl = null;
     }
 
     getViewType(): string {
@@ -95,13 +97,20 @@ export class DrawingView extends TextFileView {
             this.inkFileData = inkFileData;
         }
 
-        const viewContent = this.containerEl.children[1];
+        const viewContent = this.containerEl.children[1] as HTMLElement;
         viewContent.setAttr('style', 'padding: 0;');
 		
         // If a new file is opening in the same leaf, then clear the old one instead of creating a new one
         if(this.root) this.clear();
-        
-        this.root = createRoot(viewContent);
+
+        // Create a dedicated host for React to avoid conflicts with Obsidian lifecycle
+        const host = viewContent.ownerDocument.createElement('div');
+        host.className = 'ink-drawing-view-host';
+        host.style.height = '100%';
+        viewContent.appendChild(host);
+        this.hostEl = host;
+
+        this.root = createRoot(host);
 		this.root.render(
             <JotaiProvider>
                 <TldrawDrawingEditor
@@ -127,7 +136,20 @@ export class DrawingView extends TextFileView {
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data into new ones)
-        this.root?.unmount();
+        try {
+            if(this.root) this.root.unmount();
+        } catch (_) {}
+        this.root = null;
+        if(this.hostEl && this.hostEl.isConnected) {
+            try { this.hostEl.remove(); } catch (_) {}
+        }
+        this.hostEl = null;
+    }
+
+    async onClose(): Promise<void> {
+        // Ensure cleanup happens before Obsidian tears down DOM
+        this.clear();
+        return await super.onClose();
     }
 
     // onResize()

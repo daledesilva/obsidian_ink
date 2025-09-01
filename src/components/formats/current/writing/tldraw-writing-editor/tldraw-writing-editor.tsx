@@ -259,13 +259,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		verbose('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
+		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 
-        const pageData = buildWritingFileData({
+        const writingFileData = buildWritingFileData({
 			tlEditorSnapshot: tlEditorSnapshot,
-			previewIsOutdated: true,
+			svgString: svgObj?.svg,
 		})
-		props.save(pageData);
+		props.save(writingFileData);
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {

@@ -54,14 +54,16 @@ export function registerWritingView (plugin: InkPlugin) {
 export class WritingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    pageData: InkFileData;
+    inkFileData: InkFileData;
     tldrawControls: {
         resize?: Function,
     } = {}
+    hostEl: HTMLElement | null;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
         this.plugin = plugin;
+        this.hostEl = null;
     }
 
     getViewType(): string {
@@ -76,18 +78,25 @@ export class WritingView extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = extractInkJsonFromSvg(fileContents);
-        if(pageData) {
-            this.pageData = pageData;
+        const inkFileData = extractInkJsonFromSvg(fileContents);
+        if(inkFileData) {
+            this.inkFileData = inkFileData;
         }
 
-        const viewContent = this.containerEl.children[1];
+        const viewContent = this.containerEl.children[1] as HTMLElement;
         viewContent.setAttr('style', 'padding: 0;');
 		
         // If a new file is opening in the same leaf, then clear the old one instead of creating a new one
         if(this.root) this.clear();
-        
-        this.root = createRoot(viewContent);
+
+        // Create a dedicated host for React to avoid conflicts with Obsidian lifecycle
+        const host = viewContent.ownerDocument.createElement('div');
+        host.className = 'ink-writing-view-host';
+        host.style.height = '100%';
+        viewContent.appendChild(host);
+        this.hostEl = host;
+
+        this.root = createRoot(host);
 		this.root.render(
             <TldrawWritingEditor
                 plugin = {this.plugin}
@@ -100,20 +109,27 @@ export class WritingView extends TextFileView {
         );
     }
 
-    saveFile = (pageData: InkFileData) => {
-        this.pageData = pageData;
+    saveFile = (inkFileData: InkFileData) => {
+        this.inkFileData = inkFileData;
         this.save(false);   // Obsidian will call getViewData during this method
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
     getViewData = (): string => {
-        return buildFileStr(this.pageData);
+        return buildFileStr(this.inkFileData);
     }
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data over new files)
-        this.root?.unmount();
+        try {
+            if(this.root) this.root.unmount();
+        } catch (_) {}
+        this.root = null;
+        if(this.hostEl && this.hostEl.isConnected) {
+            try { this.hostEl.remove(); } catch (_) {}
+        }
+        this.hostEl = null;
     }
 
     onResize = () => {
@@ -137,6 +153,10 @@ export class WritingView extends TextFileView {
     // }
 
 
+    async onClose(): Promise<void> {
+        this.clear();
+        return await super.onClose();
+    }
 }
 
 

@@ -243,11 +243,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const incrementalSave = async (editor: Editor) => {
 		verbose('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const pageData = buildDrawingFileData({
+		const svgObj = await getDrawingSvg(editor);
+		const drawingFileData = buildDrawingFileData({
 			tlEditorSnapshot: tlEditorSnapshot,
-			previewIsOutdated: true,
+			svgString: svgObj?.svg,
 		})
-		props.save(pageData);
+		props.save(drawingFileData);
 	}
 
 	const completeSave = async (editor: Editor): Promise<void> => {

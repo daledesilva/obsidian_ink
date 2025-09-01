@@ -74,11 +74,11 @@ export class DrawingEmbedWidget extends WidgetType {
 	// Helper functions
 	///////////////////
 
-	save = async (pageData: InkFileData) => {
+	save = async (inkFileData: InkFileData) => {
 		if(!this.embeddedFile) return;
 		const plugin = getGlobals().plugin;
-		const pageDataStr = buildFileStr(pageData);
-		await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
+		const inkFileContents = buildFileStr(inkFileData);
+		await plugin.app.vault.modify(this.embeddedFile, inkFileContents);
 	}
 
 	setEmbedProps = async (view: EditorView, width: number, aspectRatio: number) => {

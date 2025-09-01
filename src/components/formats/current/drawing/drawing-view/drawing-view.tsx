@@ -123,8 +123,8 @@ export class DrawingView extends TextFileView {
         );
     }
 
-    saveFile = (pageData: InkFileData) => {
-        this.inkFileData = pageData;
+    saveFile = (inkFileData: InkFileData) => {
+        this.inkFileData = inkFileData;
         this.save(false);   // Obsidian will call getViewData during this method
     }
     

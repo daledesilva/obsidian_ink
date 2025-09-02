@@ -75,6 +75,11 @@
     transition-timing-function: ease-out;
 }
 
+// Hide "Edit Drawing" anchor tags
+a[href*="type=inkDrawing"] {
+    visibility: hidden;
+}
+
 
 .theme-dark {
     .ddc_ink_drawing-embed-preview {

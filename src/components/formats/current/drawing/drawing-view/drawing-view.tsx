@@ -12,6 +12,7 @@ import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
+import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
 
 ////////
 ////////
@@ -73,6 +74,7 @@ export class DrawingView extends TextFileView {
     plugin: InkPlugin;
     inkFileData: InkFileData;
     hostEl: HTMLElement | null;
+    editorControls: DrawingEditorControls | null = null; // Add this
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -118,6 +120,7 @@ export class DrawingView extends TextFileView {
                     drawingFile = {this.file}
                     save = {this.saveFile}
                     extendedMenu = {getExtendedOptions(this.plugin, this.file)}
+                    saveControlsReference = {this.registerEditorControls} // Add this
                 />
             </JotaiProvider>
         );
@@ -135,6 +138,9 @@ export class DrawingView extends TextFileView {
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
+        // Clear editor controls reference
+        this.editorControls = null;
+
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data into new ones)
         try {
             if(this.root) this.root.unmount();
@@ -146,8 +152,18 @@ export class DrawingView extends TextFileView {
         this.hostEl = null;
     }
 
+    // Add method to register editor controls
+    registerEditorControls = (controls: DrawingEditorControls) => {
+        this.editorControls = controls;
+    }
+
     async onClose(): Promise<void> {
-        // Ensure cleanup happens before Obsidian tears down DOM
+        // Save current state before unmounting
+        if (this.root && this.editorControls) {
+            await this.editorControls.saveAndHalt();
+        }
+        
+        // Then cleanup
         this.clear();
         return await super.onClose();
     }

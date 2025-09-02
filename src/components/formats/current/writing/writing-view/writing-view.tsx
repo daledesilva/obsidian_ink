@@ -6,6 +6,7 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { WritingEditorControls } from "../writing-embed/writing-embed";
 
 ////////
 ////////
@@ -55,6 +56,7 @@ export class WritingView extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
     inkFileData: InkFileData;
+    editorControls: WritingEditorControls | null = null;
     tldrawControls: {
         resize?: Function,
     } = {}
@@ -102,9 +104,7 @@ export class WritingView extends TextFileView {
                 plugin = {this.plugin}
                 writingFile = {this.file}
                 save = {this.saveFile}
-                saveControlsReference = {(controls: any) => {
-                    this.tldrawControls.resize = controls.resize;
-                }}
+                saveControlsReference = {this.registerEditorControls}
 			/>
         );
     }
@@ -112,6 +112,13 @@ export class WritingView extends TextFileView {
     saveFile = (inkFileData: InkFileData) => {
         this.inkFileData = inkFileData;
         this.save(false);   // Obsidian will call getViewData during this method
+    }
+
+    // Register editor controls for saving before unmount
+    registerEditorControls = (controls: WritingEditorControls) => {
+        this.editorControls = controls;
+        // Also store resize for backward compatibility
+        this.tldrawControls.resize = (controls as any).resize;
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
@@ -121,6 +128,9 @@ export class WritingView extends TextFileView {
 
     // This is sometimes called by Obsidian, and also called manually on file changes
     clear = (): void => {
+        // Clear editor controls reference
+        this.editorControls = null;
+        
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data over new files)
         try {
             if(this.root) this.root.unmount();
@@ -154,6 +164,12 @@ export class WritingView extends TextFileView {
 
 
     async onClose(): Promise<void> {
+        // Save current state before unmounting to prevent empty SVG
+        if (this.editorControls) {
+            await this.editorControls.saveAndHalt();
+        }
+        
+        // Then cleanup
         this.clear();
         return await super.onClose();
     }

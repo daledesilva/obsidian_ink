@@ -1,7 +1,7 @@
 
 
 // Universal selector that works in both Live Preview AND Reading View
-.markdown-rendered:has(.ddc_ink_drawing-embed) {
+.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ddc_ink_drawing-embed) {
     // Enables placing elements outside of the embed
     contain: unset !important;
     overflow: visible;

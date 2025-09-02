@@ -1,18 +1,15 @@
 
 
-// Enables placing elements outside of the embed
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ddc_ink_drawing-embed),
-.markdown-source-view.mod-cm6 .cm-content > .cm-preview-code-block.cm-embed-block.markdown-rendered[contenteditable=false]:has(.ddc_ink_drawing-embed):hover {
+// Universal selector that works in both Live Preview AND Reading View
+.markdown-rendered:has(.ddc_ink_drawing-embed) {
+    // Enables placing UI elements outside of the embed
     contain: unset !important;
     overflow: visible;
-}
-
-
-.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ddc_ink_drawing-embed) {
+    
     // Extend through page horizontal margin
     margin: 0 calc(-1 * var(--file-margins)) !important;
 
-    // Prevent default obsidian cod-block hover outline
+    // Prevent default obsidian hover outline
     &:hover {
         box-shadow: none;
     }

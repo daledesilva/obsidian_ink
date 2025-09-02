@@ -2,7 +2,7 @@ import InkPlugin from "src/main";
 import { Editor, Notice, TFile } from "obsidian";
 import { buildWritingEmbed_v1 } from "src/components/formats/v1-code-blocks/utils/build-embeds";
 import { fetchLocally } from "src/logic/utils/storage";
-import { duplicateWritingFile } from "src/logic/utils/rememberDrawingFile";
+import { duplicateWritingFile_v1 } from "src/components/formats/v1-code-blocks/utils/duplicate-files";
 import { InsertCopiedFileModal } from "src/components/dom-components/modals/confirmation-modal/insert-copied-file-modal";
 
 //////////
@@ -33,7 +33,7 @@ export const insertRememberedWritingFile_v1 = async (plugin: InkPlugin, editor: 
         },
         duplicateAction: async () => {
             const activeFile = plugin.app.workspace.getActiveFile();
-            const duplicatedFileRef = await duplicateWritingFile(plugin, existingFileRef, activeFile);
+            const duplicatedFileRef = await duplicateWritingFile_v1(plugin, existingFileRef, activeFile);
             if(!duplicatedFileRef) return;
 
             new Notice("Writing file duplicated");

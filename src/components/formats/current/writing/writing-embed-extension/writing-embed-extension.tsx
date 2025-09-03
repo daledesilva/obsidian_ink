@@ -68,9 +68,14 @@ export class WritingEmbedWidget extends WidgetType {
                 const widgetStart = it.from;
                 const widgetEnd = it.to;
                 
-                // Check if any selection range overlaps with this widget
+                // Check if any selection range actually spans across this widget
+                // Selection must have length > 0 and either start before and end after, or encompass the widget
                 const isHighlighted = view.state.selection.ranges.some(range => {
-                    return (range.from <= widgetEnd && range.to >= widgetStart);
+                    const hasSelection = range.from !== range.to; // Must be an actual selection, not just cursor position
+                    const spansWidget = (range.from < widgetStart && range.to > widgetEnd) || // Selection encompasses entire widget
+                                      (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // Selection starts before and ends within
+                                      (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd); // Selection starts within and ends after
+                    return hasSelection && spansWidget;
                 });
                 
                 // Update the highlight state and CSS class
@@ -220,9 +225,14 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
             const widgetStart = it.from;
             const widgetEnd = it.to;
             
-            // Check if any selection range overlaps with this widget
+            // Check if any selection range actually spans across this widget
+            // Selection must have length > 0 and either start before and end after, or encompass the widget
             const isHighlighted = transaction.newSelection.ranges.some(range => {
-                return (range.from <= widgetEnd && range.to >= widgetStart);
+                const hasSelection = range.from !== range.to; // Must be an actual selection, not just cursor position
+                const spansWidget = (range.from < widgetStart && range.to > widgetEnd) || // Selection encompasses entire widget
+                                  (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // Selection starts before and ends within
+                                  (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd); // Selection starts within and ends after
+                return hasSelection && spansWidget;
             });
             
             widgetHighlightStates.set(widget.id, isHighlighted);

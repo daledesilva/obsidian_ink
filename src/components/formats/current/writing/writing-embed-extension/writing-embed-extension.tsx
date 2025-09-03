@@ -33,6 +33,7 @@ export class WritingEmbedWidget extends WidgetType {
     toDOM(view: EditorView): HTMLElement {
         const rootEl = document.createElement('div');
         rootEl.className = 'ddc_ink_widget-root';
+        rootEl.setAttribute('data-widget-id', this.id);
         const root = createRoot(rootEl);
 
         const { plugin } = getGlobals();
@@ -209,6 +210,9 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
     // @ts-expect-error, not typed
     const view = activeEditor.cm as EditorView;
     
+    // Build a map of widget positions and their highlight states
+    const widgetHighlightStates = new Map<string, boolean>();
+    
     const it = decorations.iter();
     while (it.value) {
         const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
@@ -221,20 +225,43 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
                 return (range.from <= widgetEnd && range.to >= widgetStart);
             });
             
-            // Find the widget's DOM element and update its highlight state
-            const widgetElements = view.dom.querySelectorAll('.ddc_ink_widget-root');
-            for (const element of widgetElements) {
-                const htmlElement = element as HTMLElement;
-                
-                // Update the CSS class based on highlight state
-                if (isHighlighted) {
-                    htmlElement.classList.add('ddc_ink_widget-highlighted');
-                } else {
-                    htmlElement.classList.remove('ddc_ink_widget-highlighted');
-                }
-            }
+            widgetHighlightStates.set(widget.id, isHighlighted);
         }
         it.next();
+    }
+    
+    // Update each widget's DOM element based on its specific highlight state
+    const widgetElements = view.dom.querySelectorAll('.ddc_ink_widget-root');
+    for (const element of widgetElements) {
+        const htmlElement = element as HTMLElement;
+        
+        // Find the corresponding widget by searching through decorations again
+        const decorationsIter = decorations.iter();
+        let matchedWidget: WritingEmbedWidget | undefined;
+        
+        while (decorationsIter.value) {
+            const widget = decorationsIter.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget) {
+                // Try to match this DOM element with the widget by checking if it's the same element
+                // We'll use a data attribute approach for better matching
+                const widgetId = htmlElement.getAttribute('data-widget-id');
+                if (widgetId === widget.id || (!widgetId && matchedWidget === undefined)) {
+                    matchedWidget = widget;
+                    htmlElement.setAttribute('data-widget-id', widget.id);
+                    break;
+                }
+            }
+            decorationsIter.next();
+        }
+        
+        if (matchedWidget) {
+            const isHighlighted = widgetHighlightStates.get(matchedWidget.id) || false;
+            if (isHighlighted) {
+                htmlElement.classList.add('ddc_ink_widget-highlighted');
+            } else {
+                htmlElement.classList.remove('ddc_ink_widget-highlighted');
+            }
+        }
     }
 }
 

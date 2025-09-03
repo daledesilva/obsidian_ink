@@ -22,3 +22,15 @@
         left: 0;
     }
 }
+
+// TODO: This is communal to both embed types, it should be moved to a common file.
+
+// Highlight styling for widgets when they are within a text selection
+.ddc_ink_widget-root.ddc_ink_widget-highlighted {
+    background-color: var(--text-selection, rgba(0, 123, 255, 0.15));
+    box-shadow: unset;
+    border-radius: unset;
+    .ddc_ink_embed {
+        opacity: 0.6;
+    }
+}

@@ -11,6 +11,7 @@ import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
+import './writing-embed-extension.scss';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
@@ -19,6 +20,7 @@ export class WritingEmbedWidget extends WidgetType {
     mdFile: TFile;
     embeddedFile: TFile | null;
     partialEmbedFilepath: string;
+    isHighlighted: boolean = false;
 
     constructor(mdFile: TFile, embeddedFile: TFile | null, partialEmbedFilepath: string) {
         super();
@@ -30,9 +32,13 @@ export class WritingEmbedWidget extends WidgetType {
 
     toDOM(view: EditorView): HTMLElement {
         const rootEl = document.createElement('div');
+        rootEl.className = 'ddc_ink_widget-root';
         const root = createRoot(rootEl);
 
         const { plugin } = getGlobals();
+
+        // Update highlight state based on current selection
+        this.updateHighlightState(view, rootEl);
 
         root.render(
             <JotaiProvider>
@@ -47,6 +53,38 @@ export class WritingEmbedWidget extends WidgetType {
             </JotaiProvider>
         );
         return rootEl;
+    }
+
+    updateHighlightState(view: EditorView, rootEl: HTMLElement) {
+        // Find this widget's position in the document
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const widgetStart = it.from;
+                const widgetEnd = it.to;
+                
+                // Check if any selection range overlaps with this widget
+                const isHighlighted = view.state.selection.ranges.some(range => {
+                    return (range.from <= widgetEnd && range.to >= widgetStart);
+                });
+                
+                // Update the highlight state and CSS class
+                if (isHighlighted !== this.isHighlighted) {
+                    this.isHighlighted = isHighlighted;
+                    if (isHighlighted) {
+                        rootEl.classList.add('ddc_ink_widget-highlighted');
+                    } else {
+                        rootEl.classList.remove('ddc_ink_widget-highlighted');
+                    }
+                }
+                break;
+            }
+            it.next();
+        }
     }
 
     // Helper functions
@@ -85,6 +123,12 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         const { plugin } = getGlobals();
 
         const firstRun = prevEmbeds.size === 0;
+        
+        // Update highlight state for existing widgets when selection changes
+        if (!firstRun && transaction.changes.empty && transaction.selection) {
+            updateWidgetHighlightsWriting(transaction, prevEmbeds);
+        }
+        
         if (!firstRun && transaction.changes.empty) {
             return prevEmbeds;
         }
@@ -143,6 +187,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
 
         return builder.finish();
     },
+
     provide(stateField) {
         return [
             EditorView.decorations.from(stateField),
@@ -153,6 +198,45 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         ];
     },
 });
+
+// Helper function to update widget highlight states when selection changes
+function updateWidgetHighlightsWriting(transaction: Transaction, decorations: DecorationSet) {
+    const { plugin } = getGlobals();
+    const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+    const activeEditor = activeView?.editor;
+    if (!activeEditor) return;
+
+    // @ts-expect-error, not typed
+    const view = activeEditor.cm as EditorView;
+    
+    const it = decorations.iter();
+    while (it.value) {
+        const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+        if (widget) {
+            const widgetStart = it.from;
+            const widgetEnd = it.to;
+            
+            // Check if any selection range overlaps with this widget
+            const isHighlighted = transaction.newSelection.ranges.some(range => {
+                return (range.from <= widgetEnd && range.to >= widgetStart);
+            });
+            
+            // Find the widget's DOM element and update its highlight state
+            const widgetElements = view.dom.querySelectorAll('.ddc_ink_widget-root');
+            for (const element of widgetElements) {
+                const htmlElement = element as HTMLElement;
+                
+                // Update the CSS class based on highlight state
+                if (isHighlighted) {
+                    htmlElement.classList.add('ddc_ink_widget-highlighted');
+                } else {
+                    htmlElement.classList.remove('ddc_ink_widget-highlighted');
+                }
+            }
+        }
+        it.next();
+    }
+}
 
 export function writingEmbedExtension(): Extension {
     return embedStateFieldWriting;

@@ -396,7 +396,6 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
 }
 
 export function drawingEmbedExtension(): Extension {
-    console.log(`---- drawingEmbedExtension_v2`);
     return embedStateField;
 }
 
@@ -439,12 +438,12 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     // urlAndSettings                  
     // )
 
-    console.log('previewLinkStartNode', previewLinkStartNode.name);
+    // console.log('previewLinkStartNode', previewLinkStartNode.name);
     // Check for "!"
     if (!previewLinkStartNode || !previewLinkStartNode.name.includes('formatting_formatting-image_image_image-marker')) {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found "!" marker:`, `"${transaction.state.doc.sliceString(previewLinkStartNode.from, previewLinkStartNode.to)}"`);
+    // console.log(`---- Found "!" marker:`, `"${transaction.state.doc.sliceString(previewLinkStartNode.from, previewLinkStartNode.to)}"`);
     
     
     // Ensure there's a space before the embed
@@ -458,7 +457,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     if(!transcriptStartNode || !transcriptStartNode.name.includes('formatting_formatting-image_image_image-alt-text_link')) {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found transcript start:`, `"${transaction.state.doc.sliceString(transcriptStartNode.from, transcriptStartNode.to)}"`);
+    // console.log(`---- Found transcript start:`, `"${transaction.state.doc.sliceString(transcriptStartNode.from, transcriptStartNode.to)}"`);
 
     // Get the next node, which could be alt text or could be "("
     nextNode = transcriptStartNode.node.nextSibling;
@@ -473,12 +472,12 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     // If the start node was "[", then the next node must be alt text
     if(transcriptStartNode.to-transcriptStartNode.from === 1) {
         transcriptTextNode = nextNode;
-        console.log(`---- Found transcript text:`, `"${transaction.state.doc.sliceString(transcriptTextNode.from, transcriptTextNode.to)}"`);
+        // console.log(`---- Found transcript text:`, `"${transaction.state.doc.sliceString(transcriptTextNode.from, transcriptTextNode.to)}"`);
         transcriptEndNode = transcriptTextNode.node.nextSibling;
         if(!transcriptEndNode || !transcriptEndNode.name.includes('formatting_formatting-image_image_image-alt-text_link')) {
             return {alterFlow: 'continue-traversal'};
         }
-        console.log(`---- Found transcript end:`, `"${transaction.state.doc.sliceString(transcriptEndNode.from, transcriptEndNode.to)}"`);
+        // console.log(`---- Found transcript end:`, `"${transaction.state.doc.sliceString(transcriptEndNode.from, transcriptEndNode.to)}"`);
         nextNode = transcriptEndNode.node.nextSibling;
     }
     
@@ -488,14 +487,14 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     if(!previewUrlStartNode || (!previewUrlStartNode.name.includes('formatting_formatting-link-string') && !previewUrlStartNode.name.includes('string_url'))) {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found preview URL start:`, `"${transaction.state.doc.sliceString(previewUrlStartNode.from, previewUrlStartNode.to)}"`);
+    // console.log(`---- Found preview URL start:`, `"${transaction.state.doc.sliceString(previewUrlStartNode.from, previewUrlStartNode.to)}"`);
 
     // Check for filepath section
     const previewFilepathNode = previewUrlStartNode.node.nextSibling;
     if(!previewFilepathNode || !previewFilepathNode.name.includes('string_url')) {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found preview URL path:`, `"${transaction.state.doc.sliceString(previewFilepathNode.from, previewFilepathNode.to)}"`);
+    // console.log(`---- Found preview URL path:`, `"${transaction.state.doc.sliceString(previewFilepathNode.from, previewFilepathNode.to)}"`);
 
     // Check for ")"
     const previewUrlEndNode = previewFilepathNode.node.nextSibling;
@@ -503,7 +502,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     if(!previewUrlEndNode || (!previewUrlEndNode.name.includes('formatting_formatting-link-string') && !previewUrlEndNode.name.includes('string_url'))) {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found preview URL end:`, `"${transaction.state.doc.sliceString(previewUrlEndNode.from, previewUrlEndNode.to)}"`);
+    // console.log(`---- Found preview URL end:`, `"${transaction.state.doc.sliceString(previewUrlEndNode.from, previewUrlEndNode.to)}"`);
 
     // Allows any amount of white space inbetween
     // Skip any number of nodes with name "quote_quote-1" (Blank spaces within a quote section)
@@ -519,13 +518,13 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     // Check for "[" or "[]"
     const editTextStartNode = nextNode;
     if(!editTextStartNode || !editTextStartNode.name.includes('formatting_formatting-link_link')) {
-        console.log(`ERROR! editTextStartNode`, editTextStartNode);
+        // console.log(`ERROR! editTextStartNode`, editTextStartNode);
         if(editTextStartNode) {
-            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
+            // console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
         }
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found edit text start:`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
+    // console.log(`---- Found edit text start:`, `"${transaction.state.doc.sliceString(editTextStartNode.from, editTextStartNode.to)}"`);
 
     // Get the next node, which could be alt text or could be "("
     nextNode = editTextStartNode.node.nextSibling;
@@ -541,7 +540,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     if(editTextStartNode.to-editTextStartNode.from === 1) {
         editTextNode = nextNode;
         const editText = transaction.state.doc.sliceString(editTextNode.from, editTextNode.to);
-        console.log(`---- Found edit text:`, `"${editText}"`);
+        // console.log(`---- Found edit text:`, `"${editText}"`);
         // Disambiguate: Require correct drawing label
         if (editText.trim() !== 'Edit Drawing') {
             return {alterFlow: 'continue-traversal'};
@@ -549,11 +548,11 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
         editTextEndNode = editTextNode.node.nextSibling;
         if(!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
             if(editTextEndNode) {
-                console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
+                // console.log(`xxxx :`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
             }
             return {alterFlow: 'continue-traversal'};
         }
-        console.log(`---- Found edit text end:`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
+        // console.log(`---- Found edit text end:`, `"${transaction.state.doc.sliceString(editTextEndNode.from, editTextEndNode.to)}"`);
         nextNode = editTextEndNode.node.nextSibling;
     }
     
@@ -563,30 +562,30 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     if(!settingsUrlStartNode || !settingsUrlStartNode.name.includes('formatting_formatting-link-string') && !settingsUrlStartNode.name.includes('string_url')) {
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found settings URL start:`, `"${transaction.state.doc.sliceString(settingsUrlStartNode.from, settingsUrlStartNode.to)}"`);
+    // console.log(`---- Found settings URL start:`, `"${transaction.state.doc.sliceString(settingsUrlStartNode.from, settingsUrlStartNode.to)}"`);
 
     // Check for url and settings section
     const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
     if(!settingsUrlPathNode || !settingsUrlPathNode.name.includes('string_url')) {
-        console.log(`ERROR! settingsUrlPathNode`, settingsUrlPathNode);
+        // console.log(`ERROR! settingsUrlPathNode`, settingsUrlPathNode);
         if(settingsUrlPathNode) {
-            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
+            // console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
         }
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found settings URL path:`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
+    // console.log(`---- Found settings URL path:`, `"${transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to)}"`);
 
     // Check for ")"
     const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
     // Allows for quote_quote inbetween
     if(!settingsUrlEndNode || (!settingsUrlEndNode.name.includes('formatting_formatting-link-string') && !settingsUrlEndNode.name.includes('string_url'))) {
-        console.log(`ERROR! settingsUrlEndNode`, settingsUrlEndNode);
+        // console.log(`ERROR! settingsUrlEndNode`, settingsUrlEndNode);
         if(settingsUrlEndNode) {
-            console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
+            // console.log(`xxxx :`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
         }
         return {alterFlow: 'continue-traversal'};
     }
-    console.log(`---- Found settings URL end:`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
+    // console.log(`---- Found settings URL end:`, `"${transaction.state.doc.sliceString(settingsUrlEndNode.from, settingsUrlEndNode.to)}"`);
     
     // It's definitely a markdown embed, let's now focus on the urlText to check it's an Ink embed.
     const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from+1, previewFilepathNode.to-1); // +&- to remove <> brackets
@@ -603,11 +602,11 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     const {embedSettings} = parseSettingsFromUrl(urlAndSettings);
 
     // Log the complete detected embed structure
-    console.log(`---- Successfully detected complete embed structure:`);
-    console.log(`---- Preview URL:`, previewPartialFilepath);
-    console.log(`---- Edit Url:`, urlAndSettings);
-    console.log(`---- Settings:`, embedSettings);
-    console.log(`---- Full replacement range:`, transaction.state.doc.sliceString(startOfReplacement, endOfReplacement));
+    // console.log(`---- Successfully detected complete embed structure:`);
+    // console.log(`---- Preview URL:`, previewPartialFilepath);
+    // console.log(`---- Edit Url:`, urlAndSettings);
+    // console.log(`---- Settings:`, embedSettings);
+    // console.log(`---- Full replacement range:`, transaction.state.doc.sliceString(startOfReplacement, endOfReplacement));
 
     // If altText exists, then it is the transcription
     // if(altTextNode) {

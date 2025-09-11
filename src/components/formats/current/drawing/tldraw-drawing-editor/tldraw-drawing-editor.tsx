@@ -324,7 +324,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				// Prevent autoFocussing so it can be handled in the handleMount
 				autoFocus = {false}
 			/>
-			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={editorWrapperRefEl} />
+			<FingerBlocker
+				getTlEditor={getTlEditor}
+				wrapperRef={editorWrapperRefEl}
+			/>
 			
 			<PrimaryMenuBar>
 				<DrawingMenu

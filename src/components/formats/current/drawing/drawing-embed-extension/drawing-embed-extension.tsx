@@ -55,6 +55,11 @@ export class DrawingEmbedWidget extends WidgetType {
         const rootEl = document.createElement('div');
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
+
+        // Ensure the widget wrapper itself is not focusable
+        // This prevents the keyboard reappearing when pen is lifted
+        rootEl.tabIndex = -1;
+
         const root = createRoot(rootEl);
 
         mountedDecorationIds.push(this.id);
@@ -319,6 +324,26 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
             EditorView.atomicRanges.of( (view: EditorView) => {
                 const decorations = view.state.field(embedStateField, false);
                 return decorations || Decoration.none;
+            }),
+
+            // TODO: Try adding this as a reusable component and use in v1 as well
+            // Tell CM to ignore events that originate within the widget DOM
+            EditorView.domEventHandlers({
+                mousedown: (event, view) => {
+                    const target = event.target as Element | null;
+                    if (target && target.closest && target.closest('.ddc_ink_widget-root')) return true;
+                    return false;
+                },
+                touchstart: (event, view) => {
+                    const target = event.target as Element | null;
+                    if (target && target.closest && target.closest('.ddc_ink_widget-root')) return true;
+                    return false;
+                },
+                click: (event, view) => {
+                    const target = event.target as Element | null;
+                    if (target && target.closest && target.closest('.ddc_ink_widget-root')) return true;
+                    return false;
+                }
             })
             
         ];

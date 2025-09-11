@@ -152,10 +152,10 @@ export function DrawingEmbed_v1 (props: {
 					plugin = {props.plugin}
 					drawingFile = {props.drawingFileRef}
 					save = {props.saveSrcFile}
+					extendedMenu = {commonExtendedOptions}
 					embedded
 					saveControlsReference = {registerEditorControls}
 					closeEditor = {saveAndSwitchToPreviewMode}
-					extendedMenu = {commonExtendedOptions}
 					resizeEmbed = {resizeEmbed}
 				/>
 

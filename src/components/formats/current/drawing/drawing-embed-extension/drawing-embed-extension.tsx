@@ -24,6 +24,8 @@ import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { EmbedSettings } from 'src/types/embed-settings';
 import './drawing-embed-extension.scss';
+import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
+import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
 
@@ -56,9 +58,7 @@ export class DrawingEmbedWidget extends WidgetType {
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
 
-        // Ensure the widget wrapper itself is not focusable
-        // This prevents the keyboard reappearing when pen is lifted
-        rootEl.tabIndex = -1;
+        preventWidgetRootStealingFocus(rootEl);
 
         const root = createRoot(rootEl);
 
@@ -300,51 +300,14 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
         return builder.finish();
     },
 
-    // Tell the editor to use these decorations (ie. provide them from this statefield)
-    provide(stateField: StateField<DecorationSet>): Extension {
-        // return EditorView.decorations.from(stateField);
-
-        // return EditorView.atomicRanges.of( (view: EditorView) => {
-        //     return EditorView.decorations.from(stateField) || Decoration.none
-        // });
-        
+    provide(stateField: StateField<DecorationSet>): Extension {        
         return [
             EditorView.decorations.from(stateField),
-
-            // Providing atomic ranges like either of these makes it atomic but still has 1 extra cursor movement before and 1 after.
-            // EditorView.atomicRanges.of(stateField),
-            // OR
-            // EditorView.atomicRanges.of( (view: EditorView) => {
-            //     return EditorView.decorations.from(stateField) || Decoration.none
-            // })
-            
-            // This one only has 1 extra cursor movement AFTER.
-            // Typing in the after section doesn't break anything, but does type in reverse order.
-            // TODO: The side setting might be confused. So it's typing on the wrong side of the cursor.
             EditorView.atomicRanges.of( (view: EditorView) => {
                 const decorations = view.state.field(embedStateField, false);
                 return decorations || Decoration.none;
             }),
-
-            // TODO: Try adding this as a reusable component and use in v1 as well
-            // Tell CM to ignore events that originate within the widget DOM
-            EditorView.domEventHandlers({
-                mousedown: (event, view) => {
-                    const target = event.target as Element | null;
-                    if (target && target.closest && target.closest('.ddc_ink_widget-root')) return true;
-                    return false;
-                },
-                touchstart: (event, view) => {
-                    const target = event.target as Element | null;
-                    if (target && target.closest && target.closest('.ddc_ink_widget-root')) return true;
-                    return false;
-                },
-                click: (event, view) => {
-                    const target = event.target as Element | null;
-                    if (target && target.closest && target.closest('.ddc_ink_widget-root')) return true;
-                    return false;
-                }
-            })
+            preventCodeMirrorHandlingWidgetsEvents()
             
         ];
     },

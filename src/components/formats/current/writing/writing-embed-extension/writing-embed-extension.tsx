@@ -12,6 +12,8 @@ import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
 import './writing-embed-extension.scss';
+import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
+import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
@@ -37,6 +39,8 @@ export class WritingEmbedWidget extends WidgetType {
         const root = createRoot(rootEl);
 
         const { plugin } = getGlobals();
+
+        preventWidgetRootStealingFocus(rootEl);
 
         // Update highlight state based on current selection
         this.updateHighlightState(view, rootEl);
@@ -201,6 +205,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                 const decorations = view.state.field(embedStateFieldWriting, false);
                 return decorations || Decoration.none;
             }),
+            preventCodeMirrorHandlingWidgetsEvents(),
         ];
     },
 });

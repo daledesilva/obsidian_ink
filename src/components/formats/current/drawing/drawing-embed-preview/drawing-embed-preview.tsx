@@ -38,18 +38,28 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom_v2);
-
-    let embeddedFilepath: undefined | string;
-    if(props.embeddedFile) {
-        embeddedFilepath = plugin.app.vault.getResourcePath(props.embeddedFile);
-    };
+    const [fileSrc, setFileSrc] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         verbose('PREVIEW mounted');
+        refreshSrc();
+
+        // Listen for file modifications to refresh preview when the embedded file changes
+        // This enables refreshing when returning from edit mode, but also refreshes based off editing the same file in another embed.
+        const onModify = (modifiedFile: TFile) => {
+            if (!props.embeddedFile) return;
+            if (modifiedFile.path !== props.embeddedFile.path) return;
+            refreshSrc();
+        };
+        const eventRef = plugin.app.vault.on('modify', onModify);
         return () => {
             verbose('PREVIEW unmounting');
+            // Clean up event listener on unmount
+            // @ts-ignore - offref exists in Obsidian API
+            plugin.app.vault.offref(eventRef);
         }
-    }, [])
+        // Re-run if the embedded file changes
+    }, [props.embeddedFile])
 
 	return <>
         <div
@@ -71,9 +81,9 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             // onMouseUp = {props.onEditClick}
             // onMouseEnter = {props.onClick}
         >
-            {embeddedFilepath && (<>
+            {fileSrc && (<>
                 <SVG
-                    src = {embeddedFilepath}
+                    src = {fileSrc}
                     style = {{
                         width: '100%',
                         height: '100%',
@@ -82,6 +92,8 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
+                    cacheRequests = {false}
+                    key = {fileSrc}
                     onLoad = {onLoad}
                     // viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`}
                 />
@@ -98,6 +110,21 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             setEmbedState(DrawingEmbedState.preview);
             props.onReady();
         }, 100);
+    }
+
+    function refreshSrc() {
+        if (!props.embeddedFile) {
+            setFileSrc(null);
+            return;
+        }
+        const basePath = plugin.app.vault.getResourcePath(props.embeddedFile);
+        if (!basePath) {
+            setFileSrc(null);
+            return;
+        }
+        const mtime = props.embeddedFile.stat.mtime;
+        const separator = basePath.includes('?') ? '&' : '?';
+        setFileSrc(`${basePath}${separator}t=${mtime}`);
     }
 
 };

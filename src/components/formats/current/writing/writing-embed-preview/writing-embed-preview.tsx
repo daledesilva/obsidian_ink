@@ -42,11 +42,22 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
 
     React.useEffect(() => {
         //console.log('PREVIEW mounted');
-        fetchFileData();
+        refreshSrc();
+
+        // Listen for file modifications to refresh preview when the embedded file changes
+        // This enables refreshing when returning from edit mode, but also refreshes based off editing the same file in another embed.
+        const onModify = (modifiedFile: TFile) => {
+            if (!props.writingFile) return;
+            if (modifiedFile.path !== props.writingFile.path) return;
+            refreshSrc();
+        };
+        const eventRef = props.plugin.app.vault.on('modify', onModify);
         return () => {
             //console.log('PREVIEW unmounting');
+            // @ts-ignore - offref exists in Obsidian API
+            props.plugin.app.vault.offref(eventRef);
         }
-    })
+    }, [props.writingFile])
 
     // Check if src is a DataURI. If not, it's an SVG
     const isImg = fileSrc.slice(0, 4) === 'data';
@@ -72,6 +83,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             {isImg && (<>
                 <img
                     src={fileSrc}
+                    key={fileSrc}
                     style={{
                         width: '100%',
                         cursor: 'pointer',
@@ -84,6 +96,8 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             {!isImg && (<>
                 <SVG
                     src={fileSrc}
+                    cacheRequests={false}
+                    key={fileSrc}
                     style={{
                         width: '100%',
                         height: 'unset',
@@ -110,9 +124,15 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     }
 
     async function fetchFileData() {
-        const { plugin } = getGlobals();
-        const embeddedFilepath = plugin.app.vault.getResourcePath(props.writingFile);
-        if (embeddedFilepath) setFileSrc(embeddedFilepath);
+        refreshSrc();
+    }
+
+    function refreshSrc() {
+        const basePath = props.plugin.app.vault.getResourcePath(props.writingFile);
+        if (!basePath) return;
+        const mtime = props.writingFile.stat.mtime;
+        const separator = basePath.includes('?') ? '&' : '?';
+        setFileSrc(`${basePath}${separator}t=${mtime}`);
     }
 
     function recalcHeight() {

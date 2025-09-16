@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
 import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/logic/utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import * as React from "react";
 import { TFile } from 'obsidian';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
@@ -12,7 +12,7 @@ import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
 import classNames from 'classnames';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { getInkFileData } from 'src/logic/utils/getInkFileData';
+import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';

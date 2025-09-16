@@ -8,10 +8,20 @@ const makePlugin = (overrides: Partial<any> = {}) => ({
     writingLinesWhenLocked: true,
     writingBackgroundWhenLocked: true,
   },
+  app: { 
+    vault: { 
+      getResourcePath: jest.fn(() => 'data:image/svg+xml,%3Csvg/%3E'),
+      on: jest.fn(() => jest.fn()),
+      offref: jest.fn()
+    } 
+  },
   ...overrides,
 });
 
-const makeTFile = (): any => ({ path: 'path/to/file' });
+const makeTFile = (): any => ({ 
+  path: 'path/to/file',
+  stat: { mtime: 1234567890 }
+});
 
 describe('WritingEmbedPreview (legacy)', () => {
   it('renders wrapper root element', () => {

@@ -72,7 +72,30 @@ jest.mock('@tldraw/tldraw', () => {
 });
 
 // Mock helpers that rely on app/DOM specifics
-jest.mock('src/logic/utils/tldraw-helpers', () => ({
+jest.mock('src/components/formats/current/utils/tldraw-helpers', () => ({
+  __esModule: true,
+  adaptTldrawToObsidianThemeMode: () => {},
+  focusChildTldrawEditor: () => {},
+  getActivityType: () => 'none',
+  getDrawingSvg: async () => ({ svg: '<svg />' }),
+  initDrawingCamera: () => {},
+  prepareDrawingSnapshot: (s: any) => ({}),
+  preventTldrawCanvasesCausingObsidianGestures: () => {},
+  Activity: { PointerMoved: 'pm' },
+  // Writing helpers
+  WritingCameraLimits: {} as any,
+  getWritingContainerBounds: () => ({ w: 100, h: 100 }),
+  getWritingSvg: async () => ({ svg: '<svg />' }),
+  initWritingCamera: () => {},
+  initWritingCameraLimits: () => ({}),
+  prepareWritingSnapshot: (s: any) => ({}),
+  resizeWritingTemplateInvitingly: () => {},
+  restrictWritingCamera: () => {},
+  updateWritingStoreIfNeeded: () => {},
+  useStash: () => ({ stashStaleContent: () => {}, unstashStaleContent: () => {} }),
+}));
+
+jest.mock('src/components/formats/v1-code-blocks/utils/tldraw-helpers', () => ({
   __esModule: true,
   adaptTldrawToObsidianThemeMode: () => {},
   focusChildTldrawEditor: () => {},
@@ -96,7 +119,12 @@ jest.mock('src/logic/utils/tldraw-helpers', () => ({
 }));
 
 // Mock functions that read vault contents
-jest.mock('src/logic/utils/getInkFileData', () => ({
+jest.mock('src/components/formats/current/utils/getInkFileData', () => ({
+  __esModule: true,
+  getInkFileData: async () => ({ previewUri: 'data:image/png;base64,AAAA' }),
+}));
+
+jest.mock('src/components/formats/v1-code-blocks/utils/getInkFileData', () => ({
   __esModule: true,
   getInkFileData: async () => ({ previewUri: 'data:image/png;base64,AAAA' }),
 }));
@@ -115,6 +143,8 @@ jest.mock('src/stores/global-store', () => ({
       app: {
         vault: {
           getResourcePath: () => 'data:image/svg+xml,%3Csvg/%3E',
+          on: jest.fn(() => jest.fn()),
+          offref: jest.fn(),
         },
       },
     },

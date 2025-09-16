@@ -2,10 +2,10 @@ import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TL
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
-import { WritingContainer } from "src/components/formats/tldraw_v1/writing/writing-shapes/writing-container";
-import { WritingLines } from "src/components/formats/tldraw_v1/writing/writing-shapes/writing-lines";
 import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-limit-notice";
-import { info, verbose } from "./log-to-console";
+import { info, verbose } from "../../../../logic/utils/log-to-console";
+import { WritingContainer_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container";
+import { WritingLines_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-lines";
 
 //////////
 //////////
@@ -338,7 +338,7 @@ export const unhideWritingTemplate = (editor: Editor) => {
 }
 
 export const hideWritingContainer = (editor: Editor) => {
-	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer_v1;
 	if (!writingContainerShape) return;
 	const savedH = writingContainerShape.props.h;
 
@@ -360,11 +360,11 @@ export const hideWritingContainer = (editor: Editor) => {
 }
 
 export const hideWritingLines = (editor: Editor) => {
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines_v1;
 	if (!writingLinesShape) return;
 	const savedH = writingLinesShape.props.h;
 
-	editor.store.update(writingLinesShape.id, (record: WritingContainer) => {
+	editor.store.update(writingLinesShape.id, (record: WritingContainer_v1) => {
 		record.isLocked = false;
 		return record;
 	})
@@ -387,7 +387,7 @@ export const hideWritingLines = (editor: Editor) => {
 }
 
 export const unhideWritingContainer = (editor: Editor) => {
-	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer_v1;
 	if (!writingContainerShape) return;
 	const h = writingContainerShape.meta.savedH;
 
@@ -409,7 +409,7 @@ export const unhideWritingContainer = (editor: Editor) => {
 }
 
 export const unhideWritingLines = (editor: Editor) => {
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines_v1;
 	if (!writingLinesShape) return;
 	const h = writingLinesShape.meta.savedH;
 
@@ -715,8 +715,8 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
 
 	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h);
 
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
-	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines_v1;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer_v1;
 	
 	if(!writingLinesShape) return;
 	if(!writingContainerShape) return;
@@ -756,8 +756,8 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 
 	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h);
 
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
-	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines_v1;
+	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer_v1	;
 	
 	
 	silentlyChangeStore( editor, () => {

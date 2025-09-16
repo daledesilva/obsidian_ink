@@ -9,19 +9,28 @@ const makePlugin = (overrides: Partial<any> = {}) => ({
     drawingFrameWhenLocked: true,
     drawingBackgroundWhenLocked: true,
   },
+  app: { 
+    vault: { 
+      getResourcePath: jest.fn(() => 'data:image/svg+xml,%3Csvg/%3E'),
+      on: jest.fn(() => jest.fn())
+    } 
+  },
   ...overrides,
 });
 
-const makeTFile = (): any => ({ path: 'path/to/file' });
+const makeTFile = (): any => ({ 
+  path: 'path/to/file',
+  stat: { mtime: 1234567890 }
+});
 
 describe('DrawingEmbedPreview (legacy)', () => {
   it('renders wrapper and applies class names', () => {
     render(
       <JotaiProvider>
         <DrawingEmbedPreviewWrapper
-          plugin={makePlugin() as any}
+          embeddedFile={makeTFile()}
+          embedSettings={{}}
           onReady={() => {}}
-          drawingFile={makeTFile()}
           onClick={() => {}}
         />
       </JotaiProvider>

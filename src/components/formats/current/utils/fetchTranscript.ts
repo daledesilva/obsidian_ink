@@ -1,7 +1,7 @@
 import { TFile } from "obsidian"
 import InkPlugin from "src/main"
-import { InkFileData } from "./page-file"
-import { needsTranscriptUpdate, saveWriteFileTranscript } from "src/logic/utils/needsTranscriptUpdate";
+import { InkFileData } from "../types/file-data";
+import { needsTranscriptUpdate, saveWriteFileTranscript } from "src/components/formats/v1-code-blocks/utils/needsTranscriptUpdate";
 import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 
 //////////

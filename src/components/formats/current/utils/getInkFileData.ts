@@ -1,6 +1,6 @@
 import { TFile } from "obsidian";
 import { getGlobals } from "src/stores/global-store";
-import { InkFileData } from "./page-file";
+import { InkFileData } from "../types/file-data";
 
 /////////
 /////////

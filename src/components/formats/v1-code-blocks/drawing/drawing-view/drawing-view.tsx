@@ -4,12 +4,12 @@ import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
-import { InkFileData } from "src/logic/utils/page-file";
 import { 
 	Provider as JotaiProvider
 } from "jotai";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
+import { InkFileData_v1 } from "../../types/file-data";
 
 ////////
 ////////
@@ -40,7 +40,7 @@ export function registerDrawingView_v1 (plugin: InkPlugin) {
 export class DrawingView_v1 extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    pageData: InkFileData;
+    pageData: InkFileData_v1;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -59,7 +59,7 @@ export class DrawingView_v1 extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = JSON.parse(fileContents) as InkFileData;
+        const pageData = JSON.parse(fileContents) as InkFileData_v1;
         this.pageData = pageData;
 
         const viewContent = this.containerEl.children[1];
@@ -82,7 +82,7 @@ export class DrawingView_v1 extends TextFileView {
         );
     }
 
-    saveFile = (pageData: InkFileData) => {
+    saveFile = (pageData: InkFileData_v1) => {
         this.pageData = pageData;
         this.save(false);   // Obsidian will call getViewData during this method
     }

@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TldrawSelectionForeground, TldrawSelectionBackground } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/logic/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { WritingContainerUtil_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -16,7 +16,7 @@ import classNames from 'classnames';
 import { WritingLinesUtil_v1 } from '../writing-shapes/writing-lines';
 import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1 } from '../writing-embed-editor/writing-embed';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { getInkFileData } from 'src/logic/utils/getInkFileData';
+import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 

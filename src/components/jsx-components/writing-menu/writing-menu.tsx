@@ -6,7 +6,7 @@ import { SelectIcon } from "src/graphics/icons/select-icon";
 import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { Editor } from "@tldraw/tldraw";
-import { Activity, getActivityType, silentlyChangeStore } from "src/logic/utils/tldraw-helpers";
+import { Activity, getActivityType, silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 
 //////////
 //////////

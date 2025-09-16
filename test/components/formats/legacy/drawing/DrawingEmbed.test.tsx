@@ -10,7 +10,10 @@ const makePlugin = (overrides: Partial<any> = {}) => ({
   ...overrides,
 });
 
-const makeTFile = (): any => ({ path: 'path/to/file' });
+const makeTFile = (): any => ({ 
+  path: 'path/to/file',
+  stat: { mtime: 1234567890 }
+});
 
 describe('DrawingEmbed (legacy)', () => {
   it('renders container and children', () => {
@@ -19,7 +22,7 @@ describe('DrawingEmbed (legacy)', () => {
         <DrawingEmbed
           embeddedFile={makeTFile()}
           embedSettings={DEFAULT_EMBED_SETTINGS}
-          saveSrcFile={() => {}}
+          saveSrcFile={(_pageData: any) => ({})}
           remove={() => {}}
           partialEmbedFilepath="test-drawing.svg"
         />

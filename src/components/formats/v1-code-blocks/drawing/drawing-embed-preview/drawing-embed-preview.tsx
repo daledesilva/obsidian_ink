@@ -6,7 +6,7 @@ import InkPlugin from 'src/main';
 import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState_v1, embedStateAtom, previewActiveAtom } from '../drawing-embed-editor/drawing-embed';
-import { getInkFileData } from 'src/logic/utils/getInkFileData';
+import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
 
 //////////

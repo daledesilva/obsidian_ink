@@ -6,7 +6,7 @@ import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
 import { Editor } from "@tldraw/tldraw";
-import { silentlyChangeStore } from "src/logic/utils/tldraw-helpers";
+import { silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 
 //////////
 //////////

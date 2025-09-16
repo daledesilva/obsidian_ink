@@ -1,12 +1,12 @@
 import { TFile } from "obsidian";
+import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
-import { InkFileData } from "./page-file";
 
 ////////
 ////////
 
-export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
+export const needsTranscriptUpdate = (pageData: InkFileData_v1): boolean => {
     // TODO: Also check if hte transcript is older than the last file update
     // if(!pageData.meta.transcript) {
     // return true;
@@ -21,7 +21,7 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
 
     // console.log('saving transcript to', fileRef.path);
     const pageDataStr = await v.read(fileRef as TFile);
-    const pageData = JSON.parse(pageDataStr) as InkFileData;
+    const pageData = JSON.parse(pageDataStr) as InkFileData_v1;
 
     // TODO: Add in a date of the transcript
     pageData.meta.transcript = "The new transcript";

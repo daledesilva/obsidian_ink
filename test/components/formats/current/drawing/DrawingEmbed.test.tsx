@@ -12,7 +12,7 @@ describe('DrawingEmbed', () => {
         <DrawingEmbed
           embeddedFile={null}
           embedSettings={makeEmbedSettings() as any}
-          saveSrcFile={() => {}}
+          saveSrcFile={(_pageData: any) => ({})}
           remove={() => {}}
           partialEmbedFilepath={'missing.svg'}
         />

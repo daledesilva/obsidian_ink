@@ -4,9 +4,9 @@ import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawWritingEditor_v1 } from "src/components/formats/v1-code-blocks/writing/tldraw-writing-editor/tldraw-writing-editor";
-import { InkFileData } from "src/logic/utils/page-file";
 import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
 import { buildWritingFileData_v1 } from "../../utils/build-file-data";
+import { InkFileData_v1 } from "../../types/file-data";
 
 ////////
 ////////
@@ -26,7 +26,7 @@ export function registerWritingView_v1 (plugin: InkPlugin) {
 export class WritingView_v1 extends TextFileView {
     root: null | Root;
     plugin: InkPlugin;
-    pageData: InkFileData;
+    pageData: InkFileData_v1;
     tldrawControls: {
         resize?: Function,
     } = {}
@@ -48,7 +48,7 @@ export class WritingView_v1 extends TextFileView {
     setViewData = (fileContents: string, clear: boolean) => {
         if(!this.file) return;
         
-        const pageData = JSON.parse(fileContents) as InkFileData;
+        const pageData = JSON.parse(fileContents) as InkFileData_v1;
         this.pageData = pageData;
 
         const viewContent = this.containerEl.children[1];
@@ -70,7 +70,7 @@ export class WritingView_v1 extends TextFileView {
         );
     }
 
-    saveFile = (pageData: InkFileData) => {
+    saveFile = (pageData: InkFileData_v1) => {
         this.pageData = pageData;
         this.save(false);   // Obsidian will call getViewData during this method
     }

@@ -3,7 +3,10 @@ import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
 import { TldrawDrawingEditorWrapper } from 'src/components/formats/current/drawing/tldraw-drawing-editor/tldraw-drawing-editor';
 
-const makeTFile = (): any => ({ path: 'path/to/file' });
+const makeTFile = (): any => ({ 
+  path: 'path/to/file',
+  stat: { mtime: 1234567890 }
+});
 
 describe('TldrawDrawingEditorWrapper (legacy)', () => {
   it('mounts wrapper without crashing when editorActive is default false', () => {
@@ -11,9 +14,8 @@ describe('TldrawDrawingEditorWrapper (legacy)', () => {
       <JotaiProvider>
         <TldrawDrawingEditorWrapper
           onReady={() => {}}
-          plugin={{} as any}
           drawingFile={makeTFile()}
-          save={() => {}}
+          save={(_pageData: any) => {}}
         />
       </JotaiProvider>
     );

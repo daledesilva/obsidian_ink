@@ -4,12 +4,21 @@ import { Provider as JotaiProvider } from 'jotai';
 import WritingEmbed from 'src/components/formats/current/writing/writing-embed/writing-embed';
 
 const makePlugin = (overrides: Partial<any> = {}) => ({
-  app: { vault: {} },
+  app: { 
+    vault: { 
+      getResourcePath: jest.fn(() => 'data:image/svg+xml,%3Csvg/%3E'),
+      on: jest.fn(() => jest.fn()),
+      offref: jest.fn()
+    } 
+  },
   settings: {},
   ...overrides,
 });
 
-const makeTFile = (): any => ({ path: 'path/to/file' });
+const makeTFile = (): any => ({ 
+  path: 'path/to/file',
+  stat: { mtime: 1234567890 }
+});
 
 describe('WritingEmbed (legacy)', () => {
   it('renders container element', () => {

@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
 import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/logic/utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import InkPlugin from "src/main";
 import * as React from "react";
 import { TFile } from 'obsidian';
@@ -14,7 +14,7 @@ import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-
 import classNames from 'classnames';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState_v1, editorActiveAtom, embedStateAtom } from '../drawing-embed-editor/drawing-embed';
-import { getInkFileData } from 'src/logic/utils/getInkFileData';
+import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
@@ -314,7 +314,6 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 				shapeUtils = {[...defaultShapeUtils]}
 				tools = {[...defaultTools, ...defaultShapeTools]}
 				initialState = "draw"
-				overrides={myOverrides_v1}
 				snapshot = {tlEditorSnapshot}
 				// persistenceKey = {props.fileRef.path}
 

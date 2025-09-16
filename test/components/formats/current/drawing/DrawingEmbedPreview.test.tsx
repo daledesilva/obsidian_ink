@@ -3,7 +3,11 @@ import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
 import { DrawingEmbedPreviewWrapper } from 'src/components/formats/current/drawing/drawing-embed-preview/drawing-embed-preview';
 
-const makeTFile = (): any => ({ path: 'path/to/drawing.svg', vault: { read: jest.fn() } });
+const makeTFile = (): any => ({ 
+  path: 'path/to/drawing.svg', 
+  vault: { read: jest.fn() },
+  stat: { mtime: 1234567890 }
+});
 
 describe('DrawingEmbedPreview', () => {
   it('renders preview root element when active', () => {

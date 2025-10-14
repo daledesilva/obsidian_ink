@@ -1,0 +1,105 @@
+@media (max-width: 896px)
+{
+  .ink_extended-writing-menu,  .ink_extended-drawing-menu
+  {
+    transform:translate(50%, -100%);
+    margin-right:20px;
+    position:absolute;
+    right:20px;
+  }
+  .ink_primary-menu-bar,  .markdown-preview-view .ink_primary-menu-bar
+  {
+    transform:translate(0, -100%);
+  }
+  .ink_quick-menu
+  {
+    transform:translate(-10%, -100%);
+  }
+  .ink_tool-menu
+  {
+    gap:4px;
+  }
+  .block-language-handwritten-ink,  .block-language-handdrawn-ink
+  {
+    padding-top:60px;
+  }
+  .markdown-preview-view .ink_extended-writing-menu,  .markdown-preview-view .ink_extended-drawing-menu
+  {
+    transform:translate(0, -100%);
+  }
+}
+button.ink_brush-controls
+{
+  display:flex;
+  gap:8px;
+  border-radius:10px;
+  width:80px !important;
+  align-items:center;
+  border:none;
+  justify-content:space-between;
+}
+input.ink_brush-size
+{
+  width:80px;
+}
+select.ink_brush-color
+{
+  width:80px;
+  padding:2px;
+  text-align:center;
+  background:none !important;
+}
+select.ink_brush-color,.ink_extended-writing-menu button,.ink_extended-drawing-menu button,.ink_menu-bar button
+{
+  background:none !important;
+}
+.block-language-handwritten-ink,.block-language-handdrawn-ink
+{
+  padding-top:30px;
+}
+.ink_extended-writing-menu,.ink_extended-drawing-menu
+{
+  position:absolute;
+  right:20px;
+  display: inline-flex;
+  pointer-events: auto;
+}
+
+/* iOS设备特殊处理 */
+@media (max-width: 896px) and (-webkit-device-pixel-ratio: 3) {
+	/* 针对iOS设备的额外样式调整 */
+	.ink_tool-menu {
+		flex-wrap: nowrap;
+		justify-content: center;
+	}
+	.ink_brush-controls {
+		order: 10;
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		top: 10px;
+	}
+	.ink_brush-size {
+		width: 50px !important;
+	}
+	
+	/* 解决iOS设备上ink_quick-menu不可见的问题 */
+	.ink_quick-menu {
+		transform: translate(-10%, -90%) !important; /* 调整垂直位置，避免完全移出视图 */
+		z-index: 2000 !important; /* 确保菜单显示在最上层 */
+	}
+	
+	/* 让整个视图（画布及所有工具）整体下移一行 */
+	.block-language-handwritten-ink,
+	.block-language-handdrawn-ink {
+		padding-top: 80px !important; /* 增加顶部内边距，使整个视图下移 */
+    margin-left: 8px;
+	}
+	
+	/* 调整所有菜单的位置，确保它们都可见 */
+	.ink_extended-writing-menu,
+	.ink_extended-drawing-menu,
+	.ink_quick-menu {
+		margin-top: 15px !important; /* 增加顶部间距 */
+	}
+}

@@ -5,9 +5,11 @@ import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
-import { Editor } from "@tldraw/tldraw";
+import { Editor } from "tldraw";
 import { silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 
+// 定义默认颜色选项
+const DEFAULT_COLOR_NAMES = ["black","grey","light-violet","violet","blue","light-blue","yellow","orange","green","light-green","light-red","red","white"];
 //////////
 //////////
 
@@ -26,7 +28,8 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 	const [canUndo, setCanUndo] = React.useState<boolean>(false);
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-
+	const [brushSize, setBrushSize] = React.useState(2);
+	const [brushColor, setBrushColor] = React.useState("light-blue"); // 默认颜色为 light-blue
     React.useEffect( () => {
         // console.log('MENUBAR MOUNTED');
         
@@ -50,7 +53,11 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
             })
         }, mountDelayMs);
 
-        return () => removeUserActionListener();
+        return () => {
+            if (removeUserActionListener) {
+                removeUserActionListener();
+            }
+        };
     }, []);
 
     ///////////
@@ -77,7 +84,6 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		if (!editor) return;
 		editor.setCurrentTool('select');
 		setCurTool(tool.select);
-
 	}
 	function activateDrawTool() {
 		const editor = props.getTlEditor();
@@ -91,7 +97,57 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
 	}
-
+    const handleBrushSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.stopPropagation();
+        const size = parseInt(e.target.value);
+        setBrushSize(size);
+      
+        const tlEditor = props.getTlEditor();
+        if (tlEditor && tlEditor.styleProps && tlEditor.styleProps.geo) {
+          // 将笔刷大小映射到 DefaultSizeStyle 的枚举值
+          let sizeLevel: string;
+          if (size === 1) {
+            sizeLevel = "s"; // 小
+          } else if (size === 2) {
+            sizeLevel = "m"; // 中
+          } else if (size === 3) {
+            sizeLevel = "l"; // 大
+          } else if (size === 4) {
+            sizeLevel = "xl"; // 超大
+          } else {
+            sizeLevel = "m"; // default case
+          }
+      
+          // 找到 size 的样式属性对象
+          for (const [key, value] of tlEditor.styleProps.geo.entries()) {
+            if (value === "size") {
+              key.defaultValue = sizeLevel; // 修改 size 的默认值
+              break;
+            }
+          }
+      
+          props.onStoreChange(tlEditor); // 通知编辑器更新
+        }
+      };
+      
+      const handleBrushColorChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        e.stopPropagation();
+        const color = e.target.value;
+        setBrushColor(color);
+      
+        const tlEditor = props.getTlEditor();
+        if (tlEditor && tlEditor.styleProps && tlEditor.styleProps.geo) {
+          // 找到 color 的样式属性对象
+          for (const [key, value] of tlEditor.styleProps.geo.entries()) {
+            if (value === "color") {
+              key.defaultValue = color; // 修改 color 的默认值
+              break;
+            }
+          }
+      
+          props.onStoreChange(tlEditor); // 通知编辑器更新
+        }
+      };
     ///////////
     ///////////
 
@@ -137,6 +193,31 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                 >
                     <EraseIcon/>
                 </button>
+                <button className="ink_brush-controls">
+                    <input
+                        type="range"
+                        min="1"
+                        max="4"
+                        value={brushSize}
+                        onChange={handleBrushSizeChange}
+                        className="ink_brush-size"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                    <select
+                        value={brushColor}
+                        onChange={handleBrushColorChange}
+                        className="ink_brush-color"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                    {DEFAULT_COLOR_NAMES.map((color: string) => (
+                        <option key={color} value={color}>
+                            {color}
+                        </option>
+                    ))}
+                    </select>
+                </button>  
             </div>
             <div
                 className='ink_other-menu'

@@ -1,4 +1,5 @@
 import './ddc-library/settings-styles.scss';
+import './components/mobile-styles.scss';
 import { Editor, Notice, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
@@ -27,6 +28,7 @@ import { insertRememberedDrawingFile } from './commands/insert-remembered-drawin
 import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
+import { convertV1EmbedsToCurrent } from './commands/convert-v1-embeds-to-current';
 
 ////////
 ////////
@@ -69,22 +71,25 @@ export default class InkPlugin extends Plugin {
 		
 		if (this.settings.drawingEnabled) {
 
-			// Current
-			registerDrawingView(this);
-			registerDrawingEmbed(this);
-			implementDrawingEmbedActions(this);
-			this.registerEditorExtension([
-				// Prec.highest(drawingEmbedExtension()),
-				drawingEmbedExtension(),
-			]);
+		// Current
+		registerDrawingView(this);
+		registerDrawingEmbed(this);
+		implementDrawingEmbedActions(this);
+		this.registerEditorExtension([
+			// Prec.highest(drawingEmbedExtension()),
+			drawingEmbedExtension(),
+		]);
 
-			// Legacy
-			registerDrawingView_v1(this);
-			registerDrawingEmbed_v1(this);
-			implementDrawingEmbedActions_v1(this);
-		}
+		// Legacy
+		registerDrawingView_v1(this);
+		registerDrawingEmbed_v1(this);
+		implementDrawingEmbedActions_v1(this);
+	}
 
-		registerSettingsTab(this);
+	// Register conversion command
+	implementConvertEmbedActions(this);
+
+	registerSettingsTab(this);
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
@@ -208,6 +213,16 @@ function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
 	});
 
+}
+
+function implementConvertEmbedActions(plugin: InkPlugin) {
+	// Convert v1 embeds to current format
+	plugin.addCommand({
+		id: 'convert-v1-embeds-to-current',
+		name: 'Convert V1 Embeds to Current Format',
+		icon: 'convert',
+		editorCallback: (editor: Editor) => convertV1EmbedsToCurrent(plugin, editor)
+	});
 }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {

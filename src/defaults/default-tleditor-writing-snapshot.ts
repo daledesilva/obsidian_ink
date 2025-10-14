@@ -1,4 +1,4 @@
-import { SerializedStore, TLEditorSnapshot, TLPageId, TLRecord } from "@tldraw/tldraw";
+import { SerializedStore, TLEditorSnapshot, TLPageId, TLRecord } from "tldraw";
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 
 /////

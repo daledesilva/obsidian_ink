@@ -1,5 +1,5 @@
-import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, TLShapeUtilCanBindOpts, resizeBox } from '@tldraw/tldraw';
-import { ShapeUtil } from '@tldraw/tldraw';
+import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLShapeUtilCanBindOpts, resizeBox } from 'tldraw';
+import { ShapeUtil } from 'tldraw';
 import * as React from 'react';
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 
@@ -8,8 +8,9 @@ import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from
 
 export type WritingLines_v1 = TLBaseShape<'writing-lines', { x: number, y: number, w: number, h: number }>
 
+
 export class WritingLinesUtil_v1 extends ShapeUtil<WritingLines_v1> {
-	static override type = 'writing-lines' as const
+	static type = 'writing-lines' as const
 
 	getDefaultProps(): WritingLines_v1['props'] {
 		return {
@@ -22,36 +23,25 @@ export class WritingLinesUtil_v1 extends ShapeUtil<WritingLines_v1> {
 
 	getGeometry(shape: WritingLines_v1) {
 		return new Rectangle2d({
+			x: shape.props.x,
+			y: shape.props.y,
 			width: shape.props.w,
 			height: shape.props.h,
 			isFilled: false,	// Controls whether you can select the shape by clicking the inside (Not whether it's visibly filled)
 		})
 	}
 
-	// Don't let arrows lor lines bind one of their ends to it
-	override canBind = (opts: TLShapeUtilCanBindOpts<WritingLines_v1>) => false
-
-	// Prevent rotating the container
-	override hideRotateHandle = (shape: WritingLines_v1) => true
-	
-	// Prevent moving the container
-	onTranslate: TLOnTranslateHandler<WritingLines_v1> = (initShape, newShape) => {
-		return initShape;
+	component(shape: WritingLines_v1) {
+		return <SVGContainer>
+			{this.createSvg(shape)}
+		</SVGContainer>
 	}
 	
-	// Prevent resizing horizontally
-	onResize: TLOnResizeHandler<WritingLines_v1> = (shape, info) => {
-		return resizeBox(shape, info, {
-			minWidth: WRITING_PAGE_WIDTH,
-			maxWidth: WRITING_PAGE_WIDTH,
-			minHeight: WRITING_MIN_PAGE_HEIGHT,
-			maxHeight: 50000
-		});
-	}
-
 	indicator(shape: WritingLines_v1) {
 		return <>
 			<rect
+				x = {shape.props.x}
+				y = {shape.props.y}
 				width = {shape.props.w}
 				height = {shape.props.h}
 				rx = {20}
@@ -60,12 +50,27 @@ export class WritingLinesUtil_v1 extends ShapeUtil<WritingLines_v1> {
 		</>
 	}
 
-	component(shape: WritingLines_v1) {
-		return <SVGContainer>
-			{this.createSvg(shape)}
-		</SVGContainer>
-	}
+	// Don't let arrows or lines bind one of their ends to it
+	canBind = (opts: TLShapeUtilCanBindOpts<WritingLines_v1>) => false
 
+	// Prevent rotating the container
+	hideRotateHandle = (shape: WritingLines_v1) => true
+	
+	// Prevent moving the container
+	onTranslate = (shape: WritingLines_v1, delta: { x: number, y: number }) => {
+		return shape;
+	}
+	
+	// Prevent resizing horizontally
+	onResize = (shape: WritingLines_v1, info: any) => {
+		return resizeBox(shape, info, {
+			minWidth: WRITING_PAGE_WIDTH,
+			maxWidth: WRITING_PAGE_WIDTH,
+			minHeight: WRITING_MIN_PAGE_HEIGHT,
+			maxHeight: 50000
+		});
+	}
+	
 	toSvg(shape: WritingLines_v1, ctx: SvgExportContext): React.JSX.Element {
 		return this.createSvg(shape);
 	}
@@ -73,27 +78,32 @@ export class WritingLinesUtil_v1 extends ShapeUtil<WritingLines_v1> {
 	// Custom functions
 	//////////////
 
-	createSvg(shape: WritingLines_v1): React.JSX.Element {
-		const numberOfLines = Math.floor(shape.props.h / WRITING_LINE_HEIGHT);
-		const margin = 0.05 * shape.props.w;
-		this.isAspectRatioLocked(shape);
+	createSvg(shape: WritingLines_v1) {
 
-		const lines = Array.from({ length: numberOfLines }, (_, index) => (
-		<line
-				key = {index}
-				x1 = {margin}
-				y1 = {(index+1) * WRITING_LINE_HEIGHT}
-				x2 = {shape.props.w - margin}
-				y2 = {(index+1) * WRITING_LINE_HEIGHT}
-				// NOTE: Styling is done through CSS
-			/>
-		));
+		// Create a grid of lines
+		const lines = [];
+		const lineCount = Math.floor(shape.props.h / WRITING_LINE_HEIGHT);
+
+		for (let i = 0; i < lineCount; i++) {
+			const y = i * WRITING_LINE_HEIGHT;
+			lines.push(
+				<line
+					key = {i}
+					x1 = {0}
+					y1 = {y}
+					x2 = {shape.props.w}
+					y2 = {y}
+					stroke = "#E5E7EB"
+					strokeWidth = "1"
+				/>
+			);
+		}
 
 		return <>
-			{lines}
+			<g transform={`translate(${shape.props.x}, ${shape.props.y})`}>
+				{lines}
+			</g>
 		</>
 	}
-
-	
 
 }

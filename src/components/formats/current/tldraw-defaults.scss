@@ -1,4 +1,4 @@
-// This file is a manual copy of '@tldraw/tldraw/tldraw.css';
+// This file is a manual copy of 'tldraw/tldraw.css';
 // By copying it, I can scope it to just my ink's components so it doesn't overwrite any other plugins that use tldraw
 
 
@@ -103,7 +103,7 @@
 
 .tl-theme__light {
 	--color-accent: hsl(0, 76%, 60%);
-	--color-background: hsl(210, 20%, 98%);
+	--color-background: transparent;
 	--color-brush-fill: hsl(0, 0%, 56%, 10.2%);
 	--color-brush-stroke: hsl(0, 0%, 56%, 25.1%);
 	--color-grid: hsl(0, 0%, 43%);
@@ -145,7 +145,7 @@
 
 .tl-theme__dark {
 	--color-accent: hsl(0, 76%, 60%);
-	--color-background: hsl(240, 5%, 8%);
+	--color-background: transparent;
 	--color-brush-fill: hsl(0, 0%, 71%, 5.1%);
 	--color-brush-stroke: hsl(0, 0%, 71%, 25.1%);
 	--color-grid: hsl(0, 0%, 56%);
@@ -214,6 +214,7 @@ input,
 *[contenteditable],
 *[contenteditable] * {
 	-webkit-user-select: text;
+	user-select: text;
 }
 
 /* -------------------------------------------------- */
@@ -1891,6 +1892,7 @@ it from receiving any pointer events or affecting the cursor. */
 	contain: strict;
 	z-index: var(--layer-panels);
 	-webkit-transform: translate3d(0, 0, 0);
+	transform: translate3d(0, 0, 0);
 	--sab: env(safe-area-inset-bottom);
 }
 

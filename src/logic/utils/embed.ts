@@ -35,6 +35,8 @@ export function applyCommonAncestorStyling(embedEl: HTMLElement) {
 	parentEmbedBlockEl.classList.add('ddc_ink_embed-block');
 	
 	const parentPageScrollerEl = embedEl.closest('.cm-scroller') as HTMLElement;
+	if(!parentPageScrollerEl) return;
+	
 	const scrollerStyle = window.getComputedStyle(parentPageScrollerEl);
 	
 	const scrollerInlineStartMargin = scrollerStyle.paddingInlineStart;

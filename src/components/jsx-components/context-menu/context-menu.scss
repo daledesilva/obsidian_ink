@@ -1,0 +1,73 @@
+.ddc_ink_context-menu-container {
+  position: fixed;
+  z-index: var(--layer-context-menu);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-secondary);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  max-height: 80vh;
+}
+
+.ddc_ink_context-menu-container:hover {
+  background-color: var(--background-secondary);
+}
+
+/* Ensure menus can overflow containers - Strong selectors to override global styles */
+.ddc_ink_context-menu-container,
+.tlui-menu,
+.tl-container,
+.tlui-layout,
+.ddc_ink_drawing-editor .tl-container,
+.ddc_ink_drawing-editor .tlui-layout {
+  overflow: visible !important;
+  clip: unset !important;
+  contain: none !important;
+  z-index: 5000 !important;
+}
+
+/* 确保上下文菜单项有足够的空间 */
+.tl-menu {
+  z-index: var(--layer-context-menu);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* 调整右键菜单的样式以匹配 Obsidian 主题 */
+.tl-menu__item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tl-menu__item:hover {
+  background-color: var(--background-secondary);
+}
+
+.tl-menu__separator {
+  height: 1px;
+  background-color: var(--background-modifier-border);
+  margin: 4px 0;
+}
+
+/* 确保子菜单能够正确显示 */
+.tl-menu__item__submenu {
+  position: relative;
+}
+
+.tl-menu__item__submenu:hover > .tl-menu {
+  display: block;
+}
+
+/* 确保右键菜单在各种屏幕尺寸上都能正常工作 */
+@media (max-width: 768px) {
+  .tl-menu {
+    width: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tl-menu {
+    width: 200px;
+  }
+}

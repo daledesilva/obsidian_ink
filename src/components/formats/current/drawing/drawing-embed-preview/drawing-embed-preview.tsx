@@ -74,6 +74,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'all',
+                backgroundColor: 'transparent'
             }}
             onClick = {props.onClick}
 
@@ -85,8 +86,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                 <SVG
                     src = {fileSrc}
                     style = {{
-                        width: '100%',
-                        height: '100%',
                         maxWidth: '100%',
                         maxHeight: '100%',
                         cursor: 'pointer'

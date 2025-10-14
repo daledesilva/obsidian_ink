@@ -39,7 +39,7 @@ jest.mock('react-inlinesvg', () => {
 });
 
 // Mock tldraw heavy module with light stubs
-jest.mock('@tldraw/tldraw', () => {
+jest.mock('tldraw', () => {
   const dummyEditor = {
     store: { listen: () => () => {} },
     updateInstanceState: () => {},

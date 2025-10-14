@@ -34,7 +34,7 @@ In `test/setupTests.ts`:
 
 - DOM shims: `window.matchMedia` and `IntersectionObserver` so components relying on these APIs don’t crash.
 - `react-inlinesvg` is mocked to a no-op component (previews render consistently in Node).
-- `@tldraw/tldraw` is lightly mocked:
+- `tldraw` is lightly mocked:
   - Exposes a `TldrawEditor` that immediately calls `onMount` with a minimal `Editor` stub.
   - Provides `ShapeUtil` and placeholders for `defaultTools`, `defaultShapeUtils`, etc., so shape utils/classes can import without failing.
 - `src/logic/utils/tldraw-helpers` is mocked to no-op functions (camera, snapshot, etc.).

@@ -1,11 +1,8 @@
-import { LockIcon } from "src/graphics/icons/lock-icon";
 import "./extended-writing-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
-import OverflowMenu from "../overflow-menu/overflow-menu";
-
-//////////
-//////////
+import { LockIcon } from "src/graphics/icons/lock-icon";
+import { OverflowMenu } from "src/components/jsx-components/overflow-menu/overflow-menu";
 
 export const ExtendedWritingMenu: React.FC<{
 	onLockClick: Function,

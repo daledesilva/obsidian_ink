@@ -46,6 +46,22 @@ const WritingEmbedPreview_v1: React.FC<WritingEmbedPreviewProps_v1> = (props) =>
         }
     })
 
+    // 配置UI覆盖以启用右键菜单
+    const uiOverrides = {
+        // 确保上下文菜单(右键菜单)保持默认行为
+        ContextMenu: (props: any) => {
+            return <props.Component {...props} />;
+        },
+        // 确保画布菜单(空白处右键菜单)保持默认行为
+        CanvasMenu: (props: any) => {
+            return <props.Component {...props} />;
+        },
+        // 确保形状菜单(选中元素后右键菜单)保持默认行为
+        ShapeMenu: (props: any) => {
+            return <props.Component {...props} />;
+        }
+    };
+
     // Check if src is a DataURI. If not, it's an SVG
     const isImg = fileSrc.slice(0, 4) === 'data';
 

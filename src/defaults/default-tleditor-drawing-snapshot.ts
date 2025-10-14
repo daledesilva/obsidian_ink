@@ -1,4 +1,4 @@
-import { SerializedStore, TLEditorSnapshot, TLPageId, TLRecord } from '@tldraw/tldraw';
+import { SerializedStore, TLEditorSnapshot, TLPageId, TLRecord } from 'tldraw';
 
 ////////////////////
 ////////////////////

@@ -1,4 +1,4 @@
-import { Editor, Tldraw } from "@tldraw/tldraw";
+import { Editor, Tldraw } from "tldraw";
 import * as React from "react";
 
 ///////

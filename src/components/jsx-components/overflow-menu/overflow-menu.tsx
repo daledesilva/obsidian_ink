@@ -1,10 +1,7 @@
-import { Menu, Notice } from "obsidian";
 import "./overflow-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
-
-//////////
-//////////
+import { Menu } from "obsidian";
 
 interface menuOption {
     text: string,
@@ -40,13 +37,6 @@ export const OverflowMenu: React.FC<{
             </button>
         </div>
     </>
-    {/* <button>...</button> */ }
-    {/* <button
-                onClick = {() => props.onCopyClick()}
-            >
-                Duplicate
-            </button>             */}
-
 };
 
 export default OverflowMenu;

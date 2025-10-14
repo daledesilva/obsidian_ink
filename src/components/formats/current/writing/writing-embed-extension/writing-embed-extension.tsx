@@ -115,6 +115,21 @@ export class WritingEmbedWidget extends WidgetType {
         while (it.value) {
             const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
             if (widget && widget.id === this.id) {
+                // 检查是否存在嵌入文件
+                if (this.embeddedFile) {
+                    // 显示确认对话框，让用户选择是否同时删除文件
+                    if (confirm(`是否同时删除文件 "${this.embeddedFile.name}"？\n\n点击"确定"同时删除嵌入和文件，点击"取消"只移除嵌入但保留文件。`)) {
+                        // 用户确认删除文件
+                        const plugin = getGlobals().plugin;
+                        // 先移除嵌入，再删除文件
+                        const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
+                        view.dispatch(tr);
+                        // 删除文件
+                        plugin.app.vault.delete(this.embeddedFile, true);
+                        return;
+                    }
+                }
+                // 只移除嵌入（用户取消删除文件或没有嵌入文件）
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
                 view.dispatch(tr);
                 return;

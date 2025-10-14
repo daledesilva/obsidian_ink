@@ -4,6 +4,7 @@ import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { applyCommonAncestorStyling, removeEmbed, stringifyEmbedData } from "src/logic/utils/embed";
+import { Notice } from "obsidian";
 import { DrawingEmbedData_v1 } from "src/components/formats/v1-code-blocks/utils/build-embeds";
 import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
 import InkPlugin from "src/main";
@@ -29,12 +30,40 @@ export function registerDrawingEmbed_v1(plugin: InkPlugin) {
 		(source, el, ctx) => {
 			const embedData = JSON.parse(source) as DrawingEmbedData_v1;
 			const embedCtrls: EmbedCtrls_v1 = {
-				removeEmbed: () => removeEmbed(plugin, ctx, el),
+				removeEmbed: async () => {
+					// 检查是否存在文件路径
+					if (!embedData.filepath) {
+						removeEmbed(plugin, ctx, el);
+						return;
+					}
+
+					// 查找文件
+					const file = plugin.app.vault.getAbstractFileByPath(embedData.filepath);
+					if (!file || !(file instanceof TFile)) {
+						removeEmbed(plugin, ctx, el);
+						return;
+					}
+
+					// 显示确认对话框
+					if (confirm(`确定要移除嵌入内容并删除文件 "${file.name}" 吗？此操作无法撤销。`)) {
+						try {
+							// 删除文件
+							await plugin.app.vault.delete(file, true);
+							new Notice(`文件 "${file.name}" 已成功删除`);
+						} catch (error) {
+							console.error("删除文件时出错:", error);
+							new Notice("删除文件时出错，请检查控制台日志");
+						}
+
+						// 无论文件删除是否成功，都从文档中移除嵌入内容
+						removeEmbed(plugin, ctx, el);
+					}
+				}
 			}
 			if(embedData.filepath) {
 				ctx.addChild(new DrawingEmbedWidget_v1(el, plugin, embedData, embedCtrls, (newEmbedData) => updateEmbed_v1(plugin, ctx, el, newEmbedData)));
 			}
-		}
+		},
 	);
 
 }

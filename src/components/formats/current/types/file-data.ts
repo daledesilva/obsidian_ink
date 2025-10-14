@@ -1,4 +1,9 @@
-import { TLEditorSnapshot } from '@tldraw/tldraw';
+import { TLEditorSnapshot } from 'tldraw';
+
+export type BrushStyles = {
+    color: string;
+    size: string;
+};
 
 export type InkFileMetadata = {
     pluginVersion: string;
@@ -6,6 +11,7 @@ export type InkFileMetadata = {
     tldrawVersion: string;
     previewIsOutdated?: boolean;
     transcript?: string;
+    brushStyles?: BrushStyles;
 };
 
 export type InkFileData = {

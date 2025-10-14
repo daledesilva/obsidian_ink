@@ -1,7 +1,7 @@
-import { LockIcon } from "src/graphics/icons/lock-icon";
 import "./extended-drawing-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
+import { LockIcon } from "src/graphics/icons/lock-icon";
 import OverflowMenu from "../overflow-menu/overflow-menu";
 
 //////////
@@ -14,7 +14,7 @@ export const ExtendedDrawingMenu: React.FC<{
 
 	return <>
 		<div
-            className = 'ink_extended-writing-menu'
+            className = 'ink_extended-drawing-menu'
         >
             {props.onLockClick && (
                 <button

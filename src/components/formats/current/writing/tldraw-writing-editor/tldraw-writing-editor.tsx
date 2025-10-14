@@ -1,7 +1,8 @@
 import './tldraw-writing-editor.scss';
-import { Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawHandles, TLEditorSnapshot, TLEventInfo, TldrawUiContextProvider } from "tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import { getGlobals } from 'src/stores/global-store';
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -85,7 +86,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		ShapeIndicators: TldrawShapeIndicators,
 		CollaboratorScribble: TldrawScribble,
 		SelectionForeground: TldrawSelectionForeground,
-		SelectionBackground: TldrawSelectionBackground,
 		Handles: TldrawHandles,
 	}
 
@@ -94,6 +94,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		setEmbedState(WritingEmbedState.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
+
+		// 隐藏收费按钮
+		const licenseButton = editor.getContainer().querySelector('.tl-watermark_SEE-LICENSE[data-unlicensed="true"] > button') as HTMLElement;
+		if (licenseButton) {
+			licenseButton.style.display = 'none';
+		}
 
 		resizeContainerIfEmbed(tlEditorRef.current);
 		if(editorWrapperRefEl.current) {
@@ -110,9 +116,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		// view set up
 		if(props.embedded) {
 			initWritingCamera(editor);
-			editor.setCameraOptions({
-				isLocked: true,
-			})
+			// 移除嵌入式模式下的相机锁定，允许iOS设备上的缩放功能
+			// editor.setCameraOptions({
+			// 		isLocked: true,
+			// })
 		} else {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
@@ -259,13 +266,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		verbose('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const svgObj = await getWritingSvg(editor);
+		const { plugin } = getGlobals();
+		const svgObj = await getWritingSvg(editor, {
+			writingBackgroundWhenLocked: plugin.settings.writingBackgroundWhenLocked
+		});
 		stashStaleContent(editor);
 
         const writingFileData = buildWritingFileData({
-			tlEditorSnapshot: tlEditorSnapshot,
-			svgString: svgObj?.svg,
-		})
+		tlEditorSnapshot: tlEditorSnapshot,
+		svgString: svgObj?.svg,
+	})
 		props.save(writingFileData);
 	}
 
@@ -275,7 +285,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const svgObj = await getWritingSvg(editor);
+		const { plugin } = getGlobals();
+		const svgObj = await getWritingSvg(editor, {
+			writingBackgroundWhenLocked: plugin.settings.writingBackgroundWhenLocked
+		});
 		stashStaleContent(editor);
 		
         if (svgObj) {
@@ -319,22 +332,24 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				opacity: 0, // So it's invisible while it loads
 			}}
 		>
-			<TldrawEditor
-				options = {tlOptions}
-				shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes]}
-				tools = {[...defaultTools, ...defaultShapeTools]}
-				initialState = "draw"
-				snapshot = {tlEditorSnapshot}
-				// persistenceKey = {props.fileRef.path}
+			<TldrawUiContextProvider>
+				<TldrawEditor
+					options = {tlOptions}
+					shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes]}
+					tools = {[...defaultTools, ...defaultShapeTools]}
+					initialState = "draw"
+					snapshot = {tlEditorSnapshot}
+					// persistenceKey = {props.fileRef.path}
 
-				// bindingUtils = {defaultBindingUtils}
-				components = {defaultComponents}
+					// bindingUtils = {defaultBindingUtils}
+					components = {defaultComponents}
 
-				onMount = {handleMount}
+					onMount = {handleMount}
 
-				// Prevent autoFocussing so it can be handled in the handleMount
-				autoFocus = {false}
-			/>
+					// Prevent autoFocussing so it can be handled in the handleMount
+					autoFocus = {false}
+				/>
+			</TldrawUiContextProvider>
 			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={editorWrapperRefEl} />
 
 			<PrimaryMenuBar>

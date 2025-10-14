@@ -41,6 +41,7 @@ export class DrawingEmbedWidget extends WidgetType {
     embedSettings: any;
     partialEmbedFilepath: string;
     isHighlighted: boolean = false;
+    private boundingBoxElement?: HTMLDivElement;
     // mounted = false;
 
     constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string) {
@@ -94,28 +95,86 @@ export class DrawingEmbedWidget extends WidgetType {
                 const widgetStart = it.from;
                 const widgetEnd = it.to;
                 
-                // Check if any selection range actually spans across this widget
-                // Selection must have length > 0 and either start before and end after, or encompass the widget
+                // Check if any selection range actually spans across this widget or is inside it
                 const isHighlighted = view.state.selection.ranges.some(range => {
                     const hasSelection = range.from !== range.to; // Must be an actual selection, not just cursor position
                     const spansWidget = (range.from < widgetStart && range.to > widgetEnd) || // Selection encompasses entire widget
                                       (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // Selection starts before and ends within
-                                      (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd); // Selection starts within and ends after
+                                      (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd) || // Selection starts within and ends after
+                                      (range.from >= widgetStart && range.to <= widgetEnd); // Selection is entirely within the widget
                     return hasSelection && spansWidget;
                 });
                 
-                // Update the highlight state and CSS class
+                // Update the highlight state, CSS class and bounding box
                 if (isHighlighted !== this.isHighlighted) {
                     this.isHighlighted = isHighlighted;
                     if (isHighlighted) {
                         rootEl.classList.add('ddc_ink_widget-highlighted');
+                        this.attachBoundingBoxTool(rootEl);
                     } else {
                         rootEl.classList.remove('ddc_ink_widget-highlighted');
+                        this.detachBoundingBoxTool();
                     }
                 }
                 break;
             }
             it.next();
+        }
+    }
+
+    // 附加边界选择工具
+    public attachBoundingBoxTool(rootEl: HTMLElement): void {
+        if (this.boundingBoxElement) return;
+        
+        try {
+            // 创建边界框元素
+            this.boundingBoxElement = document.createElement('div');
+            this.boundingBoxElement.className = 'ddc_ink_widget-bounding-box';
+            
+            // 添加到容器
+            rootEl.style.position = 'relative';
+            rootEl.appendChild(this.boundingBoxElement);
+            
+            // 更新边界框位置和尺寸
+            this.updateBoundingBoxPosition(rootEl);
+        } catch (error) {
+            console.error('附加边界选择工具时出错:', error);
+            this.detachBoundingBoxTool();
+        }
+    }
+
+    // 更新边界框位置和尺寸
+    private updateBoundingBoxPosition(rootEl: HTMLElement): void {
+        if (!this.boundingBoxElement || !rootEl) return;
+        
+        try {
+            // 获取内容元素的位置和尺寸
+            const rect = rootEl.getBoundingClientRect();
+            const containerRect = rootEl.parentElement?.getBoundingClientRect() || rect;
+            
+            // 设置边界框位置和尺寸
+            Object.assign(this.boundingBoxElement.style, {
+                left: `${rect.left - containerRect.left}px`,
+                top: `${rect.top - containerRect.top}px`,
+                width: `${rect.width}px`,
+                height: `${rect.height}px`
+            });
+        } catch (error) {
+            console.error('更新边界框位置时出错:', error);
+        }
+    }
+
+    // 分离边界选择工具
+    public detachBoundingBoxTool(): void {
+        if (this.boundingBoxElement) {
+            try {
+                if (this.boundingBoxElement.parentNode) {
+                    this.boundingBoxElement.parentNode.removeChild(this.boundingBoxElement);
+                }
+            } catch (error) {
+                console.error('移除边界选择工具时出错:', error);
+            }
+            this.boundingBoxElement = undefined;
         }
     }
 
@@ -152,6 +211,21 @@ export class DrawingEmbedWidget extends WidgetType {
         while (it.value) {
             const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
             if (widget && widget.id === this.id) {
+                // 检查是否存在嵌入文件
+                if (this.embeddedFile) {
+                    // 显示确认对话框，让用户选择是否同时删除文件
+                    if (confirm(`是否同时删除文件 "${this.embeddedFile.name}"？\n\n点击"确定"同时删除嵌入和文件，点击"取消"只移除嵌入但保留文件。`)) {
+                        // 用户确认删除文件
+                        const plugin = getGlobals().plugin;
+                        // 先移除嵌入，再删除文件
+                        const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
+                        view.dispatch(tr);
+                        // 删除文件
+                        plugin.app.vault.delete(this.embeddedFile, true);
+                        return;
+                    }
+                }
+                // 只移除嵌入（用户取消删除文件或没有嵌入文件）
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
                 view.dispatch(tr);
                 return;
@@ -333,13 +407,14 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
             const widgetStart = it.from;
             const widgetEnd = it.to;
             
-            // Check if any selection range actually spans across this widget
-            // Selection must have length > 0 and either start before and end after, or encompass the widget
+            // 增强的选择检测逻辑，确保能正确识别所有类型的选择范围
             const isHighlighted = transaction.newSelection.ranges.some(range => {
-                const hasSelection = range.from !== range.to; // Must be an actual selection, not just cursor position
-                const spansWidget = (range.from < widgetStart && range.to > widgetEnd) || // Selection encompasses entire widget
-                                  (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // Selection starts before and ends within
-                                  (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd); // Selection starts within and ends after
+                const hasSelection = range.from !== range.to; // 必须是实际选择，而不仅仅是光标位置
+                const spansWidget = 
+                    (range.from < widgetStart && range.to > widgetEnd) || // 选择包含整个小部件
+                    (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // 选择开始于前并结束于内
+                    (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd) || // 选择开始于内并结束于后
+                    (range.from >= widgetStart && range.to <= widgetEnd); // 选择完全在小部件内部
                 return hasSelection && spansWidget;
             });
             
@@ -376,8 +451,12 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
             const isHighlighted = widgetHighlightStates.get(matchedWidget.id) || false;
             if (isHighlighted) {
                 htmlElement.classList.add('ddc_ink_widget-highlighted');
+                // 附加边界选择工具
+                matchedWidget.attachBoundingBoxTool(htmlElement);
             } else {
                 htmlElement.classList.remove('ddc_ink_widget-highlighted');
+                // 移除边界选择工具
+                matchedWidget.detachBoundingBoxTool();
             }
         }
     }

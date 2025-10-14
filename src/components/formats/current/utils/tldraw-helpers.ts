@@ -1,4 +1,4 @@
-import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, Box, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, Box, TLEditorSnapshot } from "tldraw";
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 import { useRef } from 'react';
 import InkPlugin from "src/main";
@@ -100,20 +100,68 @@ export function preventTldrawCanvasesCausingObsidianGestures(tlEditor: Editor) {
 	const tlContainer = tlEditor.getContainer();
 
 	const tlCanvas = tlContainer.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
-	if (!tlCanvas) return;
+	if (!tlCanvas) return () => {};
 
-	// Prevent fingers and capacitive pens causing Obsidian gestures
-	tlCanvas.addEventListener('touchmove', (e: Event) => {
-		e.stopPropagation();
-	})
+	// 设置touch-action以支持缩放
+	tlCanvas.style.touchAction = 'auto';
 
-	// NOTE: This might be a more appropriate method than above, but I don't know how to get a reference to the event object to stop propogation
-	// editor.addListener('event', (e: TLEventInfo) => {
-	// 	// if(e instanceof TLPointerEventInfo)
-	// 	const str = `type: ${e.type}, name: ${e.name}, isPen: ${e?.isPen}`;
-	// 	console.log(e);
-	// 	setOutputLog(str);
-	// });
+	// 跟踪当前触摸点数量
+	let touchCount = 0;
+
+	// 触摸事件处理函数
+	const handleTouchStart = (e: TouchEvent) => {
+		touchCount = e.touches.length;
+	};
+
+	const handleTouchMove = (e: TouchEvent) => {
+		// 更新当前触摸点数量
+		touchCount = e.touches.length;
+		
+		// 单指触摸：阻止冒泡和默认行为，防止触发Obsidian的滚动
+		if (touchCount === 1) {
+			e.stopPropagation();
+			e.preventDefault();
+		}
+		// 双指及以上触摸：允许冒泡和默认行为，保留缩放功能
+	};
+
+	const handleTouchEnd = (e: TouchEvent) => {
+		touchCount = e.touches.length;
+	};
+
+	const handleTouchCancel = (e: TouchEvent) => {
+		touchCount = e.touches.length;
+	};
+
+	// 处理右键菜单事件 - 确保tldraw的右键菜单能正常显示
+	const handleContextMenu = (e: MouseEvent) => {
+		// 检查事件目标是否为tldraw画布或其子元素
+		const isCanvasElement = e.target === tlCanvas || tlCanvas.contains(e.target as Node);
+		if (isCanvasElement) {
+			// 阻止默认行为，防止Obsidian的右键菜单显示
+			e.preventDefault();
+			// 不阻止冒泡，允许tldraw捕获事件并显示自己的菜单
+			// 注意：不使用e.stopPropagation()
+		}
+	};
+
+	// 添加事件监听器
+	tlCanvas.addEventListener('touchstart', handleTouchStart, { passive: true });
+	// 使用passive: false允许preventDefault生效
+	tlCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+	tlCanvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+	tlCanvas.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+	// 使用capture模式确保先于其他事件监听器捕获事件
+	tlCanvas.addEventListener('contextmenu', handleContextMenu, { capture: true });
+
+	// 返回清理函数
+	return () => {
+		tlCanvas.removeEventListener('touchstart', handleTouchStart);
+		tlCanvas.removeEventListener('touchmove', handleTouchMove);
+		tlCanvas.removeEventListener('touchend', handleTouchEnd);
+		tlCanvas.removeEventListener('touchcancel', handleTouchCancel);
+		tlCanvas.removeEventListener('contextmenu', handleContextMenu);
+	};
 }
 
 export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
@@ -389,7 +437,8 @@ export const hideWritingLines = (editor: Editor) => {
 export const unhideWritingContainer = (editor: Editor) => {
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!writingContainerShape) return;
-	const h = writingContainerShape.meta.savedH;
+	// 确保meta属性存在，如果不存在使用默认值
+	const h = writingContainerShape.meta?.savedH || WRITING_MIN_PAGE_HEIGHT;
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingContainerShape);
@@ -400,9 +449,8 @@ export const unhideWritingContainer = (editor: Editor) => {
 			props: {
 				h: h,
 			},
-			meta: {
-				savedH: undefined,
-			}
+			// 确保meta属性是一个有效的、可JSON序列化的空对象
+			meta: {}
 		});
 		lockShape(editor, writingContainerShape);
 	});
@@ -411,7 +459,8 @@ export const unhideWritingContainer = (editor: Editor) => {
 export const unhideWritingLines = (editor: Editor) => {
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	if (!writingLinesShape) return;
-	const h = writingLinesShape.meta.savedH;
+	// 确保meta属性存在，如果不存在使用默认值
+	const h = writingLinesShape.meta?.savedH || WRITING_MIN_PAGE_HEIGHT;
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingLinesShape);
@@ -422,9 +471,8 @@ export const unhideWritingLines = (editor: Editor) => {
 			props: {
 				h: h,
 			},
-			meta: {
-				savedH: undefined,
-			}
+			// 确保meta属性是一个有效的、可JSON序列化的空对象
+			meta: {}
 		});
 		lockShape(editor, writingLinesShape);
 	});
@@ -486,7 +534,40 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 
 
 export function prepareWritingSnapshot(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
-	return deleteObsoleteWritingTemplateShapes(TLEditorSnapshot);
+	// 先删除过时的形状
+	const updatedSnapshot = deleteObsoleteWritingTemplateShapes(TLEditorSnapshot);
+    
+	// 创建深拷贝以避免修改原始数据并确保JSON可序列化
+	const fixedSnapshot = JSON.parse(JSON.stringify(updatedSnapshot));
+    
+	// 检查并修复document.store中的所有shape记录
+	let store = fixedSnapshot?.document?.store;
+	if(!store) {
+		// 兼容旧格式
+		store = fixedSnapshot.store;
+	}
+    
+	// 更全面地检查和修复所有可能的存储位置
+	const storesToCheck = [store];
+	if (fixedSnapshot?.stores) {
+		storesToCheck.push(...Object.values(fixedSnapshot.stores));
+	}
+    
+	storesToCheck.forEach((storeInstance) => {
+		if (storeInstance) {
+			Object.values(storeInstance).forEach((record: any) => {
+				// 确保所有writing-container形状都有meta属性
+				if (record.typeName === 'shape' && record.type === 'writing-container') {
+					// 如果meta不存在、不是对象或者不是JSON可序列化的，设置为空对象
+					if (record.meta === undefined || record.meta === null || typeof record.meta !== 'object') {
+						record.meta = {};
+					}
+				}
+			});
+		}
+	});
+    
+	return fixedSnapshot;
 }
 
 export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
@@ -540,15 +621,17 @@ function addNewTemplateShapes(editor: Editor) {
 		editor.createShape({
 			id: 'shape:writing-lines' as TLShapeId,
 			type: 'writing-lines',
+			meta: {}
 		})
 	}
 
 	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId);
 	if(!hasContainer) {
 			editor.createShape({
-			id: 'shape:writing-container' as TLShapeId,
-			type: 'writing-container',
-		})
+		id: 'shape:writing-container' as TLShapeId,
+		type: 'writing-container',
+		meta: {}
+	})
 	}
 }
 
@@ -613,12 +696,18 @@ interface svgObj {
 	svg: string,
 };
 
-export async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+export async function getWritingSvg(editor: Editor, settings?: { writingBackgroundWhenLocked?: boolean }): Promise<svgObj | undefined> {
 	let svgObj: undefined | svgObj;
 	resizeWritingTemplateTightly(editor);
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
 	resizeWritingTemplateInvitingly(editor);
+	
+	// If background should not be shown, make SVG background transparent
+	if (svgObj && svgObj.svg && settings && !settings.writingBackgroundWhenLocked) {
+		svgObj.svg = svgObj.svg.replace(/background-color:\s*rgb\([^)]*\)|background-color:\s*#[^;]*;/g, 'background-color: transparent;');
+	}
+	
 	return svgObj;
 }
 
@@ -787,9 +876,15 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 
 
 
-export async function getDrawingSvg(editor: Editor): Promise<svgObj | undefined> {
+export async function getDrawingSvg(editor: Editor, settings?: { drawingBackgroundWhenLocked?: boolean }): Promise<svgObj | undefined> {
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	const svgObj = await editor.getSvgString(allShapeIds);
+	
+	// If background should not be shown, make SVG background transparent
+	if (svgObj && svgObj.svg && settings && !settings.drawingBackgroundWhenLocked) {
+		svgObj.svg = svgObj.svg.replace(/background-color:\s*rgb\([^)]*\)|background-color:\s*#[^;]*;/g, 'background-color: transparent;');
+	}
+	
 	return svgObj;
 }
 

@@ -1,5 +1,5 @@
 import { DOMParser } from 'xmldom';
-import { TLEditorSnapshot } from '@tldraw/tldraw';
+import { TLEditorSnapshot } from 'tldraw';
 import { InkFileData } from '../../components/formats/current/types/file-data';
 
 /////////////////////
@@ -94,4 +94,4 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
         console.error('Error extracting tldraw metadata JSON:', error);
         return null;
     }
-} 
+}

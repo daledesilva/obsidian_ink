@@ -2,7 +2,7 @@ import { TFile } from "obsidian";
 import { DRAW_FILE_V1_EXT, WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
-import { TLEditorSnapshot, TLShapeId } from "@tldraw/tldraw";
+import { TLEditorSnapshot, TLShapeId } from "tldraw";
 
 ////////
 ////////

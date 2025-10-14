@@ -1,7 +1,8 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import { getGlobals } from 'src/stores/global-store';
 import * as React from "react";
 import { TFile } from 'obsidian';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
@@ -78,7 +79,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		ShapeIndicators: TldrawShapeIndicators,
 		CollaboratorScribble: TldrawScribble,
 		SelectionForeground: TldrawSelectionForeground,
-		SelectionBackground: TldrawSelectionBackground,
 		Handles: TldrawHandles,
 	}
 
@@ -87,6 +87,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
         setEmbedState(DrawingEmbedState.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
+
+		// 隐藏收费按钮
+		const licenseButton = editor.getContainer().querySelector('.tl-watermark_SEE-LICENSE[data-unlicensed="true"] > button') as HTMLElement;
+		if (licenseButton) {
+			licenseButton.style.display = 'none';
+		}
 
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
@@ -97,9 +103,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// view setup
 		initDrawingCamera(editor);
 		if (props.embedded) {
-			editor.setCameraOptions({
-				isLocked: true,
-			})
+			// 移除嵌入式模式下的相机锁定，允许iOS设备上的缩放功能
+			// editor.setCameraOptions({
+			// 		isLocked: true,
+			// })
 		}
 
 
@@ -243,11 +250,14 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const incrementalSave = async (editor: Editor) => {
 		verbose('incrementalSave');
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const svgObj = await getDrawingSvg(editor);
+		const { plugin } = getGlobals();
+		const svgObj = await getDrawingSvg(editor, {
+			drawingBackgroundWhenLocked: plugin.settings.drawingBackgroundWhenLocked
+		});
 		const drawingFileData = buildDrawingFileData({
-			tlEditorSnapshot: tlEditorSnapshot,
-			svgString: svgObj?.svg,
-		})
+		tlEditorSnapshot: tlEditorSnapshot,
+		svgString: svgObj?.svg,
+	})
 		props.save(drawingFileData);
 	}
 
@@ -256,7 +266,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		let svgString;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const svgObj = await getDrawingSvg(editor);
+		const { plugin } = getGlobals();
+		const svgObj = await getDrawingSvg(editor, {
+			drawingBackgroundWhenLocked: plugin.settings.drawingBackgroundWhenLocked
+		});
 
 		
 		if(svgObj?.svg) {
@@ -369,5 +382,3 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 };
 
 // (helpers removed; handled by FingerBlocker)
-
-

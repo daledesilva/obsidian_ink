@@ -1,4 +1,3 @@
-import classNames from 'classnames';
 import './drawing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
@@ -7,6 +6,7 @@ import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState_v1, embedStateAtom, previewActiveAtom } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
+import classNames from 'classnames';
 const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
 
 //////////
@@ -36,6 +36,7 @@ export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (pr
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
+    const embedState = useAtomValue(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyDrawingSvg);
 
     React.useEffect(() => {
@@ -64,6 +65,20 @@ export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (pr
                 pointerEvents: 'all',
             }}
             onClick = {props.onClick}
+            
+            onContextMenu = {(e) => {
+                    // 阻止浏览器默认右键菜单
+                    e.preventDefault();
+                    // 阻止事件冒泡
+                    e.stopPropagation();
+                    
+                    // 只有在预览模式下才处理右键菜单事件
+                    if (embedState === DrawingEmbedState_v1.preview) {
+                        // 在预览模式下，如果用户右键点击，我们可以切换到编辑模式
+                        // 这样用户就可以在编辑模式下使用完整的右键菜单功能
+                        props.onClick(e);
+                    }
+                }}
 
             // Not currently doing this cause it can mean users easily lose their undo history
             // onMouseUp = {props.onEditClick}
@@ -73,7 +88,9 @@ export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (pr
                 <img
                     src = {fileSrc}
                     style = {{
-                        height: '100%',
+                        maxHeight: '100%',
+                        maxWidth: '100%',
+                        objectFit: 'contain',
                         cursor: 'pointer',
                         pointerEvents: 'all',
                     }}
@@ -114,6 +131,22 @@ export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (pr
         const inkFileData = await getInkFileData(props.drawingFile)
         if (inkFileData.previewUri) setFileSrc(inkFileData.previewUri)
     }
+
+    // 配置UI覆盖以启用右键菜单
+    const uiOverrides = {
+        // 确保上下文菜单(右键菜单)保持默认行为
+        ContextMenu: (props: any) => {
+            return <props.Component {...props} />;
+        },
+        // 确保画布菜单(空白处右键菜单)保持默认行为
+        CanvasMenu: (props: any) => {
+            return <props.Component {...props} />;
+        },
+        // 确保形状菜单(选中元素后右键菜单)保持默认行为
+        ShapeMenu: (props: any) => {
+            return <props.Component {...props} />;
+        }
+    };
 
 };
 

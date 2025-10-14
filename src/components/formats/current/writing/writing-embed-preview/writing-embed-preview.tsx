@@ -73,6 +73,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             style={{
                 position: 'absolute',
                 width: '100%',
+                backgroundColor: 'transparent'
             }}
             onClick={props.onClick}
 

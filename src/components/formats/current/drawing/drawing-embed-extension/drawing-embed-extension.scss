@@ -34,3 +34,15 @@
         opacity: 0.6;
     }
 }
+
+// 边界选择工具样式
+.ddc_ink_widget-bounding-box {
+    position: absolute;
+    box-sizing: border-box;
+    border: 2px dashed var(--interactive-accent);
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+}

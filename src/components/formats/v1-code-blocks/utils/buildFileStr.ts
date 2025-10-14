@@ -1,4 +1,4 @@
-import { TLEditorSnapshot } from '@tldraw/tldraw';
+import { TLEditorSnapshot } from 'tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { DOMParser } from 'xmldom';
 import format from 'xml-formatter';

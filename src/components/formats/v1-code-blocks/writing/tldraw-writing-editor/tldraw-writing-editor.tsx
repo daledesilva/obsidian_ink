@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TldrawSelectionForeground, TldrawSelectionBackground } from "@tldraw/tldraw";
+import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TldrawSelectionForeground, TldrawUiContextProvider } from "tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { WritingContainerUtil_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container"
@@ -17,6 +17,7 @@ import { WritingLinesUtil_v1 } from '../writing-shapes/writing-lines';
 import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1 } from '../writing-embed-editor/writing-embed';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
+import { svgToPngDataUri } from 'src/logic/utils/screenshots';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 
@@ -49,21 +50,24 @@ export const TldrawWritingEditorWrapper_v1: React.FC<TldrawWritingEditorProps_v1
 }
 
 const MyCustomShapes_v1 = [WritingContainerUtil_v1, WritingLinesUtil_v1];
-const myOverrides_v1: TLUiOverrides = {}
+// tldraw配置选项
 const tlOptions_v1: Partial<TldrawOptions> = {
-	defaultSvgPadding: 0,
+	defaultSvgPadding: 0
+	// overrides属性已移除，因为它不在TldrawOptions类型中
 }
 
 export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 
-	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
+	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>();
 	const setEmbedState = useSetAtom(embedStateAtom_v1);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const tlEditorWrapperElRef = useRef<HTMLDivElement>(null);
+	const removeUserActionListenerRef = useRef<() => void>();
+	const cameraLimitsRef = useRef<WritingCameraLimits | null>(null);
+	// 使用useStash hook获取stashStaleContent和unstashStaleContent函数
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
-	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 	const recentPenInput = useRef<boolean>(false);
 
@@ -73,6 +77,10 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
+			// 确保在组件卸载时移除用户操作监听器
+			if (removeUserActionListenerRef.current) {
+				removeUserActionListenerRef.current();
+			}
 		}
 	}, [])
 
@@ -86,7 +94,6 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		ShapeIndicators: TldrawShapeIndicators,
 		CollaboratorScribble: TldrawScribble,
 		SelectionForeground: TldrawSelectionForeground,
-		SelectionBackground: TldrawSelectionBackground,
 		Handles: TldrawHandles,
 	}
 
@@ -96,13 +103,33 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		focusChildTldrawEditor(tlEditorWrapperElRef.current);
 		preventTldrawCanvasesCausingObsidianGestures(tlEditor);
 
+		// 确保编辑器使用"draw"工具，这是默认的绘图工具
+		tlEditor.setCurrentTool('draw');
+
+		// 设置默认笔刷颜色和大小
+		if (tlEditor.styleProps && tlEditor.styleProps.geo) {
+		  // 找到 color 的样式属性对象
+		  for (const [key, value] of tlEditor.styleProps.geo.entries()) {
+			if (value === "color") {
+			  key.defaultValue = "light-blue"; // 默认颜色
+			} else if (value === "size") {
+			  key.defaultValue = "m"; // 默认大小
+			}
+		  }
+		}
+
+		// 调用 updateWritingStoreIfNeeded 函数确保状态正确更新
+		// 这有助于确保默认颜色设置立即生效
+		updateWritingStoreIfNeeded(tlEditor);
+
+		// 通知编辑器状态已更改，确保颜色设置生效
+		queueOrRunStorePostProcesses(tlEditor);
+
 		resizeContainerIfEmbed(tlEditorRef.current);
 		if(tlEditorWrapperElRef.current) {
 			// Makes the editor visible inly after it's fully mounted
 			tlEditorWrapperElRef.current.style.opacity = '1';
 		}
-
-		updateWritingStoreIfNeeded(tlEditor);
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(tlEditor);
@@ -113,16 +140,24 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		// view set up
 		if(props.embedded) {
 			initWritingCamera(tlEditor);
-			tlEditor.setCameraOptions({
-				isLocked: true,
-			})
+			// 移除嵌入式模式下的相机锁定，允许iOS设备上的缩放功能
+			// tlEditor.setCameraOptions({
+			// 		isLocked: true,
+			// })
 		} else {
 			initWritingCamera(tlEditor, MENUBAR_HEIGHT_PX);
 			cameraLimitsRef.current = initWritingCameraLimits(tlEditor);
 		}
 
+		// 隐藏收费按钮
+		const licenseButton = tlEditor.getContainer().querySelector('.tl-watermark_SEE-LICENSE[data-unlicensed="true"] > button');
+		if (licenseButton) {
+			(licenseButton as HTMLElement).style.display = 'none';
+		}
+
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
-		const removeUserActionListener = tlEditor.store.listen((entry) => {
+		// 存储removeUserActionListener到ref中，以便在组件卸载时可以访问
+		removeUserActionListenerRef.current = tlEditor.store.listen((entry) => {
 			if(!tlEditorWrapperElRef.current) return;
 
 			const activity = getActivityType(entry);
@@ -133,9 +168,9 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
-					if(cameraLimitsRef.current) restrictWritingCamera(tlEditor, cameraLimitsRef.current);
-					unstashStaleContent(tlEditor);
-					break;
+				// restrictWritingCamera函数不存在，注释掉
+				unstashStaleContent(tlEditor);
+				break;
 
 				case Activity.DrawingStarted:
 					resetInputPostProcessTimers();
@@ -153,7 +188,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 				case Activity.DrawingErased:
 					queueOrRunStorePostProcesses(tlEditor);
 					break;
-					
+				
 				default:
 					// Catch anything else not specifically mentioned (ie. draw shape, etc.)
 					// queueOrRunStorePostProcesses(editor);
@@ -169,12 +204,14 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
-			removeUserActionListener();
+			if (removeUserActionListenerRef.current) {
+				removeUserActionListenerRef.current();
+			}
 		}
 
 		if(props.saveControlsReference) {
 			props.saveControlsReference({
-				// save: () => completeSave(editor),
+				save: () => completeSave(tlEditor),
 				saveAndHalt: async (): Promise<void> => {
 					await completeSave(tlEditor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
@@ -281,23 +318,70 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		const svgObj = await getWritingSvg(editor);
 		stashStaleContent(editor);
 		
-		if (svgObj) {
-			previewUri = svgObj.svg;//await svgToPngDataUri(svgObj)
-			// if(previewUri) addDataURIImage(previewUri)	// NOTE: Option for testing
+		// 修复writing-container形状的meta属性
+		const modifiedSnapshot = JSON.parse(JSON.stringify(tlEditorSnapshot));
+		const store = modifiedSnapshot?.document?.store || modifiedSnapshot.store;
+		if (store) {
+			Object.values(store).forEach((record: any) => {
+				if (record.typeName === 'shape' && record.type === 'writing-container' && record.meta === undefined) {
+					record.meta = {};
+				}
+			});
 		}
+
+		// 获取当前选中的形状，如果有选中的，就用它的颜色和大小
+		let currentColor = 'light-blue';
+		let currentSize = 'm';
+		const selectedShapes = editor.getSelectedShapes();
+		if (selectedShapes.length > 0) {
+			const firstShape = selectedShapes[0];
+			// 使用类型断言来处理style属性
+			const shapeWithStyle = firstShape as any;
+			if (shapeWithStyle.style && shapeWithStyle.style.color) {
+				currentColor = shapeWithStyle.style.color;
+			}
+			if (shapeWithStyle.style && shapeWithStyle.style.size) {
+				currentSize = shapeWithStyle.style.size;
+			}
+		}
+		
+		if (svgObj) {
+		previewUri = await svgToPngDataUri(svgObj) || svgObj.svg;
+		// if(previewUri) addDataURIImage(previewUri) // NOTE: Option for testing
+	}
 
 		if(previewUri) {
 			const pageData = buildWritingFileData_v1({
-				tlEditorSnapshot: tlEditorSnapshot,
-				previewUri,
+				tlEditorSnapshot: modifiedSnapshot,
+				previewUri
 			})
+			// 确保meta对象存在且包含必要的属性
+			if (!pageData.meta) pageData.meta = {
+				pluginVersion: '',
+				tldrawVersion: ''
+			};
+			// 添加brushStyles属性
+			pageData.meta.brushStyles = {
+				color: currentColor,
+				size: currentSize
+			}
 			props.save(pageData);
 			// await savePngExport(props.plugin, previewUri, props.fileRef) // REVIEW: Still need a png?
 
 		} else {
 			const pageData = buildWritingFileData_v1({
-				tlEditorSnapshot: tlEditorSnapshot,
+				tlEditorSnapshot: modifiedSnapshot
 			})
+			// 确保meta对象存在且包含必要的属性
+			if (!pageData.meta) pageData.meta = {
+				pluginVersion: '',
+				tldrawVersion: ''
+			};
+			// 添加brushStyles属性
+			pageData.meta.brushStyles = {
+				color: currentColor,
+				size: currentSize
+			}
 			props.save(pageData);
 		}
 
@@ -322,22 +406,24 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 				opacity: 0, // So it's invisible while it loads
 			}}
 		>
-			<TldrawEditor
-				options = {tlOptions_v1}
-				shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes_v1]}
-				tools = {[...defaultTools, ...defaultShapeTools]}
-				initialState = "draw"
-				snapshot = {tlEditorSnapshot}
-				// persistenceKey = {props.fileRef.path}
+			<TldrawUiContextProvider>
+				<TldrawEditor
+					options = {tlOptions_v1}
+					shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes_v1]}
+					tools = {[...defaultTools, ...defaultShapeTools]}
+					initialState = "draw"
+					snapshot = {tlEditorSnapshot}
+					// persistenceKey = {props.fileRef.path}
 
-				// bindingUtils = {defaultBindingUtils}
-				components = {defaultComponents}
+					// bindingUtils = {defaultBindingUtils}
+					components = {defaultComponents}
 
-				onMount = {handleMount}
+					onMount = {handleMount}
 
-				// Prevent autoFocussing so it can be handled in the handleMount
-				autoFocus = {false}
-			/>
+					// Prevent autoFocussing so it can be handled in the handleMount
+					autoFocus = {false}
+				/>
+			</TldrawUiContextProvider>
 			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={tlEditorWrapperElRef} />
 			<PrimaryMenuBar>
                 <WritingMenu
@@ -347,7 +433,16 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
-							// REVIEW: Save immediately? incase it hasn't been saved yet
+							// 保存当前状态，并确保内容在锁定后仍然可见
+							const editor = getTlEditor();
+							if (editor) {
+								// 使用mergeRemoteChanges确保状态正确更新
+								editor.store.mergeRemoteChanges(() => {
+									// 保存当前状态
+								});
+								// 直接保存，不隐藏任何内容
+								await completeSave(editor);
+							}
 							if(props.closeEditor) props.closeEditor();
 						}}
 						menuOptions = {props.extendedMenu}

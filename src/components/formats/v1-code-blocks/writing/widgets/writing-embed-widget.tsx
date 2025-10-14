@@ -1,102 +1,85 @@
-// import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
-import * as React from "react";
-import { Root, createRoot } from "react-dom/client";
-import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
-import { WritingEmbedData, applyCommonAncestorStyling, removeEmbed } from "src/logic/utils/embed";
-import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
-import InkPlugin from "src/main";
-import { WritingEmbed_v1 } from "src/components/formats/v1-code-blocks/writing/writing-embed-editor/writing-embed";
-import { WRITE_EMBED_KEY } from "src/constants";
-import { 
-	Provider as JotaiProvider
-} from "jotai";
+import { MarkdownRenderChild, TFile } from 'obsidian';
+import * as React from 'react';
+import { createRoot, Root } from 'react-dom/client';
+import { Provider as JotaiProvider } from 'jotai';
+import { WritingEmbed_v1 } from '../writing-embed-editor/writing-embed';
+import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
+import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
+import { buildFileStr_v1 } from '../../utils/buildFileStr';
+import { InkFileData_v1 } from '../../types/file-data';
 
-////////
-////////
-
-interface EmbedCtrls_v1 {
-	removeEmbed: Function,
+interface WritingEmbedWidgetData {
+    filepath: string;
 }
 
-////////
-
-export function registerWritingEmbed_v1(plugin: InkPlugin) {
-	plugin.registerMarkdownCodeBlockProcessor(
-		WRITE_EMBED_KEY,
-		(source, el, ctx) => {
-			const embedData = JSON.parse(source) as WritingEmbedData;
-			const embedCtrls: EmbedCtrls_v1 = {
-				removeEmbed: () => removeEmbed(plugin, ctx, el),
-			}
-			if(embedData.filepath) {
-				ctx.addChild(new WritingEmbedWidget_v1(el, plugin, embedData, embedCtrls));
-			}
-		}
-	);
+interface WritingEmbedWidgetCtrl {
+    removeEmbed: () => void;
 }
 
-class WritingEmbedWidget_v1 extends MarkdownRenderChild {
-	el: HTMLElement;
-	plugin: InkPlugin;
-	embedData: WritingEmbedData;
-	embedCtrls: EmbedCtrls_v1;
-	root: Root;
-	fileRef: TFile | null;
-	
-	constructor(
-		el: HTMLElement,
-		plugin: InkPlugin,
-		embedData: WritingEmbedData,
-		embedCtrls: EmbedCtrls_v1,
-	) {
-		super(el);
-		this.el = el;
-		this.plugin = plugin;
-		this.embedData = embedData;
-		this.embedCtrls = embedCtrls;
-	}
+export class WritingEmbedWidget extends MarkdownRenderChild {
+    private plugin: any;
+    private embedData: WritingEmbedWidgetData;
+    private embedCtrls: WritingEmbedWidgetCtrl;
+    private fileRef: TFile | null = null;
+    private root: Root | null = null;
+    private el: HTMLElement;
 
-	async onload() {
-		const v = this.plugin.app.vault;
-		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
-		
-		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
-			this.el.createEl('p').textContent = 'Ink writing file not found: ' + this.embedData.filepath;
-			return;
-		}
+    constructor(el: HTMLElement, plugin: any, embedData: WritingEmbedWidgetData, embedCtrls: WritingEmbedWidgetCtrl) {
+        super(el);
+        this.el = el;
+        this.plugin = plugin;
+        this.embedData = embedData;
+        this.embedCtrls = embedCtrls;
+    }
 
-		const pageDataStr = await v.read(this.fileRef);
-		const pageData = JSON.parse(pageDataStr) as InkFileData_v1;
+    async onload() {
+        const v = this.plugin.app.vault;
+        this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
+        
+        if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
+            this.el.createEl('p').textContent = 'Ink writing file not found: ' + this.embedData.filepath;
+            return;
+        }
 
-		if(!this.root) this.root = createRoot(this.el);
-		this.root.render(
-			<JotaiProvider>
-				<WritingEmbed_v1
-					plugin = {this.plugin}
-					writingFileRef = {this.fileRef}
-					pageData = {pageData}
-					save = {this.save}
-					remove = {this.embedCtrls.removeEmbed}
-				/>
-			</JotaiProvider>
-		);
+        const pageDataStr = await v.read(this.fileRef);
+        let pageData: InkFileData_v1 | null = null;
+        try {
+            pageData = JSON.parse(pageDataStr) as InkFileData_v1;
+        } catch (e) {
+            pageData = extractInkJsonFromSvg(pageDataStr) as unknown as InkFileData_v1;
+        }
+        if (!pageData) {
+            this.el.createEl('p').textContent = 'Ink writing file invalid.';
+            return;
+        }
 
-		applyCommonAncestorStyling(this.el)
-	}
+        if(!this.root) this.root = createRoot(this.el);
+        this.root.render(
+            <JotaiProvider>
+                <WritingEmbed_v1
+                    plugin = {this.plugin}
+                    writingFileRef = {this.fileRef}
+                    pageData = {pageData}
+                    save = {this.save}
+                    remove = {this.embedCtrls.removeEmbed}
+                />
+            </JotaiProvider>
+        );
 
-	async onunload() {
-		this.root?.unmount();
-	}
+        applyCommonAncestorStyling(this.el)
+    }
 
-	// Helper functions
-	///////////////////
+    async onunload() {
+        this.root?.unmount();
+    }
 
-	save = async (pageData: InkFileData_v1) => {
-		
-		if(!this.fileRef) return;
+    // Helper functions
+    ///////////////////
+
+    save = async (pageData: InkFileData_v1) => {
+        
+        if(!this.fileRef) return;
         const pageDataStr = buildFileStr_v1(pageData);
-		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
-	}
-
+        await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
+    }
 }

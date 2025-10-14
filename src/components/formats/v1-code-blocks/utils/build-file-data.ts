@@ -1,4 +1,4 @@
-import { TLEditorSnapshot } from '@tldraw/tldraw';
+import { TLEditorSnapshot } from 'tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { InkFileData_v1 } from '../types/file-data';
 

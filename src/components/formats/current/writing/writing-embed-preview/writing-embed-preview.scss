@@ -8,6 +8,9 @@
     pointer-events: none;
 
     overflow: visible;
+    display: flex;
+    justify-content: center;
+    background-color: transparent !important;
 
     // img {
     //     pointer-events: auto;
@@ -47,6 +50,8 @@
 // Customised for themes
 ////////////////////////
 
+// 注释掉强制颜色的样式规则，让SVG保持原始颜色
+/*
 .theme-dark {
     .ddc_ink_writing-embed-preview {
         
@@ -66,4 +71,5 @@
 
     }
 }
+*/
 

@@ -221,7 +221,26 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
       e.preventDefault();
       return;
     }
+
+	// 删除选中（光标模式）
+	if (!modKey && (key === 'backspace' || key === 'delete')) {
+		const toolId = (tlEditorRef.current as any)?.getCurrentToolId?.() ?? '';
+		const isSelectTool = toolId === 'select';
+		// 若处于文本编辑状态则不拦截退格
+		const isEditing = !!(tlEditorRef.current as any)?.getEditingShapeId?.();
+
+		if (isSelectTool && !isEditing) {
+			const ids = tlEditorRef.current!.getSelectedShapeIds();
+		if (ids.length > 0) {
+			e.preventDefault(); // 防止浏览器后退/默认行为
+			tlEditorRef.current!.deleteShapes(ids);
+			return;
+		}
+		}
+	}
   }
+	
+
 
   function handleKeyUp(e: React.KeyboardEvent<HTMLDivElement>) {
     const key = e.key.toLowerCase();
@@ -265,11 +284,41 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
     else patch.z = newZoom;
     setCamera(editor, patch);
   }
+  function clampZoom(z: number): number {
+    if (z < MIN_ZOOM) return MIN_ZOOM;
+    if (z > MAX_ZOOM) return MAX_ZOOM;
+    return z;
+  }
   function panCameraBy(editor: Editor, dx: number, dy: number) {
     const cam = getCamera(editor);
     const z = cam.zoom ?? cam.z ?? 1;
+    // 让内容跟着指针移动：加号
     const patch: any = { ...cam, x: cam.x + dx / z, y: cam.y + dy / z };
     setCamera(editor, patch);
+  }
+  // 按屏幕坐标（相对编辑器容器）将缩放锚定到指针位置
+  function zoomCameraAtScreen(editor: Editor, targetZoom: number, sx: number, sy: number) {
+    const cam = getCamera(editor);
+    const z = cam.zoom ?? cam.z ?? 1;
+    const newZoom = clampZoom(targetZoom);
+
+    // screen = (world - cam) * z  =>  world = cam + screen / z
+    const worldX = cam.x + sx / z;
+    const worldY = cam.y + sy / z;
+
+    const patch: any = { ...cam };
+    patch.x = worldX - sx / newZoom;
+    patch.y = worldY - sy / newZoom;
+    if ('zoom' in cam) patch.zoom = newZoom;
+    else patch.z = newZoom;
+
+    setCamera(editor, patch);
+  }
+  function getScreenPointInEditor(e: React.PointerEvent<HTMLDivElement>) {
+    const rect = editorWrapperRefEl.current?.getBoundingClientRect();
+    const sx = e.clientX - (rect?.left ?? 0);
+    const sy = e.clientY - (rect?.top ?? 0);
+    return { sx, sy };
   }
 
   // Pointer capture handlers for pen/mouse/touch gestures on Space/Z
@@ -309,7 +358,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
-    // Avoid preventDefault in passive contexts; rely on touch-action CSS.
+    // 避免 passive 报错：不调用 preventDefault，依赖 touch-action: none
     e.stopPropagation();
   }
 
@@ -329,10 +378,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
       panCameraBy(editor, dx, dy);
     } else if (zoomDraggingRef.current) {
       const currentZoom = getZoom(editor);
-      let newZoom = currentZoom * Math.exp(-dy * ZOOM_SENSITIVITY);
-      if (newZoom < MIN_ZOOM) newZoom = MIN_ZOOM;
-      if (newZoom > MAX_ZOOM) newZoom = MAX_ZOOM;
-      setZoom(editor, newZoom);
+      let targetZoom = currentZoom * Math.exp(-dy * ZOOM_SENSITIVITY);
+      targetZoom = clampZoom(targetZoom);
+
+      // 以鼠标/触控当前位置为缩放锚点
+      const { sx, sy } = getScreenPointInEditor(e);
+      zoomCameraAtScreen(editor, targetZoom, sx, sy);
     }
 
     e.stopPropagation();

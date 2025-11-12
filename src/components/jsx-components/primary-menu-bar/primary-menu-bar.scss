@@ -12,7 +12,8 @@
     flex-direction: row;
     justify-content: space-between;
 
-    pointer-events: none;
+    /* 确保菜单栏可以接收鼠标事件 */
+    pointer-events: auto;
 }
 
 // If inside an embed block
@@ -25,5 +26,27 @@
 
     &.ddc_ink_active {
         transform: translate(0, -100%);
+        opacity: 1 !important;
+        visibility: visible !important;
     }
+}
+
+// 全屏模式下的菜单栏样式
+.ddc_ink_drawing-editor .ink_primary-menu-bar {
+    /* 全屏模式下提高z-index，确保菜单栏在最上层 */
+    z-index: 1001 !important;
+    
+    /* 确保菜单栏可以接收鼠标事件 */
+    pointer-events: auto !important;
+    
+    /* 确保菜单栏不会被画布内容覆盖 */
+    position: fixed !important;
+}
+.ddc_ink_embed,
+.ddc_ink_drawing-editor,
+.tl-container {
+  overflow: visible !important;
+}
+.ddc_ink_drawing-editor + .tlui-layout {
+    display: none;
 }

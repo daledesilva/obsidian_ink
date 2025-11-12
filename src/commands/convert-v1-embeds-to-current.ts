@@ -1,12 +1,14 @@
 import InkPlugin from 'src/main';
 import { Editor, Notice, TFile } from 'obsidian';
 import { buildDrawingEmbed, buildWritingEmbed } from 'src/components/formats/current/utils/build-embeds';
-import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
+import { buildFileStr, buildFileStrWithDrawingContent, buildFileStrWithWritingContent } from "src/components/formats/current/utils/buildFileStr";
 import { buildDrawingFileData, buildWritingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { createFoldersForFilepath } from 'src/logic/utils/createFoldersForFilepath';
 import { getNewTimestampedDrawingSvgFilepath, getNewTimestampedWritingSvgFilepath } from 'src/logic/utils/file-manipulation';
 import { DRAW_EMBED_KEY, WRITE_EMBED_KEY } from 'src/constants';
+import { prepareDrawingSnapshot, prepareWritingSnapshot } from 'src/components/formats/current/utils/tldraw-helpers';
+import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 
 // 定义v1版本嵌入数据的类型
 interface DrawingEmbedData_v1 {
@@ -20,6 +22,68 @@ interface WritingEmbedData_v1 {
     versionAtEmbed: string;
     filepath: string;
     transcript?: string;
+}
+
+// 健壮的V1文件数据读取函数（增强版）
+async function getRobustInkFileData(plugin: InkPlugin, file: TFile): Promise<any> {
+    const v = plugin.app.vault;
+    
+    // 添加重试机制
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            const fileContent = await v.read(file);
+            
+            // 首先尝试直接解析JSON（适用于纯JSON格式的V1文件）
+            try {
+                const jsonData = JSON.parse(fileContent);
+                if (jsonData && jsonData.meta && jsonData.tldraw) {
+                    return jsonData;
+                }
+            } catch (jsonError) {
+                // JSON解析失败，继续尝试其他格式
+            }
+            
+            // 如果文件是SVG格式，尝试从中提取JSON数据
+            if (file.extension.toLowerCase() === 'svg') {
+                // 检查是否包含SVG标签（考虑XML声明和DOCTYPE的情况）
+                const trimmedContent = fileContent.trim();
+                const hasSvgTag = trimmedContent.includes('<svg') && trimmedContent.includes('</svg>');
+                if (hasSvgTag) {
+                    const svgData = extractInkJsonFromSvg(fileContent);
+                    if (svgData) {
+                        return svgData;
+                    }
+                }
+            }
+            
+            // 如果以上方法都失败，尝试更宽松的JSON解析
+            try {
+                // 尝试清理可能的格式问题
+                const cleanedContent = fileContent.trim();
+                // 移除可能的BOM字符
+                const bomFreeContent = cleanedContent.replace(/^\uFEFF/, '');
+                const jsonData = JSON.parse(bomFreeContent);
+                return jsonData;
+            } catch (finalError) {
+                // 最后一次尝试失败才抛出错误
+                if (attempt === 3) {
+                    console.error('Failed to parse V1 file in any format after 3 attempts:', finalError);
+                    throw new Error(`无法解析V1文件: ${file.path}`);
+                }
+                // 等待一段时间后重试
+                await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+            }
+        } catch (readError) {
+            if (attempt === 3) {
+                console.error('Failed to read file after 3 attempts:', readError);
+                throw new Error(`无法读取文件: ${file.path}`);
+            }
+            // 等待一段时间后重试
+            await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+        }
+    }
+    
+    throw new Error('Unexpected error in getRobustInkFileData');
 }
 
 export const convertV1EmbedsToCurrent = async (plugin: InkPlugin, editor: Editor) => {
@@ -58,20 +122,22 @@ export const convertV1EmbedsToCurrent = async (plugin: InkPlugin, editor: Editor
                     continue;
                 }
                 
-                // 读取v1版本文件数据
-                const v1FileData = await getInkFileData(v1File);
+                // 读取v1版本文件数据（使用健壮的读取函数）
+                const v1FileData = await getRobustInkFileData(plugin, v1File);
                 
                 // 创建current版本SVG文件路径
                 const svgFilepath = await getNewTimestampedDrawingSvgFilepath(plugin, activeFile);
                 await createFoldersForFilepath(plugin, svgFilepath);
                 
                 // 构建current版本文件数据
+                const preparedSnapshot = prepareDrawingSnapshot(v1FileData.tldraw);
                 const currentFileData = buildDrawingFileData({
-                    tlEditorSnapshot: v1FileData.tldraw,
+                    tlEditorSnapshot: preparedSnapshot,
                 });
                 
-                // 创建SVG文件
-                const svgFile = await plugin.app.vault.create(svgFilepath, buildFileStr(currentFileData));
+                // 创建SVG文件 - 使用包含实际绘图内容的SVG生成函数
+                const svgContent = await buildFileStrWithDrawingContent(currentFileData);
+                const svgFile = await plugin.app.vault.create(svgFilepath, svgContent);
                 
                 // 构建新的嵌入字符串
                 const newEmbedStr = buildDrawingEmbed(svgFilepath);
@@ -102,21 +168,23 @@ export const convertV1EmbedsToCurrent = async (plugin: InkPlugin, editor: Editor
                     continue;
                 }
                 
-                // 读取v1版本文件数据
-                const v1FileData = await getInkFileData(v1File);
+                // 读取v1版本文件数据（使用健壮的读取函数）
+                const v1FileData = await getRobustInkFileData(plugin, v1File);
                 
                 // 创建current版本SVG文件路径
                 const svgFilepath = await getNewTimestampedWritingSvgFilepath(plugin, activeFile);
                 await createFoldersForFilepath(plugin, svgFilepath);
                 
                 // 构建current版本文件数据
+                const preparedSnapshot = prepareWritingSnapshot(v1FileData.tldraw);
                 const currentFileData = buildWritingFileData({
-                    tlEditorSnapshot: v1FileData.tldraw,
+                    tlEditorSnapshot: preparedSnapshot,
                     transcript: v1FileData.meta.transcript,
                 });
                 
-                // 创建SVG文件
-                const svgFile = await plugin.app.vault.create(svgFilepath, buildFileStr(currentFileData));
+                // 创建SVG文件 - 使用包含实际写作内容的SVG生成函数
+                const svgContent = await buildFileStrWithWritingContent(currentFileData);
+                const svgFile = await plugin.app.vault.create(svgFilepath, svgContent);
                 
                 // 构建新的嵌入字符串
                 const newEmbedStr = buildWritingEmbed(svgFilepath);

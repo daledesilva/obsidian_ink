@@ -13,13 +13,13 @@ export const DEFAULT_TLEDITOR_DRAWING_SNAPSHOT: TLEditorSnapshot = {
 				"id": "document:document",
 				"typeName": "document"
 			},
-			"page:3qj9EtNgqSCW_6knX2K9_": {
-				"meta": {},
-				"id": "page:3qj9EtNgqSCW_6knX2K9_",
-				"name": "Handwritten Note",
-				"index": "a1",
-				"typeName": "page"
-			},
+			"page:page1": {
+			"meta": {},
+			"id": "page:page1",
+			"name": "Handwritten Note",
+			"index": "a1",
+			"typeName": "page"
+		},
 		} as SerializedStore<TLRecord>,
 		"schema": {
 			"schemaVersion": 2,

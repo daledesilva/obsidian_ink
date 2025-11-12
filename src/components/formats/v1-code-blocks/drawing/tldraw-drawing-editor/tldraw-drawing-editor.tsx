@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionForeground, TldrawShapeIndicators, TldrawUiContextProvider, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLUnknownShape, ContextMenu } from "tldraw";
+import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionForeground, TldrawShapeIndicators, TldrawUiContextProvider, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLUnknownShape, ContextMenu, TldrawUiMenuSubmenu, TldrawUiMenuItem } from "tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
@@ -123,7 +123,7 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 	}
 
 	if(!tlEditorSnapshot) return <></>
-	verbose('EDITOR snapshot loaded')
+	//verbose('EDITOR snapshot loaded')
 
 	// 定义默认组件映射，确保基础组件被正确配置
 	const defaultComponents = {
@@ -136,13 +136,11 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 
 	// 配置UI覆盖以启用右键菜单 - tldraw v4.0.3版本兼容
 	const uiOverrides = {
-		// 确保上下文菜单(右键菜单)正确显示
+		// 使用自定义上下文菜单，包含子菜单功能
 		ContextMenu: (props: any) => {
 			return (
 				<div style={{ zIndex: 5000, position: 'fixed' }}>
-					<props.Component {...props}>
-						{props.children}
-					</props.Component>
+					<CustomContextMenu onClose={props.onClose} />
 				</div>
 			);
 		},
@@ -523,3 +521,74 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 
 
 }
+
+// CustomContextMenu组件 - 使用tldraw 4.0.3版本的TldrawUiMenuSubmenu和TldrawUiMenuItem组件
+const CustomContextMenu: React.FC<{
+	onClose?: () => void;
+}> = ({ onClose }) => {
+	return (
+		<ContextMenu>
+			{/* 复制为 - 悬停显示子菜单 */}
+			<TldrawUiMenuSubmenu
+				label="复制为"
+				id="copy-as"
+			>
+				<TldrawUiMenuItem
+					id="copy-svg"
+					label="SVG"
+					onSelect={() => {
+						// 复制为 SVG 的逻辑
+						console.log('复制为 SVG')
+					}}
+				/>
+				<TldrawUiMenuItem
+					id="copy-png"
+					label="PNG"
+					onSelect={() => {
+						// 复制为 PNG 的逻辑
+						console.log('复制为 PNG')
+					}}
+				/>
+				<TldrawUiMenuItem
+					id="copy-transparent"
+					label="透明"
+					onSelect={() => {
+						// 透明背景的逻辑
+						console.log('透明背景')
+					}}
+				/>
+			</TldrawUiMenuSubmenu>
+			
+			{/* 导出为 - 悬停显示子菜单 */}
+			<TldrawUiMenuSubmenu
+				label="导出为"
+				id="export-as"
+			>
+				<TldrawUiMenuItem
+					id="export-svg"
+					label="SVG"
+					onSelect={() => {
+						// 导出为 SVG 的逻辑
+						console.log('导出为 SVG')
+					}}
+				/>
+				<TldrawUiMenuItem
+					id="export-png"
+					label="PNG"
+					onSelect={() => {
+						// 导出为 PNG 的逻辑
+						console.log('导出为 PNG')
+					}}
+				/>
+				<TldrawUiMenuItem
+					id="export-transparent"
+					label="透明"
+					onSelect={() => {
+						// 透明背景导出的逻辑
+						console.log('透明背景导出')
+					}}
+				/>
+			</TldrawUiMenuSubmenu>
+		</ContextMenu>
+	);
+};

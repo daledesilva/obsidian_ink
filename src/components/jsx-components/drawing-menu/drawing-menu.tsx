@@ -1,4 +1,4 @@
-import "./drawing-menu.scss";
+import "../writing-menu/writing-menu.scss";
 import * as React from "react";
 import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
@@ -7,6 +7,31 @@ import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
 import { Editor } from "tldraw";
 import { silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+
+// 颜色映射表
+const TL_COLOR_TO_HEX_MAP: Record<string, string> = {
+  // 黑色系
+  'black': '#1d1d1d',
+  // 灰色系
+  'grey': '#808080',
+  // 紫色系
+  'light-violet': '#c084fc',
+  'violet': '#a855f7',
+  // 蓝色系
+  'blue': '#3b82f6',
+  'light-blue': '#60a5fa',
+  // 黄色和橙色系
+  'yellow': '#fbbf24',
+  'orange': '#f97316',
+  // 绿色系
+  'green': '#10b981',
+  'light-green': '#34d399',
+  // 红色系
+  'light-red': '#f87171',
+  'red': '#ef4444',
+  // 白色系
+  'white': '#ffffff'
+};
 
 // 定义默认颜色选项
 const DEFAULT_COLOR_NAMES = ["black","grey","light-violet","violet","blue","light-blue","yellow","orange","green","light-green","light-red","red","white"];
@@ -30,6 +55,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 	const [canRedo, setCanRedo] = React.useState<boolean>(false);
 	const [brushSize, setBrushSize] = React.useState(2);
 	const [brushColor, setBrushColor] = React.useState("light-blue"); // 默认颜色为 light-blue
+	const [brushOpacity, setBrushOpacity] = React.useState(100); // 默认透明度为 100%
     React.useEffect( () => {
         // console.log('MENUBAR MOUNTED');
         
@@ -148,13 +174,36 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
           props.onStoreChange(tlEditor); // 通知编辑器更新
         }
       };
+
+      const handleBrushOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.stopPropagation();
+        const opacity = parseInt(e.target.value);
+        setBrushOpacity(opacity);
+      
+        const tlEditor = props.getTlEditor();
+        if (tlEditor) {
+          // 将百分比透明度转换为0-1范围
+          const normalizedOpacity = opacity / 100;
+          
+          // 使用tldraw的正确方法设置透明度
+          // 设置后续创建形状的透明度
+          tlEditor.setOpacityForNextShapes(normalizedOpacity);
+          
+          // 如果当前有选中的形状，也设置它们的透明度
+          const selectedShapes = tlEditor.getSelectedShapes();
+          if (selectedShapes.length > 0) {
+            tlEditor.setOpacityForSelectedShapes(normalizedOpacity);
+          }
+          
+          props.onStoreChange(tlEditor); // 通知编辑器更新
+        }
+      };
     ///////////
     ///////////
 
     return <>
         <div
-            ref = {ref}
-            className = 'ink_menu-bar'
+            className='ink_other-menu'
         >
             <div
                 className='ink_quick-menu'
@@ -172,6 +221,11 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                     <RedoIcon/>
                 </button>
             </div>
+        </div>
+        <div
+            ref = {ref}
+            className = 'ink_menu-bar'
+        >
             <div
                 className='ink_tool-menu'
             >
@@ -204,25 +258,61 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => e.stopPropagation()}
                     />
-                    <select
-                        value={brushColor}
-                        onChange={handleBrushColorChange}
-                        className="ink_brush-color"
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                    {DEFAULT_COLOR_NAMES.map((color: string) => (
-                        <option key={color} value={color}>
-                            {color}
-                        </option>
-                    ))}
-                    </select>
+                    <div className="ink_brush-color-picker">
+                        <div className="ink_brush-color-current" 
+                             style={{backgroundColor: TL_COLOR_TO_HEX_MAP[brushColor] || brushColor}}
+                             onClick={(e) => {
+                                 e.stopPropagation();
+                                 e.currentTarget.parentElement?.classList.toggle('ink_brush-color-open');
+                             }}
+                        />
+                        <div className="ink_brush-color-options">
+                            <div className="ink_brush-color-options-grid">
+                                {DEFAULT_COLOR_NAMES.map((color: string) => (
+                                    <div
+                                        key={color}
+                                        className="ink_brush-color-option"
+                                        style={{backgroundColor: TL_COLOR_TO_HEX_MAP[color] || color}}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setBrushColor(color);
+                                            
+                                            // 直接更新编辑器中的笔刷颜色
+                                            const tlEditor = props.getTlEditor();
+                                            if (tlEditor && tlEditor.styleProps && tlEditor.styleProps.geo) {
+                                                // 找到 color 的样式属性对象
+                                                for (const [key, value] of tlEditor.styleProps.geo.entries()) {
+                                                    if (value === "color") {
+                                                        key.defaultValue = color; // 修改 color 的默认值
+                                                        break;
+                                                    }
+                                                }
+                                                props.onStoreChange(tlEditor); // 通知编辑器更新
+                                            }
+                                            
+                                            e.currentTarget.closest('.ink_brush-color-picker')?.classList.remove('ink_brush-color-open');
+                                        }}
+                                        title={color}
+                                    />
+                                ))}
+                            </div>
+                            {/* 透明度调节滑块 - 保持在颜色选择器内部下方 */}
+                            <div className="ink_brush-opacity-controls">
+                                <div className="ink_brush-opacity-label">透明度: {brushOpacity}%</div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={brushOpacity}
+                                    onChange={handleBrushOpacityChange}
+                                    className="ink_brush-opacity"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => e.stopPropagation()}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </button>  
-            </div>
-            <div
-                className='ink_other-menu'
-            >
-                
             </div>
         </div>
     </>;

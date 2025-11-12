@@ -890,6 +890,23 @@ export async function getDrawingSvg(editor: Editor, settings?: { drawingBackgrou
 		svgObj.svg = svgObj.svg.replace(/background-color:\s*rgb\([^)]*\)|background-color:\s*#[^;]*;/g, 'background-color: transparent;');
 	}
 	
+	// Add XML declaration and DOCTYPE for Windows 11 compatibility
+	if (svgObj && svgObj.svg) {
+		// Check if XML declaration is already present
+		if (!svgObj.svg.includes('<?xml')) {
+			svgObj.svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + 
+				'<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n' + 
+				svgObj.svg;
+		}
+		// Ensure DOCTYPE is present even if XML declaration exists
+		else if (!svgObj.svg.includes('<!DOCTYPE')) {
+			// First, ensure we have the correct XML declaration
+			svgObj.svg = svgObj.svg.replace(/<\?xml[^>]*>/, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>');
+			// Then add DOCTYPE after the XML declaration
+			svgObj.svg = svgObj.svg.replace('<?xml version="1.0" encoding="UTF-8" standalone="no"?>', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">');
+		}
+	}
+	
 	return svgObj;
 }
 
@@ -900,6 +917,9 @@ export async function getDrawingSvg(editor: Editor, settings?: { drawingBackgrou
  */
 export function focusChildTldrawEditor(containerEl: HTMLElement | null) {
 	if(containerEl) {
-		containerEl.find('.tl-container').focus({preventScroll: true});
+		const tlContainer = containerEl.querySelector('.tl-container') as HTMLElement | null;
+		if (tlContainer) {
+			tlContainer.focus({preventScroll: true});
+		}
 	}
 }

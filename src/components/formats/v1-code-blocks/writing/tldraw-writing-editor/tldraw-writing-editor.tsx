@@ -85,7 +85,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	}, [])
 
 	if(!tlEditorSnapshot) return <></>
-	verbose('EDITOR snapshot loaded')
+	//verbose('EDITOR snapshot loaded')
 
 	////////
 

@@ -2,7 +2,8 @@
     display: flex;
     gap: 4px;
 
-    pointer-events: none;
+    pointer-events: auto; /* 修复：允许菜单接收鼠标事件 */
+    z-index: 500; /* 使用比tldraw菜单层稍低的z-index值，但高于面板层 */
 
     button {
         width: auto;
@@ -31,6 +32,9 @@
         height: 2.5em;
         border-radius: 0.8em;
         padding: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         
         &.ddc_ink_btn-slim {
             width: 1.9em;
@@ -40,6 +44,8 @@
         svg {
             width: 1.5em !important;
             height: 1.5em !important;
+            display: block;
+            margin: 0 auto;
         }
     }
 }

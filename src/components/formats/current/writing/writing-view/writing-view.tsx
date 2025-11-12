@@ -16,10 +16,19 @@ export const WRITING_VIEW_TYPE = "ink_writing-view";
 ////////
 
 export function registerWritingView (plugin: InkPlugin) {
-    plugin.registerView(
-        WRITING_VIEW_TYPE,
-        (leaf) => new WritingView(leaf, plugin)
-    );
+    // 防止重复注册相同的视图类型
+    try {
+        plugin.registerView(
+            WRITING_VIEW_TYPE,
+            (leaf) => new WritingView(leaf, plugin)
+        );
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('existing view type')) {
+            console.warn(`View type ${WRITING_VIEW_TYPE} is already registered, skipping duplicate registration`);
+            return;
+        }
+        throw error;
+    }
 
     // Intercept .svg opens and switch to writing view when metadata indicates a writing file
     plugin.registerEvent(
@@ -34,8 +43,9 @@ export function registerWritingView (plugin: InkPlugin) {
                 if (currentViewType === WRITING_VIEW_TYPE) return;
 
                 const svgString = await plugin.app.vault.read(file);
-                if (!svgString || !svgString.trim().startsWith('<svg')) return;
-
+                if (!svgString) return;
+                
+                // 检查SVG内容是否包含ink metadata，即使有XML和DOCTYPE声明也要识别
                 const inkFileData = extractInkJsonFromSvg(svgString);
                 if (!inkFileData) return;
                 if (inkFileData.meta.fileType !== "inkWriting") return;

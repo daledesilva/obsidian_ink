@@ -4,22 +4,32 @@ import { getGlobals } from "src/stores/global-store";
 ////////////////////////////////
 ////////////////////////////////
 
-export async function openInkFile(fileRef: TFile) {
-    // switch(position) {
-        // case ViewPosition.replacement:      openInActiveView(plugin, fileRef); break;
-        // case ViewPosition.tab:              activateTabView(plugin, fileRef); break;
-        // case ViewPosition.verticalSplit:    activateSplitView(plugin, fileRef, 'horizontal'); break;
-        // case ViewPosition.horizontalSplit:  activateSplitView(plugin, fileRef, 'vertical'); break;
-        // default: openInCurrentView(plugin, fileRef); break;
-    // }
-
-    openInActiveView(fileRef);
+export async function openInkFile(fileRef: TFile, currentEmbedState?: string) {
+    // 强制在DrawingView中打开文件，确保进入编辑状态
+    await openInDrawingView(fileRef);
 }
 
 export async function openInActiveView(fileRef: TFile) {
     let { workspace }  = getGlobals().plugin.app;
 	let leaf = workspace.getLeaf();
     await leaf.openFile(fileRef);
+}
+
+export async function openInDrawingView(fileRef: TFile) {
+    let { workspace }  = getGlobals().plugin.app;
+    
+    // 获取当前活跃的leaf
+    let leaf = workspace.activeLeaf;
+    if (!leaf) {
+        leaf = workspace.getLeaf();
+    }
+    
+    // 强制设置视图状态为DrawingView
+    await leaf.setViewState({
+        type: "ink_drawing-view",
+        state: { file: fileRef.path },
+        active: true,
+    });
 }
 
 // NOTE: Future possible additions

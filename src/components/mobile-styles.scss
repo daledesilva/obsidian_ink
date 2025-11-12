@@ -1,105 +1,516 @@
-@media (max-width: 896px)
-{
-  .ink_extended-writing-menu,  .ink_extended-drawing-menu
-  {
-    transform:translate(50%, -100%);
-    margin-right:20px;
-    position:absolute;
-    right:20px;
-  }
-  .ink_primary-menu-bar,  .markdown-preview-view .ink_primary-menu-bar
-  {
-    transform:translate(0, -100%);
-  }
-  .ink_quick-menu
-  {
-    transform:translate(-10%, -100%);
-  }
-  .ink_tool-menu
-  {
-    gap:4px;
-  }
-  .block-language-handwritten-ink,  .block-language-handdrawn-ink
-  {
-    padding-top:60px;
-  }
-  .markdown-preview-view .ink_extended-writing-menu,  .markdown-preview-view .ink_extended-drawing-menu
-  {
-    transform:translate(0, -100%);
-  }
+/* 确保tlui-grid在横屏模式下正确显示 */
+    .tlui-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, 1fr) !important;
+      grid-auto-flow: row !important;
+      overflow: visible !important;
+      padding: 2px !important;
+      gap: 4px !important;
+    }
+
+/* 移动端通用样式 - 合并重复的@media查询 */
+@media (max-width: 896px) {
+  .tlui-slider__container {
+    padding-top: 30px;
 }
-button.ink_brush-controls
-{
-  display:flex;
-  gap:8px;
-  border-radius:10px;
-  width:80px !important;
-  align-items:center;
-  border:none;
-  justify-content:space-between;
-}
-input.ink_brush-size
-{
-  width:80px;
-}
-select.ink_brush-color
-{
-  width:80px;
-  padding:2px;
-  text-align:center;
-  background:none !important;
-}
-select.ink_brush-color,.ink_extended-writing-menu button,.ink_extended-drawing-menu button,.ink_menu-bar button
-{
-  background:none !important;
-}
-.block-language-handwritten-ink,.block-language-handdrawn-ink
-{
-  padding-top:30px;
-}
-.ink_extended-writing-menu,.ink_extended-drawing-menu
-{
-  position:absolute;
-  right:20px;
-  display: inline-flex;
-  pointer-events: auto;
+  /* 移动端工具栏样式 - 定位到tlui-menu-zone下方 */
+  .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras {
+    position: absolute !important;
+    top: calc(100% + 2px) !important;
+    left: 0 !important;
+    transform: none !important;
+    margin: 0 !important;
+    z-index: 1000 !important;
+  }
+  
+  /* 修复SVG图标点击区域问题 */
+  .tlui-main-toolbar__tools .tlui-button svg,
+  .tlui-main-toolbar__mobile-style-panel .tlui-button svg {
+    pointer-events: auto !important;
+  }
+  
+  /* 确保按钮本身可以接收点击事件 */
+  .tlui-main-toolbar__tools .tlui-button,
+  .tlui-main-toolbar__mobile-style-panel .tlui-button {
+    pointer-events: all !important;
+  }
+  
+  /* 优化后的ink_primary-menu-bar移动端样式 */
+  .ink_primary-menu-bar, 
+  .markdown-preview-view .ink_primary-menu-bar,
+  .markdown-source-view .ink_primary-menu-bar:not(:has(.ink-drawing-view-host)):not(:has(.tlui-layout__top__right)) {
+    transform: translate(0, -230%);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  body:has(.ink-drawing-view-host) .markdown-source-view .ink_primary-menu-bar,
+  body:has(.tlui-layout__top__right) .markdown-source-view .ink_primary-menu-bar {
+    transform: translateY(-130%) !important;
+    transition: transform 0.3s ease-in-out;
+  }
+  /* 移动端竖屏菜单布局优化 - iPhone 11 Pro Max (414x896) */
+  .ink_menu-bar {
+    position: absolute;
+    top: 15px !important;
+    left: 55% !important;
+    gap: 6px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+  }
+  
+  .ink_other-menu {
+    position: absolute !important;
+    left: 10px !important;
+    z-index: 1002 !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    display: flex !important;
+    //flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  body:has(.ink-drawing-view-host) .ink_other-menu {
+    transform: translateY(100%) !important;
+  }
+  .ink_other-menu .ink_quick-menu {
+    display: flex !important;
+    gap: 6px !important;
+    margin: 0 !important;
+  }
+  
+  .ink_extended-writing-menu,
+  .ink_extended-drawing-menu {
+    position: absolute !important;
+    right: 10px !important;
+    z-index: 1002 !important;
+    gap: 6px !important;
+    margin: 0 !important;
+    
+    /* 当tlui-grid或tlui-style-panel存在时隐藏扩展菜单 */
+    .tlui-grid ~ &,
+    .tlui-style-panel ~ & {
+      display: none !important;
+    }
+    
+    /* 或者使用更通用的选择器，当页面中存在tlui-grid或tlui-style-panel时隐藏 */
+    body:has(.tlui-grid) &,
+    body:has(.tlui-style-panel) & {
+      display: none !important;
+    }
+  }
+  
+  .ink_tool-menu {
+    z-index: 1001;
+    position: absolute !important;
+    top: 22px !important;
+    left: calc(50% - 70px) !important;
+    transform: translateX(-50%) !important;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  
+  /* 移动端ink_brush-controls样式 - 防止与ink_extended-drawing-menu重叠 */
+  button.ink_brush-controls {
+    display: flex;
+    gap: 10px !important;
+    border-radius: 10px;
+    //min-width: 65px !important;
+    //max-width: 80px !important;
+    align-items: center;
+    border: none;
+    justify-content: space-between;
+    padding: 0 8px !important;
+    margin: 0 2px !important;
+    pointer-events: auto !important; /* 确保按钮可以点击 */
+    
+    /* 确保内部元素也可以点击 */
+    & > * {
+      pointer-events: auto !important;
+    }
+  }
+  
+  input.ink_brush-size {
+    //width: 50px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  select.ink_brush-color {
+    width: 70px !important;
+    //min-width: 70px !important;
+    //max-width: 90px !important;
+    padding: 2px;
+    text-align: center;
+    background: transparent !important;
+    flex-shrink: 0 !important;
+    pointer-events: auto !important; /* 确保颜色选择器可以点击 */
+    cursor: pointer !important; /* 添加指针样式 */
+  }
+  
+  /* 移动端菜单栏按钮样式 */
+  .ink_extended-writing-menu button,
+  .ink_extended-drawing-menu button,
+  .ink_menu-bar button,
+  .ink_other-menu button {
+    background: transparent !important;
+    pointer-events: auto !important; /* 确保所有菜单按钮可以点击 */
+    cursor: pointer !important; /* 添加指针样式 */
+  }
+  
+  /* 确保ink_brush-controls在移动端有足够的空间 */
+  .ink_menu-bar button.ink_brush-controls {
+    order: 10 !important;
+    flex-shrink: 0 !important;
+    //min-width: 65px !important;
+    gap: 15px !important;
+    //width: 65px !important;
+  }
+  
+  /* 移动端画布宽度调整 - 确保在移动设备上正常显示 */
+  .ddc_ink_resize-container {
+    min-width: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .ink_brush-size {
+    width: 60px !important;
+  }
+  
+  /* 修复工具栏定位问题 - 智能定位 */
+  .tlui-toolbar {
+    /* 默认情况下工具栏在画布底部 */
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
+    background-color: var(--color-low) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    
+    /* 确保工具栏内容正确显示 */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 8px 12px !important;
+    
+    /* 修复工具栏高度 */
+    height: 60px !important;
+    min-height: 60px !important;
+  }
+  
+  /* 竖屏模式：画布小于屏幕时工具栏在画布底部，画布大于屏幕时固定在屏幕底部 */
+  @media (max-width: 896px) and (orientation: portrait) {
+    .tlui-toolbar {
+      position: absolute !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+    }
+    
+    /* 当画布高度超过屏幕时，工具栏固定在屏幕底部 - 改进选择器逻辑 */
+    .ddc_ink_drawing-editor,
+    .ddc_ink_writing-editor {
+      .tlui-toolbar {
+        position: absolute !important;
+        bottom: 0 !important;
+      }
+      
+      /* 当画布内容高度超过视口高度时，工具栏固定在屏幕底部 */
+      &:has(.tl-editor[style*="height"]),
+      &:has(.tl-editor[style*="min-height"]),
+      &:has(.tl-editor[style*="max-height"]) {
+        .tlui-toolbar {
+          position: fixed !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+        }
+      }
+    }
+  }
+
+  /* 确保画布有足够空间容纳工具栏 */
+  .ddc_ink_drawing-editor,
+  .ddc_ink_writing-editor {
+    position: relative !important;
+    min-height: 100vh !important;
+    padding-bottom: 70px !important;
+  }
+  
+  /* 确保画布内容可以正常滚动 */
+  .tl-editor {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    min-height: calc(100vh - 70px) !important;
+  }
+  
+  .tlui-style-panel {
+    padding-top: 30px !important;
+  }
+  
+  /* 优化.tlui-main-toolbar__overflow-content的布局和滚动 */
+  .tlui-main-toolbar__overflow-content {
+    margin-bottom: 175px !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(0, 0, 0, 0.3) transparent !important;
+    
+    /* Webkit浏览器滚动条样式 */
+    &::-webkit-scrollbar {
+      width: 4px !important;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent !important;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(0, 0, 0, 0.3) !important;
+      border-radius: 2px !important;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(0, 0, 0, 0.5) !important;
+    }
+  }
+  
+  /* 横屏模式下优化溢出内容的显示 */
+  @media (max-width: 896px) and (orientation: landscape) {
+    .tlui-main-toolbar__overflow-content {
+      max-height: 120px !important;
+      margin-bottom: 80px !important;
+    }
+  }
+  
+  .tlui-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    grid-auto-flow: row !important;
+    overflow: visible !important;
+    padding: 2px !important;
+  }
+  
+  .tlui-row {
+    display: flex !important;
+    flex-direction: row !important;
+    padding: 0 2px !important;
+  }
+  
+  /* Column layout */
+  .tlui-column {
+    display: flex !important;
+    //flex-direction: column !important;
+    padding: 2px 0 !important;
+    
+    > * {
+      margin-top: -2px !important;
+      margin-bottom: -2px !important;
+    }
+  }
 }
 
-/* iOS设备特殊处理 */
+/* 电脑端样式保持不变 */
+@media (min-width: 897px) {
+  /* 电脑端工具栏布局调整 - 让tlui-main-toolbar__extras显示在tlui-main-toolbar__left下方 */
+  .tlui-main-toolbar--horizontal .tlui-main-toolbar__left {
+    position: relative !important;
+    z-index: 1001 !important;
+  }
+  
+  .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras {
+    position: absolute !important;
+    top: calc(100% + 10px) !important;
+    left: 0 !important;
+    transform: none !important;
+    margin: 0 !important;
+    z-index: 1000 !important;
+  }
+  
+  button.ink_brush-controls {
+    display: flex;
+    gap: 8px;
+    border-radius: 10px;
+    width: 80px !important;
+    align-items: center;
+    border: none;
+    justify-content: space-between;
+    pointer-events: auto !important; /* 确保按钮可以点击 */
+    
+    /* 确保内部元素也可以点击 */
+    & > * {
+      pointer-events: auto !important;
+    }
+  }
+  
+  input.ink_brush-size {
+    width: 60px;
+  }
+  
+  select.ink_brush-color {
+    width: 80px;
+    padding: 2px;
+    text-align: center;
+    background: transparent !important;
+    pointer-events: auto !important; /* 确保颜色选择器可以点击 */
+    cursor: pointer !important; /* 添加指针样式 */
+  }
+  
+  select.ink_brush-color,
+  .ink_extended-writing-menu button,
+  .ink_extended-drawing-menu button,
+  .ink_menu-bar button {
+    background: none !important;
+  }
+/* 扩展菜单通用样式 */
+.ink_extended-writing-menu, .ink_extended-drawing-menu {
+  position: absolute;
+  right: 20px;
+  display: inline-flex;
+  pointer-events: auto;
+  
+  /* 确保按钮点击区域正确 */
+  button {
+    pointer-events: auto !important;
+    
+    /* 确保按钮内容区域可以点击 */
+    & > * {
+      pointer-events: auto;
+    }
+  }
+}
+
+/* 电脑端画布最小宽度限制 - 防止菜单重叠 */
+.ddc_ink_resize-container {
+  min-width: 500px;
+}
+}
+
+
+/* iOS设备特殊处理 - iPhone 11 Pro Max优化 */
 @media (max-width: 896px) and (-webkit-device-pixel-ratio: 3) {
-	/* 针对iOS设备的额外样式调整 */
-	.ink_tool-menu {
-		flex-wrap: nowrap;
-		justify-content: center;
-	}
-	.ink_brush-controls {
-		order: 10;
-		display: flex;
-		align-items: center;
-		gap: 3px;
-		top: 10px;
-	}
-	.ink_brush-size {
-		width: 50px !important;
-	}
-	
-	/* 解决iOS设备上ink_quick-menu不可见的问题 */
-	.ink_quick-menu {
-		transform: translate(-10%, -90%) !important; /* 调整垂直位置，避免完全移出视图 */
-		z-index: 2000 !important; /* 确保菜单显示在最上层 */
-	}
-	
-	/* 让整个视图（画布及所有工具）整体下移一行 */
-	.block-language-handwritten-ink,
-	.block-language-handdrawn-ink {
-		padding-top: 80px !important; /* 增加顶部内边距，使整个视图下移 */
-    margin-left: 8px;
-	}
-	
-	/* 调整所有菜单的位置，确保它们都可见 */
-	.ink_extended-writing-menu,
-	.ink_extended-drawing-menu,
-	.ink_quick-menu {
-		margin-top: 15px !important; /* 增加顶部间距 */
-	}
+  /* 针对iOS设备的额外样式调整 */
+  .ink_menu-bar {
+    top: 8px !important;
+    gap: 4px !important;
+  }
+  
+  .ddc_ink_resize-container {
+    min-width: unset !important;
+  }  
+  
+  /* iOS设备上ink_brush-controls的特殊处理 */
+  .ink_menu-bar button.ink_brush-controls {
+    order: 10 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    min-width: 65px !important;
+    max-width: 80px !important;
+    margin-top: 6px !important;
+  }
+  
+  .ink_brush-color {
+    width: 60px !important;
+    flex-shrink: 0 !important;
+    pointer-events: auto !important; /* 确保颜色选择器可以点击 */
+    cursor: pointer !important; /* 添加指针样式 */
+  }
+  
+  /* 让整个视图（画布及所有工具）整体下移一行 */
+  .ddc_ink_widget-root {
+    padding-top: 30px !important;
+  }
+  
+  /* 移除不必要的transform和margin */
+  .ink_extended-writing-menu,
+  .ink_extended-drawing-menu,
+  .ink_quick-menu {
+    margin-top: 0 !important;
+    transform: none !important;
+  }
+  
+  /* iOS设备画布区域触摸事件拦截 */
+  .ddc_ink_drawing-editor,
+  .ddc_ink_writing-editor {
+    /* 在iOS设备上，将视图向下移动，避免被状态栏遮挡 */
+    padding-top: 20px;
+    
+    /* 移除transform，避免影响触摸事件 */
+    transform: none !important;
+    
+    /* 确保画布区域拦截所有触摸事件，防止穿透到Obsidian界面 */
+    .tl-container,
+    .tlui-layout {
+      pointer-events: auto !important;
+    }
+    
+    /* 画布区域拦截触摸事件 */
+    .tl-canvas {
+      pointer-events: auto !important;
+    }
+  }
+  
+  /* 针对Apple Pencil书写的特殊处理 */
+  .ddc_ink_drawing-editor .tl-container,
+  .ddc_ink_writing-editor .tl-container {
+    /* 确保触摸事件不会穿透到下层元素 */
+    touch-action: pan-x pan-y !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+  }
+  
+  /* 禁用移动端长按选择行为 - 防止长按触发文本选择 */
+  .ddc_ink_drawing-editor,
+  .ddc_ink_writing-editor {
+    /* 禁用长按选择文本 */
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    
+    /* 禁用长按上下文菜单 */
+    -webkit-touch-callout: none !important;
+    
+    /* 确保所有子元素也继承这些属性，但排除右键菜单和ink菜单控件 */
+    *:not(.tlui-menu):not(.tlui-menu *):not(.ink_brush-controls):not(.ink_brush-color):not(.ink_menu-bar):not(.ink_extended-writing-menu):not(.ink_extended-drawing-menu):not(.ink_other-menu) {
+      -webkit-tap-highlight-color: transparent !important;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      -moz-user-select: none !important;
+      -ms-user-select: none !important;
+      user-select: none !important;
+    }
+  }
+  
+  /* 允许菜单区域正常交互 */
+  .tlui-menu,
+  .ink_menu-bar,
+  .ink_extended-writing-menu,
+  .ink_extended-drawing-menu,
+  .ink_other-menu {
+    /* 允许菜单区域正常交互 */
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
+    -webkit-touch-callout: default !important;
+    pointer-events: auto !important;
+    
+    /* 允许菜单按钮正常点击 */
+    button {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+      -webkit-touch-callout: default !important;
+      pointer-events: auto !important;
+    }
+  }
 }

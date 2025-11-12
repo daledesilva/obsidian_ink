@@ -6,6 +6,8 @@ import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-
 import { info, verbose } from "../../../../logic/utils/log-to-console";
 import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
+import { importSvgToTldraw, parseSvgToShapes } from "./importSvgToTldraw";
+import { getGlobals } from "src/stores/global-store";
 
 //////////
 //////////
@@ -226,7 +228,8 @@ export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCamer
 	const bounds = editor.getCurrentPageBounds();
 	if (!bounds) return;
 
-	const yMin = bounds.minY - 500;
+	// 放宽y轴限制，允许相机在B区定位（writing-zone上方）
+	const yMin = bounds.minY - 1500; // 从-500放宽到-1500，允许相机在B区定位
 	const yMax = bounds.maxY + 1000;
 
 	let x = editor.getCamera().x;
@@ -395,7 +398,7 @@ export const hideWritingContainer = (editor: Editor) => {
 		editor.updateShape({
 			id: writingContainerShape.id,
 			type: writingContainerShape.type,
-			// isLocked: true,
+			isLocked: true,
 			props: {
 				h: 0,
 			},
@@ -422,7 +425,7 @@ export const hideWritingLines = (editor: Editor) => {
 		editor.updateShape({
 			id: writingLinesShape.id,
 			type: writingLinesShape.type,
-			// isLocked: true,
+			isLocked: true,
 			props: {
 				h: 0,
 			},
@@ -445,7 +448,7 @@ export const unhideWritingContainer = (editor: Editor) => {
 		editor.updateShape({
 			id: writingContainerShape.id,
 			type: writingContainerShape.type,
-			// isLocked: true,
+			isLocked: true,
 			props: {
 				h: h,
 			},
@@ -467,7 +470,7 @@ export const unhideWritingLines = (editor: Editor) => {
 		editor.updateShape({
 			id: writingLinesShape.id,
 			type: writingLinesShape.type,
-			// isLocked: true,
+			isLocked: true,
 			props: {
 				h: h,
 			},
@@ -570,9 +573,285 @@ export function prepareWritingSnapshot(TLEditorSnapshot: TLEditorSnapshot): TLEd
 	return fixedSnapshot;
 }
 
-export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
-	return tlEditorSnapshot;
+export function prepareDrawingSnapshot(
+	tlEditorSnapshot: TLEditorSnapshot, 
+	editor?: Editor, 
+	filePath?: string
+): TLEditorSnapshot {
+	// 创建深拷贝以避免修改原始数据并确保JSON可序列化
+	const fixedSnapshot = JSON.parse(JSON.stringify(tlEditorSnapshot));
+	
+	// 确保快照符合Tldraw迁移要求的基本结构
+	if (!fixedSnapshot.document) {
+		fixedSnapshot.document = {};
+	}
+	
+	if (!fixedSnapshot.document.store) {
+		fixedSnapshot.document.store = {};
+	}
+	
+	// 确保store有正确的schema结构
+	if (!fixedSnapshot.document.store.schema) {
+		fixedSnapshot.document.store.schema = {
+			schemaVersion: 2,
+			sequences: {
+				"com.tldraw.store": 4,
+				"com.tldraw.asset": 1,
+				"com.tldraw.camera": 1,
+				"com.tldraw.document": 2,
+				"com.tldraw.instance": 25,
+				"com.tldraw.instance_page_state": 5,
+				"com.tldraw.page": 1,
+				"com.tldraw.instance_presence": 5,
+				"com.tldraw.pointer": 1,
+				"com.tldraw.shape": 4,
+				"com.tldraw.asset.bookmark": 2,
+				"com.tldraw.asset.image": 5,
+				"com.tldraw.asset.video": 5,
+				"com.tldraw.shape.group": 0,
+				"com.tldraw.shape.text": 2,
+				"com.tldraw.shape.bookmark": 2,
+				"com.tldraw.shape.draw": 2,
+				"com.tldraw.shape.geo": 9,
+				"com.tldraw.shape.note": 7,
+				"com.tldraw.shape.line": 5,
+				"com.tldraw.shape.frame": 0,
+				"com.tldraw.shape.arrow": 5,
+				"com.tldraw.shape.highlight": 1,
+				"com.tldraw.shape.embed": 4,
+				"com.tldraw.shape.image": 4,
+				"com.tldraw.shape.video": 2
+			}
+		};
+	}
+	
+	// 检查并修复document.store中的所有shape记录
+	let store = fixedSnapshot?.document?.store;
+	if(!store) {
+		// 兼容旧格式
+		store = fixedSnapshot.store;
+	}
+	
+	// 更全面地检查和修复所有可能的存储位置
+	const storesToCheck = [store];
+	if (fixedSnapshot?.stores) {
+		storesToCheck.push(...Object.values(fixedSnapshot.stores));
+	}
+	
+	storesToCheck.forEach((storeInstance) => {
+		try {
+			// 确保storeInstance是对象类型
+			if (!storeInstance || typeof storeInstance !== 'object' || storeInstance === null) {
+				return;
+			}
+			
+			// 修复多图问题：首先收集所有image形状的assetId信息
+			const imageShapeAssetIds = new Set<string>();
+			
+			// 首先清理无效记录（typeName为undefined的记录）
+			let deletedCount = 0;
+			Object.keys(storeInstance).forEach((key) => {
+				const record = storeInstance[key];
+				if (!record || typeof record !== 'object' || record === null) {
+					// 删除无效记录
+					delete storeInstance[key];
+					deletedCount++;
+				} else if (record.typeName === undefined || record.typeName === null) {
+					// 特殊处理schema记录：如果key是'schema'且记录有schemaVersion属性，则保留并添加typeName
+					if (key === 'schema' && record.schemaVersion !== undefined) {
+						record.typeName = 'store-schema';
+					} else if (key.startsWith('asset:') && record.type !== undefined) {
+						// 修复asset记录的typeName
+						record.typeName = 'asset';
+					} else if (key.startsWith('shape:') && record.type !== undefined) {
+						// 修复shape记录的typeName
+						record.typeName = 'shape';
+					} else if (key.startsWith('instance:') || key.startsWith('camera:') || key.startsWith('page:') || key.startsWith('pointer:')) {
+						// 根据key前缀推断typeName
+						const prefix = key.split(':')[0];
+						record.typeName = prefix;
+					} else {
+						// 无法确定类型的记录，尝试根据内容推断
+						if (record.type && typeof record.type === 'string') {
+							if (record.type === 'image' || record.type === 'video' || record.type === 'bookmark') {
+								record.typeName = 'asset';
+							} else if (['draw', 'geo', 'text', 'frame', 'arrow', 'note', 'line', 'highlight', 'embed', 'group', 'writing-container', 'writing-lines'].includes(record.type)) {
+								record.typeName = 'shape';
+							} else {
+								// 无法确定类型，删除记录以避免错误
+								delete storeInstance[key];
+								deletedCount++;
+								return;
+							}
+						} else {
+							// 无法确定类型的记录，删除以避免错误
+							delete storeInstance[key];
+							deletedCount++;
+							return;
+						}
+					}
+				}
+			});
+			
+			Object.values(storeInstance).forEach((record: any) => {
+				if (record.typeName === 'shape' && record.type === 'image' && record.props?.assetId) {
+					imageShapeAssetIds.add(record.props.assetId);
+				}
+			});
+			
+			// 处理所有记录
+			Object.values(storeInstance).forEach((record: any) => {
+				try {
+					// 确保记录是有效对象
+					if (!record || typeof record !== 'object' || record === null) {
+						return;
+					}
+					
+					// 确保typeName存在且有效
+					if (!record.typeName || typeof record.typeName !== 'string') {
+						console.warn('Record with invalid typeName, skipping:', record.id);
+						return;
+					}
+					
+					// 解锁所有锁定的形状，确保SVG可以正确生成
+				if (record.typeName === 'shape' && record.isLocked === true) {
+					record.isLocked = false;
+				}
+				
+				// 确保所有形状都有有效的meta属性
+				if (record.typeName === 'shape' && (record.meta === undefined || record.meta === null || typeof record.meta !== 'object')) {
+					record.meta = {};
+				}
+				
+				// 修复可能存在的无效属性
+				if (record.typeName === 'shape') {
+				// 确保props对象存在且有效
+				if (!record.props || typeof record.props !== 'object') {
+					record.props = {};
+				}
+				
+				// 特殊处理图片类型的形状
+				if (record.type === 'image') {
+				// 保留原始ID，不强制生成新ID
+				
+				// 修复跨平台兼容性：优先保留原始src数据，避免过度修改
+				// 注意：不要自动修复空白图片，以便检测机制能够正常工作
+				// 只有当src完全不存在或为null/undefined时才设置为空字符串
+				if (record.props.src === undefined || record.props.src === null) {
+				// 明确保持src为空，不创建默认透明图片，以便正确检测空白图片
+				record.props.src = '';
+				}
+				// 如果src已经是空字符串，保持原样，不要修改
+				
+				// 确保图片尺寸属性存在且有效
+				if (!record.props.w || record.props.w <= 0 || isNaN(record.props.w)) {
+					record.props.w = 300; // 默认宽度
+				}
+				if (!record.props.h || record.props.h <= 0 || isNaN(record.props.h)) {
+					record.props.h = 200; // 默认高度
+				}
+				
+				// 只在完全没有裁剪属性时添加默认值，避免修改已有裁剪
+				if (!record.props.crop || typeof record.props.crop !== 'object') {
+					record.props.crop = {
+						x: 0,
+						y: 0,
+						w: 1,
+						h: 1
+					};
+				}
+				
+				// 确保图片有正确的滤镜属性
+				if (!record.props.filter || typeof record.props.filter !== 'string') {
+					record.props.filter = 'none';
+				}
+				
+				// 修复多图问题：确保assetId存在且有效
+				if (!record.props.assetId || typeof record.props.assetId !== 'string') {
+					// 如果assetId不存在，尝试从形状ID生成对应的assetId
+					record.props.assetId = `asset:${record.id.replace('shape:', '')}`;
+				}
+				}
+				
+				// 仅在位置属性完全缺失时添加默认值，保留原始位置信息
+				if (record.x === undefined || record.x === null || isNaN(record.x)) {
+					record.x = 0;
+				}
+				if (record.y === undefined || record.y === null || isNaN(record.y)) {
+					record.y = 0;
+				}
+				
+				// 只在id完全缺失时生成临时id，避免覆盖有效id
+					if (record.typeName === 'shape' && (!record.id || typeof record.id !== 'string')) {
+						record.id = `shape:temp-${Math.random().toString(36).substr(2, 9)}`;
+					}
+				}
+				} catch (error) {
+					// 捕获并忽略单个记录处理中的错误，确保其他记录能继续处理
+				}
+			});
+			
+			// 修复多图问题：确保所有image形状对应的asset资源记录存在
+			imageShapeAssetIds.forEach((assetId) => {
+				// 检查asset资源记录是否存在
+				const assetKey = `asset:${assetId.replace('asset:', '')}`;
+				if (!storeInstance[assetKey]) {
+					// 如果asset资源记录不存在，尝试从image形状中获取图片数据
+					let imageSrc = '';
+					
+					// 查找对应的image形状，获取src数据
+					Object.values(storeInstance).forEach((record: any) => {
+						if (record.typeName === 'shape' && record.type === 'image' && record.props?.assetId === assetId) {
+							// 优先使用现有的src数据
+							imageSrc = record.props.src || record.props.srcData || record.props.imageData || '';
+						}
+					});
+					
+					// 如果仍然没有src数据，保持为空，不创建默认透明图片
+					// 这样空白图片检测机制才能正常工作
+					// imageSrc = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+					
+					// 创建基础asset记录
+					storeInstance[assetKey] = {
+						id: assetId,
+						typeName: 'asset',
+						type: 'image',
+						props: {
+							name: 'imported-image',
+							src: imageSrc, // 使用获取到的图片数据（可能为空）
+							w: 300,
+							h: 200,
+							mimeType: 'image/png',
+							isAnimated: false,
+						},
+						meta: {},
+					};
+				}
+			});
+		} catch (error) {
+			// 捕获store级别错误，确保整体处理不中断
+		}
+	});
+	
+	// 确保document和page对象存在且有效
+	if (!fixedSnapshot.document) {
+		fixedSnapshot.document = {};
+	}
+	if (!fixedSnapshot.document.page) {
+		fixedSnapshot.document.page = {};
+	}
+	
+	// 确保store对象存在
+	if (!fixedSnapshot.document.store) {
+		fixedSnapshot.document.store = {};
+	}
+	
+	return fixedSnapshot;
 }
+
+
+
+
 
 
 /***
@@ -636,6 +915,18 @@ function addNewTemplateShapes(editor: Editor) {
 }
 
 export function unlockShape(editor: Editor, shape: TLUnknownShape) {
+	// 添加参数验证，防止undefined错误
+	if (!shape || !shape.id) {
+		console.warn('unlockShape: shape参数无效，跳过解锁操作', shape);
+		return;
+	}
+
+	// 检查形状是否仍然存在于编辑器中
+	const currentShape = editor.getShape(shape.id);
+	if (!currentShape) {
+		console.warn('unlockShape: 形状不存在于编辑器中，跳过解锁操作', shape.id);
+		return;
+	}
 
 	// NOTE: Unlocking through updateShape causes an object.hasOwn error on older Android devices
 	// editor.updateShape({
@@ -656,6 +947,18 @@ export function unlockShape(editor: Editor, shape: TLUnknownShape) {
 }
 
 export function lockShape(editor: Editor, shape: TLUnknownShape) {
+	// 添加参数验证，防止undefined错误
+	if (!shape || !shape.id) {
+		console.warn('lockShape: shape参数无效，跳过锁定操作', shape);
+		return;
+	}
+
+	// 检查形状是否仍然存在于编辑器中
+	const currentShape = editor.getShape(shape.id);
+	if (!currentShape) {
+		console.warn('lockShape: 形状不存在于编辑器中，跳过锁定操作', shape.id);
+		return;
+	}
 
 	// NOTE: Locking through updateShape causes an object.hasOwn error on older Android devices
 	// editor.updateShape({
@@ -803,7 +1106,16 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
 	if (!contentBounds) return;
 
 	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h);
-
+	//画布分区结构：
+	//A区 ：书写内容移动目标区域（原大小，不放大）
+	//B区 ：writing-zone上方，容器中间区域（相机位置在此）
+	//C区 ：writing-zone区域（视野中心，不会被使用）
+	// 补偿C区高度：由于相机定位在B区，C区不会被使用，需要补偿C区的高度
+	// C区高度约为容器高度的40%（相机视野下方区域）
+	const containerBounds = getWritingContainerBounds(editor);
+	const cZoneHeight = containerBounds.h * 0.132
+	contentBounds.h += cZoneHeight;
+	
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	
@@ -828,6 +1140,7 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
 				h: contentBounds.h,
 			}
 		})
+		// 锁定形状，避免选择工具显示选择框
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
 	})
@@ -867,6 +1180,7 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 				h: contentBounds.h,
 			}
 		})
+		// 锁定形状，避免选择工具显示选择框
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
 	})
@@ -876,13 +1190,42 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 
 
 
-export async function getDrawingSvg(editor: Editor, settings?: { drawingBackgroundWhenLocked?: boolean }): Promise<svgObj | undefined> {
-	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
-	const svgObj = await editor.getSvgString(allShapeIds);
+export async function getDrawingSvg(editor: Editor, settings?: { drawingBackgroundWhenLocked?: boolean; shapes?: string[] }): Promise<svgObj | undefined> {
+	// 判断是否有指定要导出的形状ID，如果没有则导出全部元素
+	let shapeIds: string[];
+	
+	if (settings?.shapes && settings.shapes.length > 0) {
+		// 使用指定的形状ID
+		shapeIds = settings.shapes;
+	} else {
+		// 导出全部元素
+		shapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+	}
+	
+	// 将string[]转换为TLShapeId[]类型
+	const shapeIdsAsTlShapeIds = shapeIds as any as TLShapeId[];
+	const svgObj = await editor.getSvgString(shapeIdsAsTlShapeIds);
 	
 	// If background should not be shown, make SVG background transparent
 	if (svgObj && svgObj.svg && settings && !settings.drawingBackgroundWhenLocked) {
 		svgObj.svg = svgObj.svg.replace(/background-color:\s*rgb\([^)]*\)|background-color:\s*#[^;]*;/g, 'background-color: transparent;');
+	}
+	
+	// Add XML declaration and DOCTYPE for Windows 11 compatibility
+	if (svgObj && svgObj.svg) {
+		// Check if XML declaration is already present
+		if (!svgObj.svg.includes('<?xml')) {
+			svgObj.svg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + 
+				'<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n' + 
+				svgObj.svg;
+		}
+		// Ensure DOCTYPE is present even if XML declaration exists
+		else if (!svgObj.svg.includes('<!DOCTYPE')) {
+			// First, ensure we have the correct XML declaration
+			svgObj.svg = svgObj.svg.replace(/<\?xml[^>]*>/, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>');
+			// Then add DOCTYPE after the XML declaration
+			svgObj.svg = svgObj.svg.replace('<?xml version="1.0" encoding="UTF-8" standalone="no"?>', '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">');
+		}
 	}
 	
 	return svgObj;
@@ -895,6 +1238,184 @@ export async function getDrawingSvg(editor: Editor, settings?: { drawingBackgrou
  */
 export function focusChildTldrawEditor(containerEl: HTMLElement | null) {
 	if(containerEl) {
-		containerEl.find('.tl-container').focus({preventScroll: true});
+		const tlContainer = containerEl.querySelector('.tl-container') as HTMLElement | null;
+		if (tlContainer) {
+			tlContainer.focus({preventScroll: true});
+		}
 	}
+}
+
+/**
+ * 检测快照中是否包含多图且存在空白问题
+ * @param snapshot tldraw快照
+ * @returns 是否检测到多图空白问题
+ */
+
+
+/**
+ * 获取当前打开的SVG文件内容
+ * @param filePath 文件路径
+ * @returns SVG文件内容或null
+ */
+export async function getCurrentSvgFileContent(filePath: string): Promise<string | null> {
+	try {
+		// 获取全局插件实例
+		const { plugin } = getGlobals();
+		if (!plugin) {
+			console.warn('无法获取插件实例，无法读取SVG文件内容');
+			return null;
+		}
+		
+		// 通过文件路径获取TFile对象
+		const allFiles = plugin.app.vault.getFiles();
+		const file = allFiles.find(f => f.path === filePath);
+		
+		if (!file) {
+			console.warn(`文件不存在: ${filePath}`);
+			return null;
+		}
+		
+		if (file.extension.toLowerCase() !== 'svg') {
+			console.warn(`文件不是SVG格式: ${filePath}`);
+			return null;
+		}
+		
+		// 读取SVG文件内容
+		const svgContent = await plugin.app.vault.read(file);
+		
+		if (!svgContent) {
+			console.warn(`文件内容为空: ${filePath}`);
+			return null;
+		}
+		
+		// 检查是否包含SVG标签
+		const trimmedContent = svgContent.trim();
+		const hasSvgTag = trimmedContent.includes('<svg') && trimmedContent.includes('</svg>');
+		if (!hasSvgTag) {
+			console.warn(`文件内容无效，不包含SVG标签: ${filePath}`);
+			return null;
+		}
+		
+		console.log(`成功获取SVG文件内容: ${filePath}`);
+		return svgContent;
+	} catch (error) {
+		console.error('获取SVG文件内容失败:', error);
+		return null;
+	}
+}
+
+/**
+ * 使用SVG导入备用机制重新导入当前文件
+ * @param editor tldraw编辑器
+ * @param filePath 当前打开的SVG文件路径
+ * @returns 导入是否成功
+ */
+export async function fallbackToSvgImport(editor: Editor, filePath: string): Promise<boolean> {
+	try {
+		console.log(`启动SVG导入备用机制，文件: ${filePath}`);
+		
+		// 获取当前SVG文件内容
+		const svgContent = await getCurrentSvgFileContent(filePath);
+		if (!svgContent) {
+			console.warn('无法获取SVG文件内容，备用机制无法执行');
+			return false;
+		}
+		
+		// 清空当前画布
+		const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+		editor.deleteShapes(allShapeIds);
+		
+		// 使用parseSvgToShapes解析SVG，然后调用importSvgToTldraw重新导入
+		const { shapes, imageData } = parseSvgToShapes(svgContent);
+		const success = importSvgToTldraw(editor, shapes, imageData, 0, 0);
+		
+		if (success) {
+			console.log('SVG导入备用机制执行成功');
+		} else {
+			console.error('SVG导入备用机制执行失败');
+		}
+		
+		return success;
+		
+	} catch (error) {
+		console.error('SVG导入备用机制执行过程中出错:', error);
+		return false;
+	}
+}
+
+/**
+ * 检测SVG文件中xlink:href属性的匹配数量
+ * @param svgContent SVG文件内容
+ * @returns xlink:href的匹配数量
+ */
+export function countImageTypesInSvg(svgContent: string): number {
+	if (!svgContent) {
+		return 0;
+	}
+	
+	// 使用正则表达式匹配 xlink:href 属性
+	const xlinkHrefRegex = /xlink:href/g;
+	const matches = svgContent.match(xlinkHrefRegex);
+	
+	return matches ? matches.length : 0;
+}
+
+/**
+ * 检测编辑器是否处于空状态
+ * @param editor tldraw编辑器
+ * @returns 编辑器是否为空
+ */
+export function isEditorEmpty(editor: Editor): boolean {
+	if (!editor) {
+		return true;
+	}
+	
+	// 获取当前页面的所有形状ID
+	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
+	
+	// 如果没有任何形状，则编辑器为空
+	return allShapeIds.length === 0;
+}
+
+/**
+ * 检测SVG多图问题并决定是否使用备用机制
+ * @param editor tldraw编辑器
+ * @param filePath 当前文件路径
+ * @param svgContent SVG文件内容
+ * @returns 是否启动了备用机制
+ */
+export async function detectAndHandleMultiImageIssue(
+	editor: Editor, 
+	filePath: string, 
+	svgContent: string
+): Promise<boolean> {
+	if (!editor || !filePath || !svgContent) {
+		return false;
+	}
+	
+	// 1. 检测SVG文件中xlink:href属性的数量
+	const imageTypeCount = countImageTypesInSvg(svgContent);
+	
+	// 2. 检测编辑器是否处于空状态
+	const editorEmpty = isEditorEmpty(editor);
+	
+	console.log(`多图检测: SVG中xlink:href数量=${imageTypeCount}, 编辑器空状态=${editorEmpty}`);
+	
+	// 3. 判断条件：编辑器处于空状态且SVG中存在多图（大于1）
+	if (editorEmpty && imageTypeCount > 1) {
+		console.log(`检测到多图问题: 编辑器为空且SVG中有${imageTypeCount}个图片，启动备用机制...`);
+		
+		// 使用备用机制重新导入SVG
+		const success = await fallbackToSvgImport(editor, filePath);
+		
+		if (success) {
+			console.log('多图问题已通过SVG导入备用机制解决');
+		} else {
+			console.warn('SVG导入备用机制未能解决多图问题');
+		}
+		
+		return success;
+	}
+	
+	return false;
 }

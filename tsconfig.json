@@ -1,6 +1,12 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "paths": {
+      "src/*": ["src/*"],
+      "src/main": ["src/main"],
+      "src/constants": ["src/constants"],
+      "src/logic/utils/*": ["src/logic/utils/*"]
+    },
     "inlineSourceMap": true,
     "inlineSources": true,
     "module": "ESNext",
@@ -18,12 +24,12 @@
       "ES6",
       "ES7"
     ],
-    "jsx": "react",
+    "jsx": "react"
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     "src/components/formats/tldraw_v1/writing/writing-embed-preview",
-    "src/components/formats/current/writing/writing-embed-preview",
-  ],
+    "src/components/formats/current/writing/writing-embed-preview"
+  ]
 }

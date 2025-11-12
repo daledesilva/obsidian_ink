@@ -1,11 +1,311 @@
 // This file is a manual copy of 'tldraw/tldraw.css';
+@import url("tldraw/tldraw.css");
 // By copying it, I can scope it to just my ink's components so it doesn't overwrite any other plugins that use tldraw
 
 
-.ddc_ink_drawing-editor, .ddc_ink_writing-editor {	// The scoping
+.tl-container
+{
+  /* Spacing */
+  /* Radius */
+  /* Canvas z-index */
+  /* Canvas overlays z-index */
+  /* User handles need to be above selection edges / corners, matters for sticky note clone handles */
+  /* Text editor z-index */
+  /* Error fallback z-index */
+  /* Misc */
+  /* Cursor SVGs */
+  /* These cursor values get programmatically overridden */
+  /* They're just here to help your editor autocomplete */
+  /* fonts */
+  /* text outline */
+  /* own properties */
+  width:100%;
+  height:100%;
+  font-size:12px;
+  --tl-space-1:2px;
+  --tl-space-2:4px;
+  --tl-space-3:8px;
+  --tl-space-4:12px;
+  --tl-space-5:16px;
+  --tl-space-6:20px;
+  --tl-space-7:28px;
+  --tl-space-8:32px;
+  --tl-space-9:64px;
+  --tl-space-10:72px;
+  --tl-radius-0:2px;
+  --tl-radius-1:4px;
+  --tl-radius-2:6px;
+  --tl-radius-3:9px;
+  --tl-radius-4:11px;
+  --tl-layer-canvas-hidden:-999999;
+  --tl-layer-canvas-background:100;
+  --tl-layer-canvas-grid:150;
+  --tl-layer-watermark:200;
+  --tl-layer-canvas-shapes:300;
+  --tl-layer-canvas-overlays:500;
+  --tl-layer-canvas-in-front:600;
+  --tl-layer-canvas-blocker:10000;
+  --tl-layer-overlays-collaborator-scribble:10;
+  --tl-layer-overlays-collaborator-brush:20;
+  --tl-layer-overlays-collaborator-shape-indicator:30;
+  --tl-layer-overlays-user-scribble:40;
+  --tl-layer-overlays-user-brush:50;
+  --tl-layer-overlays-user-snapline:90;
+  --tl-layer-overlays-selection-fg:100;
+  --tl-layer-overlays-user-handles:105;
+  --tl-layer-overlays-user-indicator-hint:110;
+  --tl-layer-overlays-custom:115;
+  --tl-layer-overlays-collaborator-cursor-hint:120;
+  --tl-layer-overlays-collaborator-cursor:130;
+  --tl-layer-text-container:1;
+  --tl-layer-text-content:3;
+  --tl-layer-text-editor:4;
+  --tl-layer-error-overlay:1;
+  --tl-layer-error-canvas:2;
+  --tl-layer-error-canvas-after:3;
+  --tl-layer-error-content:4;
+  --tl-zoom:1;
+  --tl-cursor-none:none;
+  --tl-cursor-default:url("data:image/svg+xml,<svg height='32' width='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg' style='color: black;'><defs><filter id='shadow' y='-40%' x='-40%' width='180px' height='180%' color-interpolation-filters='sRGB'><feDropShadow dx='1' dy='1' stdDeviation='1.2' flood-opacity='.5'/></filter></defs><g fill='none' transform='rotate(0 16 16)' filter='url(%23shadow)'><path d='m12 24.4219v-16.015l11.591 11.619h-6.781l-.411.124z' fill='white'/><path d='m21.0845 25.0962-3.605 1.535-4.682-11.089 3.686-1.553z' fill='white'/><path d='m19.751 24.4155-1.844.774-3.1-7.374 1.841-.775z' fill='black'/><path d='m13 10.814v11.188l2.969-2.866.428-.139h4.768z' fill='black'/></g></svg>") 12 8, default;
+  --tl-cursor-pointer:url("data:image/svg+xml,<svg height='32' width='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg' style='color: black;'><defs><filter id='shadow' y='-40%' x='-40%' width='180px' height='180%' color-interpolation-filters='sRGB'><feDropShadow dx='1' dy='1' stdDeviation='1.2' flood-opacity='.5'/></filter></defs><g fill='none' transform='rotate(0 16 16)' filter='url(%23shadow)'><path d='m12 24.4219v-16.015l11.591 11.619h-6.781l-.411.124z' fill='white'/><path d='m21.0845 25.0962-3.605 1.535-4.682-11.089 3.686-1.553z' fill='white'/><path d='m19.751 24.4155-1.844.774-3.1-7.374 1.841-.775z' fill='black'/><path d='m13 10.814v11.188l2.969-2.866.428-.139h4.768z' fill='black'/></g></svg>") 12 8, pointer;
+}
+.tl-theme__light
+{
 
-	/* @tldraw/editor */
-	
+  /* UI */
+  /* Text */
+  /* Named */
+  /* Shadows */
+  --tl-color-snap:hsl(0, 76%, 60%);
+  --tl-color-selection-fill:hsl(210, 100%, 56%, 100%);
+  --tl-color-selection-stroke:hsl(214, 84%, 56%);
+  --tl-color-background:hsl(210deg 20% 98% / 25%);
+  --tl-color-brush-fill:hsl(0, 0%, 56%, 100%);
+  --tl-color-brush-stroke:hsl(0, 0%, 56%, 25.1%);
+  --tl-color-grid:hsl(0, 0%, 43%);
+  --tl-color-low:hsl(204deg 16% 94% / 20%);
+  --tl-color-low-border:hsl(204, 16%, 92%);
+  --tl-color-culled:hsl(204, 14%, 93%);
+  --tl-color-muted-none:hsl(0, 0%, 0%, 0%);
+  --tl-color-muted-0:hsl(0, 0%, 0%, 2%);
+  --tl-color-muted-1:hsl(0, 0%, 0%, 10%);
+  --tl-color-muted-2:hsl(0, 0%, 0%, 4.3%);
+  --tl-color-hint:hsl(0, 0%, 0%, 5.5%);
+  --tl-color-overlay:hsl(0, 0%, 0%, 20%);
+  --tl-color-divider:hsl(0, 0%, 91%);
+  --tl-color-panel:transparent;
+  --tl-color-panel-contrast:hsl(0, 0%, 100%);
+  --tl-color-panel-overlay:hsl(0, 0%, 100%, 82%);
+  --tl-color-panel-transparent:hsla(0, 0%, 99%, 0%);
+  --tl-color-selected:hsl(214, 84%, 56%);
+  --tl-color-selected-contrast:hsl(0, 0%, 100%);
+  --tl-color-focus:hsl(219, 65%, 50%);
+  --tl-color-tooltip:hsla(200, 14%, 4%, 1);
+  --tl-color-text:hsl(0, 0%, 0%);
+  --tl-color-text-0:hsl(0, 0%, 11%);
+  --tl-color-text-1:hsl(0, 0%, 18%);
+  --tl-color-text-3:hsl(204, 4%, 45%);
+  --tl-color-text-shadow:hsl(0, 0%, 100%);
+  --tl-color-text-highlight:hsl(52, 100%, 50%);
+  --tl-color-text-highlight-p3:color(display-p3 0.972 0.8205 0.05);
+  --tl-color-primary:hsl(214, 84%, 56%);
+  --tl-color-success:hsl(123, 46%, 34%);
+  --tl-color-info:hsl(201, 98%, 41%);
+  --tl-color-warning:hsl(27, 98%, 47%);
+  --tl-color-danger:hsl(0, 90%, 43%);
+  --tl-color-laser:hsl(0, 100%, 50%);
+  --tl-shadow-1:0px 1px 2px hsl(0, 0%, 0%, 25%), 0px 1px 3px hsl(0, 0%, 0%, 9%);
+  --tl-shadow-2:0px 0px 2px hsl(0, 0%, 0%, 16%), 0px 2px 3px hsl(0, 0%, 0%, 24%),		0px 2px 6px hsl(0, 0%, 0%, 0.1), inset 0px 0px 0px 1px var(--tl-color-panel-contrast);
+  --tl-shadow-3:0px 1px 2px hsl(0, 0%, 0%, 28%), 0px 2px 6px hsl(0, 0%, 0%, 14%),		inset 0px 0px 0px 1px var(--tl-color-panel-contrast);
+  --tl-shadow-4:0px 0px 3px hsl(0, 0%, 0%, 19%), 0px 5px 4px hsl(0, 0%, 0%, 16%),		0px 2px 16px hsl(0, 0%, 0%, 6%), inset 0px 0px 0px 1px var(--tl-color-panel-contrast);
+}
+.tl-theme__dark
+{
+  /* Canvas */
+  /* UI */
+  /* Text */
+  /* Named */
+  /* Shadows */
+  --tl-color-snap:hsl(0, 76%, 60%);
+  --tl-color-selection-fill:hsl(209, 100%, 57%, 100%);
+  --tl-color-selection-stroke:hsl(214, 84%, 56%);
+  --tl-color-background:hsl(0deg 0% 100% / 25%);
+  --tl-color-brush-fill:hsl(0, 0%, 71%, 100%);
+  --tl-color-brush-stroke:hsl(0, 0%, 71%, 25.1%);
+  --tl-color-grid:hsl(0, 0%, 40%);
+  --tl-color-low:hsla(240, 4%, 11%, 0.336);
+  --tl-color-low-border:hsl(207, 10%, 10%);
+  --tl-color-culled:hsl(210, 11%, 19%);
+  --tl-color-muted-none:hsl(0, 0%, 100%, 0%);
+  --tl-color-muted-0:hsl(0, 0%, 100%, 2%);
+  --tl-color-muted-1:hsl(0, 0%, 100%, 10%);
+  --tl-color-muted-2:hsl(0, 0%, 100%, 5%);
+  --tl-color-hint:hsl(0, 0%, 100%, 7%);
+  --tl-color-overlay:hsl(0, 0%, 0%, 50%);
+  --tl-color-divider:hsl(240, 9%, 22%);
+  --tl-color-panel:hsl(235, 6.8%, 13.5%);
+  --tl-color-panel-contrast:hsl(245, 12%, 23%);
+  --tl-color-panel-overlay:hsl(210, 10%, 24%, 82%);
+  --tl-color-panel-transparent:hsla(235, 6.8%, 13.5%, 0%);
+  --tl-color-selected:hsl(217, 89%, 61%);
+  --tl-color-selected-contrast:hsl(0, 0%, 100%);
+  --tl-color-focus:hsl(217, 76%, 80%);
+  --tl-color-tooltip:hsla(0, 0%, 100%, 1);
+  --tl-color-text:hsl(210, 17%, 98%);
+  --tl-color-text-0:hsl(0, 9%, 94%);
+  --tl-color-text-1:hsl(0, 0%, 85%);
+  --tl-color-text-3:hsl(204, 4%, 75%);
+  --tl-color-text-shadow:hsl(210, 13%, 18%);
+  --tl-color-text-highlight:hsl(52, 100%, 41%);
+  --tl-color-text-highlight-p3:color(display-p3 0.8078 0.6225 0.0312);
+  --tl-color-primary:hsl(214, 84%, 56%);
+  --tl-color-success:hsl(123, 38%, 57%);
+  --tl-color-info:hsl(199, 92%, 56%);
+  --tl-color-warning:hsl(36, 100%, 57%);
+  --tl-color-danger:hsl(0, 82%, 66%);
+  --tl-color-laser:hsl(0, 100%, 50%);
+  --tl-shadow-1:0px 1px 2px hsl(0, 0%, 0%, 16.1%), 0px 1px 3px hsl(0, 0%, 0%, 22%),		inset 0px 0px 0px 1px var(--tl-color-panel-contrast);
+  --tl-shadow-2:0px 1px 3px hsl(0, 0%, 0%, 66.6%), 0px 2px 6px hsl(0, 0%, 0%, 33%),		inset 0px 0px 0px 1px var(--tl-color-panel-contrast);
+  --tl-shadow-3:0px 1px 3px hsl(0, 0%, 0%, 50%), 0px 2px 12px hsl(0, 0%, 0%, 50%),		inset 0px 0px 0px 1px var(--tl-color-panel-contrast);
+}
+// 为关键样式添加!important声明以确保优先级
+.ddc_ink_drawing-editor .tl-container,
+.ddc_ink_drawing-editor .tlui-layout,
+.ddc_ink_writing-editor .tl-container,
+.ddc_ink_writing-editor .tlui-layout {
+    width: 100% !important;
+    height: 100% !important;
+    font-size: 12px !important;
+}
+
+// 强制覆盖node_modules中的tldraw样式
+.ddc_ink_drawing-editor,
+.ddc_ink_writing-editor {
+    /* 确保我们的样式有最高优先级 */
+    position: relative;
+}
+
+// 添加半透明UI样式变量和规则
+.ddc_ink_drawing-editor .tl-container,
+.ddc_ink_drawing-editor .tlui-layout,
+.ddc_ink_writing-editor .tl-container,
+.ddc_ink_writing-editor .tlui-layout {
+    /* 半透明UI样式变量 */
+    --tl-transparent-panel-opacity: 0.85 !important;
+    --tl-transparent-menu-opacity: 0.9 !important;
+    --tl-transparent-toolbar-opacity: 0.8 !important;
+    --tl-transparent-button-opacity: 0.75 !important;
+    
+    /* 明暗主题的半透明背景色 */
+    --tl-transparent-bg-light: hsla(0, 0%, 99%, var(--tl-transparent-panel-opacity)) !important;
+    --tl-transparent-bg-dark: hsla(235, 6.8%, 13.5%, var(--tl-transparent-panel-opacity)) !important;
+    --tl-transparent-menu-light: hsla(0, 0%, 100%, var(--tl-transparent-menu-opacity)) !important;
+    --tl-transparent-menu-dark: hsla(245, 12%, 23%, var(--tl-transparent-menu-opacity)) !important;
+    --tl-transparent-toolbar-light: hsla(204, 16%, 94%, var(--tl-transparent-toolbar-opacity)) !important;
+    --tl-transparent-toolbar-dark: hsla(240, 4%, 11%, var(--tl-transparent-toolbar-opacity)) !important;
+}
+
+// 为所有tldraw相关样式添加!important
+.ddc_ink_drawing-editor .tl-container *,
+.ddc_ink_drawing-editor .tlui-layout *,
+.ddc_ink_writing-editor .tl-container *,
+.ddc_ink_writing-editor .tlui-layout * {
+    box-sizing: border-box !important;
+}
+
+// ------------------- 半透明菜单样式 -------------------
+// tlui-popover 半透明样式
+.ddc_ink_drawing-editor .tlui-popover,
+.ddc_ink_writing-editor .tlui-popover {
+    background-color: var(--tl-color-panel) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    opacity: 0.95 !important;
+}
+
+.ddc_ink_drawing-editor .tlui-popover__content,
+.ddc_ink_writing-editor .tlui-popover__content {
+    background-color: var(--tl-color-panel) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    opacity: 0.95 !important;
+}
+
+// toolbar 半透明样式
+.ddc_ink_drawing-editor .tlui-toolbar,
+.ddc_ink_writing-editor .tlui-toolbar {
+    background-color: var(--tl-color-low) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    opacity: 0.9 !important;
+}
+
+// .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls 半透明样式
+.ddc_ink_drawing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls,
+.ddc_ink_writing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls {
+    background-color: var(--tl-color-low) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    opacity: 0.9 !important;
+}
+
+// ------------------- iOS移动端菜单高度调整 -------------------
+// 针对iOS设备的媒体查询
+@supports (-webkit-touch-callout: none) and (max-width: 896px) {
+    /* toolbar 在iOS移动端的高度调整 */
+    .ddc_ink_drawing-editor .tlui-toolbar,
+    .ddc_ink_writing-editor .tlui-toolbar {
+        min-height: 44px !important;
+        height: auto !important;
+        padding: 4px 8px !important;
+    }
+    
+    .ddc_ink_drawing-editor .tlui-toolbar .tlui-button,
+    .ddc_ink_writing-editor .tlui-toolbar .tlui-button {
+        min-height: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        width: 36px !important;
+        padding: 6px !important;
+    }
+    
+    /* .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls 在iOS移动端的高度调整 */
+    .ddc_ink_drawing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls,
+    .ddc_ink_writing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls {
+        min-height: 44px !important;
+        height: auto !important;
+        padding: 4px 8px !important;
+    }
+    
+    .ddc_ink_drawing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls .tlui-button,
+    .ddc_ink_writing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls .tlui-button {
+        min-height: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        width: 36px !important;
+        padding: 6px !important;
+    }
+    
+    /* 确保菜单内容垂直居中 */
+    .ddc_ink_drawing-editor .tlui-toolbar,
+    .ddc_ink_drawing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls,
+    .ddc_ink_writing-editor .tlui-toolbar,
+    .ddc_ink_writing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    /* 移除不必要的边距和空白 */
+    .ddc_ink_drawing-editor .tlui-toolbar > *,
+    .ddc_ink_drawing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls > *,
+    .ddc_ink_writing-editor .tlui-toolbar > *,
+    .ddc_ink_writing-editor .tlui-main-toolbar--horizontal .tlui-main-toolbar__extras__controls > * {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}
+	/* @tldraw/editor */	
 .tl-container {
 	width: 100%;
 	height: 100%;
@@ -34,6 +334,16 @@
 	--layer-shapes: 300;
 	--layer-overlays: 400;
 	--layer-following-indicator: 1000;
+	/* Additional Z Index layers for UI components */
+	--tl-layer-above: 1;
+	--tl-layer-focused-input: 10;
+	--tl-layer-menu-click-capture: 250;
+	--tl-layer-panels: 300;
+	--tl-layer-menus: 400;
+	--tl-layer-toasts: 650;
+	--tl-layer-cursor: 700;
+	--tl-layer-header-footer: 999;
+	--tl-layer-following-indicator: 1000;
 	/* Misc */
 	--tl-zoom: 1;
 
@@ -104,10 +414,10 @@
 .tl-theme__light {
 	--color-accent: hsl(0, 76%, 60%);
 	--color-background: transparent;
-	--color-brush-fill: hsl(0, 0%, 56%, 10.2%);
+	--color-brush-fill: hsl(0, 0%, 56%, 100%);
 	--color-brush-stroke: hsl(0, 0%, 56%, 25.1%);
 	--color-grid: hsl(0, 0%, 43%);
-	--color-low: hsl(204, 16%, 94%);
+	--color-low: var(--tl-transparent-toolbar-light) !important;
 	--color-low-border: hsl(204, 16%, 92%);
 	--color-culled: hsl(204, 14%, 93%);
 	--color-muted-none: hsl(0, 0%, 0%, 0%);
@@ -119,11 +429,11 @@
 	--color-divider: hsl(0, 0%, 91%);
 	--color-panel-contrast: hsl(0, 0%, 100%);
 	--color-panel-overlay: hsl(0, 0%, 100%, 82%);
-	--color-panel: hsl(0, 0%, 99%);
+	--color-panel: var(--tl-transparent-bg-light) !important;
 	--color-focus: hsl(214, 100%, 29%);
 	--color-selected: hsl(214, 84%, 56%);
 	--color-selected-contrast: hsl(0, 0%, 100%);
-	--color-selection-fill: hsl(210, 100%, 56%, 24%);
+	--color-selection-fill: hsl(210, 100%, 56%, 100%);
 	--color-selection-stroke: hsl(214, 84%, 56%);
 	--color-text-0: hsl(0, 0%, 11%);
 	--color-text-1: hsl(0, 0%, 18%);
@@ -146,10 +456,10 @@
 .tl-theme__dark {
 	--color-accent: hsl(0, 76%, 60%);
 	--color-background: transparent;
-	--color-brush-fill: hsl(0, 0%, 71%, 5.1%);
+	--color-brush-fill: hsl(0, 0%, 71%, 100%);
 	--color-brush-stroke: hsl(0, 0%, 71%, 25.1%);
 	--color-grid: hsl(0, 0%, 56%);
-	--color-low: hsl(260, 5%, 12.5%);
+	--color-low: var(--tl-transparent-toolbar-dark) !important;
 	--color-low-border: hsl(207, 10%, 10%);
 	--color-culled: hsl(210, 11%, 19%);
 	--color-muted-none: hsl(0, 0%, 100%, 0%);
@@ -160,12 +470,12 @@
 	--color-overlay: hsl(0, 0%, 0%, 50%);
 	--color-divider: hsl(240, 9%, 25%);
 	--color-panel-contrast: hsl(240, 13%, 22%);
-	--color-panel: hsl(220, 8%, 15%);
+	--color-panel: var(--tl-transparent-bg-dark) !important;
 	--color-panel-overlay: hsl(210, 11%, 24%, 82%);
 	--color-focus: hsl(217, 76%, 80%);
 	--color-selected: hsl(217, 89%, 61%);
 	--color-selected-contrast: hsl(0, 0%, 100%);
-	--color-selection-fill: hsl(209, 100%, 57%, 20%);
+	--color-selection-fill: hsl(209, 100%, 57%, 100%);
 	--color-selection-stroke: hsl(214, 84%, 56%);
 	--color-text-0: hsl(0, 9%, 94%);
 	--color-text-1: hsl(0, 0%, 85%);
@@ -1555,7 +1865,397 @@ it from receiving any pointer events or affecting the cursor. */
 }
 
 /* @tldraw/ui */
+.tldraw-view-root {
+	touch-action: none;
+	position: relative;
+	width: 100%;
+	height: 100%;
 
+	/* fixes some positioning problems that tldraw has due to bringing embedded into another app */
+	transform: translate3d(0, 0, 0);
+}
+
+/* OVERRIDING button:not(.clickable-icon) back to tldraw's original styles: */
+.tldraw-view-root .tlui-button {
+	background-color: transparent;
+	color: currentColor;
+	padding: 0px 13px;
+	box-shadow: none;
+}
+
+/* Overriding back to original style */
+.tldraw-view-root .tlui-button:disabled {
+	color: var(--color-text-3);
+}
+
+/* Overriding back to original style */
+.tldraw-view-root .tlui-button__tool[aria-checked='true'] {
+	color: var(--color-selected-contrast);
+}
+
+.tldraw-view-root .tl-quick-action-button-wrapper[data-selected=true] .tlui-button__icon {
+	color: var(--color-selected-contrast);
+}
+
+.tldraw-view-root .tl-quick-action-button-wrapper[data-selected=true] .tlui-button::before {
+	content: "";
+	position: absolute;
+	inset: 4px;
+	border-radius: var(--radius-2);
+	background-color: var(--color-selected);
+}
+
+/* OVERRIDING button:not(.clickable-icon) */
+.tldraw-view-root .tlui-button.tlui-help-menu__button {
+	background-color: var(--color-low);
+}
+
+.tldraw-view-root kbd {
+	background: inherit;
+	border-radius: inherit;
+	padding: inherit;
+}
+
+div[data-type="tldraw-view"] .view-content.tldraw-view-content,
+div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
+	/* gets rid of the padding so the canvas can bleed against the edges */
+	padding: 0;
+	@container style(--status-bar-position: fixed) {
+		/* creates a space at the bottom so that the status bar isn't covering the canvas */
+		padding-bottom: calc(var(--size-4-1) * 2 + var(--status-bar-font-size) + 8px);
+	}
+}
+
+.is-mobile div[data-type="tldraw-view"] .view-content.tldraw-view-content {
+	/* There is a bit of padding that shows up on mobile which we can remove. */
+	padding-bottom: 0;
+}
+
+.tl-statusbar-viewmode-box {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.plugin-tldraw .tl-statusbar-viewmode-box .tl-viewmode-btn {
+	background-color: transparent;
+	padding: 0 4px;
+	height: 12px;
+	width: 22px;
+	box-shadow: none;
+	border-radius: 2px;
+
+	display: grid;
+	place-items: center;
+
+	font-size: 8px;
+	font-weight: 700;
+	line-height: 8px;
+
+	cursor: pointer;
+
+	&:hover {
+		background-color: var(--background-secondary-alt);
+	}
+}
+
+.plugin-tldraw .tl-statusbar-viewmode-box .tl-viewmode-btn.tl-viewmode-active {
+	box-shadow: inset 0px 0px 0px 1px currentColor;
+	border-radius: 4px;
+}
+
+.tl-hide-statusbar-viewmode {
+	display: none;
+}
+
+.tl-statusbar-viewmode-btn-box {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.tl-default-code {
+	margin-top: 6px;
+	display: block;
+}
+
+.tl-background {
+	touch-action: none;
+}
+
+.status-bar-item.plugin-tldraw {
+	background-color: var(--background-modifier-border);
+}
+
+.tl-markdown-embed {
+	position: relative;
+}
+
+.tl-embed-context-bar {
+	padding: 2px;
+	display: flex;
+	background: var(--background-primary-alt);
+}
+
+.tl-embed-title-bar {
+	font-size: var(--font-smallest);
+	margin-left: 8px;
+	align-self: center;
+}
+
+/* Render the context bar for embeds in the top right corner. */
+.tl-markdown-embed .tl-embed-context-bar {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	position: absolute;
+	top: 0;
+}
+
+.tl-embed-action-bar {
+	display: flex;
+}
+
+.tl-markdown-embed .tl-view-content .tldraw-view-root {
+	height: 300px;
+}
+
+.tl-markdown-embed .tl-view-content[data-showBgDots="true"] {
+	background-image:
+		radial-gradient(rgb(78, 78, 78) 1px, transparent 1px),
+		radial-gradient(rgb(78, 78, 78) 1px, transparent 1px);
+	background-size: 48px 48px;
+	/* Size of the grid cells */
+	background-position: 0 0, 24px 24px;
+	/* Offset for the dotted pattern */
+}
+
+.tl-markdown-embed .tl-view-content[data-has-shape="false"] .tl-tldraw-image::before {
+	display: block;
+	content: "This is an empty tldraw file. Double click to edit in a new tab, or right click for options.";
+	height: 100%;
+	text-align: center;
+	align-content: center;
+}
+
+.tl-markdown-embed .tl-tldraw-image-container {
+	display: flex;
+	justify-content: center;
+}
+
+.canvas-node .tl-markdown-embed .tl-tldraw-image {
+	height: var(--canvas-node-height);
+	width: var(--canvas-node-width);
+}
+
+.tl-markdown-embed .tl-tldraw-image {
+	max-inline-size: max-content;
+}
+
+.tl-markdown-embed .tl-view-content {
+	height: max-content;
+}
+
+.tl-view-content:empty {
+	min-width: var(--ptl-placeholder-width);
+	min-height: var(--ptl-placeholder-height);
+}
+
+.tl-tldraw-image:not(:has(div > img)) {
+	min-width: var(--ptl-placeholder-width);
+	min-height: var(--ptl-placeholder-height);
+}
+
+.tl-markdown-embed .tl-tldraw-image img {
+	object-fit: contain;
+}
+
+.tl-download-error {
+	color: red;
+}
+
+.tl-download-success {
+	color: green;
+}
+
+.tl-compare-modal {
+	width: 100%;
+	height: 100%;
+}
+
+.tl-compare-modal-content {
+	display: flex;
+	flex-direction: column;
+}
+
+.tl-conflict-body {
+	flex: 1;
+}
+
+.tl-compare-tldraw-container {
+	display: flex;
+	height: 100%;
+	width: 100%;
+	flex-direction: row;
+	flex-wrap: wrap;
+	gap: 2em;
+}
+
+.tl-compare-tldraw-container .tl-compare-tldraw {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 250px;
+}
+
+.tl-compare-preview {
+	height: 400px;
+}
+
+.tl-modal-title-with-icon {
+	padding-top: 12px;
+	display: flex;
+	flex-direction: row;
+	gap: 0.25em;
+	align-items: center;
+}
+
+.tl-modal-title-with-icon span.tl-modal-icon {
+	display: contents;
+}
+
+.tl-suggestion-item {
+	display: flex;
+	gap: 0.25em;
+}
+
+.tl-suggestion-item-icon {
+	display: contents;
+}
+
+.tl-suggestion-label {
+	font-size: x-small;
+}
+
+.tl-embed-bounds-selection {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 999;
+}
+
+.tl-embed-bounds-selection[data-target-bounds="true"] {
+	border: 1px solid var(--color-text-0);
+}
+
+.tl-embed-bounds-selection[data-target-bounds="false"] {
+	border: 1px dashed var(--color-text-0);
+}
+
+.tl-embed-bounds-selection[data-shade-bg="true"]::before {
+	position: absolute;
+	content: "";
+	display: block;
+	width: 100%;
+	height: 100%;
+	background-color: var(--color-text-0);
+	opacity: 0.15;
+}
+
+@media print {
+	.tl-markdown-embed {
+		/* Prevent the embeds from being split across multiple pages */
+		break-inside: avoid;
+	}
+
+	.tl-markdown-embed .tl-tldraw-image img {
+		/* Prevent an embed from being larger than the print page size */
+		max-height: 85vh;
+	}
+
+	.tl-embed-resize-handle {
+		display: none;
+	}
+}
+
+.tl-embed-resize-handle {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 0;
+	height: 0;
+	border-style: solid;
+	border-width: 0 0 16px 16px;
+	border-color: transparent transparent var(--background-modifier-border) transparent;
+	cursor: row-resize;
+}
+
+.tl-settings-tab-header {
+	display: flex;
+	overflow-y: hidden;
+}
+
+.tl-settings-tab-container {
+	display: flex;
+	gap: var(--size-4-2);
+}
+
+.tl-settings-tab-container .tl-settings-tab-item {
+	font-weight: var(--font-semibold);
+	padding-block: var(--size-2-3);
+	padding-inline: var(--size-4-3);
+	border-radius: var(--radius-m);
+	width: max-content;
+}
+
+.tl-settings-tab-container .tl-settings-tab-item:hover {
+	cursor: pointer;
+}
+
+.tl-settings-tab-item[data-is-active=false]:hover {
+    background-color: var(--interactive-hover);
+}
+
+.tl-settings-tab-item[data-is-active=true] {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.tl-settings-frontmatter-taglist {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+}
+
+
+/* Copied from tldraw.com */
+.tl-shape[data-shape-type="arrow"] .tl-text {
+    height: max-content;
+}
+
+/* Copied from tldraw.com */
+.tl-shape[data-shape-type="arrow"] .tl-text-label {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    width: 2px;
+    height: 2px;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--tl-color-text);
+    text-shadow: var(--tl-text-outline);
+}
+
+/* Copied from tldraw.com */
+.tl-shape[data-shape-type="arrow"] .tl-text-label__inner {
+    height: max-content;
+    box-sizing: content-box;
+    border-radius: var(--tl-radius-1);
+}
+/* ------------ */
 .tl-container {
 	--layer-panels: 300;
 	--layer-menus: 400;
@@ -1578,7 +2278,7 @@ it from receiving any pointer events or affecting the cursor. */
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background-color: transparent;
+	background-color: transparent !important;
 	border: transparent;
 	color: currentColor;
 	cursor: pointer;
@@ -1974,6 +2674,7 @@ it from receiving any pointer events or affecting the cursor. */
 .tlui-slider__container {
 	width: 100%;
 	padding: 0px var(--space-4);
+	margin-top: 30px;
 }
 
 .tlui-slider__track {
@@ -3086,11 +3787,149 @@ it from receiving any pointer events or affecting the cursor. */
 	align-items: center;
 	justify-content: space-between;
 	height: 32px;
+}.tlui-shortcuts-dialog__key-pair__key {
+	flex: 1;
+	font-size: 12px;
+}
+
+/* ==================== 半透明UI样式优化 ==================== */
+
+/* 强制覆盖node_modules中的tldraw样式 - 半透明UI组件 */
+.ddc_ink_drawing-editor .tl-container,
+.ddc_ink_drawing-editor .tlui-layout,
+.ddc_ink_writing-editor .tl-container,
+.ddc_ink_writing-editor .tlui-layout {
+    /* 工具栏半透明样式 */
+    .tlui-toolbar {
+        background-color: var(--color-low) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-2) !important;
+    }
+    
+    .tlui-toolbar__tools {
+        background-color: var(--color-low) !important;
+        backdrop-filter: blur(4px) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+    }
+    
+    /* 菜单半透明样式 */
+    .tlui-menu {
+        background-color: var(--tl-color-panel) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-3) !important;
+    }
+    
+    /* 按钮半透明样式 */
+    .tlui-button {
+        background-color: transparent !important;
+    }
+    
+    .tlui-button::after {
+        background-color: var(--color-muted-2) !important;
+        backdrop-filter: blur(4px) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+    }
+    
+    .tlui-button:not(:disabled):hover::after {
+        background-color: var(--color-muted-1) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+    }
+    
+    /* 工具按钮半透明样式 */
+    .tlui-button__tool {
+        background-color: transparent !important;
+    }
+    
+    .tlui-button__tool::after {
+        background-color: var(--color-muted-2) !important;
+        backdrop-filter: blur(4px) !important;
+        -webkit-backdrop-filter: blur(4px) !important;
+    }
+    
+    .tlui-button__tool[data-state='selected']::after {
+        background-color: var(--color-selected) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+    }
+    
+    /* 面板半透明样式 */
+    .tlui-panel {
+        background-color: var(--color-panel) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-2) !important;
+    }
+    
+    /* 对话框半透明样式 */
+    .tlui-dialog {
+        background-color: var(--color-panel) !important;
+        backdrop-filter: blur(15px) !important;
+        -webkit-backdrop-filter: blur(15px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-4) !important;
+    }
+    
+    /* 帮助菜单半透明样式 */
+    .tlui-help-menu {
+        background-color: var(--color-low) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        border: 1px solid var(--color-divider) !important;
+    }
+    
+    /* 上下文菜单半透明样式 */
+    .tlui-context-menu {
+        background-color: var(--color-panel) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-3) !important;
+    }
+    
+    /* 页面菜单半透明样式 */
+    .tlui-page-menu {
+        background-color: var(--color-panel) !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-2) !important;
+    }
+    
+    /* 样式面板半透明样式 */
+    .tlui-style-panel {
+        background-color: var(--color-panel) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-2) !important;
+    }
+    
+    /* 动作菜单半透明样式 */
+    .tlui-actions-menu {
+        background-color: var(--color-panel) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-3) !important;
+    }
+    
+    /* 缩放控件半透明样式 */
+    .tlui-zoom-menu {
+        background-color: var(--color-low) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        border: 1px solid var(--color-divider) !important;
+        box-shadow: var(--shadow-1) !important;
+    }
 }
 
 .tlui-shortcuts-dialog__key-pair__key {
 	flex: 1;
 	font-size: 12px;
-}
-
 }

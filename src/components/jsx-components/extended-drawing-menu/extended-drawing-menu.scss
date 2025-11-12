@@ -1,43 +1,151 @@
-.ink_extended-writing-menu {
+/* 基础样式 */
+.ink_extended-drawing-menu {
     display: flex;
     gap: 4px;
-
-    pointer-events: none;
-
+    pointer-events: none; /* 允许菜单整体响应点击事件 */
+    //position: fixed; /* 使用固定定位 */
+    z-index: 1000;
+    
+    /* 默认定位 - 画布右上角，离边缘10px */
+    top: 10px;
+    right: 10px;
+    
     button {
         width: auto;
         pointer-events: auto;
         background-color: var(--interactive-normal);
         color: var(--color-base-60);
+        
         &:hover {
             background-color: var(--interactive-hover);
             color: var(--color-base-100);
         }
+        
         &:disabled {
             cursor: default;
             color: var(--text-on-accent);
             background-color: var(--interactive-accent);
+            
             &:hover {
                 box-shadow: var(--input-shadow);
             }
         }
-    }
-
-    button {
+        
         width: 2.5em;
         height: 2.5em;
         border-radius: 0.8em;
         padding: 0 !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         
         &.ddc_ink_btn-slim {
-            width: 1.9em;
+            width: 2.5em;
             height: 2.5em;
             border-radius: 0.8em;
         }
 
         svg {
-            width: 1.5em !important;
-            height: 1.5em !important;
+            width: 2em !important;
+            height: 2em !important;
+            display: block;
+            margin: 0 auto;
+            pointer-events: none; /* 防止SVG图标干扰按钮点击 */
         }
     }
+}
+
+/* 电脑端样式 - 大屏幕设备 */
+@media (min-width: 897px) {
+    .ink_extended-drawing-menu {
+        /* 电脑端：画布右上角，离边缘15px */
+        top: 15px;
+        right: 15px;
+        gap: 6px;
+    }
+    
+    /* 官方UI全屏模式 */
+    body:has(.tlui-layout__top__right) .ink_extended-drawing-menu {
+        top: 15px;
+        right: 15px;
+        margin: 0 !important;
+    }
+    
+    /* 官方UI普通模式 */
+    body:has(.tlui-menu-zone) .ink_extended-drawing-menu {
+        position: absolute !important;
+        top: 15px;
+        right: 15px;
+        margin: 0 !important;
+    }
+    
+    /* 如果没有官方UI */
+    .ink_extended-drawing-menu:not(:has(~ .tlui-layout)) {
+        top: 50%;
+        z-index: 1002;
+        right: 20px;
+        transform: translateY(-50%);
+    }
+}
+
+/* 移动端样式 - 小屏幕设备 */
+@media (max-width: 896px) {
+    .ink_extended-drawing-menu {
+        /* 移动端：画布右上角，离边缘8px */
+        margin-top: 25px;
+        right: 20px;
+        gap: 9px;
+        
+        /* 移动端按钮稍微小一点 */
+        button {
+            width: 2.2em;
+            height: 2.2em;
+            
+            &.ddc_ink_btn-slim {
+                width: 1.7em;
+                height: 2.2em;
+            }
+            
+            svg {
+                width: 1.8em !important;
+                height: 1.8em !important;
+            }
+        }
+        /* 如果没有官方UI */
+    .ink_extended-drawing-menu:not(:has(~ .tlui-layout)) {
+        top: calc(50% - 25px);
+        z-index: 1002;
+        right: 20px;
+        transform: translateY(-50%);
+    }
+    }
+    
+    /* 移动端官方UI全屏模式 */
+    body:has(.tlui-layout__top__right) .ink_extended-drawing-menu {
+        top: 8px;
+        right: 8px;
+        margin: 0 !important;
+    }
+    
+    /* 移动端官方UI普通模式 */
+    body:has(.tlui-menu-zone) .ink_extended-drawing-menu {
+        position: absolute !important;
+        top: 8px;
+        right: 8px;
+        margin: 0 !important;
+    }
+    
+    /* 移动端如果没有官方UI */
+    .ink_extended-drawing-menu:not(:has(~ .tlui-layout)) {
+        //margin-top: 28px !important;
+        right: 10px !important;
+        z-index: 1002 !important;
+        gap: 9px !important;
+    }
+/* 嵌入模式特殊处理 - 实时预览视图 */
+.markdown-source-view .ink_extended-drawing-menu {
+    /* 嵌入模式下确保层级和可见性 */
+    z-index: 1001 !important;
+    pointer-events: auto !important;
+}
 }

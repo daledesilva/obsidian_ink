@@ -16,11 +16,21 @@ export const WRITING_VIEW_V1_TYPE = "ink_writing-v1-view";
 ////////
 
 export function registerWritingView_v1 (plugin: InkPlugin) {
-    plugin.registerView(
-        WRITING_VIEW_V1_TYPE,
-        (leaf) => new WritingView_v1(leaf, plugin)
-    );
-    plugin.registerExtensions([WRITE_FILE_V1_EXT], WRITING_VIEW_V1_TYPE);
+    try {
+        plugin.registerView(
+            WRITING_VIEW_V1_TYPE,
+            (leaf) => new WritingView_v1(leaf, plugin)
+        );
+        plugin.registerExtensions([WRITE_FILE_V1_EXT], WRITING_VIEW_V1_TYPE);
+    } catch (error) {
+        // 如果视图类型已经注册，忽略错误
+        if (error instanceof Error && error.message.includes('existing view type')) {
+            console.log(`View type ${WRITING_VIEW_V1_TYPE} already registered, skipping`);
+            return;
+        }
+        // 如果是其他错误，重新抛出
+        throw error;
+    }
 }
 
 export class WritingView_v1 extends TextFileView {

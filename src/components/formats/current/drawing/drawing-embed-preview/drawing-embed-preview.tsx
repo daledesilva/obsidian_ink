@@ -21,16 +21,17 @@ interface DrawingEmbedPreviewProps {
 }
 
 // Wraps the component so that it can full unmount when inactive
-export const DrawingEmbedPreviewWrapper: React.FC<DrawingEmbedPreviewProps> = (props) => {
+export const DrawingEmbedPreviewWrapper: React.FC<DrawingEmbedPreviewProps & { style?: React.CSSProperties }> = (props) => {
     const previewActive = useAtomValue(previewActiveAtom_v2);
 
-    console.log('props', props);
+    // 移除重复的props日志输出，避免日志重复
 
-    if (previewActive) {
-        return <DrawingEmbedPreview {...props} />
-    } else {
-        return <></>
-    }
+    // 使用CSS显示/隐藏而不是条件渲染，避免组件卸载导致的cleanup调用
+    return (
+        <div style={props.style}>
+            <DrawingEmbedPreview {...props} />
+        </div>
+    );
 }
 
 export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) => {
@@ -106,7 +107,10 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
-            setEmbedState(DrawingEmbedState.preview);
+            // 只有在当前状态不是editor或loadingEditor时才设置为preview状态
+            // 避免与状态转换逻辑冲突
+            // 这里我们假设如果用户已经点击进入编辑模式，就不应该再设置preview状态
+            // 直接调用props.onReady()而不设置状态
             props.onReady();
         }, 100);
     }

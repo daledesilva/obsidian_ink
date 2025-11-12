@@ -3,6 +3,39 @@ A plugin for [Obsidian](https://obsidian.md) that adds the ability to hand write
 
 Hand write or draw directly between paragraphs in your notes using a digital pen, stylus, or Apple pencil. Useful for handwriting, sketches, scribbles, or even math equations and scientific notation. Runs on the tldraw framework and drawing provides an infinite canvas.
 
+## Custom
+新命令：
+Ink: Existing命令行打开已有的Ink文件，可以预览中选择插入文件到文档
+Ink: Library命令打开素材库，只显示手动添加的内容。
+Ink: Import SVG file 打开整个库中所有svg
+Ink: Convert V1 Embeds to Current Format 旧文件类型转换新svg格式，一个文档中多个Ink文件也能直接转换。
+
+<img src="docs/media/UI.png" width="60%" alt="Toggle UI">
+<img src="docs/media/library.jpg" width="60%" alt="library">
+
+### Drawing
+**UI模式切换**
+- 支持`custom`和`official`两种UI模式
+- 通过插件设置动态切换
+- 组件配置的精细控制
+
+custom 为自定义UI，包含笔刷大小调节 颜色选取 自定义右键菜单 键盘快捷键 导出到素材库等
+official为tldraw官方UI，完整的tldraw功能
+
+两种UI都在自定义扩展菜单（保存和全屏）中添加了UI切换的选项
+
+两种UI模式 使用相同画布，内容共享，编辑状态下快捷切换UI。
+官方UI自由选择要使用的菜单组件，不常用的可以在设置中关闭。
+
+规范svg格式，加了XML和DOCTYPE声明和完整的命名空间声明，包含图片的svg，电脑端也可以直接预览。
+
+右键菜单添加 "导入svg”选项，ink格式下tldraw的draw、geo、image等常见类型元素从右键菜单选导入，svg能直接打开进入全屏编辑，
+
+### Writing
+
+1、在宽敞的“放大区域”中书写，停顿后捕捉书写的笔画，把写的内容缩放（统一行高）移动（自动排列）到正文末尾（流式布局：自动换行）。
+2、添加自定义右键菜单。
+
 ## 🎥 Demo
 <p align="center">
   <a href="https://www.youtube.com/watch?v=qgir8F7ezNM" target="_blank">

@@ -45,8 +45,8 @@ export const buildFileData = (props: {
       fileType: props.fileType,
     },
     tldraw: props.tlEditorSnapshot,
-    // Always set svgString to either provided svg or default empty svg
-    svgString: props.svgString || emptyDrawingSvgStr,
+    // 使用提供的svgString，如果为空则使用默认的SVG内容（避免使用空的SVG）
+    svgString: props.svgString || '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"></svg>',
   };
 
   return pageData;

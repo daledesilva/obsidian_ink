@@ -7,12 +7,19 @@ export class SvgFilePickerModal extends Modal {
 	titleText: string;
 	files: TFile[];
 	onChoose: (file: TFile) => void;
+	customRender?: (file: TFile, card: HTMLDivElement) => void;
 
-	constructor(app: App, options: { title: string; files: TFile[]; onChoose: (file: TFile) => void }) {
+	constructor(app: App, options: { 
+		title: string; 
+		files: TFile[]; 
+		onChoose: (file: TFile) => void;
+		customRender?: (file: TFile, card: HTMLDivElement) => void;
+	}) {
 		super(app);
 		this.titleText = options.title;
 		this.files = options.files;
 		this.onChoose = options.onChoose;
+		this.customRender = options.customRender;
 	}
 
 	onOpen() {
@@ -59,6 +66,11 @@ export class SvgFilePickerModal extends Modal {
 			label.style.textAlign = "center";
 			label.style.wordBreak = "break-word";
 			label.setText(file.basename);
+
+			// 调用自定义渲染函数
+			if (this.customRender) {
+				this.customRender(file, card);
+			}
 
 			card.addEventListener("click", () => {
 				this.close();

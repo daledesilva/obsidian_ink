@@ -44,6 +44,33 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	const LONG_PRESS_THRESHOLD = 500;
 	// 移动阈值（像素）- 避免微小抖动误判为移动
 	const MOVE_THRESHOLD = 3;
+	// 边缘检测阈值（像素）- 检测是否在屏幕边缘滑动
+	const EDGE_THRESHOLD = 50;
+
+	// 检测是否为边缘滑动（可能触发Obsidian侧边栏或命令行）
+	const isEdgeSwipe = (e: React.PointerEvent): boolean => {
+		// 检测左侧边缘滑动（可能触发Obsidian左侧边栏）
+		if (e.clientX <= EDGE_THRESHOLD && Math.abs(e.movementX) > 0) {
+			return true;
+		}
+		
+		// 检测右侧边缘滑动（可能触发Obsidian右侧边栏）
+		if (e.clientX >= window.innerWidth - EDGE_THRESHOLD && Math.abs(e.movementX) > 0) {
+			return true;
+		}
+		
+		// 检测顶部向下滑动（可能触发Obsidian命令行）
+		if (e.clientY <= EDGE_THRESHOLD && e.movementY > 0) {
+			return true;
+		}
+		
+		// 检测底部向上滑动（可能触发Obsidian命令行）
+		if (e.clientY >= window.innerHeight - EDGE_THRESHOLD && e.movementY < 0) {
+			return true;
+		}
+		
+		return false;
+	};
 
 	// 初始化时检测设备类型
 	React.useEffect(() => {
@@ -164,26 +191,26 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}
 
 			// 单指触摸：保持原有逻辑
-			if (numTouchPointers === 1) {
-				// 触摸停留时间判断：如果小于500毫秒，直接书写；否则允许滚动
-				const touchStartTime = touchStartTimeRef.current.get(e.pointerId);
-				const touchDuration = touchStartTime ? Date.now() - touchStartTime : 0;
-				const shouldScroll = touchDuration >= 500;
+		if (numTouchPointers === 1) {
+			// 触摸停留时间判断：如果小于500毫秒，直接书写；否则允许滚动
+			const touchStartTime = touchStartTimeRef.current.get(e.pointerId);
+			const touchDuration = touchStartTime ? Date.now() - touchStartTime : 0;
+			const shouldScroll = touchDuration >= 500;
 
-				if (!shouldScroll || pointerDownRef.current) {
-					// 触摸时间小于500毫秒或有书写操作正在进行，直接转发到画布进行书写
-					forwardEventToCanvas(e);
-				} else if (eventType === 'move') {
-					// 触摸时间大于等于500毫秒且没有书写操作，允许滚动
-					e.stopPropagation();
-					e.preventDefault();
-					const scroller = getScroller();
-					if (scroller) {
-						scroller.scrollTop += e.movementY;
-						scroller.scrollLeft += e.movementX;
-					}
+			if (!shouldScroll || pointerDownRef.current) {
+				// 触摸时间小于500毫秒或有书写操作正在进行，直接转发到画布进行书写
+				forwardEventToCanvas(e);
+			} else {
+				// 触摸时间大于等于500毫秒且没有书写操作，允许滚动
+				// 关键修改：不阻止事件，让Obsidian处理边缘滑动和滚动
+				// 移除所有stopPropagation和preventDefault调用
+				const scroller = getScroller();
+				if (scroller) {
+					scroller.scrollTop += e.movementY;
+					scroller.scrollLeft += e.movementX;
 				}
 			}
+		}
 		}
 	};
 
@@ -202,16 +229,16 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		<div
 			ref={blockerRef}
 			style={{
-				position: 'absolute',
-				inset: 0,
-				zIndex: 1000,
-				userSelect: 'none',
-				WebkitUserSelect: 'none',
-				MozUserSelect: 'none',
-				msUserSelect: 'none',
-				// 根据设备类型设置不同的pointerEvents
-				pointerEvents: isIOSRef.current ? 'auto' : 'none',
-			}}
+		position: 'absolute',
+		inset: 0,
+		zIndex: 1000, // 提高z-index确保完全覆盖，防止事件穿透
+		userSelect: 'none',
+		WebkitUserSelect: 'none',
+		MozUserSelect: 'none',
+		msUserSelect: 'none',
+		// 恢复原来的设置：iOS设备拦截事件，非iOS设备不拦截
+		pointerEvents: isIOSRef.current ? 'auto' : 'none',
+	}}
 			onPointerEnter={(e) => {
 				const isPenOrMouse = isPenInput(e) || e.pointerType === 'mouse';
 				if (isPenOrMouse) {
@@ -265,104 +292,107 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				if (isIOSRef.current) {
 					handleIOSEvent(e, 'down');
 				} else {
-				// 对于非iOS设备，也需要区分触摸和笔/鼠标
+					// 对于非iOS设备，也需要区分触摸和笔/鼠标
+					const isPenOrMouse = isPenInput(e) || e.pointerType === 'mouse';
+					if (isPenOrMouse) {
+						forwardEventToCanvas(e);
+						recentPenInputRef.current = true;
+					} else if (e.pointerType === 'touch') {
+						activeTouchPointers.current.set(e.pointerId, e);
+						touchStartTimeRef.current.set(e.pointerId, Date.now());
+						// 设置一个500毫秒的计时器
+						touchTimerRef.current.set(e.pointerId, setTimeout(() => {
+							// 计时器触发后，标记这个触摸点可以滚动
+							touchTimerRef.current.delete(e.pointerId);
+						}, 500));
+						const numTouchPointers = Array.from(activeTouchPointers.current.values()).filter(p => p.pointerType === 'touch').length;
+						if (numTouchPointers === 1) {
+							// 单指触摸：优先考虑是否需要转发到画布进行操作，而不是直接阻止事件
+							if (pointerDownRef.current) {
+								// 如果pointerDownRef.current为true，说明有书写操作正在进行
+								forwardEventToCanvas(e);
+							} else {
+								// 触摸时间小于500毫秒，直接转发到画布进行书写
+								forwardEventToCanvas(e);
+							}
+						} else if (numTouchPointers >= 2) {
+							// 双指及以上触摸：转发到画布，但对于iOS设备需要特别处理缩放
+							// 阻止默认行为但允许冒泡，这样既可以让tldraw处理缩放，又不会触发系统默认行为
+							forwardEventToCanvas(e, true, false);
+						}
+						recentPenInputRef.current = false;
+					}
+				}
+			}}
+			onPointerMove={(e) => {
+				try {
+					if (isIOSRef.current) {
+						handleIOSEvent(e, 'move');
+					} else {
+						const isPenOrMouse = isPenInput(e) || e.pointerType === 'mouse';
+						if (isPenOrMouse) {
+							forwardEventToCanvas(e);
+						} else if (e.pointerType === 'touch') {
+							activeTouchPointers.current.set(e.pointerId, e);
+							const numTouchPointers = Array.from(activeTouchPointers.current.values()).filter(p => p.pointerType === 'touch').length;
+							
+							if (numTouchPointers === 1) {
+			// 单指触摸：优先考虑是否需要转发到画布进行操作，而不是直接滚动
+			const touchStartTime = touchStartTimeRef.current.get(e.pointerId);
+			const touchDuration = touchStartTime ? Date.now() - touchStartTime : 0;
+			const shouldScroll = touchDuration >= 500;
+
+			if (!shouldScroll || pointerDownRef.current) {
+				// 触摸时间小于500毫秒或有书写操作正在进行，直接转发到画布进行书写
+				forwardEventToCanvas(e);
+			} else {
+				// 触摸时间大于等于500毫秒且没有书写操作，执行滚动
+				// 关键修改：不阻止事件，让Obsidian处理边缘滑动和滚动
+				const scroller = getScroller();
+				if (scroller) {
+					scroller.scrollTop += e.movementY;
+					scroller.scrollLeft += e.movementX;
+				}
+			}
+				} else if (numTouchPointers >= 2) {
+							// 双指及以上触摸：转发到画布，但对于iOS设备需要特别处理缩放
+							// 阻止默认行为但允许冒泡，这样既可以让tldraw处理缩放，又不会触发系统默认行为
+							forwardEventToCanvas(e, true, false);
+						}
+					}
+				}
+			} catch (error) {
+				// 捕获并静默处理任何错误，避免影响用户体验
+				console.debug('Pointer move event error:', error);
+			}
+			}}
+				onPointerUp={(e) => {
+			if (isIOSRef.current) {
+				handleIOSEvent(e, 'up');
+			} else {
 				const isPenOrMouse = isPenInput(e) || e.pointerType === 'mouse';
 				if (isPenOrMouse) {
 					forwardEventToCanvas(e);
-					recentPenInputRef.current = true;
 				} else if (e.pointerType === 'touch') {
-					activeTouchPointers.current.set(e.pointerId, e);
-					touchStartTimeRef.current.set(e.pointerId, Date.now());
-					// 设置一个500毫秒的计时器
-					touchTimerRef.current.set(e.pointerId, setTimeout(() => {
-						// 计时器触发后，标记这个触摸点可以滚动
-						touchTimerRef.current.delete(e.pointerId);
-					}, 500));
-					const numTouchPointers = Array.from(activeTouchPointers.current.values()).filter(p => p.pointerType === 'touch').length;
-					if (numTouchPointers === 1) {
-						// 单指触摸：优先考虑是否需要转发到画布进行操作，而不是直接阻止事件
-						if (pointerDownRef.current) {
-							// 如果pointerDownRef.current为true，说明有书写操作正在进行
-							forwardEventToCanvas(e);
-						} else {
-							// 触摸时间小于500毫秒，直接转发到画布进行书写
-							forwardEventToCanvas(e);
-						}
-					} else if (numTouchPointers >= 2) {
-						// 双指及以上触摸：转发到画布，但对于iOS设备需要特别处理缩放
-						// 阻止默认行为但允许冒泡，这样既可以让tldraw处理缩放，又不会触发系统默认行为
-						forwardEventToCanvas(e, true, false);
-					}
 					recentPenInputRef.current = false;
+					activeTouchPointers.current.delete(e.pointerId);
+					touchStartTimeRef.current.delete(e.pointerId);
+					// 清除对应的计时器
+					const timer = touchTimerRef.current.get(e.pointerId);
+					if (timer) {
+						clearTimeout(timer);
+						touchTimerRef.current.delete(e.pointerId);
+					}
+					const numTouchPointers = Array.from(activeTouchPointers.current.values()).filter(p => p.pointerType === 'touch').length;
+					
+					// 如果还有其他手指在屏幕上，转发事件到画布，不阻止默认行为和冒泡
+					// 否则，如果所有手指都抬起，则不转发，因为tldraw可能已经处理了up事件
+					if (numTouchPointers >= 1) {
+						forwardEventToCanvas(e, false, false);
+					}
 				}
 			}
-			}}
-			onPointerMove={(e) => {
-				if (isIOSRef.current) {
-					handleIOSEvent(e, 'move');
-				} else {
-					const isPenOrMouse = isPenInput(e) || e.pointerType === 'mouse';
-					if (isPenOrMouse) {
-						forwardEventToCanvas(e);
-					} else if (e.pointerType === 'touch') {
-						activeTouchPointers.current.set(e.pointerId, e);
-						const numTouchPointers = Array.from(activeTouchPointers.current.values()).filter(p => p.pointerType === 'touch').length;
-						
-						if (numTouchPointers === 1) {
-							// 单指触摸：优先考虑是否需要转发到画布进行操作，而不是直接滚动
-							const touchStartTime = touchStartTimeRef.current.get(e.pointerId);
-							const touchDuration = touchStartTime ? Date.now() - touchStartTime : 0;
-							const shouldScroll = touchDuration >= 500;
-
-							if (!shouldScroll || pointerDownRef.current) {
-								// 触摸时间小于500毫秒或有书写操作正在进行，直接转发到画布进行书写
-								// 确保完全阻止事件冒泡和默认行为，防止触发Obsidian侧边栏和滚动
-								forwardEventToCanvas(e);
-							} else {
-								// 触摸时间大于等于500毫秒且没有书写操作，执行滚动
-								e.stopPropagation();
-								e.preventDefault();
-								const scroller = getScroller();
-								if (scroller) {
-									scroller.scrollTop += e.movementY;
-									scroller.scrollLeft += e.movementX;
-								}
-							}
-						} else if (numTouchPointers >= 2) {
-								// 双指及以上触摸：转发到画布，但对于iOS设备需要特别处理缩放
-								// 阻止默认行为但允许冒泡，这样既可以让tldraw处理缩放，又不会触发系统默认行为
-								forwardEventToCanvas(e, true, false);
-							}
-					}
-			}
-			}}
-			onPointerUp={(e) => {
-				if (isIOSRef.current) {
-					handleIOSEvent(e, 'up');
-				} else {
-					const isPenOrMouse = isPenInput(e) || e.pointerType === 'mouse';
-					if (isPenOrMouse) {
-						forwardEventToCanvas(e);
-					} else if (e.pointerType === 'touch') {
-						recentPenInputRef.current = false;
-						activeTouchPointers.current.delete(e.pointerId);
-						touchStartTimeRef.current.delete(e.pointerId);
-						// 清除对应的计时器
-						const timer = touchTimerRef.current.get(e.pointerId);
-						if (timer) {
-							clearTimeout(timer);
-							touchTimerRef.current.delete(e.pointerId);
-						}
-						const numTouchPointers = Array.from(activeTouchPointers.current.values()).filter(p => p.pointerType === 'touch').length;
-						
-						// 如果还有其他手指在屏幕上，转发事件到画布，不阻止默认行为和冒泡
-						// 否则，如果所有手指都抬起，则不转发，因为tldraw可能已经处理了up事件
-						if (numTouchPointers >= 1) {
-							forwardEventToCanvas(e, false, false);
-						}
-					}
-			}
-			}}
+		}}
 			onPointerLeave={() => {
 				if (!pointerDownRef.current) {
 					recentPenInputRef.current = false;
@@ -371,7 +401,15 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}}
 			onWheel={(e) => {
 				e.stopPropagation();
-				e.preventDefault();
+				// 只在iOS设备上阻止默认滚动行为，避免passive事件监听器错误
+				if (isIOSRef.current) {
+					try {
+						e.preventDefault();
+					} catch (error) {
+						// 如果preventDefault失败（如在passive事件中），静默处理
+						console.debug('preventDefault failed in wheel event:', error);
+					}
+				}
 				const scroller = getScroller();
 				if (scroller) {
 					scroller.scrollTop += e.deltaY;

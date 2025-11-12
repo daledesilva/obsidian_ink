@@ -1,51 +1,129 @@
 @use '../../tldraw-defaults.scss';
 
-/////////
-/////////
-
 .ddc_ink_writing-editor {
-    transition: height 0.5s ease;
-    
-    .tl-container {
-        // tldraw seems to put a black background when the container is focussed. This negates that
-        outline: none !important;
+  transition: height 0.5s ease;
+  min-height: 400px;
 
-        .tl-canvas {
-            background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
-    
-            overflow: hidden;
-            
-            .tl-background {
-                background: none;
-            }
-    
-        }
+  .tl-container {
+    outline: none !important;
+
+    .tl-canvas {
+      background: none;
+      overflow: hidden;
+
+      .tl-background {
+        background: none;
+      }
     }
+  }
+
+  outline: none;
+  border-radius: 20px;
+  background-color: transparent;
+
+  line {
+    stroke: var(--color-base-50);
+    stroke-width: 2px;
+  }
 }
 
+// ========== 移动端基础适配 ==========
+@media (max-width: 896px) {
+  .ink_primary-menu-bar,
+  .markdown-preview-view .ink_primary-menu-bar,
+  .markdown-source-view .ink_primary-menu-bar:not(:has(.ink-writing-view-host)) {
+    transform: translate(0, -560%) !important;
+  }
 
-// Auto adapts to themes
-////////////////////////
+  .ddc_ink_widget-root {
+    padding-top: 100px !important;
+  }
 
-.ddc_ink_writing-editor {
-
-    // outline thickened but not coloured
-    outline: solid 8px var(--color-base-10);
-    border-radius: 20px;
-
-    // Left side coloured
-    // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
-    // border-radius: 5px 20px 20px 5px;
-
-    background-color: var(--color-base-05);
-
-    // TODO: Should be placed in a separate file for writing-file-styles
-    // Writing lines
-    line {
-        stroke: var(--color-base-50);
-        stroke-width: 2px;
-    }
+  .ink_other-menu .ink_quick-menu {
+    margin: -5px 0 0 0 !important;
+  }
 }
 
+// 书写区域样式
+.writing-zone {
+  background: transparent;
+  position: absolute;
+  left: 50%;
+  width: 80%;
+  height: 200px !important;
+  z-index: 20;
+  transform: translateX(-50%);
+  bottom: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 15px;
+  box-shadow:
+    0 -8px 30px rgba(255, 255, 255, 0.2),
+    0 -4px 15px rgba(0, 0, 0, 0.1),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+  cursor: crosshair;
 
+  // ✅ 竖屏适配
+  @media (max-width: 768px) and (orientation: portrait) {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 30vh !important;
+    max-height: 260px;
+    min-height: 150px;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    z-index: 1;
+    box-shadow:
+      0 -4px 15px rgba(0, 0, 0, 0.15),
+      0 -2px 8px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
 
+  // ✅ 横屏下：右下角浮动悬窗
+  @media (max-width: 896px) and (orientation: landscape) {
+    position: fixed;
+    right: 2vw;
+    bottom: 2vh;
+    width: 40vw;
+    height: 40vh !important;
+    transform: none;
+    border-radius: 12px;
+    z-index: 50; // 高于 tl-canvas
+    pointer-events: none; // ✅ 允许笔触/触摸穿透到底层画布
+
+    box-shadow:
+      0 0 20px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+
+    // 添加轻微拖拽提示（可拖动样式）
+    cursor: move;
+  }
+
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: inherit;
+  }
+}
+
+// ✅ 横屏时正文布局保持正常，不做左右分栏
+@media (max-width: 896px) and (orientation: landscape) {
+  .ddc_ink_resize-container {
+    flex-direction: column; // 保持垂直结构
+  }
+}
+
+.tl-watermark_SEE-LICENSE {
+  display: none;
+}

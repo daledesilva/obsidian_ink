@@ -25,9 +25,10 @@ interface EmbedCtrls_v1 {
 
 export function registerDrawingEmbed_v1(plugin: InkPlugin) {
 
-	plugin.registerMarkdownCodeBlockProcessor(
-		DRAW_EMBED_KEY,
-		(source, el, ctx) => {
+	try {
+		plugin.registerMarkdownCodeBlockProcessor(
+			DRAW_EMBED_KEY,
+			(source, el, ctx) => {
 			const embedData = JSON.parse(source) as DrawingEmbedData_v1;
 			const embedCtrls: EmbedCtrls_v1 = {
 				removeEmbed: async () => {
@@ -63,8 +64,15 @@ export function registerDrawingEmbed_v1(plugin: InkPlugin) {
 			if(embedData.filepath) {
 				ctx.addChild(new DrawingEmbedWidget_v1(el, plugin, embedData, embedCtrls, (newEmbedData) => updateEmbed_v1(plugin, ctx, el, newEmbedData)));
 			}
-		},
+		}
 	);
+	} catch (error) {
+		if (error instanceof Error && error.message.includes('already registered')) {
+			console.log(`Code block processor for ${DRAW_EMBED_KEY} is already registered, skipping...`);
+		} else {
+			throw error;
+		}
+	}
 
 }
 

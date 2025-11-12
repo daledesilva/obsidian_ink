@@ -30,11 +30,23 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
 ////////
 
 export function registerDrawingView_v1 (plugin: InkPlugin) {
-    plugin.registerView(
-        DRAWING_VIEW_V1_TYPE,
-        (leaf) => new DrawingView_v1(leaf, plugin)
-    );
-    plugin.registerExtensions([DRAW_FILE_V1_EXT], DRAWING_VIEW_V1_TYPE);
+    // 检查是否已经注册了ink_drawing-v1-view视图类型
+    try {
+        plugin.registerView(
+            DRAWING_VIEW_V1_TYPE,
+            (leaf) => new DrawingView_v1(leaf, plugin)
+        );
+        plugin.registerExtensions([DRAW_FILE_V1_EXT], DRAWING_VIEW_V1_TYPE);
+    } catch (error) {
+        // 如果已经注册过，忽略"existing view type"错误
+        if (error && typeof error === 'object' && 'message' in error && 
+            typeof error.message === 'string' && error.message.includes('existing view type')) {
+            console.log('View type ink_drawing-v1-view is already registered, skipping...');
+        } else {
+            // 重新抛出其他错误
+            throw error;
+        }
+    }
 }
 
 export class DrawingView_v1 extends TextFileView {

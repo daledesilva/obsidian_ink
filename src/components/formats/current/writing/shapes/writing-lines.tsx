@@ -89,19 +89,21 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 		const margin = 0.05 * shape.props.w;
 
 		const lines = Array.from({ length: numberOfLines }, (_, index) => (
-		<line
-				key = {index}
-				x1 = {margin}
-				y1 = {(index+1) * WRITING_LINE_HEIGHT}
-				x2 = {shape.props.w - margin}
-				y2 = {(index+1) * WRITING_LINE_HEIGHT}
+			<line
+				key={index}
+				x1={margin}
+				y1={(index+1) * WRITING_LINE_HEIGHT}
+				x2={shape.props.w - margin}
+				y2={(index+1) * WRITING_LINE_HEIGHT}
 				// NOTE: Styling is done through CSS
 			/>
 		));
 
-		return <>
-			{lines}
-		</>
+		return (
+			<svg width={shape.props.w} height={shape.props.h}>
+				{lines}
+			</svg>
+		);
 	}
 
 	

@@ -17,7 +17,14 @@ export const insertExistingDrawingFile = async (plugin: InkPlugin, editor: Edito
         const file = svgFiles[i];
         try {
             const svgString = await plugin.app.vault.read(file);
-            if (!svgString || !svgString.trim().startsWith('<svg')) continue;
+            if (!svgString) continue;
+            
+            // 检查是否包含SVG标签（考虑XML声明和DOCTYPE的情况）
+            const trimmedContent = svgString.trim();
+            const hasSvgTag = trimmedContent.includes('<svg') && trimmedContent.includes('</svg>');
+            if (!hasSvgTag) continue;
+            
+            // 只显示包含有效Ink元数据的SVG文件（不进行自动转换）
             const inkFileData = extractInkJsonFromSvg(svgString);
             if (!inkFileData) continue;
             if (inkFileData.meta.fileType === "inkDrawing") validFiles.push(file);

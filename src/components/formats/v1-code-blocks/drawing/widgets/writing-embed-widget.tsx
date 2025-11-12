@@ -24,9 +24,11 @@ interface EmbedCtrls_v1 {
 ////////
 
 export function registerWritingEmbed_v1(plugin: InkPlugin) {
-	plugin.registerMarkdownCodeBlockProcessor(
-		WRITE_EMBED_KEY,
-		(source, el, ctx) => {
+	// 检查是否已经注册了handwritten-ink代码块处理器
+	try {
+		plugin.registerMarkdownCodeBlockProcessor(
+			WRITE_EMBED_KEY,
+			(source, el, ctx) => {
 			const embedData = JSON.parse(source) as WritingEmbedData;
 			const embedCtrls: EmbedCtrls_v1 = {
 				removeEmbed: async () => {
@@ -64,6 +66,16 @@ export function registerWritingEmbed_v1(plugin: InkPlugin) {
 			}
 		}
 	);
+	} catch (error) {
+		// 如果已经注册过，忽略"already registered"错误
+		if (error && typeof error === 'object' && 'message' in error && 
+			typeof error.message === 'string' && error.message.includes('already registered')) {
+			console.log('Code block processor for handwritten-ink is already registered, skipping...');
+		} else {
+			// 重新抛出其他错误
+			throw error;
+		}
+	}
 }
 
 class WritingEmbedWidget_v1 extends MarkdownRenderChild {

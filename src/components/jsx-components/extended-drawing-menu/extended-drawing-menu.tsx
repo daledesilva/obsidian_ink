@@ -23,6 +23,7 @@ export const ExtendedDrawingMenu: React.FC<{
                     <LockIcon/>
                 </button>            
             )}
+
             <OverflowMenu
                 menuOptions = {props.menuOptions}
             />

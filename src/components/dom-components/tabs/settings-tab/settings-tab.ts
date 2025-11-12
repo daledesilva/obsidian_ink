@@ -40,6 +40,9 @@ export class MySettingsTab extends PluginSettingTab {
 		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
 
 		containerEl.createEl('hr');
+		insertUISettings(containerEl, this.plugin, () => this.display());
+
+		containerEl.createEl('hr');
 		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
 		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
 	
@@ -395,4 +398,144 @@ function insertGenericWarning(containerEl: HTMLElement, text: string) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_generic-warning-section');
 	const warningEl = sectionEl.createDiv('warning');
 	warningEl.createEl('p', {text});
+}
+
+function insertUISettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_ui-section');
+	sectionEl.createEl('h2', { text: 'UI Configuration' });
+	sectionEl.createEl('p', { text: 'Choose which UI to use for drawing and writing embeds.' });
+
+	// UI Mode selection
+	new Setting(sectionEl)
+		.setClass('ddc_ink_button-set')
+		.setName('UI Mode')
+		.setDesc('Choose between custom Ink UI or official Tldraw UI')
+		.addButton((button) => {
+			button.setButtonText('Custom UI')
+			button.setClass('ddc_ink_left-most')
+			if (plugin.settings.uiMode === 'custom') {
+				button.setCta()
+				button.setDisabled(true)
+			}
+			button.onClick(async () => {
+				plugin.settings.uiMode = 'custom';
+				await plugin.saveSettings();
+				refresh();
+			})
+		})
+		.addButton((button) => {
+			button.setButtonText('Official UI')
+			button.setClass('ddc_ink_right-most')
+			if (plugin.settings.uiMode === 'official') {
+				button.setCta()
+				button.setDisabled(true)
+			}
+			button.onClick(async () => {
+				plugin.settings.uiMode = 'official';
+				await plugin.saveSettings();
+				refresh();
+			})
+		})
+
+	// Official UI components configuration (only visible when official UI is selected)
+	if (plugin.settings.uiMode === 'official') {
+		// 总开关：控制是否显示子组件选项
+		new Setting(sectionEl)
+			.setClass('ddc_ink_setting')
+			.setName('Customize Official UI Components')
+			.setDesc('Enable to show individual component toggles')
+			.addToggle((toggle) => {
+				toggle.setValue(plugin.settings.officialUIComponentsEnabled);
+				toggle.onChange(async (value) => {
+					plugin.settings.officialUIComponentsEnabled = value;
+					await plugin.saveSettings();
+					refresh();
+				})
+			})
+
+		// 子组件选项（仅在总开关打开时显示）
+		if (plugin.settings.officialUIComponentsEnabled) {
+			const accordionSection = new ToggleAccordionSetting(sectionEl)
+				.setName('Individual Component Settings')
+				.setExpanded(true)
+				.setContent((container) => {
+				new Setting(container)
+					.setName('Toolbar')
+					.setDesc('Show the main toolbar with drawing tools')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.toolbar);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.toolbar = value;
+							await plugin.saveSettings();
+						})
+					})
+
+				new Setting(container)
+					.setName('Main Menu')
+					.setDesc('Show the top menu bar with file operations')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.menuBar);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.menuBar = value;
+							await plugin.saveSettings();
+						})
+					})
+
+				new Setting(container)
+					.setName('Style Panel')
+					.setDesc('Show the right-side style panel for formatting')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.stylePanel);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.stylePanel = value;
+							await plugin.saveSettings();
+						})
+					})
+
+				new Setting(container)
+					.setName('Page Menu')
+					.setDesc('Show page management controls')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.pageMenu);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.pageMenu = value;
+							await plugin.saveSettings();
+						})
+					})
+
+				new Setting(container)
+					.setName('Zoom Menu')
+					.setDesc('Show zoom controls')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.zoomMenu);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.zoomMenu = value;
+							await plugin.saveSettings();
+						})
+					})
+
+				new Setting(container)
+					.setName('Navigation Panel')
+					.setDesc('Show navigation controls')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.navigationPanel);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.navigationPanel = value;
+							await plugin.saveSettings();
+						})
+					})
+
+				new Setting(container)
+					.setName('Helper Buttons')
+					.setDesc('Show additional helper buttons')
+					.addToggle((toggle) => {
+						toggle.setValue(plugin.settings.officialUIComponents.helperButtons);
+						toggle.onChange(async (value) => {
+							plugin.settings.officialUIComponents.helperButtons = value;
+							await plugin.saveSettings();
+						})
+					})
+			})
+	}
+}
 }

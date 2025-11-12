@@ -27,7 +27,7 @@ import './drawing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
-import { buildFileStr } from '../../utils/buildFileStr';
+import { buildFileStr, buildFileStrWithDrawingContent } from '../../utils/buildFileStr';
 
 /////////////////////
 /////////////////////
@@ -184,7 +184,8 @@ export class DrawingEmbedWidget extends WidgetType {
 	save = async (inkFileData: InkFileData) => {
 		if(!this.embeddedFile) return;
 		const plugin = getGlobals().plugin;
-		const inkFileContents = buildFileStr(inkFileData);
+		// 使用修复后的SVG生成函数，确保包含XML声明和DOCTYPE
+		const inkFileContents = await buildFileStrWithDrawingContent(inkFileData);
 		await plugin.app.vault.modify(this.embeddedFile, inkFileContents);
 	}
 

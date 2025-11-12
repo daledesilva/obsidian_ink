@@ -23,7 +23,6 @@
     }
 }
 
-
 // Auto adapts to themes
 ////////////////////////
 
@@ -39,9 +38,762 @@
 
     background-color: var(--color-base-05);
 
-    // Writing lines
-    // line {
-    //     stroke: var(--color-base-50);
-    //     stroke-width: 2px;
-    // }
+    // Drawing lines - match writing editor stroke width
+    line {
+        stroke: var(--color-base-50);
+        stroke-width: 2px;
+    }
+}
+  
+    .tldraw-view-root {
+        touch-action: none;
+        position: relative;
+        width: 100%;
+        height: 100%;
+
+        /* fixes some positioning problems that tldraw has due to bringing embedded into another app */
+        transform: translate3d(0, 0, 0);
+    }
+
+    /* OVERRIDING button:not(.clickable-icon) back to tldraw's original styles: */
+    .tldraw-view-root .tlui-button {
+        background-color: transparent;
+        color: currentColor;
+        padding: 0px 13px;
+        box-shadow: none;
+    }
+
+    /* Overriding back to original style */
+    .tldraw-view-root .tlui-button:disabled {
+        color: var(--color-text-3);
+    }
+
+    /* Overriding back to original style */
+    .tldraw-view-root .tlui-button__tool[aria-checked='true'] {
+        color: var(--color-selected-contrast);
+    }
+
+    .tldraw-view-root .tl-quick-action-button-wrapper[data-selected=true] .tlui-button__icon {
+        color: var(--color-selected-contrast);
+    }
+
+    .tldraw-view-root .tl-quick-action-button-wrapper[data-selected=true] .tlui-button::before {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border-radius: var(--radius-2);
+        background-color: var(--color-selected);
+    }
+
+    /* OVERRIDING button:not(.clickable-icon) */
+    .tldraw-view-root .tlui-button.tlui-help-menu__button {
+        background-color: var(--color-low);
+    }
+
+    .tldraw-view-root kbd {
+        background: inherit;
+        border-radius: inherit;
+        padding: inherit;
+    }
+
+    div[data-type="tldraw-view"] .view-content.tldraw-view-content,
+    div[data-type="tldraw-read-only"] .view-content.tldraw-view-content {
+        /* gets rid of the padding so the canvas can bleed against the edges */
+        padding: 0;
+        @container style(--status-bar-position: fixed) {
+            /* creates a space at the bottom so that the status bar isn't covering the canvas */
+            padding-bottom: calc(var(--size-4-1) * 2 + var(--status-bar-font-size) + 8px);
+        }
+    }
+
+    .is-mobile div[data-type="tldraw-view"] .view-content.tldraw-view-content {
+        /* There is a bit of padding that shows up on mobile which we can remove. */
+        padding-bottom: 0;
+    }
+
+    .tl-statusbar-viewmode-box {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .plugin-tldraw .tl-statusbar-viewmode-box .tl-viewmode-btn {
+        background-color: transparent;
+        padding: 0 4px;
+        height: 12px;
+        width: 22px;
+        box-shadow: none;
+        border-radius: 2px;
+
+        display: grid;
+        place-items: center;
+
+        font-size: 8px;
+        font-weight: 700;
+        line-height: 8px;
+
+        cursor: pointer;
+
+        &:hover {
+            background-color: var(--background-secondary-alt);
+        }
+    }
+
+    .plugin-tldraw .tl-statusbar-viewmode-box .tl-viewmode-btn.tl-viewmode-active {
+        box-shadow: inset 0px 0px 0px 1px currentColor;
+        border-radius: 4px;
+    }
+
+    .tl-hide-statusbar-viewmode {
+        display: none;
+    }
+
+    .tl-statusbar-viewmode-btn-box {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .tl-default-code {
+        margin-top: 6px;
+        display: block;
+    }
+
+    .tl-background {
+        touch-action: none;
+    }
+
+    .status-bar-item.plugin-tldraw {
+        background-color: var(--background-modifier-border);
+    }
+
+    .tl-markdown-embed {
+        position: relative;
+    }
+
+    .tl-embed-context-bar {
+        padding: 2px;
+        display: flex;
+        background: var(--background-primary-alt);
+    }
+
+    .tl-embed-title-bar {
+        font-size: var(--font-smallest);
+        margin-left: 8px;
+        align-self: center;
+    }
+
+    /* Render the context bar for embeds in the top right corner. */
+    .tl-markdown-embed .tl-embed-context-bar {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        position: absolute;
+        top: 0;
+    }
+
+    .tl-embed-action-bar {
+        display: flex;
+    }
+
+    .tl-markdown-embed .tl-view-content .tldraw-view-root {
+        height: 300px;
+    }
+
+    .tl-markdown-embed .tl-view-content[data-showBgDots="true"] {
+        background-image:
+            radial-gradient(rgb(78, 78, 78) 1px, transparent 1px),
+            radial-gradient(rgb(78, 78, 78) 1px, transparent 1px);
+        background-size: 48px 48px;
+        /* Size of the grid cells */
+        background-position: 0 0, 24px 24px;
+        /* Offset for the dotted pattern */
+    }
+
+    .tl-markdown-embed .tl-view-content[data-has-shape="false"] .tl-tldraw-image::before {
+        display: block;
+        content: "This is an empty tldraw file. Double click to edit in a new tab, or right click for options.";
+        height: 100%;
+        text-align: center;
+        align-content: center;
+    }
+
+    .tl-markdown-embed .tl-tldraw-image-container {
+        display: flex;
+        justify-content: center;
+    }
+
+    .canvas-node .tl-markdown-embed .tl-tldraw-image {
+        height: var(--canvas-node-height);
+        width: var(--canvas-node-width);
+    }
+
+    .tl-markdown-embed .tl-tldraw-image {
+        max-inline-size: max-content;
+    }
+
+    .tl-markdown-embed .tl-view-content {
+        height: max-content;
+    }
+
+    .tl-view-content:empty {
+        min-width: var(--ptl-placeholder-width);
+        min-height: var(--ptl-placeholder-height);
+    }
+
+    .tl-tldraw-image:not(:has(div > img)) {
+        min-width: var(--ptl-placeholder-width);
+        min-height: var(--ptl-placeholder-height);
+    }
+
+    .tl-markdown-embed .tl-tldraw-image img {
+        object-fit: contain;
+    }
+
+    .tl-download-error {
+        color: red;
+    }
+
+    .tl-download-success {
+        color: green;
+    }
+
+    .tl-compare-modal {
+        width: 100%;
+        height: 100%;
+    }
+
+    .tl-compare-modal-content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tl-conflict-body {
+        flex: 1;
+    }
+
+    .tl-compare-tldraw-container {
+        display: flex;
+        height: 100%;
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 2em;
+    }
+
+    .tl-compare-tldraw-container .tl-compare-tldraw {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 250px;
+    }
+
+    .tl-compare-preview {
+        height: 400px;
+    }
+
+    .tl-modal-title-with-icon {
+        padding-top: 12px;
+        display: flex;
+        flex-direction: row;
+        gap: 0.25em;
+        align-items: center;
+    }
+
+    .tl-modal-title-with-icon span.tl-modal-icon {
+        display: contents;
+    }
+
+    .tl-suggestion-item {
+        display: flex;
+        gap: 0.25em;
+    }
+
+    .tl-suggestion-item-icon {
+        display: contents;
+    }
+
+    .tl-suggestion-label {
+        font-size: x-small;
+    }
+
+    .tl-embed-bounds-selection {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: var(--tl-layer-overlays); // 使用覆盖层的预设z-index值
+    }
+
+    .tl-embed-bounds-selection[data-target-bounds="true"] {
+        border: 1px solid var(--color-text-0);
+    }
+
+    .tl-embed-bounds-selection[data-target-bounds="false"] {
+        border: 1px dashed var(--color-text-0);
+    }
+
+    .tl-embed-bounds-selection[data-shade-bg="true"]::before {
+        position: absolute;
+        content: "";
+        display: block;
+        width: 100%;
+        height: 100%;
+        background-color: var(--color-text-0);
+        opacity: 0.15;
+    }
+
+    @media print {
+        .tl-markdown-embed {
+            /* Prevent the embeds from being split across multiple pages */
+            break-inside: avoid;
+        }
+
+        .tl-markdown-embed .tl-tldraw-image img {
+            /* Prevent an embed from being larger than the print page size */
+            max-height: 85vh;
+        }
+
+        .tl-embed-resize-handle {
+            display: none;
+        }
+    }
+
+    .tl-embed-resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 0 0 16px 16px;
+        border-color: transparent transparent var(--background-modifier-border) transparent;
+        cursor: row-resize;
+    }
+
+    .tl-settings-tab-header {
+        display: flex;
+        overflow-y: hidden;
+    }
+
+    .tl-settings-tab-container {
+        display: flex;
+        gap: var(--size-4-2);
+    }
+
+    .tl-settings-tab-container .tl-settings-tab-item {
+        font-weight: var(--font-semibold);
+        padding-block: var(--size-2-3);
+        padding-inline: var(--size-4-3);
+        border-radius: var(--radius-m);
+        width: max-content;
+    }
+
+    .tl-settings-tab-container .tl-settings-tab-item:hover {
+        cursor: pointer;
+    }
+
+    .tl-settings-tab-item[data-is-active=false]:hover {
+        background-color: var(--interactive-hover);
+    }
+
+    .tl-settings-tab-item[data-is-active=true] {
+        background-color: var(--interactive-accent);
+        color: var(--text-on-accent);
+    }
+
+    .tl-settings-frontmatter-taglist {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--size-4-2);
+    }
+
+
+    /* Copied from tldraw.com */
+    .tl-shape[data-shape-type="arrow"] .tl-text {
+        height: max-content;
+    }
+
+    /* Copied from tldraw.com */
+    .tl-shape[data-shape-type="arrow"] .tl-text-label {
+        position: absolute;
+        top: -1px;
+        left: -1px;
+        width: 2px;
+        height: 2px;
+        padding: 0;
+
+    /* Hide the mobile watermark in all modes */
+    .tl-watermark_SEE-LICENSE[data-mobile='true'] {
+        display: none !important;
+    }
+    
+    /* Hide the watermark in all modes */
+    .tl-watermark_SEE-LICENSE {
+        display: none !important;
+    }
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        color: var(--tl-color-text);
+        text-shadow: var(--tl-text-outline);
+    }
+
+    /* Copied from tldraw.com */
+    .tl-shape[data-shape-type="arrow"] .tl-text-label__inner {
+        height: max-content;
+        box-sizing: content-box;
+        border-radius: var(--tl-radius-1);
+    }
+    /* ------自定义样式------ */       
+    
+    // 确保TldrawUi组件能够正确显示 - 使用预设的z-index值
+    .tlui-layout {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0px, 1fr) auto;
+        grid-auto-rows: auto;
+        height: 100%;
+        max-height: 100%;
+        overflow: clip;
+        contain: strict;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+        --sab: env(safe-area-inset-bottom);
+    }
+    
+    // 修复官方UI组件的显示问题 - 使用预设的z-index值
+    .tlui-toolbar {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-menu-zone {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-style-panel {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-navigation-zone {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-help-menu {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    // 确保所有TldrawUI组件都能正确交互
+    .tlui-button {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-icon {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-tool-indicator {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    // 确保弹出菜单和对话框也能正确显示
+    .tlui-popover {
+        z-index: var(--tl-layer-menus) !important; // 使用菜单层的预设z-index值
+    }
+    
+    .tlui-dialog {
+        z-index: var(--tl-layer-menus) !important; // 使用菜单层的预设z-index值
+    }
+    
+    .tlui-context-menu {
+        z-index: var(--tl-layer-menus) !important; // 使用菜单层的预设z-index值
+    }
+        
+    // 根据HTML结构添加缺失的样式
+    .tl-container {
+        width: 100% !important;
+        height: 100% !important;
+        position: relative !important;
+    }
+    
+    .tlui-layout__top {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-layout__bottom {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-main-toolbar {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    // 修复布局结构
+    .tlui-layout__top__left,
+    .tlui-layout__top__center,
+    .tlui-layout__top__right {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-layout__bottom__main {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    // 修复工具按钮样式
+    .tlui-button__tool {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-button__icon {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    // 修复行布局
+    .tlui-row {
+        display: flex;
+        flex-direction: row;
+        padding: 0 2px;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+
+// Auto adapts to themes
+////////////////////////
+
+.ddc_ink_drawing-editor {
+    // 修复显示问题：移除可能影响布局的样式
+    outline: none;
+    border-radius: 0;
+    background-color: transparent;
+    
+    // 确保编辑器容器正确显示
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    
+    // 确保Tldraw组件能够正确显示
+    .tlui-editor {
+        width: 100% !important;
+        height: 100% !important;
+    }
+    
+    .tlui-canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+    
+    // 确保所有TldrawUI组件样式都在正确的作用域内
+    .tlui-layout {
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+    
+    .tlui-toolbar {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-menu-zone {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-style-panel {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-navigation-zone {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-help-menu {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-button {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-icon {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-tool-indicator {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-popover {
+        z-index: var(--tl-layer-menus) !important; // 使用菜单层的预设z-index值
+    }
+    
+    .tlui-dialog {
+        z-index: var(--tl-layer-menus) !important; // 使用菜单层的预设z-index值
+    }
+    
+    .tlui-context-menu {
+        z-index: var(--tl-layer-menus) !important; // 使用菜单层的预设z-index值
+    }
+    
+    .tl-container {
+        width: 100% !important;
+        height: 100% !important;
+        position: relative !important;
+    }
+    
+    .tlui-layout__top {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-layout__bottom {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-main-toolbar {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-layout__top__left,
+    .tlui-layout__top__center,
+    .tlui-layout__top__right {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-layout__bottom__main {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-button__tool {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-button__icon {
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+    }
+    
+    .tlui-row {
+        position: relative !important;
+        z-index: var(--tl-layer-panels) !important; // 使用面板层的预设z-index值
+        display: flex !important;
+        flex-direction: row !important;
+        padding: 0 2px !important;
+        
+        > * {
+            margin-left: -2px !important;
+            margin-right: -2px !important;
+        }
+    }
+}
+@media (min-width: 897px) {
+	/* 将 tlui-layout__top__right 内容改为单列显示 */
+	.tlui-layout__top__right {
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: flex-end !important;
+		gap: 12px !important;
+	}
+
+	/* 移除样式面板的背景和边框 */
+	.tlui-layout__top__right .tlui-style-panel {
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: flex-end !important;
+		gap: 12px !important;
+		background: transparent !important;
+		border: none !important;
+		box-shadow: none !important;
+	}
+
+	/* 移除每个部分的背景和边框 */
+	.tlui-layout__top__right .tlui-style-panel__section {
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: flex-end !important;
+		gap: 8px !important;
+		background: transparent !important;
+		border: none !important;
+		padding: 0 !important;
+		margin: 0 !important;
+	}
+
+	/* 颜色选择器改为单列 */
+	.tlui-layout__top__right [data-testid="style.color"] {
+		display: grid !important;
+		grid-template-columns: repeat(1, 1fr) !important;
+		gap: 4px !important;
+		justify-items: end !important;
+	}
+
+	/* 填充选择器改为单列 */
+	.tlui-layout__top__right [data-testid="style.fill"] {
+		display: flex !important;
+		flex-direction: column !important;
+		gap: 4px !important;
+	}
+
+	/* 划线选择器改为单列 */
+	.tlui-layout__top__right [data-testid="style.dash"] {
+		display: flex !important;
+		flex-direction: column !important;
+		gap: 4px !important;
+	}
+
+	/* 大小选择器改为单列 */
+	.tlui-layout__top__right [data-testid="style.size"] {
+		display: flex !important;
+		flex-direction: column !important;
+		gap: 4px !important;
+	}
+	.tlui-slider__container {
+		width: 100%;
+		padding: 0px var(--tl-space-4);
+		margin-right: -12px;
+	}
+	/* 优化滑块容器 - 减小宽度 */
+	.tlui-layout__top__right .tlui-slider__container {
+		display: flex !important;
+		justify-content: flex-end !important;
+		width: 60px !important; /* 减小宽度 */
+		min-width: auto !important;
+	}
+
+	/* 优化滑块轨道 */
+	.tlui-layout__top__right .tlui-slider__track {
+		width: 100% !important;
+		min-width: auto !important;
+	}
+
+	/* 移除工具栏的背景 */
+	.tlui-layout__top__right .tlui-toolbar {
+		background: transparent !important;
+		border: none !important;
+		padding: 0 !important;
+	}
+
+	/* 移除切换组的背景 */
+	.tlui-layout__top__right .tlui-toolbar-toggle-group {
+		background: transparent !important;
+		border: none !important;
+		padding: 0 !important;
+	}
 }

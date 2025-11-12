@@ -10,6 +10,8 @@ import { insertNewWritingFile } from './commands/insert-new-writing-file';
 import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
 import { insertNewDrawingFile_v1 } from './commands/insert-new-drawing-file-v1';
 import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
+import { importRegularSvgFile } from './commands/import-regular-svg-file';
+import { library } from './commands/library';
 import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
 import { registerDrawingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/drawing-embed-widget';
 import { insertNewDrawingFile } from './commands/insert-new-drawing-file';
@@ -29,12 +31,39 @@ import { insertRememberedWritingFile } from './commands/insert-remembered-writin
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { convertV1EmbedsToCurrent } from './commands/convert-v1-embeds-to-current';
+import { TLEditorSnapshot } from 'tldraw';
 
 ////////
 ////////
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
+	// SVG文件缓存，键为文件路径，值为TLEditorSnapshot
+	private svgFileCache = new Map<string, TLEditorSnapshot>();
+
+	// 缓存管理方法
+	getSvgCache(filePath: string): TLEditorSnapshot | undefined {
+		return this.svgFileCache.get(filePath);
+	}
+
+	setSvgCache(filePath: string, snapshot: TLEditorSnapshot): void {
+		this.svgFileCache.set(filePath, snapshot);
+		console.log(`[InkPlugin] 缓存已更新: ${filePath} (缓存大小: ${this.svgFileCache.size})`);
+	}
+
+	clearSvgCache(filePath?: string): void {
+		if (filePath) {
+			this.svgFileCache.delete(filePath);
+			console.log(`[InkPlugin] 已清除缓存: ${filePath}`);
+		} else {
+			this.svgFileCache.clear();
+			console.log('[InkPlugin] 已清除所有缓存');
+		}
+	}
+
+	getSvgCacheSize(): number {
+		return this.svgFileCache.size;
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -187,6 +216,18 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		name: 'Existing drawing',
 		icon: 'folder-dot',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'import-svg-file',
+		name: 'Import SVG file',
+		icon: 'file-import',
+		editorCallback: (editor: Editor) => importRegularSvgFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'library',
+		name: 'Library',
+		icon: 'library',
+		editorCallback: (editor: Editor) => library(plugin, editor)
 	});
 
 }

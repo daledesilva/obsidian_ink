@@ -14,6 +14,18 @@ export interface PluginSettings {
     notelessAttachmentFolderLocation: 'obsidian' | 'root',
 	writingSubfolder: string,
 	drawingSubfolder: string,
+	// UI Configuration
+	uiMode: 'custom' | 'official',
+	officialUIComponents: {
+		toolbar: boolean,
+		menuBar: boolean,
+		stylePanel: boolean,
+		pageMenu: boolean,
+		zoomMenu: boolean,
+		navigationPanel: boolean,
+		helperButtons: boolean,
+	},
+	officialUIComponentsEnabled: boolean,
 	// Writing specific
 	writingEnabled: boolean,
 	writingStrokeLimit: number,
@@ -40,6 +52,18 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	notelessAttachmentFolderLocation: 'obsidian',
 	writingSubfolder: 'Ink/Writing',
 	drawingSubfolder: 'Ink/Drawing',
+	// UI Configuration
+	uiMode: 'custom',
+	officialUIComponents: {
+		toolbar: true,
+		menuBar: true,
+		stylePanel: true,
+		pageMenu: true,
+		zoomMenu: true,
+		navigationPanel: true,
+		helperButtons: true,
+	},
+	officialUIComponentsEnabled: false,
 	// Writing specific
 	writingEnabled: true,
 	writingStrokeLimit: 200,

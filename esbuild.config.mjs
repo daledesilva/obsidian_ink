@@ -6,6 +6,23 @@ import svg from 'esbuild-plugin-svg';
 import esbuild from 'esbuild';
 import fs from 'fs';
 import path from 'path';
+import { createRequire } from 'module';
+
+// 创建alias插件来解决Tldraw库多次实例化问题
+const aliasPlugin = (aliases) => ({
+    name: 'alias',
+    setup(build) {
+        const require = createRequire(import.meta.url);
+        
+        // 为每个别名创建解析函数
+        Object.keys(aliases).forEach(alias => {
+            const target = aliases[alias];
+            build.onResolve({ filter: new RegExp(`^${alias}$`) }, args => {
+                return { path: require.resolve(target), external: false };
+            });
+        });
+    }
+});
 
 // 定义输出目录，使用path.join来处理路径
 const OUTPUT_DIR = path.join('D:/', 'My Note', '.obsidian', 'plugins', 'ink');
@@ -35,11 +52,7 @@ const copyManifestPlugin = () => ({
 			} catch (e) {
 				console.error('Failed to copy manifest.json to output directory:', e);
 			}
-			try {
-				fs.copyFileSync('./manifest-beta.json', path.join(OUTPUT_DIR, 'manifest-beta.json'));
-			} catch (e) {
-				console.error('Failed to copy manifest-beta.json to output directory:', e);
-			}
+			// 不再复制manifest-beta.json文件
 		});
 	}
 });
@@ -52,72 +65,94 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === 'production');
 
-esbuild.build({
-	banner: {
-		js: banner
-	},
-	entryPoints: ['./src/main.ts'],
-	bundle: true,
-	external: [
-		'obsidian',
-		'electron',
-		'@codemirror/autocomplete',
-		'@codemirror/collab',
-		'@codemirror/commands',
-		'@codemirror/language',
-		'@codemirror/lint',
-		'@codemirror/search',
-		'@codemirror/state',
-		'@codemirror/view',
-		'@lezer/common',
-		'@lezer/highlight',
-		'@lezer/lr',
-		...builtins
-	],
-	// 配置模块解析，优先使用es模块格式来避免重复导入
-	// 确保只使用一个版本的依赖库
-	// 首先尝试ES模块格式，然后再尝试CommonJS格式
-	mainFields: ['module', 'browser', 'main'],
-	// 优先解析ES模块文件
-	resolveExtensions: ['.ts', '.tsx', '.mjs', '.jsx', '.js', '.cjs', '.json'],
-	// 确保所有tldraw相关模块都从node_modules解析，避免重复导入
-	preserveSymlinks: true,
-	format: 'cjs',
-	watch: !prod,
-	target: 'es2020',
-	logLevel: 'info',
-	sourcemap: prod ? false : 'inline',
-	treeShaking: true,
-	outdir: OUTPUT_DIR,
-	loader: {
-		// '.png': 'file',
-		// '.woff2': 'file',
-		// '.json': 'file',
-		// '.png': 'dataurl',
-		// '.woff2': 'dataurl',
-		// '.json': 'dataurl'
-	},
-	// assetNames: "./assets/[name]",
-	// 确保tsconfig.json中的模块解析配置正确
-	tsconfig: 'tsconfig.json',
-	plugins: [
-		sassPlugin({
-			filter: /\.(s[ac]ss|css)$/
-		}),
-		svg(),
-		copy({
-			resolveFrom: 'cwd',	// 返回当前工作目录的名称
-			assets: {
-				from: ['./src/static/**/*'],
-				to: [OUTPUT_DIR]
-			}
-		}),
+// 确保自定义CSS有更高的优先级
+const cssPriorityPlugin = () => ({
+	name: 'css-priority-plugin',
+	setup(build) {
+		// 这个插件确保自定义CSS在构建时被正确处理
+		// 优先级问题将通过更具体的选择器解决
+	}
+});
 
-		// 允许manifest.json存在于根目录，这是Obsidian在存储库中期望的，构建时会将其复制到dist
-		copyManifestPlugin(),
-		// 将main.css重命名为styles.css，因为这是obsidian期望的
-		renamePlugin()
-	],
+esbuild.build({
+		banner: {
+			js: banner
+		},
+		entryPoints: ['./src/main.ts'],
+		bundle: true,
+		external: [
+			'obsidian',
+			'electron',
+			'@codemirror/autocomplete',
+			'@codemirror/collab',
+			'@codemirror/commands',
+			'@codemirror/language',
+			'@codemirror/lint',
+			'@codemirror/search',
+			'@codemirror/state',
+			'@codemirror/view',
+			'@lezer/common',
+			'@lezer/highlight',
+			'@lezer/lr',
+			...builtins
+		],
+		// 配置模块解析，优先使用es模块格式来避免重复导入
+		// 确保只使用一个版本的依赖库
+		// 首先尝试ES模块格式，然后再尝试CommonJS格式
+		mainFields: ['module', 'browser', 'main'],
+		// 优先解析ES模块文件
+		resolveExtensions: ['.ts', '.tsx', '.mjs', '.jsx', '.js', '.cjs', '.json'],
+		// 确保所有tldraw相关模块都从node_modules解析，避免重复导入
+		preserveSymlinks: true,
+		format: 'cjs',
+		watch: !prod,
+		target: 'es2020',
+		logLevel: 'info',
+		sourcemap: prod ? false : 'inline',
+		treeShaking: true,
+		outdir: OUTPUT_DIR,
+		loader: {
+			// '.png': 'file',
+			// '.woff2': 'file',
+			// '.json': 'file',
+			// '.png': 'dataurl',
+			// '.woff2': 'dataurl',
+			// '.json': 'dataurl'
+		},
+		// assetNames: "./assets/[name]",
+		// 确保tsconfig.json中的模块解析配置正确
+		tsconfig: 'tsconfig.json',
+		plugins: [
+			// 使用alias插件解决Tldraw库多次实例化问题
+			aliasPlugin({
+				'tldraw': './node_modules/tldraw',
+				'@tldraw/editor': './node_modules/@tldraw/editor',
+				'@tldraw/store': './node_modules/@tldraw/store',
+				'@tldraw/state': './node_modules/@tldraw/state',
+				'@tldraw/state-react': './node_modules/@tldraw/state-react',
+				'@tldraw/tlschema': './node_modules/@tldraw/tlschema',
+				'@tldraw/utils': './node_modules/@tldraw/utils',
+				'@tldraw/validate': './node_modules/@tldraw/validate'
+			}),
+			// CSS优先级插件应该在sassPlugin之前运行
+			cssPriorityPlugin(),
+			sassPlugin({
+				filter: /\.(s[ac]ss|css)$/
+			}),
+			svg(),
+			copy({
+				resolveFrom: 'cwd',	// 返回当前工作目录的名称
+				assets: {
+					from: ['./src/static/**/*'],
+					to: [OUTPUT_DIR]
+				}
+			}),
+
+			// 允许manifest.json存在于根目录，这是Obsidian在存储库中期望的，构建时会将其复制到dist
+			copyManifestPlugin(),
+			// 将main.css重命名为styles.css，因为这是obsidian期望的
+			renamePlugin()
+		],
 	define: {
 		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development')
 	}

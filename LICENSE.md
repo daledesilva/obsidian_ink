@@ -400,3 +400,15 @@ the avoidance of doubt, this paragraph does not form part of the
 public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
+
+=======================================================================
+
+Note on Contributions:
+This project’s main code and documentation are licensed under
+Creative Commons Attribution–NonCommercial–NoDerivatives 4.0 International (CC BY-NC-ND 4.0).
+
+However, third-party contributions are accepted under the terms of the
+Contributor License Agreement (CLA) located at docs/CLA.md.
+
+All contributions are licensed to Dale de Silva for use in this project,
+without granting any ownership or control rights to the contributor.

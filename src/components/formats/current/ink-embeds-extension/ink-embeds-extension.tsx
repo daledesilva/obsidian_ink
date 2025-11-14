@@ -22,7 +22,7 @@ import { refreshDrawingEmbedsNow } from '../drawing/drawing-embed-extension/draw
 const ENSURE_TREE_BUDGET_MS = 120;
 // Extra characters before/after the visible viewport to include when deciding whether a rebuild is needed.
 // Avoids thrashing when the user scrubs/scrolls near the edge of the viewport.
-const COVERAGE_BUFFER_CHARS = 2000;
+const COVERAGE_BUFFER_CHARS = 1000;
 // Cooldown (ms) after a rebuild to avoid immediate re-entrance due to layout/viewport churn.
 const VIEW_COOLDOWN_MS = 300;
 // Sliding window (ms) used by the loop breaker to detect excessive refreshes.
@@ -39,6 +39,15 @@ export function inkEmbedsExtension(): Extension {
 		private loopWindowStart = 0;
 		private loopCount = 0;
 		private suppressedUntil = 0;
+		// Settle refresh support
+		private settleTimer: number | undefined;
+		private readonly settleMs = 280;
+		private lastTargetFrom: number = 0;
+		private lastTargetTo: number = 0;
+		private readonly settleBudgetMs = 200;
+		// Safety fallback: force refresh after N consecutive skips
+		private skipStreak = 0;
+		private readonly skipStreakLimit = 3;
 
 		constructor(readonly view: EditorView) {}
 
@@ -64,19 +73,29 @@ export function inkEmbedsExtension(): Extension {
 			let targetTo = ranges.length ? ranges[ranges.length - 1].to : update.view.state.doc.length;
 			targetFrom = Math.max(0, targetFrom - COVERAGE_BUFFER_CHARS);
 			targetTo = Math.min(update.view.state.doc.length, targetTo + COVERAGE_BUFFER_CHARS);
+			this.lastTargetFrom = targetFrom;
+			this.lastTargetTo = targetTo;
 
 			// Cheap heuristic: if visible text has no likely markers, skip work
-			if (!this.visibleRangesLikelyContainEmbeds(update)) {
-				this.inFlight = false;
-				return;
-			}
+			const likely = this.visibleRangesLikelyContainEmbeds(update);
 
 			// Skip if inside previous coverage and only viewport changed within coverage
 			if (!update.docChanged && this.lastCoverageFrom !== null && this.lastCoverageTo !== null) {
 				if (targetFrom >= this.lastCoverageFrom && targetTo <= this.lastCoverageTo && Date.now() < this.cooldownUntil) {
+					// Schedule trailing settle refresh to catch moderate scrolls that remain within coverage
+					this.scheduleSettleRefresh();
+					this.handleSkipAndFallback();
 					this.inFlight = false;
 					return;
 				}
+			}
+
+			// Heuristic skip handling (with fallback)
+			if (!likely) {
+				this.scheduleSettleRefresh();
+				this.handleSkipAndFallback();
+				this.inFlight = false;
+				return;
 			}
 
 			// Ensure syntax tree near end of range
@@ -98,13 +117,41 @@ export function inkEmbedsExtension(): Extension {
 				}
 
 				// Trigger both format refreshes (their StateFields will rebuild)
-                console.log('[ink] refreshing ink embeds');
 				this.refreshBoth();
+				this.skipStreak = 0; // reset on actual refresh
 
 				// Cooldown to prevent rapid cascades
 				this.cooldownUntil = now + VIEW_COOLDOWN_MS;
 				this.inFlight = false;
 			});
+		}
+
+		private scheduleSettleRefresh() {
+			if (this.settleTimer !== undefined) {
+				window.clearTimeout(this.settleTimer);
+			}
+			this.settleTimer = window.setTimeout(() => this.runSettleRefresh(), this.settleMs);
+		}
+
+		private runSettleRefresh() {
+			this.settleTimer = undefined;
+			if (this.inFlight) return;
+			this.inFlight = true;
+			Promise.resolve(ensureSyntaxTree(this.view.state, this.lastTargetTo, this.settleBudgetMs)).finally(() => {
+				this.refreshBoth();
+				this.cooldownUntil = Date.now() + VIEW_COOLDOWN_MS;
+				this.skipStreak = 0;
+				this.inFlight = false;
+			});
+		}
+
+		private handleSkipAndFallback() {
+			this.skipStreak += 1;
+			if (this.skipStreak >= this.skipStreakLimit) {
+				this.refreshBoth();
+				this.cooldownUntil = Date.now() + VIEW_COOLDOWN_MS;
+				this.skipStreak = 0;
+			}
 		}
 
 		private visibleRangesLikelyContainEmbeds(update: ViewUpdate): boolean {
@@ -113,12 +160,8 @@ export function inkEmbedsExtension(): Extension {
 				const from = r.from;
 				const to = r.to;
 				const snippet = doc.sliceString(from, Math.min(to, from + 2000));
-				// quick marker checks
-				if (
-					snippet.includes('![') &&
-					(snippet.includes('type=inkWriting') || snippet.includes('type=inkDrawing') || snippet.includes('type=ink')) &&
-					(snippet.includes('Edit Writing') || snippet.includes('Edit Drawing') || snippet.includes('Edit '))
-				) {
+				// relaxed quick marker check
+				if (snippet.includes('![')) {
 					return true;
 				}
 			}

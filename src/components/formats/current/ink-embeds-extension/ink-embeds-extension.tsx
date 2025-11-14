@@ -1,13 +1,34 @@
 import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
-import { Extension, StateEffect } from '@codemirror/state';
+import { Extension } from '@codemirror/state';
 import { MarkdownView } from 'obsidian';
 import { getGlobals } from 'src/stores/global-store';
 import { refreshWritingEmbedsNow } from '../writing/writing-embed-extension/writing-embed-extension';
 import { refreshDrawingEmbedsNow } from '../drawing/drawing-embed-extension/drawing-embed-extension';
 
-// Effect (placeholder in case we want to carry data later)
-const refreshEmbedsEffect = StateEffect.define<void>();
+/**
+ * InkEmbedsExtension
+ * - Efficiently refreshes embed decorations only when needed
+ * - Triggers on viewport/doc changes (no polling)
+ * - Ensures syntax tree for visible ranges (with small buffer)
+ * - Maintains a simple coverage window to avoid redundant rebuilds
+ * - Uses cooldown and loop-breaker to prevent cascades
+ * - Keeps format-specific detection/widgets intact via refresh*Now() hooks
+ */
+
+// Tunable knobs
+// Max time (ms) to allow the CM6 parser to build/extend the syntax tree up to the end of the visible range (+ buffer).
+// Larger values reduce “tree not ready” cases but can cost responsiveness on very large docs.
+const ENSURE_TREE_BUDGET_MS = 120;
+// Extra characters before/after the visible viewport to include when deciding whether a rebuild is needed.
+// Avoids thrashing when the user scrubs/scrolls near the edge of the viewport.
+const COVERAGE_BUFFER_CHARS = 2000;
+// Cooldown (ms) after a rebuild to avoid immediate re-entrance due to layout/viewport churn.
+const VIEW_COOLDOWN_MS = 300;
+// Sliding window (ms) used by the loop breaker to detect excessive refreshes.
+const LOOP_WINDOW_MS = 1000;
+// Max number of refreshes allowed within LOOP_WINDOW_MS before we temporarily suppress further refreshes.
+const LOOP_MAX = 3;
 
 export function inkEmbedsExtension(): Extension {
 	const InkEmbedsView = ViewPlugin.fromClass(class {
@@ -15,13 +36,9 @@ export function inkEmbedsExtension(): Extension {
 		private lastCoverageFrom: number | null = null;
 		private lastCoverageTo: number | null = null;
 		private cooldownUntil = 0;
-		private readonly cooldownMs = 300;
 		private loopWindowStart = 0;
 		private loopCount = 0;
-		private readonly loopWindowMs = 1000;
-		private readonly loopMax = 3;
 		private suppressedUntil = 0;
-		private readonly buffer = 2000;
 
 		constructor(readonly view: EditorView) {}
 
@@ -32,6 +49,12 @@ export function inkEmbedsExtension(): Extension {
 			// Only care about viewport changes and doc changes
 			if (!update.viewportChanged && !update.docChanged) return;
 
+			// Map coverage through document changes (keeps window accurate)
+			if (update.docChanged && this.lastCoverageFrom !== null && this.lastCoverageTo !== null) {
+				this.lastCoverageFrom = update.changes.mapPos(this.lastCoverageFrom);
+				this.lastCoverageTo = update.changes.mapPos(this.lastCoverageTo);
+			}
+
 			if (this.inFlight) return;
 			this.inFlight = true;
 
@@ -39,8 +62,14 @@ export function inkEmbedsExtension(): Extension {
 			const ranges = update.view.visibleRanges;
 			let targetFrom = ranges.length ? ranges[0].from : 0;
 			let targetTo = ranges.length ? ranges[ranges.length - 1].to : update.view.state.doc.length;
-			targetFrom = Math.max(0, targetFrom - this.buffer);
-			targetTo = Math.min(update.view.state.doc.length, targetTo + this.buffer);
+			targetFrom = Math.max(0, targetFrom - COVERAGE_BUFFER_CHARS);
+			targetTo = Math.min(update.view.state.doc.length, targetTo + COVERAGE_BUFFER_CHARS);
+
+			// Cheap heuristic: if visible text has no likely markers, skip work
+			if (!this.visibleRangesLikelyContainEmbeds(update)) {
+				this.inFlight = false;
+				return;
+			}
 
 			// Skip if inside previous coverage and only viewport changed within coverage
 			if (!update.docChanged && this.lastCoverageFrom !== null && this.lastCoverageTo !== null) {
@@ -51,19 +80,19 @@ export function inkEmbedsExtension(): Extension {
 			}
 
 			// Ensure syntax tree near end of range
-			Promise.resolve(ensureSyntaxTree(update.state, targetTo, 120)).finally(() => {
+			Promise.resolve(ensureSyntaxTree(update.state, targetTo, ENSURE_TREE_BUDGET_MS)).finally(() => {
 				this.lastCoverageFrom = this.lastCoverageFrom === null ? targetFrom : Math.min(this.lastCoverageFrom, targetFrom);
 				this.lastCoverageTo = this.lastCoverageTo === null ? targetTo : Math.max(this.lastCoverageTo, targetTo);
 
 				// Loop breaker
 				const now = Date.now();
-				if (now - this.loopWindowStart > this.loopWindowMs) {
+				if (now - this.loopWindowStart > LOOP_WINDOW_MS) {
 					this.loopWindowStart = now;
 					this.loopCount = 0;
 				}
 				this.loopCount += 1;
-				if (this.loopCount > this.loopMax) {
-					this.suppressedUntil = now + 1500;
+				if (this.loopCount > LOOP_MAX) {
+					this.suppressedUntil = now + 1500; // brief suppression
 					this.inFlight = false;
 					return;
 				}
@@ -73,9 +102,27 @@ export function inkEmbedsExtension(): Extension {
 				this.refreshBoth();
 
 				// Cooldown to prevent rapid cascades
-				this.cooldownUntil = now + this.cooldownMs;
+				this.cooldownUntil = now + VIEW_COOLDOWN_MS;
 				this.inFlight = false;
 			});
+		}
+
+		private visibleRangesLikelyContainEmbeds(update: ViewUpdate): boolean {
+			const doc = update.state.doc;
+			for (const r of update.view.visibleRanges) {
+				const from = r.from;
+				const to = r.to;
+				const snippet = doc.sliceString(from, Math.min(to, from + 2000));
+				// quick marker checks
+				if (
+					snippet.includes('![') &&
+					(snippet.includes('type=inkWriting') || snippet.includes('type=inkDrawing') || snippet.includes('type=ink')) &&
+					(snippet.includes('Edit Writing') || snippet.includes('Edit Drawing') || snippet.includes('Edit '))
+				) {
+					return true;
+				}
+			}
+			return false;
 		}
 
 		private refreshBoth() {

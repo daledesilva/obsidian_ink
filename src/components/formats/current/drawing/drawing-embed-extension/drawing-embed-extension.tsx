@@ -2,6 +2,7 @@ import { syntaxTree } from '@codemirror/language';
 import {
     Extension,
     RangeSetBuilder,
+    StateEffect,
     StateField,
     Transaction,
 } from "@codemirror/state";
@@ -9,6 +10,7 @@ import {
     Decoration,
     DecorationSet,
     EditorView,
+    ViewPlugin,
     WidgetType,
 } from "@codemirror/view";
 import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
@@ -31,6 +33,9 @@ import { buildFileStr } from '../../utils/buildFileStr';
 
 /////////////////////
 /////////////////////
+
+// Periodic refresh effect to trigger a rebuild even with no doc changes
+const refreshEmbedsEffectDrawing = StateEffect.define<void>();
 
 const mountedDecorationIds: string[] = [];
 
@@ -225,7 +230,8 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
             updateWidgetHighlights(transaction, prevEmbeds);
         }
         
-        if ( !firstRun && transaction.changes.empty) {
+        const hasRefreshEffect = transaction.effects.some(e => e.is(refreshEmbedsEffectDrawing));
+        if ( !firstRun && transaction.changes.empty && !hasRefreshEffect) {
                 return prevEmbeds;
         }
         // debug(['transaction.changes', transaction.changes], {freeze: true});
@@ -384,7 +390,21 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
 }
 
 export function drawingEmbedExtension(): Extension {
-    return embedStateField;
+    const drawingIntervalRefreshPlugin = ViewPlugin.fromClass(class {
+        intervalId: number | undefined;
+        constructor(private view: EditorView) {
+            this.intervalId = window.setInterval(() => {
+                console.log('[ink] refreshing embeds');
+                this.view.dispatch({ effects: refreshEmbedsEffectDrawing.of(undefined) });
+            }, 5000);
+        }
+        destroy() {
+            if (this.intervalId !== undefined) {
+                window.clearInterval(this.intervalId);
+            }
+        }
+    });
+    return [embedStateField, drawingIntervalRefreshPlugin];
 }
 
 export function registerDrawingEmbed(plugin: InkPlugin) {

@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
-import { Extension, RangeSetBuilder, StateField, Transaction } from '@codemirror/state';
-import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
+import { Extension, RangeSetBuilder, StateEffect, StateField, Transaction } from '@codemirror/state';
+import { Decoration, DecorationSet, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from 'react';
@@ -16,6 +16,9 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
+
+// Periodic refresh effect to trigger a rebuild even with no doc changes
+const refreshEmbedsEffectWriting = StateEffect.define<void>();
 
 export class WritingEmbedWidget extends WidgetType {
     id: string;
@@ -139,7 +142,8 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
             updateWidgetHighlightsWriting(transaction, prevEmbeds);
         }
         
-        if (!firstRun && transaction.changes.empty) {
+        const hasRefreshEffect = transaction.effects.some(e => e.is(refreshEmbedsEffectWriting));
+        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
             return prevEmbeds;
         }
 
@@ -281,7 +285,26 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
 }
 
 export function writingEmbedExtension(): Extension {
-    return embedStateFieldWriting;
+    // Set up a 5s interval that dispatches a refresh effect
+    const writingIntervalRefreshPlugin = ViewPlugin.fromClass(class {
+        intervalId: number | undefined;
+        constructor(private view: EditorView) {
+            this.intervalId = window.setInterval(() => {
+                // Dispatch the refresh effect; StateField will rebuild decorations
+                this.view.dispatch({ effects: refreshEmbedsEffectWriting.of(undefined) });
+            }, 5000);
+        }
+        destroy() {
+            if (this.intervalId !== undefined) {
+                window.clearInterval(this.intervalId);
+            }
+        }
+    });
+
+    return [
+        embedStateFieldWriting,
+        writingIntervalRefreshPlugin,
+    ];
 }
 
 export function registerWritingEmbed(plugin: InkPlugin) {

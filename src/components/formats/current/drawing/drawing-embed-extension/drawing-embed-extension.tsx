@@ -390,21 +390,19 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
 }
 
 export function drawingEmbedExtension(): Extension {
-    const drawingIntervalRefreshPlugin = ViewPlugin.fromClass(class {
-        intervalId: number | undefined;
-        constructor(private view: EditorView) {
-            this.intervalId = window.setInterval(() => {
-                console.log('[ink] refreshing embeds');
-                this.view.dispatch({ effects: refreshEmbedsEffectDrawing.of(undefined) });
-            }, 5000);
-        }
-        destroy() {
-            if (this.intervalId !== undefined) {
-                window.clearInterval(this.intervalId);
-            }
-        }
-    });
-    return [embedStateField, drawingIntervalRefreshPlugin];
+    return [embedStateField];
+}
+
+// Public callable function to force an immediate rebuild of decorations/widgets
+export function refreshDrawingEmbedsNow(): void {
+    const { plugin } = getGlobals();
+    const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+    const editor = activeView?.editor;
+    if (!editor) return;
+    // @ts-expect-error not typed by Obsidian
+    const cmView = editor.cm as EditorView | undefined;
+    if (!cmView) return;
+    cmView.dispatch({ effects: refreshEmbedsEffectDrawing.of(undefined) });
 }
 
 export function registerDrawingEmbed(plugin: InkPlugin) {

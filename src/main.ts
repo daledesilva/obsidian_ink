@@ -77,6 +77,12 @@ export default class InkPlugin extends Plugin {
 			implementDrawingEmbedActions_v1(this);
 		}
 
+		// Register a single generic embed refresher if either format is enabled
+		if (this.settings.writingEnabled || this.settings.drawingEnabled) {
+			const { inkEmbedRefreshExtension } = await import('./components/formats/current/ink-embed-refresh/ink-embed-refresh');
+			this.registerEditorExtension([inkEmbedRefreshExtension()]);
+		}
+
 		registerSettingsTab(this);
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)

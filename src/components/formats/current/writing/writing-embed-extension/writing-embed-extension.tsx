@@ -285,26 +285,19 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
 }
 
 export function writingEmbedExtension(): Extension {
-    // Set up a 5s interval that dispatches a refresh effect
-    const writingIntervalRefreshPlugin = ViewPlugin.fromClass(class {
-        intervalId: number | undefined;
-        constructor(private view: EditorView) {
-            this.intervalId = window.setInterval(() => {
-                // Dispatch the refresh effect; StateField will rebuild decorations
-                this.view.dispatch({ effects: refreshEmbedsEffectWriting.of(undefined) });
-            }, 5000);
-        }
-        destroy() {
-            if (this.intervalId !== undefined) {
-                window.clearInterval(this.intervalId);
-            }
-        }
-    });
+    return [embedStateFieldWriting];
+}
 
-    return [
-        embedStateFieldWriting,
-        writingIntervalRefreshPlugin,
-    ];
+// Public callable function to force an immediate rebuild of decorations/widgets
+export function refreshWritingEmbedsNow(): void {
+    const { plugin } = getGlobals();
+    const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+    const editor = activeView?.editor;
+    if (!editor) return;
+    // @ts-expect-error not typed by Obsidian
+    const cmView = editor.cm as EditorView | undefined;
+    if (!cmView) return;
+    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(undefined) });
 }
 
 export function registerWritingEmbed(plugin: InkPlugin) {

@@ -57,9 +57,6 @@ export default class InkPlugin extends Plugin {
 			registerWritingView(this);
 			registerWritingEmbed(this);
 			implementWritingEmbedActions(this);
-			this.registerEditorExtension([
-				writingEmbedExtension(),
-			]);
 			
 			// Legacy
 			registerWritingView_v1(this);
@@ -73,10 +70,6 @@ export default class InkPlugin extends Plugin {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
 			implementDrawingEmbedActions(this);
-			this.registerEditorExtension([
-				// Prec.highest(drawingEmbedExtension()),
-				drawingEmbedExtension(),
-			]);
 
 			// Legacy
 			registerDrawingView_v1(this);

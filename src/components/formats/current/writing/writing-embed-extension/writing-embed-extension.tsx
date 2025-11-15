@@ -17,8 +17,8 @@ import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidget
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
-// Periodic refresh effect to trigger a rebuild even with no doc changes
-const refreshEmbedsEffectWriting = StateEffect.define<void>();
+// Refresh effect that can carry viewport position to filter embeds
+const refreshEmbedsEffectWriting = StateEffect.define<number | void>();
 
 export class WritingEmbedWidget extends WidgetType {
     id: string;
@@ -142,7 +142,11 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
             updateWidgetHighlightsWriting(transaction, prevEmbeds);
         }
         
-        const hasRefreshEffect = transaction.effects.some(e => e.is(refreshEmbedsEffectWriting));
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
+        const hasRefreshEffect = !!refreshEffect;
+        const viewportFrom = refreshEffect?.value as number | void;
+        
         if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
             return prevEmbeds;
         }
@@ -158,21 +162,36 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
 
         const builder = new RangeSetBuilder<Decoration>();
 
-        syntaxTree(transaction.state).iterate({
-            enter(syntaxNodeRef) {
-                const mdFile = activeView.file;
-                if (!mdFile) return true;
+        // If viewportFrom is provided, preserve existing decorations above it
+        if (viewportFrom !== undefined) {
+            const iter = prevEmbeds.iter();
+            while (iter.value) {
+                if (iter.from < viewportFrom) {
+                    builder.add(iter.from, iter.to, iter.value);
+                }
+                iter.next();
+            }
+        }
 
-                const { embedLinkInfo, alterFlow } = detectMarkdownEmbedLinkWriting(mdFile, syntaxNodeRef, transaction);
-                if (!embedLinkInfo) return true;
-                if (alterFlow === 'ignore-children') return false;
-                if (alterFlow === 'continue-traversal') return true;
+        // Iterate syntax tree, optionally starting from viewportFrom
+        const iterateOptions = viewportFrom !== undefined 
+            ? { from: viewportFrom, enter: iterateCallback }
+            : { enter: iterateCallback };
 
-                // Collapse whitespace before and consume newline after
-                embedLinkInfo.startPosition -= 2;
-                embedLinkInfo.endPosition += 1;
+        function iterateCallback(syntaxNodeRef: any): boolean | void {
+            const mdFile = activeView?.file;
+            if (!mdFile) return true;
 
-                let decorationAlreadyExists = false;
+            const { embedLinkInfo, alterFlow } = detectMarkdownEmbedLinkWriting(mdFile, syntaxNodeRef, transaction);
+            if (!embedLinkInfo) return true;
+            if (alterFlow === 'ignore-children') return false;
+            if (alterFlow === 'continue-traversal') return true;
+
+            // Collapse whitespace before and consume newline after
+            embedLinkInfo.startPosition -= 2;
+            embedLinkInfo.endPosition += 1;
+
+            let decorationAlreadyExists = false;
                 const oldDecoration = prevEmbeds.iter();
                 while (oldDecoration.value) {
                     const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
@@ -182,22 +201,23 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                     oldDecoration.next();
                 }
 
-                if (decorationAlreadyExists && oldDecoration.value) {
-                    builder.add(embedLinkInfo.startPosition, embedLinkInfo.endPosition, oldDecoration.value);
-                } else {
-                    builder.add(
-                        embedLinkInfo.startPosition,
-                        embedLinkInfo.endPosition,
-                        Decoration.replace({
-                            widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.partialEmbedFilepath),
-                            isBlock: true,
-                        })
-                    );
-                }
+            if (decorationAlreadyExists && oldDecoration.value) {
+                builder.add(embedLinkInfo.startPosition, embedLinkInfo.endPosition, oldDecoration.value);
+            } else {
+                builder.add(
+                    embedLinkInfo.startPosition,
+                    embedLinkInfo.endPosition,
+                    Decoration.replace({
+                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.partialEmbedFilepath),
+                        isBlock: true,
+                    })
+                );
+            }
 
-                return true;
-            },
-        });
+            return true;
+        }
+
+        syntaxTree(transaction.state).iterate(iterateOptions);
 
         return builder.finish();
     },
@@ -289,7 +309,8 @@ export function writingEmbedExtension(): Extension {
 }
 
 // Public callable function to force an immediate rebuild of decorations/widgets
-export function refreshWritingEmbedsNow(): void {
+// If viewportFrom is provided, only rebuilds embeds at or below that position
+export function refreshWritingEmbedsNow(viewportFrom?: number): void {
     const { plugin } = getGlobals();
     const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
     const editor = activeView?.editor;
@@ -297,7 +318,7 @@ export function refreshWritingEmbedsNow(): void {
     // @ts-expect-error not typed by Obsidian
     const cmView = editor.cm as EditorView | undefined;
     if (!cmView) return;
-    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(undefined) });
+    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(viewportFrom) });
 }
 
 export function registerWritingEmbed(plugin: InkPlugin) {

@@ -34,8 +34,8 @@ import { buildFileStr } from '../../utils/buildFileStr';
 /////////////////////
 /////////////////////
 
-// Periodic refresh effect to trigger a rebuild even with no doc changes
-const refreshEmbedsEffectDrawing = StateEffect.define<void>();
+// Refresh effect that can carry viewport position to filter embeds
+const refreshEmbedsEffectDrawing = StateEffect.define<number | void>();
 
 const mountedDecorationIds: string[] = [];
 
@@ -230,7 +230,11 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
             updateWidgetHighlights(transaction, prevEmbeds);
         }
         
-        const hasRefreshEffect = transaction.effects.some(e => e.is(refreshEmbedsEffectDrawing));
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
+        const hasRefreshEffect = !!refreshEffect;
+        const viewportFrom = refreshEffect?.value as number | void;
+        
         if ( !firstRun && transaction.changes.empty && !hasRefreshEffect) {
                 return prevEmbeds;
         }
@@ -253,23 +257,38 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
 
         const builder = new RangeSetBuilder<Decoration>();
 
-        syntaxTree(transaction.state).iterate({
-            enter(syntaxNodeRef) {
-                const mdFile = activeView.file;
-                if (!mdFile) return true; // continue traversal
+        // If viewportFrom is provided, preserve existing decorations above it
+        if (viewportFrom !== undefined) {
+            const iter = prevEmbeds.iter();
+            while (iter.value) {
+                if (iter.from < viewportFrom) {
+                    builder.add(iter.from, iter.to, iter.value);
+                }
+                iter.next();
+            }
+        }
 
-                const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLink(mdFile, syntaxNodeRef, transaction);
-                
-                if(!embedLinkInfo) return true; // continue traversal
-                if(alterFlow === 'ignore-children') return false;
-                if(alterFlow === 'continue-traversal') return true;
-                
-                // Require a space before and new line after the embed.
-                // But consume two characters before to collapse the space and the new line before
-                embedLinkInfo.startPosition -= 2;
-                embedLinkInfo.endPosition += 1;
+        // Iterate syntax tree, optionally starting from viewportFrom
+        const iterateOptions = viewportFrom !== undefined 
+            ? { from: viewportFrom, enter: iterateCallback }
+            : { enter: iterateCallback };
 
-                let decorationAlreadyExists = false;
+        function iterateCallback(syntaxNodeRef: any): boolean | void {
+            const mdFile = activeView?.file;
+            if (!mdFile) return true; // continue traversal
+
+            const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLink(mdFile, syntaxNodeRef, transaction);
+            
+            if(!embedLinkInfo) return true; // continue traversal
+            if(alterFlow === 'ignore-children') return false;
+            if(alterFlow === 'continue-traversal') return true;
+            
+            // Require a space before and new line after the embed.
+            // But consume two characters before to collapse the space and the new line before
+            embedLinkInfo.startPosition -= 2;
+            embedLinkInfo.endPosition += 1;
+
+            let decorationAlreadyExists = false;
                 const oldDecoration = prevEmbeds.iter();
 
                 // Find the relevant decoration reference if it already exists
@@ -281,27 +300,29 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                     oldDecoration.next();
                 }
 
-                if(decorationAlreadyExists && oldDecoration.value) {
-                    // Reuse previous decoration
-                    builder.add(
-                        embedLinkInfo.startPosition,
-                        embedLinkInfo.endPosition,
-                        oldDecoration.value
-                    );
-                } else {
-                    // create new decoration
-                    builder.add(
-                        embedLinkInfo.startPosition,  
-                        embedLinkInfo.endPosition,
-                        Decoration.replace({
-                            widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
-                            isBlock: true,
-                        })
-                    );
-                }
-
+            if(decorationAlreadyExists && oldDecoration.value) {
+                // Reuse previous decoration
+                builder.add(
+                    embedLinkInfo.startPosition,
+                    embedLinkInfo.endPosition,
+                    oldDecoration.value
+                );
+            } else {
+                // create new decoration
+                builder.add(
+                    embedLinkInfo.startPosition,  
+                    embedLinkInfo.endPosition,
+                    Decoration.replace({
+                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
+                        isBlock: true,
+                    })
+                );
             }
-        })
+
+            return true;
+        }
+
+        syntaxTree(transaction.state).iterate(iterateOptions);
 
         return builder.finish();
     },
@@ -394,7 +415,8 @@ export function drawingEmbedExtension(): Extension {
 }
 
 // Public callable function to force an immediate rebuild of decorations/widgets
-export function refreshDrawingEmbedsNow(): void {
+// If viewportFrom is provided, only rebuilds embeds at or below that position
+export function refreshDrawingEmbedsNow(viewportFrom?: number): void {
     const { plugin } = getGlobals();
     const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
     const editor = activeView?.editor;
@@ -402,7 +424,7 @@ export function refreshDrawingEmbedsNow(): void {
     // @ts-expect-error not typed by Obsidian
     const cmView = editor.cm as EditorView | undefined;
     if (!cmView) return;
-    cmView.dispatch({ effects: refreshEmbedsEffectDrawing.of(undefined) });
+    cmView.dispatch({ effects: refreshEmbedsEffectDrawing.of(viewportFrom) });
 }
 
 export function registerDrawingEmbed(plugin: InkPlugin) {

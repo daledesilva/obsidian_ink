@@ -28,25 +28,21 @@ export function inkEmbedsExtension(): Extension {
 			this.view.scrollDOM.removeEventListener('scroll', this.handleScroll);
 		}
 
-		private handleScroll = () => {
-			const currentScrollTop = this.view.scrollDOM.scrollTop;
-			const scrollDelta = currentScrollTop - this.lastScrollTop;
-			this.lastScrollTop = currentScrollTop;
-			
-			console.log('[ink] scroll event', { scrollDelta, currentScrollTop });
-			
-			// Only refresh on down-scroll
-			if (scrollDelta <= 0) return;
-			
-			// Get viewport range
-			const viewportFrom = this.view.viewport.from;
-			
-			console.log('[ink] refreshing embeds', { viewportFrom });
-			
-			// Refresh with viewport info
-			refreshWritingEmbedsNow(viewportFrom);
-			refreshDrawingEmbedsNow(viewportFrom);
-		};
+	private handleScroll = () => {
+		const currentScrollTop = this.view.scrollDOM.scrollTop;
+		const scrollDelta = currentScrollTop - this.lastScrollTop;
+		this.lastScrollTop = currentScrollTop;
+		
+		// Only refresh on down-scroll
+		if (scrollDelta <= 0) return;
+		
+		// Get viewport range
+		const viewportFrom = this.view.viewport.from;
+		
+		// Refresh with viewport info
+		refreshWritingEmbedsNow(viewportFrom);
+		refreshDrawingEmbedsNow(viewportFrom);
+	};
 
 		update(update: ViewUpdate) {
 			// Keep this for potential future use, but scroll events are primary

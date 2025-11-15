@@ -63,6 +63,14 @@ export class WritingEmbedWidget extends WidgetType {
         return rootEl;
     }
 
+    get estimatedHeight(): number {
+        // Return estimated height to prevent layout shifts when widget is mounted
+        // Writing embeds have minimum height of ~225px plus padding (~1.5em) ≈ 250px
+        const height = 250;
+        console.log('[ink] WritingEmbedWidget estimatedHeight:', height);
+        return height;
+    }
+
     updateHighlightState(view: EditorView, rootEl: HTMLElement) {
         // Find this widget's position in the document
         const decorations = view.state.field(embedStateFieldWriting, false);
@@ -166,8 +174,12 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         if (viewportFrom !== undefined) {
             const iter = prevEmbeds.iter();
             while (iter.value) {
-                if (iter.from < viewportFrom) {
-                    builder.add(iter.from, iter.to, iter.value);
+                // Map positions through document changes to ensure correct placement
+                const mappedFrom = transaction.changes.mapPos(iter.from);
+                const mappedTo = transaction.changes.mapPos(iter.to);
+                
+                if (mappedFrom < viewportFrom) {
+                    builder.add(mappedFrom, mappedTo, iter.value);
                 }
                 iter.next();
             }

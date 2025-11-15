@@ -87,6 +87,23 @@ export class DrawingEmbedWidget extends WidgetType {
         return rootEl;
     }
 
+    get estimatedHeight(): number {
+        // Return estimated height to prevent layout shifts when widget is mounted
+        // Calculate based on embed settings if available, otherwise use default
+        let height: number;
+        if (this.embedSettings?.embedDisplay) {
+            const { width = 500, aspectRatio = 16/9 } = this.embedSettings.embedDisplay;
+            const calculatedHeight = width / aspectRatio;
+            // Add padding (1em top + 0.5em bottom ≈ 24px)
+            height = calculatedHeight + 24;
+        } else {
+            // Default: 500px width / (16/9) = ~281px + 24px padding ≈ 305px
+            height = 305;
+        }
+        console.log('[ink] DrawingEmbedWidget estimatedHeight:', height, this.embedSettings?.embedDisplay);
+        return height;
+    }
+
     updateHighlightState(view: EditorView, rootEl: HTMLElement) {
         // Find this widget's position in the document
         const decorations = view.state.field(embedStateField, false);
@@ -261,8 +278,12 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
         if (viewportFrom !== undefined) {
             const iter = prevEmbeds.iter();
             while (iter.value) {
-                if (iter.from < viewportFrom) {
-                    builder.add(iter.from, iter.to, iter.value);
+                // Map positions through document changes to ensure correct placement
+                const mappedFrom = transaction.changes.mapPos(iter.from);
+                const mappedTo = transaction.changes.mapPos(iter.to);
+                
+                if (mappedFrom < viewportFrom) {
+                    builder.add(mappedFrom, mappedTo, iter.value);
                 }
                 iter.next();
             }

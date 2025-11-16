@@ -14,6 +14,8 @@ import { buildFileStr } from '../../utils/buildFileStr';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
+import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
+import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
@@ -24,14 +26,16 @@ export class WritingEmbedWidget extends WidgetType {
     id: string;
     mdFile: TFile;
     embeddedFile: TFile | null;
+    embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
     isHighlighted: boolean = false;
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, partialEmbedFilepath: string) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID();
         this.embeddedFile = embeddedFile;
+        this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
     }
 
@@ -53,10 +57,12 @@ export class WritingEmbedWidget extends WidgetType {
                 <WritingEmbed
                     plugin={plugin}
                     writingFileRef={this.embeddedFile as TFile}
+                    embedSettings={this.embedSettings}
                     save={this.save}
                     remove={() => {
                         this.removeEmbed(view);
                     }}
+                    setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
                 />
             </JotaiProvider>
         );
@@ -65,9 +71,26 @@ export class WritingEmbedWidget extends WidgetType {
 
     get estimatedHeight(): number {
         // Return estimated height to prevent layout shifts when widget is mounted
-        // Writing embeds have minimum height of ~225px plus padding (~1.5em) ≈ 250px
+        // Calculate based on viewport width and stored aspectRatio
+        const { plugin } = getGlobals();
+        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+        const activeEditor = activeView?.editor;
+        
+        if (activeEditor && this.embedSettings?.embedDisplay?.aspectRatio) {
+            // @ts-expect-error, not typed
+            const cmEditorView = activeEditor.cm as EditorView;
+            const viewportWidth = cmEditorView.scrollDOM.clientWidth;
+            const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
+            const calculatedHeight = viewportWidth / aspectRatio;
+            // Add padding (1em top + 0.5em bottom ≈ 24px)
+            const height = calculatedHeight + 24;
+            console.log('[ink] WritingEmbedWidget estimatedHeight:', height, { viewportWidth, aspectRatio });
+            return height;
+        }
+        
+        // Fallback: minimum height of ~225px plus padding (~1.5em) ≈ 250px
         const height = 250;
-        console.log('[ink] WritingEmbedWidget estimatedHeight:', height);
+        console.log('[ink] WritingEmbedWidget estimatedHeight (fallback):', height);
         return height;
     }
 
@@ -128,6 +151,49 @@ export class WritingEmbedWidget extends WidgetType {
             if (widget && widget.id === this.id) {
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
                 view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private setEmbedProps(view: EditorView, aspectRatio: number) {
+        // Find this widget's decoration range and update aspectRatio in markdown
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                // Update instance settings
+                this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
+                
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                let updated = currentText;
+                
+                // Replace aspectRatio if present, otherwise add it
+                if (/aspectRatio=[^&\)]+/.test(updated)) {
+                    updated = updated.replace(/(aspectRatio=)([^&\)]+)/, `$1${aspectRatio}`);
+                } else {
+                    // Add aspectRatio to the URL parameters
+                    // Find the [Edit Writing](...) section and add parameter
+                    updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^\)]*)?(\))/, (match, p1, p2, p3) => {
+                        if (p2) {
+                            // Already has parameters
+                            return `${p1}${p2}&aspectRatio=${aspectRatio}${p3}`;
+                        } else {
+                            // No parameters yet
+                            return `${p1}?aspectRatio=${aspectRatio}${p3}`;
+                        }
+                    });
+                }
+                
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
                 return;
             }
             it.next();
@@ -220,7 +286,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                     embedLinkInfo.startPosition,
                     embedLinkInfo.endPosition,
                     Decoration.replace({
-                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.partialEmbedFilepath),
+                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
                         isBlock: true,
                     })
                 );
@@ -343,6 +409,7 @@ interface EmbedLinkInfoWriting {
     startPosition: number;
     endPosition: number;
     embeddedFile: TFile | null;
+    embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
 }
 
@@ -450,6 +517,9 @@ function detectMarkdownEmbedLinkWriting(
     const startOfReplacement = previewLinkStartNode.from;
     const endOfReplacement = settingsUrlEndNode.to;
 
+    // Parse settings from URL parameters
+    const { embedSettings } = parseSettingsFromUrl(urlAndSettings);
+
     const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path);
 
     return {
@@ -457,6 +527,7 @@ function detectMarkdownEmbedLinkWriting(
             startPosition: startOfReplacement,
             endPosition: endOfReplacement,
             embeddedFile: embeddedFile,
+            embedSettings: embedSettings,
             partialEmbedFilepath: previewPartialFilepath,
         },
     };

@@ -11,6 +11,7 @@ import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
+import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 
 ///////
 ///////
@@ -43,18 +44,32 @@ export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	writingFileRef: TFile,
     pageData?: InkFileData,
+	embedSettings?: EmbedSettings,
     save: (pageData: InkFileData) => void,
 	remove: Function,
+	setEmbedProps?: (aspectRatio: number) => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<WritingEditorControls>();
+	const embedAspectRatioRef = useRef<number>(props.embedSettings?.embedDisplay?.aspectRatio || DEFAULT_EMBED_SETTINGS.embedDisplay.aspectRatio);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
 	const setEmbedState = useSetAtom(embedStateAtom);
+	
+	// Set initial height based on aspectRatio to prevent layout shift
+	React.useEffect(() => {
+		if (resizeContainerElRef.current && embedAspectRatioRef.current) {
+			const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+			if (currentWidth) {
+				const estimatedHeight = currentWidth / embedAspectRatioRef.current;
+				resizeContainerElRef.current.style.height = estimatedHeight + 'px';
+			}
+		}
+	}, []);
 	
 	// On first mount
 	React.useEffect( () => {
@@ -158,6 +173,13 @@ export function WritingEmbed (props: {
 	function resizeContainer(height: number) {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
+		
+		// Calculate and update aspectRatio based on current width and new height
+		const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+		if (currentWidth && height) {
+			embedAspectRatioRef.current = currentWidth / height;
+		}
+		
 		setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize
 			if(!resizeContainerElRef.current) return;
@@ -178,6 +200,11 @@ export function WritingEmbed (props: {
 		}
 
 		setEmbedState(WritingEmbedState.loadingPreview);
+		
+		// Persist the aspectRatio to markdown
+		if (props.setEmbedProps) {
+			props.setEmbedProps(embedAspectRatioRef.current);
+		}
 	}
 	
 };

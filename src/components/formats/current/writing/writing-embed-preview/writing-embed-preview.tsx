@@ -73,6 +73,8 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
             style={{
                 position: 'absolute',
                 width: '100%',
+                height: '100%',
+                pointerEvents: 'all',
             }}
             onClick={props.onClick}
 
@@ -86,6 +88,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
                     key={fileSrc}
                     style={{
                         width: '100%',
+                        height: '100%',
                         cursor: 'pointer',
                         pointerEvents: 'all',
                     }}
@@ -100,7 +103,9 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
                     key={fileSrc}
                     style={{
                         width: '100%',
-                        height: 'unset',
+                        height: '100%',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
                         cursor: 'pointer'
                     }}
                     pointerEvents="visible"

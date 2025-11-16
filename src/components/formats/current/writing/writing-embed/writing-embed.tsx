@@ -48,6 +48,7 @@ export function WritingEmbed (props: {
     save: (pageData: InkFileData) => void,
 	remove: Function,
 	setEmbedProps?: (aspectRatio: number) => void,
+	onHeightChange?: (height: number) => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -178,6 +179,11 @@ export function WritingEmbed (props: {
 		const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 		if (currentWidth && height) {
 			embedAspectRatioRef.current = currentWidth / height;
+		}
+		
+		// Notify parent widget of height change immediately (no latency)
+		if (props.onHeightChange) {
+			props.onHeightChange(height);
 		}
 		
 		setTimeout( () => {

@@ -29,6 +29,7 @@ export class WritingEmbedWidget extends WidgetType {
     embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
     isHighlighted: boolean = false;
+    private rootEl?: HTMLElement; // Store reference for dynamic height updates
 
     constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string) {
         super();
@@ -41,17 +42,17 @@ export class WritingEmbedWidget extends WidgetType {
 
     toDOM(view: EditorView): HTMLElement {
         const rootEl = document.createElement('div');
+        this.rootEl = rootEl; // Store reference for later height updates
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
         
-        // Set explicit height to match estimatedHeight for predictable layout
+        // Set initial estimated height to prevent FOUC
         if (this.embedSettings?.embedDisplay?.aspectRatio) {
             const viewportWidth = view.scrollDOM.clientWidth;
             const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
-            const height = viewportWidth / aspectRatio + 24; // +24 for padding
-            rootEl.style.height = height + 'px';
+            const estimatedHeight = viewportWidth / aspectRatio + 24;
+            rootEl.style.height = estimatedHeight + 'px';
         } else {
-            // Fallback height if no aspectRatio
             rootEl.style.height = '250px';
         }
         
@@ -75,9 +76,21 @@ export class WritingEmbedWidget extends WidgetType {
                         this.removeEmbed(view);
                     }}
                     setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
+                    onHeightChange={(height: number) => this.onHeightChange(view, height)}
                 />
             </JotaiProvider>
         );
+        
+        // Measure actual width after render and adjust height accordingly
+        requestAnimationFrame(() => {
+            const actualWidth = rootEl.getBoundingClientRect().width;
+            if (actualWidth && this.embedSettings?.embedDisplay?.aspectRatio) {
+                const correctHeight = actualWidth / this.embedSettings.embedDisplay.aspectRatio + 24;
+                rootEl.style.height = correctHeight + 'px';
+                view.requestMeasure(); // Tell CodeMirror to re-measure
+            }
+        });
+        
         return rootEl;
     }
 
@@ -153,6 +166,15 @@ export class WritingEmbedWidget extends WidgetType {
         await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
     };
 
+    private onHeightChange(view: EditorView, height: number) {
+        // Update rootEl height immediately when embed content changes (no latency)
+        if (this.rootEl) {
+            const totalHeight = height + 24; // Add padding
+            this.rootEl.style.height = totalHeight + 'px';
+            view.requestMeasure(); // Tell CodeMirror to re-measure
+        }
+    }
+
     private removeEmbed(view: EditorView) {
         // Find this widget's decoration range and remove it
         const decorations = view.state.field(embedStateFieldWriting, false);
@@ -170,6 +192,19 @@ export class WritingEmbedWidget extends WidgetType {
     }
 
     private setEmbedProps(view: EditorView, aspectRatio: number) {
+        // Update instance settings
+        this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
+        
+        // Update rootEl height if it exists
+        if (this.rootEl) {
+            const actualWidth = this.rootEl.getBoundingClientRect().width;
+            if (actualWidth) {
+                const newHeight = actualWidth / aspectRatio + 24;
+                this.rootEl.style.height = newHeight + 'px';
+                view.requestMeasure(); // Tell CodeMirror to re-measure
+            }
+        }
+        
         // Find this widget's decoration range and update aspectRatio in markdown
         const decorations = view.state.field(embedStateFieldWriting, false);
         if (!decorations) return;
@@ -177,9 +212,6 @@ export class WritingEmbedWidget extends WidgetType {
         while (it.value) {
             const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
             if (widget && widget.id === this.id) {
-                // Update instance settings
-                this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
-                
                 const from = it.from;
                 const to = it.to;
                 const currentText = view.state.doc.sliceString(from, to);

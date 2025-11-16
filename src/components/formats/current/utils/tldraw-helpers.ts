@@ -614,6 +614,7 @@ interface svgObj {
 };
 
 export async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+	console.log('[ink] getWritingSvg');
 	let svgObj: undefined | svgObj;
 	resizeWritingTemplateTightly(editor);
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
@@ -756,6 +757,7 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
  */
 export const resizeWritingTemplateInvitingly = (editor: Editor) => {
 	verbose('resizeWritingTemplateInvitingly');
+	console.log('[ink] resizeWritingTemplateInvitingly');
 	const contentBounds = getInvitingWritingBounds(editor);
 	if (!contentBounds) return;
 	resizeWritingTemplate(editor, contentBounds);
@@ -767,6 +769,7 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
  */
 export const resizeWritingTemplateTightly = (editor: Editor) => {
 	verbose('resizeWritingTemplateTightly')
+	console.log('[ink] resizeWritingTemplateTightly');
 	const contentBounds = getTightWritingBounds(editor);
 	if (!contentBounds) return;
 	resizeWritingTemplate(editor, contentBounds);

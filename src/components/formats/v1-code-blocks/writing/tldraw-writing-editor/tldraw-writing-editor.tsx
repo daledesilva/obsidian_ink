@@ -96,7 +96,6 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 		focusChildTldrawEditor(tlEditorWrapperElRef.current);
 		preventTldrawCanvasesCausingObsidianGestures(tlEditor);
 
-		resizeContainerIfEmbed(tlEditorRef.current);
 		if(tlEditorWrapperElRef.current) {
 			// Makes the editor visible inly after it's fully mounted
 			tlEditorWrapperElRef.current.style.opacity = '1';

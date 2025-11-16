@@ -95,7 +95,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
-		resizeContainerIfEmbed(tlEditorRef.current);
 		if(editorWrapperRefEl.current) {
 			editorWrapperRefEl.current.style.opacity = '1';
 		}
@@ -194,8 +193,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	function resizeContainerIfEmbed (editor: Editor) {
 		if (!props.embedded || !props.onResize) return;
 
-		// Keep editor canvas inviting for continued writing
-		resizeWritingTemplateInvitingly(editor);
+		// const invitingBounds = getInvitingWritingBounds(editor);
+		// const tightBounds = getTightWritingBounds(editor);
+		// if (!invitingBounds || !tightBounds) return;
 
 		const invitingBounds = getInvitingWritingBounds(editor);
 		const tightBounds = getTightWritingBounds(editor);

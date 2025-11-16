@@ -707,16 +707,18 @@ export function cropWritingStrokeHeightInvitingly(height: number): number {
 export function getInvitingWritingBounds(editor: Editor): Box | null {
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h);
-	return contentBounds;
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h));
+	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
+	return newContentBounds;
 }
 
 // Returns bounds sized tightly for preview/screenshot (minimal extra space)
 export function getTightWritingBounds(editor: Editor): Box | null {
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h);
-	return contentBounds;
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightTightly(contentBounds.h));
+	console.log('[ink] getTightWritingBounds tightWritingBounds', newContentBounds);
+	return newContentBounds;
 }
 
 // Shared helper to resize container and lines to given bounds

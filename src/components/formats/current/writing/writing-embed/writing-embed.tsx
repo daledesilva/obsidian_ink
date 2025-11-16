@@ -12,6 +12,7 @@ import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-emb
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
+import { WRITING_LINE_HEIGHT } from "src/constants";
 
 ///////
 ///////
@@ -178,7 +179,7 @@ export function WritingEmbed (props: {
 		// Calculate and update aspectRatio based on current width and new height
 		const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 		if (currentWidth && height) {
-			embedAspectRatioRef.current = currentWidth / height;
+			embedAspectRatioRef.current = currentWidth / (height - WRITING_LINE_HEIGHT*2);
 		}
 		
 		// Notify parent widget of height change immediately (no latency)

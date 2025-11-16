@@ -702,19 +702,24 @@ export function cropWritingStrokeHeightInvitingly(height: number): number {
 	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
 }
 
-
-/***
- * Add excess space under writing strokes to to enable further writing.
- * Good for while in editing mode.
- */
-export const resizeWritingTemplateInvitingly = (editor: Editor) => {
-	verbose('resizeWritingTemplateInvitingly');
-	
+// Returns bounds sized for editing (with inviting extra space)
+export function getInvitingWritingBounds(editor: Editor): Box | null {
 	let contentBounds = getAllStrokeBounds(editor);
-	if (!contentBounds) return;
-
+	if (!contentBounds) return null;
 	contentBounds.h = cropWritingStrokeHeightInvitingly(contentBounds.h);
+	return contentBounds;
+}
 
+// Returns bounds sized tightly for preview/screenshot (minimal extra space)
+export function getTightWritingBounds(editor: Editor): Box | null {
+	let contentBounds = getAllStrokeBounds(editor);
+	if (!contentBounds) return null;
+	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h);
+	return contentBounds;
+}
+
+// Shared helper to resize container and lines to given bounds
+export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	
@@ -742,7 +747,18 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
 	})
-	
+}
+
+
+/***
+ * Add excess space under writing strokes to to enable further writing.
+ * Good for while in editing mode.
+ */
+export const resizeWritingTemplateInvitingly = (editor: Editor) => {
+	verbose('resizeWritingTemplateInvitingly');
+	const contentBounds = getInvitingWritingBounds(editor);
+	if (!contentBounds) return;
+	resizeWritingTemplate(editor, contentBounds);
 }
 
 /***
@@ -751,38 +767,9 @@ export const resizeWritingTemplateInvitingly = (editor: Editor) => {
  */
 export const resizeWritingTemplateTightly = (editor: Editor) => {
 	verbose('resizeWritingTemplateTightly')
-	let contentBounds = getAllStrokeBounds(editor);
+	const contentBounds = getTightWritingBounds(editor);
 	if (!contentBounds) return;
-
-	contentBounds.h = cropWritingStrokeHeightTightly(contentBounds.h);
-
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
-	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
-	
-	
-	silentlyChangeStore( editor, () => {
-		unlockShape(editor, writingContainerShape);
-		unlockShape(editor, writingLinesShape);
-		// resize container and lines
-		editor.updateShape({
-			id: writingContainerShape.id,
-			type: writingContainerShape.type,
-			props: {
-				h: contentBounds.h,
-			}
-		})
-		editor.updateShape({
-			id: writingLinesShape.id,
-			type: writingLinesShape.type,
-			props: {
-				h: contentBounds.h,
-			}
-		})
-		lockShape(editor, writingContainerShape);
-		lockShape(editor, writingLinesShape);
-	})
-
-	
+	resizeWritingTemplate(editor, contentBounds);
 }
 
 

@@ -43,6 +43,18 @@ export class WritingEmbedWidget extends WidgetType {
         const rootEl = document.createElement('div');
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
+        
+        // Set explicit height to match estimatedHeight for predictable layout
+        if (this.embedSettings?.embedDisplay?.aspectRatio) {
+            const viewportWidth = view.scrollDOM.clientWidth;
+            const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
+            const height = viewportWidth / aspectRatio + 24; // +24 for padding
+            rootEl.style.height = height + 'px';
+        } else {
+            // Fallback height if no aspectRatio
+            rootEl.style.height = '250px';
+        }
+        
         const root = createRoot(rootEl);
 
         const { plugin } = getGlobals();

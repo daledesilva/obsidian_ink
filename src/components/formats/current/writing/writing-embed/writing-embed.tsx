@@ -13,6 +13,7 @@ import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 import { WRITING_LINE_HEIGHT } from "src/constants";
+import type { Box } from "@tldraw/tldraw";
 
 ///////
 ///////
@@ -140,7 +141,7 @@ export function WritingEmbed (props: {
 			
 				<WritingEmbedPreviewWrapper
 					plugin = {props.plugin}
-					onResize = {(height: number) => resizeContainer(height)}
+					onResize = {(height: number) => applySizingWhilePreviewing(height)}
 					writingFile = {props.writingFileRef}
 					onClick = {async (event) => {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
@@ -151,7 +152,7 @@ export function WritingEmbed (props: {
 
 				<TldrawWritingEditorWrapper
 					plugin = {props.plugin} // TODO: Try and remove this
-					onResize = {(height: number) => resizeContainer(height)}
+					onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
 					writingFile = {props.writingFileRef}
 					save = {props.save}
 					embedded
@@ -172,15 +173,36 @@ export function WritingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
-	function resizeContainer(height: number) {
+	function applySizingWhilePreviewing(height: number) {
+		if (!height) return;
+		if(!resizeContainerElRef.current) return;
+
+		applyHeight(height);
+		// DO NOT recalculate embedAspectRatioRef here - editor is authoritative source
+	}
+
+	function applySizingWhileEditing(invitingBounds: Box, tightBounds: Box) {
+		if(!resizeContainerElRef.current) return;
+		const containerWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+		if (!containerWidth) return;
+
+		// Apply editor display height (inviting bounds for editing experience)
+		const editorRatio = invitingBounds?.w && invitingBounds?.h ? invitingBounds.w / invitingBounds.h : null;
+		if (editorRatio && isFinite(editorRatio) && editorRatio > 0) {
+			const editorHeight = containerWidth / editorRatio;
+			applyHeight(editorHeight);
+		}
+
+		// Store tight aspect ratio for preview (used when switching to preview mode)
+		const previewRatio = tightBounds?.w && tightBounds?.h ? tightBounds.w / tightBounds.h : null;
+		if (previewRatio && isFinite(previewRatio) && previewRatio > 0) {
+			embedAspectRatioRef.current = previewRatio;
+		}
+	}
+
+	function applyHeight(height: number) {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
-		
-		// Calculate and update aspectRatio based on current width and new height
-		const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
-		if (currentWidth && height) {
-			embedAspectRatioRef.current = currentWidth / (height - WRITING_LINE_HEIGHT*2);
-		}
 		
 		// Notify parent widget of height change immediately (no latency)
 		if (props.onHeightChange) {
@@ -204,6 +226,15 @@ export function WritingEmbed (props: {
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
+		}
+
+		// Apply preview height immediately based on tight aspectRatio before switching modes
+		if (resizeContainerElRef.current && embedAspectRatioRef.current) {
+			const containerWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+			if (containerWidth) {
+				const previewHeight = containerWidth / embedAspectRatioRef.current;
+				applyHeight(previewHeight);
+			}
 		}
 
 		setEmbedState(WritingEmbedState.loadingPreview);

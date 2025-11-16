@@ -120,7 +120,9 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     ///////////////////
 
     function onLoad() {
-        recalcHeight();
+        // Don't recalcHeight - parent already set correct height from aspectRatio
+        // Measuring rendered height causes drift due to rounding
+        
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
             //console.log('--------------- SET EMBED STATE TO preview')
@@ -138,25 +140,6 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
         const mtime = props.writingFile.stat.mtime;
         const separator = basePath.includes('?') ? '&' : '?';
         setFileSrc(`${basePath}${separator}t=${mtime}`);
-    }
-
-    function recalcHeight() {
-        if (!containerElRef.current) return;
-        
-        // Only run when embed is first in view area and then stop.
-        // This makes sure it has been rendered and has a height.
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry) => {
-                if (entry.target !== containerElRef.current) return;
-                if (!entry.isIntersecting) return;
-
-                const rect = containerElRef.current.getBoundingClientRect();
-                props.onResize(rect.height);
-                observer.unobserve(containerElRef.current);
-            });
-        });
-        observer.observe(containerElRef.current);
-
     }
 
 };

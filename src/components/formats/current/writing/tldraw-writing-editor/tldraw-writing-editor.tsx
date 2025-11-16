@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
-import { Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Box, Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getInvitingWritingBounds, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -24,7 +24,7 @@ import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/fing
 ///////
 
 interface TldrawWritingEditorProps {
-	onResize?: Function,
+	onResize?: (invitingBounds: Box, tightBounds: Box) => void,
 	plugin: InkPlugin,
 	writingFile: TFile,
     save: (inkFileData: InkFileData) => void,
@@ -194,15 +194,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	function resizeContainerIfEmbed (editor: Editor) {
 		if (!props.embedded || !props.onResize) return;
 
-		const embedBounds = editor.getViewportScreenBounds();
-		const contentBounds = getWritingContainerBounds(editor);
-		
-		if (contentBounds) {
-			const contentRatio = contentBounds.w / contentBounds.h;
-			const newEmbedHeight = embedBounds.w / contentRatio;
-			props.onResize(newEmbedHeight);
-		}
+		// Keep editor canvas inviting for continued writing
+		resizeWritingTemplateInvitingly(editor);
 
+		const invitingBounds = getInvitingWritingBounds(editor);
+		const tightBounds = getTightWritingBounds(editor);
+		if (!invitingBounds || !tightBounds) return;
+
+		props.onResize(invitingBounds, tightBounds);
 	}
 
 	const queueOrRunStorePostProcesses = (editor: Editor) => {

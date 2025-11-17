@@ -80,6 +80,7 @@ export class DrawingEmbedWidget extends WidgetType {
                     saveSrcFile={this.save}
                     remove={() => { this.removeEmbed(view); }}
                     setEmbedProps={(width, aspectRatio) => this.setEmbedProps(view, width, aspectRatio)}
+                    onRequestMeasure={() => this.requestMeasure(view)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                 />
             </JotaiProvider>
@@ -180,6 +181,11 @@ export class DrawingEmbedWidget extends WidgetType {
             }
             it.next();
         }
+    }
+
+    private requestMeasure(view: EditorView) {
+        // Notify CodeMirror to re-measure the widget when height changes
+        view.requestMeasure();
     }
 
     private updateEmbed(view: EditorView, newEmbedSettings: EmbedSettings) {

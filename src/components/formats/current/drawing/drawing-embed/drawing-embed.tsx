@@ -49,6 +49,7 @@ interface DrawingEmbed_Props {
 	saveSrcFile: (pageData: InkFileData) => {},
     remove: Function,
     setEmbedProps?: (width: number, aspectRatio: number) => void,
+    onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
 }
 
@@ -182,6 +183,12 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		editorControlsRef.current = handlers;
 	}
 
+	/**
+	 * Used for resizes during edit mode.
+	 * @param pxWidthDiff 
+	 * @param pxHeightDiff 
+	 * @returns 
+	 */
 	function resizeEmbed(pxWidthDiff: number, pxHeightDiff: number) {
 		if(!resizeContainerElRef.current) return;
 		const maxWidth = getFullPageWidth(embedContainerElRef.current)
@@ -199,13 +206,20 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		embedAspectRatioRef.current = destWidth / destHeight;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		resizeContainerElRef.current.style.height = destHeight + 'px';
+		props.onRequestMeasure?.();
 		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
 	}
+
+	/**
+	 * Used when initialising edit mode
+	 * @returns 
+	 */
 	function applyEmbedHeight() {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 		resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
+		props.onRequestMeasure?.();
 	}
 
 	// function resetEmbedHeight() {
@@ -243,6 +257,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			resizeContainerElRef.current.style.maxWidth = '100%';
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
+			props.onRequestMeasure?.();
 		}
 	};
 };

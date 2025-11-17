@@ -305,8 +305,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	// 右键菜单相关引用
 	const suppressSavesRef = useRef<boolean>(false); // 控制是否临时阻止保存操作
 
-	// 空格键触发更新一行高度的函数
-	const handleSpaceKeyPress = () => {
+	// 回车键触发更新一行高度的函数
+	const handleEnterKeyPress = () => {
 		const editor = tlEditorRef.current;
 		if (!editor || currentTool !== 'draw') return;
 		
@@ -331,7 +331,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		});
 		
 		// 计算新的一行高度
-		const spaceLineHeight = WRITING_LINE_HEIGHT * 1.5; // 空格键换行高度：1.5倍行高，与流式布局保持一致
+		const spaceLineHeight = WRITING_LINE_HEIGHT * 1.5; // 回车键换行高度：1.5倍行高，与流式布局保持一致
 		const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度（与流式布局保持一致）
 		
 		// 更新writing-zone位置到下一行开头
@@ -348,7 +348,46 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			};
 		}
 		
-		console.log('空格键触发：更新到下一行，新位置:', writingZonePositionRef.current);
+		console.log('回车键触发：更新到下一行，新位置:', writingZonePositionRef.current);
+	};
+	
+	// 空格键触发x递增一个单位，实现插入空格效果
+	const handleSpaceKeyPress = () => {
+		const editor = tlEditorRef.current;
+		if (!editor || currentTool !== 'draw') return;
+		
+		// 获取writing-lines容器的边界
+		const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId);
+		if (!writingLinesShape) {
+			console.error('无法找到writing-lines形状');
+			return;
+		}
+		
+		const containerBounds = editor.getShapePageBounds(writingLinesShape);
+		if (!containerBounds) {
+			console.error('无法获取writing-lines形状的边界');
+			return;
+		}
+		
+		// 计算空格宽度（一个单位）
+		const spaceWidth = WRITING_LINE_HEIGHT * 0.8; // 空格宽度：0.8倍行高
+		
+		// 更新writing-zone位置，x坐标递增
+		if (writingZonePositionRef.current) {
+			writingZonePositionRef.current = {
+				x: writingZonePositionRef.current.x + spaceWidth, // x坐标递增一个单位
+				y: writingZonePositionRef.current.y // y坐标保持不变
+			};
+		} else {
+			// 如果没有保存的位置，创建一个新的位置
+			const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度
+			writingZonePositionRef.current = {
+				x: leftMargin + spaceWidth, // 左边距加上一个空格宽度
+				y: 0
+			};
+		}
+		
+		console.log('空格键触发：插入空格，新位置:', writingZonePositionRef.current);
 	};
 
 	// 键盘事件处理函数
@@ -359,7 +398,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		// 检查是否在编辑文本，如果是则跳过快捷键处理
 		if (editor.getEditingShapeId() !== null) return;
 		
-		// 空格键触发更新一行高度
+		// 回车键触发更新一行高度（手机端换行键）
+		if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+			e.preventDefault(); // 阻止默认的回车行为
+			handleEnterKeyPress();
+		}
+		
+		// 空格键触发x递增一个单位，实现插入空格效果
 		if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
 			e.preventDefault(); // 阻止默认的空格滚动行为
 			handleSpaceKeyPress();
@@ -431,10 +476,21 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const zoneHeight = zoneRect.height;
 		
 		// 完全取消相机放大，使用正常的缩放比例（与initWritingCamera相同）
-		// 放大功能将由放大镜组件实现
-		const containerWidth = 2000; // 与initWritingCamera保持一致
+		// 根据屏幕宽度动态调整containerWidth，确保与writing-lines形状匹配
+		let containerWidth = 2000; // 默认宽度，与WRITING_PAGE_WIDTH保持一致
+		const screenWidth = window.innerWidth;
+		
+		// 在小屏幕设备上减小容器宽度，确保内容能够完整显示
+		if (screenWidth <= 416) { // iPhone逻辑像素宽度
+			containerWidth = 800;
+		} else if (screenWidth <= 768) {
+			containerWidth = 1200;
+		} else if (screenWidth <= 1024) {
+			containerWidth = 1600;
+		}
 		const containerMargin = 0;
 		const visibleWidth = containerWidth + 2 * containerMargin;
+		// 计算缩放比例，确保writing-lines形状能够完整显示在容器内
 		const targetZoom = containerRect.width / visibleWidth;
 		
 		// 计算视野中心点（writing-zone的中心）
@@ -504,7 +560,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// 使用initWritingCamera的逻辑恢复相机到正常状态
 		const containerRect = editor.getContainer().getBoundingClientRect();
-		const containerWidth = 2000; // 与initWritingCamera保持一致
+		// 根据屏幕宽度动态调整containerWidth
+		let containerWidth = 2000; // 默认宽度
+		const screenWidth = window.innerWidth;
+		
+		// 在小屏幕设备上减小容器宽度
+		if (screenWidth <= 416) { // iPhone逻辑像素宽度
+			containerWidth = 800;
+		} else if (screenWidth <= 768) {
+			containerWidth = 1200;
+		} else if (screenWidth <= 1024) {
+			containerWidth = 1600;
+		}
 		const containerMargin = 0;
 		const visibleWidth = containerWidth + 2 * containerMargin;
 		const zoom = containerRect.width / visibleWidth;
@@ -695,10 +762,22 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							const tldrawElement = doc.querySelector('[data-tldraw]');
 							
 							if (tldrawElement) {
-								const tldrawData = JSON.parse(tldrawElement.textContent || '{}');
-								if (tldrawData.type === 'application/tldraw' && tldrawData.kind === 'content') {
-									// 解压缩数据
-									const decompressedData = JSON.parse(require('lz-string').decompressFromBase64(tldrawData.data.otherCompressed));
+							let tldrawData: any;
+							try {
+								tldrawData = JSON.parse(tldrawElement.textContent || '{}');
+							} catch (error) {
+								console.warn('解析tldraw数据失败:', error);
+								return;
+							}
+							if (tldrawData.type === 'application/tldraw' && tldrawData.kind === 'content') {
+								// 解压缩数据
+								let decompressedData: any;
+								try {
+									decompressedData = JSON.parse(require('lz-string').decompressFromBase64(tldrawData.data.otherCompressed));
+								} catch (error) {
+									console.warn('解压缩tldraw数据失败:', error);
+									return;
+								}
 									
 									await editor.putExternalContent({
 										type: 'tldraw',
@@ -834,7 +913,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// 流式布局参数
 		const lineHeight = WRITING_LINE_HEIGHT; // 换行高度：使用完整的行高（约150px）
-		const maxLineWidth = containerBounds.width * 0.4; // 40%容器宽度（适配2000px容器）
+		const maxLineWidth = containerBounds.width * 0.9; // 90%容器宽度（适配2000px容器）
 		const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度（相当于两个字宽）
 		
 		// 补偿相机偏移：使用固定的45px补偿值，确保位置一致性
@@ -876,7 +955,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				if (yDiff < lineHeight / 2) {
 					// 在同一行内，选择X坐标最大的形状
 					// 确保选择的形状在可视范围内（不超过40%容器宽度）
-					const visibleWidth = containerBounds.width * 0.4;
+					const visibleWidth = containerBounds.width * 0.9;
 					if (bounds.maxX <= visibleWidth && bounds.maxX > maxXInCurrentRow) {
 						maxXInCurrentRow = bounds.maxX;
 						referenceShape = shape;
@@ -898,7 +977,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				// 比较位置：优先比较Y轴（行），再比较X轴（列）
 				// 选择Y轴更大（更下面）的位置，如果Y轴相同则选择X轴更大（更右边）的位置
 				// 确保选择的形状在可视范围内
-				const visibleWidth = containerBounds.width * 0.4;
+				const visibleWidth = containerBounds.width * 0.9;
 				
 				// 优先选择在可视范围内的形状
 				const currentInVisibleRange = currentBounds.maxX <= visibleWidth;
@@ -1264,7 +1343,7 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 
 			// 流式布局参数
 		const lineHeight = WRITING_LINE_HEIGHT; // 换行高度：使用完整的行高（约150px）
-		const maxLineWidth = containerBounds.width * 0.4; // 40%容器宽度（与updateWritingZonePositionRef保持一致）
+		const maxLineWidth = containerBounds.width * 0.9; // 90%容器宽度（与updateWritingZonePositionRef保持一致）
 		const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度（与流式布局保持一致）
 		
 		// 打印容器宽度信息，用于调试
@@ -1440,7 +1519,63 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 		const editor = tlEditorRef.current = _editor;
 		setEmbedState(WritingEmbedState.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
-		preventTldrawCanvasesCausingObsidianGestures(editor);
+		
+		// 存储触屏事件清理函数的引用
+		let cleanupTouchEvents: (() => void) | null = null;
+		
+		// 添加针对移动端触屏滑动的特殊处理
+		// 获取tldraw画布容器
+		const tlContainer = editor.getContainer();
+		const tlCanvas = tlContainer.getElementsByClassName('tl-canvas')[0] as HTMLDivElement;
+		
+		if (tlCanvas) {
+			// 设置touch-action以支持缩放
+			tlCanvas.style.touchAction = 'auto';
+			
+			// 跟踪当前触摸点数量
+			let touchCount = 0;
+			
+			// 触摸事件处理函数
+			const handleTouchStart = (e: TouchEvent) => {
+				touchCount = e.touches.length;
+			};
+			
+			const handleTouchMove = (e: TouchEvent) => {
+				// 更新当前触摸点数量
+				touchCount = e.touches.length;
+				
+				// 单指触摸：阻止冒泡和默认行为，防止触发Obsidian的滚动
+				if (touchCount === 1) {
+					e.stopPropagation();
+					e.preventDefault();
+				}
+				// 双指及以上触摸：允许冒泡和默认行为，保留缩放功能
+			};
+			
+			const handleTouchEnd = (e: TouchEvent) => {
+				touchCount = e.touches.length;
+			};
+			
+			const handleTouchCancel = (e: TouchEvent) => {
+				touchCount = e.touches.length;
+			};
+			
+			// 添加事件监听器
+			tlCanvas.addEventListener('touchstart', handleTouchStart, { passive: true });
+			// 使用passive: false允许preventDefault生效
+			tlCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+			tlCanvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+			tlCanvas.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+			
+			// 创建清理函数
+			cleanupTouchEvents = () => {
+				// 移除触屏事件监听器
+				tlCanvas.removeEventListener('touchstart', handleTouchStart);
+				tlCanvas.removeEventListener('touchmove', handleTouchMove);
+				tlCanvas.removeEventListener('touchend', handleTouchEnd);
+				tlCanvas.removeEventListener('touchcancel', handleTouchCancel);
+			};
+		}
 
 		// 隐藏收费按钮
 		const licenseButton = editor.getContainer().querySelector('.tl-watermark_SEE-LICENSE') as HTMLElement;
@@ -1471,6 +1606,29 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
 		}
+
+		// 监听窗口大小变化，在全屏模式切换时重新初始化相机
+		const handleWindowResize = () => {
+			// 重新初始化相机以适配新的屏幕宽度
+			// 检测全屏模式：基于.ink-writing-view-host CSS类
+			const isFullscreen = document.querySelector('.ink-writing-view-host') !== null;
+			
+			if(props.embedded) {
+				// 嵌入模式：不需要调用initWritingCamera，嵌入模式有自己的容器尺寸管理
+				console.log('嵌入模式：窗口大小变化，跳过相机重新初始化');
+			} else if (isFullscreen) {
+				// 全屏模式：重新初始化相机以适应全屏宽度
+				initWritingCamera(editor);
+				cameraLimitsRef.current = initWritingCameraLimits(editor);
+			} else {
+				// 非嵌入模式（WritingView）：传入菜单栏高度参数
+				initWritingCamera(editor, MENUBAR_HEIGHT_PX);
+				cameraLimitsRef.current = initWritingCameraLimits(editor);
+			}
+			console.log('窗口大小变化，重新初始化相机以适应屏幕宽度:', window.innerWidth, '全屏模式:', isFullscreen);
+		};
+
+		window.addEventListener('resize', handleWindowResize);
 
 		// 确保编辑器完全初始化后再设置工具状态监听器
 		// 使用setTimeout替代editor.once('ready')，因为'ready'事件不存在于TLEventMap中
@@ -1576,6 +1734,12 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 			if (removeToolChangeListener) {
 				removeToolChangeListener();
 			}
+			// 清理触屏事件监听器
+			if (cleanupTouchEvents) {
+				cleanupTouchEvents();
+			}
+			// 清理窗口大小变化监听器
+			window.removeEventListener('resize', handleWindowResize);
 		}
 
 		if(props.saveControlsReference) {
@@ -1677,11 +1841,6 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 					className="writing-zone"
 					ref={writingZoneRef}
 				>
- 				<ZoneMagnifier 
-						editor={tlEditorRef.current}
-						writingZoneRef={writingZoneRef}
-						editorWrapperRef={editorWrapperRefEl}
-					/>
 				</div>
 			)}
 			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={editorWrapperRefEl} />
@@ -1723,7 +1882,7 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 				}
 			}}
 			/>
-				{props.embedded && props.extendedMenu && (
+				{props.extendedMenu && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
 							// REVIEW: Save immediately? incase it hasn't been saved yet
@@ -1752,155 +1911,4 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
         }
     }
 
-};
-
-// 放大镜组件：放大相机所在位置的内容，仅在writing-zone区域内显示
-interface ZoneMagnifierProps {
-	editor: Editor | null;
-	writingZoneRef: React.RefObject<HTMLDivElement>;
-	editorWrapperRef: React.RefObject<HTMLDivElement>;
-}
-
-const ZoneMagnifier: React.FC<ZoneMagnifierProps> = ({ editor, writingZoneRef, editorWrapperRef }) => {
-	const canvasRef = React.useRef<HTMLCanvasElement>(null);
-	const animationRef = React.useRef<number>();
-
-	React.useEffect(() => {
-		if (!editor || !writingZoneRef.current || !editorWrapperRef.current) return;
-
-		const canvas = canvasRef.current;
-		if (!canvas) return;
-
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
-
-		// 设置canvas尺寸 - 基于writing-zone的尺寸
-		const updateCanvasSize = () => {
-			const zoneRect = writingZoneRef.current?.getBoundingClientRect();
-			if (!zoneRect) return;
-
-			const dpr = window.devicePixelRatio || 1;
-			canvas.width = zoneRect.width * dpr;
-			canvas.height = zoneRect.height * dpr;
-			canvas.style.width = zoneRect.width + 'px';
-			canvas.style.height = zoneRect.height + 'px';
-			ctx.scale(dpr, dpr);
-		};
-
-		updateCanvasSize();
-
-		// 绘制放大镜内容
-		const drawMagnifier = () => {
-			if (!editor || !writingZoneRef.current) return;
-
-			const zoneRect = writingZoneRef.current.getBoundingClientRect();
-			if (!zoneRect) return;
-
-			// 清空canvas
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-			// 获取相机位置
-			const camera = editor.getCamera();
-			
-			// 计算放大区域：相机所在位置的B区内容
-			// B区位于writing-zone上方，包含书写容器和书写线条
-			const magnifierScale = 1.5; // 放大倍数
-			
-			// 计算放大镜显示区域（C区）- 使用writing-zone的尺寸
-			const magnifierWidth = zoneRect.width;
-			const magnifierHeight = zoneRect.height;
-			
-			// 计算源区域（B区）
-			const sourceWidth = magnifierWidth / magnifierScale;
-			const sourceHeight = magnifierHeight / magnifierScale;
-			
-			// 正确的源区域中心点：相机视野中心在屏幕坐标系中的位置
-		// 相机坐标(camera.x, camera.y)是页面坐标系，需要转换为屏幕坐标系
-		const containerRect = editor.getContainer().getBoundingClientRect();
-		
-		// 计算相机视野中心在屏幕坐标系中的位置
-		// 相机视野中心 = 相机位置 + 容器尺寸的一半 / 缩放比例
-		const sourceCenterX = camera.x + containerRect.width / (2 * camera.z);
-		const sourceCenterY = camera.y + containerRect.height / (2 * camera.z);
-		
-		// 计算源区域边界
-		const sourceX = sourceCenterX - sourceWidth / 2;
-		const sourceY = sourceCenterY - sourceHeight / 2;
-
-		// 检查源区域尺寸是否有效
-		if (sourceWidth <= 0 || sourceHeight <= 0) {
-			console.warn('放大镜源区域尺寸无效:', { sourceWidth, sourceHeight });
-			return;
-		}
-
-		// 直接使用tldraw的canvas进行放大
-		try {
-			// 获取tldraw的canvas元素
-			const tldrawCanvas = editor.getContainer().querySelector('canvas');
-			if (!tldrawCanvas) return;
-
-			// 检查tldraw canvas的尺寸
-			if (tldrawCanvas.width <= 0 || tldrawCanvas.height <= 0) {
-				console.warn('Tldraw canvas尺寸无效:', { width: tldrawCanvas.width, height: tldrawCanvas.height });
-				return;
-			}
-
-			// 创建临时canvas来绘制放大内容
-			const tempCanvas = document.createElement('canvas');
-			const tempCtx = tempCanvas.getContext('2d');
-			if (!tempCtx) return;
-
-			tempCanvas.width = sourceWidth;
-			tempCanvas.height = sourceHeight;
-
-			// 在临时canvas上绘制源区域
-			tempCtx.drawImage(
-				tldrawCanvas,
-				sourceX, sourceY, sourceWidth, sourceHeight, // 源区域
-				0, 0, sourceWidth, sourceHeight // 目标区域
-			);
-
-			// 将放大后的内容绘制到主canvas
-			ctx.drawImage(
-				tempCanvas,
-				0, 0, sourceWidth, sourceHeight, // 源区域
-				0, 0, magnifierWidth, magnifierHeight // 目标区域（放大）
-			);
-		} catch (error) {
-			console.error('放大镜绘制错误:', error);
-		}
-
-			// 继续动画循环
-			animationRef.current = requestAnimationFrame(drawMagnifier);
-		};
-
-		// 开始动画循环
-		animationRef.current = requestAnimationFrame(drawMagnifier);
-
-		// 监听窗口大小变化
-		const handleResize = () => {
-			updateCanvasSize();
-		};
-
-		window.addEventListener('resize', handleResize);
-
-		return () => {
-			if (animationRef.current) {
-				cancelAnimationFrame(animationRef.current);
-			}
-			window.removeEventListener('resize', handleResize);
-		};
-	}, [editor, writingZoneRef, editorWrapperRef]);
-
-	return (
-		<canvas
-			ref={canvasRef}
-			style={{
-				width: '100%',
-				height: '100%',
-				pointerEvents: 'none', // 不拦截鼠标事件
-				zIndex: 10,
-			}}
-		/>
-	);
 };

@@ -431,42 +431,41 @@ export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditor_Props> = (
           setEmbedState(DrawingEmbedState.editor);
           if (props.onSnapshotLoaded) props.onSnapshotLoaded();
         } else {
-          console.log('Snapshot not ready, checking if it\'s a regular SVG file...');
+          // 检查是否是新建的SVG文件或空快照，如果是则跳过日志记录
+          const isMinimalSvg = props.fileRef && props.fileRef.extension && props.fileRef.extension.toLowerCase() === 'svg';
           
-          // 检查是否是常规SVG文件（没有tldraw元数据）
-          if (props.fileRef && props.fileRef.extension && props.fileRef.extension.toLowerCase() === 'svg') {
+          if (isMinimalSvg) {
             try {
               const filePath = props.fileRef?.path || '';
               if (!filePath) {
-                console.error('SVG文件路径为空，跳过检查');
-              } else {
-                // 确保 fileRef 是一个有效的 TFile 对象
-                if (props.fileRef && typeof props.fileRef === 'object' && props.fileRef.path) {
-                  const svgContent = await props.plugin.app.vault.read(props.fileRef);
-                  const hasTldrawMetadata = svgContent.includes('tldraw') || svgContent.includes('ink');
-                  
-                  if (!hasTldrawMetadata) {
-                    console.log(`检测到常规SVG文件，切换到编辑器状态: ${filePath}`);
-                    hasProcessedLoadingEditorRef.current = true;
-                    snapshotReadyRef.current = true;
-                    setEmbedState(DrawingEmbedState.editor);
-                    if (props.onSnapshotLoaded) props.onSnapshotLoaded();
-                    return;
-                  }
-                } else {
-                  console.error('fileRef 不是有效的 TFile 对象:', props.fileRef);
+                // 文件路径为空，跳过检查
+              } else if (props.fileRef && typeof props.fileRef === 'object' && props.fileRef.path) {
+                const svgContent = await props.plugin.app.vault.read(props.fileRef);
+                const hasTldrawMetadata = svgContent.includes('tldraw') || svgContent.includes('ink');
+                
+                if (!hasTldrawMetadata) {
+                  // 常规SVG文件，静默切换到编辑器状态
+                  hasProcessedLoadingEditorRef.current = true;
+                  snapshotReadyRef.current = true;
+                  setEmbedState(DrawingEmbedState.editor);
+                  if (props.onSnapshotLoaded) props.onSnapshotLoaded();
+                  return;
                 }
               }
             } catch (error) {
-              const filePath = props.fileRef?.path || '未知路径';
-              console.error(`读取SVG文件失败: ${filePath}`, error);
+              // 读取文件失败，静默处理
             }
           }
           
-          // 记录当前快照状态
-          if (props.fileRef) {
-            const filePath = props.fileRef?.path || '未知路径';
-            console.log(`快照检查失败，文件: ${filePath}`);
+          // 如果不是新建SVG文件，记录检查失败日志
+          if (!isMinimalSvg) {
+            console.log('Snapshot not ready, checking if it\'s a regular SVG file...');
+            
+            // 记录当前快照状态
+            if (props.fileRef) {
+              const filePath = props.fileRef?.path || '未知路径';
+              console.log(`快照检查失败，文件: ${filePath}`);
+            }
           }
           
           setTimeout(checkSnapshotAndSwitch, 500); // 增加重试间隔
@@ -1101,10 +1100,22 @@ const TldrawDrawingEditor: React.FC<TldrawDrawingEditor_Props & { onSnapshotLoad
               const tldrawElement = doc.querySelector('[data-tldraw]');
               
               if (tldrawElement) {
-                const tldrawData = JSON.parse(tldrawElement.textContent || '{}');
+                let tldrawData: any;
+                try {
+                  tldrawData = JSON.parse(tldrawElement.textContent || '{}');
+                } catch (error) {
+                  console.warn('解析tldraw数据失败:', error);
+                  return;
+                }
                 if (tldrawData.type === 'application/tldraw' && tldrawData.kind === 'content') {
                   // 解压缩数据
-                  const decompressedData = JSON.parse(require('lz-string').decompressFromBase64(tldrawData.data.otherCompressed));
+                  let decompressedData: any;
+                  try {
+                    decompressedData = JSON.parse(require('lz-string').decompressFromBase64(tldrawData.data.otherCompressed));
+                  } catch (error) {
+                    console.warn('解压缩tldraw数据失败:', error);
+                    return;
+                  }
                   
                   await editor.putExternalContent({
                     type: 'tldraw',

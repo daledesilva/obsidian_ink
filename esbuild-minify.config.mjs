@@ -74,6 +74,75 @@ const cssPriorityPlugin = () => ({
 	}
 });
 
+// 单行化插件 - 在构建后将main.js转换为单行格式
+const singleLinePlugin = () => ({
+	name: 'single-line-plugin',
+	setup(build) {
+		build.onEnd(async () => {
+			try {
+				const mainJsPath = path.join(OUTPUT_DIR, 'main.js');
+				if (fs.existsSync(mainJsPath)) {
+					// 读取文件内容
+					let content = fs.readFileSync(mainJsPath, 'utf8');
+					
+					// 使用更安全的方法转换为单行，避免破坏正则表达式
+					// 首先识别并保护所有字符串和正则表达式
+					const protectedParts = [];
+					
+					// 保护正则表达式
+					content = content.replace(/\/((?![*\/]).+?)(?<!\\)\/[gimuy]*/g, (match) => {
+						const id = `__PROTECTED_${protectedParts.length}__`;
+						protectedParts.push(match);
+						return id;
+					});
+					
+					// 保护单引号字符串
+					content = content.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, (match) => {
+						const id = `__PROTECTED_${protectedParts.length}__`;
+						protectedParts.push(match);
+						return id;
+					});
+					
+					// 保护双引号字符串
+					content = content.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (match) => {
+						const id = `__PROTECTED_${protectedParts.length}__`;
+						protectedParts.push(match);
+						return id;
+					});
+					
+					// 保护模板字符串
+					content = content.replace(/`([^`]*)`/g, (match) => {
+						const id = `__PROTECTED_${protectedParts.length}__`;
+						protectedParts.push(match);
+						return id;
+					});
+					
+					// 现在安全地移除换行符和多余空格
+					content = content
+						.replace(/\/\/.*$/gm, '') // 移除单行注释
+						.replace(/\/\*[\s\S]*?\*\//g, '') // 移除多行注释
+						.replace(/\n\s*/g, '') // 移除换行符和行首空格
+						.replace(/\s{2,}/g, ' ') // 将多个连续空格替换为单个空格
+						.replace(/([;{}])\s+/g, '$1') // 移除分号、大括号后的空格
+						.replace(/\s+([;{}])/g, '$1') // 移除分号、大括号前的空格
+						.trim();
+					
+					// 恢复所有被保护的部分
+					protectedParts.forEach((part, i) => {
+						content = content.replace(`__PROTECTED_${i}__`, part);
+					});
+					
+					// 写回文件
+					fs.writeFileSync(mainJsPath, content);
+					console.log('Successfully converted main.js to single line format');
+				}
+			} catch (e) {
+				console.error('Failed to convert main.js to single line format:', e);
+			}
+		});
+	}
+});
+
 esbuild.build({
 		banner: {
 			js: banner
@@ -108,12 +177,12 @@ esbuild.build({
 		watch: !prod,
 		target: 'es2020',
 		logLevel: 'info',
-		sourcemap: prod ? false : 'inline',
+		sourcemap: false, // 禁用源码映射以获得更小的文件
 		treeShaking: true,
-		minify: prod, // 在生产模式下启用压缩
-		minifyWhitespace: prod, // 压缩空白字符
-		minifyIdentifiers: prod, // 压缩标识符
-		minifySyntax: prod, // 压缩语法
+		minify: true, // 启用所有压缩选项
+		minifyWhitespace: true, // 压缩空白字符
+		minifyIdentifiers: true, // 压缩标识符
+		minifySyntax: true, // 压缩语法
 		outdir: OUTPUT_DIR,
 		loader: {
 			// '.png': 'file',
@@ -156,10 +225,9 @@ esbuild.build({
 			copyManifestPlugin(),
 			// 将main.css重命名为styles.css，因为这是obsidian期望的
 			renamePlugin()
+			// 移除了单行化插件，使用esbuild内置压缩
 		],
-	define: {
-		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development')
-	}
+		define: {
+			'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development')
+		}
 }).catch(() => process.exit(1));
-
-

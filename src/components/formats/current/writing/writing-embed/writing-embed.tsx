@@ -11,6 +11,7 @@ import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
+import { openInkFile } from "src/logic/utils/open-file";
 
 ///////
 ///////
@@ -86,12 +87,12 @@ export function WritingEmbed (props: {
 				await rememberWritingFile(props.plugin, props.writingFileRef);
 			}
 		},
-		// {
-		// 	text: 'Open writing',
-		// 	action: async () => {
-		// 		openInkFile(props.plugin, props.fileRef)
-		// 	}
-		// },
+		 {
+			text: 'Open writing',
+			action: async () => {
+				await openInkFile(props.writingFileRef, undefined, 'inkWriting');
+			}
+		},
 		{
 			text: 'Remove embed',
 			action: () => {

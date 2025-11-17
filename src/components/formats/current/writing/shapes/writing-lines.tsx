@@ -12,6 +12,7 @@ interface SvgExportContext { [key: string]: any }
 // 直接定义常量，避免导入问题
 const WRITING_LINE_HEIGHT = 150;
 const WRITING_MIN_PAGE_HEIGHT = WRITING_LINE_HEIGHT * 1.5;
+// 页面宽度常量 - 根据容器宽度动态调整
 const WRITING_PAGE_WIDTH = 2000;
 
 //////////
@@ -50,11 +51,11 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 		return initShape;
 	}
 	
-	// Prevent resizing horizontally
+	// Allow resizing to match container width for responsive design
 	onResize: TLOnResizeHandler<WritingLines> = (shape, info) => {
 		return resizeBox(shape, info, {
-			minWidth: WRITING_PAGE_WIDTH,
-			maxWidth: WRITING_PAGE_WIDTH,
+			minWidth: 800,  // Minimum width for small screens
+			maxWidth: 2000, // Maximum width for large screens
 			minHeight: WRITING_MIN_PAGE_HEIGHT,
 			maxHeight: 50000
 		});

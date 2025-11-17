@@ -12,7 +12,13 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile) => 
     const v = plugin.app.vault;
 
     const pageDataStr = await v.read(file);
-    const pageData = JSON.parse(pageDataStr) as InkFileData;
+    let pageData: InkFileData;
+    try {
+        pageData = JSON.parse(pageDataStr) as InkFileData;
+    } catch (error) {
+        console.error('解析文件数据失败:', error);
+        return;
+    }
 
     // Remove the page container from the file
     if ('store' in pageData.tldraw) {

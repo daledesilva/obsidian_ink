@@ -1,6 +1,6 @@
-import { Editor, TLShape, TLShapeId, createShapeId } from 'tldraw';
+import { Editor, TLShape, createShapeId } from 'tldraw';
 import { DOMParser } from 'xmldom';
-import { reverseSvgPathToSegments, sanitizeSvgPath, TLDrawPoint } from './reverseSvgPathToSegments';
+import { reverseSvgPathToSegments, TLDrawSegment, TLDrawPoint } from './reverseSvgPathToSegments';
 
 // 尝试导入DefaultColorThemePalette
 import { DefaultColorThemePalette } from '@tldraw/tlschema';
@@ -24,53 +24,6 @@ function sampleQuadratic(
   return pts
 }
 // --- START: Style Utility Functions (Reverse Mapping from SVG to Tldraw) ---
-
-/**
- * tldraw 颜色名称到 SVG Hex 值的映射 (基于 tldraw 官方颜色定义)
- */
-const TL_COLOR_TO_HEX_MAP: Record<string, string> = {
-  // 黑色系
-  'black': '#1d1d1d',
-  // 灰色系
-  'grey': '#808080',
-  // 紫色系
-  'light-violet': '#c084fc',
-  'violet': '#a855f7',
-  // 蓝色系
-  'blue': '#3b82f6',
-  'light-blue': '#60a5fa',
-  // 黄色和橙色系
-  'yellow': '#fbbf24',
-  'orange': '#f97316',
-  // 绿色系
-  'green': '#10b981',
-  'light-green': '#34d399',
-  // 红色系
-  'light-red': '#f87171',
-  'red': '#ef4444',
-  // 白色系
-  'white': '#ffffff'
-};
-
-/**
- * tldraw 粗细名称到 SVG stroke-width 值的映射 (近似值)
- */
-const TL_SIZE_TO_STROKE_WIDTH_MAP: Record<string, number> = {
-  s: 1, // Small
-  m: 3, // Medium
-  l: 5, // Large
-  xl: 7, // Extra Large
-};
-
-/**
- * tldraw 虚线名称到 SVG stroke-dasharray 值的映射 (近似值)
- */
-const TL_DASH_TO_DASHARRAY_MAP: Record<string, string | null> = {
-  draw: null, //手绘 无 dasharray
-  dashed: '10, 5', //虚线 示例值，实际值可能更复杂
-  dotted: '3, 3', //虚点 示例值，实际值可能更复杂
-  solid: null, //实心 无 dasharray
-};
 
 /**
  * 从DefaultColorThemePalette生成颜色映射表
@@ -131,6 +84,7 @@ function generateColorMapFromPalette(): Record<string, string> {
   colorMap['#fbbf24'] = 'yellow';
   colorMap['#f97316'] = 'orange';
   colorMap['#10b981'] = 'green';
+  colorMap['#4cb05e'] = 'green'; // 添加这个绿色映射
   colorMap['#ef4444'] = 'red';
   colorMap['#3b82f6'] = 'blue';
   colorMap['#60a5fa'] = 'light-blue';
@@ -167,7 +121,7 @@ function getTldrawFillStyleFromSvg(svgColor: string | null): string {
  * @param svgColor SVG颜色值
  * @returns tldraw支持的颜色名称
  */
-function getTldrawColorFromSvg(svgColor: string | null): string {
+function getTldrawColorFromSvg(svgColor: string | null, colorMap?: Record<string, string>): string {
   if (!svgColor || svgColor === 'none' || svgColor === 'transparent') {
     return 'black'; // 默认颜色
   }
@@ -178,8 +132,8 @@ function getTldrawColorFromSvg(svgColor: string | null): string {
     'yellow', 'orange', 'green', 'light-green', 'light-red', 'red', 'white'
   ];
   
-  // 从DefaultColorThemePalette生成颜色映射表
-  const colorMap = generateColorMapFromPalette();
+  // 使用传入的colorMap或生成新的颜色映射表
+  const mapToUse = colorMap || generateColorMapFromPalette();
 
   // 规范化颜色值
   const normalizedColor = svgColor.toLowerCase().trim();
@@ -206,12 +160,12 @@ function getTldrawColorFromSvg(svgColor: string | null): string {
   hexColor = hexColor.replace(/[^0-9a-f#]/g, '');
   
   // 3. 如果颜色在映射表中，直接返回
-  if (colorMap[hexColor]) {
-    return colorMap[hexColor];
+  if (mapToUse[hexColor]) {
+    return mapToUse[hexColor];
   }
   
   // 4. 对于不在映射表中的颜色，尝试近似匹配
-  const matchedColor = findClosestColor(hexColor, colorMap);
+  const matchedColor = findClosestColor(hexColor, mapToUse);
   if (matchedColor) {
     console.log(`颜色 ${svgColor} 近似匹配到 ${matchedColor}`);
     return matchedColor;
@@ -282,53 +236,6 @@ function colorDistance(rgb1: {r: number, g: number, b: number}, rgb2: {r: number
   const gDiff = rgb1.g - rgb2.g;
   const bDiff = rgb1.b - rgb2.b;
   return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
-}
-
-/**
- * 查找最接近的 tldraw size 名称
- */
-function getTldrawSizeFromSvg(strokeWidth: number): string {
-  if (isNaN(strokeWidth) || strokeWidth <= 0) {
-    return 'm';
-  }
-
-  let bestMatch = 'm';
-  let minDiff = Infinity;
-
-  for (const [tlSize, tlWidth] of Object.entries(TL_SIZE_TO_STROKE_WIDTH_MAP)) {
-    const diff = Math.abs(strokeWidth - tlWidth);
-    if (diff < minDiff) {
-      minDiff = diff;
-      bestMatch = tlSize;
-    }
-  }
-
-  return bestMatch;
-}
-
-/**
- * 查找最接近的 tldraw dash 名称
- */
-function getTldrawDashFromSvg(dashArray: string | null): string {
-  if (!dashArray) {
-    return 'draw'; // 默认手绘或实线
-  }
-
-  const normalizedDash = dashArray.replace(/[\s,]/g, '').trim();
-
-  // 检查是否与已知的虚线模式匹配
-  for (const [tlDash, tlDashArray] of Object.entries(TL_DASH_TO_DASHARRAY_MAP)) {
-    if (tlDashArray && tlDashArray.replace(/[\s,]/g, '').trim() === normalizedDash) {
-      return tlDash;
-    }
-  }
-
-  // 无法精确匹配时，如果有 dashArray，则认为是 dashed
-  if (normalizedDash.length > 0) {
-    return 'dashed';
-  }
-
-  return 'draw';
 }
 
 /**
@@ -562,55 +469,6 @@ interface SvgShapeData {
   // embed/bookmark类型特有属性
   url?: string;
 }
-
-/**
- * 解析SVG变换字符串，提取x和y坐标
- * @param transformString SVG变换字符串，如"matrix(1, 0, 0, 1, 10, 20)"
- * @returns 包含x和y坐标的对象
- */
-function parseTransform(transform?: string) {
-  if (!transform) return { x: 0, y: 0, matrix: [1, 0, 0, 1, 0, 0] }
-  
-  // 处理matrix变换
-  const match = transform.match(/matrix\(([^)]+)\)/)
-  if (match) {
-    const [a, b, c, d, e, f] = match[1].split(/[,\s]+/).map(Number)
-    return { x: e || 0, y: f || 0, matrix: [a || 1, b || 0, c || 0, d || 1, e || 0, f || 0] }
-  }
-  
-  // 处理translate变换
-  const translateMatch = transform.match(/translate\(([^)]+)\)/)
-  if (translateMatch) {
-    const [x, y] = translateMatch[1].split(/[,\s]+/).map(Number)
-    return { x: x || 0, y: y || 0, matrix: [1, 0, 0, 1, x || 0, y || 0] }
-  }
-  
-  return { x: 0, y: 0, matrix: [1, 0, 0, 1, 0, 0] }
-}
-/**
-   * 合并两个变换矩阵
-   * @param matrix1 第一个变换矩阵 [a1, b1, c1, d1, e1, f1]
-   * @param matrix2 第二个变换矩阵 [a2, b2, c2, d2, e2, f2]
-   * @returns 合并后的变换矩阵
-   */
-  function combineTransformMatrices(matrix1: number[], matrix2: number[]): number[] {
-    // 矩阵乘法: result = matrix2 * matrix1
-    // [a2, b2, 0] [a1, b1, 0] [a2*a1 + b2*c1, a2*b1 + b2*d1, 0]
-    // [c2, d2, 0] * [c1, d1, 0] = [c2*a1 + d2*c1, c2*b1 + d2*d1, 0]
-    // [e2, f2, 1] [e1, f1, 1] [e2 + f2*c1 + a2*e1, f2 + e2*c1 + b2*f1, 1]
-    
-    const [a1, b1, c1, d1, e1, f1] = matrix1;
-    const [a2, b2, c2, d2, e2, f2] = matrix2;
-    
-    return [
-      a2 * a1 + b2 * c1,
-      a2 * b1 + b2 * d1,
-      c2 * a1 + d2 * c1,
-      c2 * b1 + d2 * d1,
-      e2 + a2 * e1 + b2 * f1,
-      f2 + c2 * e1 + d2 * f1
-    ];
-  }
   
   /**
    * 从SVG中提取实际的图片数据
@@ -813,111 +671,185 @@ function fixSvgImageData(svgString: string): { fixedSvg: string, imageData: Reco
   
   return { fixedSvg: svgString, imageData: imageDataMap };
 }
+// 【辅助函数】这是一个非常简单和安全的函数，只对路径坐标应用缩放。
+function applyScaleMatrixToPathD(d: string, matrix: [number, number, number, number, number, number]): string {
+    const [a, _, __, d_mat, ___, ____] = matrix;
+    const commands = d.match(/[a-zA-Z][^a-zA-Z]*/g);
+    if (!commands) return d;
+
+    return commands.map(commandStr => {
+        const type = commandStr[0];
+        const params = (commandStr.slice(1).match(/-?[\d.eE+-]+/g) || []).map(parseFloat);
+        let newParams: number[] = [];
+
+        switch (type.toUpperCase()) {
+            case 'H': // 水平线
+                newParams = params.map(p => p * a);
+                return type + newParams.join(' ');
+            case 'V': // 垂直线
+                newParams = params.map(p => p * d_mat);
+                return type + newParams.join(' ');
+            default: // 其他所有命令 (M, L, C, Q, S, T, A)
+                for (let i = 0; i < params.length; i += 2) {
+                    if (params[i] !== undefined) newParams.push(params[i] * a);
+                    if (params[i+1] !== undefined) newParams.push(params[i+1] * d_mat);
+                }
+                return type + newParams.join(' ');
+        }
+    }).join('');
+}
 
 /**
  * 解析SVG文件并转换为tldraw形状数据
  * @param svgString SVG文件内容
  * @returns 解析后的形状数据数组和提取的所有图片数据
  */
-export function parseSvgToShapes(svgString: string): { shapes: SvgShapeData[], imageData: Record<string, { base64Data: string, width: number, height: number, x: number, y: number }> } {
+function parseSvgToShapes(svgString: string): {
+  shapes: SvgShapeData[],
+  imageData: Record<string, { base64Data: string, width: number, height: number, x: number, y: number }>
+} {
   try {
-    console.log('Starting SVG parsing...');
-    
-    // 首先修复SVG文件，为image类型添加实际图片数据
-    const { fixedSvg, imageData }: { fixedSvg: string, imageData: Record<string, { base64Data: string, width: number, height: number, x: number, y: number }> } = fixSvgImageData(svgString);
-    
-    // 改进的SVG清理逻辑：对于大型文件，避免过度清理
-    let cleanedSvgString = fixedSvg;
-    
-    // 检查文件大小，对于大型文件采用更保守的清理策略
-    const isLargeFile = svgString.length > 100000; // 超过100KB视为大型文件
-    
-    if (!isLargeFile) {
-      // 对于小型文件，正常清理XML声明和DOCTYPE
-      cleanedSvgString = fixedSvg
-        .replace(/<\?xml[^>]*\?>/gi, '')
-        .replace(/<!DOCTYPE[^>]*>/gi, '')
-        .trim();
-      
-      if (!cleanedSvgString.trim()) {
-        cleanedSvgString = fixedSvg;
-      }
-    } else {
-      // 对于大型文件，只移除XML声明，保留DOCTYPE以避免解析问题
-      console.log('检测到大型SVG文件，采用保守清理策略');
-      cleanedSvgString = fixedSvg
-        .replace(/<\?xml[^>]*\?>/gi, '')
-        .trim();
-    }
-    
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(cleanedSvgString, 'image/svg+xml');
-    
-    const parseError = doc.getElementsByTagName('parsererror');
-    if (parseError.length > 0) {
-      const errorText = parseError[0].textContent || 'Unknown XML parsing error';
-      console.warn('Failed to parse SVG as XML:', errorText);
-      
-      // 提供更详细的错误信息，特别是对于大型文件
-      if (isLargeFile) {
-        console.warn('大型SVG文件解析失败，尝试备用解析策略...');
-        
-        // 尝试备用解析策略：使用更宽松的解析方式
-        try {
-          // 尝试直接解析原始SVG内容，不进行清理
-          const fallbackDoc = parser.parseFromString(fixedSvg, 'image/svg+xml');
-          const fallbackParseError = fallbackDoc.getElementsByTagName('parsererror');
-          
-          if (fallbackParseError.length === 0) {
-            console.log('备用解析策略成功，使用原始SVG内容');
-            return parseSvgToShapesFallback(fallbackDoc, imageData, svgString.length);
-          }
-        } catch (fallbackError) {
-          console.warn('备用解析策略也失败:', fallbackError);
-        }
-      }
-      
-      return { shapes: [], imageData: {} };
-    }
-    
-    const svgElement = doc.documentElement;
-    if (!svgElement || svgElement.tagName !== 'svg') {
-      console.warn('Invalid SVG file - root element is not SVG');
-      
-      // 对于大型文件，提供更详细的诊断信息
-      if (isLargeFile) {
-        console.warn('大型SVG文件根元素检查失败，文件大小:', svgString.length, '字符');
-        console.warn('文件前500字符预览:', svgString.substring(0, 500));
-      }
-      
-      return { shapes: [], imageData: {} };
-    }
-    // ✅ 修复 viewBox 偏移问题：调整 SVG 原点坐标
-    // 首先确保全局变量被正确初始化为默认值
-    (globalThis as any).__svgViewBoxOffset__ = { x: 0, y: 0 };
-    // 对于常规SVG，保持transform矩阵的相对位置关系
-    // (globalThis as any).__disableAutoCenterForRegularSvg__ = true;
-    
-    const viewBox = svgElement.getAttribute('viewBox');
-    if (viewBox) {
-      const [vx, vy] = viewBox.split(/\s+/).map(Number);
-      if (!isNaN(vx) && !isNaN(vy)) {
-        console.log(`Detected viewBox offset: (${vx}, ${vy})`);
-        // ✅ 修复：viewBox偏移量应该是负值，用于补偿SVG坐标系偏移
-        (globalThis as any).__svgViewBoxOffset__ = { x: -vx, y: -vy };
-        console.log(`设置viewBox全局偏移: (${-vx}, ${-vy})`);
-      }
-    } else {
-      console.log('未检测到viewBox属性，使用默认偏移量: (0, 0)');
+    // ---------- helpers：矩阵与点变换 ----------
+    const IDENTITY: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0];
+
+    // 矩阵乘法：返回 m1 * m2 （注意顺序：先应用 m2，再应用 m1）
+    function multiplyMatrices(
+      m1: [number, number, number, number, number, number],
+      m2: [number, number, number, number, number, number]
+    ): [number, number, number, number, number, number] {
+      const [a1, b1, c1, d1, e1, f1] = m1;
+      const [a2, b2, c2, d2, e2, f2] = m2;
+      const a = a1 * a2 + c1 * b2;
+      const b = b1 * a2 + d1 * b2;
+      const c = a1 * c2 + c1 * d2;
+      const d = b1 * c2 + d1 * d2;
+      const e = a1 * e2 + c1 * f2 + e1;
+      const f = b1 * e2 + d1 * f2 + f1;
+      return [a, b, c, d, e, f];
     }
 
+    // 将 transform 字符串解析为矩阵（保持 transform 命令出现的顺序）
+    function parseMatrixFromTransformString(transform?: string | null): [number, number, number, number, number, number] {
+      if (!transform) return IDENTITY;
+      const re = /([a-zA-Z]+)\(([^)]+)\)/g;
+      let match: RegExpExecArray | null;
+      let mat: [number, number, number, number, number, number] = IDENTITY;
+      while ((match = re.exec(transform))) {
+        const cmd = match[1];
+        const raw = (match[2] || '').trim();
+        const nums = raw.length ? raw.split(/[\s,]+/).map(s => parseFloat(s)).filter(n => !Number.isNaN(n)) : [];
+        switch (cmd) {
+          case 'matrix':
+            if (nums.length >= 6) mat = multiplyMatrices(mat, [nums[0], nums[1], nums[2], nums[3], nums[4], nums[5]]);
+            break;
+          case 'translate': {
+            const tx = nums[0] || 0;
+            const ty = nums.length >= 2 ? nums[1] : 0;
+            mat = multiplyMatrices(mat, [1, 0, 0, 1, tx, ty]);
+            break;
+          }
+          case 'scale': {
+            const sx = nums.length >= 1 ? nums[0] : 1;
+            const sy = nums.length >= 2 ? nums[1] : sx;
+            mat = multiplyMatrices(mat, [sx, 0, 0, sy, 0, 0]);
+            break;
+          }
+          case 'rotate': {
+            const ang = (nums[0] || 0) * Math.PI / 180;
+            const cos = Math.cos(ang);
+            const sin = Math.sin(ang);
+            if (nums.length >= 3) {
+              const cx = nums[1], cy = nums[2];
+              mat = multiplyMatrices(mat, [1, 0, 0, 1, cx, cy]);
+              mat = multiplyMatrices(mat, [cos, sin, -sin, cos, 0, 0]);
+              mat = multiplyMatrices(mat, [1, 0, 0, 1, -cx, -cy]);
+            } else {
+              mat = multiplyMatrices(mat, [cos, sin, -sin, cos, 0, 0]);
+            }
+            break;
+          }
+          case 'skewX': {
+            const a = (nums[0] || 0) * Math.PI / 180;
+            mat = multiplyMatrices(mat, [1, 0, Math.tan(a), 1, 0, 0]);
+            break;
+          }
+          case 'skewY': {
+            const a = (nums[0] || 0) * Math.PI / 180;
+            mat = multiplyMatrices(mat, [1, Math.tan(a), 0, 1, 0, 0]);
+            break;
+          }
+        }
+      }
+      return mat;
+    }
+
+    // 精确按矩阵计算点（不做额外 heuristic 补偿）
+    function applyMatrixToPoint(matrix: [number, number, number, number, number, number], x: number, y: number) {
+      const [a, b, c, d, e, f] = matrix;
+      return { x: a * x + c * y + e, y: b * x + d * y + f };
+    }
+
+    // ---------- end helpers ----------
+
+    // 先修复 SVG（A 的逻辑），并取出 imageData
+    const { fixedSvg, imageData }: { fixedSvg: string, imageData: Record<string, { base64Data: string, width: number, height: number, x: number, y: number }> } = fixSvgImageData(svgString || '');
+
+    // 清理 xml/doctypes（对大文件采用保守策略）
+    let cleanedSvgString = fixedSvg;
+    const isLargeFile = (svgString || '').length > 100000;
+    if (!isLargeFile) {
+      cleanedSvgString = fixedSvg.replace(/<\?xml[^>]*\?>/gi, '').replace(/<!DOCTYPE[^>]*>/gi, '').trim();
+      if (!cleanedSvgString.trim()) cleanedSvgString = fixedSvg;
+    } else {
+      cleanedSvgString = fixedSvg.replace(/<\?xml[^>]*\?>/gi, '').trim();
+    }
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(cleanedSvgString, 'image/svg+xml');
+    const parseError = doc.getElementsByTagName('parsererror');
+    if (parseError.length > 0) {
+      // 备用解析策略尝试
+      if (isLargeFile) {
+        try {
+          const fallbackDoc = parser.parseFromString(fixedSvg, 'image/svg+xml');
+          const fallbackParseError = fallbackDoc.getElementsByTagName('parsererror');
+          if (fallbackParseError.length === 0) {
+            // 如果 fallback 可以解析，调用回退解析（如果你有 parseSvgToShapesFallback 可以用）
+            if (typeof (parseSvgToShapesFallback as any) === 'function') {
+              return parseSvgToShapesFallback(fallbackDoc, imageData, svgString.length);
+            }
+          }
+        } catch (e) {
+          console.warn('fallback parse failed', e);
+        }
+      }
+      console.warn('SVG parse error:', parseError[0].textContent || 'unknown');
+      return { shapes: [], imageData: {} };
+    }
+
+    const svgElement = doc.documentElement;
+    if (!svgElement || svgElement.tagName.toLowerCase() !== 'svg') {
+      console.warn('Invalid SVG root');
+      return { shapes: [], imageData: {} };
+    }
+
+    // 处理 viewBox：我们把 viewBox origin (vx,vy) 保存下来，最终从每个坐标中减去它
+    // （即 final = transformedPoint - viewBoxOrigin）
+    let viewBoxOrigin = { x: 0, y: 0 };
+    const viewBoxAttr = svgElement.getAttribute('viewBox');
+    if (viewBoxAttr) {
+      const parts = viewBoxAttr.split(/[\s,]+/).map(s => parseFloat(s));
+      if (parts.length >= 2 && !Number.isNaN(parts[0]) && !Number.isNaN(parts[1])) {
+        viewBoxOrigin = { x: parts[0], y: parts[1] };
+      }
+    }
+
+    // shapes 列表
     const shapes: SvgShapeData[] = [];
-    
-    // 首先检查是否有metadata，如果有则优先使用metadata中的形状定义
-    const metadataElement = svgElement.getElementsByTagName('metadata')[0];
+
+    // 优先解析 metadata（如果存在 tldraw 导出数据）
     let hasMetadataShapes = false;
-    console.log('检查metadata元素:', metadataElement ? '存在' : '不存在');
-    
+    const metadataElement = svgElement.getElementsByTagName('metadata')[0];
     if (metadataElement) {
       const tldrawElement = metadataElement.getElementsByTagName('tldraw')[0];
       if (tldrawElement) {
@@ -925,1896 +857,746 @@ export function parseSvgToShapes(svgString: string): { shapes: SvgShapeData[], i
           const tldrawData = JSON.parse(tldrawElement.textContent || '{}');
           if (tldrawData.document && tldrawData.document.store) {
             const store = tldrawData.document.store;
-            
-            // 首先提取asset资源信息
             const assetMap = new Map<string, any>();
             for (const key in store) {
-              if (key.startsWith('asset:')) {
-                const assetInfo = store[key];
-                assetMap.set(assetInfo.id, assetInfo);
-              }
+              if (key.startsWith('asset:')) assetMap.set(store[key].id, store[key]);
             }
-            
-            // 然后提取shape信息，保持正确的图层顺序
-            const shapeKeys = Object.keys(store).filter(key => key.startsWith('shape:'));
-            
-            // 按照键名中的数字部分排序，确保图层顺序正确
+            const shapeKeys = Object.keys(store).filter(k => k.startsWith('shape:'));
             shapeKeys.sort((a, b) => {
-              // 提取shape:后面的数字部分进行比较
-              const numA = parseInt(a.replace('shape:', ''));
-              const numB = parseInt(b.replace('shape:', ''));
-              return numA - numB;
+              const nA = parseInt(a.replace('shape:', '')) || 0;
+              const nB = parseInt(b.replace('shape:', '')) || 0;
+              return nA - nB;
             });
-            
-            // 按照排序后的顺序处理形状
-            shapeKeys.forEach(key => {
-              const shapeInfo = store[key];
+            for (const key of shapeKeys) {
+              const si = store[key];
               const shape: SvgShapeData = {
-                id: shapeInfo.id,
-                type: shapeInfo.type,
-                x: shapeInfo.x || 0,
-                y: shapeInfo.y || 0,
-                rotation: shapeInfo.rotation || 0,
-                opacity: shapeInfo.opacity !== undefined && shapeInfo.opacity !== null ? shapeInfo.opacity : 1, // 修复：确保opacity正确使用
-              };
-              
-              // 处理不同类型的属性
-              if (shapeInfo.props) {
-                Object.assign(shape, shapeInfo.props);
-                
-                // 特殊处理draw类型的segments
-                if (shapeInfo.type === 'draw' && shapeInfo.props.segments) {
-                  shape.segments = shapeInfo.props.segments;
-                  shape.isComplete = shapeInfo.props.isComplete !== undefined ? shapeInfo.props.isComplete : true;
-                  shape.isPen = shapeInfo.props.isPen !== undefined ? shapeInfo.props.isPen : false;
-                }
-                
-                // 特殊处理geo类型的属性
-                if (shapeInfo.type === 'geo') {
-                  shape.geo = shapeInfo.props.geo || 'rectangle';
-                  shape.w = shapeInfo.props.w || 100;
-                  shape.h = shapeInfo.props.h || 100;
-                }
-                
-                // 特殊处理image类型的属性
-                if (shapeInfo.type === 'image') {
-                  shape.assetId = shapeInfo.props.assetId || undefined;
-                  shape.w = shapeInfo.props.w || 100;
-                  shape.h = shapeInfo.props.h || 100;
-                  
-                  // 如果assetId存在，尝试从assetMap中获取asset信息
-                  if (shape.assetId && assetMap.has(shape.assetId)) {
-                    const assetInfo = assetMap.get(shape.assetId);
-                    shape.assetInfo = assetInfo;
-                  }
-                  
-                  // 修复：即使没有assetInfo，也要确保assetId存在
-                  if (!shape.assetId) {
-                    // 如果没有assetId，生成一个基于形状ID的assetId
-                    shape.assetId = `asset:${shape.id.replace('shape:', '')}`;
-                    console.log(`为image形状生成assetId: ${shape.assetId}`);
-                  }
-                }
-              }
-              
+                id: si.id,
+                type: si.type,
+                x: si.x || 0,
+                y: si.y || 0,
+                rotation: si.rotation || 0,
+                opacity: si.opacity != null ? si.opacity : 1,
+              } as any;
+              if (si.props) Object.assign(shape, si.props);
               shapes.push(shape);
-              hasMetadataShapes = true;
-              console.log(`从metadata中解析到形状: ${shape.id}, 类型: ${shape.type}, 设置hasMetadataShapes=true`);
-            });
+            }
+            hasMetadataShapes = shapeKeys.length > 0;
           }
         } catch (e) {
-          console.warn('Failed to parse tldraw metadata:', e);
+          console.warn('Failed to parse tldraw metadata', e);
         }
       }
     }
-    
-    // 递归解析SVG元素
-      const parseElement = (element: Element, parentTransform?: string, parentOpacity: number = 1): void => {
-        const tagName = element.tagName.toLowerCase();
-        const transform = element.getAttribute('transform') || parentTransform;
-        
-        // 计算当前元素的opacity：自身opacity × 父元素opacity
-        const elementOpacityAttr = element.getAttribute('opacity');
-        const elementOpacityValue = elementOpacityAttr ? parseFloat(elementOpacityAttr) : 1;
-        const currentOpacity = parentOpacity * elementOpacityValue;
-        
-        console.log(`解析元素 ${tagName}: 自身opacity=${elementOpacityValue}, 父opacity=${parentOpacity}, 最终opacity=${currentOpacity}`);
-        
-        // 如果已经有metadata中的形状定义，跳过对应的SVG元素解析
-        if (hasMetadataShapes && tagName !== 'metadata') {
-          console.log(`跳过元素 ${tagName}，因为hasMetadataShapes=${hasMetadataShapes}`);
-          // 对于有metadata的情况，只处理metadata元素本身，跳过其他SVG元素
-          // 这样可以避免重复创建形状
-          if (tagName === 'g') {
-            // 对于组元素，仍然需要递归处理子元素，但跳过形状创建
-            const childNodes = element.childNodes || [];
-            for (let i = 0; i < childNodes.length; i++) {
-              const child = childNodes[i];
-              if (child.nodeType === 1) {
-                parseElement(child as Element, transform, currentOpacity); // 修复：传递当前opacity值
-              }
-            }
+
+    // 解析元素的主函数：接收合并后的父矩阵 parentMatrix
+    const parseElement = (element: Element, parentMatrix: [number, number, number, number, number, number], parentOpacity: number) => {
+      const tagName = element.tagName.toLowerCase();
+
+      // 如果存在 metadata shapes，则仅解析 <g> 的子节点以确保嵌套被遍历，但跳过其它普通元素
+      if (hasMetadataShapes && tagName !== 'metadata') {
+        if (tagName === 'g') {
+          const children = element.childNodes || [];
+          for (let i = 0; i < children.length; i++) {
+            const ch = children[i];
+            if (ch.nodeType === 1) parseElement(ch as Element, parentMatrix, parentOpacity);
           }
-          return;
         }
-        
-        // 检查是否是ink生成的tldraw形状 (优先处理)
-        // 只有当元素明确标记为tldraw形状时才优先处理
-        const isTldrawShape = element.getAttribute('data-tldraw') === 'true' || 
-                              element.getAttribute('data-type') ||
-                              element.tagName.toLowerCase() === 'metadata'; // 处理ink插件的metadata
-        
-        console.log(`解析元素 ${tagName}: isTldrawShape=${isTldrawShape}, hasMetadataShapes=${hasMetadataShapes}`);
-        
-        if (isTldrawShape) {
-          // 特殊处理ink插件的metadata
-          if (tagName === 'metadata') {
-            // metadata已经在函数开始时处理过了，这里直接返回
-            return;
-          }
-        
-          // 处理其他tldraw形状 (保持原有逻辑)
+        return;
+      }
+
+      // 计算当前元素的 local 矩阵并合并到父矩阵上
+      const localTransformStr = element.getAttribute('transform') || null;
+      const localMatrix = parseMatrixFromTransformString(localTransformStr);
+      const combinedMatrix = multiplyMatrices(localMatrix, parentMatrix); // 修改为 local 先
+
+      // opacity 继承
+      const elOpacityAttr = element.getAttribute('opacity');
+      const elOpacity = elOpacityAttr ? parseFloat(elOpacityAttr) : 1;
+      const curOpacity = parentOpacity * elOpacity;
+
+      // 优先处理 tldraw 导出元素（data-*）
+      const isTldrawShape = element.getAttribute('data-tldraw') === 'true' ||
+                            !!element.getAttribute('data-type') ||
+                            tagName === 'metadata';
+      if (isTldrawShape) {
+        if (tagName === 'metadata') return;
         const shapeType = element.getAttribute('data-type') || 'draw';
-        const shapeId = element.getAttribute('id') || createShapeId();
-        
-        const shape: SvgShapeData = {
-          id: shapeId,
-          type: shapeType as any,
-          transform: transform,
-          x: 0, // 简化处理，假设 tldraw 导出时已处理坐标
-          y: 0,
-        };
-        
-        // ... (保持原有 tldraw 形状属性解析逻辑)
-        switch (shapeType) {
-          case 'draw':
-            const segmentsAttr = element.getAttribute('data-segments');
-            if (segmentsAttr) {
-              try {
-                shape.segments = JSON.parse(segmentsAttr);
-              } catch (e) {
-                console.warn('Failed to parse segments:', e);
-              }
-            }
-            shape.isComplete = element.getAttribute('data-isComplete') === 'true';
-            shape.isPen = element.getAttribute('data-isPen') === 'true';
-            break;
-            
-          case 'geo':
-            shape.geo = element.getAttribute('data-geo') || 'rectangle';
-            shape.w = parseFloat(element.getAttribute('data-w') || '100');
-            shape.h = parseFloat(element.getAttribute('data-h') || '100');
-            break;
-            
-          case 'image':
-            shape.assetId = element.getAttribute('data-assetId') || undefined;
-            shape.w = parseFloat(element.getAttribute('data-w') || '100');
-            shape.h = parseFloat(element.getAttribute('data-h') || '100');
-            break;
+        const sid = element.getAttribute('id') || createShapeId();
+        const shape: SvgShapeData = { id: sid, type: shapeType as any, transform: localTransformStr || undefined, x: 0, y: 0 } as any;
+        if (shapeType === 'draw') {
+          const segAttr = element.getAttribute('data-segments');
+          if (segAttr) {
+            try { shape.segments = JSON.parse(segAttr); } catch (e) { console.warn('parse segments error', e); }
+          }
+          shape.isComplete = element.getAttribute('data-isComplete') === 'true';
+          shape.isPen = element.getAttribute('data-isPen') === 'true';
+        } else if (shapeType === 'geo') {
+          shape.geo = element.getAttribute('data-geo') || 'rectangle';
+          shape.w = parseFloat(element.getAttribute('data-w') || '100');
+          shape.h = parseFloat(element.getAttribute('data-h') || '100');
+        } else if (shapeType === 'image') {
+          shape.assetId = element.getAttribute('data-assetId') || undefined;
+          shape.w = parseFloat(element.getAttribute('data-w') || '100');
+          shape.h = parseFloat(element.getAttribute('data-h') || '100');
         }
-        
-        // 设置通用属性
-        shape.color = element.getAttribute('data-color') || 'black';
-        shape.fill = element.getAttribute('data-fill') || 'none';
-        shape.size = element.getAttribute('data-size') || 'm';
-        shape.dash = element.getAttribute('data-dash') || 'draw';
-        shape.scale = parseFloat(element.getAttribute('data-scale') || '1');
-        // ... 其他属性
-        
+        shape.opacity = curOpacity;
+        // color/fill/… 保持原有的 getTldrawStyleAndOpacity 逻辑，如果需要可以 merge
+        const { styles } = getTldrawStyleAndOpacity(element, undefined, curOpacity);
+        Object.assign(shape, styles);
         shapes.push(shape);
         return;
       }
-      
-      // 处理常规SVG元素 ---
-      const shapeId = createShapeId();
-      // 修复：使用新的函数获取样式和opacity，确保opacity作为顶级属性设置
-      const { styles, opacity: shapeOpacity } = getTldrawStyleAndOpacity(element, transform, currentOpacity);
+
+      // 普通元素处理
+      const sid = createShapeId();
+      const { styles, opacity: styleOpacity } = getTldrawStyleAndOpacity(element, undefined, curOpacity);
 
       switch (tagName) {
-        case 'g':
-          // 修复：组元素不应该创建形状，只负责传递transform和opacity给子元素
-          // 直接递归处理子元素，不创建任何形状
-          console.log(`处理g元素: ${shapeId}，传递transform给子元素，不创建形状`);
-          
-          // 获取当前元素的transform
-          const currentTransform = element.getAttribute('transform');
-          let combinedTransform = parentTransform;
-          
-          // 如果当前元素有transform，需要与父级transform合并
-          if (currentTransform) {
-            if (parentTransform) {
-              // 合并父级和当前元素的transform
-              const parentMatrix = parseTransform(parentTransform).matrix;
-              const currentMatrix = parseTransform(currentTransform).matrix;
-              const combinedMatrix = combineTransformMatrices(parentMatrix, currentMatrix);
-              
-              // 生成合并后的transform字符串
-              combinedTransform = `matrix(${combinedMatrix.join(', ')})`;
-              console.log(`合并transform矩阵: 父级=${parentTransform}, 当前=${currentTransform}, 合并后=${combinedTransform}`);
-            } else {
-              // 如果没有父级transform，直接使用当前transform
-              combinedTransform = currentTransform;
-              console.log(`使用当前元素的transform: ${currentTransform}`);
-            }
-          }
-          
-          // 递归处理所有子元素，传递合并后的transform和opacity
-          const childNodes = element.childNodes || [];
-          for (let i = 0; i < childNodes.length; i++) {
-            const child = childNodes[i];
-            if (child.nodeType === 1) {
-              parseElement(child as Element, combinedTransform, currentOpacity);
-            }
+        case 'g': {
+          // 递归合并矩阵到子元素（combinedMatrix）
+          const children = element.childNodes || [];
+          for (let i = 0; i < children.length; i++) {
+            const ch = children[i];
+            if (ch.nodeType === 1) parseElement(ch as Element, combinedMatrix, curOpacity);
           }
           break;
-          
+        }
+
         case 'rect': {
-          // 转换为 tldraw 'geo' 形状 (rectangle)
           const x = parseFloat(element.getAttribute('x') || '0');
           const y = parseFloat(element.getAttribute('y') || '0');
           const w = parseFloat(element.getAttribute('width') || '0');
           const h = parseFloat(element.getAttribute('height') || '0');
-          
           if (w > 0 && h > 0) {
-            // 计算最终位置：考虑transform变换
-            let finalX = x;
-            let finalY = y;
+            // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+            const tx = combinedMatrix[4]; // 平移X分量
+            const ty = combinedMatrix[5]; // 平移Y分量
+            const nonTranslationMatrix: [number, number, number, number, number, number] = [
+              combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+              combinedMatrix[3], 0, 0 // 移除平移分量
+            ];
             
-            if (transform) {
-              // 如果有transform，解析变换矩阵并应用到位置
-              const transformCoords = parseTransform(transform);
-              finalX += transformCoords.x;
-              finalY += transformCoords.y;
-              console.log(`应用transform到rect: 原始位置(${x}, ${y}), 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${finalX}, ${finalY})`);
-            }
+            // 只对点应用非平移矩阵
+            const p1 = applyMatrixToPoint(nonTranslationMatrix, x, y);
+            const p2 = applyMatrixToPoint(nonTranslationMatrix, x + w, y);
+            const p3 = applyMatrixToPoint(nonTranslationMatrix, x + w, y + h);
+            const p4 = applyMatrixToPoint(nonTranslationMatrix, x, y + h);
+            const minX = Math.min(p1.x, p2.x, p3.x, p4.x);
+            const minY = Math.min(p1.y, p2.y, p3.y, p4.y);
+            const maxX = Math.max(p1.x, p2.x, p3.x, p4.x);
+            const maxY = Math.max(p1.y, p2.y, p3.y, p4.y);
             
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            finalX -= viewOffset.x;
-            finalY -= viewOffset.y;
-            console.log(`应用viewBox偏移到rect: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${finalX}, ${finalY})`);
+            // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+            const finalX = tx + minX - viewBoxOrigin.x;
+            const finalY = ty + minY - viewBoxOrigin.y;
             
             shapes.push({
-              id: shapeId,
-              type: 'geo',
-              x: finalX,
-              y: finalY,
-              w: w,
-              h: h,
-              geo: 'rectangle',
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-              ...styles,
+              id: sid, type: 'geo', x: finalX, y: finalY,
+              w: maxX - minX, h: maxY - minY, geo: 'rectangle', opacity: styleOpacity, ...styles,
             });
           }
           break;
         }
-          
+
         case 'circle': {
-          // 转换为 tldraw 'geo' 形状 (ellipse)
           const cx = parseFloat(element.getAttribute('cx') || '0');
           const cy = parseFloat(element.getAttribute('cy') || '0');
           const r = parseFloat(element.getAttribute('r') || '0');
-          
           if (r > 0) {
-            // 计算最终位置：考虑transform变换
-            let finalCx = cx;
-            let finalCy = cy;
+            // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+            const tx = combinedMatrix[4]; // 平移X分量
+            const ty = combinedMatrix[5]; // 平移Y分量
+            const nonTranslationMatrix: [number, number, number, number, number, number] = [
+              combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+              combinedMatrix[3], 0, 0 // 移除平移分量
+            ];
             
-            if (transform) {
-              // 如果有transform，解析变换矩阵并应用到位置
-              const transformCoords = parseTransform(transform);
-              finalCx += transformCoords.x;
-              finalCy += transformCoords.y;
-              console.log(`应用transform到circle: 原始位置(${cx}, ${cy}), 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${finalCx}, ${finalCy})`);
-            }
+            // 只对中心点应用非平移矩阵
+            const p = applyMatrixToPoint(nonTranslationMatrix, cx, cy);
             
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            finalCx -= viewOffset.x;
-            finalCy -= viewOffset.y;
-            console.log(`应用viewBox偏移到circle: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${finalCx}, ${finalCy})`);
+            // 计算缩放因子（从矩阵中提取）
+            const scaleX = Math.sqrt(combinedMatrix[0] * combinedMatrix[0] + combinedMatrix[1] * combinedMatrix[1]);
+            const scaleY = Math.sqrt(combinedMatrix[2] * combinedMatrix[2] + combinedMatrix[3] * combinedMatrix[3]);
+            const avgScale = (scaleX + scaleY) / 2; // 使用平均缩放
+            
+            // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+            const finalX = tx + p.x - r * avgScale - viewBoxOrigin.x;
+            const finalY = ty + p.y - r * avgScale - viewBoxOrigin.y;
             
             shapes.push({
-              id: shapeId,
-              type: 'geo',
-              x: finalCx - r,
-              y: finalCy - r,
-              w: r * 2,
-              h: r * 2,
-              geo: 'ellipse',
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-              ...styles,
+              id: sid, type: 'geo', x: finalX, y: finalY,
+              w: r * 2 * avgScale, h: r * 2 * avgScale, geo: 'ellipse', opacity: styleOpacity, ...styles,
             });
           }
           break;
         }
-          
+
         case 'ellipse': {
-          // 转换为 tldraw 'geo' 形状 (ellipse)
           const ecx = parseFloat(element.getAttribute('cx') || '0');
           const ecy = parseFloat(element.getAttribute('cy') || '0');
           const rx = parseFloat(element.getAttribute('rx') || '0');
           const ry = parseFloat(element.getAttribute('ry') || '0');
-          
           if (rx > 0 && ry > 0) {
-            // 计算最终位置：考虑transform变换
-            let finalEcx = ecx;
-            let finalEcy = ecy;
+            // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+            const tx = combinedMatrix[4]; // 平移X分量
+            const ty = combinedMatrix[5]; // 平移Y分量
+            const nonTranslationMatrix: [number, number, number, number, number, number] = [
+              combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+              combinedMatrix[3], 0, 0 // 移除平移分量
+            ];
             
-            if (transform) {
-              // 如果有transform，解析变换矩阵并应用到位置
-              const transformCoords = parseTransform(transform);
-              finalEcx += transformCoords.x;
-              finalEcy += transformCoords.y;
-              console.log(`应用transform到ellipse: 原始位置(${ecx}, ${ecy}), 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${finalEcx}, ${finalEcy})`);
-            }
+            // 只对中心点应用非平移矩阵
+            const p = applyMatrixToPoint(nonTranslationMatrix, ecx, ecy);
             
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            finalEcx -= viewOffset.x;
-            finalEcy -= viewOffset.y;
-            console.log(`应用viewBox偏移到ellipse: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${finalEcx}, ${finalEcy})`);
+            // 计算缩放因子（从矩阵中提取）
+            const scaleX = Math.sqrt(combinedMatrix[0] * combinedMatrix[0] + combinedMatrix[1] * combinedMatrix[1]);
+            const scaleY = Math.sqrt(combinedMatrix[2] * combinedMatrix[2] + combinedMatrix[3] * combinedMatrix[3]);
+            
+            // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+            const finalX = tx + p.x - rx * scaleX - viewBoxOrigin.x;
+            const finalY = ty + p.y - ry * scaleY - viewBoxOrigin.y;
             
             shapes.push({
-              id: shapeId,
-              type: 'geo',
-              x: finalEcx - rx,
-              y: finalEcy - ry,
-              w: rx * 2,
-              h: ry * 2,
-              geo: 'ellipse',
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-              ...styles,
+              id: sid, type: 'geo', x: finalX, y: finalY,
+              w: rx * 2 * scaleX, h: ry * 2 * scaleY, geo: 'ellipse', opacity: styleOpacity, ...styles,
             });
           }
           break;
         }
-          
+
         case 'line': {
-          // 将line元素转换为path数据
           const x1 = parseFloat(element.getAttribute('x1') || '0');
           const y1 = parseFloat(element.getAttribute('y1') || '0');
           const x2 = parseFloat(element.getAttribute('x2') || '0');
           const y2 = parseFloat(element.getAttribute('y2') || '0');
           
-          const d = `M ${x1} ${y1} L ${x2} ${y2}`;
+          // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+          const tx = combinedMatrix[4]; // 平移X分量
+          const ty = combinedMatrix[5]; // 平移Y分量
+          const nonTranslationMatrix: [number, number, number, number, number, number] = [
+            combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+            combinedMatrix[3], 0, 0 // 移除平移分量
+          ];
           
-          // 计算最终位置：考虑transform变换
-          let x = 0;
-          let y = 0;
+          // 只对点应用非平移矩阵
+          const p1 = applyMatrixToPoint(nonTranslationMatrix, x1, y1);
+          const p2 = applyMatrixToPoint(nonTranslationMatrix, x2, y2);
+          const d = `M ${p1.x} ${p1.y} L ${p2.x} ${p2.y}`;
+          const minX = Math.min(p1.x, p2.x), minY = Math.min(p1.y, p2.y);
           
-          if (transform) {
-            // 如果有transform，解析变换矩阵并应用到位置
-            const transformCoords = parseTransform(transform);
-            x = transformCoords.x;
-            y = transformCoords.y;
-            console.log(`应用transform到line: 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${x}, ${y})`);
-          }
-          
-          // 应用 viewBox 全局偏移
-          const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-          x -= viewOffset.x;
-          y -= viewOffset.y;
-          console.log(`应用viewBox偏移到line: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${x}, ${y})`);
+          // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+          const finalX = tx + minX - viewBoxOrigin.x;
+          const finalY = ty + minY - viewBoxOrigin.y;
           
           shapes.push({
-            id: shapeId,
-            type: 'path',
-            d: d,
-            x: x,
-            y: y,
-            transform: transform,
-            opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-            ...styles,
+            id: sid, type: 'path', d, x: finalX, y: finalY, opacity: styleOpacity, ...styles
           });
           break;
         }
-          
-        case 'polyline': {
-          // 将polyline元素转换为path数据
-          const points = element.getAttribute('points') || '';
-          const pointsArray = points.trim().split(/[\s,]+/).filter(p => p.trim() !== '');
-          
-          if (pointsArray.length >= 2) {
-            let d = `M ${pointsArray[0]} ${pointsArray[1]}`;
-            for (let i = 2; i < pointsArray.length; i += 2) {
-              if (i + 1 < pointsArray.length) {
-                d += ` L ${pointsArray[i]} ${pointsArray[i + 1]}`;
-              }
-            }
-            
-            // 计算最终位置：考虑transform变换
-            let x = 0;
-            let y = 0;
-            
-            if (transform) {
-              // 如果有transform，解析变换矩阵并应用到位置
-              const transformCoords = parseTransform(transform);
-              x = transformCoords.x;
-              y = transformCoords.y;
-              console.log(`应用transform到polyline: 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${x}, ${y})`);
-            }
-            
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            x -= viewOffset.x;
-            y -= viewOffset.y;
-            console.log(`应用viewBox偏移到polyline: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${x}, ${y})`);
-            
-            shapes.push({
-              id: shapeId,
-              type: 'path',
-              d: d,
-              x: x,
-              y: y,
-              transform: transform,
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-              ...styles,
-            });
-          }
-          break;
-        }
-          
+
+        case 'polyline':
         case 'polygon': {
-          // 将polygon元素转换为path数据（闭合路径）
-          const points = element.getAttribute('points') || '';
-          const pointsArray = points.trim().split(/[\s,]+/).filter(p => p.trim() !== '');
-          
-          if (pointsArray.length >= 2) {
-            let d = `M ${pointsArray[0]} ${pointsArray[1]}`;
-            for (let i = 2; i < pointsArray.length; i += 2) {
-              if (i + 1 < pointsArray.length) {
-                d += ` L ${pointsArray[i]} ${pointsArray[i + 1]}`;
-              }
+          const ptsAttr = element.getAttribute('points') || '';
+          const tokens = ptsAttr.trim().split(/[\s,]+/).filter(Boolean);
+          if (tokens.length >= 2) {
+            // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+            const tx = combinedMatrix[4]; // 平移X分量
+            const ty = combinedMatrix[5]; // 平移Y分量
+            const nonTranslationMatrix: [number, number, number, number, number, number] = [
+              combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+              combinedMatrix[3], 0, 0 // 移除平移分量
+            ];
+            
+            // 只对点应用非平移矩阵，计算相对边界框
+            const pts: { x: number, y: number }[] = [];
+            for (let i = 0; i + 1 < tokens.length; i += 2) {
+              const px = parseFloat(tokens[i] || '0');
+              const py = parseFloat(tokens[i + 1] || '0');
+              pts.push(applyMatrixToPoint(nonTranslationMatrix, px, py));
             }
-            d += ' Z'; // 闭合路径
-            
-            // 计算最终位置：考虑transform变换
-            let x = 0;
-            let y = 0;
-            
-            if (transform) {
-              // 如果有transform，解析变换矩阵并应用到位置
-              const transformCoords = parseTransform(transform);
-              x = transformCoords.x;
-              y = transformCoords.y;
-              console.log(`应用transform到polygon: 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${x}, ${y})`);
+            if (pts.length) {
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              for (const p of pts) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }
+              let d = `M ${pts[0].x - minX} ${pts[0].y - minY} `;
+              for (let i = 1; i < pts.length; i++) d += `L ${pts[i].x - minX} ${pts[i].y - minY} `;
+              if (tagName === 'polygon') d += 'Z';
+              
+              // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+              const finalX = tx + minX - viewBoxOrigin.x;
+              const finalY = ty + minY - viewBoxOrigin.y;
+              
+              shapes.push({
+                id: sid, type: 'path', d: d.trim(), x: finalX, y: finalY, opacity: styleOpacity, ...styles
+              });
             }
-            
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            x -= viewOffset.x;
-            y -= viewOffset.y;
-            console.log(`应用viewBox偏移到polygon: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${x}, ${y})`);
-            
-            shapes.push({
-              id: shapeId,
-              type: 'path',
-              d: d,
-              x: x,
-              y: y,
-              transform: transform,
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-              ...styles,
-            });
           }
           break;
         }
-          
-        case 'path': {
-          const d = element.getAttribute('d');
-          if (!d) break;
 
-          // 获取样式属性
-          const { styles, opacity: shapeOpacity } = getTldrawStyleAndOpacity(element, parentTransform, parentOpacity);
-          
-          // 获取变换矩阵
-          let transform = element.getAttribute('transform') || parentTransform;
-          
-          // 特殊处理网络下载的SVG：检测并处理包含scale(-0.1)的变换
-          if (transform && transform.includes('scale') && transform.includes('-0.1')) {
-            console.log('检测到网络下载SVG的scale(-0.1)变换，进行特殊处理');
-            
-            // 解析变换矩阵
-            const transformData = parseTransform(transform);
-            const [a, b, c, dValue, e, f] = transformData.matrix;
-            
-            // 检查是否是负缩放（如scale(0.1,-0.1)）
-            if (dValue < 0) {
-              console.log('检测到Y轴负缩放，调整坐标系统');
-              
-              // 对于负缩放，我们需要先对路径数据进行预处理
-              // 主要是反转Y坐标，以抵消负缩放的影响
-              let processedD = d;
-              
-              // 简单的Y坐标反转：将所有Y坐标值取反
-              // 这里我们使用正则表达式匹配路径中的数字
-              processedD = processedD.replace(/([MLHVCSQTAZ])\s*([^MLHVCSQTAZ]*)/gi, (match, cmd, params) => {
-                // 处理命令参数，反转Y坐标
-                const processedParams = params.replace(/(-?\d+\.?\d*)\s+(-?\d+\.?\d*)/g, (coordMatch: string, x: string, y: string) => {
-                  const numY = parseFloat(y);
-                  if (!isNaN(numY)) {
-                    return `${x} ${-numY}`;
-                  }
-                  return coordMatch;
-                });
-                return cmd + processedParams;
-              });
-              
-              // 修正变换矩阵，移除负缩放
-              const correctedTransform = transform.replace(/scale\([^)]*\)/g, 'scale(0.1, 0.1)');
-              transform = correctedTransform;
-              
-              console.log('修正后的路径数据和变换');
-            }
+        case 'path': {
+          let dRaw = element.getAttribute('d');
+          if (!dRaw) break;
+
+          // 1. 【预处理】应用缩放，解决 potrace 的巨大坐标问题
+          //    我们保留 applyScaleMatrixToPathD，因为它被证明是有效的。
+          const preScaleMatrix: [number, number, number, number, number, number] = [combinedMatrix[0], 0, 0, combinedMatrix[3], 0, 0];
+          const scaledD = applyScaleMatrixToPathD(dRaw, preScaleMatrix);
+
+          // 2. 【分流】判断路径类型
+          const isHandDrawnPath = scaledD.includes('Q') || scaledD.includes('q') || scaledD.includes('T') || scaledD.includes('t');
+
+          let segments: TLDrawSegment[];
+
+          if (isHandDrawnPath) {
+            // 3a. 如果是手绘路径 (Q/T)，我们必须绕过 reverseSvgPathToSegments 的二次采样。
+            //     最简单的方法是，我们自己做一个超轻量级的采样。
+            //     我们将使用 reverseSvgPathToSegments，但给它一个极小的采样值！
+            segments = reverseSvgPathToSegments(scaledD, { bezierSegments: 2, arcSegments: 2 });
+          } else {
+            // 3b. 如果是几何路径 (M/L/C/Z)，使用我们修复好的、有动态Epsilon的 reverseSvgPathToSegments。
+            segments = reverseSvgPathToSegments(scaledD, { bezierSegments: 24, arcSegments: 36 });
           }
 
-          const simplifiedD = sanitizeSvgPath(d);
-          const hasValidPathCommands = /[MLCQAZ]/.test(simplifiedD);
-          const hasValidCoordinates = /[\d\-\.]/.test(simplifiedD);
-          if (!hasValidPathCommands || !hasValidCoordinates) break;
+          if (!segments || segments.length === 0) break;
 
-          // 计算边界框，用于定位
-          const segments = reverseSvgPathToSegments(simplifiedD, { bezierSegments: 32, arcSegments: 48 });
+          // 4. 【后处理】应用平移
+          const e = combinedMatrix[4];
+          const f = combinedMatrix[5];
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          
-          // 如果有transform，需要先应用变换到所有点，再计算边界框
-          const transformMatrix = transform ? parseTransform(transform).matrix : [1, 0, 0, 1, 0, 0];
-          
           for (const seg of segments) {
             for (const p of seg.points) {
-              // 应用变换矩阵到每个点
-              let transformedX = p.x;
-              let transformedY = p.y;
-              
-              if (transform) {
-                const [a, b, c, d, e, f] = transformMatrix;
-                transformedX = a * p.x + c * p.y + e;
-                transformedY = b * p.x + d * p.y + f;
-              }
-              
-              minX = Math.min(minX, transformedX);
-              minY = Math.min(minY, transformedY);
-              maxX = Math.max(maxX, transformedX);
-              maxY = Math.max(maxY, transformedY);
+              p.x += e;
+              p.y += f;
+              minX = Math.min(minX, p.x);
+              minY = Math.min(minY, p.y);
+              maxX = Math.max(maxX, p.x);
+              maxY = Math.max(maxY, p.y);
             }
           }
+          if (!isFinite(minX)) break;
 
-          // ✅ 修复：使用变换后的中心点坐标
-          const cx = (minX + maxX) / 2;
-          const cy = (minY + maxY) / 2;
-          
-          // 对于path元素，我们不需要再额外应用transform，因为已经应用到所有点了
-          // 只需要应用viewBox偏移（如果需要）
-          let finalX = cx;
-          let finalY = cy;
-          
-          // 应用 viewBox 全局偏移（仅在需要自动居中时应用）
-          const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-          // 对于常规SVG，当禁用自动居中时，不应用viewBox偏移，保持原始transform相对位置
-          const shouldApplyViewOffset = !(globalThis as any).__disableAutoCenterForRegularSvg__;
-          if (shouldApplyViewOffset) {
-            finalX -= viewOffset.x;
-            finalY -= viewOffset.y;
-            console.log(`应用viewBox偏移到path: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${finalX}, ${finalY})`);
-          } else {
-            console.log(`跳过viewBox偏移到path: 禁用自动居中，保持原始transform相对位置，最终位置(${finalX}, ${finalY})`);
-          }
+          // 5. 创建 Shape (后续逻辑保持不变)
+          const finalSegments = segments.map(seg => ({
+              ...seg,
+              points: seg.points.map(p => ({ x: p.x - minX, y: p.y - minY, z: p.z }))
+          }));
+          const finalX = minX - viewBoxOrigin.x;
+          const finalY = minY - viewBoxOrigin.y;
 
           shapes.push({
-            id: shapeId,
-            type: 'path',
-            d: simplifiedD,
+            id: createShapeId(),
+            type: 'draw',
             x: finalX,
             y: finalY,
-            transform,
-            opacity: shapeOpacity,
+            w: (maxX - minX) || 1,
+            h: (maxY - minY) || 1,
+            opacity: styleOpacity,
             ...styles,
+            segments: finalSegments,
+            isComplete: true,
+            isClosed: dRaw.trim().toUpperCase().endsWith('Z'),
           });
+
           break;
         }
-        
+
         case 'image': {
-          // 处理SVG image元素，转换为tldraw image类型
+          // 参考 A 的处理，优先使用 fixSvgImageData 中的资源标识
           const x = parseFloat(element.getAttribute('x') || '0');
           const y = parseFloat(element.getAttribute('y') || '0');
-          const width = parseFloat(element.getAttribute('width') || '0');
-          const height = parseFloat(element.getAttribute('height') || '0');
-          const href = element.getAttribute('xlink:href') || element.getAttribute('href');
-          
-          if (width > 0 && height > 0 && href) {
-            // 计算最终位置：考虑transform变换
-            let finalX = x;
-            let finalY = y;
+          const w = parseFloat(element.getAttribute('width') || '0');
+          const h = parseFloat(element.getAttribute('height') || '0');
+          const href = element.getAttribute('xlink:href') || element.getAttribute('href') || '';
+          if (w > 0 && h > 0 && href) {
+            // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+            const tx = combinedMatrix[4]; // 平移X分量
+            const ty = combinedMatrix[5]; // 平移Y分量
+            const nonTranslationMatrix: [number, number, number, number, number, number] = [
+              combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+              combinedMatrix[3], 0, 0 // 移除平移分量
+            ];
             
-            if (transform) {
-              // 如果有transform，解析变换矩阵并应用到位置
-              const transformCoords = parseTransform(transform);
-              finalX += transformCoords.x;
-              finalY += transformCoords.y;
-              console.log(`应用transform到图片: 原始位置(${x}, ${y}), 变换(${transformCoords.x}, ${transformCoords.y}), 最终位置(${finalX}, ${finalY})`);
-            }
+            // 只对位置点应用非平移矩阵，宽高可能受缩放影响
+            const p = applyMatrixToPoint(nonTranslationMatrix, x, y);
             
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            finalX -= viewOffset.x;
-            finalY -= viewOffset.y;
-            console.log(`应用viewBox偏移到图片: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${finalX}, ${finalY})`);
+            // 计算缩放因子（从矩阵中提取）
+            const scaleX = Math.sqrt(combinedMatrix[0] * combinedMatrix[0] + combinedMatrix[1] * combinedMatrix[1]);
+            const scaleY = Math.sqrt(combinedMatrix[2] * combinedMatrix[2] + combinedMatrix[3] * combinedMatrix[3]);
             
-            // 创建image类型形状，确保assetId以"asset:"开头
+            // asset id 规范化
             const assetId = href.startsWith('asset:') ? href : `asset:${href}`;
             
-            // 创建image类型形状
+            // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+            const finalX = tx + p.x - viewBoxOrigin.x;
+            const finalY = ty + p.y - viewBoxOrigin.y;
+            
             shapes.push({
-              id: shapeId,
+              id: sid,
               type: 'image',
               x: finalX,
               y: finalY,
-              w: width,
-              h: height,
-              assetId: assetId,
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
+              w: w * scaleX, // 应用缩放
+              h: h * scaleY, // 应用缩放
+              assetId,
+              opacity: styleOpacity,
               ...styles,
             });
           }
           break;
         }
-        
+
         case 'text': {
-          // 处理SVG text元素，转换为tldraw text类型
           const x = parseFloat(element.getAttribute('x') || '0');
           const y = parseFloat(element.getAttribute('y') || '0');
           const textContent = element.textContent || '';
-          
           if (textContent.trim()) {
-            // 应用 viewBox 全局偏移
-            const viewOffset = (globalThis as any).__svgViewBoxOffset__ || { x: 0, y: 0 };
-            const finalX = x - viewOffset.x;
-            const finalY = y - viewOffset.y;
-            console.log(`应用viewBox偏移到text: 偏移(${viewOffset.x}, ${viewOffset.y}), 最终位置(${finalX}, ${finalY})`);
+            // 矩阵分离：将combinedMatrix分离为平移分量和非平移矩阵
+            const tx = combinedMatrix[4]; // 平移X分量
+            const ty = combinedMatrix[5]; // 平移Y分量
+            const nonTranslationMatrix: [number, number, number, number, number, number] = [
+              combinedMatrix[0], combinedMatrix[1], combinedMatrix[2], 
+              combinedMatrix[3], 0, 0 // 移除平移分量
+            ];
             
-            // 创建text类型形状
+            // 只对位置点应用非平移矩阵
+            const p = applyMatrixToPoint(nonTranslationMatrix, x, y);
+            
+            // 最终形状位置由三部分组成：平移分量 + 相对边界框左上角 + ViewBox偏移
+            const finalX = tx + p.x - viewBoxOrigin.x;
+            const finalY = ty + p.y - viewBoxOrigin.y;
+            
             shapes.push({
-              id: shapeId,
-              type: 'text',
-              x: finalX,
-              y: finalY,
-              w: 200, // 默认宽度
-              h: 100, // 默认高度
-              text: textContent,
-              font: 'draw',
-              align: 'middle',
-              verticalAlign: 'middle',
-              opacity: shapeOpacity, // 修复：单独设置顶级opacity属性
-              ...styles,
+              id: sid, type: 'text',
+              x: finalX, y: finalY,
+              w: 200, h: 100, text: textContent,
+              font: 'draw', align: 'middle', verticalAlign: 'middle',
+              opacity: styleOpacity, ...styles
             });
           }
           break;
         }
-          
-        default:
-          // 递归处理其他元素
-          const defaultChildNodes = element.childNodes || [];
-          for (let i = 0; i < defaultChildNodes.length; i++) {
-            const child = defaultChildNodes[i];
-            if (child.nodeType === 1) {
-              parseElement(child as Element, transform);
-            }
+
+        default: {
+          // 递归到子节点（使用 combinedMatrix）
+          const children = element.childNodes || [];
+          for (let i = 0; i < children.length; i++) {
+            const ch = children[i];
+            if (ch.nodeType === 1) parseElement(ch as Element, combinedMatrix, curOpacity);
           }
           break;
-      }
-    }
-    
-    console.log(`开始解析常规SVG元素，hasMetadataShapes=${hasMetadataShapes}`);
-    
-    // 如果已经存在metadata形状定义，跳过常规SVG元素遍历以避免重复创建形状
-    console.log(`准备解析常规SVG元素，hasMetadataShapes=${hasMetadataShapes}, shapes.length=${shapes.length}`);
-    if (!hasMetadataShapes) {
-      console.log('开始解析SVG根元素的子元素...');
-      
-      // 保持SVG元素的原始绘制顺序：按文档顺序遍历所有元素
-      // 使用深度优先遍历，确保图层顺序正确
-      const traverseElements = (element: Element, parentTransform?: string, parentOpacity: number = 1): void => {
-        const tagName = element.tagName.toLowerCase();
-        
-        // 修复：移除对当前元素的parseElement调用，避免双重解析
-        // 真正的形状创建应该在parseElement函数中完成
-        // 这里只负责递归处理子元素
-        
-        // 按顺序递归处理所有子元素（包括group元素的子元素）
-        const childNodes = element.childNodes || [];
-        for (let i = 0; i < childNodes.length; i++) {
-          const child = childNodes[i];
-          if (child.nodeType === 1) {
-            // 获取当前元素的transform和opacity传递给子元素
-            const currentTransform = element.getAttribute('transform') || parentTransform;
-            const elementOpacityAttr = element.getAttribute('opacity');
-            const elementOpacityValue = elementOpacityAttr ? parseFloat(elementOpacityAttr) : 1;
-            const currentOpacity = parentOpacity * elementOpacityValue;
-            
-            // 直接调用parseElement处理子元素，避免双重解析
-            parseElement(child as Element, currentTransform, currentOpacity);
-          }
         }
-      };
-      
-      // 从SVG根元素开始遍历
-      // 修复：直接调用parseElement处理根元素，然后使用traverseElements处理子元素
-      parseElement(svgElement, undefined, 1);
-    } else {
-      console.log('跳过常规SVG元素解析，因为hasMetadataShapes=true');
-    }
-    
-    console.log(`Parsing completed. Found ${shapes.length} shapes.`);
-    return { shapes, imageData };
-    
-  } catch (error) {
-    console.error('Error parsing SVG:', error);
-    
-    // 提供更详细的错误信息
-    if (svgString) {
-      console.error('SVG文件内容预览:', svgString.substring(0, 500) + '...');
-      console.error('SVG文件长度:', svgString.length);
-      
-      // 检查常见问题
-      if (!svgString.includes('<svg')) {
-        console.error('错误原因: SVG文件缺少根元素<svg>');
-      } else if (!svgString.includes('</svg>')) {
-        console.error('错误原因: SVG文件缺少闭合标签</svg>');
-      } else if (svgString.length < 10) {
-        console.error('错误原因: SVG文件内容过短');
       }
+    };
+
+    // 从根元素遍历（根矩阵为 IDENTITY）
+    const rootChildren = svgElement.childNodes || [];
+    for (let i = 0; i < rootChildren.length; i++) {
+      const ch = rootChildren[i];
+      if (ch.nodeType === 1) parseElement(ch as Element, IDENTITY, 1);
     }
-    
+
+    return { shapes, imageData };
+  } catch (err) {
+    console.error('Error parsing SVG (reworked):', err);
     return { shapes: [], imageData: {} };
   }
 }
-
 /**
  * 将SVG形状数据添加到tldraw编辑器中
  */
+// 创建 shape 的小封装
+function createTlShapeSafe(editor: Editor, shapeArgs: any): TLShape {
+  const id = shapeArgs.id ?? createShapeId()
+  shapeArgs.id = id
+  editor.createShape(shapeArgs)
+  const sh = editor.getShape(id)
+  if (!sh) throw new Error(`createShape failed id=${id}`)
+  return sh as TLShape
+}
+/**
+ * 主函数：把 SvgShapeData 数组创建到 editor 中
+ *
+ * 说明关键点：
+ * - rootOffsets (offsetX/offsetY) 只应用在根级 shape（避免二次偏移）
+ * - metadataShapes（含 segments）直接使用 segments，不重复解析 d
+ * - non-metadata path 使用 reverseSvgPathToSegments 恢复点数据
+ * - path/type -> 以 draw 类型导入（tldraw 支持），避免 type="path" 的 util 缺失
+ * - 不把 opacity 放入 props（放到顶级字段）
+ */
 export function addSvgShapesToEditor(
-  editor: Editor, 
-  shapes: SvgShapeData[], 
-  canvasCenterX: number = 0, 
+  editor: Editor,
+  shapes: SvgShapeData[],
+  canvasCenterX: number = 0,
   canvasCenterY: number = 0,
-  imageData: Record<string, { base64Data: string, width: number, height: number }> = {},
+  imageData: Record<string, { base64Data: string; width: number; height: number }> = {},
   disableAutoCenter: boolean = false
-): void {
-  const shapeMap = new Map<string, TLShape>()
+): TLShape[] {
+  const created: TLShape[] = []
   
-  // 第一步：计算所有形状的边界框
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
+  // 生成颜色映射表
+  const colorMap = generateColorMapFromPalette()
 
-  // 缓存路径解析结果，避免重复解析
-  const pathSegmentsCache = new Map<string, any[]>();
-  
-  shapes.forEach(shapeData => {
-    if (shapeData.type === 'draw' && shapeData.segments && shapeData.segments.length > 0) {
-      shapeData.segments.forEach((segment: any) => {
-        if (segment.points && segment.points.length > 0) {
-          segment.points.forEach((point: any) => {
-            const px = (shapeData.x || 0) + (point.x || 0)
-            const py = (shapeData.y || 0) + (point.y || 0)
-            minX = Math.min(minX, px)
-            minY = Math.min(minY, py)
-            maxX = Math.max(maxX, px)
-            maxY = Math.max(maxY, py)
-          })
-        }
-      })
-    } else if (shapeData.type === 'path' && shapeData.d) {
-      // 对于常规SVG的path类型，需要解析路径数据来计算边界框
-      try {
-        let segments: any[] = [];
-        
-        // 检查缓存中是否已有解析结果
-        if (pathSegmentsCache.has(shapeData.d)) {
-          segments = pathSegmentsCache.get(shapeData.d)!;
-          console.log('使用缓存的路径解析结果计算边界框');
+  // 安全检查 util 存在
+  const safeNumber = (v: any, fallback = 0) => (Number.isFinite(v) ? v : fallback)
+
+  // 递归创建（parentId 传入）
+  const createRecursive = (shape: SvgShapeData, parentId?: string, isRoot = false) => {
+    // 只在根级应用偏移（避免二次偏移）
+    if (isRoot && !disableAutoCenter) {
+      shape.x = (shape.x ?? 0) + canvasCenterX
+      shape.y = (shape.y ?? 0) + canvasCenterY
+    }
+
+    const id = shape.id ?? createShapeId()
+
+    // unify type mapping:
+    // - if incoming shape.type === 'path' (from SVG), convert to draw
+    // - if incoming shape.type === 'path' but already has segments (metadata) keep segments
+    const base: any = {
+      id,
+      parentId: parentId,
+      x: safeNumber(shape.x, 0),
+      y: safeNumber(shape.y, 0),
+      rotation: safeNumber(shape.rotation, 0),
+      opacity: (shape.opacity !== undefined && shape.opacity !== null) ? shape.opacity : 1,
+    }
+
+    // build shape args depending on type
+    if (shape.type === 'draw') {
+      // draw from metadata: use shape.segments if exists, else use convertSvgPathToSegments for ink format d
+      let segments: any[] = []
+      let isClosed = shape.isClosed ?? false
+      if (Array.isArray(shape.segments) && shape.segments.length > 0) {
+        // metadataShapes: 直接使用segments，不重复解析d
+        segments = shape.segments
+      } else if (typeof shape.d === 'string' && shape.d.trim().length > 0) {
+        // assume ink format: use convertSvgPathToSegments
+        const pathResult = convertSvgPathToSegments(shape.d)
+        segments = pathResult.segments
+        isClosed = pathResult.isClosed
+      }
+
+      // 优化isClosed推断：如果无明确isClosed，从segments推断（第一个segment起点≈终点）
+      if (isClosed === undefined && segments.length > 0) {
+        const firstSegment = segments[0]
+        if (firstSegment && firstSegment.points && firstSegment.points.length > 1) {
+          const firstPoint = firstSegment.points[0]
+          const lastPoint = firstSegment.points[firstSegment.points.length - 1]
+          isClosed = Math.abs(firstPoint.x - lastPoint.x) < 0.001 && Math.abs(firstPoint.y - lastPoint.y) < 0.001
         } else {
-          // 首次解析，并缓存结果
-          segments = reverseSvgPathToSegments(shapeData.d, { bezierSegments: 32, arcSegments: 48 });
-          pathSegmentsCache.set(shapeData.d, segments);
-          console.log('首次解析路径并缓存结果');
+          isClosed = false
         }
-        
-        // 获取变换矩阵
-        const transformMatrix = shapeData.transform ? parseTransform(shapeData.transform).matrix : [1, 0, 0, 1, 0, 0];
-        
-        segments.forEach((segment: any) => {
-          if (segment.points && segment.points.length > 0) {
-            segment.points.forEach((point: any) => {
-              // 应用变换矩阵到每个点
-              let transformedX = point.x;
-              let transformedY = point.y;
-              
-              if (shapeData.transform) {
-                const [a, b, c, d, e, f] = transformMatrix;
-                transformedX = a * point.x + c * point.y + e;
-                transformedY = b * point.x + d * point.y + f;
-              }
-              
-              const px = (shapeData.x || 0) + transformedX
-              const py = (shapeData.y || 0) + transformedY
-              minX = Math.min(minX, px)
-              minY = Math.min(minY, py)
-              maxX = Math.max(maxX, px)
-              maxY = Math.max(maxY, py)
-            })
-          }
-        })
-      } catch (error) {
-        console.warn('路径解析失败，使用默认边界框计算:', error)
-        const x = shapeData.x || 0
-        const y = shapeData.y || 0
-        const width = shapeData.w || 100
-        const height = shapeData.h || 100
-        minX = Math.min(minX, x)
-        minY = Math.min(minY, y)
-        maxX = Math.max(maxX, x + width)
-        maxY = Math.max(maxY, y + height)
       }
-    } else {
-      const x = shapeData.x || 0
-      const y = shapeData.y || 0
-      const width = shapeData.w || 100
-      const height = shapeData.h || 100
-      minX = Math.min(minX, x)
-      minY = Math.min(minY, y)
-      maxX = Math.max(maxX, x + width)
-      maxY = Math.max(maxY, y + height)
-    }
-  })
 
-  const contentCenterX = (minX + maxX) / 2
-  const contentCenterY = (minY + maxY) / 2
-  const contentWidth = maxX - minX
-  const contentHeight = maxY - minY
-  const canvasWidth = 800
-  const canvasHeight = 600
-  
-  // 正确理解viewBox：viewBox的0 0代表视图左上角，不是中心
-  // 当SVG内容在不同位置时，viewBox的起始坐标会有正负值
-  // 导入时需要将这些坐标逆转，才能让内容正确显示在视图中心
-  
-  console.log('=== viewBox坐标处理分析 ===')
-  console.log(`viewBox起始坐标: (${minX}, ${minY})`)
-  console.log(`内容边界: (${minX}, ${minY}) - (${maxX}, ${maxY})`)
-  console.log(`内容尺寸: ${contentWidth}x${contentHeight}`)
-  console.log(`内容中心点: (${contentCenterX}, ${contentCenterY})`)
-  
-  // 计算缩放比例
-  const scaleX = canvasWidth * 0.8 / Math.max(contentWidth, 1)
-  const scaleY = canvasHeight * 0.8 / Math.max(contentHeight, 1)
-  const scale = Math.min(scaleX, scaleY, 1)
-  
-  // 关键修复：viewBox坐标逆转
-  // viewBox的起始坐标(minX, minY)表示内容相对于视图左上角的偏移
-  // 为了在画布中心显示，需要逆转这个偏移量
-  const offsetX = disableAutoCenter ? 0 : canvasCenterX - minX * scale
-  const offsetY = disableAutoCenter ? 0 : canvasCenterY - minY * scale
-  
-  console.log(`缩放比例: ${scale}`)
-  console.log(`viewBox坐标逆转偏移量: (${offsetX}, ${offsetY})`)
-  console.log(`自动居中: ${!disableAutoCenter}`)
-  
-  const hasMetadataShapes = shapes.some(shape => 
-    shape.type === 'draw' || shape.type === 'geo' || shape.type === 'image' || shape.type === 'text'
-  )
-
-  console.log(`检测到SVG类型: ${hasMetadataShapes ? '包含metadata的SVG' : '常规SVG'}`)
-
-  // ---------- 常规 SVG 分支 ----------
-  if (!hasMetadataShapes) {
-    console.log('常规SVG处理：统一处理所有path元素')
-    
-    // 对于常规SVG，需要应用viewBox坐标逆转偏移量
-    // const disableAutoCenterForRegularSvg = true;
-    
-    // 设置全局变量，指示当前正在处理常规SVG
-      // (globalThis as any).__disableAutoCenterForRegularSvg__ = disableAutoCenterForRegularSvg;
-    
-    // 关键修复：对于常规SVG，需要应用viewBox坐标逆转偏移量，但不应用自动居中
-    // 这样可以正确处理transform矩阵中的大数值，同时保持元素间的相对位置关系
-    const regularOffsetX = offsetX;  // 应用viewBox坐标逆转偏移量
-    const regularOffsetY = offsetY;  // 应用viewBox坐标逆转偏移量
-    
-    console.log(`常规SVG处理：禁用自动居中，但应用viewBox坐标逆转偏移量`)
-    console.log(`viewBox坐标逆转偏移量: (${regularOffsetX}, ${regularOffsetY})`)
-    
-    const pathsToProcess: any[] = []
-    shapes.forEach(shapeData => {
-      if (shapeData.type === 'path') {
-        console.log(`处理path类型: ${shapeData.id}, transform偏移: (${shapeData.x}, ${shapeData.y})`)
-        pathsToProcess.push(shapeData)
+      const props = {
+        segments,
+        isComplete: shape.isComplete ?? true,
+        isPen: shape.isPen ?? false,
+        isClosed: isClosed ?? false,
+        color: getTldrawColorFromSvg(shape.color ?? null, colorMap),
+        fill: isClosed ? (shape.fill ?? 'none') : 'none',
+        size: shape.size ?? 'm',
+        dash: shape.dash ?? 'draw',
+        scale: shape.scale ?? 1,
       }
-    })
-    console.log(`总共需要处理 ${pathsToProcess.length} 个path元素`)
-
-    // 简易函数：提取坐标点用于回退
-    const extractPointsFromPath = (d: string) => {
-      const points: { x: number; y: number }[] = []
-      const regex = /(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/g
-      let match
-      while ((match = regex.exec(d)) !== null) {
-        points.push({ x: parseFloat(match[1]), y: parseFloat(match[2]) })
+      const shapeArgs = { ...base, type: 'draw', props }
+      const tl = createTlShapeSafe(editor, shapeArgs)
+      created.push(tl)
+      // children
+      if (Array.isArray(shape.children)) {
+        for (const c of shape.children) createRecursive(c as SvgShapeData, id, false)
       }
-      return points
+      return
     }
 
-    pathsToProcess.forEach(shapeData => {
-      const commonProps = {
-        color: getTldrawColorFromSvg(shapeData.color || 'black'),
-        fill: getTldrawFillStyleFromSvg(shapeData.fill || 'none'),
-        size: shapeData.size || 'm',
-        dash: shapeData.dash || 'draw',
-        scale: shapeData.scale || 1,
+    if (shape.type === 'path') {
+      // normal svg path: shape.d exists -> reverseSvgPathToSegments -> create draw
+      let segments: any[] = []
+      let isClosed = false
+      if (Array.isArray(shape.segments) && shape.segments.length > 0) {
+        // metadataShapes：直接使用segments，不重复解析d
+        segments = shape.segments
+        isClosed = shape.isClosed ?? false;  // 从shape中取，或推断
+      } else if (typeof shape.d === 'string' && shape.d.trim().length > 0) {
+        // non-metadata：使用reverseSvgPathToSegments解析（统一函数）
+        segments = reverseSvgPathToSegments(shape.d, { bezierSegments: 32, arcSegments: 48 })
+        // 过滤 NaN 点
+        segments = (segments || []).map((s: any) => ({
+          ...s,
+          points: (s.points || []).filter((p: any) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+        })).filter((s: any) => (s.points || []).length > 0)
       }
 
-      if (shapeData.d) {
-        // === 路径数据已经在前面的步骤中简化过，直接使用 ===
-        const simplifiedD = shapeData.d;
-        console.log(`处理简化后Path元素: d="${simplifiedD.substring(0, 1000)}...", fill="${shapeData.fill}", stroke="${shapeData.stroke}"`)
-        
-        // === 安全解析路径 ===
-        let rawSegments: any[] = []
-        try {
-          // 检查缓存中是否已有解析结果
-          if (pathSegmentsCache.has(simplifiedD)) {
-            rawSegments = pathSegmentsCache.get(simplifiedD)!;
-            console.log('使用缓存的路径解析结果创建形状');
-          } else {
-            // 如果缓存中没有，重新解析（理论上不应该发生，因为边界框计算时已经缓存）
-            rawSegments = reverseSvgPathToSegments(simplifiedD, { bezierSegments: 32, arcSegments: 48 });
-            pathSegmentsCache.set(simplifiedD, rawSegments);
-            console.log('重新解析路径创建形状（缓存未命中）');
-          }
-        } catch (err) {
-          console.warn('⚠️ reverseSvgPathToSegments 解析失败，回退为折线模式:', err)
-          const points = extractPointsFromPath(simplifiedD)
-          rawSegments = points.length > 0 ? [{ type: 'free', points }] : []
+      // 优化isClosed推断：如果无明确isClosed，从segments推断（第一个segment起点≈终点）
+      if (isClosed === undefined && segments.length > 0) {
+        const firstSegment = segments[0]
+        if (firstSegment && firstSegment.points && firstSegment.points.length > 1) {
+          const firstPoint = firstSegment.points[0]
+          const lastPoint = firstSegment.points[firstSegment.points.length - 1]
+          isClosed = Math.abs(firstPoint.x - lastPoint.x) < 0.001 && Math.abs(firstPoint.y - lastPoint.y) < 0.001
+        } else {
+          isClosed = false
         }
-        if (!rawSegments || rawSegments.length === 0) return
+      }
 
-        // === 修复：过滤NaN值并正确处理路径坐标 ===
-        // 获取变换矩阵
-        const transformMatrix = shapeData.transform ? parseTransform(shapeData.transform).matrix : [1, 0, 0, 1, 0, 0];
-        
-        let segments = rawSegments.map(seg => ({
-          ...seg,
-          points: seg.points
-            .filter((p:any) => !Number.isNaN(p.x) && !Number.isNaN(p.y))
-            .map((p:any) => {
-              // 应用变换矩阵到每个点
-              let transformedX = p.x;
-              let transformedY = p.y;
-              
-              if (shapeData.transform) {
-                const [a, b, c, d, e, f] = transformMatrix;
-                transformedX = a * p.x + c * p.y + e;
-                transformedY = b * p.x + d * p.y + f;
-              }
-              
-              return {
-                x: transformedX,
-                y: transformedY,
-                z: p.z ?? 0.5,
-              };
-            }),
-        })).filter(seg => seg.points.length > 0)
-
-        if (segments.length === 0) {
-          console.warn('⚠️ 路径解析后无有效坐标点，跳过此路径')
-          return
-        }
-
-        // === 修复：移除双重变换，路径解析阶段已经正确应用了transform ===
-        // 注意：路径解析阶段已经正确应用了transform矩阵并计算了形状位置
-        // 这里不再重复应用transform，避免破坏笔划间的相对位置关系
-        console.log(`使用路径解析阶段已应用的transform位置: (${shapeData.x}, ${shapeData.y})`)
-
-        // === 修复：使用shapeData的原始坐标加上导入位置偏移量和viewBox坐标逆转偏移量 ===
-        const x = (shapeData.x || 0) + canvasCenterX + regularOffsetX  // 添加导入位置X偏移量和viewBox坐标逆转偏移量
-        const y = (shapeData.y || 0) + canvasCenterY + regularOffsetY  // 添加导入位置Y偏移量和viewBox坐标逆转偏移量
-        
-        console.log(`常规SVG处理 - 形状ID: ${shapeData.id}, 原始坐标: (${shapeData.x || 0}, ${shapeData.y || 0}), 导入位置偏移量: (${canvasCenterX}, ${canvasCenterY}), viewBox偏移量: (${regularOffsetX}, ${regularOffsetY}), 最终坐标: (${x}, ${y})`)
-
-        // === 修复：将导入位置偏移量和viewBox坐标逆转偏移量应用到路径的每个点上 ===
-        // 不仅仅是形状的x和y坐标，还需要将偏移量应用到路径的每个点上
-        const adjustedSegments = segments.map(seg => ({
-          ...seg,
-          points: seg.points.map((point: any) => ({
-            x: point.x + canvasCenterX + regularOffsetX,  // 为每个点添加X偏移量和viewBox偏移量
-            y: point.y + canvasCenterY + regularOffsetY,  // 为每个点添加Y偏移量和viewBox偏移量
-            z: point.z ?? 0.5,
-          })),
-        }));
-
-        // 判断路径是否闭合（检查第一个segment的起点和终点是否相同，使用容差比较）
-        let isClosed = false;
-        if (adjustedSegments.length > 0 && adjustedSegments[0].points.length > 1) {
-          const firstPoint = adjustedSegments[0].points[0];
-          const lastPoint = adjustedSegments[0].points[adjustedSegments[0].points.length - 1];
-          // 使用容差比较，避免浮点数精度问题
-          isClosed = Math.abs(firstPoint.x - lastPoint.x) < 0.001 && 
-                    Math.abs(firstPoint.y - lastPoint.y) < 0.001;
-        }
-
-        // === 修复：根据SVG原始填充属性决定是否填充，而不是仅依赖路径闭合 ===
-        // 如果SVG元素有填充属性且不是'none'，则应该填充，即使路径不闭合
-        const shouldFill = commonProps.fill !== 'none' && commonProps.fill !== undefined;
-        
-        const pathProps: any = {
-          segments: adjustedSegments,  // 使用调整后的segments
+      if (segments && segments.length > 0) {
+        const props: any = {
+          segments,
           isComplete: true,
           isPen: false,
-          isClosed,
-          color: getTldrawColorFromSvg(commonProps.color),
-          fill: shouldFill ? getTldrawFillStyleFromSvg(commonProps.fill) : 'none',
-          size: commonProps.size,
-          dash: commonProps.dash,
-          scale: commonProps.scale,
+          isClosed: isClosed,
+          color: getTldrawColorFromSvg(shape.color ?? null, colorMap),
+          fill: isClosed ? ((shape.fill && shape.fill !== 'none') ? getTldrawFillStyleFromSvg(shape.fill) : 'none') : 'none',
+          size: shape.size ?? 'm',
+          dash: shape.dash ?? 'draw',
+          scale: shape.scale ?? 1,
         }
-
-        const drawShape = editor.createShape({
-          type: 'draw',
-          x: x, // 使用调整后的坐标
-          y: y, // 使用调整后的坐标
-          opacity:
-            shapeData.opacity !== undefined && shapeData.opacity !== null
-              ? shapeData.opacity
-              : 1,
-          props: pathProps,
-        })
-
-        if (
-          shapeData.opacity !== undefined &&
-          shapeData.opacity !== null &&
-          shapeData.opacity < 1
-        ) {
-          editor.setOpacityForNextShapes(shapeData.opacity)
-          editor.setOpacityForSelectedShapes(shapeData.opacity)
+        const shapeArgs = { ...base, type: 'draw', props }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        if (Array.isArray(shape.children)) {
+          for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
         }
-
-        shapeMap.set(shapeData.id, drawShape as unknown as TLShape)
+        return
+      } else {
+        // 没有 segments 的 path，退化到 geo
+        const shapeArgs = { ...base, type: 'geo', w: shape.w ?? 10, h: shape.h ?? 10, props: { geo: 'rectangle', fill: 'none' } }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        if (Array.isArray(shape.children)) {
+          for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        }
+        return
       }
-    })
+    }
 
-    console.log('常规SVG处理完成，跳过后续metadata SVG处理')
-    return;
-  } else {
-    // 包含metadata的SVG处理分支：处理所有形状类型
-    console.log('包含metadata的SVG处理：处理所有形状类型');
-    
-    // 对于包含metadata的SVG，使用原始的disableAutoCenter设置
-    const offsetX = disableAutoCenter ? 0 : canvasCenterX - contentCenterX * scale
-    const offsetY = disableAutoCenter ? 0 : canvasCenterY - contentCenterY * scale
-    
-    console.log(`内容边界框: minX=${minX}, minY=${minY}, maxX=${maxX}, maxY=${maxY}`)
-    console.log(`内容尺寸: ${contentWidth}x${contentHeight}`)
-    console.log(`缩放比例: ${scale}`)
-    console.log(`统一偏移量: (${offsetX}, ${offsetY})`)
-    console.log(`自动居中: ${!disableAutoCenter}`)
-      
-    shapes.forEach(shapeData => {
-        console.log(`处理形状类型: ${shapeData.type}`);
-      
-        // 提取通用的 tldraw 样式属性
-        const commonProps = {
-          color: getTldrawColorFromSvg(shapeData.color || 'black'),
-          fill: getTldrawFillStyleFromSvg(shapeData.fill || 'none'),
-          size: shapeData.size || 'm',
-          dash: shapeData.dash || 'draw',
-          scale: shapeData.scale || 1,
-          // 注意：opacity属性不在这里设置，因为不同形状类型需要不同的透明度处理方式
-        };
+    // geo, image, text, arrow, note, embed, bookmark, group
+    switch (shape.type) {
+      case 'geo': {
+        const props = {
+          geo: shape.geo ?? 'rectangle',
+          color: getTldrawColorFromSvg(shape.color ?? null, colorMap),
+          fill: shape.fill ?? 'none',
+          size: shape.size ?? 'm',
+          dash: shape.dash ?? 'draw',
+          scale: shape.scale ?? 1,
+        }
+        const shapeArgs = { ...base, type: 'geo', props, w: shape.w ?? 100, h: shape.h ?? 100 }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        if (Array.isArray(shape.children)) for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        break
+      }
 
-        switch (shapeData.type) {
-        case 'draw':
-          // draw类型：直接导入（修复ink自定义UI生成的draw类型）
-          if (shapeData.segments && shapeData.segments.length > 0) {
-            // 创建draw形状的props，排除可能不支持的opacity属性
-            const drawProps: any = {
-              segments: shapeData.segments,
-              isComplete: shapeData.isComplete !== undefined ? shapeData.isComplete : true,
-              isPen: shapeData.isPen !== undefined ? shapeData.isPen : false,
-              isClosed: shapeData.isClosed !== undefined ? shapeData.isClosed : false,
-              color: getTldrawColorFromSvg(shapeData.color || 'black'),
-              fill: getTldrawFillStyleFromSvg(shapeData.fill || 'none'),
-              size: shapeData.size || 'm',
-              dash: shapeData.dash || 'draw',
-              scale: shapeData.scale || 1,
-              // 注意：draw形状不支持opacity属性，所以不包含它
-            };
-            
-            const drawShape = editor.createShape({
-              type: 'draw',
-              x: (shapeData.x || 0) + offsetX, // 只应用偏移量，不缩放
-              y: (shapeData.y || 0) + offsetY, // 只应用偏移量，不缩放
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: drawProps // 不应用缩放比例
-            });
-            
-            // 使用tldraw的正确API方法设置透明度，而不是通过props
-            if (shapeData.opacity !== undefined && shapeData.opacity !== null && shapeData.opacity < 1) {
-              // 使用tldraw的setOpacityForNextShapes方法设置透明度
-              editor.setOpacityForNextShapes(shapeData.opacity);
-              // 同时设置当前形状的透明度
-              editor.setOpacityForSelectedShapes(shapeData.opacity);
-            }
-            
-            shapeMap.set(shapeData.id, drawShape as unknown as TLShape);
-          } else {
-            console.warn('Draw类型缺少segments属性，跳过导入');
-          }
-          break;
-          
-        case 'path':
-          // path类型：转换为draw类型
-          if (shapeData.d) {
-            // === metadata分支的path类型数据已经是处理过的，直接使用 ===
-            console.log('metadata分支 - 路径数据长度:', shapeData.d.length, '字符')
-            
-            // 使用逆向还原函数，从SVG path数据还原为segments格式
-            let segments: any[] = [];
-            
-            // 检查缓存中是否已有解析结果
-            if (pathSegmentsCache.has(shapeData.d)) {
-              segments = pathSegmentsCache.get(shapeData.d)!;
-              console.log('metadata分支：使用缓存的路径解析结果');
-            } else {
-              // 如果缓存中没有，重新解析
-              segments = reverseSvgPathToSegments(shapeData.d);
-              pathSegmentsCache.set(shapeData.d, segments);
-              console.log('metadata分支：首次解析路径并缓存结果');
-            }
-            
-            // 修复坐标计算：使用shapeData的x/y信息，而不是transform
-            const x = shapeData.x || 0;
-            const y = shapeData.y || 0;
-            
-            // 判断路径是否闭合：通过浮点数比较检查起点和终点是否相同
-            let isClosed = false;
-            if (segments.length > 0 && segments[0].points.length > 1) {
-              const firstPoint = segments[0].points[0];
-              const lastPoint = segments[0].points[segments[0].points.length - 1];
-              // 使用容差比较，避免浮点数精度问题
-              isClosed = Math.abs(firstPoint.x - lastPoint.x) < 0.001 && 
-                        Math.abs(firstPoint.y - lastPoint.y) < 0.001;
-            }
-            
-            // 创建path形状的props，正确应用样式系统
-            const pathProps: any = {
-              segments: segments,
-              isComplete: true,
-              isPen: false,
-              isClosed: isClosed, // 在props级别设置isClosed属性
-              color: getTldrawColorFromSvg(shapeData.color || 'black'),
-              fill: isClosed ? getTldrawFillStyleFromSvg(shapeData.fill || 'none') : 'none', // 只有闭合路径才应用填充
-              size: shapeData.size || 'm',
-              dash: shapeData.dash || 'draw',
-              scale: shapeData.scale || 1,
-              // 注意：tldraw的形状系统通过样式系统管理透明度，不直接在props中设置opacity
-            };
-            
-            const pathShape = editor.createShape({
-              type: 'draw',
-              x: x + offsetX, // 只应用偏移量，不缩放
-              y: y + offsetY, // 只应用偏移量，不缩放
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: pathProps // 不应用缩放比例
-            });
-            
-            // 使用tldraw的正确API方法设置透明度，而不是通过OpacityManager
-            if (shapeData.opacity !== undefined && shapeData.opacity !== null && shapeData.opacity < 1) {
-              // 使用tldraw的setOpacityForNextShapes方法设置透明度
-              editor.setOpacityForNextShapes(shapeData.opacity);
-              // 同时设置当前形状的透明度
-              editor.setOpacityForSelectedShapes(shapeData.opacity);
-            }
-            
-            shapeMap.set(shapeData.id, pathShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'geo':
-          // geo类型：直接导入（修复opacity属性错误）
-          if (shapeData.w && shapeData.h) {
-            // 创建geo形状的props
-            const geoProps: any = {
-              geo: shapeData.geo || 'rectangle',
-              w: shapeData.w,
-              h: shapeData.h,
-              color: getTldrawColorFromSvg(shapeData.color || 'black'),
-              fill: getTldrawFillStyleFromSvg(shapeData.fill || 'none'),
-              size: shapeData.size || 'm',
-              dash: shapeData.dash || 'draw',
-              scale: shapeData.scale || 1,
-            };
-            
-            // 创建形状对象，在顶层设置opacity属性
-            const geoShape = editor.createShape({
-              type: 'geo',
-              x: disableAutoCenter ? (shapeData.x || 0) : (shapeData.x || 0) + offsetX, // 如果禁用自动居中，则使用原始坐标
-              y: disableAutoCenter ? (shapeData.y || 0) : (shapeData.y || 0) + offsetY, // 如果禁用自动居中，则使用原始坐标
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: geoProps // 不应用缩放比例
-            });
-            
-            // 使用tldraw的正确API方法设置透明度，而不是通过OpacityManager
-            if (shapeData.opacity !== undefined && shapeData.opacity !== null && shapeData.opacity < 1) {
-              // 使用tldraw的setOpacityForNextShapes方法设置透明度
-              editor.setOpacityForNextShapes(shapeData.opacity);
-              // 同时设置当前形状的透明度
-              editor.setOpacityForSelectedShapes(shapeData.opacity);
-            }
-            
-            shapeMap.set(shapeData.id, geoShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'image':
-          // image类型：直接导入（修复ink插件生成的image类型）
-          if (shapeData.w && shapeData.h) {
-            // 修复：即使没有assetId也要创建image形状，确保metadata中定义的image能够正确显示
-            if (!shapeData.assetId) {
-              // 生成一个基于形状ID的assetId
-              shapeData.assetId = `asset:${shapeData.id.replace('shape:', '')}`;
-              console.log(`为metadata中的image形状生成assetId: ${shapeData.assetId}`);
-            }
-            
-            // 创建asset资源 - 修复：使用提取的图片数据创建asset资源
-            try {
-              // 获取所有可用的图片数据键
-              const imageDataKeys = Object.keys(imageData);
-              
-              // 优先使用提取的图片数据，其次使用assetInfo，最后使用基础asset资源
-              if (imageDataKeys.length > 0) {
-                // 修复：使用位置信息进行精确匹配来正确选择对应的图片数据
-                let selectedImageKey = null;
-                let selectedImageData = null;
-                
-                // 尝试通过位置信息匹配找到对应的图片数据
-                for (const imageKey of imageDataKeys) {
-                  const imageDataItem = imageData[imageKey] as { base64Data: string, width: number, height: number, x: number, y: number };
-                  // 如果图片数据的位置与当前形状的位置匹配（允许一定的误差）
-                  if (Math.abs((imageDataItem.x || 0) - (shapeData.x || 0)) < 1 && 
-                      Math.abs((imageDataItem.y || 0) - (shapeData.y || 0)) < 1) {
-                    selectedImageKey = imageKey;
-                    selectedImageData = imageDataItem;
-                    console.log(`通过位置匹配找到图片数据: ${selectedImageKey} (位置: ${imageDataItem.x || 0},${imageDataItem.y || 0}) 匹配形状位置 (${shapeData.x || 0},${shapeData.y || 0})`);
-                    break;
-                  }
-                }
-                
-                // 如果没有找到位置匹配，尝试使用尺寸匹配作为备选方案
-                if (!selectedImageKey) {
-                  for (const imageKey of imageDataKeys) {
-                    const imageDataItem = imageData[imageKey] as { base64Data: string, width: number, height: number, x: number, y: number };
-                    // 如果图片数据的尺寸与当前形状的尺寸匹配（允许一定的误差）
-                    if (Math.abs(imageDataItem.width - shapeData.w) < 1 && 
-                        Math.abs(imageDataItem.height - shapeData.h) < 1) {
-                      selectedImageKey = imageKey;
-                      selectedImageData = imageDataItem;
-                      console.log(`通过尺寸匹配找到图片数据: ${selectedImageKey} (${imageDataItem.width}x${imageDataItem.height}) 匹配形状尺寸 (${shapeData.w}x${shapeData.h})`);
-                      break;
-                    }
-                  }
-                }
-                
-                // 如果位置和尺寸匹配都失败，使用索引匹配作为最后备选方案
-                if (!selectedImageKey) {
-                  // 获取当前处理的image形状索引
-                  const imageShapes = shapes.filter(s => s.type === 'image');
-                  const imageShapeIndex = imageShapes.findIndex(s => s.id === shapeData.id);
-                  
-                  // 直接使用索引选择对应的图片数据，确保索引在有效范围内
-                  const selectedImageIndex = imageShapeIndex >= 0 && imageShapeIndex < imageDataKeys.length 
-                    ? imageShapeIndex 
-                    : 0; // 如果索引超出范围，使用第一张图片
-                  selectedImageKey = imageDataKeys[selectedImageIndex];
-                  selectedImageData = imageData[selectedImageKey];
-                  console.log(`通过索引匹配选择图片数据: ${selectedImageKey} (索引: ${selectedImageIndex})`);
-                }
-                
-                // 使用提取的图片数据创建asset资源
-                // 修复：将base64数据转换为有效的data URL格式
-                if (selectedImageData) {
-                  const dataUrl = `data:image/png;base64,${selectedImageData.base64Data}`;
-                  editor.createAssets([{
-                    id: shapeData.assetId as any, // 使用类型断言解决TLAssetId类型问题
-                    typeName: 'asset',
-                    type: 'image',
-                    props: {
-                      name: `imported-image-${selectedImageKey}`,
-                      src: dataUrl, // 使用有效的data URL格式
-                      w: selectedImageData.width || shapeData.w,
-                      h: selectedImageData.height || shapeData.h,
-                      mimeType: 'image/png',
-                      isAnimated: false,
-                    },
-                    meta: {},
-                  }]);
-                } else {
-                  // 如果没有找到匹配的图片数据，创建基础asset资源
-                  editor.createAssets([{
-                    id: shapeData.assetId as any, // 使用类型断言解决TLAssetId类型问题
-                    typeName: 'asset',
-                    type: 'image',
-                    props: {
-                      name: 'imported-image',
-                      src: '', // 空src，但确保asset存在
-                      w: shapeData.w,
-                      h: shapeData.h,
-                      mimeType: 'image/png',
-                      isAnimated: false,
-                    },
-                    meta: {},
-                  }]);
-                }
-                console.log(`创建asset资源（使用图片数据 ${selectedImageKey}）: ${shapeData.assetId}`);
-              } else if (shapeData.assetInfo) {
-                // 使用完整的assetInfo创建asset资源
-                editor.createAssets([{
-                  id: shapeData.assetId as any, // 使用类型断言解决TLAssetId类型问题
-                  typeName: 'asset',
-                  type: 'image',
-                  props: {
-                    name: shapeData.assetInfo.props?.name || 'imported-image',
-                    src: shapeData.assetInfo.props?.src || '',
-                    w: shapeData.assetInfo.props?.w || shapeData.w,
-                    h: shapeData.assetInfo.props?.h || shapeData.h,
-                    mimeType: shapeData.assetInfo.props?.mimeType || 'image/png',
-                    isAnimated: shapeData.assetInfo.props?.isAnimated || false,
-                  },
-                  meta: {},
-                }]);
-                console.log(`创建asset资源（完整信息）: ${shapeData.assetId}`);
-              } else {
-                // 没有assetInfo和图片数据时创建基础asset资源
-                editor.createAssets([{
-                  id: shapeData.assetId as any, // 使用类型断言解决TLAssetId类型问题
-                  typeName: 'asset',
-                  type: 'image',
-                  props: {
-                    name: 'imported-image',
-                    src: '', // 空src，但确保asset存在
-                    w: shapeData.w,
-                    h: shapeData.h,
-                    mimeType: 'image/png',
-                    isAnimated: false,
-                  },
-                  meta: {},
-                }]);
-                console.log(`创建asset资源（基础信息）: ${shapeData.assetId}`);
-              }
-            } catch (assetError) {
-              console.warn(`创建asset资源失败: ${assetError}，继续创建image形状`);
-            }
-            
-            const imageShape = editor.createShape({
+      case 'image': {
+        // try create assets if data exists
+        try {
+          const assetId = shape.assetId ?? `asset:${id}`
+          if ((imageData && Object.keys(imageData).length > 0) && typeof (editor as any).createAssets === 'function') {
+            // try to find matching imageData by approximate position/size
+            const keys = Object.keys(imageData)
+            let chosen = keys[0]
+
+            const it = imageData[chosen]
+            const dataUrl = `data:image/png;base64,${it.base64Data}`
+            ;(editor as any).createAssets([{
+              id: assetId,
+              typeName: 'asset',
               type: 'image',
-              x: disableAutoCenter ? (shapeData.x || 0) : (shapeData.x || 0) + offsetX, // 如果禁用自动居中，则使用原始坐标
-              y: disableAutoCenter ? (shapeData.y || 0) : (shapeData.y || 0) + offsetY, // 如果禁用自动居中，则使用原始坐标
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: {
-                w: shapeData.w, // 不应用缩放比例
-                h: shapeData.h,  // 不应用缩放比例
-                assetId: shapeData.assetId,
-                // 注意：image形状可能不支持opacity属性，所以不包含它
-              }
-            });
-            
-            // 使用tldraw的正确API方法设置透明度，而不是通过OpacityManager
-            if (shapeData.opacity !== undefined && shapeData.opacity !== null && shapeData.opacity < 1) {
-              // 使用tldraw的setOpacityForNextShapes方法设置透明度
-              editor.setOpacityForNextShapes(shapeData.opacity);
-              // 同时设置当前形状的透明度
-              editor.setOpacityForSelectedShapes(shapeData.opacity);
-            }
-            
-            shapeMap.set(shapeData.id, imageShape as unknown as TLShape);
-            console.log(`创建image形状: ${shapeData.id}，assetId: ${shapeData.assetId}`);
-          } else {
-            console.warn('Image类型缺少必要的尺寸属性，跳过导入');
+              props: { name: `imported-${chosen}`, src: dataUrl, w: it.width, h: it.height, mimeType: 'image/png', isAnimated: false },
+              meta: {}
+            }])
           }
-          break;
-          
-        case 'text':
-          // text类型：直接导入
-          if (shapeData.text) {
-            const textShape = editor.createShape({
-              type: 'text',
-              x: disableAutoCenter ? (shapeData.x || 0) : (shapeData.x || 0) * scale + offsetX,
-              y: disableAutoCenter ? (shapeData.y || 0) : (shapeData.y || 0) * scale + offsetY,
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: {
-                text: shapeData.text,
-                font: shapeData.font || 'draw',
-                align: shapeData.align || 'middle',
-                verticalAlign: shapeData.verticalAlign || 'middle',
-                w: disableAutoCenter ? (shapeData.w || 200) : (shapeData.w || 200) * scale, // 如果禁用自动居中，则不应用缩放比例
-                h: disableAutoCenter ? (shapeData.h || 100) : (shapeData.h || 100) * scale,  // 如果禁用自动居中，则不应用缩放比例
-                ...commonProps,
-              }
-            });
-            shapeMap.set(shapeData.id, textShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'frame':
-          // frame类型：直接导入
-          const frameShape = editor.createShape({
-            type: 'frame',
-            x: disableAutoCenter ? (shapeData.x || 0) : (shapeData.x || 0) * scale + offsetX,
-            y: disableAutoCenter ? (shapeData.y || 0) : (shapeData.y || 0) * scale + offsetY,
-            opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-            props: {
-              w: disableAutoCenter ? (shapeData.w || 400) : (shapeData.w || 400) * scale, // 如果禁用自动居中，则不应用缩放比例
-              h: disableAutoCenter ? (shapeData.h || 300) : (shapeData.h || 300) * scale,  // 如果禁用自动居中，则不应用缩放比例
-            }
-          });
-          shapeMap.set(shapeData.id, frameShape as unknown as TLShape);
-          break;
-          
-        case 'arrow':
-          // arrow类型：直接导入
-          if (shapeData.start && shapeData.end) {
-            const arrowShape = editor.createShape({
-              type: 'arrow',
-              x: (shapeData.x || 0) * scale + offsetX,
-              y: (shapeData.y || 0) * scale + offsetY,
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: {
-                start: {
-                  ...shapeData.start,
-                  x: (shapeData.start.x || 0) * scale,
-                  y: (shapeData.start.y || 0) * scale
-                },
-                end: {
-                  ...shapeData.end,
-                  x: (shapeData.end.x || 0) * scale,
-                  y: (shapeData.end.y || 0) * scale
-                },
-                ...commonProps,
-              }
-            });
-            shapeMap.set(shapeData.id, arrowShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'note':
-          // note类型：直接导入
-          const noteShape = editor.createShape({
-            type: 'note',
-            x: (shapeData.x || 0) * scale + offsetX,
-            y: (shapeData.y || 0) * scale + offsetY,
-            opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-            props: {
-              text: shapeData.text || '',
-              color: shapeData.color || 'black',
-              size: shapeData.size || 'm',
-              w: (shapeData.w || 200) * scale, // 应用缩放比例
-              h: (shapeData.h || 100) * scale,  // 应用缩放比例
-            }
-          });
-          shapeMap.set(shapeData.id, noteShape as unknown as TLShape);
-          break;
-          
-        case 'line':
-          // line类型：直接导入
-          const lineShape = editor.createShape({
-            type: 'line',
-            x: (shapeData.x || 0) * scale + offsetX,
-            y: (shapeData.y || 0) * scale + offsetY,
-            opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-            props: {
-              ...commonProps,
-            }
-          });
-          shapeMap.set(shapeData.id, lineShape as unknown as TLShape);
-          break;
-          
-        case 'highlight':
-          // highlight类型：直接导入
-          const highlightShape = editor.createShape({
-            type: 'highlight',
-            x: (shapeData.x || 0) * scale + offsetX,
-            y: (shapeData.y || 0) * scale + offsetY,
-            opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-            props: {
-              ...commonProps,
-            }
-          });
-          shapeMap.set(shapeData.id, highlightShape as unknown as TLShape);
-          break;
-          
-        case 'bookmark':
-          // bookmark类型：直接导入
-          if (shapeData.url) {
-            const bookmarkShape = editor.createShape({
-              type: 'bookmark',
-              x: (shapeData.x || 0) * scale + offsetX,
-              y: (shapeData.y || 0) * scale + offsetY,
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: {
-                url: shapeData.url,
-                w: (shapeData.w || 200) * scale, // 应用缩放比例
-                h: (shapeData.h || 100) * scale,  // 应用缩放比例
-              }
-            });
-            shapeMap.set(shapeData.id, bookmarkShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'embed':
-          // embed类型：直接导入
-          if (shapeData.url) {
-            const embedShape = editor.createShape({
-              type: 'embed',
-              x: (shapeData.x || 0) * scale + offsetX,
-              y: (shapeData.y || 0) * scale + offsetY,
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: {
-                url: shapeData.url,
-                w: (shapeData.w || 200) * scale, // 应用缩放比例
-                h: (shapeData.h || 100) * scale,  // 应用缩放比例
-              }
-            });
-            shapeMap.set(shapeData.id, embedShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'video':
-          // video类型：直接导入
-          if (shapeData.assetId) {
-            const videoShape = editor.createShape({
-              type: 'video',
-              x: (shapeData.x || 0) * scale + offsetX,
-              y: (shapeData.y || 0) * scale + offsetY,
-              opacity: shapeData.opacity !== undefined && shapeData.opacity !== null ? shapeData.opacity : 1,
-              props: {
-                assetId: shapeData.assetId,
-                w: (shapeData.w || 200) * scale, // 应用缩放比例
-                h: (shapeData.h || 100) * scale,  // 应用缩放比例
-              }
-            });
-            shapeMap.set(shapeData.id, videoShape as unknown as TLShape);
-          }
-          break;
-          
-        case 'group':
-          // group类型：不创建形状，只记录group信息用于后续parentId设置
-          console.log(`处理group类型: ${shapeData.id}，包含 ${shapeData.children?.length || 0} 个子形状`);
-          // 不创建实际的group形状，只记录group信息
-          shapeMap.set(shapeData.id, null as any);
-          break;
-          
-        default:
-          console.warn(`不支持的类型: ${shapeData.type}，跳过导入`);
-          break;
+          const props = { assetId, w: shape.w ?? 100, h: shape.h ?? 100 }
+          const shapeArgs = { ...base, type: 'image', props }
+          const tl = createTlShapeSafe(editor, shapeArgs)
+          created.push(tl)
+          if (Array.isArray(shape.children)) for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        } catch (e) {
+          console.warn('image create failed, fallback to geo', e)
+          const shapeArgs = { ...base, type: 'geo', props: { geo: 'rectangle', fill: shape.fill ?? 'none' }, w: shape.w ?? 100, h: shape.h ?? 100 }
+          const tl = createTlShapeSafe(editor, shapeArgs)
+          created.push(tl)
+          if (Array.isArray(shape.children)) for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        }
+        break
       }
-    });
-    
-    // 处理组结构 (使用 parentId 分组)
-    shapes.forEach(shapeData => {
-      if (shapeData.type === 'group' && shapeData.children && shapeData.children.length > 0) {
-        console.log(`处理group ${shapeData.id}，包含 ${shapeData.children.length} 个子形状`);
-        
-        // 首先创建所有子形状
-        shapeData.children.forEach(childShape => {
-          console.log(`创建子形状: ${childShape.type} (${childShape.id})`);
-          
-          // 重新创建子形状，使用group的坐标作为偏移
-          const commonProps = {
-            color: childShape.color || 'black',
-            fill: childShape.fill || 'none',
-            size: childShape.size || 'm',
-            dash: childShape.dash || 'draw',
-            scale: childShape.scale || 1,
-            // 注意：opacity不应该包含在commonProps中，因为它已经在顶层属性中设置
-          };
 
-          switch (childShape.type) {
-            case 'draw':
-              if (childShape.segments && childShape.segments.length > 0) {
-                // 创建draw形状的props，排除可能不支持的opacity属性
-                const drawProps: any = {
-                  segments: childShape.segments,
-                  isComplete: childShape.isComplete !== undefined ? childShape.isComplete : true,
-                  isPen: childShape.isPen !== undefined ? childShape.isPen : false,
-                  color: commonProps.color,
-                  fill: commonProps.fill,
-                  size: commonProps.size,
-                  dash: commonProps.dash,
-                  scale: commonProps.scale,
-                  // 注意：draw形状可能不支持opacity属性，所以不包含它
-                };
-                
-                const drawShape = editor.createShape({
-                  type: 'draw',
-                  x: (childShape.x || 0) * scale + offsetX,
-                  y: (childShape.y || 0) * scale + offsetY,
-                  opacity: childShape.opacity !== undefined && childShape.opacity !== null ? childShape.opacity : 1,
-                  props: {
-                    ...drawProps,
-                    scale: (drawProps.scale || 1) * scale // 应用缩放比例
-                  }
-                });
-                shapeMap.set(childShape.id, drawShape as unknown as TLShape);
-              }
-              break;
-              
-            case 'geo':
-              if (childShape.w && childShape.h) {
-                const geoProps: any = {
-                  geo: childShape.geo || 'rectangle',
-                  w: childShape.w,
-                  h: childShape.h,
-                  color: commonProps.color,
-                  fill: commonProps.fill,
-                  size: commonProps.size,
-                  dash: commonProps.dash,
-                  scale: commonProps.scale,
-                };
-                
-                const geoShape = editor.createShape({
-                  type: 'geo',
-                  x: (childShape.x || 0) * scale + offsetX,
-                  y: (childShape.y || 0) * scale + offsetY,
-                  opacity: childShape.opacity !== undefined && childShape.opacity !== null ? childShape.opacity : 1,
-                  props: {
-                    ...geoProps,
-                    w: (geoProps.w || 100) * scale, // 应用缩放比例
-                    h: (geoProps.h || 100) * scale  // 应用缩放比例
-                  }
-                });
-                shapeMap.set(childShape.id, geoShape as unknown as TLShape);
-              }
-              break;
-              
-            case 'image':
-              if (childShape.w && childShape.h) {
-                const imageShape = editor.createShape({
-                  type: 'image',
-                  x: (childShape.x || 0) * scale + offsetX,
-                  y: (childShape.y || 0) * scale + offsetY,
-                  opacity: childShape.opacity !== undefined && childShape.opacity !== null ? childShape.opacity : 1,
-                  props: {
-                    w: childShape.w * scale, // 应用缩放比例
-                    h: childShape.h * scale,  // 应用缩放比例
-                    assetId: childShape.assetId || 'placeholder-asset-id',
-                    // 注意：image形状可能不支持opacity属性，所以不包含它
-                  }
-                });
-                shapeMap.set(childShape.id, imageShape as unknown as TLShape);
-              }
-              break;
-              
-            case 'path':
-              if (childShape.d) {
-                // 将SVG路径转换为tldraw draw形状的segments
-                const segments = convertSvgPathToSegments(childShape.d);
-                if (segments.length > 0) {
-                  const drawShape = editor.createShape({
-                    type: 'draw',
-                    x: (childShape.x || 0) * scale + offsetX,
-                    y: (childShape.y || 0) * scale + offsetY,
-                    opacity: childShape.opacity !== undefined && childShape.opacity !== null ? childShape.opacity : 1,
-                    props: {
-                      segments: segments,
-                      isComplete: true,
-                      isPen: false,
-                      ...commonProps,
-                      scale: (commonProps.scale || 1) * scale // 应用缩放比例
-                    }
-                  });
-                  shapeMap.set(childShape.id, drawShape as unknown as TLShape);
-                }
-              }
-              break;
-              
-            case 'group':
-              // 处理嵌套的group：递归处理其子形状
-              if (childShape.children && childShape.children.length > 0) {
-                console.log(`处理嵌套group ${childShape.id}，包含 ${childShape.children.length} 个子形状`);
-                
-                // 递归处理嵌套group的子形状
-                childShape.children.forEach(nestedChild => {
-                  console.log(`创建嵌套子形状: ${nestedChild.type} (${nestedChild.id})`);
-                  
-                  const nestedCommonProps = {
-                    color: nestedChild.color || 'black',
-                    fill: nestedChild.fill || 'none',
-                    size: nestedChild.size || 'm',
-                    dash: nestedChild.dash || 'draw',
-                    scale: nestedChild.scale || 1,
-                    opacity: nestedChild.opacity || 1,
-                  };
-
-                  switch (nestedChild.type) {
-                    case 'draw':
-                      if (nestedChild.segments && nestedChild.segments.length > 0) {
-                        // 创建draw形状的props，排除可能不支持的opacity属性
-                        const drawProps: any = {
-                          segments: nestedChild.segments,
-                          isComplete: nestedChild.isComplete !== undefined ? nestedChild.isComplete : true,
-                          isPen: nestedChild.isPen !== undefined ? nestedChild.isPen : false,
-                          isClosed: nestedChild.isClosed !== undefined ? nestedChild.isClosed : false,
-                          color: nestedCommonProps.color,
-                          fill: nestedCommonProps.fill,
-                          size: nestedCommonProps.size,
-                          dash: nestedCommonProps.dash,
-                          scale: nestedCommonProps.scale,
-                          // 注意：draw形状可能不支持opacity属性，所以不包含它
-                        };
-                        
-                        const drawShape = editor.createShape({
-                          type: 'draw',
-                          x: (nestedChild.x || 0) * scale + offsetX,
-                          y: (nestedChild.y || 0) * scale + offsetY,
-                          opacity: nestedChild.opacity !== undefined && nestedChild.opacity !== null ? nestedChild.opacity : 1,
-                          props: {
-                            ...drawProps,
-                            scale: (drawProps.scale || 1) * scale // 应用缩放比例
-                          }
-                        });
-                        shapeMap.set(nestedChild.id, drawShape as unknown as TLShape);
-                      }
-                      break;
-                      
-                    case 'geo':
-                      if (nestedChild.w && nestedChild.h) {
-                        const geoProps: any = {
-                          geo: nestedChild.geo || 'rectangle',
-                          w: nestedChild.w,
-                          h: nestedChild.h,
-                          color: nestedCommonProps.color,
-                          fill: nestedCommonProps.fill,
-                          size: nestedCommonProps.size,
-                          dash: nestedCommonProps.dash,
-                          scale: nestedCommonProps.scale,
-                        };
-                        
-                        const geoShape = editor.createShape({
-                          type: 'geo',
-                          x: (nestedChild.x || 0) * scale + offsetX,
-                          y: (nestedChild.y || 0) * scale + offsetY,
-                          opacity: nestedChild.opacity !== undefined && nestedChild.opacity !== null ? nestedChild.opacity : 1,
-                          props: {
-                            ...geoProps,
-                            w: (geoProps.w || 100) * scale, // 应用缩放比例
-                            h: (geoProps.h || 100) * scale  // 应用缩放比例
-                          }
-                        });
-                        shapeMap.set(nestedChild.id, geoShape as unknown as TLShape);
-                      }
-                      break;
-                      
-                    case 'image':
-                      if (nestedChild.w && nestedChild.h) {
-                        const imageShape = editor.createShape({
-                          type: 'image',
-                          x: (nestedChild.x || 0) * scale + offsetX,
-                          y: (nestedChild.y || 0) * scale + offsetY,
-                          opacity: nestedChild.opacity !== undefined && nestedChild.opacity !== null ? nestedChild.opacity : 1,
-                          props: {
-                            w: nestedChild.w * scale, // 应用缩放比例
-                            h: nestedChild.h * scale,  // 应用缩放比例
-                            assetId: nestedChild.assetId || 'placeholder-asset-id',
-                            // 注意：image形状可能不支持opacity属性，所以不包含它
-                          }
-                        });
-                        shapeMap.set(nestedChild.id, imageShape as unknown as TLShape);
-                      }
-                      break;
-                      
-                    case 'path':
-                      if (nestedChild.d) {
-                        const segments = convertSvgPathToSegments(nestedChild.d);
-                        if (segments.length > 0) {
-                          // 检查路径是否闭合：通过浮点数比较检查起点和终点是否相同
-                          let isClosed = false;
-                          if (segments[0].points.length > 1) {
-                            const firstPoint = segments[0].points[0];
-                            const lastPoint = segments[0].points[segments[0].points.length - 1];
-                            // 使用容差比较，避免浮点数精度问题
-                            isClosed = Math.abs(firstPoint.x - lastPoint.x) < 0.001 && 
-                                      Math.abs(firstPoint.y - lastPoint.y) < 0.001;
-                          }
-                          
-                          // 创建path形状的props，排除可能不支持的opacity属性
-                          const pathProps: any = {
-                            segments: segments,
-                            isComplete: true,
-                            isPen: false,
-                            isClosed: isClosed,
-                            color: nestedCommonProps.color,
-                            fill: isClosed ? nestedCommonProps.fill : 'none',
-                            size: nestedCommonProps.size,
-                            dash: nestedCommonProps.dash,
-                            scale: nestedCommonProps.scale,
-                            // 注意：draw形状可能不支持opacity属性，所以不包含它
-                          };
-                          
-                          const drawShape = editor.createShape({
-                            type: 'draw',
-                            x: (nestedChild.x || 0) * scale + offsetX,
-                            y: (nestedChild.y || 0) * scale + offsetY,
-                            opacity: nestedChild.opacity !== undefined && nestedChild.opacity !== null ? nestedChild.opacity : 1,
-                            props: {
-                              ...pathProps,
-                              scale: (pathProps.scale || 1) * scale // 应用缩放比例
-                            }
-                          });
-                          shapeMap.set(nestedChild.id, drawShape as unknown as TLShape);
-                        }
-                      }
-                      break;
-                      
-                    default:
-                      console.warn(`不支持的嵌套子形状类型: ${nestedChild.type}，跳过创建`);
-                      break;
-                  }
-                });
-                
-                // 为嵌套group的子形状设置parentId
-                childShape.children.forEach(nestedChild => {
-                  const nestedTlShape = shapeMap.get(nestedChild.id);
-                  if (nestedTlShape) {
-                    editor.updateShape({
-                      ...nestedTlShape,
-                      parentId: childShape.id as TLShapeId
-                    });
-                  }
-                });
-                
-                // 记录嵌套group信息
-                shapeMap.set(childShape.id, null as any);
-              }
-              break;
-              
-            // 添加其他形状类型的处理...
-            default:
-              console.warn(`不支持的子形状类型: ${childShape.type}，跳过创建`);
-              break;
-          }
-        });
-        
-        // 然后为子形状设置parentId
-        shapeData.children.forEach(childShape => {
-          const childTlShape = shapeMap.get(childShape.id);
-          if (childTlShape) {
-            editor.updateShape({
-              ...childTlShape,
-              parentId: shapeData.id as TLShapeId
-            });
-          }
-        });
-        
-        // 记录group信息但不创建frame
-        shapeMap.set(shapeData.id, null as any);
+      case 'text': {
+        const props = {
+          text: shape.text ?? '',
+          font: shape.font ?? 'draw',
+          align: shape.align ?? 'middle',
+          verticalAlign: shape.verticalAlign ?? 'middle',
+        }
+        const shapeArgs = { ...base, type: 'text', props, w: shape.w ?? 200, h: shape.h ?? 100 }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        if (Array.isArray(shape.children)) for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        break
       }
-    });
+
+      case 'group': {
+        // group as placeholder: we don't create a frame by default, but create a dummy group node using a frame (optional)
+        // We'll create a frame only if needed; here just create a 'frame' to act as parent container (keeps hierarchy)
+        const shapeArgs = { ...base, type: 'frame', props: {}, w: shape.w ?? 1, h: shape.h ?? 1 }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        // children attach to this group's id
+        if (Array.isArray(shape.children)) {
+          for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        }
+        break
+      }
+
+      case 'arrow': {
+        const props = {
+          start: shape.start,
+          end: shape.end,
+          color: getTldrawColorFromSvg(shape.color ?? null, colorMap),
+          dash: shape.dash ?? 'draw'
+        }
+        const shapeArgs = { ...base, type: 'arrow', props }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        break
+      }
+
+      default: {
+        // fallback: create a small geo to preserve position
+        const shapeArgs = { ...base, type: 'geo', props: { geo: 'rectangle', fill: shape.fill ?? 'none' }, w: shape.w ?? 10, h: shape.h ?? 10 }
+        const tl = createTlShapeSafe(editor, shapeArgs)
+        created.push(tl)
+        if (Array.isArray(shape.children)) for (const c of shape.children) createRecursive(c as SvgShapeData, tl.id as string, false)
+        break
+      }
+    }
   }
-}
 
+  // entry
+  for (let i = 0; i < shapes.length; i++) {
+    const s = shapes[i]
+    try {
+      createRecursive(s, undefined, true)
+    } catch (e) {
+      console.error('createRecursive failed for shape', s?.id, e)
+    }
+  }
+
+  return created
+}
 /**
  * 将SVG路径数据转换为tldraw draw形状的segments格式（匹配ink生成的格式）
  * 根据tldraw的DrawShapeUtil.tsx文件，TLDrawShapeSegment的正确结构为：
  * points数组包含具有x、y、z属性的对象：[{x: number, y: number, z: number}]
  */
-function convertSvgPathToSegments(d: string): any[] {
+function convertSvgPathToSegments(d: string): { segments: any[], isClosed: boolean } {
   const segments: any[] = [];
   
   // 检查输入是否有效
   if (!d || typeof d !== 'string' || d.trim() === '') {
     console.warn('convertSvgPathToSegments: 无效的路径数据', d);
-    return segments;
+    return { segments: [], isClosed: false };
   }
   
   // 首先规范化路径数据
@@ -3064,13 +1846,15 @@ function convertSvgPathToSegments(d: string): any[] {
     if (subPath.points.length > 0) {
       segments.push({
         type: 'free',
-        points: subPath.points,
-        isClosed: subPath.isClosed || false
+        points: subPath.points
       });
     }
   }
   
-  return segments;
+  return { 
+    segments, 
+    isClosed: subPaths.length > 0 && subPaths.some(p => p.isClosed) 
+  };
 }
 
 /**
@@ -3092,281 +1876,6 @@ function calculateBezierPoint(t: number, p0: number, p1: number, p2: number, p3:
 function calculateQuadraticBezierPoint(t: number, p0: number, p1: number, p2: number): number {
   const u = 1 - t;
   return u * u * p0 + 2 * u * t * p1 + t * t * p2;
-}
-
-/**
- * 从路径数据中提取所有坐标点
- */
-function extractPointsFromPath(pathData: string): {x: number, y: number}[] {
-  const points: {x: number, y: number}[] = [];
-  
-  // 使用reverseSvgPathToSegments函数来解析路径数据，确保使用绝对坐标
-  const segments = reverseSvgPathToSegments(pathData, { bezierSegments: 32, arcSegments: 48 });
-  
-  // 从所有子路径中提取点
-  segments.forEach(segment => {
-    if (segment.points && segment.points.length > 0) {
-      segment.points.forEach((point: {x: number, y: number}) => {
-        points.push({x: point.x, y: point.y});
-      });
-    }
-  });
-  
-  return points;
-}
-
-/**
- * 计算路径点的边界框
- */
-function calculatePathBounds(points: {x: number, y: number}[]): {minX: number, minY: number, maxX: number, maxY: number} {
-  if (points.length === 0) {
-    return {minX: 0, minY: 0, maxX: 0, maxY: 0};
-  }
-  
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  
-  points.forEach(point => {
-    minX = Math.min(minX, point.x);
-    minY = Math.min(minY, point.y);
-    maxX = Math.max(maxX, point.x);
-    maxY = Math.max(maxY, point.y);
-  });
-  
-  return {minX, minY, maxX, maxY};
-}
-
-/**
- * 将T命令（平滑二次贝塞尔曲线）转换为Q命令（二次贝塞尔曲线）
- */
-function convertTCommandsToQ(pathData: string): string {
-    // 改进的T命令转换：正确处理命令和参数合并的情况
-    
-    // 首先将路径数据分割为更细粒度的令牌
-    const tokens: string[] = [];
-    let currentToken = '';
-    
-    // 逐个字符处理，正确分割命令和参数
-    for (let i = 0; i < pathData.length; i++) {
-        const char = pathData[i];
-        
-        // 如果遇到字母（命令）且当前令牌不为空，则保存当前令牌
-        if (/[A-Za-z]/.test(char) && currentToken.trim() !== '') {
-            tokens.push(currentToken.trim());
-            currentToken = '';
-        }
-        
-        currentToken += char;
-        
-        // 如果遇到空格或逗号，且当前令牌不为空，则保存当前令牌
-        if ((char === ' ' || char === ',') && currentToken.trim() !== '') {
-            tokens.push(currentToken.trim());
-            currentToken = '';
-        }
-    }
-    
-    // 添加最后一个令牌
-    if (currentToken.trim() !== '') {
-        tokens.push(currentToken.trim());
-    }
-    
-    // 进一步分割合并的命令和参数（如 "T-0.0891,-3.5239"）
-    const finalTokens: string[] = [];
-    for (const token of tokens) {
-        // 检查令牌是否包含命令和参数合并的情况
-        const commandMatch = token.match(/^([A-Za-z])([\d\-\.\,]+)$/);
-        if (commandMatch) {
-            // 分割命令和参数
-            finalTokens.push(commandMatch[1]);
-            // 分割参数（可能包含逗号分隔的多个参数）
-            const params = commandMatch[2].split(',');
-            for (const param of params) {
-                if (param.trim() !== '') {
-                    finalTokens.push(param.trim());
-                }
-            }
-        } else {
-            finalTokens.push(token);
-        }
-    }
-    
-    console.log('T命令转换 - 令牌数组:', finalTokens);
-    
-    let result: string[] = [];
-    let lastX = 0;
-    let lastY = 0;
-    let lastControlX: number | undefined;
-    let lastControlY: number | undefined;
-    
-    for (let i = 0; i < finalTokens.length; i++) {
-        const token = finalTokens[i];
-        
-        if (token === 'T' || token === 't') {
-            console.log('发现T命令，位置:', i);
-            
-            // 处理T命令
-            if (i + 2 < finalTokens.length) {
-                const xStr = finalTokens[i + 1];
-                const yStr = finalTokens[i + 2];
-                
-                // 检查参数是否为有效数字
-                if (isNaN(parseFloat(xStr)) || isNaN(parseFloat(yStr))) {
-                    console.warn('T命令参数无效，跳过转换:', xStr, yStr);
-                    result.push(token, xStr, yStr); // 保留原始命令和参数
-                    i += 2;
-                    continue;
-                }
-                
-                const x = parseFloat(xStr);
-                const y = parseFloat(yStr);
-                
-                console.log('T命令参数:', x, y);
-                console.log('上一个点:', lastX, lastY);
-                
-                // 对于平滑二次贝塞尔曲线，控制点应该是前一个控制点关于当前点的对称点
-                // 如果前一个命令是Q或q，则使用对称控制点；否则使用当前点作为控制点
-                let controlX = lastX;
-                let controlY = lastY;
-                
-                // 检查是否有前一个控制点信息（需要记录前一个Q命令的控制点）
-                if (typeof lastControlX !== 'undefined' && typeof lastControlY !== 'undefined') {
-                    // 计算对称控制点：control = 2 * currentPoint - lastControlPoint
-                    controlX = 2 * lastX - lastControlX;
-                    controlY = 2 * lastY - lastControlY;
-                    console.log('使用对称控制点:', controlX, controlY);
-                } else {
-                    console.log('没有前一个控制点，使用当前点作为控制点');
-                }
-                
-                console.log('控制点:', controlX, controlY);
-                
-                // 添加Q命令
-                result.push('Q');
-                result.push(controlX.toString());
-                result.push(controlY.toString());
-                result.push(x.toString());
-                result.push(y.toString());
-                
-                // 更新最后的位置和控制点
-                lastControlX = controlX;
-                lastControlY = controlY;
-                lastX = x;
-                lastY = y;
-                
-                i += 2; // 跳过参数
-                console.log('T命令已转换为Q命令');
-            } else {
-                console.warn('T命令参数不足，保留原始命令');
-                result.push(token);
-            }
-        } else if (token === 'M' || token === 'm') {
-            // 记录起始点
-            if (i + 2 < finalTokens.length) {
-                const xStr = finalTokens[i + 1];
-                const yStr = finalTokens[i + 2];
-                
-                // 检查参数是否为有效数字
-                if (!isNaN(parseFloat(xStr)) && !isNaN(parseFloat(yStr))) {
-                    lastX = parseFloat(xStr);
-                    lastY = parseFloat(yStr);
-                    result.push(token, xStr, yStr);
-                    console.log('M命令，设置起点:', lastX, lastY);
-                } else {
-                    console.warn('M命令参数无效，保留原始命令和参数');
-                    result.push(token, xStr, yStr);
-                }
-                i += 2;
-            } else {
-                console.warn('M命令参数不足，保留原始命令');
-                result.push(token);
-            }
-        } else if (token === 'Q' || token === 'q') {
-            // 记录Q命令的控制点和终点
-            if (i + 4 < finalTokens.length) {
-                const controlXStr = finalTokens[i + 1];
-                const controlYStr = finalTokens[i + 2];
-                const xStr = finalTokens[i + 3];
-                const yStr = finalTokens[i + 4];
-                
-                // 检查参数是否为有效数字
-                if (!isNaN(parseFloat(controlXStr)) && !isNaN(parseFloat(controlYStr)) && 
-                    !isNaN(parseFloat(xStr)) && !isNaN(parseFloat(yStr))) {
-                    const controlX = parseFloat(controlXStr);
-                    const controlY = parseFloat(controlYStr);
-                    lastX = parseFloat(xStr);
-                    lastY = parseFloat(yStr);
-                    
-                    // 记录控制点用于后续T命令
-                    lastControlX = controlX;
-                    lastControlY = controlY;
-                    
-                    result.push(token, controlXStr, controlYStr, xStr, yStr);
-                } else {
-                    console.warn('Q命令参数无效，保留原始命令和参数');
-                    result.push(token, controlXStr, controlYStr, xStr, yStr);
-                }
-                i += 4;
-            } else {
-                console.warn('Q命令参数不足，保留原始命令');
-                result.push(token);
-            }
-        } else if (token === 'L' || token === 'l') {
-            // 记录直线命令的终点
-            if (i + 2 < finalTokens.length) {
-                const xStr = finalTokens[i + 1];
-                const yStr = finalTokens[i + 2];
-                
-                // 检查参数是否为有效数字
-                if (!isNaN(parseFloat(xStr)) && !isNaN(parseFloat(yStr))) {
-                    lastX = parseFloat(xStr);
-                    lastY = parseFloat(yStr);
-                    result.push(token, xStr, yStr);
-                } else {
-                    console.warn('L命令参数无效，保留原始命令和参数');
-                    result.push(token, xStr, yStr);
-                }
-                i += 2;
-            } else {
-                console.warn('L命令参数不足，保留原始命令');
-                result.push(token);
-            }
-        } else if (token === 'A' || token === 'a') {
-            // 记录圆弧命令的终点
-            if (i + 7 < finalTokens.length) {
-                const xStr = finalTokens[i + 6];
-                const yStr = finalTokens[i + 7];
-                
-                // 检查终点参数是否为有效数字
-                if (!isNaN(parseFloat(xStr)) && !isNaN(parseFloat(yStr))) {
-                    lastX = parseFloat(xStr);
-                    lastY = parseFloat(yStr);
-                    result.push(token, finalTokens[i + 1], finalTokens[i + 2], finalTokens[i + 3], finalTokens[i + 4], finalTokens[i + 5], xStr, yStr);
-                } else {
-                    console.warn('A命令终点参数无效，保留原始命令和参数');
-                    result.push(token, finalTokens[i + 1], finalTokens[i + 2], finalTokens[i + 3], finalTokens[i + 4], finalTokens[i + 5], xStr, yStr);
-                }
-                i += 7;
-            } else {
-                console.warn('A命令参数不足，保留原始命令');
-                result.push(token);
-            }
-        } else if (token === 'Z' || token === 'z') {
-            // 闭合路径
-            result.push(token);
-        } else if (!isNaN(parseFloat(token))) {
-            // 数字参数，直接添加
-            result.push(token);
-        } else {
-            // 其他命令直接添加
-            result.push(token);
-        }
-    }
-    
-    const converted = result.join(' ');
-    console.log('T命令转换完成，结果:', converted);
-    return converted;
 }
 
 /**
@@ -3630,4 +2139,4 @@ function parseSvgToShapesFallback(
   return { shapes, imageData };
 }
 
-export { parseSvgToShapesFallback };
+export { parseSvgToShapes, parseSvgToShapesFallback };

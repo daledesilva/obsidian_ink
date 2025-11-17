@@ -29,21 +29,42 @@
 
 // ========== 移动端基础适配 ==========
 @media (max-width: 896px) {
-  .ink_primary-menu-bar,
   .markdown-preview-view .ink_primary-menu-bar,
   .markdown-source-view .ink_primary-menu-bar:not(:has(.ink-writing-view-host)) {
     transform: translate(0, -560%) !important;
   }
-
   .ddc_ink_widget-root {
-    padding-top: 100px !important;
+    padding-top: 120px !important;
+  }
+  .ddc_ink_widget-root:has(.ink-writing-view-host) {
+    padding-top: 160px !important;
   }
 
   .ink_other-menu .ink_quick-menu {
     margin: -5px 0 0 0 !important;
   }
+.ink-writing-view-host>.ddc_ink_writing-editor>.ink_primary-menu-bar {
+    padding: 0;
 }
-
+}
+  // ✅ 竖屏适配
+@media (max-width: 768px) and (orientation: portrait) {
+.internal-embed.media-embed.image-embed.is-loaded img {
+  /* 基础自适应设置 */
+  width: 50%;
+  height: auto;
+  display: block;
+	transform: translateX(-30px);  
+  /* 确保图片不会超出容器 */
+  box-sizing: border-box;
+  
+  /* 平滑过渡效果 */
+  transition: all 0.3s ease-in-out;
+}
+.ink-writing-view-host>.ddc_ink_writing-editor {
+    padding-top: 70px;
+}
+}
 // 书写区域样式
 .writing-zone {
   background: transparent;

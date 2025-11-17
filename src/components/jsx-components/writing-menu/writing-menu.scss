@@ -211,9 +211,11 @@
         background: var(--background-modifier-border);
         outline: none;
         -webkit-appearance: none;
+        appearance: none;
         
         &::-webkit-slider-thumb {
             -webkit-appearance: none;
+            appearance: none;
             width: 16px;
             height: 16px;
             border-radius: 50%;

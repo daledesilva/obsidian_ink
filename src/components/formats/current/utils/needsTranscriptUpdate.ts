@@ -21,7 +21,13 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
 
     // console.log('saving transcript to', fileRef.path);
     const pageDataStr = await v.read(fileRef as TFile);
-    const pageData = JSON.parse(pageDataStr) as InkFileData;
+    let pageData: InkFileData;
+    try {
+        pageData = JSON.parse(pageDataStr) as InkFileData;
+    } catch (error) {
+        console.error('解析文件数据失败:', error);
+        return;
+    }
 
     // TODO: Add in a date of the transcript
     pageData.meta.transcript = "The new transcript";

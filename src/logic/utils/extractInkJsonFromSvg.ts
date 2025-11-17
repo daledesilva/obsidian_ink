@@ -670,7 +670,13 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
         }
         
         // Parse the JSON content (tldraw snapshot only)
-        const tldrawSnapshot = JSON.parse(jsonText) as TLEditorSnapshot;
+        let tldrawSnapshot: TLEditorSnapshot;
+        try {
+            tldrawSnapshot = JSON.parse(jsonText) as TLEditorSnapshot;
+        } catch (error) {
+            console.warn('解析tldraw快照JSON失败:', error);
+            return null;
+        }
 
         // Also read pluginVersion from <ink>
         const pluginVersionAttr = inkElements.length > 0 ? (inkElements[0].getAttribute('plugin-version') || undefined) : undefined;

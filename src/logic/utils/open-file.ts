@@ -4,9 +4,14 @@ import { getGlobals } from "src/stores/global-store";
 ////////////////////////////////
 ////////////////////////////////
 
-export async function openInkFile(fileRef: TFile, currentEmbedState?: string) {
-    // 强制在DrawingView中打开文件，确保进入编辑状态
-    await openInDrawingView(fileRef);
+export async function openInkFile(fileRef: TFile, currentEmbedState?: string, viewType?: 'inkDrawing' | 'inkWriting') {
+    // 根据视图类型决定使用哪种视图打开文件
+    if (viewType === 'inkWriting') {
+        await openInWritingView(fileRef);
+    } else {
+        // 默认使用DrawingView
+        await openInDrawingView(fileRef);
+    }
 }
 
 export async function openInActiveView(fileRef: TFile) {
@@ -34,20 +39,22 @@ export async function openInDrawingView(fileRef: TFile) {
 
 // NOTE: Future possible additions
 
-// async function activateTabView(plugin: InkPlugin) {
-//     let { workspace }  = plugin.app;
-	
-//     let leaf: WorkspaceLeaf | null = null;
-// 	let leaves = workspace.getLeavesOfType(WRITING_VIEW_TYPE);
-
-//     // This code finds if it alread existing in a tab and uses that first.
-// 	// if (leaves.length > 0) {
-// 	// 	// A leaf with our view already exists, use that
-// 	// 	leaf = leaves[0];
-// 	// } else {
-// 		// Our view could not be found in the workspace
-// 		leaf = workspace.getLeaf(true);
-// 		await leaf.setViewState({ type: WRITING_VIEW_TYPE, active: true });
+export async function openInWritingView(fileRef: TFile) {
+    let { workspace }  = getGlobals().plugin.app;
+    
+    // 获取当前活跃的leaf
+    let leaf = workspace.activeLeaf;
+    if (!leaf) {
+        leaf = workspace.getLeaf();
+    }
+    
+    // 强制设置视图状态为WritingView
+    await leaf.setViewState({
+        type: "ink_writing-view",
+        state: { file: fileRef.path },
+        active: true,
+    });
+}
 // 	// }
 
 //     workspace.revealLeaf(leaf);

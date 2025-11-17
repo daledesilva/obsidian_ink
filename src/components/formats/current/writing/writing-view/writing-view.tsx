@@ -1,4 +1,4 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, WorkspaceLeaf, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import InkPlugin from "src/main";
@@ -7,11 +7,27 @@ import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-edi
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
+import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
 
 ////////
 ////////
 
 export const WRITING_VIEW_TYPE = "ink_writing-view";
+
+function getExtendedOptions(plugin: InkPlugin, fileRef: TFile, closeEditor: () => void) {
+    return [
+        {
+            text: 'Copy writing',
+            action: async () => {
+                await rememberWritingFile(plugin, fileRef);
+            }
+        },
+        {
+            text: 'Close',
+            action: closeEditor
+        },
+    ]
+}
 
 ////////
 
@@ -109,12 +125,20 @@ export class WritingView extends TextFileView {
         this.hostEl = host;
 
         this.root = createRoot(host);
+		const closeEditor = async () => {
+            if (this.editorControls) {
+                await this.editorControls.saveAndHalt();
+            }
+            this.leaf.detach();
+        };
 		this.root.render(
             <TldrawWritingEditor
                 plugin = {this.plugin}
                 writingFile = {this.file}
                 save = {this.saveFile}
                 saveControlsReference = {this.registerEditorControls}
+                extendedMenu = {getExtendedOptions(this.plugin, this.file, closeEditor)}
+                closeEditor = {closeEditor}
 			/>
         );
     }
@@ -184,14 +208,3 @@ export class WritingView extends TextFileView {
         return await super.onClose();
     }
 }
-
-
-
-
-
-
-
-
-
-
-

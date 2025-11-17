@@ -897,9 +897,26 @@ export const updateWritingStoreIfNeeded = (editor: Editor) => {
 function addNewTemplateShapes(editor: Editor) {
 	const hasLines = editor.store.has('shape:writing-lines' as TLShapeId);
 	if(!hasLines) {
+		// 根据屏幕宽度动态调整writing-lines形状的宽度
+		const containerRect = editor.getContainer().getBoundingClientRect();
+		let containerWidth = 2000; // 默认宽度
+		const screenWidth = window.innerWidth;
+		
+		// 在小屏幕设备上减小容器宽度，确保内容能够完整显示
+		if (screenWidth <= 416) { // iPhone逻辑像素宽度
+			containerWidth = 800;
+		} else if (screenWidth <= 768) {
+			containerWidth = 1200;
+		} else if (screenWidth <= 1024) {
+			containerWidth = 1600;
+		}
+		
 		editor.createShape({
 			id: 'shape:writing-lines' as TLShapeId,
 			type: 'writing-lines',
+			props: {
+				w: containerWidth // 动态设置宽度
+			},
 			meta: {}
 		})
 	}
@@ -1327,7 +1344,7 @@ export async function fallbackToSvgImport(editor: Editor, filePath: string): Pro
 		
 		// 使用parseSvgToShapes解析SVG，然后调用importSvgToTldraw重新导入
 		const { shapes, imageData } = parseSvgToShapes(svgContent);
-		const success = importSvgToTldraw(editor, shapes, imageData, 0, 0);
+		const success = importSvgToTldraw(editor, shapes, imageData, 0, 0, false);
 		
 		if (success) {
 			console.log('SVG导入备用机制执行成功');

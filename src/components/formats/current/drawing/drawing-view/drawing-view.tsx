@@ -51,24 +51,38 @@ export function registerDrawingView (plugin: InkPlugin) {
                     if (!activeLeaf) return;
                     const currentViewType = (activeLeaf as any).view?.getViewType?.();
                     
-                    // 检查缓存中是否有该文件的快照
-                    const cachedSnapshot = plugin.getSvgCache(file.path);
+                    // 如果已经在drawing view中，不需要处理
+                    if (currentViewType === DRAWING_VIEW_TYPE) return;
                     
                     // 读取SVG文件内容
                     const svgString = await plugin.app.vault.read(file);
                     if (!svgString) return;
                     
-                    // 直接判断SVG是否包含tldraw元数据
-                    const hasTldrawMetadata = svgString.includes('tldraw') || svgString.includes('ink');
+                    // 检查SVG是否包含tldraw元数据，并且确认是drawing文件而不是writing文件
+                    const inkFileData = extractInkJsonFromSvg(svgString);
                     
-                    if (!hasTldrawMetadata) {
-                        return;
+                    // 只有当文件包含tldraw元数据且不是writing文件时，才切换到drawing view
+                    if (inkFileData) {
+                        // 如果是writing文件，不处理
+                        if (inkFileData.meta.fileType === "inkWriting") {
+                            return;
+                        }
+                        // 如果是drawing文件，切换到drawing view
+                        if (inkFileData.meta.fileType === "inkDrawing") {
+                            await activeLeaf.setViewState({
+                                type: DRAWING_VIEW_TYPE,
+                                state: { file: file.path },
+                                active: true,
+                            });
+                            return;
+                        }
                     }
-
-                    // 对于包含tldraw元数据的SVG文件，使用简化的解析方法
                     
-                    // 如果当前不在drawing view中，切换到drawing view
-                    if (currentViewType !== DRAWING_VIEW_TYPE) {
+                    // 对于没有完整元数据的旧文件，检查是否包含tldraw字符串但不包含inkWriting
+                    const hasTldrawMetadata = svgString.includes('tldraw');
+                    const hasInkWriting = svgString.includes('inkWriting');
+                    
+                    if (hasTldrawMetadata && !hasInkWriting) {
                         await activeLeaf.setViewState({
                             type: DRAWING_VIEW_TYPE,
                             state: { file: file.path },

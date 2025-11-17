@@ -76,26 +76,31 @@ export class WritingEmbedWidget extends WidgetType {
 
     get estimatedHeight(): number {
         // Return estimated height to prevent layout shifts when widget is mounted
-        // Calculate based on viewport width and stored aspectRatio
-        const { plugin } = getGlobals();
-        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-        const activeEditor = activeView?.editor;
-        
-        if (activeEditor && this.embedSettings?.embedDisplay?.aspectRatio) {
-            // @ts-expect-error, not typed
-            const cmEditorView = activeEditor.cm as EditorView;
-            const viewportWidth = cmEditorView.scrollDOM.clientWidth;
-            const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
-            const calculatedHeight = viewportWidth / aspectRatio;
-            // Add padding (1em top + 0.5em bottom ≈ 24px)
-            const height = calculatedHeight + 24;
-            console.log('[ink] WritingEmbedWidget estimatedHeight:', height, { viewportWidth, aspectRatio });
-            return height;
+        // Query actual content container width from CodeMirror DOM
+        let height: number;
+        if (this.embedSettings?.embedDisplay?.aspectRatio) {
+            const { plugin } = getGlobals();
+            const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+            const activeEditor = activeView?.editor;
+            
+            if (activeEditor) {
+                // @ts-expect-error, not typed
+                const cmEditorView = activeEditor.cm as EditorView;
+                
+                // Use contentDOM to get the actual content container width (e.g., 700px)
+                // Fallback to scrollDOM if contentDOM is unavailable
+                const contentWidth = cmEditorView.contentDOM?.clientWidth || cmEditorView.scrollDOM.clientWidth;
+                const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
+                const calculatedHeight = contentWidth / aspectRatio;
+                // Add padding (1em top + 0.5em bottom ≈ 24px)
+                height = calculatedHeight + 24;
+            } else {
+                height = 250;
+            }
+
+        } else {
+            height = 250;
         }
-        
-        // Fallback: minimum height of ~225px plus padding (~1.5em) ≈ 250px
-        const height = 250;
-        console.log('[ink] WritingEmbedWidget estimatedHeight (fallback):', height);
         return height;
     }
 

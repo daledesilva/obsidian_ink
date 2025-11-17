@@ -56,6 +56,7 @@ export function WritingEmbed (props: {
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const embedAspectRatioRef = useRef<number>(props.embedSettings?.embedDisplay?.aspectRatio || DEFAULT_EMBED_SETTINGS.embedDisplay.aspectRatio);
+	const previousHeightRef = useRef<number | null>(null);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
@@ -63,16 +64,11 @@ export function WritingEmbed (props: {
 
 	const setEmbedState = useSetAtom(embedStateAtom);
 	
-	// Set initial height based on aspectRatio to prevent layout shift
-	React.useEffect(() => {
-		if (resizeContainerElRef.current && embedAspectRatioRef.current) {
-			const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
-			if (currentWidth) {
-				const estimatedHeight = currentWidth / embedAspectRatioRef.current;
-				resizeContainerElRef.current.style.height = estimatedHeight + 'px';
-			}
-		}
-	}, []);
+	// Calculate initial height from aspectRatio for JSX styles
+	// Use a default width (700px) that matches typical CodeMirror content width
+	// The actual width will be determined by the container, and resize callbacks will update height
+	const defaultInitialWidth = 700;
+	const initialHeight = defaultInitialWidth / embedAspectRatioRef.current;
 	
 	// On first mount
 	React.useEffect( () => {
@@ -137,6 +133,10 @@ export function WritingEmbed (props: {
 			<div
 				className = 'ddc_ink_resize-container'
 				ref = {resizeContainerElRef}
+				style = {{
+					width: '100%',
+					height: initialHeight + 'px',
+				}}
 			>
 			
 				<WritingEmbedPreviewWrapper
@@ -202,10 +202,17 @@ export function WritingEmbed (props: {
 
 	function applyHeight(height: number) {
 		if(!resizeContainerElRef.current) return;
-		resizeContainerElRef.current.style.height = height + 'px';
 		
-		// Notify CodeMirror to re-measure when height changes
-		props.onRequestMeasure?.();
+		// Only call onRequestMeasure if height actually changed (within 1px threshold for rounding)
+		const heightChanged = previousHeightRef.current === null || Math.abs(height - previousHeightRef.current) > 1;
+		
+		resizeContainerElRef.current.style.height = height + 'px';
+		previousHeightRef.current = height;
+		
+		// Notify CodeMirror to re-measure only when height actually changes
+		if (heightChanged) {
+			props.onRequestMeasure?.();
+		}
 		
 		setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize

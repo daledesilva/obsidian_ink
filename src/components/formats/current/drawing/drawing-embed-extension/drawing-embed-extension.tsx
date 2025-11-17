@@ -101,7 +101,6 @@ export class DrawingEmbedWidget extends WidgetType {
             // Default: 500px width / (16/9) = ~281px + 24px padding ≈ 305px
             height = 305;
         }
-        console.log('[ink] DrawingEmbedWidget estimatedHeight:', height, this.embedSettings?.embedDisplay);
         return height;
     }
 

@@ -177,7 +177,7 @@ export function WritingEmbed (props: {
 		if (!height) return;
 		if(!resizeContainerElRef.current) return;
 
-		applyHeight(height);
+		applyEmbedHeight(height);
 		// DO NOT recalculate embedAspectRatioRef here - editor is authoritative source
 	}
 
@@ -190,7 +190,7 @@ export function WritingEmbed (props: {
 		const editorRatio = invitingBounds?.w && invitingBounds?.h ? invitingBounds.w / invitingBounds.h : null;
 		if (editorRatio && isFinite(editorRatio) && editorRatio > 0) {
 			const editorHeight = containerWidth / editorRatio;
-			applyHeight(editorHeight);
+			applyEmbedHeight(editorHeight);
 		}
 
 		// Store tight aspect ratio for preview (used when switching to preview mode)
@@ -200,20 +200,12 @@ export function WritingEmbed (props: {
 		}
 	}
 
-	function applyHeight(height: number) {
+	function applyEmbedHeight(height: number) {
 		if(!resizeContainerElRef.current) return;
-		
-		// Only call onRequestMeasure if height actually changed (within 1px threshold for rounding)
-		const heightChanged = previousHeightRef.current === null || Math.abs(height - previousHeightRef.current) > 1;
-		
 		resizeContainerElRef.current.style.height = height + 'px';
+		const heightChanged = previousHeightRef.current === null || Math.abs(height - previousHeightRef.current) > 1;
+		if(heightChanged) props.onRequestMeasure?.();
 		previousHeightRef.current = height;
-		
-		// Notify CodeMirror to re-measure only when height actually changes
-		if (heightChanged) {
-			props.onRequestMeasure?.();
-		}
-		
 		setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize
 			if(!resizeContainerElRef.current) return;
@@ -238,7 +230,7 @@ export function WritingEmbed (props: {
 			const containerWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			if (containerWidth) {
 				const previewHeight = containerWidth / embedAspectRatioRef.current;
-				applyHeight(previewHeight);
+				applyEmbedHeight(previewHeight);
 			}
 		}
 

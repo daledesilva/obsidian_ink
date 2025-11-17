@@ -46,16 +46,6 @@ export class WritingEmbedWidget extends WidgetType {
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
         
-        // Set initial estimated height to prevent FOUC
-        if (this.embedSettings?.embedDisplay?.aspectRatio) {
-            const viewportWidth = view.scrollDOM.clientWidth;
-            const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
-            const estimatedHeight = viewportWidth / aspectRatio + 24;
-            rootEl.style.height = estimatedHeight + 'px';
-        } else {
-            rootEl.style.height = '250px';
-        }
-        
         const root = createRoot(rootEl);
 
         const { plugin } = getGlobals();
@@ -76,20 +66,10 @@ export class WritingEmbedWidget extends WidgetType {
                         this.removeEmbed(view);
                     }}
                     setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
-                    onHeightChange={(height: number) => this.onHeightChange(view, height)}
+                    onRequestMeasure={() => this.onRequestMeasure(view)}
                 />
             </JotaiProvider>
         );
-        
-        // Measure actual width after render and adjust height accordingly
-        requestAnimationFrame(() => {
-            const actualWidth = rootEl.getBoundingClientRect().width;
-            if (actualWidth && this.embedSettings?.embedDisplay?.aspectRatio) {
-                const correctHeight = actualWidth / this.embedSettings.embedDisplay.aspectRatio + 24;
-                rootEl.style.height = correctHeight + 'px';
-                view.requestMeasure(); // Tell CodeMirror to re-measure
-            }
-        });
         
         return rootEl;
     }
@@ -166,13 +146,9 @@ export class WritingEmbedWidget extends WidgetType {
         await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
     };
 
-    private onHeightChange(view: EditorView, height: number) {
-        // Update rootEl height immediately when embed content changes (no latency)
-        if (this.rootEl) {
-            const totalHeight = height + 24; // Add padding
-            this.rootEl.style.height = totalHeight + 'px';
-            view.requestMeasure(); // Tell CodeMirror to re-measure
-        }
+    private onRequestMeasure(view: EditorView) {
+        // Notify CodeMirror to re-measure when embed content changes
+        view.requestMeasure();
     }
 
     private removeEmbed(view: EditorView) {
@@ -195,15 +171,8 @@ export class WritingEmbedWidget extends WidgetType {
         // Update instance settings
         this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
         
-        // Update rootEl height if it exists
-        if (this.rootEl) {
-            const actualWidth = this.rootEl.getBoundingClientRect().width;
-            if (actualWidth) {
-                const newHeight = actualWidth / aspectRatio + 24;
-                this.rootEl.style.height = newHeight + 'px';
-                view.requestMeasure(); // Tell CodeMirror to re-measure
-            }
-        }
+        // Notify CodeMirror to re-measure
+        view.requestMeasure();
         
         // Find this widget's decoration range and update aspectRatio in markdown
         const decorations = view.state.field(embedStateFieldWriting, false);

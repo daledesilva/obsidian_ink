@@ -50,7 +50,7 @@ export function WritingEmbed (props: {
     save: (pageData: InkFileData) => void,
 	remove: Function,
 	setEmbedProps?: (aspectRatio: number) => void,
-	onHeightChange?: (height: number) => void,
+	onRequestMeasure?: () => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -204,10 +204,8 @@ export function WritingEmbed (props: {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
 		
-		// Notify parent widget of height change immediately (no latency)
-		if (props.onHeightChange) {
-			props.onHeightChange(height);
-		}
+		// Notify CodeMirror to re-measure when height changes
+		props.onRequestMeasure?.();
 		
 		setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize

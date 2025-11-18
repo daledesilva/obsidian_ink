@@ -59,8 +59,9 @@ export function registerWritingView (plugin: InkPlugin) {
     // Also check when a leaf becomes active (e.g., when navigating back)
     plugin.registerEvent(
         plugin.app.workspace.on('active-leaf-change', async (leaf) => {
-            if (leaf?.view?.file) {
-                await checkAndAddEditButton(leaf, leaf.view.file);
+            const view = leaf?.view as any;
+            if (view?.file) {
+                await checkAndAddEditButton(leaf, view.file);
             }
         })
     );

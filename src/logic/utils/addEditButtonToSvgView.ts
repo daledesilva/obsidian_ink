@@ -75,7 +75,8 @@ export function addEditButtonToSvgView(
         plugin.registerEvent(
             plugin.app.workspace.on('file-open', () => {
                 // Clean up when a different file is opened
-                if (leaf.view?.file !== file) {
+                const currentView = leaf.view as any;
+                if (currentView?.file !== file) {
                     cleanup();
                 }
             })

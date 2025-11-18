@@ -22,29 +22,45 @@ export function registerWritingView (plugin: InkPlugin) {
         (leaf) => new WritingView(leaf, plugin)
     );
 
+    // Helper function to check and add edit button for writing files
+    async function checkAndAddEditButton(leaf: any, file: any) {
+        if (!file || file.extension !== 'svg') return;
+        if (!leaf) return;
+        
+        const currentViewType = leaf.view?.getViewType?.();
+        // Skip if already in our custom view
+        if (currentViewType === WRITING_VIEW_TYPE) return;
+
+        try {
+            const svgString = await plugin.app.vault.read(file);
+            if (!svgString || !svgString.trim().startsWith('<svg')) return;
+
+            const inkFileData = extractInkJsonFromSvg(svgString);
+            if (!inkFileData) return;
+            if (inkFileData.meta.fileType !== "inkWriting") return;
+
+            // Add edit button to the SVG view
+            addEditButtonToSvgView(plugin, leaf, file, WRITING_VIEW_TYPE);
+        } catch (_) {
+            // Fail silently; fall back to default SVG handling
+        }
+    }
+
     // Add edit button to SVG views that contain ink writing data
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
-            try {
-                if (!file || file.extension !== 'svg') return;
+            const activeLeaf = plugin.app.workspace.activeLeaf;
+            if (activeLeaf) {
+                await checkAndAddEditButton(activeLeaf, file);
+            }
+        })
+    );
 
-                const activeLeaf = plugin.app.workspace.activeLeaf;
-                if (!activeLeaf) return;
-                const currentViewType = (activeLeaf as any).view?.getViewType?.();
-                // Skip if already in our custom view
-                if (currentViewType === WRITING_VIEW_TYPE) return;
-
-                const svgString = await plugin.app.vault.read(file);
-                if (!svgString || !svgString.trim().startsWith('<svg')) return;
-
-                const inkFileData = extractInkJsonFromSvg(svgString);
-                if (!inkFileData) return;
-                if (inkFileData.meta.fileType !== "inkWriting") return;
-
-                // Add edit button to the SVG view
-                addEditButtonToSvgView(plugin, activeLeaf, file, WRITING_VIEW_TYPE);
-            } catch (_) {
-                // Fail silently; fall back to default SVG handling
+    // Also check when a leaf becomes active (e.g., when navigating back)
+    plugin.registerEvent(
+        plugin.app.workspace.on('active-leaf-change', async (leaf) => {
+            if (leaf?.view?.file) {
+                await checkAndAddEditButton(leaf, leaf.view.file);
             }
         })
     );

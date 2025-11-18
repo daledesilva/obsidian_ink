@@ -58,10 +58,10 @@ export default class InkPlugin extends Plugin {
 			registerWritingEmbed(this);
 			implementWritingEmbedActions(this);
 			
-			// Legacy
+			// Legacy v1's are on to allow displaying, but not creating
 			registerWritingView_v1(this);
 			registerWritingEmbed_v1(this);
-			implementWritingEmbedActions_v1(this);
+			// implementWritingEmbedActions_v1(this);
 		}
 		
 		if (this.settings.drawingEnabled) {
@@ -71,10 +71,10 @@ export default class InkPlugin extends Plugin {
 			registerDrawingEmbed(this);
 			implementDrawingEmbedActions(this);
 
-			// Legacy
+			// Legacy v1's are on to allow displaying, but not creating
 			registerDrawingView_v1(this);
 			registerDrawingEmbed_v1(this);
-			implementDrawingEmbedActions_v1(this);
+			// implementDrawingEmbedActions_v1(this);
 		}
 
 		// Register a single generic embed orchestrator if either format is enabled

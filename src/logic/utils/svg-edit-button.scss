@@ -1,0 +1,31 @@
+.ddc_ink_svg-edit-button-container {
+    position: absolute;
+    top: 1em;
+    right: 1em;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.ddc_ink_svg-edit-button {
+    pointer-events: auto;
+    background-color: var(--interactive-normal);
+    color: var(--color-base-60);
+    width: auto;
+    height: 2.5em;
+    border-radius: 0.8em;
+    padding: 0 1em;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    
+    &:hover {
+        background-color: var(--interactive-hover);
+        color: var(--color-base-100);
+    }
+    
+    &:active {
+        transform: scale(0.95);
+    }
+}
+

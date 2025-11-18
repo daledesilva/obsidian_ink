@@ -7,6 +7,7 @@ import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-edi
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
+import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
 
 ////////
 ////////
@@ -21,16 +22,16 @@ export function registerWritingView (plugin: InkPlugin) {
         (leaf) => new WritingView(leaf, plugin)
     );
 
-    // Intercept .svg opens and switch to writing view when metadata indicates a writing file
+    // Add edit button to SVG views that contain ink writing data
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
             try {
                 if (!file || file.extension !== 'svg') return;
 
-                // Avoid re-entrancy if we're already in the writing view
                 const activeLeaf = plugin.app.workspace.activeLeaf;
                 if (!activeLeaf) return;
                 const currentViewType = (activeLeaf as any).view?.getViewType?.();
+                // Skip if already in our custom view
                 if (currentViewType === WRITING_VIEW_TYPE) return;
 
                 const svgString = await plugin.app.vault.read(file);
@@ -40,11 +41,8 @@ export function registerWritingView (plugin: InkPlugin) {
                 if (!inkFileData) return;
                 if (inkFileData.meta.fileType !== "inkWriting") return;
 
-                await activeLeaf.setViewState({
-                    type: WRITING_VIEW_TYPE,
-                    state: { file: file.path },
-                    active: true,
-                });
+                // Add edit button to the SVG view
+                addEditButtonToSvgView(plugin, activeLeaf, file, WRITING_VIEW_TYPE);
             } catch (_) {
                 // Fail silently; fall back to default SVG handling
             }

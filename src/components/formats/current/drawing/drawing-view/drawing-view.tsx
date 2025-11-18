@@ -10,6 +10,7 @@ import {
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
@@ -38,16 +39,16 @@ export function registerDrawingView (plugin: InkPlugin) {
         (leaf) => new DrawingView(leaf, plugin)
     );
 
-    // Intercept .svg opens and switch to drawing view when metadata indicates a drawing file
+    // Add edit button to SVG views that contain ink drawing data
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
             try {
                 if (!file || file.extension !== 'svg') return;
 
-                // Avoid re-entrancy if we're already in the drawing view
                 const activeLeaf = plugin.app.workspace.activeLeaf;
                 if (!activeLeaf) return;
                 const currentViewType = (activeLeaf as any).view?.getViewType?.();
+                // Skip if already in our custom view
                 if (currentViewType === DRAWING_VIEW_TYPE) return;
 
                 const svgString = await plugin.app.vault.read(file);
@@ -57,11 +58,8 @@ export function registerDrawingView (plugin: InkPlugin) {
                 if (!inkFileData) return;
                 if (inkFileData.meta.fileType !== "inkDrawing") return;
 
-                await activeLeaf.setViewState({
-                    type: DRAWING_VIEW_TYPE,
-                    state: { file: file.path },
-                    active: true,
-                });
+                // Add edit button to the SVG view
+                addEditButtonToSvgView(plugin, activeLeaf, file, DRAWING_VIEW_TYPE);
             } catch (_) {
                 // Fail silently; fall back to default SVG handling
             }

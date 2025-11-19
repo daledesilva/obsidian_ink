@@ -21,6 +21,24 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 
+// 获取动态容器宽度的函数
+const getContainerWidth = () => {
+	// 根据屏幕宽度动态调整containerWidth，确保与writing-lines形状匹配
+	let containerWidth = 2000; // 默认宽度，与WRITING_PAGE_WIDTH保持一致
+	const screenWidth = window.innerWidth;
+	
+	// 在小屏幕设备上减小容器宽度，确保内容能够完整显示
+	if (screenWidth <= 416) { // iPhone逻辑像素宽度
+		containerWidth = 800;
+	} else if (screenWidth <= 768) {
+		containerWidth = 1200;
+	} else if (screenWidth <= 1024) {
+		containerWidth = 1600;
+	}
+	
+	return containerWidth;
+};
+
 ///////
 // 菜单选项类型定义
 interface MenuOption {
@@ -558,7 +576,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const editor = tlEditorRef.current;
 		if (!editor) return;
 		
-		// 使用initWritingCamera的逻辑恢复相机到正常状态
+		// 获取当前相机的状态
+		const currentCamera = editor.getCamera();
+		
+		// 使用initWritingCamera的逻辑计算正常位置，但保持当前缩放比例
 		const containerRect = editor.getContainer().getBoundingClientRect();
 		// 根据屏幕宽度动态调整containerWidth
 		let containerWidth = 2000; // 默认宽度
@@ -574,16 +595,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 		const containerMargin = 0;
 		const visibleWidth = containerWidth + 2 * containerMargin;
-		const zoom = containerRect.width / visibleWidth;
 		
-		// 设置相机位置和缩放（恢复到正常状态）
+		// 设置相机位置，但保持当前的缩放比例
 		editor.setCamera({
 			x: containerMargin,
 			y: props.embedded ? 0 : MENUBAR_HEIGHT_PX,
-			z: zoom
+			z: currentCamera.z // 保持当前缩放比例
 		});
 		
-		console.log('相机已恢复到正常状态，缩放比例:', zoom.toFixed(4));
+		console.log('相机已恢复到正常位置，保持当前缩放比例:', currentCamera.z.toFixed(4));
 	};
 
 	// 右键菜单事件处理函数
@@ -913,8 +933,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// 流式布局参数
 		const lineHeight = WRITING_LINE_HEIGHT; // 换行高度：使用完整的行高（约150px）
-		const maxLineWidth = containerBounds.width * 0.9; // 90%容器宽度（适配2000px容器）
-		const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度（相当于两个字宽）
+		
+		// 使用实际可见的容器宽度而不是writingLinesShape的宽度
+		// containerWidth根据屏幕宽度动态调整，而containerBounds.width是writingLinesShape的固定宽度(2000px)
+		const containerWidth = getContainerWidth(); // 获取动态容器宽度
+		const shapeSpacing = 30; // 形状之间的间距
+		const maxLineWidth = containerWidth * 0.9 - shapeSpacing; // 90%容器宽度减去形状间距，确保换行时机准确
+		const leftMargin = containerWidth * 0.05; // 左边距：5%容器宽度（相当于两个字宽）
 		
 		// 补偿相机偏移：使用固定的45px补偿值，确保位置一致性
 		const cameraOffsetCompensation = 45;
@@ -951,48 +976,61 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			if (!bounds) continue;
 			
 			// 检查是否在同一行（Y坐标差异小于行高的一半）
-				const yDiff = Math.abs(bounds.y - currentY);
-				if (yDiff < lineHeight / 2) {
-					// 在同一行内，选择X坐标最大的形状
-					// 确保选择的形状在可视范围内（不超过40%容器宽度）
-					const visibleWidth = containerBounds.width * 0.9;
-					if (bounds.maxX <= visibleWidth && bounds.maxX > maxXInCurrentRow) {
-						maxXInCurrentRow = bounds.maxX;
-						referenceShape = shape;
-					}
+			const yDiff = Math.abs(bounds.y - currentY);
+			if (yDiff < lineHeight / 2) {
+				// 在同一行内，选择X坐标最大的形状
+				// 确保选择的形状在可视范围内（不超过90%容器宽度）
+				const visibleWidth = containerBounds.width * 0.9; // 与maxLineWidth保持一致
+				if (bounds.maxX <= visibleWidth && bounds.maxX > maxXInCurrentRow) {
+					maxXInCurrentRow = bounds.maxX;
+					referenceShape = shape;
 				}
+			}
 		}
 		
-		// 如果没有找到当前行的形状，使用原来的逻辑选择最右下角的形状
+		// 如果没有找到当前行的形状，使用改进的逻辑选择最合适的参考形状
 		if (!referenceShape) {
-			referenceShape = shapesToUse.reduce((latest, current) => {
-				if (!latest) return current;
-				if (!current) return latest;
+			// 按Y坐标分组形状，找到最下面的一行
+			const shapesByRow: { [key: number]: TLShape[] } = {};
+			
+			for (const shape of shapesToUse) {
+				const bounds = editor.getShapePageBounds(shape.id);
+				if (!bounds) continue;
+				
+				// 计算形状所在的行号
+				const rowNumber = Math.floor(bounds.y / lineHeight);
+				if (!shapesByRow[rowNumber]) {
+					shapesByRow[rowNumber] = [];
+				}
+				shapesByRow[rowNumber].push(shape);
+			}
+			
+			// 找到最下面的一行
+			const lastRowNumber = Math.max(...Object.keys(shapesByRow).map(Number));
+			const lastRowShapes = shapesByRow[lastRowNumber] || [];
+			
+			// 在最下面一行中选择最右边的形状
+			const visibleWidth = containerBounds.width * 0.9; // 与maxLineWidth保持一致
+			referenceShape = lastRowShapes.reduce((rightmost, current) => {
+				if (!rightmost) return current;
 				
 				const currentBounds = editor.getShapePageBounds(current.id);
-				const latestBounds = editor.getShapePageBounds(latest.id);
+				const rightmostBounds = editor.getShapePageBounds(rightmost.id);
 				
-				if (!currentBounds || !latestBounds) return latest;
-				
-				// 比较位置：优先比较Y轴（行），再比较X轴（列）
-				// 选择Y轴更大（更下面）的位置，如果Y轴相同则选择X轴更大（更右边）的位置
-				// 确保选择的形状在可视范围内
-				const visibleWidth = containerBounds.width * 0.9;
+				if (!currentBounds || !rightmostBounds) return rightmost;
 				
 				// 优先选择在可视范围内的形状
 				const currentInVisibleRange = currentBounds.maxX <= visibleWidth;
-				const latestInVisibleRange = latestBounds.maxX <= visibleWidth;
+				const rightmostInVisibleRange = rightmostBounds.maxX <= visibleWidth;
 				
-				if (currentInVisibleRange && !latestInVisibleRange) {
-					return current; // 当前形状在可视范围内，而最新形状不在
-				} else if (!currentInVisibleRange && latestInVisibleRange) {
-					return latest; // 最新形状在可视范围内，而当前形状不在
-				} else if (currentBounds.y > latestBounds.y) {
-					return current; // 在更下面的行
-				} else if (currentBounds.y === latestBounds.y && currentBounds.x > latestBounds.x) {
-					return current; // 在同一行但更右边
+				if (currentInVisibleRange && !rightmostInVisibleRange) {
+					return current;
+				} else if (!currentInVisibleRange && rightmostInVisibleRange) {
+					return rightmost;
+				} else if (currentBounds.maxX > rightmostBounds.maxX) {
+					return current;
 				}
-				return latest;
+				return rightmost;
 			}, null as TLShape | null);
 		}
 		
@@ -1024,18 +1062,26 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// 保持同一行高度：在同一行内Y坐标保持不变
 		// 只有当超出最大行宽时才触发换行，而不是每次转移都触发
+		// 使用更严格的换行条件，确保换行时机准确
 		if (nextTextX > maxLineWidth) {
 			// 超出可视范围宽度，换到下一行
 			nextTextX = leftMargin; // 回到左边距（从0开始）
 			// 确保按行高正确递增：使用当前行的Y坐标加上行高
 			// 注意：实际形状的Y坐标是0，但需要加上相机补偿让它们看起来在Y=45的位置
-			const currentRowY = Math.floor(referenceBounds.y / lineHeight) * lineHeight + cameraOffsetCompensation;
-			nextTextY = currentRowY + lineHeight; // 换到下一行
+			const currentRowY = Math.floor(referenceBounds.y / lineHeight) * lineHeight;
+			nextTextY = currentRowY + lineHeight + cameraOffsetCompensation; // 换到下一行，加上相机偏移补偿
+			
+			// 添加换行标记，用于detectAndProcessNewInk函数中的换行检测
+			console.log('触发换行，超出最大行宽:', {
+				nextTextXBeforeWrap: nextTextX,
+				maxLineWidth: maxLineWidth,
+				newLineY: nextTextY
+			});
 		} else {
 			// 同一行内，保持当前行Y坐标不变（确保对齐到行网格）
 			// 注意：实际形状的Y坐标是0，但需要加上相机补偿让它们看起来在Y=45的位置
-			const currentRowY = Math.floor(referenceBounds.y / lineHeight) * lineHeight + cameraOffsetCompensation;
-			nextTextY = currentRowY; // 使用当前行的起始Y坐标
+			const currentRowY = Math.floor(referenceBounds.y / lineHeight) * lineHeight;
+			nextTextY = currentRowY + cameraOffsetCompensation; // 使用当前行的起始Y坐标，加上相机偏移补偿
 		}
 		
 		// 转换为绝对坐标并确保位置在容器范围内
@@ -1343,19 +1389,38 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 
 			// 流式布局参数
 		const lineHeight = WRITING_LINE_HEIGHT; // 换行高度：使用完整的行高（约150px）
-		const maxLineWidth = containerBounds.width * 0.9; // 90%容器宽度（与updateWritingZonePositionRef保持一致）
-		const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度（与流式布局保持一致）
+		
+		// 使用实际可见的容器宽度而不是writingLinesShape的宽度
+		// containerWidth根据屏幕宽度动态调整，而containerBounds.width是writingLinesShape的固定宽度(2000px)
+		const containerWidth = getContainerWidth(); // 获取动态容器宽度
+		const shapeSpacing = 30; // 形状之间的间距
+		const maxLineWidth = containerWidth * 0.9 - shapeSpacing; // 90%容器宽度减去形状间距，确保换行时机准确
+		const leftMargin = containerWidth * 0.05; // 左边距：5%容器宽度（与流式布局保持一致）
 		
 		// 打印容器宽度信息，用于调试
-		console.log('容器宽度 containerBounds.width:', containerBounds.width, 'px');
-		console.log('容器宽度 containerBounds.height:', containerBounds.height, 'px');
-		// 补偿相机偏移：使用13.2%比例，达到45px的视觉效果
+		console.log('动态容器宽度 containerWidth:', containerWidth, 'px');
+		console.log('writingLinesShape宽度 containerBounds.width:', containerBounds.width, 'px');
+		// 补偿相机偏移：使用固定的45px补偿值，确保位置一致性
 		// 基准位置Y值改为0，但通过相机偏移补偿保持Y=45的视觉效果
-		const cameraOffsetCompensation = containerBounds.height * 0.132;
+		const cameraOffsetCompensation = 45; // 与updateWritingZonePositionRef函数保持一致
 		
 		// 简化逻辑：直接使用updateWritingZonePositionRef计算的位置
 		// 先更新基准位置，获取正确的目标位置
+		const oldPosition = writingZonePositionRef.current ? { ...writingZonePositionRef.current } : null;
 		updateWritingZonePositionRef(editor);
+		
+		// 检查是否发生了换行（通过比较Y坐标变化）
+		// 使用更精确的换行检测阈值：行高的70%，确保准确检测换行
+		if (oldPosition && writingZonePositionRef.current && 
+			Math.abs(writingZonePositionRef.current.y - oldPosition.y) > WRITING_LINE_HEIGHT * 0.7) {
+			needsNewLine = true;
+			console.log('检测到换行（基于基准位置Y坐标变化）', {
+				oldY: oldPosition.y,
+				newY: writingZonePositionRef.current.y,
+				diff: Math.abs(writingZonePositionRef.current.y - oldPosition.y),
+				threshold: WRITING_LINE_HEIGHT * 0.7
+			});
+		}
 		
 		// 使用基准位置作为目标位置，添加空值检查
 		if (!writingZonePositionRef.current) {
@@ -1371,47 +1436,16 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 		const isFirstMove = movedShapes.length === 0;
 		
 		if (isFirstMove) {
-			// 获取writing-lines容器的边界
-			const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId);
-			if (!writingLinesShape) return;
-			
-			const containerBounds = editor.getShapePageBounds(writingLinesShape);
-			if (!containerBounds) return;
-			
 			// 首次移动强制使用起始位置（Y值从0开始，加上相机偏移补偿）
-			const leftMargin = containerBounds.width * 0.05; // 左边距：5%容器宽度
+			// 这与updateWritingZonePositionRef函数中的重置逻辑保持一致
 			nextTextX = leftMargin;
 			nextTextY = 0 + cameraOffsetCompensation; // 强制使用Y=0，加上相机偏移补偿，忽略基准位置的计算结果
 			
 			console.log('首次移动，强制使用起始位置:', { nextTextX, nextTextY });
 		}
 		
-		if (!isFirstMove) {
-			// 获取所有形状的 bounds
-			const boundsList = movedShapes
-				.map(shape => {
-					const bounds = editor.getShapePageBounds(shape.id);
-					return bounds ? { shape, bounds } : null;
-				})
-				.filter(Boolean) as { shape: TLShape; bounds: Box }[];
-			
-			if (boundsList.length > 0) {
-				// 找到最右下角的形状作为参考
-				boundsList.sort((a, b) => {
-					if (a.bounds.maxY !== b.bounds.maxY) return a.bounds.maxY - b.bounds.maxY;
-					return a.bounds.maxX - b.bounds.maxX;
-				});
-				
-				const reference = boundsList[boundsList.length - 1];
-				const ref = reference.bounds;
-				
-				// 检查是否需要换行（基于参考形状的位置）
-				const expectedNextX = ref.maxX + 50; // 预期的下一个X位置
-				if (expectedNextX > maxLineWidth) {
-					needsNewLine = true;
-				}
-			}
-		}
+		// 移除额外的换行检查逻辑，完全依赖updateWritingZonePositionRef函数处理换行
+		// 这避免了两个函数之间的逻辑冲突，确保换行时机一致
 
 			// 计算缩放比例 - 使用未移动标记进行缩放
 		const targetHeight = WRITING_LINE_HEIGHT * 0.68; // 目标高度：51px（实际视图画布行高68px）
@@ -1437,21 +1471,42 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 
 		// 使用 editor.run() 进行事务性操作
 		editor.run(() => {
-			// 直接使用updateWritingZonePositionRef函数计算的位置，不进行额外的换行检查
-			// 位置计算逻辑已完全由updateWritingZonePositionRef函数处理
-			const newZoneX = nextTextX;
-			const newZoneY = nextTextY;
-
-			// 将形状移动到目标位置
+			// 对于多笔划，需要保持它们的相对位置
+			// 首先计算所有选中形状的边界框
+			const selectedBounds = selectedShapes.map(shape => {
+				if (!shape || shape.type !== 'draw') return null;
+				return editor.getShapePageBounds(shape.id);
+			}).filter(Boolean) as Box[];
+			
+			if (selectedBounds.length === 0) return;
+			
+			// 计算整体边界框
+			const minX = Math.min(...selectedBounds.map(b => b.x));
+			const minY = Math.min(...selectedBounds.map(b => b.y));
+			const maxX = Math.max(...selectedBounds.map(b => b.maxX));
+			const maxY = Math.max(...selectedBounds.map(b => b.maxY));
+			
+			// 计算形状组的偏移量
+			const offsetX = nextTextX - minX;
+			const offsetY = nextTextY - minY;
+			
+			// 将形状移动到目标位置，保持相对位置
 			editor.updateShapes(
 				selectedShapes.map(shape => {
 					if (!shape || shape.type !== 'draw') return null;
 					
+					const shapeBounds = editor.getShapePageBounds(shape.id);
+					if (!shapeBounds) return null;
+					
+					// 计算新位置，保持相对位置
+					const newX = shapeBounds.x + offsetX;
+					const newY = shapeBounds.y + offsetY;
+					
 					return {
 						id: shape.id,
 						type: 'draw' as const,
-						x: newZoneX,
-						y: newZoneY,
+						x: newX,
+						y: newY,
 						meta: { ...(shape.meta || {}), moved: true } as any,
 					};
 				}).filter(Boolean)
@@ -1463,8 +1518,10 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 				resizeWritingTemplateInvitingly(editor);
 			}
 			
-			console.log('移动完成，基准位置已更新:', {
-				oldPosition: { x: nextTextX, y: nextTextY },
+			console.log('移动完成，形状组已移动到新位置:', {
+				targetPosition: { x: nextTextX, y: nextTextY },
+				offset: { x: offsetX, y: offsetY },
+				shapesCount: selectedShapes.length,
 				needsNewLine: needsNewLine
 			});
 		}, { name: 'auto-flow-writing-zone' } as any);
@@ -1483,7 +1540,7 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 		// 检测是否为移动设备
 		const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 		// 电脑设备使用4秒停顿检测，移动设备使用2秒停顿检测
-		const pauseThreshold = isMobileDevice ? 150 : 300;
+		const pauseThreshold = isMobileDevice ? 300 : 500;
 		
 		const checkForPause = () => {
 			const now = Date.now();
@@ -1848,39 +1905,7 @@ const scaleAllShapesToTargetHeight = (editor: Editor, targetHeight: number) => {
 				<WritingMenu
 			getTlEditor = {getTlEditor}
 			onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses_current(tlEditor)}
-			onToolChange = {(tool: string) => {
-				// 更新currentTool状态，确保writing-zone正确显示/隐藏
-				setCurrentTool(tool);
-				
-				// 处理增量保存和相机移动逻辑
-				const ed = getTlEditor();
-				if (ed) {
-					// 使用requestAnimationFrame延迟保存，确保工具切换和快照恢复完成后再保存
-					requestAnimationFrame(() => {
-						incrementalSave(ed);
-					});
-				}
-				
-				// 当切换到draw工具时，移动相机到writing-zone区域
-				if (tool === 'draw') {
-					// 使用setTimeout确保writing-zone已经渲染完成
-					setTimeout(() => {
-						moveCameraToWritingZone();
-					}, 0);
-				} else {
-					// 当切换到非draw工具时，先保存当前相机位置，然后恢复相机到正常状态
-					setTimeout(() => {
-						const editor = getTlEditor();
-						if (editor) {
-							// 保存当前相机位置
-							const currentCamera = editor.getCamera();
-							cameraPositionRef.current = currentCamera;
-							console.log('保存相机位置:', currentCamera);
-						}
-						restoreNormalCamera();
-					}, 0);
-				}
-			}}
+
 			/>
 				{props.extendedMenu && (
 					<ExtendedWritingMenu

@@ -84,23 +84,115 @@
 
 .theme-dark {
     .ddc_ink_drawing-embed-preview {
-        path { fill: rgb(242, 242, 242); }
+        // Map light mode colors to dark mode colors
+        // Black: light #1d1d1d -> dark #f2f2f2
+        path[fill="rgb(29, 29, 29)"], path[stroke="rgb(29, 29, 29)"] { fill: rgb(242, 242, 242); stroke: rgb(242, 242, 242); }
+        rect[stroke="rgb(29, 29, 29)"], circle[stroke="rgb(29, 29, 29)"] { stroke: rgb(242, 242, 242); }
+
+        // Grey: light #9fa8b2 -> dark #9398b0
+        path[fill="rgb(159, 168, 178)"], path[stroke="rgb(159, 168, 178)"] { fill: rgb(147, 152, 176); stroke: rgb(147, 152, 176); }
+        rect[stroke="rgb(159, 168, 178)"], circle[stroke="rgb(159, 168, 178)"] { stroke: rgb(147, 152, 176); }
+
+        // Light Violet: light #e085f4 -> dark #e599f7
+        path[fill="rgb(224, 133, 244)"], path[stroke="rgb(224, 133, 244)"] { fill: rgb(229, 153, 247); stroke: rgb(229, 153, 247); }
+        rect[stroke="rgb(224, 133, 244)"], circle[stroke="rgb(224, 133, 244)"] { stroke: rgb(229, 153, 247); }
+
+        // Violet: same in both modes #ae3ec9
+        // (no mapping needed)
+
+        // Blue: light #4465e9 -> dark #4f72fc
+        path[fill="rgb(68, 101, 233)"], path[stroke="rgb(68, 101, 233)"] { fill: rgb(79, 114, 252); stroke: rgb(79, 114, 252); }
+        rect[stroke="rgb(68, 101, 233)"], circle[stroke="rgb(68, 101, 233)"] { stroke: rgb(79, 114, 252); }
+
+        // Light Blue: light #4ba1f1 -> dark #4dabf7
+        path[fill="rgb(75, 161, 241)"], path[stroke="rgb(75, 161, 241)"] { fill: rgb(77, 171, 247); stroke: rgb(77, 171, 247); }
+        rect[stroke="rgb(75, 161, 241)"], circle[stroke="rgb(75, 161, 241)"] { stroke: rgb(77, 171, 247); }
+
+        // Yellow: light #f1ac4b -> dark #ffc034
+        path[fill="rgb(241, 172, 75)"], path[stroke="rgb(241, 172, 75)"] { fill: rgb(255, 192, 52); stroke: rgb(255, 192, 52); }
+        rect[stroke="rgb(241, 172, 75)"], circle[stroke="rgb(241, 172, 75)"] { stroke: rgb(255, 192, 52); }
+
+        // Orange: light #e16919 -> dark #f76707
+        path[fill="rgb(225, 105, 25)"], path[stroke="rgb(225, 105, 25)"] { fill: rgb(247, 103, 7); stroke: rgb(247, 103, 7); }
+        rect[stroke="rgb(225, 105, 25)"], circle[stroke="rgb(225, 105, 25)"] { stroke: rgb(247, 103, 7); }
+
+        // Green: same in both modes #099268
+        // (no mapping needed)
+
+        // Light Green: light #4cb05e -> dark #40c057
+        path[fill="rgb(76, 176, 94)"], path[stroke="rgb(76, 176, 94)"] { fill: rgb(64, 192, 87); stroke: rgb(64, 192, 87); }
+        rect[stroke="rgb(76, 176, 94)"], circle[stroke="rgb(76, 176, 94)"] { stroke: rgb(64, 192, 87); }
+
+        // Light Red: light #f87777 -> dark #ff8787
+        path[fill="rgb(248, 119, 119)"], path[stroke="rgb(248, 119, 119)"] { fill: rgb(255, 135, 135); stroke: rgb(255, 135, 135); }
+        rect[stroke="rgb(248, 119, 119)"], circle[stroke="rgb(248, 119, 119)"] { stroke: rgb(255, 135, 135); }
+
+        // Red: same in both modes #e03131
+        // (no mapping needed)
+
+        // White: light #FFFFFF -> dark #f3f3f3
+        path[fill="rgb(255, 255, 255)"], path[stroke="rgb(255, 255, 255)"] { fill: rgb(243, 243, 243); stroke: rgb(243, 243, 243); }
+        rect[stroke="rgb(255, 255, 255)"], circle[stroke="rgb(255, 255, 255)"] { stroke: rgb(243, 243, 243); }
 
         .ddc_ink_drawing-placeholder {
             path { stroke: rgb(242, 242, 242) !important; }
             rect, circle { stroke: rgb(242, 242, 242) !important; }
         }
-        rect, circle { stroke: rgb(242, 242, 242); }
-
-        // NOTE: Seems like an attribute selector on fill doesn't work.
-        // May have to iterate through SVG string before save and add id's for the paths with matching fills so I select them here
     }
 }
 
 .theme-light {
     .ddc_ink_drawing-embed-preview {
-        path { fill: rgb(29, 29, 29); }
-        
+        // Map dark mode colors to light mode colors
+        // Black: dark #f2f2f2 -> light #1d1d1d
+        path[fill="rgb(242, 242, 242)"], path[stroke="rgb(242, 242, 242)"] { fill: rgb(29, 29, 29); stroke: rgb(29, 29, 29); }
+        rect[stroke="rgb(242, 242, 242)"], circle[stroke="rgb(242, 242, 242)"] { stroke: rgb(29, 29, 29); }
+
+        // Grey: dark #9398b0 -> light #9fa8b2
+        path[fill="rgb(147, 152, 176)"], path[stroke="rgb(147, 152, 176)"] { fill: rgb(159, 168, 178); stroke: rgb(159, 168, 178); }
+        rect[stroke="rgb(147, 152, 176)"], circle[stroke="rgb(147, 152, 176)"] { stroke: rgb(159, 168, 178); }
+
+        // Light Violet: dark #e599f7 -> light #e085f4
+        path[fill="rgb(229, 153, 247)"], path[stroke="rgb(229, 153, 247)"] { fill: rgb(224, 133, 244); stroke: rgb(224, 133, 244); }
+        rect[stroke="rgb(229, 153, 247)"], circle[stroke="rgb(229, 153, 247)"] { stroke: rgb(224, 133, 244); }
+
+        // Violet: same in both modes #ae3ec9
+        // (no mapping needed)
+
+        // Blue: dark #4f72fc -> light #4465e9
+        path[fill="rgb(79, 114, 252)"], path[stroke="rgb(79, 114, 252)"] { fill: rgb(68, 101, 233); stroke: rgb(68, 101, 233); }
+        rect[stroke="rgb(79, 114, 252)"], circle[stroke="rgb(79, 114, 252)"] { stroke: rgb(68, 101, 233); }
+
+        // Light Blue: dark #4dabf7 -> light #4ba1f1
+        path[fill="rgb(77, 171, 247)"], path[stroke="rgb(77, 171, 247)"] { fill: rgb(75, 161, 241); stroke: rgb(75, 161, 241); }
+        rect[stroke="rgb(77, 171, 247)"], circle[stroke="rgb(77, 171, 247)"] { stroke: rgb(75, 161, 241); }
+
+        // Yellow: dark #ffc034 -> light #f1ac4b
+        path[fill="rgb(255, 192, 52)"], path[stroke="rgb(255, 192, 52)"] { fill: rgb(241, 172, 75); stroke: rgb(241, 172, 75); }
+        rect[stroke="rgb(255, 192, 52)"], circle[stroke="rgb(255, 192, 52)"] { stroke: rgb(241, 172, 75); }
+
+        // Orange: dark #f76707 -> light #e16919
+        path[fill="rgb(247, 103, 7)"], path[stroke="rgb(247, 103, 7)"] { fill: rgb(225, 105, 25); stroke: rgb(225, 105, 25); }
+        rect[stroke="rgb(247, 103, 7)"], circle[stroke="rgb(247, 103, 7)"] { stroke: rgb(225, 105, 25); }
+
+        // Green: same in both modes #099268
+        // (no mapping needed)
+
+        // Light Green: dark #40c057 -> light #4cb05e
+        path[fill="rgb(64, 192, 87)"], path[stroke="rgb(64, 192, 87)"] { fill: rgb(76, 176, 94); stroke: rgb(76, 176, 94); }
+        rect[stroke="rgb(64, 192, 87)"], circle[stroke="rgb(64, 192, 87)"] { stroke: rgb(76, 176, 94); }
+
+        // Light Red: dark #ff8787 -> light #f87777
+        path[fill="rgb(255, 135, 135)"], path[stroke="rgb(255, 135, 135)"] { fill: rgb(248, 119, 119); stroke: rgb(248, 119, 119); }
+        rect[stroke="rgb(255, 135, 135)"], circle[stroke="rgb(255, 135, 135)"] { stroke: rgb(248, 119, 119); }
+
+        // Red: same in both modes #e03131
+        // (no mapping needed)
+
+        // White: dark #f3f3f3 -> light #FFFFFF
+        path[fill="rgb(243, 243, 243)"], path[stroke="rgb(243, 243, 243)"] { fill: rgb(255, 255, 255); stroke: rgb(255, 255, 255); }
+        rect[stroke="rgb(243, 243, 243)"], circle[stroke="rgb(243, 243, 243)"] { stroke: rgb(255, 255, 255); }
+
         .ddc_ink_drawing-placeholder {
             path { stroke: rgb(29, 29, 29) !important; }
             rect, circle { stroke: rgb(29, 29, 29) !important; }

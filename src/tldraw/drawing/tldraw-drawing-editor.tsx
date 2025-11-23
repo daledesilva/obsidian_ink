@@ -22,6 +22,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { debug, verbose, warn } from 'src/utils/log-to-console';
 import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from '../modify-menu/modify-menu';
+import StyleMenu from '../style-menu/style-menu';
 
 ///////
 ///////
@@ -353,6 +354,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 			</PrimaryMenuBar>
 			<SecondaryMenuBar>
 				<ModifyMenu
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				/>
+				<StyleMenu
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>

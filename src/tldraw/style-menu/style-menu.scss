@@ -1,0 +1,122 @@
+
+.ink_style-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+
+    button {
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 0.8em;
+        padding: 0 !important;
+        cursor: pointer;
+    }
+}
+
+.ink_style-menu-item {
+    position: relative;
+}
+
+.ink_color-button, .ink_size-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ink_color-indicator {
+    width: 1.5em;
+    height: 1.5em;
+    border-radius: 50%;
+    border: 2px solid var(--background-modifier-border);
+}
+
+.ink_size-indicator {
+    width: 1.5em;
+    height: 1.5em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ink_size-line {
+    width: 100%;
+    background-color: var(--text-normal);
+    border-radius: 0.5em;
+}
+
+.ink_style-picker {
+    position: absolute;
+    bottom: 3em;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-s);
+
+    z-index: 1000;
+    pointer-events: auto;
+}
+
+.ink_color-picker {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.ink_size-picker {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.ink_color-option {
+    width: 2em;
+    height: 2em;
+    border-radius: 50%;
+    border: 2px solid var(--background-modifier-border);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+
+    &:hover {
+        transform: scale(1.1);
+    }
+
+    &.ink_active {
+        border: 3px solid var(--interactive-accent);
+        box-shadow: 0 0 0 2px var(--background-primary);
+    }
+}
+
+.ink_size-option {
+    width: 2em;
+    height: 2em;
+    border-radius: 0.4em;
+    border: 2px solid var(--background-modifier-border);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+
+    background-color: var(--background-primary);
+
+    &:hover {
+        transform: scale(1.1);
+        background-color: var(--background-modifier-hover);
+    }
+
+    &.ink_active {
+        border: 3px solid var(--interactive-accent);
+        background-color: var(--background-modifier-hover);
+    }
+}
+
+.ink_size-preview {
+    width: 100%;
+    background-color: var(--text-normal);
+    border-radius: 0.5em;
+}

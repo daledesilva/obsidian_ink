@@ -78,7 +78,7 @@ export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
 
     function handleScrolling(e: Event): void {
         const scrollAreaEl = e.target as HTMLDivElement;
-        
+
         const pageScrollY = scrollAreaEl.scrollTop;
 
         const SecondaryMenuBar = SecondaryMenuBarElRef.current;
@@ -97,25 +97,29 @@ export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
         }
 
         const embedOffsetY = embedPosY;
-        
+
         // the addition of menuBarHeight/2 is because it's only shifted 50% in css (Same with line further down)
         const embedBottomScrolledOffScrollAreaBottom = embedOffsetY+embedHeight - menuBarHeight/2 > scrollAreaHeight;
         const embedTopScrolledOffScrollAreaBottom = embedOffsetY > scrollAreaHeight;
-        
+
+        // Check if we're inside an embed block (desktop) or standalone (mobile)
+        const isEmbedded = SecondaryMenuBar.closest('.cm-embed-block') !== null;
+        const defaultBottom = isEmbedded ? 40 : 15; // px
+
         if (embedTopScrolledOffScrollAreaBottom) {
             // So the menu isn't sticky past the bottom edge of the embed.
             // And this takes priority.
             const bottom = embedHeight + 'px';
-            SecondaryMenuBar.style.bottom = bottom;            
-            
+            SecondaryMenuBar.style.bottom = bottom;
+
         } else if (embedBottomScrolledOffScrollAreaBottom) {
             // So the menu is sticky when the bottom edge is off screen
             // const bottom = (embedOffsetY+(embedHeight)-scrollAreaHeight) + 'px'; // embedHeight is divided by two because it's only shift 50% in css
-            const bottom = (embedOffsetY+embedHeight-scrollAreaHeight - menuBarHeight/2) + 'px'; 
+            const bottom = (embedOffsetY+defaultBottom+embedHeight-scrollAreaHeight - menuBarHeight/2) + 'px';
             SecondaryMenuBar.style.bottom = bottom;
-            
+
         } else {
-            SecondaryMenuBar.style.removeProperty('bottom');
+            SecondaryMenuBar.style.bottom = defaultBottom + 'px';
         }
     }
 }

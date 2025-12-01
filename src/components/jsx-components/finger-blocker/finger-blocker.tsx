@@ -94,6 +94,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				WebkitUserSelect: 'none',
 				MozUserSelect: 'none',
 				msUserSelect: 'none',
+				touchAction: 'none',
 			}}
 			onPointerEnter={(e) => {
 				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
@@ -107,6 +108,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			onPointerDown={(e) => {
 				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 					e.preventDefault();
+					const target = e.target as HTMLElement;
+					target.setPointerCapture(e.pointerId);
+					
 					const canvas = getCanvas();
 					if (canvas) {
 						const forwarded = new PointerEvent('pointerdown', {
@@ -122,6 +126,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				}
 			}}
 			onPointerMove={(e) => {
+				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+					e.preventDefault();
+				}
 				if (e.pointerType !== 'touch') return;
 				if (!recentPenInputRef.current) return;
 				const scroller = getScroller();
@@ -133,6 +140,13 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				}
 			}}
 			onPointerUp={(e) => {
+				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+					e.preventDefault();
+					const target = e.target as HTMLElement;
+					if (target.hasPointerCapture(e.pointerId)) {
+						target.releasePointerCapture(e.pointerId);
+					}
+				}
 				if (e.pointerType === 'touch') {
 					recentPenInputRef.current = false;
 				}

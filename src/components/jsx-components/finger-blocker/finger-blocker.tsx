@@ -11,14 +11,33 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	const pointerDownRef = React.useRef<boolean>(false);
 	const recentPenInputRef = React.useRef<boolean>(false);
 
+	// Refs for scroll pinning strategy
+	const isPenDownRef = React.useRef<boolean>(false);
+	const lockedScrollPosRef = React.useRef<{ x: number; y: number } | null>(null);
+	const activeScrollerRef = React.useRef<HTMLElement | null>(null);
+
 	// Setup native event listeners to aggressively prevent default behavior for pen/mouse
 	React.useEffect(() => {
 		const element = blockerRef.current;
 		if (!element) return;
 
+		const getScroller = (): HTMLElement | null => {
+			const wrapper = wrapperRef?.current || blockerRef.current?.parentElement;
+			return wrapper?.closest('.cm-scroller') as HTMLElement | null;
+		};
+
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				// Dynamically prevent touch gestures for Pen
+				// 1. Lock Scroll: Find scroller and set overflow hidden
+				const scroller = getScroller();
+				if (scroller) {
+					activeScrollerRef.current = scroller;
+					lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
+					scroller.style.overflow = 'hidden';
+					isPenDownRef.current = true;
+				}
+
+				// Dynamically prevent touch gestures for Pen (keep this as backup)
 				element.style.touchAction = 'none';
 
 				// Aggressively stop browser handling (scrolling/selection)
@@ -67,9 +86,17 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				e.preventDefault();
 				e.stopPropagation();
 				e.stopImmediatePropagation();
+
+				// Re-assert scroll lock if needed
+				if (isPenDownRef.current && activeScrollerRef.current && lockedScrollPosRef.current) {
+					const scroller = activeScrollerRef.current;
+					if (Math.abs(scroller.scrollTop - lockedScrollPosRef.current.y) > 1 || 
+						Math.abs(scroller.scrollLeft - lockedScrollPosRef.current.x) > 1) {
+						scroller.scrollTo(lockedScrollPosRef.current.x, lockedScrollPosRef.current.y);
+					}
+				}
 			} else if (e.pointerType === 'touch' && recentPenInputRef.current) {
-				// Logic to manually scroll if needed, but here we just want to handle the scroll logic 
-				// that was previously in onPointerMove for touch
+				// Logic to manually scroll if needed
 				const scroller = getScroller();
 				if (scroller) {
 					scroller.scrollTo({
@@ -83,6 +110,16 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		const handlePointerUp = (e: PointerEvent) => {
 			// Reset touch-action
 			element.style.touchAction = '';
+			
+			// Unlock Scroll
+			if (isPenDownRef.current) {
+				isPenDownRef.current = false;
+				if (activeScrollerRef.current) {
+					activeScrollerRef.current.style.overflow = ''; // Restore default
+					activeScrollerRef.current = null;
+				}
+				lockedScrollPosRef.current = null;
+			}
 			
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				e.preventDefault();
@@ -104,6 +141,17 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 		const handlePointerCancel = (e: PointerEvent) => {
 			element.style.touchAction = '';
+
+			// Unlock Scroll
+			if (isPenDownRef.current) {
+				isPenDownRef.current = false;
+				if (activeScrollerRef.current) {
+					activeScrollerRef.current.style.overflow = '';
+					activeScrollerRef.current = null;
+				}
+				lockedScrollPosRef.current = null;
+			}
+
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				const target = e.target as HTMLElement;
 				if (target.hasPointerCapture(e.pointerId)) {
@@ -116,19 +164,65 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}
 		}
 
+		const handleWheel = (e: WheelEvent) => {
+			if (isPenDownRef.current) {
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+			}
+		};
+
+		const handleTouchMove = (e: TouchEvent) => {
+			if (isPenDownRef.current) {
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+			}
+		};
+
 		// Add listeners with passive: false to ensure preventDefault works
 		element.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
 		element.addEventListener('pointermove', handlePointerMove, { passive: false, capture: true });
 		element.addEventListener('pointerup', handlePointerUp, { passive: false, capture: true });
 		element.addEventListener('pointercancel', handlePointerCancel, { passive: false, capture: true });
+		element.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+		element.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
 
 		return () => {
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
 			element.removeEventListener('pointerup', handlePointerUp, { capture: true });
 			element.removeEventListener('pointercancel', handlePointerCancel, { capture: true });
+			element.removeEventListener('wheel', handleWheel, { capture: true });
+			element.removeEventListener('touchmove', handleTouchMove, { capture: true });
 		};
 	}, []);
+
+	// Add scroll restoration listener to the scroller itself
+	React.useEffect(() => {
+		const getScroller = (): HTMLElement | null => {
+			const wrapper = wrapperRef?.current || blockerRef.current?.parentElement;
+			return wrapper?.closest('.cm-scroller') as HTMLElement | null;
+		};
+
+		const scroller = getScroller();
+		if (!scroller) return;
+
+		const handleScroll = (e: Event) => {
+			if (isPenDownRef.current && lockedScrollPosRef.current) {
+				// Force restoration
+				if (Math.abs(scroller.scrollTop - lockedScrollPosRef.current.y) > 1 || 
+					Math.abs(scroller.scrollLeft - lockedScrollPosRef.current.x) > 1) {
+					scroller.scrollTo(lockedScrollPosRef.current.x, lockedScrollPosRef.current.y);
+				}
+			}
+		};
+
+		scroller.addEventListener('scroll', handleScroll, { passive: false, capture: true });
+		return () => {
+			scroller.removeEventListener('scroll', handleScroll, { capture: true });
+		};
+	}, [getTlEditor]); // Re-run if editor changes (likely component mounted/unmounted)
 
 	React.useEffect(() => {
 		const editor = getTlEditor();

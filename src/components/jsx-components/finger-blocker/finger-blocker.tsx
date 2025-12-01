@@ -108,10 +108,10 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		};
 
 		const handlePointerUp = (e: PointerEvent) => {
-			// Reset touch-action immediately
-			element.style.touchAction = 'pan-x pan-y';
+			// Reset touch-action
+			element.style.touchAction = '';
 			
-			// Unlock Scroll immediately
+			// Unlock Scroll
 			if (isPenDownRef.current) {
 				isPenDownRef.current = false;
 				if (activeScrollerRef.current) {
@@ -136,28 +136,6 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				}
 			} else if (e.pointerType === 'touch') {
 				recentPenInputRef.current = false;
-			}
-
-			// Robustness: Ensure touch-action is definitely reset after a short delay
-			// to catch any race conditions where the browser missed the immediate change
-			setTimeout(() => {
-				if (element) element.style.touchAction = ''; // Reset to stylesheet default
-			}, 50);
-		};
-
-		const handlePointerLeave = (e: PointerEvent) => {
-			// Treat leaving the element as a "lift" if the pen is actively down
-			// This handles cases where the pen lifts outside the element bounds
-			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				if (isPenDownRef.current) {
-					isPenDownRef.current = false;
-					element.style.touchAction = '';
-					if (activeScrollerRef.current) {
-						activeScrollerRef.current.style.overflow = '';
-						activeScrollerRef.current = null;
-					}
-					lockedScrollPosRef.current = null;
-				}
 			}
 		};
 
@@ -207,7 +185,6 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		element.addEventListener('pointermove', handlePointerMove, { passive: false, capture: true });
 		element.addEventListener('pointerup', handlePointerUp, { passive: false, capture: true });
 		element.addEventListener('pointercancel', handlePointerCancel, { passive: false, capture: true });
-		element.addEventListener('pointerleave', handlePointerLeave, { passive: false, capture: true });
 		element.addEventListener('wheel', handleWheel, { passive: false, capture: true });
 		element.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
 
@@ -216,7 +193,6 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
 			element.removeEventListener('pointerup', handlePointerUp, { capture: true });
 			element.removeEventListener('pointercancel', handlePointerCancel, { capture: true });
-			element.removeEventListener('pointerleave', handlePointerLeave, { capture: true });
 			element.removeEventListener('wheel', handleWheel, { capture: true });
 			element.removeEventListener('touchmove', handleTouchMove, { capture: true });
 		};

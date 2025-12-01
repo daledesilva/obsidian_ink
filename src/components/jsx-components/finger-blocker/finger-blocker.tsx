@@ -11,6 +11,100 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	const pointerDownRef = React.useRef<boolean>(false);
 	const recentPenInputRef = React.useRef<boolean>(false);
 
+	// Setup native event listeners to aggressively prevent default behavior for pen/mouse
+	React.useEffect(() => {
+		const element = blockerRef.current;
+		if (!element) return;
+
+		const handlePointerDown = (e: PointerEvent) => {
+			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				// Aggressively stop browser handling (scrolling/selection)
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+
+				const target = e.target as HTMLElement;
+				try {
+					target.setPointerCapture(e.pointerId);
+				} catch (err) {
+					// Ignore if capture fails
+				}
+
+				const canvas = getCanvas();
+				if (canvas) {
+					const forwarded = new PointerEvent('pointerdown', {
+						pointerId: e.pointerId,
+						pointerType: e.pointerType,
+						clientX: e.clientX,
+						clientY: e.clientY,
+						bubbles: true,
+						cancelable: true,
+						view: window,
+						detail: e.detail,
+						screenX: e.screenX,
+						screenY: e.screenY,
+						ctrlKey: e.ctrlKey,
+						shiftKey: e.shiftKey,
+						altKey: e.altKey,
+						metaKey: e.metaKey,
+						button: e.button,
+						buttons: e.buttons,
+					});
+					canvas.dispatchEvent(forwarded);
+					recentPenInputRef.current = true;
+				}
+			}
+		};
+
+		const handlePointerMove = (e: PointerEvent) => {
+			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+			} else if (e.pointerType === 'touch' && recentPenInputRef.current) {
+				// Logic to manually scroll if needed, but here we just want to handle the scroll logic 
+				// that was previously in onPointerMove for touch
+				const scroller = getScroller();
+				if (scroller) {
+					scroller.scrollTo({
+						top: scroller.scrollTop - e.movementY,
+						left: scroller.scrollLeft - e.movementX,
+					});
+				}
+			}
+		};
+
+		const handlePointerUp = (e: PointerEvent) => {
+			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+				
+				const target = e.target as HTMLElement;
+				if (target.hasPointerCapture(e.pointerId)) {
+					try {
+						target.releasePointerCapture(e.pointerId);
+					} catch (err) {
+						// Ignore
+					}
+				}
+			} else if (e.pointerType === 'touch') {
+				recentPenInputRef.current = false;
+			}
+		};
+
+		// Add listeners with passive: false to ensure preventDefault works
+		element.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
+		element.addEventListener('pointermove', handlePointerMove, { passive: false, capture: true });
+		element.addEventListener('pointerup', handlePointerUp, { passive: false, capture: true });
+
+		return () => {
+			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
+			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
+			element.removeEventListener('pointerup', handlePointerUp, { capture: true });
+		};
+	}, []);
+
 	React.useEffect(() => {
 		const editor = getTlEditor();
 		if (!editor) return;
@@ -94,7 +188,6 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				WebkitUserSelect: 'none',
 				MozUserSelect: 'none',
 				msUserSelect: 'none',
-				touchAction: 'none',
 			}}
 			onPointerEnter={(e) => {
 				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
@@ -103,52 +196,6 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				} else {
 					unlockScroll();
 					closeKeyboard();
-				}
-			}}
-			onPointerDown={(e) => {
-				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-					e.preventDefault();
-					const target = e.target as HTMLElement;
-					target.setPointerCapture(e.pointerId);
-					
-					const canvas = getCanvas();
-					if (canvas) {
-						const forwarded = new PointerEvent('pointerdown', {
-							pointerId: e.pointerId,
-							pointerType: e.pointerType,
-							clientX: e.clientX,
-							clientY: e.clientY,
-							bubbles: true,
-						});
-						canvas.dispatchEvent(forwarded);
-						recentPenInputRef.current = true;
-					}
-				}
-			}}
-			onPointerMove={(e) => {
-				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-					e.preventDefault();
-				}
-				if (e.pointerType !== 'touch') return;
-				if (!recentPenInputRef.current) return;
-				const scroller = getScroller();
-				if (scroller) {
-					scroller.scrollTo({
-						top: scroller.scrollTop - e.movementY,
-						left: scroller.scrollLeft - e.movementX,
-					});
-				}
-			}}
-			onPointerUp={(e) => {
-				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-					e.preventDefault();
-					const target = e.target as HTMLElement;
-					if (target.hasPointerCapture(e.pointerId)) {
-						target.releasePointerCapture(e.pointerId);
-					}
-				}
-				if (e.pointerType === 'touch') {
-					recentPenInputRef.current = false;
 				}
 			}}
 			onPointerLeave={() => {

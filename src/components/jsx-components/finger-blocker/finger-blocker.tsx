@@ -106,6 +106,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}}
 			onPointerDown={(e) => {
 				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+					e.preventDefault();
 					const canvas = getCanvas();
 					if (canvas) {
 						const forwarded = new PointerEvent('pointerdown', {

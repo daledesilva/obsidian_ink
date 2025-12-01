@@ -18,6 +18,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				// Dynamically prevent touch gestures for Pen
+				element.style.touchAction = 'none';
+
 				// Aggressively stop browser handling (scrolling/selection)
 				e.preventDefault();
 				e.stopPropagation();
@@ -53,6 +56,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 					canvas.dispatchEvent(forwarded);
 					recentPenInputRef.current = true;
 				}
+			} else if (e.pointerType === 'touch') {
+				// Explicitly allow touch actions for Finger
+				element.style.touchAction = 'pan-x pan-y';
 			}
 		};
 
@@ -75,6 +81,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		};
 
 		const handlePointerUp = (e: PointerEvent) => {
+			// Reset touch-action
+			element.style.touchAction = '';
+			
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				e.preventDefault();
 				e.stopPropagation();
@@ -93,15 +102,31 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}
 		};
 
+		const handlePointerCancel = (e: PointerEvent) => {
+			element.style.touchAction = '';
+			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				const target = e.target as HTMLElement;
+				if (target.hasPointerCapture(e.pointerId)) {
+					try {
+						target.releasePointerCapture(e.pointerId);
+					} catch (err) {
+						// Ignore
+					}
+				}
+			}
+		}
+
 		// Add listeners with passive: false to ensure preventDefault works
 		element.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
 		element.addEventListener('pointermove', handlePointerMove, { passive: false, capture: true });
 		element.addEventListener('pointerup', handlePointerUp, { passive: false, capture: true });
+		element.addEventListener('pointercancel', handlePointerCancel, { passive: false, capture: true });
 
 		return () => {
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
 			element.removeEventListener('pointerup', handlePointerUp, { capture: true });
+			element.removeEventListener('pointercancel', handlePointerCancel, { capture: true });
 		};
 	}, []);
 

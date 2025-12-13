@@ -264,15 +264,25 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 	React.useEffect(() => {
 		let pollInterval: NodeJS.Timeout | null = null;
-		let toolCleanup: (() => void) | null = null;
+		let storeListenerCleanup: (() => void) | null = null;
 		let setupComplete = false;
 		const maxRetries = 200; // Maximum ~20 seconds (200 * 100ms)
 		let retryCount = 0;
+		
+		// Track current tool ID and all modified tools
+		let currentToolId: string | null = null;
+		const toolCleanupMap = new Map<string, () => void>();
 
-		const setupToolHandlers = (editor: Editor) => {
+		const setupToolHandlers = (editor: Editor, toolId: string): boolean => {
 			const tool = editor.getCurrentTool();
 			if (!tool) return false;
-			console.log('AA tool', tool);
+
+			// Verify the tool ID matches (safety check)
+			const editorToolId = editor.getCurrentToolId();
+			if (editorToolId !== toolId) return false;
+
+			// Skip if this tool already has handlers set up
+			if (toolCleanupMap.has(toolId)) return true;
 
 			// Save tool's previous handlers
 			const prevDown = tool.onPointerDown;
@@ -295,14 +305,40 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			};
 
 			// Store cleanup function
-			toolCleanup = () => {
+			const cleanup = () => {
 				// Restore tool to use it's previous handlers
-				tool.onPointerDown = prevDown;
-				tool.onPointerUp = prevUp;
-				tool.onPointerMove = prevMove;
+				if (tool) {
+					tool.onPointerDown = prevDown;
+					tool.onPointerUp = prevUp;
+					tool.onPointerMove = prevMove;
+				}
 			};
 
+			toolCleanupMap.set(toolId, cleanup);
 			return true;
+		};
+
+		const handleToolChange = (editor: Editor) => {
+			const newToolId = editor.getCurrentToolId();
+			const previousToolId = currentToolId;
+
+			// If tool hasn't changed, do nothing
+			if (newToolId === previousToolId) return;
+
+			// Restore handlers on previous tool (if it exists and we've modified it)
+			if (previousToolId && toolCleanupMap.has(previousToolId)) {
+				const cleanup = toolCleanupMap.get(previousToolId);
+				if (cleanup) {
+					cleanup();
+					toolCleanupMap.delete(previousToolId);
+				}
+			}
+
+			// Set up handlers for new tool
+			if (newToolId) {
+				setupToolHandlers(editor, newToolId);
+				currentToolId = newToolId;
+			}
 		};
 
 		pollInterval = setInterval(() => {
@@ -310,9 +346,29 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 			const editor = getTlEditor();
 			if (editor) {
-				// Editor is available, try to set up tool handlers
-				if (setupToolHandlers(editor)) {
+				// Editor is available, set up initial tool handlers
+				const initialToolId = editor.getCurrentToolId();
+				if (initialToolId && setupToolHandlers(editor, initialToolId)) {
+					currentToolId = initialToolId;
 					setupComplete = true;
+					
+					// Set up store listener to detect tool changes
+					storeListenerCleanup = editor.store.listen((entry) => {
+						// Check if instance state changed (which would indicate tool change)
+						if (entry.changes.updated) {
+							for (const [from, to] of Object.values(entry.changes.updated)) {
+								if (from.typeName === 'instance' && to.typeName === 'instance') {
+									// Tool change detected, handle it
+									handleToolChange(editor);
+									break;
+								}
+							}
+						}
+					}, {
+						source: 'all',
+						scope: 'all'
+					});
+
 					if (pollInterval) {
 						clearInterval(pollInterval);
 						pollInterval = null;
@@ -334,9 +390,14 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			if (pollInterval) {
 				clearInterval(pollInterval);
 			}
-			if (toolCleanup) {
-				toolCleanup();
+			if (storeListenerCleanup) {
+				storeListenerCleanup();
 			}
+			// Restore all modified tools
+			toolCleanupMap.forEach((cleanup) => {
+				cleanup();
+			});
+			toolCleanupMap.clear();
 		};
 	}, [getTlEditor]);
 

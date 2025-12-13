@@ -16,26 +16,83 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	const lockedScrollPosRef = React.useRef<{ x: number; y: number } | null>(null);
 	const activeScrollerRef = React.useRef<HTMLElement | null>(null);
 
+	// Helper functions
+	const getWrapper = (): HTMLDivElement | null => {
+		return (
+			wrapperRef?.current ||
+			(blockerRef.current?.parentElement as HTMLDivElement | null) ||
+			null
+		);
+	};
+
+	const getCanvas = (): HTMLElement | null => {
+		const wrapper = getWrapper();
+		return wrapper ? (wrapper.querySelector('.tl-canvas') as HTMLElement | null) : null;
+	};
+
+	const getScroller = (): HTMLElement | null => {
+		const wrapper = getWrapper();
+		return wrapper ? (wrapper.closest('.cm-scroller') as HTMLElement | null) : null;
+	};
+
+	const lockScroll = () => {
+		const scroller = getScroller();
+		if (scroller) {
+			// Ref-based state tracking for scroll restoration
+			activeScrollerRef.current = scroller;
+			lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
+			
+			// Visual styling
+			scroller.style.overflow = 'hidden';
+			scroller.style.scrollbarColor = 'transparent transparent';
+		}
+	};
+
+	const unlockScroll = () => {
+		if (isPenDownRef.current) {
+			isPenDownRef.current = false;
+			if (activeScrollerRef.current) {
+				// Visual styling
+				activeScrollerRef.current.style.overflow = 'auto';
+				setTimeout(() => {
+					if (activeScrollerRef.current) {
+						activeScrollerRef.current.style.scrollbarColor = 'auto';
+					}
+				}, 200);
+				
+				// Clear refs
+				activeScrollerRef.current = null;
+			}
+			lockedScrollPosRef.current = null;
+		} else {
+			// Fallback: if not locked via refs, still handle visual styling
+			const scroller = getScroller();
+			if (scroller) {
+				scroller.style.overflow = 'auto';
+				setTimeout(() => {
+					scroller.style.scrollbarColor = 'auto';
+				}, 200);
+			}
+		}
+	};
+
+	const closeKeyboard = () => {
+		const active = document.activeElement as HTMLElement | null;
+		if (active && !active.classList.contains('tl-canvas')) {
+			active.blur();
+		}
+	};
+
 	// Setup native event listeners to aggressively prevent default behavior for pen/mouse
 	React.useEffect(() => {
 		const element = blockerRef.current;
 		if (!element) return;
 
-		const getScroller = (): HTMLElement | null => {
-			const wrapper = wrapperRef?.current || blockerRef.current?.parentElement;
-			return wrapper?.closest('.cm-scroller') as HTMLElement | null;
-		};
-
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				// 1. Lock Scroll: Find scroller and set overflow hidden
-				const scroller = getScroller();
-				if (scroller) {
-					activeScrollerRef.current = scroller;
-					lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
-					scroller.style.overflow = 'hidden';
-					isPenDownRef.current = true;
-				}
+				// Lock Scroll: Find scroller and set overflow hidden
+				lockScroll();
+				isPenDownRef.current = true;
 
 				// Dynamically prevent touch gestures for Pen (keep this as backup)
 				element.style.touchAction = 'none';
@@ -87,7 +144,8 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				e.stopPropagation();
 				e.stopImmediatePropagation();
 
-				// Re-assert scroll lock if needed
+				// Re-assert scroll lock if needed.
+				// ie. If it was the first pen stroke since a touch, it was locked too late, so do it again.
 				if (isPenDownRef.current && activeScrollerRef.current && lockedScrollPosRef.current) {
 					const scroller = activeScrollerRef.current;
 					if (Math.abs(scroller.scrollTop - lockedScrollPosRef.current.y) > 1 || 
@@ -97,6 +155,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				}
 			} else if (e.pointerType === 'touch' && recentPenInputRef.current) {
 				// Logic to manually scroll if needed
+				// ie. If it was the first finger touch since a pen stroke, it was unlocked too late, so scroll manually.
 				const scroller = getScroller();
 				if (scroller) {
 					scroller.scrollTo({
@@ -111,17 +170,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			// Reset touch-action
 			element.style.touchAction = '';
 			
-			// Unlock Scroll
-			if (isPenDownRef.current) {
-				isPenDownRef.current = false;
-				if (activeScrollerRef.current) {
-					activeScrollerRef.current.style.overflow = ''; // Restore default
-					activeScrollerRef.current = null;
-				}
-				lockedScrollPosRef.current = null;
-			}
-			
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				unlockScroll();
+				
 				e.preventDefault();
 				e.stopPropagation();
 				e.stopImmediatePropagation();
@@ -142,17 +193,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		const handlePointerCancel = (e: PointerEvent) => {
 			element.style.touchAction = '';
 
-			// Unlock Scroll
-			if (isPenDownRef.current) {
-				isPenDownRef.current = false;
-				if (activeScrollerRef.current) {
-					activeScrollerRef.current.style.overflow = '';
-					activeScrollerRef.current = null;
-				}
-				lockedScrollPosRef.current = null;
-			}
-
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				unlockScroll();
+
 				const target = e.target as HTMLElement;
 				if (target.hasPointerCapture(e.pointerId)) {
 					try {
@@ -200,11 +243,6 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 	// Add scroll restoration listener to the scroller itself
 	React.useEffect(() => {
-		const getScroller = (): HTMLElement | null => {
-			const wrapper = wrapperRef?.current || blockerRef.current?.parentElement;
-			return wrapper?.closest('.cm-scroller') as HTMLElement | null;
-		};
-
 		const scroller = getScroller();
 		if (!scroller) return;
 
@@ -225,76 +263,82 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	}, [getTlEditor]); // Re-run if editor changes (likely component mounted/unmounted)
 
 	React.useEffect(() => {
-		const editor = getTlEditor();
-		if (!editor) return;
-		const tool = editor.getCurrentTool();
-		if (!tool) return;
+		let pollInterval: NodeJS.Timeout | null = null;
+		let toolCleanup: (() => void) | null = null;
+		let setupComplete = false;
+		const maxRetries = 200; // Maximum ~20 seconds (200 * 100ms)
+		let retryCount = 0;
 
-		const prevDown = tool.onPointerDown;
-		const prevUp = tool.onPointerUp;
-		const prevMove = tool.onPointerMove;
+		const setupToolHandlers = (editor: Editor) => {
+			const tool = editor.getCurrentTool();
+			if (!tool) return false;
+			console.log('AA tool', tool);
 
-		tool.onPointerDown = (e: TLPointerEventInfo) => {
-			pointerDownRef.current = true;
-			prevDown?.(e);
+			// Save tool's previous handlers
+			const prevDown = tool.onPointerDown;
+			const prevUp = tool.onPointerUp;
+			const prevMove = tool.onPointerMove;
+
+			// Assign tool new handlers
+			tool.onPointerDown = (e: TLPointerEventInfo) => {
+				pointerDownRef.current = true;
+				lockScroll();
+				prevDown?.(e);
+			};
+			tool.onPointerUp = (e: TLPointerEventInfo) => {
+				pointerDownRef.current = false;
+				unlockScroll();
+				prevUp?.(e);
+			};
+			tool.onPointerMove = (e: TLPointerEventInfo) => {
+				prevMove?.(e);
+			};
+
+			// Store cleanup function
+			toolCleanup = () => {
+				// Restore tool to use it's previous handlers
+				tool.onPointerDown = prevDown;
+				tool.onPointerUp = prevUp;
+				tool.onPointerMove = prevMove;
+			};
+
+			return true;
 		};
-		tool.onPointerUp = (e: TLPointerEventInfo) => {
-			pointerDownRef.current = false;
-			prevUp?.(e);
-		};
-		tool.onPointerMove = (e: TLPointerEventInfo) => {
-			prevMove?.(e);
-		};
+
+		pollInterval = setInterval(() => {
+			if (setupComplete) return;
+
+			const editor = getTlEditor();
+			if (editor) {
+				// Editor is available, try to set up tool handlers
+				if (setupToolHandlers(editor)) {
+					setupComplete = true;
+					if (pollInterval) {
+						clearInterval(pollInterval);
+						pollInterval = null;
+					}
+				}
+			}
+
+			retryCount++;
+			if (retryCount >= maxRetries) {
+				// Stop polling after max retries to avoid infinite polling
+				if (pollInterval) {
+					clearInterval(pollInterval);
+					pollInterval = null;
+				}
+			}
+		}, 100); // Check every 100ms
 
 		return () => {
-			tool.onPointerDown = prevDown;
-			tool.onPointerUp = prevUp;
-			tool.onPointerMove = prevMove;
+			if (pollInterval) {
+				clearInterval(pollInterval);
+			}
+			if (toolCleanup) {
+				toolCleanup();
+			}
 		};
 	}, [getTlEditor]);
-
-	const getWrapper = (): HTMLDivElement | null => {
-		return (
-			wrapperRef?.current ||
-			(blockerRef.current?.parentElement as HTMLDivElement | null) ||
-			null
-		);
-	};
-
-	const getCanvas = (): HTMLElement | null => {
-		const wrapper = getWrapper();
-		return wrapper ? (wrapper.querySelector('.tl-canvas') as HTMLElement | null) : null;
-	};
-
-	const getScroller = (): HTMLElement | null => {
-		const wrapper = getWrapper();
-		return wrapper ? (wrapper.closest('.cm-scroller') as HTMLElement | null) : null;
-	};
-
-	const lockScroll = () => {
-		const scroller = getScroller();
-		if (scroller) {
-			scroller.style.overflow = 'hidden';
-			scroller.style.scrollbarColor = 'transparent transparent';
-		}
-	};
-
-	const unlockScroll = () => {
-		const scroller = getScroller();
-		if (scroller) {
-			scroller.style.overflow = 'auto';
-			setTimeout(() => {
-				scroller.style.scrollbarColor = 'auto';
-			}, 200);
-		}
-	};
-
-	const closeKeyboard = () => {
-		const active = document.activeElement as HTMLElement | null;
-		if (active && !active.classList.contains('tl-canvas')) {
-			active.blur();
-		}
-	};
 
 	return (
 		<div
@@ -308,30 +352,29 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 				MozUserSelect: 'none',
 				msUserSelect: 'none',
 			}}
+			// Fallback that's useful only if hover is supported
+			// Fires on pointer hover and also pointer up (Because the blocker reappears)
 			onPointerEnter={(e) => {
-				if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-					lockScroll();
-					closeKeyboard();
-				} else {
-					unlockScroll();
-					closeKeyboard();
-				}
+				console.log('pointer enter!!!!');
+				closeKeyboard();
 			}}
-			onPointerLeave={() => {
-				if (!pointerDownRef.current) {
-					recentPenInputRef.current = false;
-					unlockScroll();
-				}
-			}}
-			onWheel={(e) => {
-				const scroller = getScroller();
-				if (scroller) {
-					scroller.scrollTo({
-						top: scroller.scrollTop + e.deltaY,
-						left: scroller.scrollLeft + e.deltaX,
-					});
-				}
-			}}
+			
+			// Fallback that's useful only if hover is supported
+			// Fires on pointer leave and also pointer down (Because the blocker dissappears)
+			// onPointerLeave={() => {
+			// 	console.log('pointer leave!!!!');
+			// 	unlockScroll();
+			// }}
+
+			// onWheel={(e) => {
+			// 	const scroller = getScroller();
+			// 	if (scroller) {
+			// 		scroller.scrollTo({
+			// 			top: scroller.scrollTop + e.deltaY,
+			// 			left: scroller.scrollLeft + e.deltaX,
+			// 		});
+			// 	}
+			// }}
 		/>
 	);
 }

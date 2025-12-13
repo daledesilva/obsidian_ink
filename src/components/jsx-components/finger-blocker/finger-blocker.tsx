@@ -1,6 +1,17 @@
 import * as React from 'react';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
+// Constants
+const POLL_INTERVAL_MS = 100;
+const MAX_POLL_RETRIES = 200; // Maximum ~20 seconds (200 * 100ms)
+
+// Type for a tool that has pointer handlers we can wrap
+interface ToolWithPointerHandlers {
+	onPointerDown?: ((e: TLPointerEventInfo) => void) | undefined;
+	onPointerUp?: ((e: TLPointerEventInfo) => void) | undefined;
+	onPointerMove?: ((e: TLPointerEventInfo) => void) | undefined;
+}
+
 type FingerBlockerProps = {
 	getTlEditor: () => Editor | undefined;
 	wrapperRef?: React.RefObject<HTMLDivElement>;
@@ -15,6 +26,10 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	const isPenDownRef = React.useRef<boolean>(false);
 	const lockedScrollPosRef = React.useRef<{ x: number; y: number } | null>(null);
 	const activeScrollerRef = React.useRef<HTMLElement | null>(null);
+
+	// Refs for tracking tldraw tool handlers
+	const currentTldrawToolIdRef = React.useRef<string | null>(null);
+	const tldrawToolCleanupMap = React.useRef<Map<string, () => void>>(new Map());
 
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
@@ -262,142 +277,183 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		};
 	}, [getTlEditor]); // Re-run if editor changes (likely component mounted/unmounted)
 
-	React.useEffect(() => {
-		let pollInterval: NodeJS.Timeout | null = null;
-		let storeListenerCleanup: (() => void) | null = null;
-		let setupComplete = false;
-		const maxRetries = 200; // Maximum ~20 seconds (200 * 100ms)
-		let retryCount = 0;
+	// Helper function to check if a store entry indicates a tool change
+	const hasToolChanged = (entry: { changes?: { updated?: unknown } }): boolean => {
+		if (!entry.changes?.updated) return false;
 		
-		// Track current tool ID and all modified tools
-		let currentToolId: string | null = null;
-		const toolCleanupMap = new Map<string, () => void>();
+		for (const [from, to] of Object.values(entry.changes.updated as Record<string, [unknown, unknown]>)) {
+			if (
+				typeof from === 'object' && from !== null &&
+				typeof to === 'object' && to !== null &&
+				'typeName' in from && 'typeName' in to &&
+				from.typeName === 'instance' && to.typeName === 'instance'
+			) {
+				return true;
+			}
+		}
+		return false;
+	};
 
-		const setupToolHandlers = (editor: Editor, toolId: string): boolean => {
-			const tool = editor.getCurrentTool();
-			if (!tool) return false;
+	// Helper function to wrap a tool's pointer handlers with scroll locking
+	const wrapToolWithScrollHandlers = (
+		tool: ToolWithPointerHandlers
+	): (() => void) => {
+		// Save tool's previous handlers
+		const prevDown = tool.onPointerDown;
+		const prevUp = tool.onPointerUp;
+		const prevMove = tool.onPointerMove;
 
-			// Verify the tool ID matches (safety check)
-			const editorToolId = editor.getCurrentToolId();
-			if (editorToolId !== toolId) return false;
-
-			// Skip if this tool already has handlers set up
-			if (toolCleanupMap.has(toolId)) return true;
-
-			// Save tool's previous handlers
-			const prevDown = tool.onPointerDown;
-			const prevUp = tool.onPointerUp;
-			const prevMove = tool.onPointerMove;
-
-			// Assign tool new handlers
-			tool.onPointerDown = (e: TLPointerEventInfo) => {
-				pointerDownRef.current = true;
-				lockScroll();
-				prevDown?.(e);
-			};
-			tool.onPointerUp = (e: TLPointerEventInfo) => {
-				pointerDownRef.current = false;
-				unlockScroll();
-				prevUp?.(e);
-			};
-			tool.onPointerMove = (e: TLPointerEventInfo) => {
-				prevMove?.(e);
-			};
-
-			// Store cleanup function
-			const cleanup = () => {
-				// Restore tool to use it's previous handlers
-				if (tool) {
-					tool.onPointerDown = prevDown;
-					tool.onPointerUp = prevUp;
-					tool.onPointerMove = prevMove;
-				}
-			};
-
-			toolCleanupMap.set(toolId, cleanup);
-			return true;
+		// Assign tool new handlers
+		tool.onPointerDown = (e: TLPointerEventInfo) => {
+			pointerDownRef.current = true;
+			lockScroll();
+			prevDown?.(e);
+		};
+		tool.onPointerUp = (e: TLPointerEventInfo) => {
+			pointerDownRef.current = false;
+			unlockScroll();
+			prevUp?.(e);
+		};
+		tool.onPointerMove = (e: TLPointerEventInfo) => {
+			prevMove?.(e);
 		};
 
-		const handleToolChange = (editor: Editor) => {
+		// Return cleanup function to restore original handlers
+		return () => {
+			if (tool) {
+				tool.onPointerDown = prevDown;
+				tool.onPointerUp = prevUp;
+				tool.onPointerMove = prevMove;
+			}
+		};
+	};
+
+	// Helper function to listen for tool changes and update handlers accordingly
+	const listenForToolChangesAndUpdateHandlers = (): (() => void) => {
+		const editor = getTlEditor();
+		if (!editor) return () => {}; // Return no-op cleanup if editor not available
+
+		const handleToolChange = () => {
+			const editor = getTlEditor();
+			if (!editor) return;
+
 			const newToolId = editor.getCurrentToolId();
-			const previousToolId = currentToolId;
+			const previousToolId = currentTldrawToolIdRef.current;
 
 			// If tool hasn't changed, do nothing
 			if (newToolId === previousToolId) return;
 
 			// Restore handlers on previous tool (if it exists and we've modified it)
-			if (previousToolId && toolCleanupMap.has(previousToolId)) {
-				const cleanup = toolCleanupMap.get(previousToolId);
+			if (previousToolId && tldrawToolCleanupMap.current.has(previousToolId)) {
+				const cleanup = tldrawToolCleanupMap.current.get(previousToolId);
 				if (cleanup) {
 					cleanup();
-					toolCleanupMap.delete(previousToolId);
+					tldrawToolCleanupMap.current.delete(previousToolId);
 				}
 			}
 
 			// Set up handlers for new tool
 			if (newToolId) {
-				setupToolHandlers(editor, newToolId);
-				currentToolId = newToolId;
+				const tool = editor.getCurrentTool() as ToolWithPointerHandlers | null;
+				if (tool) {
+					if (!tldrawToolCleanupMap.current.has(newToolId)) {
+						// Wrap tool with scroll handlers and track it
+						const toolCleanupFn = wrapToolWithScrollHandlers(tool);
+						tldrawToolCleanupMap.current.set(newToolId, toolCleanupFn);
+						currentTldrawToolIdRef.current = newToolId;
+					}
+				}
 			}
 		};
+
+		// Set up store listener to detect tool changes
+		return editor.store.listen((entry) => {
+			if (hasToolChanged(entry)) {
+				handleToolChange();
+			}
+		}, {
+			source: 'all',
+			scope: 'all'
+		});
+	};
+
+	// Helper function to poll until editor becomes available
+	const listenForEditorToBecomeAvailable = (
+		getTlEditor: () => Editor | undefined,
+		onEditorReady: (editor: Editor) => void
+	): (() => void) => {
+		let pollInterval: NodeJS.Timeout | null = null;
+		let setupComplete = false;
+		let retryCount = 0;
 
 		pollInterval = setInterval(() => {
 			if (setupComplete) return;
 
 			const editor = getTlEditor();
 			if (editor) {
-				// Editor is available, set up initial tool handlers
-				const initialToolId = editor.getCurrentToolId();
-				if (initialToolId && setupToolHandlers(editor, initialToolId)) {
-					currentToolId = initialToolId;
-					setupComplete = true;
-					
-					// Set up store listener to detect tool changes
-					storeListenerCleanup = editor.store.listen((entry) => {
-						// Check if instance state changed (which would indicate tool change)
-						if (entry.changes.updated) {
-							for (const [from, to] of Object.values(entry.changes.updated)) {
-								if (from.typeName === 'instance' && to.typeName === 'instance') {
-									// Tool change detected, handle it
-									handleToolChange(editor);
-									break;
-								}
-							}
-						}
-					}, {
-						source: 'all',
-						scope: 'all'
-					});
+				setupComplete = true;
+				onEditorReady(editor);
 
-					if (pollInterval) {
-						clearInterval(pollInterval);
-						pollInterval = null;
-					}
+				if (pollInterval) {
+					clearInterval(pollInterval);
+					pollInterval = null;
 				}
 			}
 
 			retryCount++;
-			if (retryCount >= maxRetries) {
+			if (retryCount >= MAX_POLL_RETRIES) {
 				// Stop polling after max retries to avoid infinite polling
 				if (pollInterval) {
 					clearInterval(pollInterval);
 					pollInterval = null;
 				}
 			}
-		}, 100); // Check every 100ms
+		}, POLL_INTERVAL_MS);
 
 		return () => {
 			if (pollInterval) {
 				clearInterval(pollInterval);
 			}
+		};
+	};
+
+	React.useEffect(() => {
+		let storeListenerCleanup: (() => void) | null = null;
+
+		// Start polling for editor availability
+		const stopPolling = listenForEditorToBecomeAvailable(getTlEditor, () => {
+			// Editor is available, set up initial tool handlers
+			const editor = getTlEditor();
+			if (!editor) return;
+
+			const initialToolId = editor.getCurrentToolId();
+			if (initialToolId) {
+				const tool = editor.getCurrentTool() as ToolWithPointerHandlers | null;
+				if (tool) {
+					// Verify the tool ID matches (safety check)
+					const editorToolId = editor.getCurrentToolId();
+					if (editorToolId === initialToolId && !tldrawToolCleanupMap.current.has(initialToolId)) {
+						// Wrap tool with scroll handlers and track it
+						const cleanup = wrapToolWithScrollHandlers(tool);
+						tldrawToolCleanupMap.current.set(initialToolId, cleanup);
+						currentTldrawToolIdRef.current = initialToolId;
+					}
+				}
+			}
+			// Start listening for tool changes
+			storeListenerCleanup = listenForToolChangesAndUpdateHandlers();
+		});
+
+		return () => {
+			stopPolling();
 			if (storeListenerCleanup) {
 				storeListenerCleanup();
 			}
 			// Restore all modified tools
-			toolCleanupMap.forEach((cleanup) => {
+			tldrawToolCleanupMap.current.forEach((cleanup) => {
 				cleanup();
 			});
-			toolCleanupMap.clear();
+			tldrawToolCleanupMap.current.clear();
 		};
 	}, [getTlEditor]);
 

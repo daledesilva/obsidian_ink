@@ -100,7 +100,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 		})
 		
 		// view setup
-		initDrawingCamera(editor);
+		// Only call initDrawingCamera in non-embedded mode to prevent
+		// content from jumping to center when re-entering edit mode
+		if (!props.embedded) {
+			initDrawingCamera(editor);
+		}
 		if (props.embedded) {
 			editor.setCameraOptions({
 				isLocked: true,

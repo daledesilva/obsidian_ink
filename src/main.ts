@@ -137,29 +137,30 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	});
 
 }
-function implementWritingEmbedActions_v1(plugin: InkPlugin) {
 
-	// Legacy
-	plugin.addCommand({
-		id: 'create-handwritten-section-v1',
-		name: 'New handwriting section (Legacy)',
-		icon: 'signature',
-		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'insert-copied-writing-v1',
-		name: 'Copied handwriting section (Legacy)',
-		icon: 'clipboard-pen',
-		editorCallback: (editor: Editor) => insertRememberedWritingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'embed-writing-file-v1',
-		name: 'Existing handwriting section (Legacy)',
-		icon: 'folder-pen',
-		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
-	});
+// function implementWritingEmbedActions_v1(plugin: InkPlugin) {
 
-}
+// 	// Legacy
+// 	plugin.addCommand({
+// 		id: 'create-handwritten-section-v1',
+// 		name: 'New handwriting section (Legacy)',
+// 		icon: 'signature',
+// 		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
+// 	});
+// 	plugin.addCommand({
+// 		id: 'insert-copied-writing-v1',
+// 		name: 'Copied handwriting section (Legacy)',
+// 		icon: 'clipboard-pen',
+// 		editorCallback: (editor: Editor) => insertRememberedWritingFile_v1(plugin, editor)
+// 	});
+// 	plugin.addCommand({
+// 		id: 'embed-writing-file-v1',
+// 		name: 'Existing handwriting section (Legacy)',
+// 		icon: 'folder-pen',
+// 		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
+// 	});
+
+// }
 
 function implementDrawingEmbedActions(plugin: InkPlugin) {
 
@@ -185,29 +186,29 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 
 }
 
-function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
+// function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
 	
-	// Legacy
-	plugin.addCommand({
-		id: 'create-drawing-section-v1',
-		name: 'New drawing (Legacy)',
-		icon: 'shapes',
-		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'insert-copied-drawing-v1',
-		name: 'Copied drawing (Legacy)',
-		icon: 'clipboard-pen-line',
-		editorCallback: (editor: Editor) => insertRememberedDrawingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'embed-drawing-file-v1',
-		name: 'Existing drawing (Legacy)',
-		icon: 'folder-dot',
-		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
-	});
+// 	// Legacy
+// 	plugin.addCommand({
+// 		id: 'create-drawing-section-v1',
+// 		name: 'New drawing (Legacy)',
+// 		icon: 'shapes',
+// 		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
+// 	});
+// 	plugin.addCommand({
+// 		id: 'insert-copied-drawing-v1',
+// 		name: 'Copied drawing (Legacy)',
+// 		icon: 'clipboard-pen-line',
+// 		editorCallback: (editor: Editor) => insertRememberedDrawingFile_v1(plugin, editor)
+// 	});
+// 	plugin.addCommand({
+// 		id: 'embed-drawing-file-v1',
+// 		name: 'Existing drawing (Legacy)',
+// 		icon: 'folder-dot',
+// 		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
+// 	});
 
-}
+// }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {
 // 	plugin.addCommand({

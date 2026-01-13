@@ -1,4 +1,4 @@
-import { createInkNoticeTemplate, createNoticeCtaBar, launchPersistentInkNotice } from 'src/components/dom-components/notice-components';
+import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
 
 ///////////
@@ -16,7 +16,7 @@ export async function showWelcomeTips(plugin: InkPlugin) {
     if(tipsShowingOrDismissed) return;
     tipsShowingOrDismissed = true;
 
-    const noticeBody = createInkNoticeTemplate(1,3);
+    const noticeBody = createNoticeTemplate(1,3);
     noticeBody.createEl('h1').setText(`Welcome to Ink`);
     noticeBody.createEl('p').setText(`Ink is all about enabling stylus use directly in your markdown notes.`);
     noticeBody.createEl('p').setText(`Here's a quick rundown to help you get started...`);
@@ -29,7 +29,7 @@ export async function showWelcomeTips(plugin: InkPlugin) {
         tertiaryLabel: 'Remind me later',
     })
     
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {
@@ -46,7 +46,7 @@ export async function showWelcomeTips(plugin: InkPlugin) {
 }
 
 function showHandwritingWelcomeTip(plugin: InkPlugin) {
-    const noticeBody = createInkNoticeTemplate();
+    const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
     noticeBody.createEl('p').setText(`In any markdown note, run the following command to begin writing where your cursor is.`);
     noticeBody.createEl('blockquote').setText(`"Ink: New handwriting section"`);
@@ -60,7 +60,7 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss for now',
     })
 
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
@@ -72,7 +72,7 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
 }
 
 function showDrawingWelcomeTip(plugin: InkPlugin) {
-    const noticeBody = createInkNoticeTemplate();
+    const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Drawing sections...`);
     noticeBody.createEl('p').setText(`These can be added too and can be resized right in your markdown file.`);
     noticeBody.createEl('blockquote').setText(`"Ink: New drawing"`);
@@ -85,7 +85,7 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss for now',
     })
 
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
@@ -97,7 +97,7 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
 }
 
 function showSyncingWelcomeTip(plugin: InkPlugin) {
-    const noticeBody = createInkNoticeTemplate();
+    const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Syncing with your vault...`);
     noticeBody.createEl('p').setText(`Ink files live in your vault and can sync with it to other devices.`);
     noticeBody.createEl('p').setText(`If using Obsidian Sync, turn on "Sync all other types" in the Obsidian Sync settings.`);
@@ -110,7 +110,7 @@ function showSyncingWelcomeTip(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss for now',
     })
 
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
@@ -123,7 +123,7 @@ function showSyncingWelcomeTip(plugin: InkPlugin) {
 
 
 function showDevelopmentWelcomeTip(plugin: InkPlugin) {
-    const noticeBody = createInkNoticeTemplate();
+    const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Get involved...`);
     noticeBody.createEl('p').setText(`If you notice any bugs, please report them through the link in the settings.`);
     noticeBody.createEl('p').setText(`You can also follow along with development and let me know which features are important to you at the link below.`);
@@ -140,7 +140,7 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss',
     })
 
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {

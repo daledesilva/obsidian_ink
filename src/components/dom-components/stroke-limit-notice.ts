@@ -1,4 +1,4 @@
-import { createInkNoticeTemplate, createNoticeCtaBar, launchPersistentInkNotice } from 'src/components/dom-components/notice-components';
+import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
 import { clearTimeout } from 'timers';
 
@@ -27,7 +27,7 @@ function showStrokeLimitTips(plugin: InkPlugin) {
     if(tipsShowingOrDismissed) return;
     tipsShowingOrDismissed = true;
 
-    const noticeBody = createInkNoticeTemplate();
+    const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Lines disappearing?`);
     noticeBody.createEl('p').setText(`You may have noticed that your handwriting lines have started disapearing...`);
     
@@ -39,7 +39,7 @@ function showStrokeLimitTips(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss for now',
     })
     
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {
@@ -56,7 +56,7 @@ function showStrokeLimitTips(plugin: InkPlugin) {
 }
 
 function showFullStrokeLimitTip(plugin: InkPlugin) {
-    const noticeBody = createInkNoticeTemplate();
+    const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`To help keep writing smooth...`);//     margin-block-start: 0.1em;
     noticeBody.createEl('p').setText(`Hiding old strokes helps keep pen latency down and the writing experience smooth.`);
     noticeBody.createEl('p').setText(`Never fear though, all your strokes still exist and will become visible again later.`);
@@ -68,7 +68,7 @@ function showFullStrokeLimitTip(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss',
     })
 
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {

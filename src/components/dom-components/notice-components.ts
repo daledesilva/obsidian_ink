@@ -4,13 +4,13 @@ import { Notice } from "obsidian";
 /////////////
 /////////////
 
-export function createInkNoticeTemplate(noticeNumber?: number, noticeTotal?: number): DocumentFragment {
+export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number): DocumentFragment {
     const noticeBody = document.createDocumentFragment();
     createNoticeLabel(noticeBody, noticeNumber, noticeTotal);
     return noticeBody;
 }
 
-export function launchPersistentInkNotice(noticeBody: DocumentFragment) {
+export function launchPersistentNotice(noticeBody: DocumentFragment) {
     const notice = new Notice(noticeBody, 0);
     notice.noticeEl.classList.add('ddc_ink_notice');
     notice.noticeEl.style.pointerEvents = "none";

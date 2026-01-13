@@ -1,5 +1,5 @@
 import * as semVer from 'semver';
-import { createInkNoticeTemplate, createNoticeCtaBar, launchPersistentInkNotice } from 'src/components/dom-components/notice-components';
+import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
 
 ///////////
@@ -24,7 +24,7 @@ export function showVersionNotice(plugin: InkPlugin) {
 
 function showChanges(plugin: InkPlugin) {
 
-    const noticeBody = createInkNoticeTemplate(1,3);
+    const noticeBody = createNoticeTemplate(1,3);
     noticeBody.createEl('h1').setText(`Changes in Ink v0.3.3`);
     const listEl = noticeBody.createEl('ul');
     
@@ -48,7 +48,7 @@ function showChanges(plugin: InkPlugin) {
         tertiaryLabel: 'Dismiss',
     })
 
-    const notice = launchPersistentInkNotice(noticeBody);
+    const notice = launchPersistentNotice(noticeBody);
 
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {

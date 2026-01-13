@@ -1,15 +1,17 @@
-.ddc_ink_notice {
-    
+
+.notice:has(.ddc_ink_notice) {
     // Make mobile notifications consistent with reliable contrast
+    border-radius: var(--radius-m) !important;
     background-color: var(--background-primary-alt) !important;
     border: solid 1px var(--background-modifier-border) !important;
-    border-radius: var(--radius-m) !important;
     box-shadow: 0 2px 8px var(--background-modifier-box-shadow) !important;
-    text-align: left !important;
-
 
     // Forcing explicitly clicking a button to dismiss
     pointer-events: none;
+}
+
+.ddc_ink_notice {
+    text-align: left !important;
     
     p.ddc_ink_notice-label {
         color: var(--text-faint);
@@ -21,6 +23,10 @@
     h1 {
         margin-block-start: 0.1em;
         color: var(--text-accent);
+    }
+    h2 {
+        margin-block-end: 0.1em;
+        font-size: calc(var(--font-text-size) * 1.1);
     }
     p {
         font-size: var(--font-text-size);
@@ -34,13 +40,22 @@
         background-color: var(--background-primary);
         border-radius: var(--button-radius);
         display: block;
+
+        outline: solid 1px var(--background-modifier-border);
+        box-shadow: inset 0px 0px 8px var(--background-modifier-box-shadow),
+                    0px 0px 8px var(--background-modifier-box-shadow)
+                    !important;
     }
     ul, ol {
         padding-inline-start: 1em;
         list-style-position: outside;
         li {
             margin-block-end: 1ch;
-        }
+            color: var(--text-normal);
+            &::marker {
+                color: var(--text-accent);
+            }
+        }        
     }
     a {
         pointer-events: all;

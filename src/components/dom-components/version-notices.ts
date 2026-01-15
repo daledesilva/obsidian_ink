@@ -40,7 +40,7 @@ function showChanges(plugin: InkPlugin) {
     listEl2.createEl('li').setText(`Drawing with your finger is no longer support for now (To allow for scrolling).`);
     
     const link = noticeBody.createEl('a');
-    link.setAttribute('href', ' TODO: <TO BE ADDED>')
+    link.setAttribute('href', 'https://youtu.be/2arL1jh8ihA')
     link.setText(`View release video`);
     // Prevent clicking link from closing notice
     link.onClickEvent( e => e.stopPropagation())

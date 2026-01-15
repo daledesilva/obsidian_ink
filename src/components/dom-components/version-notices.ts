@@ -25,19 +25,22 @@ export function showVersionNotice(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
 
     const noticeBody = createNoticeTemplate(1,3);
-    noticeBody.createEl('h1').setText(`Changes in Ink v0.3.3`);
+
+    noticeBody.createEl('h1').setText(`Changes in Ink v0.4.0`);
     const listEl = noticeBody.createEl('ul');
+    listEl.createEl('li').setText(`Scrolling is now possible while embeds are unlocked.`);
+    listEl.createEl('li').setText(`All writing and drawing files are now saved as SVGs. This means they'll work even if Ink is uninstalled and even outside of Obsidian.`);
+    listEl.createEl('li').setText(`Reading mode is now fixed (Though the styling is still a work in progress).`);
+    listEl.createEl('li').setText(`If you edit an Ink file, any embed of the file will update automatically.`);
+    listEl.createEl('li').setText(`Long pages with multiple embeds should now work much more fluidly.`);
+    listEl.createEl('li').setText(`Inserting existing embeds will now give you a visual preview of the files.`);
     
-    listEl.createEl('li').setText(`Resize drawing embeds (Lock them to save the size).`);
-    listEl.createEl('li').setText(`Single click unlock for embeds & multiple embeds unlocked at once.`);
-    listEl.createEl('li').setText(`More seamless transitions between locked and unlocked writing embeds.`);
-    listEl.createEl('li').setText(`Visible grid in drawing mode (Toggle from dropdown).`);
-    listEl.createEl('li').setText(`Drawing stroke/zoom now defaults similar to writing.`);
-    listEl.createEl('li').setText(`Insert commands now have temporary icons.`);
-    listEl.createEl('li').setText(`Many bug fixes and tweaks under the hood to lay groundwork for future updates and better efficiency.`);
+    noticeBody.createEl('h2').setText(`Broken`);
+    const listEl2 = noticeBody.createEl('ul');
+    listEl2.createEl('li').setText(`Drawing with your finger is no longer support for now (To allow for scrolling).`);
     
     const link = noticeBody.createEl('a');
-    link.setAttribute('href', 'https://www.youtube.com/live/_B2a9zTxb28?si=Ovkwao2EW479JRK6')
+    link.setAttribute('href', ' TODO: <TO BE ADDED>')
     link.setText(`View release video`);
     // Prevent clicking link from closing notice
     link.onClickEvent( e => e.stopPropagation())

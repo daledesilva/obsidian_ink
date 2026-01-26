@@ -3,12 +3,6 @@
 // TODO: This also applies to drawing menus, so should be abstract to common components like ink_menu-bar and button
 
 .ink_menu-bar {
-    flex-grow: 1;
-    
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-
     pointer-events: none;
 
     button {
@@ -38,6 +32,22 @@
             }
         }
     }
+}
+
+.ink_menu-bar_full {
+    flex-grow: 1;
+    
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.ink_menu-bar_floating {
+    flex-grow: 1;
+    
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
 }
 
 @keyframes menu-button_scale-up {

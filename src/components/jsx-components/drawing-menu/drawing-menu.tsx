@@ -4,9 +4,10 @@ import { UndoIcon } from "src/graphics/icons/undo-icon";
 import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
-import { DrawIcon } from "src/graphics/icons/draw-icon";
 import { Editor } from "@tldraw/tldraw";
-import { silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import { silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
+import { DrawIcon } from "src/graphics/icons/draw-icon";
+import classNames from "classnames";
 
 //////////
 //////////
@@ -24,34 +25,6 @@ interface DrawingMenuProps {
 export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((props, ref) => {
 
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
-	const [canUndo, setCanUndo] = React.useState<boolean>(false);
-	const [canRedo, setCanRedo] = React.useState<boolean>(false);
-
-    React.useEffect( () => {
-        // console.log('MENUBAR MOUNTED');
-        
-        let removeUserActionListener: () => void;
-        
-        const mountDelayMs = 100;
-        setTimeout( () => {
-            const tlEditor = props.getTlEditor();
-            if(!tlEditor) return;
-
-            let timeout: NodeJS.Timeout;
-            removeUserActionListener = tlEditor.store.listen((entry) => {
-                clearTimeout(timeout);
-                timeout = setTimeout( () => { // TODO: Create a debounce helper
-                    setCanUndo( tlEditor.getCanUndo() );
-                    setCanRedo( tlEditor.getCanRedo() );
-                }, 100);
-            }, {
-                source: 'all',
-                scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
-            })
-        }, mountDelayMs);
-
-        return () => removeUserActionListener();
-    }, []);
 
     ///////////
 
@@ -98,9 +71,12 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
     return <>
         <div
             ref = {ref}
-            className = 'ink_menu-bar'
+            className = {classNames([
+                'ink_menu-bar',
+                'ink_menu-bar_full',
+            ])}
         >
-            <div
+            {/* <div
                 className='ink_quick-menu'
             >
                 <button
@@ -115,7 +91,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
                 >
                     <RedoIcon/>
                 </button>
-            </div>
+            </div> */}
             <div
                 className='ink_tool-menu'
             >

@@ -4,7 +4,7 @@ const manifest = require('../manifest.json');
 ////////
 
 export const PLUGIN_VERSION = manifest.version;
-export const TLDRAW_VERSION = '2.1.0';
+export const TLDRAW_VERSION = '2.4.3';
 // Base URL used when creating v2 embed links
 export const INK_EMBED_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 export const LOCAL_STORAGE_PREFIX = 'ddc_ink_';

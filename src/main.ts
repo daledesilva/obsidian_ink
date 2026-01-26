@@ -27,6 +27,9 @@ import { insertRememberedDrawingFile } from './commands/insert-remembered-drawin
 import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
+import * as semver from "semver";
+import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr } from './graphics/icons/command-icons';
+import { drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
 
 ////////
 ////////
@@ -40,6 +43,14 @@ export default class InkPlugin extends Plugin {
 		setGlobals({
 			plugin: this,
 		})
+
+		addIcon('write_default', writeDefaultSvgStr);
+		addIcon('write_existing', writeExistingSvgStr);
+		addIcon('write_paste', writePasteSvgStr);
+
+		addIcon('draw_default', drawDefaultSvgStr);
+		addIcon('draw_existing', drawExistingSvgStr);
+		addIcon('draw_paste', drawPasteSvgStr);
 
 		addIcon('bluesky', blueskySvgStr);
 		addIcon('mastodon', mastodonSvgStr);
@@ -120,7 +131,7 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'create-handwritten-section',
 		name: 'New handwriting section',
-		icon: 'signature',
+		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
@@ -132,10 +143,9 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'embed-writing-file',
 		name: 'Existing handwriting section',
-		icon: 'folder-pen',
+		icon: 'write_existing',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
-
 }
 
 // function implementWritingEmbedActions_v1(plugin: InkPlugin) {
@@ -168,13 +178,13 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'create-drawing-section',
 		name: 'New drawing',
-		icon: 'shapes',
+		icon: 'draw_default',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'insert-copied-drawing',
 		name: 'Copied drawing',
-		icon: 'clipboard-pen-line',
+		icon: 'draw_paste',
 		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({

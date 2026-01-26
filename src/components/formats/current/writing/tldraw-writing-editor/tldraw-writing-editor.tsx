@@ -13,12 +13,14 @@ import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
-import { WritingLinesUtil } from '../shapes/writing-lines';
-import { editorActiveAtom, WritingEmbedState, embedStateAtom } from '../writing-embed/writing-embed';
-import { useAtomValue, useSetAtom } from 'jotai';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
-import { verbose } from 'src/logic/utils/log-to-console';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
+import { WritingLinesUtil } from 'src/components/formats/current/writing/shapes/writing-lines';
+import { editorActiveAtom, WritingEmbedState, embedStateAtom } from 'src/components/formats/current/writing/writing-embed/writing-embed';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { verbose } from 'src/logic/utils/log-to-console';
+import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
+import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 
 ///////
 ///////
@@ -352,6 +354,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				)}
 			</PrimaryMenuBar>
 
+			<SecondaryMenuBar>
+				<ModifyMenu
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				/>
+			</SecondaryMenuBar>
+			
 		</div>
 	</>;
 

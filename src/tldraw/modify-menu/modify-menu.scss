@@ -1,0 +1,22 @@
+
+.ink_modify-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+
+    button {
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 0.8em;
+        padding: 0 !important;
+
+        svg {
+            width: 1.5em !important;
+            height: 1.5em !important;
+        }
+
+        &:disabled {
+            visibility: hidden;
+        }
+    }
+}

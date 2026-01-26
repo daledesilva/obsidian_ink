@@ -14,8 +14,7 @@ import { DrawingEmbedPreviewWrapper_v1 } from "../drawing-embed-preview/drawing-
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
- 
-const emptyDrawingSvgStr = require('src/defaults/empty-drawing-embed.svg');
+
 
 ///////
 ///////

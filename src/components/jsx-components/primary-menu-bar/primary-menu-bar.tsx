@@ -75,34 +75,37 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     // }
 
     function handleScrolling(e: Event): void {
-        const scrollEl = e.target as HTMLDivElement;
-        const pageScrollY = scrollEl.scrollTop;
+        const scrollAreaEl = e.target as HTMLDivElement;
+        const pageScrollY = scrollAreaEl.scrollTop;
 
         const primaryMenuBar = primaryMenuBarElRef.current;
-        const containerEl = primaryMenuBar?.parentElement;
+        const embedEl = primaryMenuBar?.parentElement;
         if (!primaryMenuBar) return;
-        if (!containerEl) return;
+        if (!embedEl) return;
 
         const menuBarHeight = primaryMenuBar.getBoundingClientRect().height;
-        const containerHeight = containerEl.getBoundingClientRect().height;
+        const embedHeight = embedEl.getBoundingClientRect().height;
 
-        let containerPosY = containerEl.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top || 0;
+        let embedPosY = embedEl.getBoundingClientRect().top - scrollAreaEl.getBoundingClientRect().top || 0;
         if(menuActive) {
             // When the menu bar is translated outside of the container, correct for that by moving it down
-            containerPosY -= Number(menuBarHeight);
+            embedPosY -= Number(menuBarHeight);
         }
 
-        const containerOffsetY = containerPosY;// - pageScrollY;
+        const embedOffsetY = embedPosY;// - pageScrollY;
 
-        const scrolledOffTopEdge = containerOffsetY < 0;
-        const scrolledOffBottomEdge = containerOffsetY+containerHeight < 0;
+        const embedTopScrolledOffTop = embedOffsetY < 0;
+        const embedBottomScrolledOffTop = embedOffsetY+embedHeight < 0;
         
-        if (scrolledOffBottomEdge) {
-            const top = containerHeight + 'px';
+        if (embedBottomScrolledOffTop) {
+            // So the menu isn't sticky past the bottom edge of the embed.
+            // And this takes priority.
+            const top = embedHeight + 'px';
             primaryMenuBar.style.top = top;
 
-        } else if (scrolledOffTopEdge) {
-            const top = Math.abs(containerOffsetY) + 'px';
+        } else if (embedTopScrolledOffTop) {
+            // So the menu is sticky when the top edge is off screen
+            const top = (embedOffsetY * -1) + 'px';
             primaryMenuBar.style.top = top;
 
         } else {

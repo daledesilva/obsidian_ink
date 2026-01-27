@@ -14,7 +14,10 @@ import classNames from 'classnames';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { debug, verbose, warn } from 'src/logic/utils/log-to-console';
+import { connectWebSocket, sendCloseDrawingArea, sendNewDrawingArea } from 'src/connections/local-websocket/local-websocket';
+import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
+import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { DrawingEmbedState, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
@@ -65,8 +68,18 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
 		fetchFileData();
+		(async () => {
+			connectWebSocket({
+				onConnected: () => {
+					debug('Connected to WebSocket');
+					setUpNewDrawingAreaThroughWebSocket();
+				},
+				onStrokePoints: createStrokeFromBoox
+			});
+		})();
 		return () => {
 			verbose('EDITOR unmounting');
+			closeDrawingAreaThroughWebSocket();
 		}
 	}, [])
 
@@ -349,6 +362,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					/>
 				)}
 			</PrimaryMenuBar>
+			{/* Not sure why this was in here... Disabled for now */}
+			{/* <SecondaryMenuBar>
+				<ModifyMenu
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				/>
+			</SecondaryMenuBar> */}
 		</div>
 
 		{props.resizeEmbed && (
@@ -364,6 +384,78 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function resizeEmbed(pxWidthDiff: number, pxHeightDiff: number) {
 		if(!props.resizeEmbed) return;
 		props.resizeEmbed(pxWidthDiff, pxHeightDiff);
+	}
+
+
+	function setUpNewDrawingAreaThroughWebSocket() {
+		if(!editorWrapperRefEl.current) return;
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+		sendNewDrawingArea({
+			x: Math.round(embedRect.x),
+			y: Math.round(embedRect.y),
+			width: Math.round(embedRect.width),
+			height: Math.round(embedRect.height),
+		})
+	}
+
+	function closeDrawingAreaThroughWebSocket() {
+		sendCloseDrawingArea();
+	}
+
+
+	/**
+	 * Converts Boox formatted stroke points to a common format
+	 */
+	interface BooxStrokePoint {
+		pressure: number,
+		size: number,
+		tiltX: number,
+		tiltY: number,
+		timestamp: number,
+		x: number,
+		y: number
+	}
+	function createStrokeFromBoox(booxStrokePoints: BooxStrokePoint[]) {
+		if(!editorWrapperRefEl.current) return;
+		if(!tlEditorRef.current) return;
+
+		const tlBounds = tlEditorRef.current.getViewportPageBounds();
+		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
+
+		// convert from embed coordinates to tldraw camera coordinates
+		const xScaleCoeff = tlBounds.w / embedBounds.width;
+		const yScaleCoeff = tlBounds.h / embedBounds.height;
+		const strokePoints = booxStrokePoints.map( (embedPoint: BooxStrokePoint) => ({
+			x: tlBounds.x + embedPoint.x * xScaleCoeff,
+			y: tlBounds.y + embedPoint.y * yScaleCoeff,
+			// z doesn't seem to do anything :(
+		}))
+
+		debug(["Stroke points:", strokePoints]);
+		createStroke(strokePoints);
+	}
+
+
+	interface StrokePoint {
+		x: number,
+		y: number,
+		z?: number,
+	}
+	function createStroke(strokePoints: StrokePoint[]) {
+		if(!tlEditorRef.current) return;
+		verbose("Creating stroke");
+	
+		tlEditorRef.current.createShape({
+			type: 'draw',
+			props: {
+				segments: [
+					{
+						type: 'free',
+						points: strokePoints,
+					}
+				]
+			}
+		})
 	}
 
 };

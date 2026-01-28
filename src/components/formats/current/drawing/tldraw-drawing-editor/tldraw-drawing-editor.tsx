@@ -21,6 +21,7 @@ import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { DrawingEmbedState, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
+import { createPortal } from 'react-dom';
 
 ///////
 ///////
@@ -63,7 +64,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
-	
+	const [debugDrawingAreaRect, setDebugDrawingAreaRect] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+	// For testing only
+	React.useEffect(() => {
+		if (editorWrapperRefEl.current) {
+			setUpNewDrawingAreaThroughWebSocket();
+		}
+	}, [tlEditorSnapshot]);
+
 	// On mount
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
@@ -371,6 +380,24 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			</SecondaryMenuBar> */}
 		</div>
 
+		{debugDrawingAreaRect && typeof document !== 'undefined' && createPortal(
+			<div
+				style={{
+					position: 'fixed',
+					left: debugDrawingAreaRect.x + 'px',
+					top: debugDrawingAreaRect.y + 'px',
+					width: debugDrawingAreaRect.width + 'px',
+					height: debugDrawingAreaRect.height + 'px',
+					background: 'rgba(255, 0, 0, 0.5)',
+					pointerEvents: 'none',
+					zIndex: 9999,
+				}}
+				className="debug-rectangle"
+			/>,
+			document.body,
+			'debug-drawing-area-overlay'
+		)}
+
 		{props.resizeEmbed && (
 			<ResizeHandle
 				resizeEmbed = {resizeEmbed}
@@ -389,13 +416,33 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function setUpNewDrawingAreaThroughWebSocket() {
 		if(!editorWrapperRefEl.current) return;
+
+		console.log('setUpNewDrawingAreaThroughWebSocket');
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		sendNewDrawingArea({
-			x: Math.round(embedRect.x),
-			y: Math.round(embedRect.y),
-			width: Math.round(embedRect.width),
-			height: Math.round(embedRect.height),
-		})
+		const windowWidth = window.innerWidth;
+		const windowHeight = window.innerHeight;
+
+		// Define size and position of drawing canvas
+		const canvasX = Math.round(embedRect.x);
+		const canvasY = Math.round(embedRect.y);
+		const canvasWidth = Math.round(embedRect.width);
+		const canvasHeight = Math.round(embedRect.height);
+		// const canvasX = 100;
+		// const canvasY = 100;
+		// const canvasWidth = windowWidth - 200;
+		// const canvasHeight = windowHeight - 200;
+
+		// Draw a 50% opaque red square on the web page to indicate the intended coordinates being send to sendNewDrawingArea
+		setDebugDrawingAreaRect({ x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight });
+
+		// sendNewDrawingArea({
+		// 	x: canvasX,
+		// 	y: canvasY,
+		// 	width: canvasWidth,
+		// 	height: canvasHeight,
+		// 	appWidth: windowWidth,
+		// 	appHeight: windowHeight,
+		// })
 	}
 
 	function closeDrawingAreaThroughWebSocket() {

@@ -47,7 +47,7 @@ function sendInitMessage() {
     }));
 };
 
-export function sendNewDrawingArea(dimensions: {x: number, y: number, width: number, height: number}) {
+export function sendNewDrawingArea(dimensions: {x: number, y: number, width: number, height: number, appWidth: number, appHeight: number}) {
     if(!ws) return;
     
     verbose("Sending new drawing area to WebSocket!");

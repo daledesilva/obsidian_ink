@@ -77,24 +77,29 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
 		fetchFileData();
-		(async () => {
-			connectWebSocket({
-				onConnected: () => {
-					debug('Connected to WebSocket');
-					new Notice('Connected to Boox WebSocket');
-					setUpNewDrawingAreaThroughWebSocket();
-				},
-				onError: () => {
-					new Notice('Failed to connect to Boox WebSocket');
-				},
-				onStrokePoints: createStrokeFromBoox
-			});
-		})();
 		return () => {
 			verbose('EDITOR unmounting');
-			closeDrawingAreaThroughWebSocket();
 		}
 	}, [])
+
+	// Connect WebSocket only after snapshot (and thus editor wrapper div) exists
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		connectWebSocket({
+			onConnected: () => {
+				debug('Connected to WebSocket');
+				new Notice('Connected to Boox WebSocket');
+				setUpNewDrawingAreaThroughWebSocket();
+			},
+			onError: () => {
+				new Notice('Failed to connect to Boox WebSocket');
+			},
+			onStrokePoints: createStrokeFromBoox
+		});
+		return () => {
+			closeDrawingAreaThroughWebSocket();
+		};
+	}, [tlEditorSnapshot])
 
 	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')

@@ -3,7 +3,7 @@ import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, Tldr
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import * as React from "react";
-import { TFile } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
@@ -66,12 +66,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const [debugDrawingAreaRect, setDebugDrawingAreaRect] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-	// For testing only
-	React.useEffect(() => {
-		if (editorWrapperRefEl.current) {
-			setUpNewDrawingAreaThroughWebSocket();
-		}
-	}, [tlEditorSnapshot]);
+	// For testing on laptop only
+	// React.useEffect(() => {
+	// 	if (editorWrapperRefEl.current) {
+	// 		setUpNewDrawingAreaThroughWebSocket();
+	// 	}
+	// }, [tlEditorSnapshot]);
 
 	// On mount
 	React.useEffect( ()=> {
@@ -81,7 +81,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			connectWebSocket({
 				onConnected: () => {
 					debug('Connected to WebSocket');
+					new Notice('Connected to Boox WebSocket');
 					setUpNewDrawingAreaThroughWebSocket();
+				},
+				onError: () => {
+					new Notice('Failed to connect to Boox WebSocket');
 				},
 				onStrokePoints: createStrokeFromBoox
 			});
@@ -388,7 +392,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					top: debugDrawingAreaRect.y + 'px',
 					width: debugDrawingAreaRect.width + 'px',
 					height: debugDrawingAreaRect.height + 'px',
-					background: 'rgba(255, 0, 0, 0.5)',
+					boxShadow: 'inset 0 0 0 5px red',
 					pointerEvents: 'none',
 					zIndex: 9999,
 				}}
@@ -417,7 +421,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function setUpNewDrawingAreaThroughWebSocket() {
 		if(!editorWrapperRefEl.current) return;
 
-		console.log('setUpNewDrawingAreaThroughWebSocket');
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
@@ -432,17 +435,17 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// const canvasWidth = windowWidth - 200;
 		// const canvasHeight = windowHeight - 200;
 
-		// Draw a 50% opaque red square on the web page to indicate the intended coordinates being send to sendNewDrawingArea
+		// For debugging
 		setDebugDrawingAreaRect({ x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight });
 
-		// sendNewDrawingArea({
-		// 	x: canvasX,
-		// 	y: canvasY,
-		// 	width: canvasWidth,
-		// 	height: canvasHeight,
-		// 	appWidth: windowWidth,
-		// 	appHeight: windowHeight,
-		// })
+		sendNewDrawingArea({
+			x: canvasX,
+			y: canvasY,
+			width: canvasWidth,
+			height: canvasHeight,
+			appWidth: windowWidth,
+			appHeight: windowHeight,
+		})
 	}
 
 	function closeDrawingAreaThroughWebSocket() {

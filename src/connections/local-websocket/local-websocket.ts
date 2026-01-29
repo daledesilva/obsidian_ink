@@ -8,6 +8,7 @@ let ws: WebSocket | null = null;
 /////////////////
 interface connectWebSocketProps {
     onConnected: () => void;
+    onError?: (error: Event) => void;
     onStrokePoints: (strokePoints: any) => void;
 }
 
@@ -31,6 +32,11 @@ export function connectWebSocket(props: connectWebSocketProps) {
             const message = JSON.parse(event.data);
             verbose(["Message from server:", message]);
             props.onStrokePoints(message.data);
+        };
+
+        ws.onerror = (error) => {
+            verbose(["WebSocket error:", error]);
+            if (props.onError) props.onError(error);
         };
     } catch (error) {
         verbose("Error connecting to WebSocket:", error);

@@ -397,7 +397,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					top: debugDrawingAreaRect.y + 'px',
 					width: debugDrawingAreaRect.width + 'px',
 					height: debugDrawingAreaRect.height + 'px',
-					boxShadow: 'inset 0 0 0 5px red',
+					boxShadow: 'inset 0 0 0 5px rgba(255,0,0,0.2)',
 					pointerEvents: 'none',
 					zIndex: 9999,
 				}}
@@ -426,19 +426,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function setUpNewDrawingAreaThroughWebSocket() {
 		if(!editorWrapperRefEl.current) return;
 
-		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
 
 		// Define size and position of drawing canvas
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const canvasX = Math.round(embedRect.x);
 		const canvasY = Math.round(embedRect.y);
 		const canvasWidth = Math.round(embedRect.width);
 		const canvasHeight = Math.round(embedRect.height);
-		// const canvasX = 100;
-		// const canvasY = 100;
-		// const canvasWidth = windowWidth - 200;
-		// const canvasHeight = windowHeight - 200;
+		// const canvasX = 500;
+		// const canvasY = windowHeight/2 - 200;
+		// const canvasWidth = windowWidth - 500;
+		// const canvasHeight = 400;
 
 		// For debugging
 		setDebugDrawingAreaRect({ x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight });

@@ -446,8 +446,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		sendNewDrawingArea({
 			x: canvasX,
 			y: canvasY,
-			width: canvasWidth,
-			height: canvasHeight,
+			canvasWidth: canvasWidth,
+			canvasHeight: canvasHeight,
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 		})
@@ -461,7 +461,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	/**
 	 * Converts Boox formatted stroke points to a common format
 	 */
-	interface BooxStrokePoint {
+	interface canvasRelativeStrokePoint {
 		pressure: number,
 		size: number,
 		tiltX: number,
@@ -470,7 +470,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		x: number,
 		y: number
 	}
-	function createStrokeFromBoox(booxStrokePoints: BooxStrokePoint[]) {
+	function createStrokeFromBoox(canvasRelativeStrokePoints: canvasRelativeStrokePoint[]) {
 		if(!editorWrapperRefEl.current) return;
 		if(!tlEditorRef.current) return;
 
@@ -480,23 +480,40 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// convert from embed coordinates to tldraw camera coordinates
 		const xScaleCoeff = tlBounds.w / embedBounds.width;
 		const yScaleCoeff = tlBounds.h / embedBounds.height;
-		const strokePoints = booxStrokePoints.map( (embedPoint: BooxStrokePoint) => ({
-			x: tlBounds.x + embedPoint.x * xScaleCoeff,
-			y: tlBounds.y + embedPoint.y * yScaleCoeff,
+		const tldrawStrokePoints = canvasRelativeStrokePoints.map( (canvasStrokePoint: canvasRelativeStrokePoint) => ({
+			x: tlBounds.x + canvasStrokePoint.x * xScaleCoeff,
+			y: tlBounds.y + canvasStrokePoint.y * yScaleCoeff,
 			// z doesn't seem to do anything :(
 		}))
 
-		debug(["Stroke points:", strokePoints]);
-		createStroke(strokePoints);
+		// FOR DEBUGGING ONLY
+		// Add 50% rounded divs as dots within editorWrapperRefEl for every strokePoint
+		// canvasRelativeStrokePoints.forEach( (strokePoint: canvasRelativeStrokePoint) => {
+		// 	if(!editorWrapperRefEl.current) return;
+		// 	const dot = document.createElement('div');
+		// 	dot.style.position = 'absolute';
+		// 	dot.style.left = strokePoint.x + 'px';
+		// 	dot.style.top = strokePoint.y + 'px';
+		// 	dot.style.width = '2px';
+		// 	dot.style.height = '2px';
+		// 	dot.style.borderRadius = '50%';
+		// 	dot.style.backgroundColor = 'red';
+		// 	dot.style.pointerEvents = 'none';
+		// 	dot.style.zIndex = '9999';
+		// 	// dot.style.transform = 'translate(-50%, -50%)';
+		// 	editorWrapperRefEl.current.appendChild(dot);
+		// })
+		
+		createTldrawStroke(tldrawStrokePoints);
 	}
 
 
-	interface StrokePoint {
+	interface TldrawStrokePoint {
 		x: number,
 		y: number,
 		z?: number,
 	}
-	function createStroke(strokePoints: StrokePoint[]) {
+	function createTldrawStroke(strokePoints: TldrawStrokePoint[]) {
 		if(!tlEditorRef.current) return;
 		verbose("Creating stroke");
 	

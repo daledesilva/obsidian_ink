@@ -21,7 +21,6 @@ import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { DrawingEmbedState, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
-import { createPortal } from 'react-dom';
 
 ///////
 ///////
@@ -65,7 +64,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
-	const [debugDrawingAreaRect, setDebugDrawingAreaRect] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
 	// For testing on laptop only
 	// React.useEffect(() => {
@@ -80,6 +78,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
+			removeCanvasDebugOverlays();
 		}
 	}, [])
 
@@ -426,24 +425,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			</SecondaryMenuBar> */}
 		</div>
 
-		{debugDrawingAreaRect && typeof document !== 'undefined' && createPortal(
-			<div
-				style={{
-					position: 'fixed',
-					left: debugDrawingAreaRect.x + 'px',
-					top: debugDrawingAreaRect.y + 'px',
-					width: debugDrawingAreaRect.width + 'px',
-					height: debugDrawingAreaRect.height + 'px',
-					boxShadow: 'inset 0 0 0 5px rgba(255,0,0,0.2)',
-					pointerEvents: 'none',
-					zIndex: 9999,
-				}}
-				className="debug-rectangle"
-			/>,
-			document.body,
-			'debug-drawing-area-overlay'
-		)}
-
 		{props.resizeEmbed && (
 			<ResizeHandle
 				resizeEmbed = {resizeEmbed}
@@ -478,7 +459,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// const canvasHeight = 400;
 
 		// For debugging
-		setDebugDrawingAreaRect({ x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight });
+		drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
 		sendNewDrawingArea({
 			x: canvasX,
@@ -511,7 +492,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const canvasWidth = Math.round(embedRect.width);
 		const canvasHeight = Math.round(embedRect.height);
 
-		setDebugDrawingAreaRect({ x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight });
+		drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
 		sendUpdateDrawingArea({
 			x: canvasX,
@@ -524,7 +505,55 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 	function closeDrawingAreaThroughWebSocket() {
+		removeCanvasDebugOverlays();
 		sendCloseDrawingArea();
+	}
+
+	function removeCanvasDebugOverlays() {
+		document.getElementById('debug-drawing-area-overlay')?.remove();
+		editorWrapperRefEl.current?.querySelectorAll('.debug-stroke-dot').forEach(el => el.remove());
+	}
+
+	function drawCanvasDebugOverlays(options: {
+		rect?: { x: number; y: number; width: number; height: number },
+		strokePoints?: canvasRelativeStrokePoint[],
+	}) {
+		// Drawing area rect overlay
+		if (options.rect) {
+			document.getElementById('debug-drawing-area-overlay')?.remove();
+			const overlay = document.createElement('div');
+			overlay.id = 'debug-drawing-area-overlay';
+			overlay.className = 'debug-rectangle';
+			overlay.style.position = 'fixed';
+			overlay.style.boxShadow = 'inset 0 0 0 5px rgba(255,0,0,0.2)';
+			overlay.style.pointerEvents = 'none';
+			overlay.style.zIndex = '9999';
+			overlay.style.left = options.rect.x + 'px';
+			overlay.style.top = options.rect.y + 'px';
+			overlay.style.width = options.rect.width + 'px';
+			overlay.style.height = options.rect.height + 'px';
+			document.body.appendChild(overlay);
+		}
+
+		// Stroke point dot overlays
+		if (options.strokePoints && editorWrapperRefEl.current) {
+			editorWrapperRefEl.current.querySelectorAll('.debug-stroke-dot').forEach(el => el.remove());
+			options.strokePoints.forEach((strokePoint) => {
+				if (!editorWrapperRefEl.current) return;
+				const dot = document.createElement('div');
+				dot.className = 'debug-stroke-dot';
+				dot.style.position = 'absolute';
+				dot.style.left = strokePoint.x + 'px';
+				dot.style.top = strokePoint.y + 'px';
+				dot.style.width = '2px';
+				dot.style.height = '2px';
+				dot.style.borderRadius = '50%';
+				dot.style.backgroundColor = 'red';
+				dot.style.pointerEvents = 'none';
+				dot.style.zIndex = '9999';
+				editorWrapperRefEl.current.appendChild(dot);
+			});
+		}
 	}
 
 
@@ -557,22 +586,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}))
 
 		// FOR DEBUGGING ONLY
-		// Add 50% rounded divs as dots within editorWrapperRefEl for every strokePoint
-		// canvasRelativeStrokePoints.forEach( (strokePoint: canvasRelativeStrokePoint) => {
-		// 	if(!editorWrapperRefEl.current) return;
-		// 	const dot = document.createElement('div');
-		// 	dot.style.position = 'absolute';
-		// 	dot.style.left = strokePoint.x + 'px';
-		// 	dot.style.top = strokePoint.y + 'px';
-		// 	dot.style.width = '2px';
-		// 	dot.style.height = '2px';
-		// 	dot.style.borderRadius = '50%';
-		// 	dot.style.backgroundColor = 'red';
-		// 	dot.style.pointerEvents = 'none';
-		// 	dot.style.zIndex = '9999';
-		// 	// dot.style.transform = 'translate(-50%, -50%)';
-		// 	editorWrapperRefEl.current.appendChild(dot);
-		// })
+		drawCanvasDebugOverlays({ strokePoints: canvasRelativeStrokePoints });
 		
 		createTldrawStroke(tldrawStrokePoints);
 	}

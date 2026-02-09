@@ -63,7 +63,8 @@ export function sendNewDrawingArea(dimensions: {x: number, y: number, canvasWidt
     }));
 };
 
-export function sendUpdateDrawingArea(dimensions: {x: number, y: number, width: number, height: number}) {
+
+export function sendUpdateDrawingArea(dimensions: {x: number, y: number, canvasWidth: number, canvasHeight: number, appWidth: number, appHeight: number}) {
     if(!ws) return;
     
     verbose("Sending update drawing area to WebSocket!");

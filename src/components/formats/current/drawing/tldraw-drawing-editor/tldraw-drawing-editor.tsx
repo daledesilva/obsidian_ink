@@ -15,7 +15,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { debug, verbose, warn } from 'src/logic/utils/log-to-console';
-import { connectWebSocket, sendCloseDrawingArea, sendNewDrawingArea } from 'src/connections/local-websocket/local-websocket';
+import { connectWebSocket, sendUpdateDrawingArea, sendCloseDrawingArea, sendNewDrawingArea } from 'src/connections/local-websocket/local-websocket';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
@@ -64,6 +64,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
+	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
 	const [debugDrawingAreaRect, setDebugDrawingAreaRect] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
 	// For testing on laptop only
@@ -89,7 +90,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			onConnected: () => {
 				debug('Connected to WebSocket');
 				new Notice('Connected to Boox WebSocket');
-				setUpNewDrawingAreaThroughWebSocket();
+				newAndroidDrawingArea();
 			},
 			onError: () => {
 				new Notice('Failed to connect to Boox WebSocket');
@@ -97,7 +98,43 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			onStrokePoints: createStrokeFromBoox
 		});
 		return () => {
+			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 			closeDrawingAreaThroughWebSocket();
+		};
+	}, [tlEditorSnapshot])
+
+	// Adjust drawing area on page scroll
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		if (!editorWrapperRefEl.current) return;
+
+		const scrollEl = editorWrapperRefEl.current.closest('.cm-scroller');
+		if (!scrollEl) return;
+
+		const handleScroll = () => {
+			adjustAndroidDrawingArea();
+		};
+
+		scrollEl.addEventListener('scroll', handleScroll);
+
+		return () => {
+			scrollEl.removeEventListener('scroll', handleScroll);
+		};
+	}, [tlEditorSnapshot])
+
+	// Adjust drawing area on embed resize
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		if (!editorWrapperRefEl.current) return;
+
+		const resizeObserver = new ResizeObserver(() => {
+			adjustAndroidDrawingArea();
+		});
+
+		resizeObserver.observe(editorWrapperRefEl.current);
+
+		return () => {
+			resizeObserver.disconnect();
 		};
 	}, [tlEditorSnapshot])
 
@@ -423,7 +460,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 
-	function setUpNewDrawingAreaThroughWebSocket() {
+	function newAndroidDrawingArea() {
 		if(!editorWrapperRefEl.current) return;
 
 		const windowWidth = window.innerWidth;
@@ -451,6 +488,39 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 		})
+	}
+
+	function adjustAndroidDrawingArea() {
+		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+
+		adjustThrottleRef.current = setTimeout(() => {
+			adjustThrottleRef.current = null;
+			sendAdjustment();
+		}, 200);
+	}
+
+	function sendAdjustment() {
+		if(!editorWrapperRefEl.current) return;
+
+		const windowWidth = window.innerWidth;
+		const windowHeight = window.innerHeight;
+
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+		const canvasX = Math.round(embedRect.x);
+		const canvasY = Math.round(embedRect.y);
+		const canvasWidth = Math.round(embedRect.width);
+		const canvasHeight = Math.round(embedRect.height);
+
+		setDebugDrawingAreaRect({ x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight });
+
+		sendUpdateDrawingArea({
+			x: canvasX,
+			y: canvasY,
+			canvasWidth,
+			canvasHeight,
+			appWidth: windowWidth,
+			appHeight: windowHeight,
+		});
 	}
 
 	function closeDrawingAreaThroughWebSocket() {

@@ -453,13 +453,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const canvasY = Math.round(embedRect.y);
 		const canvasWidth = Math.round(embedRect.width);
 		const canvasHeight = Math.round(embedRect.height);
-		// const canvasX = 500;
-		// const canvasY = windowHeight/2 - 200;
-		// const canvasWidth = windowWidth - 500;
-		// const canvasHeight = 400;
 
-		// For debugging
-		drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
+		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
 		sendNewDrawingArea({
 			x: canvasX,
@@ -492,7 +487,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const canvasWidth = Math.round(embedRect.width);
 		const canvasHeight = Math.round(embedRect.height);
 
-		drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
+		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
 		sendUpdateDrawingArea({
 			x: canvasX,

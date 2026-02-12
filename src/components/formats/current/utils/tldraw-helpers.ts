@@ -467,6 +467,24 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 	})
 }
 
+/** Lock the editor so that user input is ignored. Programmatic changes via bypassReadonly still work. */
+export const lockTldrawInput = (editor: Editor) => {
+	editor.updateInstanceState({ isReadonly: true });
+}
+
+/** Unlock the editor so that user input is accepted again. */
+export const unlockTldrawInput = (editor: Editor) => {
+	editor.updateInstanceState({ isReadonly: false });
+}
+
+/** Temporarily bypass readonly mode to run a function that modifies the store programmatically. */
+export const bypassReadonly = (editor: Editor, func: () => void) => {
+	const wasReadonly = editor.getInstanceState().isReadonly;
+	if (wasReadonly) editor.updateInstanceState({ isReadonly: false });
+	func();
+	if (wasReadonly) editor.updateInstanceState({ isReadonly: true });
+}
+
 // TODO: This doesn't work, don't use it, I think I need to add a promise to be returned, but just do it when needed
 // export const silentlyChangeStoreAsync = async (editor: Editor, func: () => void) => {
 // 	editor.store.mergeRemoteChanges(func);

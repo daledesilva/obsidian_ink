@@ -2,6 +2,7 @@ import './tldraw-drawing-editor.scss';
 import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
 import * as React from "react";
 import { Notice, TFile } from 'obsidian';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
@@ -64,6 +65,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
+	const websocketConnectedRef = useRef(false);
 
 	// For testing on laptop only
 	// React.useEffect(() => {
@@ -87,6 +89,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		if (!tlEditorSnapshot) return;
 		connectWebSocket({
 			onConnected: () => {
+				websocketConnectedRef.current = true;
+				if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 				debug('Connected to WebSocket');
 				new Notice('Connected to Boox WebSocket');
 				newAndroidDrawingArea();
@@ -97,6 +101,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			onStrokePoints: createStrokeFromBoox
 		});
 		return () => {
+			websocketConnectedRef.current = false;
+			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 			closeDrawingAreaThroughWebSocket();
 		};
@@ -177,6 +183,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
 		const removeUserActionListener = editor.store.listen((entry) => {
+			if (websocketConnectedRef.current) return;
 
 			const activity = getActivityType(entry);
 			switch (activity) {
@@ -577,11 +584,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const tldrawStrokePoints = canvasRelativeStrokePoints.map( (canvasStrokePoint: canvasRelativeStrokePoint) => ({
 			x: tlBounds.x + canvasStrokePoint.x * xScaleCoeff,
 			y: tlBounds.y + canvasStrokePoint.y * yScaleCoeff,
-			// z doesn't seem to do anything :(
+			z: canvasStrokePoint.pressure,
+			// Also has size, and tiltX/Y, and timestamp
 		}))
 
 		// FOR DEBUGGING ONLY
-		drawCanvasDebugOverlays({ strokePoints: canvasRelativeStrokePoints });
+		// drawCanvasDebugOverlays({ strokePoints: canvasRelativeStrokePoints });
 		
 		createTldrawStroke(tldrawStrokePoints);
 	}
@@ -594,19 +602,22 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 	function createTldrawStroke(strokePoints: TldrawStrokePoint[]) {
 		if(!tlEditorRef.current) return;
-		verbose("Creating stroke");
+		verbose(["Creating stroke", strokePoints]);
 	
-		tlEditorRef.current.createShape({
-			type: 'draw',
-			props: {
-				segments: [
-					{
-						type: 'free',
-						points: strokePoints,
-					}
-				]
-			}
-		})
+		bypassReadonly(tlEditorRef.current, () => {
+			tlEditorRef.current!.createShape({
+				type: 'draw',
+				props: {
+					isPen: true,
+					segments: [
+						{
+							type: 'free',
+							points: strokePoints,
+						}
+					]
+				}
+			})
+		});
 	}
 
 };

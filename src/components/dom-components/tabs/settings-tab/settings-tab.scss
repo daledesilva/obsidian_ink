@@ -34,6 +34,22 @@
     }
 }
 
+.ddc_ink_section-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    overflow: hidden;
+    transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.ddc_ink_expanded {
+        grid-template-rows: 1fr;
+        margin-bottom: 2em;
+    }
+
+    .ddc_ink_controls-section {
+        min-height: 0;
+    }
+}
+
 .ddc_ink_controls-section {
     overflow: hidden;
     box-shadow: 0 0 0 2px var(--setting-items-background) inset;
@@ -41,11 +57,19 @@
     background: transparent;
     padding: 0;
 
-    .ddc_ink_controls-header {}
+    .ddc_ink_controls-header {
+        margin: 0;
+    }
+    
+    .ddc_ink_setting:first-child {
+        margin-block-start: 0;
+    }
+    .ddc_ink_setting:last-child {
+        margin-block-end: 0;
+    }
 
     .ddc_ink_controls-content {
-        padding: 0.4em;
-        padding-inline: 1em;
+        padding: 0.8em;
     }
 }
 

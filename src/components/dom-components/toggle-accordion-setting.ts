@@ -11,12 +11,14 @@ export class ToggleAccordionSetting {
 	sectionEl: HTMLElement;
 	sectionHeaderEl: HTMLElement;
 	sectionContentEl: HTMLElement;
+	sectionContentInnerEl: HTMLElement;
 
 	constructor(containerEl: HTMLElement) {
 		this.containerEl = containerEl;
 		this.sectionEl = this.containerEl.createDiv('ddc_ink_toggle-accordion');
 		this.sectionHeaderEl = this.sectionEl.createDiv('ddc_ink_toggle-accordion-header');
 		this.sectionContentEl = this.sectionEl.createDiv('ddc_ink_toggle-accordion-content');
+		this.sectionContentInnerEl = this.sectionContentEl.createDiv('ddc_ink_toggle-accordion-content-inner');
 		this.toggleSetting = new Setting(this.sectionHeaderEl)
 			.setClass('ddc_ink_setting')
 			.addToggle((toggle) => this.toggle = toggle);
@@ -52,7 +54,7 @@ export class ToggleAccordionSetting {
 	}
 
 	setContent(contentHandler: (container: HTMLElement) => any) {
-		contentHandler(this.sectionContentEl);
+		contentHandler(this.sectionContentInnerEl);
 		return this;
 	}
 

@@ -42,16 +42,16 @@ export class MySettingsTab extends PluginSettingTab {
 		let drawingSectionEl!: HTMLElement;
 
 		insertHighLevelSettings(containerEl, this.plugin,
-			(show) => { writingSectionEl.style.display = show ? '' : 'none'; },
-			(show) => { drawingSectionEl.style.display = show ? '' : 'none'; },
+			(show) => { show ? writingSectionEl.classList.add('ddc_ink_expanded') : writingSectionEl.classList.remove('ddc_ink_expanded'); },
+			(show) => { show ? drawingSectionEl.classList.add('ddc_ink_expanded') : drawingSectionEl.classList.remove('ddc_ink_expanded'); },
 		);
-		insertSubfolderSettings(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
 		writingSectionEl = insertWritingSettings(containerEl, this.plugin);
-		writingSectionEl.style.display = this.plugin.settings.writingEnabled ? '' : 'none';
+		if (this.plugin.settings.writingEnabled) writingSectionEl.classList.add('ddc_ink_expanded');
 		drawingSectionEl = insertDrawingSettings(containerEl, this.plugin);
-		drawingSectionEl.style.display = this.plugin.settings.drawingEnabled ? '' : 'none';
+		if (this.plugin.settings.drawingEnabled) drawingSectionEl.classList.add('ddc_ink_expanded');
+		insertFileOrganisationSection(containerEl, this.plugin);
 
 		new Setting(containerEl)
 			.setClass('ddc_ink_bare-setting')
@@ -168,7 +168,7 @@ function insertHighLevelSettings(
 
 }
 
-function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin) {
+function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlugin) {
 
 	const saveWritingFolder = async (enteredValue: string) => {
 		const value = enteredValue || DEFAULT_SETTINGS.writingSubfolder;
@@ -314,7 +314,9 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin) {
 }
 
 function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Drawing')
@@ -346,7 +348,7 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 
-	return sectionEl;
+	return wrapperEl;
 }
 
 function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
@@ -357,7 +359,9 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 		await plugin.saveSettings();
 	}
 
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
@@ -406,7 +410,7 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 	insertWritingLimitations(contentEl);
-	return sectionEl;
+	return wrapperEl;
 }
 
 function insertWritingLimitations(containerEl: HTMLElement) {

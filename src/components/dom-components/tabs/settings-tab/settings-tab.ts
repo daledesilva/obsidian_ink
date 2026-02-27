@@ -1,6 +1,6 @@
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, ButtonComponent, PluginSettingTab, Setting } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -36,12 +36,23 @@ export class MySettingsTab extends PluginSettingTab {
 		insertPrereleaseWarning(containerEl);
 		insertSetupGuide(this.plugin, containerEl);
 
-		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
-		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
+		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
+		// The callbacks only fire on user interaction, after display() has completed
+		// and both refs are assigned below.
+		let writingSectionEl!: HTMLElement;
+		let drawingSectionEl!: HTMLElement;
+
+		insertHighLevelSettings(containerEl, this.plugin,
+			(show) => { writingSectionEl.style.display = show ? '' : 'none'; },
+			(show) => { drawingSectionEl.style.display = show ? '' : 'none'; },
+		);
+		insertSubfolderSettings(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
-		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
-		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
+		writingSectionEl = insertWritingSettings(containerEl, this.plugin);
+		writingSectionEl.style.display = this.plugin.settings.writingEnabled ? '' : 'none';
+		drawingSectionEl = insertDrawingSettings(containerEl, this.plugin);
+		drawingSectionEl.style.display = this.plugin.settings.drawingEnabled ? '' : 'none';
 	
 		new Setting(containerEl)
 			.addButton( (button) => {
@@ -116,7 +127,12 @@ function insertMoreInfoLinks(containerEl: HTMLElement) {
 	});
 }
 
-function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertHighLevelSettings(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	onToggleWriting: (show: boolean) => void,
+	onToggleDrawing: (show: boolean) => void,
+) {
 
 	new Setting(containerEl)
 		.setClass('ddc_ink_setting')
@@ -128,7 +144,7 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			toggle.onChange(async (value) => {
 				plugin.settings.writingEnabled = value;
 				await plugin.saveSettings();
-				refresh();
+				onToggleWriting(value);
 			});
 		});
 
@@ -142,26 +158,24 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			toggle.onChange(async (value) => {
 				plugin.settings.drawingEnabled = value;
 				await plugin.saveSettings();
-				refresh();
+				onToggleDrawing(value);
 			});
 		});
 
 }
 
-function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin) {
 
 	const saveWritingFolder = async (enteredValue: string) => {
 		const value = enteredValue || DEFAULT_SETTINGS.writingSubfolder;
 		plugin.settings.writingSubfolder = value.trim();
 		await plugin.saveSettings();
-		refresh();
 	}
 
 	const saveDrawingFolder = async (enteredValue: string) => {
 		const value = enteredValue || DEFAULT_SETTINGS.drawingSubfolder;
 		plugin.settings.drawingSubfolder = value.trim();
 		await plugin.saveSettings();
-		refresh();
 	}
 
 	const accordionSection = new ToggleAccordionSetting(containerEl)
@@ -170,15 +184,25 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 		.onToggle( async (value: boolean) => {
 			plugin.settings.customAttachmentFolders = value;
 			await plugin.saveSettings();
-			refresh();
 		})
 		.setContent((container) => {
 			// TODO: This should be abstracted as a dom component
+			let obsidianBtn: ButtonComponent, rootBtn: ButtonComponent, noteBtn: ButtonComponent;
+
+			const setActiveLocationButton = (active: 'obsidian' | 'root' | 'note') => {
+				obsidianBtn.removeCta(); obsidianBtn.setDisabled(false);
+				rootBtn.removeCta();    rootBtn.setDisabled(false);
+				noteBtn.removeCta();    noteBtn.setDisabled(false);
+				const activeBtn = active === 'obsidian' ? obsidianBtn : active === 'root' ? rootBtn : noteBtn;
+				activeBtn.setCta(); activeBtn.setDisabled(true);
+			};
+
 			new Setting(container)
 				.setClass('ddc_ink_button-set')
 				.setName(`Where should Ink files be saved when created in a note?`)
 				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
 				.addButton( (button) => {
+					obsidianBtn = button;
 					button.setButtonText('Obsidian attachment folder')
 					button.setClass('ddc_ink_left-most')
 					if(plugin.settings.noteAttachmentFolderLocation === 'obsidian') {
@@ -188,10 +212,11 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					button.onClick( async (e) => {
 						plugin.settings.noteAttachmentFolderLocation = 'obsidian';
 						await plugin.saveSettings();
-						refresh();
+						setActiveLocationButton('obsidian');
 					})
 				})
 				.addButton( (button) => {
+					rootBtn = button;
 					button.setButtonText('Vault root')
 					button.setClass('ddc_ink_middle')
 					if(plugin.settings.noteAttachmentFolderLocation === 'root') {
@@ -201,10 +226,11 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					button.onClick( async (e) => {
 						plugin.settings.noteAttachmentFolderLocation = 'root';
 						await plugin.saveSettings();
-						refresh();
+						setActiveLocationButton('root');
 					})
 				})
 				.addButton( (button) => {
+					noteBtn = button;
 					button.setButtonText('Next to the note')
 					button.setClass('ddc_ink_right-most')
 					if(plugin.settings.noteAttachmentFolderLocation === 'note') {
@@ -214,7 +240,7 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					button.onClick( async (e) => {
 						plugin.settings.noteAttachmentFolderLocation = 'note';
 						await plugin.saveSettings();
-						refresh();
+						setActiveLocationButton('note');
 					})
 				})
 			// TODO: This should be abstracted as a dom component
@@ -283,7 +309,7 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 
 }
 
-function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
 	sectionEl.createEl('h2', { text: 'Drawing' });
 	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.` });
@@ -297,7 +323,6 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.drawingFrameWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 
@@ -310,19 +335,18 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.drawingBackgroundWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 
+	return sectionEl;
 }
 
-function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
 
 	const saveWritingStrokeLimit = async (enteredValue: string) => {
 		const value = parseInt(enteredValue) || DEFAULT_SETTINGS.writingStrokeLimit;
 		plugin.settings.writingStrokeLimit = value;
 		await plugin.saveSettings();
-		refresh();
 	}
 
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
@@ -338,7 +362,6 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.writingLinesWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 
@@ -351,7 +374,6 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.writingBackgroundWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 	
@@ -372,6 +394,7 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			})
 		});
 	insertWritingLimitations(sectionEl);
+	return sectionEl;
 }
 
 function insertWritingLimitations(containerEl: HTMLElement) {

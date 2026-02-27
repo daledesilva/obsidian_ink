@@ -44,7 +44,10 @@ export class ToggleAccordionSetting {
 	}
 
 	onToggle(toggleHandler: (value: boolean) => any): ToggleAccordionSetting {
-		this.toggle.onChange(toggleHandler);
+		this.toggle.onChange((value) => {
+			this.setExpanded(value);
+			toggleHandler(value);
+		});
 		return this;
 	}
 

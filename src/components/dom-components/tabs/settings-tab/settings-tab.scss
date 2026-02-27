@@ -2,6 +2,16 @@
     margin-bottom: 2em;
 }
 
+.ddc_ink_bare-setting {
+    background: none;
+    border-top: none;
+    padding-inline: 0;
+
+    &--left .setting-item-control {
+        justify-content: flex-start;
+    }
+}
+
 .ddc_ink_section details {
     overflow: hidden;
     

@@ -34,7 +34,6 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertMoreInfoLinks(containerEl);
 		insertPrereleaseWarning(containerEl);
-		insertSetupGuide(this.plugin, containerEl);
 
 		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
 		// The callbacks only fire on user interaction, after display() has completed
@@ -53,8 +52,9 @@ export class MySettingsTab extends PluginSettingTab {
 		writingSectionEl.style.display = this.plugin.settings.writingEnabled ? '' : 'none';
 		drawingSectionEl = insertDrawingSettings(containerEl, this.plugin);
 		drawingSectionEl.style.display = this.plugin.settings.drawingEnabled ? '' : 'none';
-	
+
 		new Setting(containerEl)
+			.setClass('ddc_ink_bare-setting')
 			.addButton( (button) => {
 				button.setButtonText('Reset settings');
 				button.onClick(() => {
@@ -71,6 +71,9 @@ export class MySettingsTab extends PluginSettingTab {
 				})
 			})
 
+		containerEl.createEl('hr');
+		insertSetupGuide(this.plugin, containerEl);
+
 		createSupportButtonSet(containerEl);
 		
 
@@ -79,25 +82,26 @@ export class MySettingsTab extends PluginSettingTab {
 
 function insertSetupGuide(plugin: InkPlugin, containerEl: HTMLElement) {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_setup-guide-section');
-	const accordionEl = sectionEl.createEl('details');
-	accordionEl.createEl('summary', { text: `Expand setup tips` });
+	sectionEl.createEl('h3', { text: 'Setup tips' });
 
-	new Setting(accordionEl)
+	new Setting(sectionEl)
 		.setClass('ddc_ink_setting')
 		.setName('Slash Commands')
 		.setDesc(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`)
 
-	new Setting(accordionEl)
+	new Setting(sectionEl)
 		.setClass('ddc_ink_setting')
-		.setName('Pen Scribble')
+		.setName('iPadOS Pen Scribble')
 		.setDesc(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`)
 
-	new Setting(accordionEl)
+	new Setting(sectionEl)
 		.setClass('ddc_ink_setting')
 		.setName('Obsidian Sync')
 		.setDesc(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`)
 
-	new Setting(accordionEl)
+	new Setting(sectionEl)
+		.setClass('ddc_ink_bare-setting')
+		.setClass('ddc_ink_bare-setting--left')
 		.addButton( btn => {
 			btn.setButtonText('Rewatch welcome tips');
 			btn.onClick( () => showWelcomeTips(plugin) );

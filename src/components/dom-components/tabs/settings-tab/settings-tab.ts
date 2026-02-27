@@ -311,10 +311,14 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin) {
 
 function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-	sectionEl.createEl('h2', { text: 'Drawing' });
-	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.` });
-
 	new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setName('Drawing')
+		.setDesc(`While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.`);
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show frame around drawing when not editing')
 
@@ -326,7 +330,7 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 
-	new Setting(sectionEl)
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show background when not editing')
 
@@ -350,10 +354,14 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 	}
 
 	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-	sectionEl.createEl('h2', { text: 'Writing' });
-	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.` });
-	
 	new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setName('Writing')
+		.setDesc(`While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.`);
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show ruled lines when not editing')
 
@@ -365,7 +373,7 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 
-	new Setting(sectionEl)
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show background when not editing')
 
@@ -377,7 +385,7 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 	
-	new Setting(sectionEl)
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Writing stroke limit')
 		.setDesc(`Too much writing in one embed can create a lag between your physical pen movement and the line appearing on screen. The stroke limit defines the maximum pen strokes before old strokes start becoming invisible until the embed is locked. Set this to a lower number if you're experiencing lag or jagged writing.`)
@@ -393,7 +401,7 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 				if(ev.key === 'Enter') saveWritingStrokeLimit(textItem.getValue())
 			})
 		});
-	insertWritingLimitations(sectionEl);
+	insertWritingLimitations(contentEl);
 	return sectionEl;
 }
 

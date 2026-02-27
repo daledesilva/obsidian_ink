@@ -4,15 +4,15 @@
 
 .ddc_ink_section details {
     overflow: hidden;
-    border-style: solid;
+    
     border-color: rgba(var(--callout-color), var(--callout-border-opacity));
     border-width: var(--callout-border-width);
     border-radius: var(--callout-radius);
     background-color: rgba(var(--callout-color), 0.05);
-    padding: 1em;
     
-    margin-block: 1em;
-    margin-inline: -1em;
+    padding-block-start: 0.4em;
+    padding-block-end: 0.4em;
+    padding-inline: 1em;
 
     --callout-color: 255,255,255;
     &.warning {
@@ -25,13 +25,18 @@
 }
 
 .ddc_ink_controls-section {
-    padding-block-start: 0.2em;
-    padding-block-end: 0.2em;
-    padding-inline: 1em;
-    margin-inline: -1em;
-    border: none;
-    border-radius: 10px;
-    background-color: var(--color-base-20);
+    overflow: hidden;
+    box-shadow: 0 0 0 2px var(--setting-items-background) inset;
+    border-radius: var(--radius-l);
+    background: transparent;
+    padding: 0;
+
+    .ddc_ink_controls-header {}
+
+    .ddc_ink_controls-content {
+        padding: 0.4em;
+        padding-inline: 1em;
+    }
 }
 
 .ddc_ink_input-medium {

@@ -26,4 +26,5 @@
     "src/components/formats/tldraw_v1/writing/writing-embed-preview",
     "src/components/formats/current/writing/writing-embed-preview",
   ],
+  "exclude": ["tests/e2e"]
 }

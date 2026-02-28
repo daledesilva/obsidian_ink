@@ -2,7 +2,15 @@
 
 ### Testing
 
-This repository uses Jest as the test runner with a browser-like environment (jsdom) and React Testing Library for React component tests.
+This repository has three test modes:
+
+1. **Unit and component tests (Jest)** — Fast, mocked tests for components and utilities.
+2. **End-to-end tests (WebdriverIO)** — Automated E2E tests against a real Obsidian instance using [wdio-obsidian-service](https://github.com/jesse-r-s-hines/wdio-obsidian-service).
+3. **Manual QA** — The [qa-test-vault](../qa-test-vault/README.md) with generated notes for visual regression testing.
+
+#### Unit and component tests (Jest)
+
+Jest runs with a browser-like environment (jsdom) and React Testing Library for React component tests.
 
 #### What’s installed and why
 
@@ -19,18 +27,18 @@ See `jest.config.ts`:
 - transform: `babel-jest` handles `.ts`, `.tsx`, `.js`, `.jsx` using the top-level `babel.config.js`.
 - Babel presets: `@babel/preset-env`, `@babel/preset-typescript`, `@babel/preset-react`.
 - moduleNameMapper:
-  - Styles (`.scss`, `.css`) → `test/__mocks__/styleMock.js` (no-ops in Node).
-  - SVGs → `test/__mocks__/fileMock.js`.
+  - Styles (`.scss`, `.css`) → `tests/__mocks__/styleMock.js` (no-ops in Node).
+  - SVGs → `tests/__mocks__/fileMock.js`.
   - Absolute imports (`^src/(.*)$`) → `<rootDir>/src/$1`.
   - Plugin/main and host modules:
-    - `^src/main$` → `test/__mocks__/mainMock.js` (prevents loading the real plugin runtime).
-    - `^obsidian$` → `test/__mocks__/obsidianMock.js` (stubs Obsidian types like `Menu`, `Notice`).
-- setupFilesAfterEnv: `test/setupTests.ts` centralizes global mocks.
+    - `^src/main$` → `tests/__mocks__/mainMock.js` (prevents loading the real plugin runtime).
+    - `^obsidian$` → `tests/__mocks__/obsidianMock.js` (stubs Obsidian types like `Menu`, `Notice`).
+- setupFilesAfterEnv: `tests/setupTests.ts` centralizes global mocks.
 - transformIgnorePatterns: transpiles modern ESM packages like `chalk` used by logging utilities.
 
 #### Global mocks and helpers
 
-In `test/setupTests.ts`:
+In `tests/setupTests.ts`:
 
 - DOM shims: `window.matchMedia` and `IntersectionObserver` so components relying on these APIs don’t crash.
 - `react-inlinesvg` is mocked to a no-op component (previews render consistently in Node).
@@ -46,13 +54,23 @@ These mocks ensure tests focus on component structure/logic without pulling in h
 
 #### How to run tests
 
-- Run all tests and collect coverage (enabled by default):
+- **Unit tests** (Jest, with coverage):
 
 ```bash
 npm test
+# or
+npm run test:unit
 ```
 
 Coverage output appears under the `coverage/` directory.
+
+- **E2E tests** (WebdriverIO + Obsidian):
+
+```bash
+npm run test:e2e
+```
+
+This builds the plugin, regenerates the qa-test-vault, and runs E2E specs against Obsidian. The first run downloads Obsidian into `.obsidian-cache/`. Requires Node.js and a supported OS (Windows, macOS, Linux).
 
 #### Writing new tests
 
@@ -84,8 +102,8 @@ test('renders component', () => {
 
 Folder conventions:
 
-- Existing tests live under `test/...` and `src/.../*.test.ts`. Follow the current pattern:
-  - Component tests: `test/components/.../*.test.tsx` mirroring the component path
+- Existing tests live under `tests/...` and `src/.../*.test.ts`. Follow the current pattern:
+  - Component tests: `tests/components/.../*.test.tsx` mirroring the component path
   - Utility tests: colocated in `src/logic/utils/*.test.ts`
 
 What to assert:
@@ -96,13 +114,13 @@ What to assert:
 
 Adding new mocks:
 
-- If a new dependency fails in Node (e.g., a new browser API or library), add a light mock to `test/setupTests.ts`.
-- If you need to bypass a new host module (e.g., a different Obsidian entry), add a `moduleNameMapper` entry to redirect it to a mock file under `test/__mocks__/`.
+- If a new dependency fails in Node (e.g., a new browser API or library), add a light mock to `tests/setupTests.ts`.
+- If you need to bypass a new host module (e.g., a different Obsidian entry), add a `moduleNameMapper` entry to redirect it to a mock file under `tests/__mocks__/`.
 
 Troubleshooting:
 
 - Syntax errors in `.tsx` tests usually mean Babel isn’t transforming JSX/TSX — ensure `@babel/preset-react` is installed and present in `babel.config.js`.
-- Errors complaining about missing DOM APIs (e.g., `matchMedia`, `IntersectionObserver`) — add or extend shims in `test/setupTests.ts`.
+- Errors complaining about missing DOM APIs (e.g., `matchMedia`, `IntersectionObserver`) — add or extend shims in `tests/setupTests.ts`.
 - ESM packages failing with “Cannot use import statement outside a module” — add them to `transformIgnorePatterns` or mock them.
 
 

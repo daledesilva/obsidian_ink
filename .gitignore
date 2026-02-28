@@ -21,6 +21,9 @@ data.json
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
+# WDIO Obsidian Service cache
+.obsidian-cache/
+
 # Jest coverage reports
 coverage/
 .nyc_output/

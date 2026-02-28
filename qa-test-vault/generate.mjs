@@ -410,6 +410,9 @@ Self-contained vault for visual regression testing. Contains dummy markdown note
 - **11 – CodeMirror**: Cursor nav, split pane, undo, paste, search, print
 `);
   ensureDir('.obsidian');
+  // Clear plugin persistence so onboarding tests see first-run state
+  const dataPath = path.join(VAULT_ROOT, '.obsidian', 'data.json');
+  if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
   console.log('Done. Vault at', VAULT_ROOT);
 }
 

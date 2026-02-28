@@ -25,3 +25,8 @@ data.json
 coverage/
 .nyc_output/
 *.lcov
+
+# QA test vault (generated - run node qa-test-vault/generate.mjs)
+qa-test-vault/*
+!qa-test-vault/generate.mjs
+!qa-test-vault/README.md

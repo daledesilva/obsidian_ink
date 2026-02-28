@@ -409,11 +409,192 @@ Self-contained vault for visual regression testing. Contains dummy markdown note
 - **10 – Cross-Reference**: Transclusion, same file across notes
 - **11 – CodeMirror**: Cursor nav, split pane, undo, paste, search, print
 `);
+  generateConversionTestAssets();
+  generateMigrationTestAssets();
+
   ensureDir('.obsidian');
   // Clear plugin persistence so onboarding tests see first-run state
   const dataPath = path.join(VAULT_ROOT, '.obsidian', 'data.json');
   if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
   console.log('Done. Vault at', VAULT_ROOT);
+}
+
+// ─── Section 12: File Conversion ──────────────────────────────────────────────
+
+function generateConversionTestAssets() {
+  const line = '<g transform="matrix(1,0,0,1,0,0)"><line x1="100" y1="150" x2="1900" y2="150"/></g><g><rect width="2000" height="375" opacity="0"/></g>';
+
+  // A writing SVG that can be converted to a drawing
+  createWritingSvg('writing-to-convert.svg', line, makeWritingStore({
+    'shape:conv1': makeDrawShape('conv1', WRITING_PAGE, 100, 100, [freeSegment([
+      { x: 100, y: 130 }, { x: 300, y: 128 }, { x: 500, y: 132 },
+    ])]),
+  }));
+
+  // A drawing SVG that can be converted to a writing file
+  createDrawingSvg('drawing-to-convert.svg', 500, 200, makeDrawingStore({
+    'shape:conv2': makeDrawShape('conv2', DRAW_PAGE, 50, 50, [freeSegment([
+      { x: 50, y: 100 }, { x: 200, y: 100 }, { x: 350, y: 100 },
+    ])]),
+  }));
+
+  writeFile('12 - File Conversion/Conversion Test.md', `# File Conversion Test
+
+This note embeds one writing file and one drawing file for use in file conversion E2E tests.
+The E2E tests convert each file type via the pane menu and verify the metadata changes.
+
+${buildWritingEmbed('Ink/Writing/writing-to-convert.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/drawing-to-convert.svg')}
+`);
+
+  // Rename files to match expected E2E test paths
+  // The E2E tests reference "12 - File Conversion/Writing To Convert.svg" etc.
+  writeFile('Ink/Writing/writing-to-convert.svg', (() => {
+    const store = makeWritingStore({
+      'shape:wc1': makeDrawShape('wc1', WRITING_PAGE, 100, 80, [freeSegment([
+        { x: 100, y: 120 }, { x: 400, y: 118 }, { x: 700, y: 122 },
+      ])]),
+    });
+    const snapshot = makeTldrawSnapshot(store, WRITING_PAGE);
+    const tldrawJson = JSON.stringify(snapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    return `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" width="2064" height="500" viewBox="-32 -32 2064 500">
+  <metadata>
+    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
+    <tldraw version="${TLDRAW_VERSION}">${tldrawJson}</tldraw>
+  </metadata>
+  <defs/>
+  ${line}
+</svg>`;
+  })());
+
+  writeFile('Ink/Writing/Writing To Convert.svg', (() => {
+    const store = makeWritingStore({
+      'shape:wtc1': makeDrawShape('wtc1', WRITING_PAGE, 100, 80, [freeSegment([
+        { x: 100, y: 120 }, { x: 400, y: 118 }, { x: 700, y: 122 },
+      ])]),
+    });
+    const snapshot = makeTldrawSnapshot(store, WRITING_PAGE);
+    const tldrawJson = JSON.stringify(snapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+    return `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" width="2064" height="500" viewBox="-32 -32 2064 500">
+  <metadata>
+    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
+    <tldraw version="${TLDRAW_VERSION}">${tldrawJson}</tldraw>
+  </metadata>
+  <defs/>
+  ${line}
+</svg>`;
+  })());
+
+  const drawingStore = makeDrawingStore({
+    'shape:dtc1': makeDrawShape('dtc1', DRAW_PAGE, 50, 50, [freeSegment([
+      { x: 50, y: 100 }, { x: 200, y: 100 }, { x: 350, y: 100 },
+    ])]),
+  });
+  const drawSnapshot = makeTldrawSnapshot(drawingStore, DRAW_PAGE);
+  const drawTldrawJson = JSON.stringify(drawSnapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  const drawingSvgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="200" viewBox="0 0 500 200">
+  <metadata>
+    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkDrawing"/>
+    <tldraw version="${TLDRAW_VERSION}">${drawTldrawJson}</tldraw>
+  </metadata>
+  <defs/>
+</svg>`;
+  writeFile('Ink/Drawing/Drawing To Convert.svg', drawingSvgContent);
+
+  const writingEmbedDtc = buildWritingEmbed('Ink/Drawing/Drawing To Convert.svg').replace('InkWriting', 'InkDrawing').replace('inkWriting', 'inkDrawing').replace('Edit Writing', 'Edit Drawing');
+  writeFile('12 - File Conversion/Conversion Test.md', `# File Conversion Test
+
+Use the three-dot (more-options) menu on each file tab to convert between writing and drawing formats.
+
+${buildWritingEmbed('Ink/Writing/Writing To Convert.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/Drawing To Convert.svg')}
+`);
+}
+
+// ─── Section 13: Migration Test ───────────────────────────────────────────────
+
+function generateMigrationTestAssets() {
+  // Create legacy .writing and .drawing files (v1 JSON format)
+  const legacyWritingData = {
+    meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION },
+    tldraw: makeTldrawSnapshot(makeWritingStore({
+      'shape:mig1': makeDrawShape('mig1', WRITING_PAGE, 100, 80, [freeSegment([
+        { x: 100, y: 120 }, { x: 300, y: 118 }, { x: 500, y: 122 },
+      ])]),
+    }), WRITING_PAGE),
+  };
+  writeFile('Ink/Writing/migration-test.writing', JSON.stringify(legacyWritingData, null, 2));
+
+  const legacyDrawingData = {
+    meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION },
+    tldraw: makeTldrawSnapshot(makeDrawingStore({
+      'shape:mig2': makeDrawShape('mig2', DRAW_PAGE, 50, 50, [freeSegment([
+        { x: 50, y: 100 }, { x: 250, y: 100 },
+      ])]),
+    }), DRAW_PAGE),
+  };
+  writeFile('Ink/Drawing/migration-test.drawing', JSON.stringify(legacyDrawingData, null, 2));
+
+  // An extra writing file for the mixed-formats note
+  const legacyWritingData2 = {
+    meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION },
+    tldraw: makeTldrawSnapshot(makeWritingStore(), WRITING_PAGE),
+  };
+  writeFile('Ink/Writing/migration-test-2.writing', JSON.stringify(legacyWritingData2, null, 2));
+
+  // Legacy code block embed helper
+  function buildLegacyWritingEmbed(filepath) {
+    return `\`\`\`handwritten-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath })}\n\`\`\``;
+  }
+  function buildLegacyDrawingEmbed(filepath) {
+    return `\`\`\`handdrawn-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath, width: 500, aspectRatio: 1 })}\n\`\`\``;
+  }
+
+  writeFile('13 - Migration Test/Legacy Writing Note.md', `# Legacy Writing Note
+
+This note contains a legacy v1 handwritten-ink embed for migration testing.
+After running the migration command, this code block should be replaced with a current-format image embed.
+
+${buildLegacyWritingEmbed('Ink/Writing/migration-test.writing')}
+
+Content after the embed.
+`);
+
+  writeFile('13 - Migration Test/Legacy Drawing Note.md', `# Legacy Drawing Note
+
+This note contains a legacy v1 handdrawn-ink embed for migration testing.
+After running the migration command, this code block should be replaced with a current-format image embed.
+
+${buildLegacyDrawingEmbed('Ink/Drawing/migration-test.drawing')}
+
+Content after the embed.
+`);
+
+  writeFile('13 - Migration Test/Mixed Formats Note.md', `# Mixed Formats Note
+
+This note contains both a legacy v1 embed AND a current-format embed.
+The migration should only update the legacy embed.
+
+${buildLegacyWritingEmbed('Ink/Writing/migration-test-2.writing')}
+
+${buildWritingEmbed('Ink/Writing/hello-world.svg')}
+
+Content after the embeds.
+`);
+
+  writeFile('13 - Migration Test/README.md', `# Migration Test
+
+This folder contains test files for the "Migrate legacy ink embeds" command.
+Run the command from the command palette, then verify:
+
+1. \`Legacy Writing Note.md\` - legacy writing embed replaced with current format
+2. \`Legacy Drawing Note.md\` - legacy drawing embed replaced with current format
+3. \`Mixed Formats Note.md\` - only the legacy embed replaced; current format embed unchanged
+4. \`Ink/Writing/migration-test.writing\` is gone, \`Ink/Writing/migration-test.svg\` exists
+5. \`Ink/Drawing/migration-test.drawing\` is gone, \`Ink/Drawing/migration-test.svg\` exists
+`);
 }
 
 main();

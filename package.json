@@ -8,6 +8,7 @@
 		"test": "jest",
 		"test:unit": "jest",
 		"test:e2e": "npm run build && node qa-test-vault/generate.mjs && wdio run ./wdio.conf.mts",
+		"open-qa": "npm run build && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"internal-release": "sh ./scripts/internal-release.sh",

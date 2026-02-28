@@ -1,4 +1,4 @@
-import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { Menu, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_V1_EXT } from "src/constants";
@@ -11,6 +11,8 @@ import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
+import { convertDrawFileToWrite } from "../../utils/convertDrawFileToWrite";
+import { openInkFile } from "src/logic/utils/open-file";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
@@ -185,18 +187,18 @@ export class DrawingView extends TextFileView {
 
     // onResize()
 
-    // TODO: Consider converting between drawings and writing files in future
-    
-    // onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
-    //     menu.addItem((item) => {
-    //         item.setTitle('Convert to Write file');
-    //         item.setSection('action');
-    //         item.onClick( () => {
-    //             console.log('clicked');
-    //         })
-    //     })
-    //     super.onPaneMenu(menu, source);
-    // }
+    onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
+        menu.addItem((item) => {
+            item.setTitle('Convert to Writing');
+            item.setSection('action');
+            item.onClick(async () => {
+                if (!this.file) return;
+                await convertDrawFileToWrite(this.plugin, this.file);
+                await openInkFile(this.file);
+            });
+        });
+        super.onPaneMenu(menu, source);
+    }
 
 }
 

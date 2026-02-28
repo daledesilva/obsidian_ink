@@ -7,6 +7,8 @@ import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { convertDrawFileToWrite } from "src/components/formats/current/utils/convertDrawFileToWrite";
+import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
 import { TFile } from "obsidian";
 import classNames from "classnames";
@@ -87,6 +89,14 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			text: 'Copy drawing',
 			action: async () => {
 				await rememberDrawingFile(props.embeddedFile as TFile);
+			}
+		},
+		{
+			text: 'Convert to Writing',
+			action: async () => {
+				if (!props.embeddedFile) return;
+				await convertDrawFileToWrite(getGlobals().plugin, props.embeddedFile);
+				ignoreChangesAndSwitchToPreviewMode();
 			}
 		},
 		{
@@ -236,6 +246,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		verbose('Set DrawingEmbedState: loadingEditor')
 		applyEmbedHeight();
         setEmbedState(DrawingEmbedState.loadingEditor);
+	}
+
+	function ignoreChangesAndSwitchToPreviewMode() {
+		setEmbedState(DrawingEmbedState.loadingPreview);
 	}
 
     async function saveAndSwitchToPreviewMode() {

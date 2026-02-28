@@ -103,7 +103,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
-		resizeWritingTemplateInvitingly(editor);
+		resizeWritingTemplateInvitingly(editor, props.plugin.settings.writingBufferLines);
 		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
 				
 		// view set up
@@ -212,7 +212,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
-		resizeWritingTemplateInvitingly(editor);
+		resizeWritingTemplateInvitingly(editor, props.plugin.settings.writingBufferLines);
 		resizeContainerIfEmbed(editor);
 		// entry && simplifyLines(editor, entry);
 	};

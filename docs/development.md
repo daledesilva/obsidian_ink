@@ -72,6 +72,16 @@ npm run test:e2e
 
 This builds the plugin, regenerates the qa-test-vault, and runs E2E specs against Obsidian. The first run downloads Obsidian into `.obsidian-cache/`. Requires Node.js and a supported OS (Windows, macOS, Linux).
 
+- **Manual vault inspection** (open Obsidian without running tests):
+
+```bash
+npm run open-qa
+```
+
+This builds the plugin, regenerates the vault from scratch (clearing all plugin data), and launches Obsidian with the vault loaded. Obsidian stays open until you close it manually. Changes made during the session are discarded — the vault is copied to a temporary directory first, so the source `qa-test-vault/` folder is not modified.
+
+Use this when you want to manually inspect the plugin's behaviour against specific test scenarios, try out new features, or debug issues interactively.
+
 #### Writing new tests
 
 General guidelines:

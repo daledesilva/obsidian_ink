@@ -696,18 +696,19 @@ export function cropWritingStrokeHeightTightly(height: number): number {
 /***
  * Convert an existing writing height to a value with excess space under writing strokes to to enable further writing.
  * Good for while in editing mode.
+ * bufferLines: number of empty writable lines to show below content. An additional 0.5 lines of visual padding is always added.
  */
-export function cropWritingStrokeHeightInvitingly(height: number): number {
+export function cropWritingStrokeHeightInvitingly(height: number, bufferLines: number = 2): number {
 	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
-	const newLineHeight = (numOfLines + 1.5) * WRITING_LINE_HEIGHT;
-	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
+	const newLineHeight = (numOfLines + bufferLines + 0.5) * WRITING_LINE_HEIGHT;
+	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT);
 }
 
 // Returns bounds sized for editing (with inviting extra space)
-export function getInvitingWritingBounds(editor: Editor): Box | null {
+export function getInvitingWritingBounds(editor: Editor, bufferLines?: number): Box | null {
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h));
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, bufferLines));
 	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
 	return newContentBounds;
 }
@@ -757,10 +758,10 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
  * Add excess space under writing strokes to to enable further writing.
  * Good for while in editing mode.
  */
-export const resizeWritingTemplateInvitingly = (editor: Editor) => {
+export const resizeWritingTemplateInvitingly = (editor: Editor, bufferLines?: number) => {
 	verbose('resizeWritingTemplateInvitingly');
 	console.log('[ink] resizeWritingTemplateInvitingly');
-	const contentBounds = getInvitingWritingBounds(editor);
+	const contentBounds = getInvitingWritingBounds(editor, bufferLines);
 	if (!contentBounds) return;
 	resizeWritingTemplate(editor, contentBounds);
 }

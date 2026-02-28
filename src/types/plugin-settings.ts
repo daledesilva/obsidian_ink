@@ -17,6 +17,7 @@ export interface PluginSettings {
 	// Writing specific
 	writingEnabled: boolean,
 	writingStrokeLimit: number,
+	writingBufferLines: number,
 	writingDynamicStrokeThickness: boolean,
 	writingSmoothing: boolean,
 	writingLinesWhenLocked: boolean,
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	// Writing specific
 	writingEnabled: true,
 	writingStrokeLimit: 200,
+	writingBufferLines: 2,
 	writingDynamicStrokeThickness: true,
 	writingSmoothing: false,
 	writingLinesWhenLocked: true,

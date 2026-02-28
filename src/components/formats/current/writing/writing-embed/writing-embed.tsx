@@ -5,6 +5,7 @@ import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writ
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
+import { convertWriteFileToDraw } from "src/components/formats/current/utils/convertWriteFileToDraw";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
 import { TFile } from "obsidian";
@@ -98,6 +99,14 @@ export function WritingEmbed (props: {
 			text: 'Copy writing',
 			action: async () => {
 				await rememberWritingFile(props.plugin, props.writingFileRef);
+			}
+		},
+		{
+			text: 'Convert to Drawing',
+			action: async () => {
+				if (!props.writingFileRef) return;
+				await convertWriteFileToDraw(props.plugin, props.writingFileRef);
+				ignoreChangesAndSwitchToPreviewMode();
 			}
 		},
 		// {
@@ -218,6 +227,10 @@ export function WritingEmbed (props: {
 		setEmbedState(WritingEmbedState.loadingEditor);
 	}
 	
+	function ignoreChangesAndSwitchToPreviewMode() {
+		setEmbedState(WritingEmbedState.loadingPreview);
+	}
+
 	async function saveAndSwitchToPreviewMode() {
 		verbose('Set WritingEmbedState: loadingPreview');
 

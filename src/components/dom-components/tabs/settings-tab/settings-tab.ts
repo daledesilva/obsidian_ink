@@ -359,6 +359,13 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 		await plugin.saveSettings();
 	}
 
+	const saveWritingBufferLines = async (enteredValue: string) => {
+		const parsed = parseInt(enteredValue);
+		const value = (!isNaN(parsed) && parsed >= 0) ? parsed : DEFAULT_SETTINGS.writingBufferLines;
+		plugin.settings.writingBufferLines = value;
+		await plugin.saveSettings();
+	}
+
 	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
 	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
@@ -393,6 +400,22 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 	
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Buffer lines when editing')
+		.setDesc(`Number of empty lines shown below your writing while editing. Writing reaches the last line before the embed extends in height.`)
+
+		.addText((textItem) => {
+			textItem.setValue(plugin.settings.writingBufferLines.toString());
+			textItem.setPlaceholder(DEFAULT_SETTINGS.writingBufferLines.toString());
+			textItem.inputEl.addEventListener('blur', async () => {
+				saveWritingBufferLines(textItem.getValue());
+			});
+			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+				if (ev.key === 'Enter') saveWritingBufferLines(textItem.getValue());
+			});
+		});
+
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Writing stroke limit')

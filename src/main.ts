@@ -27,6 +27,7 @@ import { insertRememberedDrawingFile } from './commands/insert-remembered-drawin
 import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
+import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
 
 ////////
 ////////
@@ -84,6 +85,12 @@ export default class InkPlugin extends Plugin {
 		}
 
 		registerSettingsTab(this);
+
+		this.addCommand({
+			id: 'migrate-legacy-embeds',
+			name: 'Migrate legacy ink embeds to current format',
+			callback: () => new MigrationModal(this).open(),
+		});
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.

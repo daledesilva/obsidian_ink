@@ -38,32 +38,31 @@ async function modalText(): Promise<string> {
 	});
 }
 
-/** Open the FileConversionModal directly via the plugin API. */
-async function openConversionModal(opts: {
-	filePath: string;
-	toType: 'inkWriting' | 'inkDrawing';
-	sourceMdFilePath?: string;
-}) {
-	await browser.executeObsidian(async ({ app }, opts) => {
-		const plugin = (app.plugins.plugins as any)['ink'];
-		if (!plugin) throw new Error('ink plugin not found');
-
-		const file = app.vault.getAbstractFileByPath(opts.filePath);
-		if (!file) throw new Error(`file not found: ${opts.filePath}`);
-
-		const sourceMdFile = opts.sourceMdFilePath
-			? (app.vault.getAbstractFileByPath(opts.sourceMdFilePath) ?? undefined)
-			: undefined;
-
-		const { FileConversionModal } = await import(
-			// @ts-ignore – runtime import inside executeObsidian
-			'../src/components/dom-components/modals/file-conversion-modal/file-conversion-modal'
-		).catch(() => null) ?? {};
-
-		if (!FileConversionModal) throw new Error('FileConversionModal not importable');
-
-		new FileConversionModal(plugin, file, opts.toType, { sourceMdFile }).open();
-	}, opts);
+/** Trigger the pane menu "Convert to Drawing" or "Convert to Writing" on the active view. */
+async function triggerPaneMenuConvert(targetTitle: string) {
+	await browser.executeObsidian(({ app }, targetTitle) => {
+		const leaf = app.workspace.activeLeaf;
+		const view = leaf?.view as any;
+		if (view?.onPaneMenu) {
+			view.onPaneMenu({
+				addItem: (cb: any) => {
+					const item = {
+						_title: '',
+						setTitle: (t: string) => { item._title = t; return item; },
+						setSection: () => item,
+						setIcon: () => item,
+						setDisabled: () => item,
+						setChecked: () => item,
+						onClick: (fn: () => void) => {
+							if (item._title === targetTitle) fn();
+							return item;
+						},
+					};
+					cb(item);
+				},
+			}, 'more-options');
+		}
+	}, targetTitle);
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -89,37 +88,19 @@ describe('FileConversionModal', function () {
 		});
 
 		it('modal opens and transitions from scan to confirm phase', async function () {
+			await obsidianPage.openFile('Ink/Writing/modal-test-writing.svg');
+			await browser.pause(1500);
+
 			await browser.executeObsidian(async ({ app }) => {
 				const plugin = (app.plugins.plugins as any)['ink'];
+				if (!plugin) return;
 				const file = app.vault.getAbstractFileByPath('Ink/Writing/modal-test-writing.svg');
-				if (!file || !plugin) return;
-				const modal = new (plugin.constructor as any).FileConversionModal ?? null;
-				// Fallback: trigger via plugin helper if available, else just open the file
+				if (!file) return;
+				new plugin.FileConversionModal(plugin, file, 'inkDrawing').open();
 			});
 
-			// Directly trigger the modal through the plugin's command infrastructure
-			const opened = await browser.executeObsidian(async ({ app }) => {
-				const plugin = (app.plugins.plugins as any)['ink'];
-				if (!plugin) return false;
+			await browser.pause(500);
 
-				const file = app.vault.getAbstractFileByPath('Ink/Writing/modal-test-writing.svg');
-				if (!file) return false;
-
-				// Use the plugin's registered commands to find "Convert to Drawing"
-				// or open modal via the public interface
-				try {
-					// Access via the plugin's modal registry pattern
-					plugin._lastOpenedModal = null;
-					const cmd = (app as any).commands?.commands?.['ink:convert-to-drawing'];
-					if (cmd) {
-						cmd.callback?.();
-						return true;
-					}
-				} catch (_) {}
-				return false;
-			});
-
-			// Modal should appear after scan
 			const modal = await browser.$('.modal-container');
 			await modal.waitForExist({ timeout: 8000 });
 			await expect(modal).toExist();
@@ -145,29 +126,17 @@ describe('FileConversionModal', function () {
 		});
 
 		it('scan finds both notes that embed the writing file', async function () {
-			// Open the modal for the writing file, no sourceMdFile (simulates full-page view)
+			await obsidianPage.openFile(WRITING_PATH);
+			await browser.pause(1500);
+
 			await browser.executeObsidian(async ({ app }) => {
 				const plugin = (app.plugins.plugins as any)['ink'];
+				if (!plugin) return;
 				const file = app.vault.getAbstractFileByPath('Ink/Writing/modal-test-writing.svg');
-				if (!plugin || !file) return;
-				// Trigger via the writing view's pane menu (simulated)
-				await obsidianPage?.openFile?.('Ink/Writing/modal-test-writing.svg');
-				const leaf = app.workspace.activeLeaf;
-				const view = leaf?.view as any;
-				if (view?.onPaneMenu) {
-					view.onPaneMenu({
-						addItem: (cb: any) => {
-							const item = {
-								_title: '',
-								setTitle: (t: string) => { item._title = t; return item; },
-								setSection: () => item,
-								onClick: (fn: () => void) => { if (item._title === 'Convert to Drawing') fn(); return item; },
-							};
-							cb(item);
-						},
-					}, 'more-options');
-				}
+				if (!file) return;
+				new plugin.FileConversionModal(plugin, file, 'inkDrawing').open();
 			});
+			await browser.pause(500);
 
 			const modal = await browser.$('.modal-container');
 			await modal.waitForExist({ timeout: 8000 });
@@ -182,8 +151,6 @@ describe('FileConversionModal', function () {
 		});
 
 		it('converts writing SVG to drawing and updates embed strings in both notes', async function () {
-			// Reload and programmatically trigger the conversion (bypassing the modal UI)
-			// This tests the underlying logic end-to-end via the plugin API
 			const result = await browser.executeObsidian(async ({ app }) => {
 				const plugin = (app.plugins.plugins as any)['ink'];
 				if (!plugin) return { error: 'no plugin' };
@@ -192,19 +159,13 @@ describe('FileConversionModal', function () {
 				if (!writingFile) return { error: 'writing file missing' };
 
 				try {
-					// Call the conversion logic directly
-					const { executeFileConversion, findNotesContainingFileEmbed } =
-						await import('../src/logic/utils/convert-file-embeds') as any;
-					const { convertWriteFileToDraw } =
-						await import('../src/components/formats/current/utils/convertWriteFileToDraw') as any;
-
-					const affected = await findNotesContainingFileEmbed(
+					const affected = await plugin.findNotesContainingFileEmbed(
 						app.vault,
 						'Ink/Writing/modal-test-writing.svg',
 						'inkWriting',
 					);
 
-					await executeFileConversion(
+					await plugin.executeFileConversion(
 						plugin,
 						writingFile,
 						'inkDrawing',
@@ -273,16 +234,13 @@ describe('FileConversionModal', function () {
 				if (!drawingFile) return { error: 'drawing file missing' };
 
 				try {
-					const { executeFileConversion, findNotesContainingFileEmbed } =
-						await import('../src/logic/utils/convert-file-embeds') as any;
-
-					const affected = await findNotesContainingFileEmbed(
+					const affected = await plugin.findNotesContainingFileEmbed(
 						app.vault,
 						'Ink/Drawing/modal-test-drawing.svg',
 						'inkDrawing',
 					);
 
-					await executeFileConversion(
+					await plugin.executeFileConversion(
 						plugin,
 						drawingFile,
 						'inkWriting',
@@ -339,17 +297,14 @@ describe('FileConversionModal', function () {
 				if (!writingFile) return { error: 'writing file missing' };
 
 				try {
-					const { executeFileConversion, findNotesContainingFileEmbed } =
-						await import('../src/logic/utils/convert-file-embeds') as any;
-
-					const affected = await findNotesContainingFileEmbed(
+					const affected = await plugin.findNotesContainingFileEmbed(
 						app.vault,
 						'Ink/Writing/modal-test-writing.svg',
 						'inkWriting',
 					);
 
 					const movePath = 'Ink/Drawing/modal-test-writing.svg';
-					await executeFileConversion(
+					await plugin.executeFileConversion(
 						plugin,
 						writingFile,
 						'inkDrawing',
@@ -420,27 +375,17 @@ describe('FileConversionModal', function () {
 				return match ? match[1] : null;
 			});
 
-			// Open the writing file and trigger the modal via pane menu
 			await obsidianPage.openFile('Ink/Writing/modal-test-writing.svg');
 			await browser.pause(1500);
 
-			await browser.executeObsidian(({ app }) => {
-				const leaf = app.workspace.activeLeaf;
-				const view = leaf?.view as any;
-				if (view?.onPaneMenu) {
-					view.onPaneMenu({
-						addItem: (cb: any) => {
-							const item = {
-								_title: '',
-								setTitle: (t: string) => { item._title = t; return item; },
-								setSection: () => item,
-								onClick: (fn: () => void) => { if (item._title === 'Convert to Drawing') fn(); return item; },
-							};
-							cb(item);
-						},
-					}, 'more-options');
-				}
+			await browser.executeObsidian(async ({ app }) => {
+				const plugin = (app.plugins.plugins as any)['ink'];
+				if (!plugin) return;
+				const file = app.vault.getAbstractFileByPath('Ink/Writing/modal-test-writing.svg');
+				if (!file) return;
+				new plugin.FileConversionModal(plugin, file, 'inkDrawing').open();
 			});
+			await browser.pause(500);
 
 			const modal = await browser.$('.modal-container');
 			const modalExists = await modal.isExisting();
@@ -493,35 +438,20 @@ describe('FileConversionModal', function () {
 		});
 
 		it('shows "other notes" wording when triggered from an embed (sourceMdFile set)', async function () {
-			// Open Note With Writing and trigger from embed context (sourceMdFile = that note)
-			await obsidianPage.openFile('14 - Conversion Modal/Note With Writing.md');
+			await obsidianPage.openFile('Ink/Writing/modal-test-writing.svg');
 			await browser.pause(1500);
 
-			await browser.executeObsidian(({ app }) => {
+			// Open the modal programmatically with sourceMdFile set
+			await browser.executeObsidian(async ({ app }) => {
 				const plugin = (app.plugins.plugins as any)['ink'];
 				if (!plugin) return;
 				const file = app.vault.getAbstractFileByPath('Ink/Writing/modal-test-writing.svg');
 				const sourceMdFile = app.vault.getAbstractFileByPath('14 - Conversion Modal/Note With Writing.md');
 				if (!file || !sourceMdFile) return;
-
-				// Simulate "Convert to Drawing" from embed context
-				// Use the plugin's pane menu on the active leaf or directly open the modal
-				const leaf = app.workspace.activeLeaf;
-				const view = leaf?.view as any;
-				if (view?.onPaneMenu) {
-					view.onPaneMenu({
-						addItem: (cb: any) => {
-							const item = {
-								_title: '',
-								setTitle: (t: string) => { item._title = t; return item; },
-								setSection: () => item,
-								onClick: (fn: () => void) => { if (item._title === 'Convert to Drawing') fn(); return item; },
-							};
-							cb(item);
-						},
-					}, 'more-options');
-				}
+				new plugin.FileConversionModal(plugin, file, 'inkDrawing', { sourceMdFile }).open();
 			});
+
+			await browser.pause(500);
 
 			const modal = await browser.$('.modal-container');
 			const modalExists = await modal.isExisting();
@@ -530,36 +460,25 @@ describe('FileConversionModal', function () {
 			await waitForModalButton('Convert', 10000);
 
 			const text = await modalText();
-			// When sourceMdFile is set, should say "other notes"
-			// (Note: the Note With Writing note is the source, so Second Note With Writing is "other")
-			// The heading says "These other notes also embed this file:"
 			expect(text.toLowerCase()).toContain('other');
 
 			await clickModalButton('Cancel');
 		});
 
 		it('does NOT say "other notes" when triggered from full-page view (no sourceMdFile)', async function () {
-			// Open the SVG file directly and trigger from pane menu (no sourceMdFile)
 			await obsidianPage.openFile('Ink/Writing/modal-test-writing.svg');
 			await browser.pause(1500);
 
-			await browser.executeObsidian(({ app }) => {
-				const leaf = app.workspace.activeLeaf;
-				const view = leaf?.view as any;
-				if (view?.onPaneMenu) {
-					view.onPaneMenu({
-						addItem: (cb: any) => {
-							const item = {
-								_title: '',
-								setTitle: (t: string) => { item._title = t; return item; },
-								setSection: () => item,
-								onClick: (fn: () => void) => { if (item._title === 'Convert to Drawing') fn(); return item; },
-							};
-							cb(item);
-						},
-					}, 'more-options');
-				}
+			// Open the modal programmatically without sourceMdFile
+			await browser.executeObsidian(async ({ app }) => {
+				const plugin = (app.plugins.plugins as any)['ink'];
+				if (!plugin) return;
+				const file = app.vault.getAbstractFileByPath('Ink/Writing/modal-test-writing.svg');
+				if (!file) return;
+				new plugin.FileConversionModal(plugin, file, 'inkDrawing').open();
 			});
+
+			await browser.pause(500);
 
 			const modal = await browser.$('.modal-container');
 			const modalExists = await modal.isExisting();
@@ -568,7 +487,6 @@ describe('FileConversionModal', function () {
 			await waitForModalButton('Convert', 10000);
 
 			const text = await modalText();
-			// From full-page view, should say "These notes embed this file:" (no "other")
 			expect(text).toContain('These notes embed this file');
 			expect(text).not.toContain('other notes');
 

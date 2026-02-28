@@ -46,10 +46,10 @@ describe("Writing Embed Buffer Lines", function () {
 
 		// Navigate to Ink plugin settings
 		await browser.execute(() => {
-			const items = document.querySelectorAll(".vertical-tab-content .setting-item-name");
-			for (const item of items) {
-				if (item.textContent?.toLowerCase().includes('ink')) {
-					(item.closest('.vertical-tab-nav-item') as HTMLElement)?.click();
+			const navItems = document.querySelectorAll(".vertical-tab-nav-item");
+			for (const item of navItems) {
+				if (item.textContent?.trim().toLowerCase() === 'ink') {
+					(item as HTMLElement).click();
 					break;
 				}
 			}

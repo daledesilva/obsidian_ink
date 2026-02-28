@@ -28,12 +28,19 @@ import { insertRememberedWritingFile } from './commands/insert-remembered-writin
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
+import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
+import { findNotesContainingFileEmbed, executeFileConversion } from './logic/utils/convert-file-embeds';
 
 ////////
 ////////
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
+
+	// Exposed for e2e testing
+	readonly FileConversionModal = FileConversionModal;
+	readonly findNotesContainingFileEmbed = findNotesContainingFileEmbed;
+	readonly executeFileConversion = executeFileConversion;
 
 	async onload() {
 		await this.loadSettings();

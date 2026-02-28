@@ -1,6 +1,49 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 
+/** Open the FileConversionModal for the given file and wait for the Convert button, then click it. */
+async function convertFileViaModal(filePath: string, toType: 'inkDrawing' | 'inkWriting') {
+	await browser.executeObsidian(async ({ app }, args) => {
+		const { filePath, toType } = args as { filePath: string; toType: string };
+		const plugin = (app.plugins.plugins as any)['ink'];
+		if (!plugin) return;
+		const file = app.vault.getAbstractFileByPath(filePath);
+		if (!file) return;
+		new plugin.FileConversionModal(plugin, file, toType).open();
+	}, { filePath, toType });
+
+	await browser.pause(500);
+
+	// Wait for the modal to reach the confirm phase
+	await browser.waitUntil(
+		async () => {
+			const buttons = await browser.$$('.modal-container button');
+			for (const btn of buttons) {
+				if ((await btn.getText()).trim() === 'Convert') return true;
+			}
+			return false;
+		},
+		{ timeout: 10000 }
+	);
+
+	// Uncheck the move checkbox so the file stays at its original path
+	await browser.execute(() => {
+		const checkbox = document.querySelector('#ddc_ink_move-checkbox') as HTMLInputElement;
+		if (checkbox) checkbox.checked = false;
+	});
+
+	await browser.execute(() => {
+		const buttons = document.querySelectorAll('.modal-container button');
+		for (const btn of buttons) {
+			if (btn.textContent?.trim() === 'Convert') {
+				(btn as HTMLElement).click();
+				break;
+			}
+		}
+	});
+	await browser.pause(1500);
+}
+
 describe("File Conversion (write <-> draw)", function () {
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
@@ -11,152 +54,64 @@ describe("File Conversion (write <-> draw)", function () {
 	});
 
 	it("converts a writing SVG to drawing via pane menu", async function () {
-		// Open the writing file from the conversion test folder
-		await obsidianPage.openFile("12 - File Conversion/Writing To Convert.svg");
-		await browser.pause(1500);
-
-		// Trigger conversion directly through the plugin API
-		const filePath = "12 - File Conversion/Writing To Convert.svg";
-		const conversionResult = await browser.executeObsidian(async ({ app }) => {
-			const plugin = app.plugins.plugins["ink"] as any;
-			if (!plugin) return { error: "plugin not found" };
-			const file = app.vault.getAbstractFileByPath(filePath);
-			if (!file) return { error: "file not found" };
-			try {
-				const { convertWriteFileToDraw } = await import(
-					/* webpackIgnore: true */
-					"../src/components/formats/current/utils/convertWriteFileToDraw"
-				).catch(() => null) || {};
-				if (convertWriteFileToDraw) {
-					await convertWriteFileToDraw(plugin, file);
-				} else {
-					// Fallback: access via active view's pane menu
-					const leaf = app.workspace.activeLeaf;
-					const view = leaf?.view as any;
-					if (view?.file && view.file.path === filePath) {
-						// Trigger via the onPaneMenu mechanism by simulating the action
-						await view.onPaneMenu?.({ addItem: (cb: any) => {
-							const mockItem = {
-								setTitle: (t: string) => { (mockItem as any)._title = t; return mockItem; },
-								setSection: () => mockItem,
-								onClick: (fn: Function) => { if ((mockItem as any)._title === 'Convert to Drawing') fn(); return mockItem; }
-							};
-							cb(mockItem);
-						}}, 'more-options');
-					}
-				}
-				return { success: true };
-			} catch (err: any) {
-				return { error: err?.message ?? String(err) };
-			}
-		});
-
+		const filePath = "Ink/Writing/Writing To Convert.svg";
+		await obsidianPage.openFile(filePath);
 		await browser.pause(1000);
 
-		// Read the file content and check the metadata
-		const fileType = await browser.executeObsidian(async ({ app }) => {
-			const file = app.vault.getAbstractFileByPath(filePath);
+		await convertFileViaModal(filePath, 'inkDrawing');
+
+		const fileType = await browser.executeObsidian(async ({ app }, filePath) => {
+			const file = app.vault.getAbstractFileByPath(filePath as string);
 			if (!file) return null;
-			try {
-				const content = await app.vault.read(file as any);
-				const match = content.match(/file-type="([^"]+)"/);
-				return match ? match[1] : null;
-			} catch (err) {
-				return null;
-			}
-		});
+			const content = await app.vault.read(file as any);
+			const match = content.match(/file-type="([^"]+)"/);
+			return match ? match[1] : null;
+		}, filePath);
 
 		expect(fileType).toBe("inkDrawing");
 	});
 
 	it("converts a drawing SVG to writing via pane menu", async function () {
-		const filePath = "12 - File Conversion/Drawing To Convert.svg";
+		const filePath = "Ink/Drawing/Drawing To Convert.svg";
 		await obsidianPage.openFile(filePath);
-		await browser.pause(1500);
-
-		await browser.executeObsidian(async ({ app }) => {
-			const plugin = app.plugins.plugins["ink"] as any;
-			if (!plugin) return;
-			const file = app.vault.getAbstractFileByPath(filePath);
-			if (!file) return;
-			const leaf = app.workspace.activeLeaf;
-			const view = leaf?.view as any;
-			if (view?.onPaneMenu) {
-				view.onPaneMenu({ addItem: (cb: any) => {
-					const mockItem = {
-						setTitle: (t: string) => { (mockItem as any)._title = t; return mockItem; },
-						setSection: () => mockItem,
-						onClick: (fn: Function) => { if ((mockItem as any)._title === 'Convert to Writing') fn(); return mockItem; }
-					};
-					cb(mockItem);
-				}}, 'more-options');
-			}
-		});
-
 		await browser.pause(1000);
 
-		const fileType = await browser.executeObsidian(async ({ app }) => {
-			const file = app.vault.getAbstractFileByPath(filePath);
+		await convertFileViaModal(filePath, 'inkWriting');
+
+		const fileType = await browser.executeObsidian(async ({ app }, filePath) => {
+			const file = app.vault.getAbstractFileByPath(filePath as string);
 			if (!file) return null;
-			try {
-				const content = await app.vault.read(file as any);
-				const match = content.match(/file-type="([^"]+)"/);
-				return match ? match[1] : null;
-			} catch (err) {
-				return null;
-			}
-		});
+			const content = await app.vault.read(file as any);
+			const match = content.match(/file-type="([^"]+)"/);
+			return match ? match[1] : null;
+		}, filePath);
 
 		expect(fileType).toBe("inkWriting");
 	});
 
 	it("file remains at the same .svg path after conversion (no rename)", async function () {
-		const filePath = "12 - File Conversion/Writing To Convert.svg";
+		const filePath = "Ink/Writing/Writing To Convert.svg";
 
-		const fileExists = await browser.executeObsidian(({ app }) => {
-			const file = app.vault.getAbstractFileByPath(filePath);
+		const fileExists = await browser.executeObsidian(({ app }, filePath) => {
+			const file = app.vault.getAbstractFileByPath(filePath as string);
 			return !!file;
-		});
+		}, filePath);
 
 		expect(fileExists).toBe(true);
 	});
 
 	it("round-trip write -> draw -> write preserves file validity", async function () {
-		const filePath = "12 - File Conversion/Drawing To Convert.svg";
+		const filePath = "Ink/Drawing/Drawing To Convert.svg";
 
-		// Convert back from writing to drawing to restore state
-		await browser.executeObsidian(async ({ app }) => {
-			const plugin = app.plugins.plugins["ink"] as any;
-			if (!plugin) return;
-			const file = app.vault.getAbstractFileByPath(filePath);
-			if (!file) return;
-			const leaf = app.workspace.activeLeaf;
-			const view = leaf?.view as any;
-			if (view?.onPaneMenu) {
-				view.onPaneMenu({ addItem: (cb: any) => {
-					const mockItem = {
-						setTitle: (t: string) => { (mockItem as any)._title = t; return mockItem; },
-						setSection: () => mockItem,
-						onClick: (fn: Function) => { if ((mockItem as any)._title === 'Convert to Drawing') fn(); return mockItem; }
-					};
-					cb(mockItem);
-				}}, 'more-options');
-			}
-		});
+		// It was converted to inkWriting in test 2; convert back to inkDrawing for round-trip
+		await convertFileViaModal(filePath, 'inkDrawing');
 
-		await browser.pause(1000);
-
-		// Verify the file is still valid SVG with ink metadata
-		const isValid = await browser.executeObsidian(async ({ app }) => {
-			const file = app.vault.getAbstractFileByPath(filePath);
+		const isValid = await browser.executeObsidian(async ({ app }, filePath) => {
+			const file = app.vault.getAbstractFileByPath(filePath as string);
 			if (!file) return false;
-			try {
-				const content = await app.vault.read(file as any);
-				return content.includes('<svg') && content.includes('file-type=');
-			} catch (err) {
-				return false;
-			}
-		});
+			const content = await app.vault.read(file as any);
+			return content.includes('<svg') && content.includes('file-type=');
+		}, filePath);
 
 		expect(isValid).toBe(true);
 	});

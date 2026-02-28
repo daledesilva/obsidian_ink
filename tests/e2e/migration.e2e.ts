@@ -37,9 +37,10 @@ describe("Legacy Embed Migration", function () {
 		// The scan phase shows stats and then transitions to confirm
 		await browser.waitUntil(
 			async () => {
-				const text = await browser.$$(".modal-container *").then(els =>
-					Promise.all(els.map(e => e.getText()))
-				).then(texts => texts.join(' '));
+				const text = await browser.execute(() => {
+					const modal = document.querySelector(".modal-container");
+					return modal?.textContent ?? '';
+				});
 				return text.includes('Migrate') || text.includes('convert');
 			},
 			{ timeout: 10000 }
@@ -147,7 +148,12 @@ describe("Legacy Embed Migration", function () {
 
 	it("migrated writing embed renders in the note", async function () {
 		await obsidianPage.openFile("13 - Migration Test/Legacy Writing Note.md");
-		const embed = await browser.$(".ddc_ink_embed-block, .ddc_ink_widget-root");
+		await browser.pause(1000);
+		// The note may reopen in reading mode (previously visited). Check for:
+		// - Edit mode: ink widget (.ddc_ink_widget-root / .ddc_ink_embed-block)
+		// - Reading mode: standard markdown image rendered from ![InkWriting](<path>)
+		const embedSelector = ".ddc_ink_embed-block, .ddc_ink_widget-root, img[alt='InkWriting'], .internal-embed[alt='InkWriting']";
+		const embed = await browser.$(embedSelector);
 		await embed.waitForExist({ timeout: 10000 });
 		await expect(embed).toExist();
 	});

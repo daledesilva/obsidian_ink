@@ -461,8 +461,23 @@ describe('FileConversionModal', function () {
 				const match = content.match(/file-type="([^"]+)"/);
 				return match ? match[1] : null;
 			});
-
 			expect(fileTypeAfter).toBe(originalFileType);
+
+			// Note With Writing.md embed string must also be unchanged
+			const note1Content = await browser.executeObsidian(async ({ app }) => {
+				const f = app.vault.getAbstractFileByPath('14 - Conversion Modal/Note With Writing.md');
+				return f ? app.vault.read(f as any) : '';
+			});
+			expect(note1Content).toContain('![InkWriting]');
+			expect(note1Content).not.toContain('![InkDrawing]');
+
+			// Second Note With Writing.md embed string must also be unchanged
+			const note2Content = await browser.executeObsidian(async ({ app }) => {
+				const f = app.vault.getAbstractFileByPath('14 - Conversion Modal/Second Note With Writing.md');
+				return f ? app.vault.read(f as any) : '';
+			});
+			expect(note2Content).toContain('![InkWriting]');
+			expect(note2Content).not.toContain('![InkDrawing]');
 		});
 	});
 

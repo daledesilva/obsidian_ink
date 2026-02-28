@@ -197,3 +197,150 @@ describe("Legacy Embed Migration", function () {
 		});
 	});
 });
+
+// ─── Cancel and multi-note tests (each needs a fresh vault) ──────────────────
+
+describe("Migration: cancel", function () {
+	before(async function () {
+		await browser.reloadObsidian({ vault: "qa-test-vault" });
+		await browser.waitUntil(
+			async () => browser.executeObsidian(({ app }) => !!app.plugins.plugins["ink"]),
+			{ timeout: 15000 }
+		);
+	});
+
+	it("cancelling at the confirm phase leaves all files and notes unchanged", async function () {
+		// Capture original state
+		const originalLegacyExists = await browser.executeObsidian(({ app }) => {
+			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test.writing");
+		});
+		expect(originalLegacyExists).toBe(true);
+
+		const originalNoteContent = await browser.executeObsidian(async ({ app }) => {
+			const file = app.vault.getAbstractFileByPath("13 - Migration Test/Legacy Writing Note.md");
+			if (!file) return '';
+			return app.vault.read(file as any);
+		});
+		expect(originalNoteContent).toContain('```handwritten-ink');
+
+		// Open migration modal and wait for confirm phase
+		await browser.executeObsidianCommand("ink:migrate-legacy-embeds");
+		await browser.waitUntil(
+			async () => {
+				const buttons = await browser.$$(".modal-container button");
+				for (const btn of buttons) {
+					if ((await btn.getText()).trim() === 'Migrate') return true;
+				}
+				return false;
+			},
+			{ timeout: 10000 }
+		);
+
+		// Click Cancel instead of Migrate
+		await browser.execute(() => {
+			const buttons = document.querySelectorAll(".modal-container button");
+			for (const btn of buttons) {
+				if (btn.textContent?.trim() === 'Cancel') {
+					(btn as HTMLElement).click();
+					return;
+				}
+			}
+		});
+		await browser.pause(500);
+
+		// Legacy .writing file must still exist
+		const legacyStillExists = await browser.executeObsidian(({ app }) => {
+			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test.writing");
+		});
+		expect(legacyStillExists).toBe(true);
+
+		// New .svg must NOT have been created
+		const svgCreated = await browser.executeObsidian(({ app }) => {
+			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test.svg");
+		});
+		expect(svgCreated).toBe(false);
+
+		// Note embed string must be unchanged
+		const noteContentAfter = await browser.executeObsidian(async ({ app }) => {
+			const file = app.vault.getAbstractFileByPath("13 - Migration Test/Legacy Writing Note.md");
+			if (!file) return '';
+			return app.vault.read(file as any);
+		});
+		expect(noteContentAfter).toContain('```handwritten-ink');
+		expect(noteContentAfter).not.toContain('![InkWriting]');
+	});
+});
+
+describe("Migration: multi-note embed update", function () {
+	before(async function () {
+		await browser.reloadObsidian({ vault: "qa-test-vault" });
+		await browser.waitUntil(
+			async () => browser.executeObsidian(({ app }) => !!app.plugins.plugins["ink"]),
+			{ timeout: 15000 }
+		);
+	});
+
+	it("migration updates embed strings in ALL affected notes (writing and drawing)", async function () {
+		// Run the full migration
+		await browser.executeObsidianCommand("ink:migrate-legacy-embeds");
+
+		await browser.waitUntil(
+			async () => {
+				const buttons = await browser.$$(".modal-container button");
+				for (const btn of buttons) {
+					if ((await btn.getText()).trim() === 'Migrate') return true;
+				}
+				return false;
+			},
+			{ timeout: 10000 }
+		);
+
+		await browser.execute(() => {
+			const buttons = document.querySelectorAll(".modal-container button");
+			for (const btn of buttons) {
+				if (btn.textContent?.trim() === 'Migrate') {
+					(btn as HTMLElement).click();
+					break;
+				}
+			}
+		});
+
+		await browser.waitUntil(
+			async () => {
+				const buttons = await browser.$$(".modal-container button");
+				for (const btn of buttons) {
+					if ((await btn.getText()).trim() === 'Done') return true;
+				}
+				return false;
+			},
+			{ timeout: 15000 }
+		);
+
+		await browser.execute(() => {
+			const buttons = document.querySelectorAll(".modal-container button");
+			for (const btn of buttons) {
+				if (btn.textContent?.trim() === 'Done') {
+					(btn as HTMLElement).click();
+					break;
+				}
+			}
+		});
+		await browser.pause(500);
+
+		// Both notes must have updated embed strings — verified together to
+		// confirm multi-note updating (not just the first note)
+		const writingNoteContent = await browser.executeObsidian(async ({ app }) => {
+			const file = app.vault.getAbstractFileByPath("13 - Migration Test/Legacy Writing Note.md");
+			return file ? app.vault.read(file as any) : '';
+		});
+		expect(writingNoteContent).toContain('![InkWriting]');
+		expect(writingNoteContent).not.toContain('```handwritten-ink');
+
+		const drawingNoteContent = await browser.executeObsidian(async ({ app }) => {
+			const file = app.vault.getAbstractFileByPath("13 - Migration Test/Legacy Drawing Note.md");
+			return file ? app.vault.read(file as any) : '';
+		});
+		expect(drawingNoteContent).toContain('![InkDrawing]');
+		expect(drawingNoteContent).not.toContain('```handdrawn-ink');
+	});
+});

@@ -1,14 +1,24 @@
 /**
  * Unit tests for src/logic/utils/convert-file-embeds.ts
  *
- * These tests exercise findNotesContainingFileEmbed and updateEmbedInNote
- * using a lightweight mock vault. No real file I/O or SVG parsing is required.
+ * These tests exercise findNotesContainingFileEmbed, updateEmbedInNote, and
+ * executeFileConversion using a lightweight mock vault. No real file I/O or
+ * SVG parsing is required.
  */
+
+// Mock SVG conversion functions so executeFileConversion tests don't need real SVG files
+jest.mock('src/components/formats/current/utils/convertWriteFileToDraw', () => ({
+	convertWriteFileToDraw: jest.fn(),
+}));
+jest.mock('src/components/formats/current/utils/convertDrawFileToWrite', () => ({
+	convertDrawFileToWrite: jest.fn(),
+}));
 
 import { TFile } from 'obsidian';
 import {
 	findNotesContainingFileEmbed,
 	updateEmbedInNote,
+	executeFileConversion,
 } from 'src/logic/utils/convert-file-embeds';
 import { buildWritingEmbed, buildDrawingEmbed } from 'src/components/formats/current/utils/build-embeds';
 
@@ -21,7 +31,12 @@ function makeVault(files: Record<string, string>) {
 		cachedRead: jest.fn(async (f: TFile) => files[f.path] ?? ''),
 		read: jest.fn(async (f: TFile) => files[f.path] ?? ''),
 		modify: jest.fn(async (_f: TFile, _content: string) => {}),
+		getFileByPath: jest.fn((_path: string) => null),
 	};
+}
+
+function makePlugin(vault: ReturnType<typeof makeVault>) {
+	return { app: { vault } } as any;
 }
 
 // ─── Embed line helpers ───────────────────────────────────────────────────────
@@ -273,5 +288,64 @@ describe('updateEmbedInNote', () => {
 		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
 		expect(written).toContain(para1);
 		expect(written).toContain(para3);
+	});
+});
+
+// ─── executeFileConversion ────────────────────────────────────────────────────
+
+describe('executeFileConversion', () => {
+	const SVG_PATH = 'Ink/Writing/file.svg';
+
+	function makeAffectedNotes(paths: string[], svgPath: string): [Record<string, string>, TFile[]] {
+		const files: Record<string, string> = {};
+		const notes: TFile[] = [];
+		for (const p of paths) {
+			files[p] = `# Note\n\n${writingLine(svgPath)}\n`;
+			notes.push({ path: p } as TFile);
+		}
+		return [files, notes];
+	}
+
+	it('updates embed strings in ALL affected notes', async () => {
+		const notePaths = ['Notes/A.md', 'Notes/B.md', 'Notes/C.md'];
+		const [files, notes] = makeAffectedNotes(notePaths, SVG_PATH);
+		const vault = makeVault(files);
+		const plugin = makePlugin(vault);
+		const svgFile = { path: SVG_PATH } as TFile;
+
+		await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, jest.fn());
+
+		expect(vault.modify).toHaveBeenCalledTimes(3);
+		for (const call of (vault.modify as jest.Mock).mock.calls) {
+			const content = call[1] as string;
+			expect(content).toContain('![InkDrawing]');
+			expect(content).not.toContain('![InkWriting]');
+		}
+	});
+
+	it('returns updatedNotePaths for every note that was updated', async () => {
+		const notePaths = ['Notes/A.md', 'Notes/B.md', 'Notes/C.md'];
+		const [files, notes] = makeAffectedNotes(notePaths, SVG_PATH);
+		const vault = makeVault(files);
+		const plugin = makePlugin(vault);
+		const svgFile = { path: SVG_PATH } as TFile;
+
+		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, jest.fn());
+
+		expect(result.updatedNotePaths).toHaveLength(3);
+		expect(result.updatedNotePaths).toContain('Notes/A.md');
+		expect(result.updatedNotePaths).toContain('Notes/B.md');
+		expect(result.updatedNotePaths).toContain('Notes/C.md');
+	});
+
+	it('does not call modify when affectedNotes is empty', async () => {
+		const vault = makeVault({});
+		const plugin = makePlugin(vault);
+		const svgFile = { path: SVG_PATH } as TFile;
+
+		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', [], null, jest.fn());
+
+		expect(vault.modify).not.toHaveBeenCalled();
+		expect(result.updatedNotePaths).toHaveLength(0);
 	});
 });

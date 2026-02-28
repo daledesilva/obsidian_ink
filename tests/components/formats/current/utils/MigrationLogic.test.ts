@@ -1,9 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
+import { TFile } from 'obsidian';
 import {
 	findLegacyEmbedBlocks,
 	replaceLegacyBlockInMarkdown,
 	convertLegacyJsonToInkFileData,
 	getLegacySvgPath,
+	executeMigration,
+	VaultScanResult,
 	LegacyEmbedBlock,
 } from 'src/logic/utils/migration-logic';
 import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
@@ -287,5 +290,121 @@ describe('replaceLegacyBlockInMarkdown', () => {
 		const fakeBlock: LegacyEmbedBlock = { fullMatch: '```nonexistent\n{}\n```', embedType: 'writing', filepath: 'x.writing' };
 		const result = replaceLegacyBlockInMarkdown(markdown, fakeBlock, 'REPLACEMENT');
 		expect(result).toBe(markdown);
+	});
+});
+
+// ─── executeMigration ─────────────────────────────────────────────────────────
+
+describe('executeMigration', () => {
+	const LEGACY_WRITE_PATH = 'Ink/Writing/note.writing';
+	const NEW_SVG_PATH = 'Ink/Writing/note.svg';
+
+	function makeLegacyVault(noteContents: Record<string, string>, legacyJson: string) {
+		const created: Record<string, string> = {};
+		const deleted: string[] = [];
+		return {
+			read: jest.fn(async (f: TFile) => {
+				if (f.path === LEGACY_WRITE_PATH) return legacyJson;
+				return noteContents[f.path] ?? '';
+			}),
+			create: jest.fn(async (path: string, content: string) => {
+				created[path] = content;
+			}),
+			delete: jest.fn(async (_f: TFile) => {
+				deleted.push(_f.path);
+			}),
+			modify: jest.fn(async (_f: TFile, _content: string) => {}),
+			getAbstractFileByPath: jest.fn((_path: string) => null),
+			_created: created,
+			_deleted: deleted,
+		};
+	}
+
+	function makeNote(path: string): TFile {
+		return { path } as TFile;
+	}
+
+	function makeLegacyFile(path: string): TFile {
+		return { path } as TFile;
+	}
+
+	function legacyWriteBlock(filepath: string): string {
+		return '```handwritten-ink\n' + JSON.stringify({ versionAtEmbed: '0.3.0', filepath }) + '\n```';
+	}
+
+	test('updates embed strings in ALL affected notes', async () => {
+		const notePaths = ['Notes/A.md', 'Notes/B.md', 'Notes/C.md'];
+		const noteContents: Record<string, string> = {};
+		for (const p of notePaths) {
+			noteContents[p] = `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n\nSome text.`;
+		}
+
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH));
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: notePaths.map(makeNote),
+		};
+
+		await executeMigration(vault as any, scanResult);
+
+		// modify called once per note
+		expect(vault.modify).toHaveBeenCalledTimes(3);
+		for (const call of (vault.modify as jest.Mock).mock.calls) {
+			const content = call[1] as string;
+			expect(content).toContain('![InkWriting]');
+			expect(content).not.toContain('```handwritten-ink');
+		}
+	});
+
+	test('returns updatedNotePaths for every updated note', async () => {
+		const notePaths = ['Notes/A.md', 'Notes/B.md', 'Notes/C.md'];
+		const noteContents: Record<string, string> = {};
+		for (const p of notePaths) {
+			noteContents[p] = `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n`;
+		}
+
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH));
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: notePaths.map(makeNote),
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(result.updatedNotePaths).toHaveLength(3);
+		expect(result.updatedNotePaths).toContain('Notes/A.md');
+		expect(result.updatedNotePaths).toContain('Notes/B.md');
+		expect(result.updatedNotePaths).toContain('Notes/C.md');
+	});
+
+	test('does not call modify when affectedNotes is empty', async () => {
+		const vault = makeLegacyVault({}, makeV1WriteJson(LEGACY_WRITE_PATH));
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [],
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(vault.modify).not.toHaveBeenCalled();
+		expect(result.updatedNotePaths).toHaveLength(0);
 	});
 });

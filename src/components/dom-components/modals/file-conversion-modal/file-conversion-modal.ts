@@ -172,7 +172,7 @@ export class FileConversionModal extends Modal {
 			this.moveCheckboxEl.id = 'ddc_ink_move-checkbox';
 			const labelEl = moveOptionEl.createEl('label');
 			labelEl.setAttribute('for', 'ddc_ink_move-checkbox');
-			labelEl.setText(`Move file to ${destFolder}`);
+			labelEl.setText(`Also move file to ${destFolder}`);
 		}
 
 		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });

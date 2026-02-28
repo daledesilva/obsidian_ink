@@ -109,6 +109,25 @@
 		}
 	}
 
+	.ddc_ink_migration-move-option {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 16px;
+		font-size: 0.9em;
+		color: var(--text-normal);
+
+		input[type="checkbox"] {
+			margin: 0;
+			cursor: pointer;
+		}
+
+		label {
+			cursor: pointer;
+			user-select: none;
+		}
+	}
+
 	.ddc_ink_migration-buttons {
 		display: flex;
 		justify-content: flex-end;

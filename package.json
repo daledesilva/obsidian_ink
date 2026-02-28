@@ -5,7 +5,7 @@
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"test": "jest",
+		"test": "npm run test:unit && npm run test:e2e",
 		"test:unit": "jest",
 		"test:e2e": "npm run build && node qa-test-vault/generate.mjs && wdio run ./wdio.conf.mts",
 		"open-qa": "npm run build && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",

@@ -67,6 +67,7 @@ export class WritingEmbedWidget extends WidgetType {
                     }}
                     setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
                     onRequestMeasure={() => this.onRequestMeasure(view)}
+                    sourceMdFile={this.mdFile}
                 />
             </JotaiProvider>
         );

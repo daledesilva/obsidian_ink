@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VAULT_ROOT = path.resolve(__dirname);
+const FIXTURES = path.resolve(__dirname, 'fixtures');
 const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 const PLUGIN_VERSION = '0.4.0';
 const TLDRAW_VERSION = '2.1.0';
@@ -408,9 +409,13 @@ Self-contained vault for visual regression testing. Contains dummy markdown note
 - **09 – Edge Cases**: Missing file, broken syntax, source/reading mode
 - **10 – Cross-Reference**: Transclusion, same file across notes
 - **11 – CodeMirror**: Cursor nav, split pane, undo, paste, search, print
+- **12 – File Conversion**: Writing/drawing convert via pane menu (real fixture SVGs)
+- **13 – Migration Test**: Legacy v1 code block embeds for migration testing
+- **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
+  generateConversionModalTestAssets();
 
   ensureDir('.obsidian');
   // Clear plugin persistence so onboarding tests see first-run state
@@ -422,87 +427,19 @@ Self-contained vault for visual regression testing. Contains dummy markdown note
 // ─── Section 12: File Conversion ──────────────────────────────────────────────
 
 function generateConversionTestAssets() {
-  const line = '<g transform="matrix(1,0,0,1,0,0)"><line x1="100" y1="150" x2="1900" y2="150"/></g><g><rect width="2000" height="375" opacity="0"/></g>';
+  // Use real captured SVGs rather than synthetically generated ones.
+  // Synthetic snapshots omit required tldraw session fields and do not render.
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/Writing To Convert.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/Drawing To Convert.svg'),
+  );
 
-  // A writing SVG that can be converted to a drawing
-  createWritingSvg('writing-to-convert.svg', line, makeWritingStore({
-    'shape:conv1': makeDrawShape('conv1', WRITING_PAGE, 100, 100, [freeSegment([
-      { x: 100, y: 130 }, { x: 300, y: 128 }, { x: 500, y: 132 },
-    ])]),
-  }));
-
-  // A drawing SVG that can be converted to a writing file
-  createDrawingSvg('drawing-to-convert.svg', 500, 200, makeDrawingStore({
-    'shape:conv2': makeDrawShape('conv2', DRAW_PAGE, 50, 50, [freeSegment([
-      { x: 50, y: 100 }, { x: 200, y: 100 }, { x: 350, y: 100 },
-    ])]),
-  }));
-
-  writeFile('12 - File Conversion/Conversion Test.md', `# File Conversion Test
-
-This note embeds one writing file and one drawing file for use in file conversion E2E tests.
-The E2E tests convert each file type via the pane menu and verify the metadata changes.
-
-${buildWritingEmbed('Ink/Writing/writing-to-convert.svg')}
-
-${buildDrawingEmbed('Ink/Drawing/drawing-to-convert.svg')}
-`);
-
-  // Rename files to match expected E2E test paths
-  // The E2E tests reference "12 - File Conversion/Writing To Convert.svg" etc.
-  writeFile('Ink/Writing/writing-to-convert.svg', (() => {
-    const store = makeWritingStore({
-      'shape:wc1': makeDrawShape('wc1', WRITING_PAGE, 100, 80, [freeSegment([
-        { x: 100, y: 120 }, { x: 400, y: 118 }, { x: 700, y: 122 },
-      ])]),
-    });
-    const snapshot = makeTldrawSnapshot(store, WRITING_PAGE);
-    const tldrawJson = JSON.stringify(snapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-    return `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" width="2064" height="500" viewBox="-32 -32 2064 500">
-  <metadata>
-    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
-    <tldraw version="${TLDRAW_VERSION}">${tldrawJson}</tldraw>
-  </metadata>
-  <defs/>
-  ${line}
-</svg>`;
-  })());
-
-  writeFile('Ink/Writing/Writing To Convert.svg', (() => {
-    const store = makeWritingStore({
-      'shape:wtc1': makeDrawShape('wtc1', WRITING_PAGE, 100, 80, [freeSegment([
-        { x: 100, y: 120 }, { x: 400, y: 118 }, { x: 700, y: 122 },
-      ])]),
-    });
-    const snapshot = makeTldrawSnapshot(store, WRITING_PAGE);
-    const tldrawJson = JSON.stringify(snapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-    return `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" width="2064" height="500" viewBox="-32 -32 2064 500">
-  <metadata>
-    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
-    <tldraw version="${TLDRAW_VERSION}">${tldrawJson}</tldraw>
-  </metadata>
-  <defs/>
-  ${line}
-</svg>`;
-  })());
-
-  const drawingStore = makeDrawingStore({
-    'shape:dtc1': makeDrawShape('dtc1', DRAW_PAGE, 50, 50, [freeSegment([
-      { x: 50, y: 100 }, { x: 200, y: 100 }, { x: 350, y: 100 },
-    ])]),
-  });
-  const drawSnapshot = makeTldrawSnapshot(drawingStore, DRAW_PAGE);
-  const drawTldrawJson = JSON.stringify(drawSnapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-  const drawingSvgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="200" viewBox="0 0 500 200">
-  <metadata>
-    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkDrawing"/>
-    <tldraw version="${TLDRAW_VERSION}">${drawTldrawJson}</tldraw>
-  </metadata>
-  <defs/>
-</svg>`;
-  writeFile('Ink/Drawing/Drawing To Convert.svg', drawingSvgContent);
-
-  const writingEmbedDtc = buildWritingEmbed('Ink/Drawing/Drawing To Convert.svg').replace('InkWriting', 'InkDrawing').replace('inkWriting', 'inkDrawing').replace('Edit Writing', 'Edit Drawing');
   writeFile('12 - File Conversion/Conversion Test.md', `# File Conversion Test
 
 Use the three-dot (more-options) menu on each file tab to convert between writing and drawing formats.
@@ -594,6 +531,37 @@ Run the command from the command palette, then verify:
 3. \`Mixed Formats Note.md\` - only the legacy embed replaced; current format embed unchanged
 4. \`Ink/Writing/migration-test.writing\` is gone, \`Ink/Writing/migration-test.svg\` exists
 5. \`Ink/Drawing/migration-test.drawing\` is gone, \`Ink/Drawing/migration-test.svg\` exists
+`);
+}
+
+// ─── Section 14: Conversion Modal Test ────────────────────────────────────────
+
+function generateConversionModalTestAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/modal-test-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/modal-test-drawing.svg'),
+  );
+
+  writeFile('14 - Conversion Modal/Note With Writing.md', `# Note With Writing
+
+${buildWritingEmbed('Ink/Writing/modal-test-writing.svg')}
+`);
+
+  writeFile('14 - Conversion Modal/Note With Drawing.md', `# Note With Drawing
+
+${buildDrawingEmbed('Ink/Drawing/modal-test-drawing.svg')}
+`);
+
+  // Second note embeds the same writing file — used to test "other notes" messaging
+  writeFile('14 - Conversion Modal/Second Note With Writing.md', `# Second Note With Writing
+
+${buildWritingEmbed('Ink/Writing/modal-test-writing.svg')}
 `);
 }
 

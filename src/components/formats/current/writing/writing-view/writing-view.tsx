@@ -8,8 +8,8 @@ import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
-import { convertWriteFileToDraw } from "../../utils/convertWriteFileToDraw";
 import { openInkFile } from "src/logic/utils/open-file";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 
 ////////
 ////////
@@ -168,10 +168,11 @@ export class WritingView extends TextFileView {
         menu.addItem((item) => {
             item.setTitle('Convert to Drawing');
             item.setSection('action');
-            item.onClick(async () => {
+            item.onClick(() => {
                 if (!this.file) return;
-                await convertWriteFileToDraw(this.plugin, this.file);
-                await openInkFile(this.file);
+                new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
+                    onConversionComplete: () => openInkFile(this.file!),
+                }).open();
             });
         });
         super.onPaneMenu(menu, source);

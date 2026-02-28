@@ -11,8 +11,8 @@ import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
-import { convertDrawFileToWrite } from "../../utils/convertDrawFileToWrite";
 import { openInkFile } from "src/logic/utils/open-file";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
@@ -191,10 +191,11 @@ export class DrawingView extends TextFileView {
         menu.addItem((item) => {
             item.setTitle('Convert to Writing');
             item.setSection('action');
-            item.onClick(async () => {
+            item.onClick(() => {
                 if (!this.file) return;
-                await convertDrawFileToWrite(this.plugin, this.file);
-                await openInkFile(this.file);
+                new FileConversionModal(this.plugin, this.file, 'inkWriting', {
+                    onConversionComplete: () => openInkFile(this.file!),
+                }).open();
             });
         });
         super.onPaneMenu(menu, source);

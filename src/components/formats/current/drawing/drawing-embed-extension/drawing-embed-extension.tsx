@@ -82,6 +82,7 @@ export class DrawingEmbedWidget extends WidgetType {
                     setEmbedProps={(width, aspectRatio) => this.setEmbedProps(view, width, aspectRatio)}
                     onRequestMeasure={() => this.requestMeasure(view)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
+                    sourceMdFile={this.mdFile}
                 />
             </JotaiProvider>
         );

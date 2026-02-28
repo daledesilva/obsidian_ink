@@ -7,9 +7,9 @@ import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
 import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
-import { convertDrawFileToWrite } from "src/components/formats/current/utils/convertDrawFileToWrite";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { TFile } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
@@ -53,6 +53,7 @@ interface DrawingEmbed_Props {
     setEmbedProps?: (width: number, aspectRatio: number) => void,
     onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
+	sourceMdFile?: TFile,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -93,10 +94,12 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		},
 		{
 			text: 'Convert to Writing',
-			action: async () => {
+			action: () => {
 				if (!props.embeddedFile) return;
-				await convertDrawFileToWrite(getGlobals().plugin, props.embeddedFile);
-				ignoreChangesAndSwitchToPreviewMode();
+				new FileConversionModal(getGlobals().plugin, props.embeddedFile, 'inkWriting', {
+					sourceMdFile: props.sourceMdFile,
+					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
+				}).open();
 			}
 		},
 		{

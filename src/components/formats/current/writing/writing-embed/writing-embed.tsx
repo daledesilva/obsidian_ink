@@ -5,7 +5,7 @@ import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writ
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
-import { convertWriteFileToDraw } from "src/components/formats/current/utils/convertWriteFileToDraw";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
 import { TFile } from "obsidian";
@@ -52,6 +52,7 @@ export function WritingEmbed (props: {
 	remove: Function,
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
+	sourceMdFile?: TFile,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -103,10 +104,12 @@ export function WritingEmbed (props: {
 		},
 		{
 			text: 'Convert to Drawing',
-			action: async () => {
+			action: () => {
 				if (!props.writingFileRef) return;
-				await convertWriteFileToDraw(props.plugin, props.writingFileRef);
-				ignoreChangesAndSwitchToPreviewMode();
+				new FileConversionModal(props.plugin, props.writingFileRef, 'inkDrawing', {
+					sourceMdFile: props.sourceMdFile,
+					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
+				}).open();
 			}
 		},
 		// {

@@ -2,6 +2,8 @@
 
 Self-contained vault for visual regression testing. Contains dummy markdown notes, sample ink embeds (SVG v2 and legacy v1 formats), and compatibility tests for Obsidian plugins.
 
+All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured fixtures in `fixtures/` so they render correctly in the plugin. The only exceptions are `Ink/Writing/empty-writing.svg` and `Ink/Drawing/empty-drawing.svg`, which are kept blank by design.
+
 ## Quick Start
 
 1. Run `node qa-test-vault/generate.mjs` from the obsidian_ink project root to create/reset the vault.

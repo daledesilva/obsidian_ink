@@ -73,7 +73,7 @@ export function replaceLegacyBlockInMarkdown(
 	block: LegacyEmbedBlock,
 	newEmbed: string,
 ): string {
-	const trimmedEmbed = newEmbed.trim();
+	const trimmedEmbed = newEmbed.replace(/^\n+|\n+$/g, '');
 	return markdown.split(block.fullMatch).join(trimmedEmbed);
 }
 

@@ -106,14 +106,14 @@ describe("Legacy Embed Migration", function () {
 
 		// Verify legacy .writing file is gone
 		const writingFileGone = await browser.executeObsidian(({ app }) => {
-			const legacyFile = app.vault.getAbstractFileByPath("Ink/Writing/migration-test.writing");
+			const legacyFile = app.vault.getAbstractFileByPath("Ink/Writing/migration-test-2.writing");
 			return legacyFile === null;
 		});
 		expect(writingFileGone).toBe(true);
 
 		// Verify new .svg file exists
 		const svgExists = await browser.executeObsidian(({ app }) => {
-			const svgFile = app.vault.getAbstractFileByPath("Ink/Writing/migration-test.svg");
+			const svgFile = app.vault.getAbstractFileByPath("Ink/Writing/migration-test-2.svg");
 			return svgFile !== null;
 		});
 		expect(svgExists).toBe(true);
@@ -218,7 +218,7 @@ describe("Migration: cancel", function () {
 	it("cancelling at the confirm phase leaves all files and notes unchanged", async function () {
 		// Capture original state
 		const originalLegacyExists = await browser.executeObsidian(({ app }) => {
-			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test.writing");
+			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test-2.writing");
 		});
 		expect(originalLegacyExists).toBe(true);
 
@@ -256,13 +256,13 @@ describe("Migration: cancel", function () {
 
 		// Legacy .writing file must still exist
 		const legacyStillExists = await browser.executeObsidian(({ app }) => {
-			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test.writing");
+			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test-2.writing");
 		});
 		expect(legacyStillExists).toBe(true);
 
 		// New .svg must NOT have been created
 		const svgCreated = await browser.executeObsidian(({ app }) => {
-			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test.svg");
+			return !!app.vault.getAbstractFileByPath("Ink/Writing/migration-test-2.svg");
 		});
 		expect(svgCreated).toBe(false);
 

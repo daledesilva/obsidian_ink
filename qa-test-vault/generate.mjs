@@ -3,6 +3,14 @@
  * QA Test Vault Generator
  * Run from obsidian_ink/: node qa-test-vault/generate.mjs
  * Rebuilds the entire vault from scratch for visual regression testing.
+ *
+ * Ink files (SVGs and legacy .writing/.drawing) are copied from real captured
+ * fixtures in fixtures/ rather than synthesised. Synthetic snapshots omit
+ * required tldraw session fields and do not render in the plugin.
+ *
+ * Exceptions — kept synthetic because they must be blank:
+ *   Ink/Writing/empty-writing.svg  — starting state for the buffer-lines dynamic e2e test
+ *   Ink/Drawing/empty-drawing.svg  — used by empty-embed tests
  */
 
 import fs from 'fs';
@@ -45,22 +53,6 @@ function makeTldrawSnapshot(store, pageId = 'page:page1') {
       pageStates: [{ pageId, camera: { x: 0, y: 0, z: 0.3 }, selectedShapeIds: [] }],
     },
   };
-}
-
-function makeDrawShape(id, parentId, x, y, segments, index = 'a1') {
-  return {
-    id: `shape:${id}`, typeName: 'shape', type: 'draw',
-    x, y, rotation: 0, opacity: 1, isLocked: false, index, parentId,
-    props: {
-      segments,
-      color: 'black', dash: 'draw', fill: 'none', size: 'm',
-      isPen: true, isComplete: true, isClosed: false,
-    },
-  };
-}
-
-function freeSegment(points) {
-  return { type: 'free', points: points.map(p => ({ x: p.x, y: p.y, z: p.z ?? 0.5 })) };
 }
 
 // ---- Embed builders ----
@@ -125,60 +117,24 @@ function makeDrawingStore(extraShapes = {}) {
   };
 }
 
-function createDrawingSvg(filename, width, height, store) {
-  const snapshot = makeTldrawSnapshot(store, DRAW_PAGE);
-  const tldrawJson = JSON.stringify(snapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none">
-  <metadata>
-    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkDrawing"/>
-    <tldraw version="${TLDRAW_VERSION}">${tldrawJson}</tldraw>
-  </metadata>
-  <defs/>
-</svg>`;
-  writeFile(`Ink/Drawing/${filename}`, svg);
-}
 
 function generateSvgAssets() {
-  const line = '<g transform="matrix(1,0,0,1,0,0)"><line x1="100" y1="150" x2="1900" y2="150"/></g><g><rect width="2000" height="225" opacity="0"/></g>';
-  createWritingSvg('hello-world.svg', line, makeWritingStore({
-    'shape:s1': makeDrawShape('s1', WRITING_PAGE, 100, 100, [freeSegment([
-      { x: 50, y: 130 }, { x: 120, y: 128 }, { x: 180, y: 132 }, { x: 250, y: 130 }, { x: 320, y: 131 },
-    ])]),
-  }));
-  const mlStrokes = {};
-  for (let i = 0; i < 5; i++) {
-    mlStrokes[`shape:ml${i}`] = makeDrawShape(`ml${i}`, WRITING_PAGE, 0, 0, [freeSegment([
-      { x: 100, y: 100 + i * 40 }, { x: 300, y: 102 + i * 40 }, { x: 500, y: 98 + i * 40 },
-    ])]);
+  // Use real captured SVG fixtures for named files so they render correctly in the plugin.
+  // Synthetic snapshots omit required tldraw session fields and do not render.
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  for (const name of ['hello-world.svg', 'multi-line.svg', 'dense-strokes.svg']) {
+    fs.copyFileSync(path.join(FIXTURES, 'writing-fixture.svg'), path.join(VAULT_ROOT, `Ink/Writing/${name}`));
   }
-  createWritingSvg('multi-line.svg', line, makeWritingStore(mlStrokes));
-  const denseStrokes = {};
-  for (let i = 0; i < 50; i++) {
-    denseStrokes[`shape:ds${i}`] = makeDrawShape(`ds${i}`, WRITING_PAGE, 0, 0, [freeSegment([
-      { x: 80 + i * 2, y: 80 + (i % 5) * 25 }, { x: 150 + i * 2, y: 82 + (i % 5) * 25 },
-    ])]);
+  for (const name of ['simple-shape.svg', 'complex-diagram.svg', 'tiny-drawing.svg']) {
+    fs.copyFileSync(path.join(FIXTURES, 'drawing-fixture.svg'), path.join(VAULT_ROOT, `Ink/Drawing/${name}`));
   }
-  createWritingSvg('dense-strokes.svg', line, makeWritingStore(denseStrokes));
-  createWritingSvg('empty-writing.svg', line, makeWritingStore());
 
-  createDrawingSvg('simple-shape.svg', 400, 150, makeDrawingStore({
-    'shape:r1': makeDrawShape('r1', DRAW_PAGE, 50, 50, [freeSegment([
-      { x: 50, y: 50 }, { x: 150, y: 50 }, { x: 150, y: 100 }, { x: 50, y: 100 }, { x: 50, y: 50 },
-    ])]),
-    'shape:c1': makeDrawShape('c1', DRAW_PAGE, 200, 50, [freeSegment([
-      { x: 250, y: 75 }, { x: 280, y: 75 }, { x: 280, y: 105 }, { x: 250, y: 105 }, { x: 250, y: 75 },
-    ])]),
-  }));
-  const cxShapes = {};
-  for (let i = 0; i < 8; i++) {
-    cxShapes[`shape:cx${i}`] = makeDrawShape(`cx${i}`, DRAW_PAGE, 20 + i * 60, 20, [freeSegment([
-      { x: 20 + i * 60, y: 60 }, { x: 60 + i * 60, y: 100 }, { x: 100 + i * 60, y: 60 },
-    ])]);
-  }
-  createDrawingSvg('complex-diagram.svg', 600, 150, makeDrawingStore(cxShapes));
-  createDrawingSvg('tiny-drawing.svg', 100, 50, makeDrawingStore({
-    'shape:t1': makeDrawShape('t1', DRAW_PAGE, 10, 10, [freeSegment([{ x: 10, y: 25 }, { x: 90, y: 25 }])]),
-  }));
+  // Empty files remain synthetic: they must contain no strokes.
+  // empty-writing.svg is the starting file for the buffer-lines dynamic e2e test.
+  const writingLine = '<g transform="matrix(1,0,0,1,0,0)"><line x1="100" y1="150" x2="1900" y2="150"/></g><g><rect width="2000" height="225" opacity="0"/></g>';
+  createWritingSvg('empty-writing.svg', writingLine, makeWritingStore());
+
   const emptyStore = makeDrawingStore();
   const emptyDrawSvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 395 130" width="395" height="130" fill="none" class="ddc_ink_drawing-placeholder">
   <metadata>
@@ -194,10 +150,17 @@ function generateSvgAssets() {
 }
 
 function generateLegacyAssets() {
-  const baseWriting = { meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION }, tldraw: makeTldrawSnapshot(makeWritingStore({ 'shape:leg1': makeDrawShape('leg1', WRITING_PAGE, 50, 80, [freeSegment([{ x: 100, y: 120 }, { x: 250, y: 118 }])]) }), WRITING_PAGE) };
-  writeFile('Legacy/legacy-writing.writing', JSON.stringify(baseWriting, null, 2));
-  const baseDrawing = { meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION }, tldraw: makeTldrawSnapshot(makeDrawingStore({ 'shape:leg2': makeDrawShape('leg2', DRAW_PAGE, 50, 50, [freeSegment([{ x: 50, y: 75 }, { x: 200, y: 75 }])]) }), DRAW_PAGE) };
-  writeFile('Legacy/legacy-drawing.drawing', JSON.stringify(baseDrawing, null, 2));
+  // Use real captured legacy fixtures so they render correctly in the plugin.
+  // Synthetic snapshots omit required tldraw fields and do not render.
+  ensureDir(path.join(VAULT_ROOT, 'Legacy'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-writing-fixture.writing'),
+    path.join(VAULT_ROOT, 'Legacy/legacy-writing.writing'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-drawing-fixture.drawing'),
+    path.join(VAULT_ROOT, 'Legacy/legacy-drawing.drawing'),
+  );
 }
 
 function generateTemplates() {
@@ -380,6 +343,8 @@ function main() {
 
 Self-contained vault for visual regression testing. Contains dummy markdown notes, sample ink embeds (SVG v2 and legacy v1 formats), and compatibility tests for Obsidian plugins.
 
+All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured fixtures in \`fixtures/\` so they render correctly in the plugin. The only exceptions are \`Ink/Writing/empty-writing.svg\` and \`Ink/Drawing/empty-drawing.svg\`, which are kept blank by design.
+
 ## Quick Start
 
 1. Run \`node qa-test-vault/generate.mjs\` from the obsidian_ink project root to create/reset the vault.
@@ -453,33 +418,18 @@ ${buildDrawingEmbed('Ink/Drawing/Drawing To Convert.svg')}
 // ─── Section 13: Migration Test ───────────────────────────────────────────────
 
 function generateMigrationTestAssets() {
-  // Create legacy .writing and .drawing files (v1 JSON format)
-  const legacyWritingData = {
-    meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION },
-    tldraw: makeTldrawSnapshot(makeWritingStore({
-      'shape:mig1': makeDrawShape('mig1', WRITING_PAGE, 100, 80, [freeSegment([
-        { x: 100, y: 120 }, { x: 300, y: 118 }, { x: 500, y: 122 },
-      ])]),
-    }), WRITING_PAGE),
-  };
-  writeFile('Ink/Writing/migration-test.writing', JSON.stringify(legacyWritingData, null, 2));
-
-  const legacyDrawingData = {
-    meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION },
-    tldraw: makeTldrawSnapshot(makeDrawingStore({
-      'shape:mig2': makeDrawShape('mig2', DRAW_PAGE, 50, 50, [freeSegment([
-        { x: 50, y: 100 }, { x: 250, y: 100 },
-      ])]),
-    }), DRAW_PAGE),
-  };
-  writeFile('Ink/Drawing/migration-test.drawing', JSON.stringify(legacyDrawingData, null, 2));
-
-  // An extra writing file for the mixed-formats note
-  const legacyWritingData2 = {
-    meta: { pluginVersion: PLUGIN_VERSION, tldrawVersion: TLDRAW_VERSION },
-    tldraw: makeTldrawSnapshot(makeWritingStore(), WRITING_PAGE),
-  };
-  writeFile('Ink/Writing/migration-test-2.writing', JSON.stringify(legacyWritingData2, null, 2));
+  // Use real captured legacy fixtures (same pattern as SVG fixtures in section 12).
+  // Synthetic snapshots omit required tldraw fields and do not render or migrate correctly.
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-writing-fixture.writing'),
+    path.join(VAULT_ROOT, 'Ink/Writing/migration-test-2.writing'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-drawing-fixture.drawing'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/migration-test-2.drawing'),
+  );
 
   // Legacy code block embed helper
   function buildLegacyWritingEmbed(filepath) {
@@ -494,7 +444,7 @@ function generateMigrationTestAssets() {
 This note contains a legacy v1 handwritten-ink embed for migration testing.
 After running the migration command, this code block should be replaced with a current-format image embed.
 
-${buildLegacyWritingEmbed('Ink/Writing/migration-test.writing')}
+${buildLegacyWritingEmbed('Ink/Writing/migration-test-2.writing')}
 
 Content after the embed.
 `);
@@ -504,7 +454,7 @@ Content after the embed.
 This note contains a legacy v1 handdrawn-ink embed for migration testing.
 After running the migration command, this code block should be replaced with a current-format image embed.
 
-${buildLegacyDrawingEmbed('Ink/Drawing/migration-test.drawing')}
+${buildLegacyDrawingEmbed('Ink/Drawing/migration-test-2.drawing')}
 
 Content after the embed.
 `);
@@ -529,8 +479,8 @@ Run the command from the command palette, then verify:
 1. \`Legacy Writing Note.md\` - legacy writing embed replaced with current format
 2. \`Legacy Drawing Note.md\` - legacy drawing embed replaced with current format
 3. \`Mixed Formats Note.md\` - only the legacy embed replaced; current format embed unchanged
-4. \`Ink/Writing/migration-test.writing\` is gone, \`Ink/Writing/migration-test.svg\` exists
-5. \`Ink/Drawing/migration-test.drawing\` is gone, \`Ink/Drawing/migration-test.svg\` exists
+4. \`Ink/Writing/migration-test-2.writing\` is gone, \`Ink/Writing/migration-test-2.svg\` exists
+5. \`Ink/Drawing/migration-test-2.drawing\` is gone, \`Ink/Drawing/migration-test-2.svg\` exists
 `);
 }
 

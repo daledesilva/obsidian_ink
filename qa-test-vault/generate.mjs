@@ -380,10 +380,12 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **12 – File Conversion**: Writing/drawing convert via pane menu (real fixture SVGs)
 - **13 – Migration Test**: Legacy v1 code block embeds for migration testing
 - **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
+- **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
   generateConversionModalTestAssets();
+  generateCopyPastePathsTestAssets();
 
   ensureDir('.obsidian');
   // Clear plugin persistence so onboarding tests see first-run state
@@ -515,6 +517,109 @@ ${buildDrawingEmbed('Ink/Drawing/modal-test-drawing.svg')}
   writeFile('14 - Conversion Modal/Second Note With Writing.md', `# Second Note With Writing
 
 ${buildWritingEmbed('Ink/Writing/modal-test-writing.svg')}
+`);
+}
+
+// ─── Section 15: Copy Paste Paths ──────────────────────────────────────────────
+
+function generateCopyPastePathsTestAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths'));
+
+  // Source note with vault-root embed — copy from here, paste into target in different folder
+  writeFile('15 - Copy Paste Paths/Source Note.md', `# Source Note (Copy Paste Paths)
+
+Copy the writing or drawing embed below and paste into "Target Note Different Folder.md" or "Deep Target.md".
+
+${buildWritingEmbed('Ink/Writing/hello-world.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/simple-shape.svg')}
+`);
+
+  // Target note in same section but different file — empty, for pasting
+  writeFile('15 - Copy Paste Paths/Target Note Different Folder.md', `# Target Note (Different Folder)
+
+Paste embed here. The source is in the same folder; tests also use 10 - Cross-Reference/Source Note.md as source.
+`);
+
+  // Deep target — nested one level deeper for depth test
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/Subfolder'));
+  writeFile('15 - Copy Paste Paths/Subfolder/Deep Target.md', `# Deep Target
+
+Paste embed here. Source may be from 10 - Cross-Reference/ (different depth).
+`);
+
+  // Relative path source — embed with ../ which will break when pasted elsewhere
+  writeFile('15 - Copy Paste Paths/Relative Path Source.md', `# Relative Path Source
+
+This embed uses a relative path. When pasted into a note in a different folder, resolution may fail.
+
+ ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)
+`);
+
+  // Note-mode scenario — paths like noteAttachmentFolderLocation='note' (file next to note's folder)
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Writing/note-mode-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Drawing/note-mode-drawing.svg'),
+  );
+
+  // Obsidian-attachments scenario — paths when Obsidian attachment folder is custom (e.g. Attachments)
+  ensureDir(path.join(VAULT_ROOT, 'Attachments/Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Attachments/Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Attachments/Ink/Writing/obsidian-mode-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Attachments/Ink/Drawing/obsidian-mode-drawing.svg'),
+  );
+
+  // Very long path — file at Ink/Writing/Ink/Writing/hello-world.svg for long-path test
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing/Ink/Writing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/Ink/Writing/hello-world.svg'),
+  );
+
+  // Ambiguous filename — two files named copy-paste-ambig.svg in different folders
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/OtherFolder'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/copy-paste-ambig.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, '15 - Copy Paste Paths/OtherFolder/copy-paste-ambig.svg'),
+  );
+  writeFile('15 - Copy Paste Paths/Filename Only Embed.md', `# Filename Only
+
+Embed uses filename only (no path). Ambiguous if multiple same-named files exist.
+
+ ![InkWriting](<copy-paste-ambig.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)
+`);
+
+  writeFile('15 - Copy Paste Paths/README.md', `# Copy Paste Paths
+
+E2E tests for embed path behaviour when copying and pasting between notes in different folders.
+
+Path scenarios (plugin × Obsidian settings):
+- **root** — Ink/Writing/, Ink/Drawing/
+- **note** — SourceFolder/Ink/Writing/, SourceFolder/Ink/Drawing/
+- **obsidian-attachments** — Attachments/Ink/Writing/, Attachments/Ink/Drawing/
+
+- **Source Note.md** — vault-root embeds (Ink/Writing/..., Ink/Drawing/...)
+- **Target Note Different Folder.md** — empty, for pasting
+- **Subfolder/Deep Target.md** — nested target for depth test
+- **Relative Path Source.md** — relative path embed (../) — may break when pasted elsewhere
+- **Filename Only Embed.md** — filename only, ambiguous with OtherFolder/copy-paste-ambig.svg
 `);
 }
 

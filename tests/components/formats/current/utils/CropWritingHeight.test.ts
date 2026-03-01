@@ -122,6 +122,55 @@ describe('cropWritingStrokeHeightInvitingly', () => {
 			expect(result).toBe(Math.max(1.5 * L, WRITING_MIN_PAGE_HEIGHT));
 		});
 	});
+
+	describe('buffer of 3 — successive lines matching the 9-line fixture', () => {
+		// formula: (Math.ceil(h / L) + 3 + 0.5) * L
+		// These heights are the exact values the fixture file was built with.
+
+		test('line 1 content (150px) → (1 + 3 + 0.5) * 150 = 675', () => {
+			expect(cropWritingStrokeHeightInvitingly(1 * L, 3)).toBe(4.5 * L);
+		});
+
+		test('line 2 content (300px) → (2 + 3 + 0.5) * 150 = 825', () => {
+			expect(cropWritingStrokeHeightInvitingly(2 * L, 3)).toBe(5.5 * L);
+		});
+
+		test('line 3 content (450px) → (3 + 3 + 0.5) * 150 = 975', () => {
+			expect(cropWritingStrokeHeightInvitingly(3 * L, 3)).toBe(6.5 * L);
+		});
+
+		test('line 4 content (600px) → (4 + 3 + 0.5) * 150 = 1125', () => {
+			expect(cropWritingStrokeHeightInvitingly(4 * L, 3)).toBe(7.5 * L);
+		});
+
+		test('line 5 content (750px) → (5 + 3 + 0.5) * 150 = 1275', () => {
+			expect(cropWritingStrokeHeightInvitingly(5 * L, 3)).toBe(8.5 * L);
+		});
+
+		test('line 6 content (900px) → (6 + 3 + 0.5) * 150 = 1425', () => {
+			expect(cropWritingStrokeHeightInvitingly(6 * L, 3)).toBe(9.5 * L);
+		});
+
+		test('line 7 content (1050px) → (7 + 3 + 0.5) * 150 = 1575', () => {
+			expect(cropWritingStrokeHeightInvitingly(7 * L, 3)).toBe(10.5 * L);
+		});
+
+		test('line 8 content (1200px) → (8 + 3 + 0.5) * 150 = 1725', () => {
+			expect(cropWritingStrokeHeightInvitingly(8 * L, 3)).toBe(11.5 * L);
+		});
+
+		test('line 9 content (1350px) → (9 + 3 + 0.5) * 150 = 1875', () => {
+			expect(cropWritingStrokeHeightInvitingly(9 * L, 3)).toBe(12.5 * L);
+		});
+
+		test('each successive line height is exactly L (150px) larger than the previous', () => {
+			for (let n = 1; n <= 8; n++) {
+				const current = cropWritingStrokeHeightInvitingly(n * L, 3);
+				const next = cropWritingStrokeHeightInvitingly((n + 1) * L, 3);
+				expect(next - current).toBe(L);
+			}
+		});
+	});
 });
 
 ////////

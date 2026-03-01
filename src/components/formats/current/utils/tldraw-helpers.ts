@@ -620,7 +620,15 @@ export async function getWritingSvg(editor: Editor, curHeight?: number | null): 
 	resizeWritingTemplateTightly(editor);
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
-	resizeWritingTemplateInvitingly(editor, curHeight);
+	if (curHeight != null) {
+		// Restore to exactly the height before the tight resize, bypassing the buffer zone guard
+		// (the guard would incorrectly keep the tight height when content is still within the buffer zone)
+		resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, curHeight));
+	} else {
+		// Recalculate height since one wasn't passed in.
+		const invitingBounds = getInvitingWritingBounds(editor);
+		if (invitingBounds) resizeWritingTemplate(editor, invitingBounds);
+	}
 	return svgObj;
 }
 
@@ -757,48 +765,64 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 
 
 /***
- * Add excess space under writing strokes to to enable further writing.
- * Good for while in editing mode.
- * When lastHeight is provided, only applies the resize if the height has changed,
- * preventing unnecessary resizes while content remains within the existing buffer zone.
- * Returns the new applied height, or null if no resize was needed.
- * The caller is responsible for storing the returned value for the next call.
+ * Resize the writing template to the inviting height based on current content.
+ * Always applies — no buffer zone guard.
+ * Use on mount or whenever an unconditional restore to inviting height is needed.
+ * Returns the new applied height, or null if no content bounds could be computed.
  */
 export const resizeWritingTemplateInvitingly = (
 	editor: Editor,
-	curHeight?: number | null
 ): number | null => {
-	console.log('resizeWritingTemplateInvitingly');
 	console.log('[ink] resizeWritingTemplateInvitingly');
+	const contentBounds = getInvitingWritingBounds(editor);
+	if (!contentBounds) return null;
+	resizeWritingTemplate(editor, contentBounds);
+	return contentBounds.h;
+}
+
+/***
+ * Pure predicate: should the writing template resize given a new computed height?
+ * Extracted so the guard logic can be unit-tested without a live tldraw Editor.
+ */
+export function shouldResizeForNewHeight(
+	newHeight: number,
+	curHeight: number | null,
+	bufferLines: number,
+): boolean {
+	// First open — no previous height tracked yet
+	if (curHeight === null) return true;
+	// Content shrank — apply the smaller height immediately
+	if (newHeight < curHeight) return true;
+	// Content has grown past the buffer zone — time to expand
+	if (newHeight > curHeight + (bufferLines - 1) * WRITING_LINE_HEIGHT) return true;
+	// Content is still within the existing buffer zone — no resize needed
+	return false;
+}
+
+/***
+ * Resize the writing template to the inviting height only when necessary.
+ * Skips the resize if content is still within the existing buffer zone,
+ * preventing unnecessary resizes while the user is writing.
+ * Returns the new applied height, or curHeight if no resize was needed.
+ * The caller is responsible for storing the returned value for the next call.
+ */
+export const resizeWritingTemplateInvitinglyIfNecessary = (
+	editor: Editor,
+	curHeight: number | null
+): number | null => {
+	console.log('[ink] resizeWritingTemplateInvitinglyIfNecessary');
 	const contentBounds = getInvitingWritingBounds(editor);
 	if (!contentBounds) return null;
 	const {plugin} = getGlobals()
 
 	const newHeight = contentBounds.h;
 
-	// First open — no previous height tracked yet
-	if (curHeight === undefined || curHeight === null) {
-		console.log('First open — no previous height tracked yet');
-		resizeWritingTemplate(editor, contentBounds);
-		return newHeight;
-	}
-
-	// Content shrank — apply the smaller height immediately
-	if (newHeight < curHeight) {
-		console.log('Content shrank — apply the smaller height immediately');
-		resizeWritingTemplate(editor, contentBounds);
-		return newHeight;
-	}
-
-	// Content has grown past the buffer zone — time to expand
-	if (newHeight > curHeight + plugin.settings.writingBufferLines * WRITING_LINE_HEIGHT) {
-		console.log('Content has grown past the buffer zone — time to expand');
+	if (shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines)) {
 		resizeWritingTemplate(editor, contentBounds);
 		return newHeight;
 	}
 
 	// Content is still within the existing buffer zone — no resize needed
-	console.log('Content is still within the existing buffer zone — no resize needed');
 	return curHeight;
 }
 

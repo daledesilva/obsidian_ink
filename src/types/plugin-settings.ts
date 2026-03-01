@@ -44,7 +44,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	// Writing specific
 	writingEnabled: true,
 	writingStrokeLimit: 200,
-	writingBufferLines: 2,
+	writingBufferLines: 3,
 	writingDynamicStrokeThickness: true,
 	writingSmoothing: false,
 	writingLinesWhenLocked: true,

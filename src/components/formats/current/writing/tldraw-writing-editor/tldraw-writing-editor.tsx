@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -105,7 +105,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
 		console.log('[ink] handleMount: curHeightRef.current before resize:', curHeightRef.current);
-		const mountHeight = resizeWritingTemplateInvitingly(editor, curHeightRef.current);
+		const mountHeight = resizeWritingTemplateInvitingly(editor);
 		console.log('[ink] handleMount: resizeWritingTemplateInvitingly returned:', mountHeight);
 		if (mountHeight !== null) {
 			curHeightRef.current = mountHeight;
@@ -216,8 +216,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
 		console.log('[ink] instantInputPostProcess: curHeightRef.current before resize:', curHeightRef.current);
 		const prevHeight = curHeightRef.current;
-		const newHeight = resizeWritingTemplateInvitingly(editor, curHeightRef.current);
-		console.log('[ink] instantInputPostProcess: resizeWritingTemplateInvitingly returned:', newHeight);
+		const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
+		console.log('[ink] instantInputPostProcess: resizeWritingTemplateInvitinglyIfNecessary returned:', newHeight);
 		if (newHeight !== null) curHeightRef.current = newHeight;
 		if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
 		// entry && simplifyLines(editor, entry);

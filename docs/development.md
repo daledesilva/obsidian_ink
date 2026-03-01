@@ -127,6 +127,59 @@ Adding new mocks:
 - If a new dependency fails in Node (e.g., a new browser API or library), add a light mock to `tests/setupTests.ts`.
 - If you need to bypass a new host module (e.g., a different Obsidian entry), add a `moduleNameMapper` entry to redirect it to a mock file under `tests/__mocks__/`.
 
+#### Buffer lines resize — test coverage
+
+The buffer lines resize system has a dedicated test suite split across two tiers.
+
+**How the resize decision works**
+
+The resize guard is a three-condition predicate extracted into `shouldResizeForNewHeight(newHeight, curHeight, bufferLines)` in `tldraw-helpers.ts`:
+
+```
+curHeight === null          → always resize  (first open)
+newHeight < curHeight       → always resize  (content shrank / erase)
+newHeight > curHeight + (bufferLines - 1) * WRITING_LINE_HEIGHT
+                            → resize         (content grew past buffer zone)
+otherwise                  → no resize
+```
+
+`resizeWritingTemplateInvitinglyIfNecessary` calls this predicate and delegates to it, so the guard can be unit-tested without a live tldraw editor.
+
+**Unit test coverage** (`tests/components/formats/current/utils/`)
+
+| File | What it tests |
+|---|---|
+| `ResizeWritingGuard.test.ts` | Every branch of `shouldResizeForNewHeight`: first stroke, no-resize within buffer, resize at exhaustion, erase shrink, buffer setting sensitivity, threshold uses `WRITING_LINE_HEIGHT`, full 9-line fixture sequence, sequential erase, add→erase→add pattern. |
+| `CropWritingHeight.test.ts` | `cropWritingStrokeHeightInvitingly` and `cropWritingStrokeHeightTightly` including a `bufferLines=3` successive-lines group that validates the formula against all 9 fixture lines. |
+
+**E2E test coverage** (`tests/e2e/buffer-lines.e2e.ts`)
+
+Tests are grouped by scenario; each group reloads Obsidian to guarantee a clean `curHeight` starting state.
+
+| Group | What it tests |
+|---|---|
+| Settings | Default value is 3, setting appears in UI, persists after save. |
+| Mount Resize | Fixture file (9 lines) mounts at expected height; bufferLines=1 produces smaller height; height is a multiple of 0.5 × `WRITING_LINE_HEIGHT`. |
+| Sequential Add | Two strokes same line → no resize; lines 1–2 within buffer → no resize; line 3 → resize; lines 4–5 no resize; line 6 → resize. |
+| Sequential Erase | Erase line 6 down to line 1 one at a time → height decreases on every step. |
+| Add, Erase, Add Again | Re-adding content within the buffer zone after an erase does not cause extra resizes; re-adding past the threshold does. |
+| Minimum Height Floor | Template height is never below `WRITING_MIN_PAGE_HEIGHT` (375 px). |
+| Setting Respected at Runtime | Changing `writingBufferLines` mid-session takes effect on the very next stroke without a reload. |
+
+**How E2E tests access the tldraw editor**
+
+The E2E tests need to programmatically create and delete tldraw draw shapes to drive the resize logic. Because the editor lives inside a React component ref, the tests locate it via React fiber traversal starting from the `.tl-container` DOM element:
+
+```mermaid
+graph TD
+    A[".tl-container DOM node"] -->|__reactFiber| B[React fiber tree]
+    B -->|walk .return chain| C[TldrawWritingEditor fiber]
+    C -->|walk memoizedState hook list| D["tlEditorRef { current: Editor }"]
+    D --> E[editor.createShape / editor.deleteShapes]
+```
+
+The helper installs itself on `window.__inkTest` once (via `installBrowserHelpers()`) so the closure over `findTldrawEditor` is preserved across `browser.execute()` calls. Shape IDs are tracked in `window.__inkTest.shapeIds` for ordered erasure.
+
 Troubleshooting:
 
 - Syntax errors in `.tsx` tests usually mean Babel isn’t transforming JSX/TSX — ensure `@babel/preset-react` is installed and present in `babel.config.js`.

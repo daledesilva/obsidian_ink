@@ -1,12 +1,12 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getInvitingWritingBounds, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
+import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_PAGE_WIDTH } from 'src/constants';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildWritingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { TFile } from 'obsidian';
@@ -62,6 +62,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
+	const curHeightRef = useRef<number | null>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
@@ -103,8 +104,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
-		resizeWritingTemplateInvitingly(editor, props.plugin.settings.writingBufferLines);
-		resizeContainerIfEmbed(editor);	// Has an effect if the embed is new and started at 0
+		console.log('[ink] handleMount: curHeightRef.current before resize:', curHeightRef.current);
+		const mountHeight = resizeWritingTemplateInvitingly(editor, curHeightRef.current);
+		console.log('[ink] handleMount: resizeWritingTemplateInvitingly returned:', mountHeight);
+		if (mountHeight !== null) {
+			curHeightRef.current = mountHeight;
+			resizeContainerIfEmbed(editor, mountHeight);	// Has an effect if the embed is new and started at 0
+		}
 				
 		// view set up
 		if(props.embedded) {
@@ -190,16 +196,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	///////////////
 
-	function resizeContainerIfEmbed (editor: Editor) {
+	function resizeContainerIfEmbed (editor: Editor, curTlDrawHeight: number) {
 		if (!props.embedded || !props.onResize) return;
 
-		// const invitingBounds = getInvitingWritingBounds(editor);
-		// const tightBounds = getTightWritingBounds(editor);
-		// if (!invitingBounds || !tightBounds) return;
-
-		const invitingBounds = getInvitingWritingBounds(editor);
+		const invitingBounds = new Box(0, 0, WRITING_PAGE_WIDTH, curTlDrawHeight);
 		const tightBounds = getTightWritingBounds(editor);
-		if (!invitingBounds || !tightBounds) return;
+		if (!tightBounds) return;
 
 		props.onResize(invitingBounds, tightBounds);
 	}
@@ -212,8 +214,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
-		resizeWritingTemplateInvitingly(editor, props.plugin.settings.writingBufferLines);
-		resizeContainerIfEmbed(editor);
+		console.log('[ink] instantInputPostProcess: curHeightRef.current before resize:', curHeightRef.current);
+		const prevHeight = curHeightRef.current;
+		const newHeight = resizeWritingTemplateInvitingly(editor, curHeightRef.current);
+		console.log('[ink] instantInputPostProcess: resizeWritingTemplateInvitingly returned:', newHeight);
+		if (newHeight !== null) curHeightRef.current = newHeight;
+		if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
 		// entry && simplifyLines(editor, entry);
 	};
 
@@ -258,7 +264,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		verbose('incrementalSave');
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const svgObj = await getWritingSvg(editor);
+		const svgObj = await getWritingSvg(editor, curHeightRef.current);
 		stashStaleContent(editor);
 
         const writingFileData = buildWritingFileData({
@@ -274,7 +280,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
-		const svgObj = await getWritingSvg(editor);
+		const svgObj = await getWritingSvg(editor, curHeightRef.current);
 		stashStaleContent(editor);
 		
         if (svgObj) {

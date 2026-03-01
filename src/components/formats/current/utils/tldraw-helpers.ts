@@ -6,6 +6,7 @@ import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-
 import { info, verbose } from "../../../../logic/utils/log-to-console";
 import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
+import { getGlobals } from "src/stores/global-store";
 
 //////////
 //////////
@@ -613,13 +614,13 @@ interface svgObj {
 	svg: string,
 };
 
-export async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+export async function getWritingSvg(editor: Editor, curHeight?: number | null): Promise<svgObj | undefined> {
 	console.log('[ink] getWritingSvg');
 	let svgObj: undefined | svgObj;
 	resizeWritingTemplateTightly(editor);
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
-	resizeWritingTemplateInvitingly(editor);
+	resizeWritingTemplateInvitingly(editor, curHeight);
 	return svgObj;
 }
 
@@ -705,10 +706,11 @@ export function cropWritingStrokeHeightInvitingly(height: number, bufferLines: n
 }
 
 // Returns bounds sized for editing (with inviting extra space)
-export function getInvitingWritingBounds(editor: Editor, bufferLines?: number): Box | null {
+export function getInvitingWritingBounds(editor: Editor): Box | null {
+	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, bufferLines));
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, plugin.settings.writingBufferLines));
 	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
 	return newContentBounds;
 }
@@ -757,13 +759,47 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 /***
  * Add excess space under writing strokes to to enable further writing.
  * Good for while in editing mode.
+ * When lastHeight is provided, only applies the resize if the height has changed,
+ * preventing unnecessary resizes while content remains within the existing buffer zone.
+ * Returns the new applied height, or null if no resize was needed.
+ * The caller is responsible for storing the returned value for the next call.
  */
-export const resizeWritingTemplateInvitingly = (editor: Editor, bufferLines?: number) => {
-	verbose('resizeWritingTemplateInvitingly');
+export const resizeWritingTemplateInvitingly = (
+	editor: Editor,
+	curHeight?: number | null
+): number | null => {
+	console.log('resizeWritingTemplateInvitingly');
 	console.log('[ink] resizeWritingTemplateInvitingly');
-	const contentBounds = getInvitingWritingBounds(editor, bufferLines);
-	if (!contentBounds) return;
-	resizeWritingTemplate(editor, contentBounds);
+	const contentBounds = getInvitingWritingBounds(editor);
+	if (!contentBounds) return null;
+	const {plugin} = getGlobals()
+
+	const newHeight = contentBounds.h;
+
+	// First open — no previous height tracked yet
+	if (curHeight === undefined || curHeight === null) {
+		console.log('First open — no previous height tracked yet');
+		resizeWritingTemplate(editor, contentBounds);
+		return newHeight;
+	}
+
+	// Content shrank — apply the smaller height immediately
+	if (newHeight < curHeight) {
+		console.log('Content shrank — apply the smaller height immediately');
+		resizeWritingTemplate(editor, contentBounds);
+		return newHeight;
+	}
+
+	// Content has grown past the buffer zone — time to expand
+	if (newHeight > curHeight + plugin.settings.writingBufferLines * WRITING_LINE_HEIGHT) {
+		console.log('Content has grown past the buffer zone — time to expand');
+		resizeWritingTemplate(editor, contentBounds);
+		return newHeight;
+	}
+
+	// Content is still within the existing buffer zone — no resize needed
+	console.log('Content is still within the existing buffer zone — no resize needed');
+	return curHeight;
 }
 
 /***

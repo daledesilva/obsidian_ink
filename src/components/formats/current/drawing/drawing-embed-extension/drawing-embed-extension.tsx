@@ -374,9 +374,21 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                 // Find the relevant decoration reference if it already exists
                 while(oldDecoration.value) {
                     const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
-                    const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
-                    decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
-                    if(decorationAlreadyExists) break;
+                    const oldDecTo = transaction.changes.mapPos(oldDecoration.to);
+                    const positionsMatch = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
+                    if (positionsMatch) {
+                        // Don't reuse if any change touched this decoration's range — stale widget would show wrong state
+                        let rangeWasModified = false;
+                        if (!transaction.changes.empty) {
+                            transaction.changes.iterChangedRanges((fromA, toA) => {
+                                if (fromA < oldDecoration.to && toA > oldDecoration.from) {
+                                    rangeWasModified = true;
+                                }
+                            });
+                        }
+                        decorationAlreadyExists = !rangeWasModified;
+                        if (decorationAlreadyExists) break;
+                    }
                     oldDecoration.next();
                 }
 

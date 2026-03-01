@@ -132,8 +132,16 @@ export function WritingEmbed (props: {
 
 	////////////
 
-	// When not pending and no file, there is nothing to show
-	if (!props.writingFileRef && !props.isPendingPaste) return null;
+	// When not pending and no file, show a file-not-found message
+	if (!props.writingFileRef && !props.isPendingPaste) {
+		return <>
+			<div className='ddc_ink_embed ddc_ink_writing-embed'>
+				<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
+					<span className='ddc_ink_pending-banner__title'>Writing file not found</span>
+				</div>
+			</div>
+		</>;
+	}
 
 	return <>		
 		<div

@@ -28,6 +28,18 @@ describe('build-embeds', () => {
       expect(url.searchParams.get('viewBoxWidth')).toBe(String(s.viewBox.width));
       expect(url.searchParams.get('viewBoxHeight')).toBe(String(s.viewBox.height));
     });
+
+    test('appends pendingPaste=true when option is set', () => {
+      const out = buildDrawingEmbed('Ink/Drawing/test.svg', { pendingPaste: true });
+      const urlPart = out.match(/\[Edit Drawing\]\(([^)]+)\)/)?.[1] as string;
+      const url = new URL(urlPart);
+      expect(url.searchParams.get('pendingPaste')).toBe('true');
+    });
+
+    test('does not include pendingPaste when option is not set', () => {
+      const out = buildDrawingEmbed('Ink/Drawing/test.svg');
+      expect(out).not.toContain('pendingPaste');
+    });
   });
 
   describe('buildWritingEmbed', () => {
@@ -46,6 +58,18 @@ describe('build-embeds', () => {
       expect(url.origin).toBe(expectedOrigin);
       expect(url.searchParams.get('type')).toBe('inkWriting');
       expect(url.searchParams.get('version')).toBe(String(DEFAULT_EMBED_SETTINGS.version));
+    });
+
+    test('appends pendingPaste=true when option is set', () => {
+      const out = buildWritingEmbed('Ink/Writing/test.svg', { pendingPaste: true });
+      const urlPart = out.match(/\[Edit Writing\]\(([^)]+)\)/)?.[1] as string;
+      const url = new URL(urlPart);
+      expect(url.searchParams.get('pendingPaste')).toBe('true');
+    });
+
+    test('does not include pendingPaste when option is not set', () => {
+      const out = buildWritingEmbed('Ink/Writing/test.svg');
+      expect(out).not.toContain('pendingPaste');
     });
   });
 });

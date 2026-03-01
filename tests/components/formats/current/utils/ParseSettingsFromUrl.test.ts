@@ -64,6 +64,23 @@ describe('parseSettingsFromUrl', () => {
 
     expect(embedSettings).toEqual(expected);
   });
+
+  describe('isPendingPaste', () => {
+    test('is false when pendingPaste param is absent', () => {
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1');
+      expect(isPendingPaste).toBe(false);
+    });
+
+    test('is true when pendingPaste=true is present', () => {
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1&pendingPaste=true');
+      expect(isPendingPaste).toBe(true);
+    });
+
+    test('is false when pendingPaste=false is present', () => {
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1&pendingPaste=false');
+      expect(isPendingPaste).toBe(false);
+    });
+  });
 });
 
 

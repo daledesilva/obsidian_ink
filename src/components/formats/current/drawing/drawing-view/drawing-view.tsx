@@ -25,7 +25,7 @@ export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
     return [
         {
-            text: 'Copy drawing',
+            text: 'Copy embed',
             action: async () => {
                 await rememberDrawingFile(fileRef);
             }

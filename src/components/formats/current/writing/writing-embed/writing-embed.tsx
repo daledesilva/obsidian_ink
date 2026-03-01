@@ -97,7 +97,7 @@ export function WritingEmbed (props: {
 
 	const commonExtendedOptions = [
 		{
-			text: 'Copy writing',
+			text: 'Copy embed',
 			action: async () => {
 				await rememberWritingFile(props.plugin, props.writingFileRef);
 			}

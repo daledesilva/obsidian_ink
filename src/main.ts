@@ -18,13 +18,12 @@ import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
 import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
 import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { pasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
 import { insertRememberedWritingFile_v1 } from './commands/insert-remembered-writing-file-v1';
 import { insertExistingWritingFile_v1 } from './commands/insert-existing-writing-file-v1';
 import { insertExistingDrawingFile_v1 } from './commands/insert-existing-drawing-file-v1';
 import { insertRememberedDrawingFile_v1 } from './commands/insert-remembered-drawing-file-v1';
-import { insertRememberedDrawingFile } from './commands/insert-remembered-drawing-file';
-import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
@@ -89,6 +88,7 @@ export default class InkPlugin extends Plugin {
 		if (this.settings.writingEnabled || this.settings.drawingEnabled) {
 			const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
 			this.registerEditorExtension([inkEmbedsExtension()]);
+			this.registerEditorExtension([pasteEmbedHandler(this)]);
 		}
 
 		registerSettingsTab(this);
@@ -138,12 +138,6 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'insert-copied-handwriting',
-		name: 'Copied handwriting section',
-		icon: 'clipboard-pen',
-		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
-	});
-	plugin.addCommand({
 		id: 'embed-writing-file',
 		name: 'Existing handwriting section',
 		icon: 'folder-pen',
@@ -184,12 +178,6 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		name: 'New drawing',
 		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'insert-copied-drawing',
-		name: 'Copied drawing',
-		icon: 'clipboard-pen-line',
-		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-drawing-file',

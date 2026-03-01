@@ -87,7 +87,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 	const commonExtendedOptions = [
 		{
-			text: 'Copy drawing',
+			text: 'Copy embed',
 			action: async () => {
 				await rememberDrawingFile(props.embeddedFile as TFile);
 			}

@@ -45,7 +45,7 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
-	writingFileRef: TFile,
+	writingFileRef: TFile | null,
     pageData?: InkFileData,
 	embedSettings?: EmbedSettings,
     save: (pageData: InkFileData) => void,
@@ -53,6 +53,9 @@ export function WritingEmbed (props: {
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
 	sourceMdFile?: TFile,
+	isPendingPaste?: boolean,
+	resolveAsReference?: () => void,
+	resolveAsDuplicate?: () => Promise<void>,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -99,6 +102,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Copy embed',
 			action: async () => {
+				if (!props.writingFileRef) return;
 				await rememberWritingFile(props.plugin, props.writingFileRef);
 			}
 		},
@@ -127,6 +131,59 @@ export function WritingEmbed (props: {
 	]
 
 	////////////
+
+	if (props.isPendingPaste) {
+		return <>
+			<div
+				className = {classNames([
+					'ddc_ink_embed',
+					'ddc_ink_writing-embed',
+					'ddc_ink_embed--pending',
+				])}
+				style = {{
+					paddingTop: '1em',
+					paddingBottom: '0.5em',
+				}}
+			>
+				{props.writingFileRef ? (
+					<div className='ddc_ink_pending-decision'>
+						<p className='ddc_ink_pending-decision__title'>Insert copied writing</p>
+						<p className='ddc_ink_pending-decision__description'>Embed a reference to the existing file, or make a duplicate?</p>
+						<div className='ddc_ink_pending-decision__actions'>
+							<button
+								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
+								onClick={() => props.resolveAsReference?.()}
+							>
+								Reference existing file
+							</button>
+							<button
+								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
+								onClick={() => props.resolveAsDuplicate?.()}
+							>
+								Make duplicate
+							</button>
+						</div>
+					</div>
+				) : (
+					<div className='ddc_ink_pending-decision ddc_ink_pending-decision--not-found'>
+						<p className='ddc_ink_pending-decision__title'>Writing file not found</p>
+						<p className='ddc_ink_pending-decision__description'>The original file could not be located in this vault.</p>
+						<div className='ddc_ink_pending-decision__actions'>
+							<button
+								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
+								onClick={() => {/* TODO: implement locate file */}}
+							>
+								Locate file
+							</button>
+						</div>
+					</div>
+				)}
+			</div>
+		</>;
+	}
+
+	// By this point isPendingPaste is false, so file should be present for normal preview/editor render
+	if (!props.writingFileRef) return null;
 
 	return <>		
 		<div

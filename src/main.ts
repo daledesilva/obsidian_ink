@@ -18,7 +18,7 @@ import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
 import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
 import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
-import { pasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
+import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
 import { insertRememberedWritingFile_v1 } from './commands/insert-remembered-writing-file-v1';
 import { insertExistingWritingFile_v1 } from './commands/insert-existing-writing-file-v1';
@@ -68,7 +68,7 @@ export default class InkPlugin extends Plugin {
 			// Legacy v1's are on to allow displaying, but not creating
 			registerWritingView_v1(this);
 			registerWritingEmbed_v1(this);
-			// implementWritingEmbedActions_v1(this);
+			implementWritingEmbedActions_v1(this);
 		}
 		
 		if (this.settings.drawingEnabled) {
@@ -81,14 +81,14 @@ export default class InkPlugin extends Plugin {
 			// Legacy v1's are on to allow displaying, but not creating
 			registerDrawingView_v1(this);
 			registerDrawingEmbed_v1(this);
-			// implementDrawingEmbedActions_v1(this);
+			implementDrawingEmbedActions_v1(this);
 		}
 
 		// Register a single generic embed orchestrator if either format is enabled
 		if (this.settings.writingEnabled || this.settings.drawingEnabled) {
 			const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
 			this.registerEditorExtension([inkEmbedsExtension()]);
-			this.registerEditorExtension([pasteEmbedHandler(this)]);
+			registerPasteEmbedHandler(this);
 		}
 
 		registerSettingsTab(this);

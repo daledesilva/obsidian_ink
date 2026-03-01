@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { Extension, RangeSetBuilder, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
-import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
+import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -11,6 +11,8 @@ import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
+import { buildWritingEmbed } from '../../utils/build-embeds';
+import { duplicateWritingFile } from '../../utils/duplicate-files';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
@@ -28,16 +30,18 @@ export class WritingEmbedWidget extends WidgetType {
     embeddedFile: TFile | null;
     embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
+    isPendingPaste: boolean;
     isHighlighted: boolean = false;
     private rootEl?: HTMLElement; // Store reference for dynamic height updates
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID();
         this.embeddedFile = embeddedFile;
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
+        this.isPendingPaste = isPendingPaste;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -59,7 +63,7 @@ export class WritingEmbedWidget extends WidgetType {
             <JotaiProvider>
                 <WritingEmbed
                     plugin={plugin}
-                    writingFileRef={this.embeddedFile as TFile}
+                    writingFileRef={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     save={this.save}
                     remove={() => {
@@ -68,6 +72,9 @@ export class WritingEmbedWidget extends WidgetType {
                     setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
                     onRequestMeasure={() => this.onRequestMeasure(view)}
                     sourceMdFile={this.mdFile}
+                    isPendingPaste={this.isPendingPaste}
+                    resolveAsReference={() => this.resolveAsReference(view)}
+                    resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
                 />
             </JotaiProvider>
         );
@@ -166,6 +173,52 @@ export class WritingEmbedWidget extends WidgetType {
             const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
             if (widget && widget.id === this.id) {
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
+                view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private resolveAsReference(view: EditorView) {
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                // Remove the pendingPaste param - always appended last by the paste handler
+                const updated = currentText.replace(/&pendingPaste=true/, '');
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async resolveAsDuplicate(view: EditorView) {
+        if (!this.embeddedFile) return;
+        const { plugin } = getGlobals();
+        const duplicatedFile = await duplicateWritingFile(plugin, this.embeddedFile, this.mdFile);
+        if (!duplicatedFile) return;
+
+        new Notice('Writing file duplicated');
+
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                // Replace the entire widget range with a fresh embed pointing to the duplicate
+                const newEmbedStr = buildWritingEmbed(duplicatedFile.path);
+                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
                 view.dispatch(tr);
                 return;
             }
@@ -305,7 +358,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                     embedLinkInfo.startPosition,
                     embedLinkInfo.endPosition,
                     Decoration.replace({
-                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
+                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste),
                         isBlock: true,
                     })
                 );
@@ -430,6 +483,7 @@ interface EmbedLinkInfoWriting {
     embeddedFile: TFile | null;
     embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
+    isPendingPaste: boolean;
 }
 
 function detectMarkdownEmbedLinkWriting(
@@ -537,7 +591,7 @@ function detectMarkdownEmbedLinkWriting(
     const endOfReplacement = settingsUrlEndNode.to;
 
     // Parse settings from URL parameters
-    const { embedSettings } = parseSettingsFromUrl(urlAndSettings);
+    const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
 
     const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path);
 
@@ -548,6 +602,7 @@ function detectMarkdownEmbedLinkWriting(
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
             partialEmbedFilepath: previewPartialFilepath,
+            isPendingPaste: isPendingPaste,
         },
     };
 }

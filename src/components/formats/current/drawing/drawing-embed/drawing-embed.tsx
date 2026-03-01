@@ -54,6 +54,9 @@ interface DrawingEmbed_Props {
     onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
 	sourceMdFile?: TFile,
+	isPendingPaste?: boolean,
+	resolveAsReference?: () => void,
+	resolveAsDuplicate?: () => Promise<void>,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -119,6 +122,56 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	console.log('props.embeddedFile', props.embeddedFile);
 
 	////////////
+
+	if (props.isPendingPaste) {
+		return <>
+			<div
+				className = {classNames([
+					'ddc_ink_embed',
+					'ddc_ink_drawing-embed',
+					'ddc_ink_embed--pending',
+				])}
+				style = {{
+					paddingTop: '1em',
+					paddingBottom: '0.5em',
+				}}
+			>
+				{props.embeddedFile ? (
+					<div className='ddc_ink_pending-decision'>
+						<p className='ddc_ink_pending-decision__title'>Insert copied drawing</p>
+						<p className='ddc_ink_pending-decision__description'>Embed a reference to the existing file, or make a duplicate?</p>
+						<div className='ddc_ink_pending-decision__actions'>
+							<button
+								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
+								onClick={() => props.resolveAsReference?.()}
+							>
+								Reference existing file
+							</button>
+							<button
+								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
+								onClick={() => props.resolveAsDuplicate?.()}
+							>
+								Make duplicate
+							</button>
+						</div>
+					</div>
+				) : (
+					<div className='ddc_ink_pending-decision ddc_ink_pending-decision--not-found'>
+						<p className='ddc_ink_pending-decision__title'>Drawing file not found</p>
+						<p className='ddc_ink_pending-decision__description'>The original file could not be located in this vault.</p>
+						<div className='ddc_ink_pending-decision__actions'>
+							<button
+								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
+								onClick={() => {/* TODO: implement locate file */}}
+							>
+								Locate file
+							</button>
+						</div>
+					</div>
+				)}
+			</div>
+		</>;
+	}
 
 	// TODO: style this
 	if (!props.embeddedFile) {

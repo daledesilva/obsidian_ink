@@ -13,7 +13,7 @@ import {
     ViewPlugin,
     WidgetType,
 } from "@codemirror/view";
-import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
+import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
@@ -30,6 +30,8 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
+import { buildDrawingEmbed } from '../../utils/build-embeds';
+import { duplicateDrawingFile } from '../../utils/duplicate-files';
 
 /////////////////////
 /////////////////////
@@ -45,16 +47,18 @@ export class DrawingEmbedWidget extends WidgetType {
     embeddedFile: TFile | null;
     embedSettings: any;
     partialEmbedFilepath: string;
+    isPendingPaste: boolean;
     isHighlighted: boolean = false;
     // mounted = false;
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
         this.embeddedFile = embeddedFile;
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
+        this.isPendingPaste = isPendingPaste;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -83,6 +87,9 @@ export class DrawingEmbedWidget extends WidgetType {
                     onRequestMeasure={() => this.requestMeasure(view)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                     sourceMdFile={this.mdFile}
+                    isPendingPaste={this.isPendingPaste}
+                    resolveAsReference={() => this.resolveAsReference(view)}
+                    resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
                 />
             </JotaiProvider>
         );
@@ -166,6 +173,52 @@ export class DrawingEmbedWidget extends WidgetType {
         }
         this.updateEmbed(view, newEmbedSettings);
 	}
+
+    private resolveAsReference(view: EditorView) {
+        const decorations = view.state.field(embedStateField, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                // Remove the pendingPaste param - always appended last by the paste handler
+                const updated = currentText.replace(/&pendingPaste=true/, '');
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async resolveAsDuplicate(view: EditorView) {
+        if (!this.embeddedFile) return;
+        const { plugin } = getGlobals();
+        const duplicatedFile = await duplicateDrawingFile(plugin, this.embeddedFile, this.mdFile);
+        if (!duplicatedFile) return;
+
+        new Notice('Drawing file duplicated');
+
+        const decorations = view.state.field(embedStateField, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                // Replace the entire widget range with a fresh embed pointing to the duplicate
+                const newEmbedStr = buildDrawingEmbed(duplicatedFile.path);
+                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
+                view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
 
     private removeEmbed(view: EditorView) {
         // Find this widget's decoration range and remove it
@@ -340,7 +393,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                     embedLinkInfo.startPosition,  
                     embedLinkInfo.endPosition,
                     Decoration.replace({
-                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
+                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste),
                         isBlock: true,
                     })
                 );
@@ -466,6 +519,7 @@ interface embedLinkInfoNew {
     embeddedFile: TFile | null,
     embedSettings: any,
     partialEmbedFilepath: string,
+    isPendingPaste: boolean,
 }
 
 
@@ -654,7 +708,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     const startOfReplacement = previewLinkStartNode.from;
     const endOfReplacement = settingsUrlEndNode.to;
 
-    const {embedSettings} = parseSettingsFromUrl(urlAndSettings);
+    const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
 
     // Log the complete detected embed structure
     // console.log(`---- Successfully detected complete embed structure:`);
@@ -677,6 +731,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
             partialEmbedFilepath: previewPartialFilepath,
+            isPendingPaste: isPendingPaste,
         },
     }
 

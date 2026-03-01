@@ -1,9 +1,10 @@
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
 
-export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: string; embedSettings: EmbedSettings; } {
+export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: string; embedSettings: EmbedSettings; isPendingPaste: boolean; } {
 
     let infoUrl = urlAndEmbedSettings;
     let embedSettings: EmbedSettings = JSON.parse(JSON.stringify(DEFAULT_EMBED_SETTINGS));
+    let isPendingPaste = false;
 
     const questionMarkIndex = urlAndEmbedSettings.indexOf('?');
     if (questionMarkIndex !== -1) {
@@ -41,6 +42,9 @@ export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: st
         if (urlParams.viewBoxHeight) {
             embedSettings.viewBox.height = parseFloat(urlParams.viewBoxHeight);
         }
+        if (urlParams.pendingPaste === 'true') {
+            isPendingPaste = true;
+        }
     }
-    return { infoUrl, embedSettings };
+    return { infoUrl, embedSettings, isPendingPaste };
 }

@@ -9,7 +9,7 @@ const makeTFile = (): any => ({ path: 'Ink/Drawing/test.svg', stat: { mtime: 123
 const wrap = (ui: React.ReactElement) => render(<JotaiProvider>{ui}</JotaiProvider>);
 
 describe('DrawingEmbed', () => {
-  it('shows not found message when embeddedFile is null and not pending', () => {
+  it('shows not-found banner when embeddedFile is null and not pending', () => {
     wrap(
       <DrawingEmbed
         embeddedFile={null}
@@ -20,6 +20,7 @@ describe('DrawingEmbed', () => {
       />
     );
 
+    expect(document.querySelector('.ddc_ink_pending-banner--not-found')).toBeInTheDocument();
     expect(document.body.textContent).toContain('missing.svg');
   });
 
@@ -94,7 +95,7 @@ describe('DrawingEmbed', () => {
   });
 
   describe('file not found — not pending (isPendingPaste=false)', () => {
-    it('renders the existing red not-found box (not the pending banner)', () => {
+    it('renders the unified not-found banner when embeddedFile is null', () => {
       wrap(
         <DrawingEmbed
           embeddedFile={null}
@@ -105,9 +106,39 @@ describe('DrawingEmbed', () => {
           isPendingPaste={false}
         />
       );
-      // The existing red not-found box should appear, not the pending banner
-      expect(document.querySelector('.ddc_ink_pending-banner')).not.toBeInTheDocument();
+      expect(document.querySelector('.ddc_ink_pending-banner--not-found')).toBeInTheDocument();
       expect(document.body.textContent).toContain('missing.svg');
+    });
+  });
+
+  describe('file not found — Locate button', () => {
+    it('calls locateFile when "Locate file" is clicked', () => {
+      const locateFile = jest.fn();
+      const { getByText } = wrap(
+        <DrawingEmbed
+          embeddedFile={null}
+          embedSettings={makeEmbedSettings() as any}
+          saveSrcFile={(_pageData: any) => ({})}
+          remove={() => {}}
+          partialEmbedFilepath={'missing.svg'}
+          locateFile={locateFile}
+        />
+      );
+      fireEvent.click(getByText('Locate file'));
+      expect(locateFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('displays partialEmbedFilepath in the not-found banner', () => {
+      const { getByText } = wrap(
+        <DrawingEmbed
+          embeddedFile={null}
+          embedSettings={makeEmbedSettings() as any}
+          saveSrcFile={(_pageData: any) => ({})}
+          remove={() => {}}
+          partialEmbedFilepath={'Notes/Some Drawing.svg'}
+        />
+      );
+      expect(getByText(/Notes\/Some Drawing\.svg/)).toBeInTheDocument();
     });
   });
 });

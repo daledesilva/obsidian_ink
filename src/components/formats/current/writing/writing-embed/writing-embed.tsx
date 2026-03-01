@@ -46,6 +46,7 @@ export type WritingEditorControls = {
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
 	writingFileRef: TFile | null,
+	partialEmbedFilepath: string,
     pageData?: InkFileData,
 	embedSettings?: EmbedSettings,
     save: (pageData: InkFileData) => void,
@@ -56,6 +57,7 @@ export function WritingEmbed (props: {
 	isPendingPaste?: boolean,
 	resolveAsReference?: () => void,
 	resolveAsDuplicate?: () => Promise<void>,
+	locateFile?: () => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -132,12 +134,20 @@ export function WritingEmbed (props: {
 
 	////////////
 
-	// When not pending and no file, show a file-not-found message
-	if (!props.writingFileRef && !props.isPendingPaste) {
+	// When no file, show a unified not-found banner regardless of pending state
+	if (!props.writingFileRef) {
 		return <>
 			<div className='ddc_ink_embed ddc_ink_writing-embed'>
 				<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
-					<span className='ddc_ink_pending-banner__title'>Writing file not found</span>
+					<span className='ddc_ink_pending-banner__title'>Writing file not found: {props.partialEmbedFilepath}</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.locateFile?.()}
+						>
+							Locate file
+						</button>
+					</div>
 				</div>
 			</div>
 		</>;
@@ -157,38 +167,24 @@ export function WritingEmbed (props: {
 				paddingBottom: '0.5em',
 			}}
 		>
-			{props.isPendingPaste && (
-				props.writingFileRef ? (
-					<div className='ddc_ink_pending-banner'>
-						<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
-						<div className='ddc_ink_pending-banner__actions'>
-							<button
-								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-								onClick={() => props.resolveAsReference?.()}
-							>
-								Reference existing file
-							</button>
-							<button
-								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-								onClick={() => props.resolveAsDuplicate?.()}
-							>
-								Make duplicate
-							</button>
-						</div>
+			{props.isPendingPaste && props.writingFileRef && (
+				<div className='ddc_ink_pending-banner'>
+					<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsReference?.()}
+						>
+							Reference existing file
+						</button>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsDuplicate?.()}
+						>
+							Make duplicate
+						</button>
 					</div>
-				) : (
-					<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
-						<span className='ddc_ink_pending-banner__title'>Writing file not found</span>
-						<div className='ddc_ink_pending-banner__actions'>
-							<button
-								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-								onClick={() => {/* TODO: implement locate file */}}
-							>
-								Locate file
-							</button>
-						</div>
-					</div>
-				)
+				</div>
 			)}
 
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}

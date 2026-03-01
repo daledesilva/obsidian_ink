@@ -13,6 +13,7 @@ import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
 import { buildWritingEmbed } from '../../utils/build-embeds';
 import { duplicateWritingFile } from '../../utils/duplicate-files';
+import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
@@ -64,6 +65,7 @@ export class WritingEmbedWidget extends WidgetType {
                 <WritingEmbed
                     plugin={plugin}
                     writingFileRef={this.embeddedFile}
+                    partialEmbedFilepath={this.partialEmbedFilepath}
                     embedSettings={this.embedSettings}
                     save={this.save}
                     remove={() => {
@@ -75,6 +77,7 @@ export class WritingEmbedWidget extends WidgetType {
                     isPendingPaste={this.isPendingPaste}
                     resolveAsReference={() => this.resolveAsReference(view)}
                     resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
+                    locateFile={() => this.locateFile(view)}
                 />
             </JotaiProvider>
         );
@@ -220,6 +223,38 @@ export class WritingEmbedWidget extends WidgetType {
                 const newEmbedStr = buildWritingEmbed(duplicatedFile.path);
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
                 view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async locateFile(view: EditorView) {
+        const { plugin } = getGlobals();
+        await openInkFilePicker(plugin, 'inkWriting', 'Locate writing file', (chosenFile) => {
+            this.updateEmbedFilepath(view, chosenFile.path);
+        });
+    }
+
+    private updateEmbedFilepath(view: EditorView, newFilepath: string) {
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                let updated = currentText.replace(/\(<([^>]+)>\)/, `(<${newFilepath}>)`);
+                // Preserve pendingPaste when the embed was pasted so user still gets reference/duplicate prompt
+                if (!this.isPendingPaste) {
+                    updated = updated.replace(/&pendingPaste=true/, '');
+                }
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
                 return;
             }
             it.next();

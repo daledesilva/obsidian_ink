@@ -308,6 +308,9 @@ function generateAllNotes() {
 
   // 09 Edge
   writeFile('09 - Edge Cases and Error States/Missing File Reference.md', `# Missing File\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)`);
+  const drawingParams = new URLSearchParams({ type: 'inkDrawing', version: '1', width: '500', aspectRatio: String(16/9), viewBoxX: '0', viewBoxY: '0', viewBoxWidth: '500', viewBoxHeight: '281' });
+  writeFile('09 - Edge Cases and Error States/Missing Drawing Reference.md', `# Missing Drawing\n\n ![InkDrawing](<Ink/Drawing/nonexistent.svg>) [Edit Drawing](${INK_BASE_URL}?${drawingParams})`);
+  writeFile('09 - Edge Cases and Error States/Missing File Pending Paste.md', `# Missing File Pending Paste\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1&pendingPaste=true)`);
   writeFile('09 - Edge Cases and Error States/Broken Embed Syntax.md', `# Broken\n\n![InkWriting](<Ink/Writing/hello-world.svg>) (missing space before !)`);
   writeFile('09 - Edge Cases and Error States/Special Characters in Path.md', `# Special Chars\n\nCreate file with spaces/parens.`);
   writeFile('09 - Edge Cases and Error States/Very Long Filepath.md', `# Long Path\n\n${w('Ink/Writing/hello-world.svg')}`);

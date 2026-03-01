@@ -28,6 +28,7 @@ describe('WritingEmbed', () => {
       <WritingEmbed
         plugin={makePlugin() as any}
         writingFileRef={makeTFile()}
+        partialEmbedFilepath="path/to/file"
         pageData={{} as any}
         save={() => {}}
         remove={() => {}}
@@ -44,6 +45,7 @@ describe('WritingEmbed', () => {
         <WritingEmbed
           plugin={makePlugin() as any}
           writingFileRef={makeTFile()}
+          partialEmbedFilepath="path/to/file"
           save={() => {}}
           remove={() => {}}
           isPendingPaste={true}
@@ -83,6 +85,7 @@ describe('WritingEmbed', () => {
         <WritingEmbed
           plugin={makePlugin() as any}
           writingFileRef={null}
+          partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
           remove={() => {}}
           isPendingPaste={true}
@@ -96,6 +99,7 @@ describe('WritingEmbed', () => {
         <WritingEmbed
           plugin={makePlugin() as any}
           writingFileRef={null}
+          partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
           remove={() => {}}
           isPendingPaste={true}
@@ -111,12 +115,44 @@ describe('WritingEmbed', () => {
         <WritingEmbed
           plugin={makePlugin() as any}
           writingFileRef={null}
+          partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
           remove={() => {}}
           isPendingPaste={false}
         />
       );
       expect(document.querySelector('.ddc_ink_pending-banner--not-found')).toBeInTheDocument();
+    });
+  });
+
+  describe('file not found — Locate button', () => {
+    it('calls locateFile when "Locate file" is clicked', () => {
+      const locateFile = jest.fn();
+      const { getByText } = wrap(
+        <WritingEmbed
+          plugin={makePlugin() as any}
+          writingFileRef={null}
+          partialEmbedFilepath="Ink/Writing/missing.svg"
+          save={() => {}}
+          remove={() => {}}
+          locateFile={locateFile}
+        />
+      );
+      fireEvent.click(getByText('Locate file'));
+      expect(locateFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('displays partialEmbedFilepath in the not-found banner', () => {
+      const { getByText } = wrap(
+        <WritingEmbed
+          plugin={makePlugin() as any}
+          writingFileRef={null}
+          partialEmbedFilepath="Notes/Some Writing.svg"
+          save={() => {}}
+          remove={() => {}}
+        />
+      );
+      expect(getByText(/Notes\/Some Writing\.svg/)).toBeInTheDocument();
     });
   });
 });

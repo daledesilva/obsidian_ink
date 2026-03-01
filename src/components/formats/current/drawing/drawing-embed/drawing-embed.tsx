@@ -57,6 +57,7 @@ interface DrawingEmbed_Props {
 	isPendingPaste?: boolean,
 	resolveAsReference?: () => void,
 	resolveAsDuplicate?: () => Promise<void>,
+	locateFile?: () => void,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -123,23 +124,23 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 	////////////
 
-	// When not pending and no file, show the "not found" fallback box
-	if (!props.embeddedFile && !props.isPendingPaste) {
-		// TODO: style this
+	// When no file, show a unified not-found banner regardless of pending state
+	if (!props.embeddedFile) {
 		return <>
-		<div
-			style = {{
-				padding: '1em',
-				marginBlock: '0.5em',
-				color: 'red',
-				backgroundColor: 'rgba(255, 0, 0, 0.1)',
-				borderRadius: '0.5em',
-				textAlign: 'center',
-			}}
-		>
-			'{props.partialEmbedFilepath}' not found
-		</div>
-		</>
+			<div className='ddc_ink_embed ddc_ink_drawing-embed'>
+				<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
+					<span className='ddc_ink_pending-banner__title'>Drawing file not found: {props.partialEmbedFilepath}</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.locateFile?.()}
+						>
+							Locate file
+						</button>
+					</div>
+				</div>
+			</div>
+		</>;
 	}
 
 	return <>
@@ -156,38 +157,24 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				paddingBottom: '0.5em',
 			}}
 		>
-			{props.isPendingPaste && (
-				props.embeddedFile ? (
-					<div className='ddc_ink_pending-banner'>
-						<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
-						<div className='ddc_ink_pending-banner__actions'>
-							<button
-								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-								onClick={() => props.resolveAsReference?.()}
-							>
-								Reference existing file
-							</button>
-							<button
-								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-								onClick={() => props.resolveAsDuplicate?.()}
-							>
-								Make duplicate
-							</button>
-						</div>
+			{props.isPendingPaste && props.embeddedFile && (
+				<div className='ddc_ink_pending-banner'>
+					<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsReference?.()}
+						>
+							Reference existing file
+						</button>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsDuplicate?.()}
+						>
+							Make duplicate
+						</button>
 					</div>
-				) : (
-					<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
-						<span className='ddc_ink_pending-banner__title'>Drawing file not found</span>
-						<div className='ddc_ink_pending-banner__actions'>
-							<button
-								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-								onClick={() => {/* TODO: implement locate file */}}
-							>
-								Locate file
-							</button>
-						</div>
-					</div>
-				)
+				</div>
 			)}
 
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}

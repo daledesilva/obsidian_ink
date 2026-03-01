@@ -27,6 +27,7 @@ describe('WritingEmbed (legacy)', () => {
         <WritingEmbed
           plugin={makePlugin() as any}
           writingFileRef={makeTFile()}
+          partialEmbedFilepath="path/to/file"
           pageData={{} as any}
           save={() => {}}
           remove={() => {}}

@@ -36,11 +36,11 @@ sequenceDiagram
 
 ## Decision banner variants
 
-The banner rendered at the top of a pending embed depends on whether the referenced file can be found in the vault:
+The banner rendered at the top of an embed depends on whether the referenced file can be found in the vault:
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│  Insert copied writing   [Reference file]  [Duplicate] │  ← banner
+│  Insert copied writing   [Reference file]  [Duplicate] │  ← banner (file found + pending)
 ├──────────────────────────────────────────────────────┤
 │                                                        │
 │                      preview                           │
@@ -48,9 +48,9 @@ The banner rendered at the top of a pending embed depends on whether the referen
 └──────────────────────────────────────────────────────┘
 ```
 
-**File found** — "Reference existing file" and "Make duplicate" buttons, with the file's preview visible below. Choosing reference strips `pendingPaste=true` from the URL so the embed renders normally. Choosing duplicate creates a copy of the source file and replaces the embed with one pointing to the new file.
+**File found, pending paste** — "Reference existing file" and "Make duplicate" buttons, with the file's preview visible below. Choosing reference strips `pendingPaste=true` from the URL so the embed renders normally. Choosing duplicate creates a copy of the source file and replaces the embed with one pointing to the new file.
 
-**File not found** — A warning banner with a "Locate file" stub button. No preview is shown beneath it. The locate action is not yet implemented.
+**File not found** — Shown regardless of whether `isPendingPaste` is true or false. A not-found banner displays the missing path and a "Locate file" button. No preview is shown. Clicking "Locate file" opens the SVG file picker pre-filtered to the correct ink file type; choosing a file replaces the filepath in the embed markdown. If the embed was pasted (`isPendingPaste=true`), `pendingPaste=true` is preserved so the user still sees the "Reference existing file" / "Make duplicate" prompt after locating.
 
 ## How the pending state is stored
 
@@ -80,16 +80,17 @@ Because the flag lives in the document itself, the decision prompt persists acro
 | Embed builder | `utils/build-embeds.ts` | Accepts `options.pendingPaste` and appends `&pendingPaste=true` to the URL |
 | URL parser | `utils/parse-settings-from-url.ts` | Returns `isPendingPaste: boolean` alongside `embedSettings` |
 | Paste handler | `utils/paste-embed-handler.ts` | Non-anchored global regex; injects `pendingPaste=true` into every embed found in clipboard text |
-| CM6 widget (writing) | `writing-embed-extension.tsx` | Parses `isPendingPaste`, passes it and resolve callbacks to `WritingEmbed` |
+| File picker utility | `src/logic/utils/open-ink-file-picker.ts` | Filters vault SVGs by ink file type, opens `SvgFilePickerModal`; shared by insert commands and the locate action |
+| CM6 widget (writing) | `writing-embed-extension.tsx` | Parses `isPendingPaste`, passes it, resolve callbacks, and `locateFile` to `WritingEmbed` |
 | CM6 widget (drawing) | `drawing-embed-extension.tsx` | Same for drawing |
-| React embed (writing) | `writing-embed.tsx` | Renders file-found or file-not-found banner when `isPendingPaste` is true; preview is shown beneath when file is found |
+| React embed (writing) | `writing-embed.tsx` | When file is not found, always shows the not-found banner (with path + Locate button); when file is found and pending, shows the reference/duplicate banner above the preview |
 | React embed (drawing) | `drawing-embed.tsx` | Same for drawing |
 
 ## Technical gotchas
 
 - **`pendingPaste=true` is always appended last** by the paste handler, so `resolveAsReference` can safely strip it with `.replace(/&pendingPaste=true/, '')` without URL re-parsing.
 - **`resolveAsDuplicate` rebuilds the full embed string** for the new file path and replaces the entire widget range in a single CM6 transaction. This naturally removes `pendingPaste` since the new string is built with no options.
-- **`writingFileRef` is `TFile | null`** in `WritingEmbed` props. The widget no longer casts via `as TFile`; the pending panel branches on `!!props.writingFileRef` to decide which variant to show.
+- **`locateFile` replaces only the filepath** in the image portion of the embed string using `.replace(/\(<([^>]+)>\)/, `(<newPath>)`)`. When `isPendingPaste` is true, `pendingPaste=true` is kept so the reference/duplicate prompt still appears after locating. When `isPendingPaste` is false, any stray `pendingPaste=true` is stripped.
+- **`writingFileRef` is `TFile | null`** in `WritingEmbed` props. The widget no longer casts via `as TFile`; both components branch on `!!props.writingFileRef` (or `!!props.embeddedFile`) as the sole gate for the not-found banner — `isPendingPaste` is irrelevant when no file is present.
 - The `resolveAsDuplicate` callback is `async` because file duplication is async. No loading state is shown during the brief duplication.
-- The "Locate file" button in the file-not-found panel is a stub — the `onClick` handler is a no-op pending future implementation.
-- **Widget reuse guard** — both state fields have a `decorationAlreadyExists` optimisation that reuses the previous widget instance when mapped positions match. `resolveAsReference` and `resolveAsDuplicate` both modify the decoration's range, so a `rangeWasModified` check (via `ChangeSet.iterChangedRanges`) is applied before reuse: if any change overlaps the old decoration's range, a fresh widget is created with the updated `isPendingPaste` and file reference. Without this guard, `mapPos` would map the old endpoint to exactly the new endpoint and the stale widget would be recycled, keeping the banner visible.
+- **Widget reuse guard** — both state fields have a `decorationAlreadyExists` optimisation that reuses the previous widget instance when mapped positions match. `resolveAsReference`, `resolveAsDuplicate`, and `locateFile` all modify the decoration's range, so a `rangeWasModified` check (via `ChangeSet.iterChangedRanges`) is applied before reuse: if any change overlaps the old decoration's range, a fresh widget is created with the updated state. Without this guard, the stale widget would be recycled, keeping the banner visible.

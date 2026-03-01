@@ -56,9 +56,10 @@ function updateEmbed_v1(plugin: InkPlugin, ctx: MarkdownPostProcessorContext, el
 			line: sectionInfo.lineStart + 1,
 			ch: 0,
 		}
+		const lastContentLine = sectionInfo.lineEnd - 1;
 		const embedEnd: EditorPosition = {
-			line: sectionInfo.lineEnd - 1,
-			ch: 1, // To allow for the closing } bracket
+			line: lastContentLine,
+			ch: cmEditor.getLine(lastContentLine).length,
 		}
 		
 		cmEditor.replaceRange( stringifyEmbedData(embedData), embedStart, embedEnd );

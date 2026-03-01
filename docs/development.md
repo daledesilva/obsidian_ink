@@ -127,6 +127,17 @@ Adding new mocks:
 - If a new dependency fails in Node (e.g., a new browser API or library), add a light mock to `tests/setupTests.ts`.
 - If you need to bypass a new host module (e.g., a different Obsidian entry), add a `moduleNameMapper` entry to redirect it to a mock file under `tests/__mocks__/`.
 
+#### Embed lock/unlock — test coverage
+
+The lock/unlock round-trip is covered end-to-end by `tests/e2e/embed-lock-unlock.e2e.ts`. There is one `describe` block per embed type and each reloads Obsidian with the qa-test-vault before running.
+
+| Describe block | File opened | What it tests |
+|---|---|---|
+| Current Writing | `01 - Basic Embeds/Single Writing Embed.md` | Click preview to unlock → editor mounts; click lock button → preview returns, editor unmounts. |
+| Current Drawing | `01 - Basic Embeds/Single Drawing Embed.md` | Same round-trip for drawing embeds. |
+| Legacy v1 Writing | `02 - Legacy Format/V1 Writing Embed.md` | Same round-trip for v1 writing code-block embeds. |
+| Legacy v1 Drawing | `02 - Legacy Format/V1 Drawing Embed.md` | Round-trip test + a second test that reads the `handdrawn-ink` code block from the vault file after locking and calls `JSON.parse()` on it, guarding against the regression where the wrong `replaceRange` end position caused properties to be appended outside the closing brace. |
+
 #### Buffer lines resize — test coverage
 
 The buffer lines resize system has a dedicated test suite split across two tiers.

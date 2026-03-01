@@ -132,58 +132,8 @@ export function WritingEmbed (props: {
 
 	////////////
 
-	if (props.isPendingPaste) {
-		return <>
-			<div
-				className = {classNames([
-					'ddc_ink_embed',
-					'ddc_ink_writing-embed',
-					'ddc_ink_embed--pending',
-				])}
-				style = {{
-					paddingTop: '1em',
-					paddingBottom: '0.5em',
-				}}
-			>
-				{props.writingFileRef ? (
-					<div className='ddc_ink_pending-decision'>
-						<p className='ddc_ink_pending-decision__title'>Insert copied writing</p>
-						<p className='ddc_ink_pending-decision__description'>Embed a reference to the existing file, or make a duplicate?</p>
-						<div className='ddc_ink_pending-decision__actions'>
-							<button
-								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
-								onClick={() => props.resolveAsReference?.()}
-							>
-								Reference existing file
-							</button>
-							<button
-								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
-								onClick={() => props.resolveAsDuplicate?.()}
-							>
-								Make duplicate
-							</button>
-						</div>
-					</div>
-				) : (
-					<div className='ddc_ink_pending-decision ddc_ink_pending-decision--not-found'>
-						<p className='ddc_ink_pending-decision__title'>Writing file not found</p>
-						<p className='ddc_ink_pending-decision__description'>The original file could not be located in this vault.</p>
-						<div className='ddc_ink_pending-decision__actions'>
-							<button
-								className='ddc_ink_pending-decision__btn ddc_ink_pending-decision__btn--primary'
-								onClick={() => {/* TODO: implement locate file */}}
-							>
-								Locate file
-							</button>
-						</div>
-					</div>
-				)}
-			</div>
-		</>;
-	}
-
-	// By this point isPendingPaste is false, so file should be present for normal preview/editor render
-	if (!props.writingFileRef) return null;
+	// When not pending and no file, there is nothing to show
+	if (!props.writingFileRef && !props.isPendingPaste) return null;
 
 	return <>		
 		<div
@@ -191,6 +141,7 @@ export function WritingEmbed (props: {
 			className = {classNames([
 				'ddc_ink_embed',
 				'ddc_ink_writing-embed',
+				props.isPendingPaste && 'ddc_ink_embed--pending',
 			])}
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
@@ -198,39 +149,73 @@ export function WritingEmbed (props: {
 				paddingBottom: '0.5em',
 			}}
 		>
+			{props.isPendingPaste && (
+				props.writingFileRef ? (
+					<div className='ddc_ink_pending-banner'>
+						<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
+						<div className='ddc_ink_pending-banner__actions'>
+							<button
+								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+								onClick={() => props.resolveAsReference?.()}
+							>
+								Reference existing file
+							</button>
+							<button
+								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+								onClick={() => props.resolveAsDuplicate?.()}
+							>
+								Make duplicate
+							</button>
+						</div>
+					</div>
+				) : (
+					<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
+						<span className='ddc_ink_pending-banner__title'>Writing file not found</span>
+						<div className='ddc_ink_pending-banner__actions'>
+							<button
+								className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+								onClick={() => {/* TODO: implement locate file */}}
+							>
+								Locate file
+							</button>
+						</div>
+					</div>
+				)
+			)}
+
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
-			<div
-				className = 'ddc_ink_resize-container'
-				ref = {resizeContainerElRef}
-				style = {{
-					width: '100%',
-					height: initialHeight + 'px',
-				}}
-			>
-			
-				<WritingEmbedPreviewWrapper
-					plugin = {props.plugin}
-					onResize = {(height: number) => applySizingWhilePreviewing(height)}
-					writingFile = {props.writingFileRef}
-					onClick = {async (event) => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						// setPageData( await refreshPageData(props.plugin, props.fileRef) );
-						switchToEditMode();
+			{props.writingFileRef && (
+				<div
+					className = 'ddc_ink_resize-container'
+					ref = {resizeContainerElRef}
+					style = {{
+						width: '100%',
+						height: initialHeight + 'px',
 					}}
-				/>
+				>
+				
+					<WritingEmbedPreviewWrapper
+						plugin = {props.plugin}
+						onResize = {(height: number) => applySizingWhilePreviewing(height)}
+						writingFile = {props.writingFileRef}
+						onClick = {props.isPendingPaste ? async () => {} : async (event) => {
+							switchToEditMode();
+						}}
+					/>
 
-				<TldrawWritingEditorWrapper
-					plugin = {props.plugin} // TODO: Try and remove this
-					onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
-					writingFile = {props.writingFileRef}
-					save = {props.save}
-					embedded
-					saveControlsReference = {registerEditorControls}
-					closeEditor = {saveAndSwitchToPreviewMode}
-					extendedMenu = {commonExtendedOptions}
-				/>
+					<TldrawWritingEditorWrapper
+						plugin = {props.plugin} // TODO: Try and remove this
+						onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
+						writingFile = {props.writingFileRef}
+						save = {props.save}
+						embedded
+						saveControlsReference = {registerEditorControls}
+						closeEditor = {saveAndSwitchToPreviewMode}
+						extendedMenu = {commonExtendedOptions}
+					/>
 
-			</div>
+				</div>
+			)}
 
 		</div>
 	</>;

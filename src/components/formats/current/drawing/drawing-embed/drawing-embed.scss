@@ -80,39 +80,31 @@ a[href*="type=inkDrawing"] {
     visibility: hidden;
 }
 
-.ddc_ink_pending-decision {
+.ddc_ink_pending-banner {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5em;
-    padding: 1.5em 1em;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: var(--radius-m);
+    padding: 0.4em 0.75em;
+    margin-bottom: 0.5em;
     background-color: var(--background-secondary);
-    text-align: center;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
 
-    .ddc_ink_pending-decision__title {
-        margin: 0;
+    .ddc_ink_pending-banner__title {
         font-weight: var(--font-semibold);
-        font-size: var(--font-ui-medium);
-        color: var(--text-normal);
-    }
-
-    .ddc_ink_pending-decision__description {
-        margin: 0;
         font-size: var(--font-ui-small);
-        color: var(--text-muted);
+        color: var(--text-normal);
+        white-space: nowrap;
     }
 
-    .ddc_ink_pending-decision__actions {
+    .ddc_ink_pending-banner__actions {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
         gap: 0.5em;
-        margin-top: 0.25em;
+        margin-left: auto;
     }
 
-    .ddc_ink_pending-decision__btn {
+    .ddc_ink_pending-banner__btn {
         cursor: pointer;
         padding: 0.4em 1em;
         border-radius: var(--radius-s);
@@ -135,6 +127,10 @@ a[href*="type=inkDrawing"] {
                 border-color: var(--interactive-accent-hover);
             }
         }
+    }
+
+    &--not-found {
+        border-color: var(--color-orange);
     }
 }
 

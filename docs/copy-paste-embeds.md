@@ -6,11 +6,12 @@ When a user copies an ink embed and pastes it into a note, the plugin needs to k
 
 ## Conceptual overview
 
-Rather than interrupting the user with a modal dialog at paste time, each embed shows the decision prompt inline. This means:
+Rather than interrupting the user with a modal dialog at paste time, each embed shows the decision prompt inline as a compact banner at the top of the embed, with the file's preview visible beneath it. This means:
 
-- Each pasted embed owns its own prompt — pasting several at once works naturally.
+- Each pasted embed owns its own banner — pasting several at once works naturally.
 - The prompt is tied to the markdown, not to UI state, so it survives editor scrolling and re-mounts.
 - The user can act on each prompt at any time without being forced to decide immediately.
+- The file preview remains visible so the user can identify the content before deciding.
 
 ## Flow
 
@@ -26,20 +27,30 @@ sequenceDiagram
     pasteHandler->>Markdown: Insert text with pendingPaste=true added to each embed URL
     Markdown->>CM6Extension: Document change detected
     CM6Extension->>EmbedComponent: Mount with isPendingPaste=true + resolve callbacks
-    EmbedComponent->>User: Show inline decision panel
+    EmbedComponent->>User: Show decision banner above preview
     User->>EmbedComponent: Click a button
     EmbedComponent->>CM6Extension: resolveAsReference() or resolveAsDuplicate()
     CM6Extension->>Markdown: Update embed markdown (remove pendingPaste, or replace filepath)
     Note over CM6Extension,EmbedComponent: Widget re-mounts as a normal embed
 ```
 
-## Decision panel variants
+## Decision banner variants
 
-The panel shown inside a pending embed depends on whether the referenced file can be found in the vault:
+The banner rendered at the top of a pending embed depends on whether the referenced file can be found in the vault:
 
-**File found** — "Reference existing file" and "Make duplicate" buttons. Choosing reference strips `pendingPaste=true` from the URL so the embed renders normally. Choosing duplicate creates a copy of the source file and replaces the embed with one pointing to the new file.
+```
+┌──────────────────────────────────────────────────────┐
+│  Insert copied writing   [Reference file]  [Duplicate] │  ← banner
+├──────────────────────────────────────────────────────┤
+│                                                        │
+│                      preview                           │
+│                                                        │
+└──────────────────────────────────────────────────────┘
+```
 
-**File not found** — A warning and a "Locate file" stub button. The locate action is not yet implemented.
+**File found** — "Reference existing file" and "Make duplicate" buttons, with the file's preview visible below. Choosing reference strips `pendingPaste=true` from the URL so the embed renders normally. Choosing duplicate creates a copy of the source file and replaces the embed with one pointing to the new file.
+
+**File not found** — A warning banner with a "Locate file" stub button. No preview is shown beneath it. The locate action is not yet implemented.
 
 ## How the pending state is stored
 
@@ -71,7 +82,7 @@ Because the flag lives in the document itself, the decision prompt persists acro
 | Paste handler | `utils/paste-embed-handler.ts` | Non-anchored global regex; injects `pendingPaste=true` into every embed found in clipboard text |
 | CM6 widget (writing) | `writing-embed-extension.tsx` | Parses `isPendingPaste`, passes it and resolve callbacks to `WritingEmbed` |
 | CM6 widget (drawing) | `drawing-embed-extension.tsx` | Same for drawing |
-| React embed (writing) | `writing-embed.tsx` | Renders file-found or file-not-found panel when `isPendingPaste` is true |
+| React embed (writing) | `writing-embed.tsx` | Renders file-found or file-not-found banner when `isPendingPaste` is true; preview is shown beneath when file is found |
 | React embed (drawing) | `drawing-embed.tsx` | Same for drawing |
 
 ## Technical gotchas

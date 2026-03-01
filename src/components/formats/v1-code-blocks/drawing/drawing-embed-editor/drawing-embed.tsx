@@ -6,9 +6,9 @@ import InkPlugin from "src/main";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { openInkFile } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
+import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { TFile } from "obsidian";
 import { DrawingEmbedPreviewWrapper_v1 } from "../drawing-embed-preview/drawing-embed-preview";
 import classNames from "classnames";
@@ -90,9 +90,9 @@ export function DrawingEmbed_v1 (props: {
 
 	const commonExtendedOptions = [
 		{
-			text: 'Copy drawing',
-			action: async () => {
-				await rememberDrawingFile(props.drawingFileRef);
+			text: 'Update embed format',
+			action: () => {
+				new MigrationModal(props.plugin).open();
 			}
 		},
 		{

@@ -118,6 +118,8 @@ A file may appear in both Recent and On current page when it qualifies for both.
 
 Thumbnail previews use mtime-based cache busting (`?t=<mtime>`) on the image src so they stay current after edits. Without it, the browser would serve cached images for the same `getResourcePath` URL.
 
+A search input at the top filters visible results across all sections by matching the query against file basename or path (case-insensitive). When nothing matches, "No files match your search" is shown.
+
 ### Path scenarios covered by e2e tests
 
 The copy-paste e2e suite (`embed-copy-paste-paths.e2e.ts`) duplicates the resolution tests for each path scenario that corresponds to plugin × Obsidian settings:

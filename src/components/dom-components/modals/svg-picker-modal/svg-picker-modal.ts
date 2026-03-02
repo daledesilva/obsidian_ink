@@ -1,4 +1,4 @@
-import { App, Modal, TFile } from "obsidian";
+import { App, Modal, prepareFuzzySearch, SearchComponent, TFile } from "obsidian";
 import type { SectionedFiles } from "src/logic/utils/open-ink-file-picker";
 
 ////////
@@ -25,11 +25,23 @@ const CARD_STYLES = {
 	},
 };
 
+function fileMatchesQuery(file: TFile, query: string): boolean {
+	const trimmed = query.trim();
+	if (trimmed === "") return true;
+	const searchFn = prepareFuzzySearch(trimmed);
+	return searchFn(file.basename) !== null || searchFn(file.path) !== null;
+}
+
+function filterFiles(files: TFile[], query: string): TFile[] {
+	return files.filter((file) => fileMatchesQuery(file, query));
+}
+
 export class SvgFilePickerModal extends Modal {
 	titleText: string;
 	sections: SectionedFiles;
 	fileType: "inkWriting" | "inkDrawing";
 	onChoose: (file: TFile) => void;
+	searchQuery = "";
 
 	constructor(
 		app: App,
@@ -186,37 +198,73 @@ export class SvgFilePickerModal extends Modal {
 		header.setText(label);
 	}
 
-	onOpen() {
-		const { titleEl, contentEl } = this;
-		titleEl.setText(this.titleText);
-
+	private renderSections(container: HTMLElement, filteredRecent: TFile[], filteredOnPage: TFile[], filteredOther: TFile[]): void {
+		container.empty();
 		const otherLabel =
 			this.fileType === "inkDrawing" ? "Other drawings" : "Other writing";
 		const recentLabel =
 			this.fileType === "inkDrawing" ? "Recent drawings" : "Recent writing";
 
-		if (this.sections.recent.length > 0) {
-			this.renderSectionHeader(contentEl, recentLabel);
-			this.renderHorizontalRow(contentEl, this.sections.recent);
+		const hasAnyResults = filteredRecent.length > 0 || filteredOnPage.length > 0 || filteredOther.length > 0;
+		if (!hasAnyResults) {
+			const emptyEl = container.createDiv({ cls: "ink-svg-picker-empty" });
+			emptyEl.style.padding = "24px";
+			emptyEl.style.textAlign = "center";
+			emptyEl.style.color = "var(--text-muted)";
+			emptyEl.setText("No files match your search");
+			return;
 		}
 
-		if (this.sections.onCurrentPage.length > 0) {
-			this.renderSectionHeader(contentEl, "On current page");
-			this.renderHorizontalRow(contentEl, this.sections.onCurrentPage);
+		if (filteredRecent.length > 0) {
+			this.renderSectionHeader(container, recentLabel);
+			this.renderHorizontalRow(container, filteredRecent);
 		}
 
-		if (this.sections.other.length > 0) {
-			const isOnlySection =
-				this.sections.recent.length === 0 && this.sections.onCurrentPage.length === 0;
-			if (!isOnlySection) this.renderSectionHeader(contentEl, otherLabel);
-			const grid = contentEl.createDiv({ cls: "ink-svg-picker-grid" });
+		if (filteredOnPage.length > 0) {
+			this.renderSectionHeader(container, "On current page");
+			this.renderHorizontalRow(container, filteredOnPage);
+		}
+
+		if (filteredOther.length > 0) {
+			const isOnlySection = filteredRecent.length === 0 && filteredOnPage.length === 0;
+			if (!isOnlySection) this.renderSectionHeader(container, otherLabel);
+			const grid = container.createDiv({ cls: "ink-svg-picker-grid" });
 			grid.style.display = "grid";
 			grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(140px, 1fr))";
 			grid.style.gap = "12px";
-			for (const file of this.sections.other) {
+			for (const file of filteredOther) {
 				this.createFileCard(grid, file);
 			}
 		}
+	}
+
+	onOpen() {
+		const { titleEl, contentEl } = this;
+		titleEl.setText(this.titleText);
+
+		const searchContainer = contentEl.createDiv({ cls: "ink-svg-picker-search" });
+		searchContainer.style.marginBottom = "8px";
+		const searchComponent = new SearchComponent(searchContainer);
+		searchComponent.setPlaceholder("Search by filename...");
+		searchComponent.setValue(this.searchQuery);
+
+		const sectionsContainer = contentEl.createDiv({ cls: "ink-svg-picker-sections" });
+
+		const applyFilter = () => {
+			this.searchQuery = searchComponent.getValue();
+			const filteredRecent = filterFiles(this.sections.recent, this.searchQuery);
+			const filteredOnPage = filterFiles(this.sections.onCurrentPage, this.searchQuery);
+			const filteredOther = filterFiles(this.sections.other, this.searchQuery);
+			this.renderSections(sectionsContainer, filteredRecent, filteredOnPage, filteredOther);
+		};
+
+		searchComponent.onChange(applyFilter);
+
+		applyFilter();
+
+		requestAnimationFrame(() => {
+			searchComponent.inputEl.focus();
+		});
 	}
 
 	onClose() {

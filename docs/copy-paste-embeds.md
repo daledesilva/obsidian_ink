@@ -80,7 +80,7 @@ Because the flag lives in the document itself, the decision prompt persists acro
 | Embed builder | `utils/build-embeds.ts` | Accepts `options.pendingPaste` and appends `&pendingPaste=true` to the URL |
 | URL parser | `utils/parse-settings-from-url.ts` | Returns `isPendingPaste: boolean` alongside `embedSettings` |
 | Paste handler | `utils/paste-embed-handler.ts` | Non-anchored global regex; injects `pendingPaste=true` into every embed found in clipboard text |
-| File picker utility | `src/logic/utils/open-ink-file-picker.ts` | Filters vault SVGs by ink file type, opens `SvgFilePickerModal`; shared by insert commands and the locate action |
+| File picker utility | `src/logic/utils/open-ink-file-picker.ts` | Filters vault SVGs by ink file type, builds sectioned layout (Recent, On current page, Other), opens `SvgFilePickerModal`; shared by insert commands and the locate action |
 | CM6 widget (writing) | `writing-embed-extension.tsx` | Parses `isPendingPaste`, passes it, resolve callbacks, and `locateFile` to `WritingEmbed` |
 | CM6 widget (drawing) | `drawing-embed-extension.tsx` | Same for drawing |
 | React embed (writing) | `writing-embed.tsx` | When file is not found, always shows the not-found banner (with path + Locate button); when file is found and pending, shows the reference/duplicate banner above the preview |
@@ -105,6 +105,16 @@ The plugin always writes vault-root paths when creating and copying embeds:
 - The plugin does not read Obsidian’s “New link format” setting and does not produce relative paths.
 
 Because copied embeds use vault-root paths, they resolve correctly when pasted into notes in any folder. Relative paths (e.g. `../Ink/Writing/foo.svg`) will break when pasted into a note in a different folder, because `../` is then interpreted relative to the target note.
+
+### Insert existing file modal
+
+When inserting an existing drawing or writing file (or when locating a missing file), the picker shows results in three sections:
+
+- **Recent drawings** / **Recent writing** — Up to 10 recently selected or newly created files, shown first in a horizontally scrolling row.
+- **On current page** — Files already embedded in the active note, shown second in a horizontally scrolling row.
+- **Other drawings** / **Other writing** — Remaining vault files in a grid.
+
+A file may appear in both Recent and On current page when it qualifies for both. The Other section excludes files that appear in either of the first two sections. Recent selections are persisted to `localStorage` and updated whenever the user chooses a file from the picker.
 
 ### Path scenarios covered by e2e tests
 

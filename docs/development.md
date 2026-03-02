@@ -82,6 +82,8 @@ This builds the plugin, regenerates the vault from scratch (clearing all plugin 
 
 Use this when you want to manually inspect the plugin's behaviour against specific test scenarios, try out new features, or debug issues interactively.
 
+For debugging with verbose logs (e.g. embed state transitions, activity tracking), use `npm run open-qa-verbose` instead. It builds in development mode so `verbose`, `debug`, and `http` logs appear in the DevTools console.
+
 #### Writing new tests
 
 General guidelines:

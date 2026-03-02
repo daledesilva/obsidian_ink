@@ -7,8 +7,10 @@ import { openInkFilePicker } from "src/logic/utils/open-ink-file-picker";
 ////////
 
 export const insertExistingWritingFile = async (plugin: InkPlugin, editor: Editor) => {
+    const sourceFile = plugin.app.workspace.getActiveFile();
+    const noteContent = editor.getValue();
     await openInkFilePicker(plugin, 'inkWriting', 'Select writing', (file: TFile) => {
         const embedStr = buildWritingEmbed(file.path);
         editor.replaceRange(embedStr, editor.getCursor());
-    });
+    }, { sourceFile, noteContent });
 }

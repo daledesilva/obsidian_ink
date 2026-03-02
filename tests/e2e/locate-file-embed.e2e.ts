@@ -4,6 +4,8 @@ import { obsidianPage } from "wdio-obsidian-service";
 const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 const NOT_FOUND_BANNER = ".ddc_ink_pending-banner--not-found";
 const SVG_PICKER_ITEM = ".ink-svg-picker-item";
+const SECTION_HEADER = ".ink-svg-picker-section-header";
+const PLUGIN_KEY = "ddc_ink";
 
 /** Click the Locate file button via execute (bypasses interactability checks for embed widget buttons). */
 async function clickLocateFileButton() {
@@ -24,6 +26,25 @@ async function clickFirstSvgPickerItem() {
 		const card = document.querySelector('.ink-svg-picker-item');
 		if (card instanceof HTMLElement) card.click();
 	});
+}
+
+/** Clear recent file paths from localStorage so the Recent section is empty. */
+async function clearRecentFilePaths() {
+	await browser.execute((pluginKey: string) => {
+		localStorage.removeItem(`${pluginKey}_recentDrawingFilePaths`);
+		localStorage.removeItem(`${pluginKey}_recentWritingFilePaths`);
+	}, PLUGIN_KEY);
+}
+
+/** Get the text of all visible section headers in the SVG picker modal. */
+async function getSectionHeaderTexts(): Promise<string[]> {
+	const headers = await $$(SECTION_HEADER);
+	const texts: string[] = [];
+	for (const header of headers) {
+		const text = await header.getText();
+		if (text) texts.push(text);
+	}
+	return texts;
 }
 
 describe("Locate File Embed", function () {
@@ -160,5 +181,85 @@ describe("Locate File Embed", function () {
 
 		const embeds = await $$(EMBED_SELECTOR);
 		expect(embeds.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it("Recent section does not show when there are no recents", async function () {
+		await clearRecentFilePaths();
+		await obsidianPage.openFile("01 - Basic Embeds/Single Writing Embed.md");
+		await browser.pause(500);
+
+		await browser.executeObsidianCommand("ink:embed-writing-file");
+		await browser.pause(500);
+
+		const firstFileCard = await $(SVG_PICKER_ITEM);
+		await firstFileCard.waitForExist({ timeout: 10000 });
+
+		const headerTexts = await getSectionHeaderTexts();
+		const hasRecentWriting = headerTexts.some((t) => t === "Recent writing");
+		expect(hasRecentWriting).toBe(false);
+
+		await firstFileCard.click();
+		await browser.pause(500);
+	});
+
+	it("Recent section shows when there are recents", async function () {
+		await clearRecentFilePaths();
+		await obsidianPage.openFile("01 - Basic Embeds/Single Writing Embed.md");
+		await browser.pause(500);
+
+		await browser.executeObsidianCommand("ink:embed-writing-file");
+		await browser.pause(500);
+		const firstFileCard = await $(SVG_PICKER_ITEM);
+		await firstFileCard.waitForExist({ timeout: 10000 });
+		await firstFileCard.click();
+		await browser.pause(500);
+
+		await browser.executeObsidianCommand("ink:embed-writing-file");
+		await browser.pause(500);
+		const cardAfterSelect = await $(SVG_PICKER_ITEM);
+		await cardAfterSelect.waitForExist({ timeout: 10000 });
+
+		const headerTexts = await getSectionHeaderTexts();
+		const hasRecentWriting = headerTexts.some((t) => t === "Recent writing");
+		expect(hasRecentWriting).toBe(true);
+
+		await cardAfterSelect.click();
+		await browser.pause(500);
+	});
+
+	it("On current page section does not show when note has no ink embeds", async function () {
+		await obsidianPage.openFile("08 - Plugin Compatibility/Hover Editor - Popover Test.md");
+		await browser.pause(500);
+
+		await browser.executeObsidianCommand("ink:embed-writing-file");
+		await browser.pause(500);
+
+		const firstFileCard = await $(SVG_PICKER_ITEM);
+		await firstFileCard.waitForExist({ timeout: 10000 });
+
+		const headerTexts = await getSectionHeaderTexts();
+		const hasOnCurrentPage = headerTexts.some((t) => t === "On current page");
+		expect(hasOnCurrentPage).toBe(false);
+
+		await firstFileCard.click();
+		await browser.pause(500);
+	});
+
+	it("On current page section shows when note has ink embeds", async function () {
+		await obsidianPage.openFile("01 - Basic Embeds/Single Writing Embed.md");
+		await browser.pause(500);
+
+		await browser.executeObsidianCommand("ink:embed-writing-file");
+		await browser.pause(500);
+
+		const firstFileCard = await $(SVG_PICKER_ITEM);
+		await firstFileCard.waitForExist({ timeout: 10000 });
+
+		const headerTexts = await getSectionHeaderTexts();
+		const hasOnCurrentPage = headerTexts.some((t) => t === "On current page");
+		expect(hasOnCurrentPage).toBe(true);
+
+		await firstFileCard.click();
+		await browser.pause(500);
 	});
 });

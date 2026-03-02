@@ -116,6 +116,8 @@ When inserting an existing drawing or writing file (or when locating a missing f
 
 A file may appear in both Recent and On current page when it qualifies for both. The Other section excludes files that appear in either of the first two sections. Recent selections are persisted to `localStorage` and updated whenever the user chooses a file from the picker.
 
+Thumbnail previews use mtime-based cache busting (`?t=<mtime>`) on the image src so they stay current after edits. Without it, the browser would serve cached images for the same `getResourcePath` URL.
+
 ### Path scenarios covered by e2e tests
 
 The copy-paste e2e suite (`embed-copy-paste-paths.e2e.ts`) duplicates the resolution tests for each path scenario that corresponds to plugin × Obsidian settings:

@@ -61,8 +61,10 @@ export class SvgFilePickerModal extends Modal {
 		Object.assign(previewWrapper.style, CARD_STYLES.previewWrapper);
 
 		const imgEl = previewWrapper.createEl("img");
-		const resourcePath = (this.app.vault as any).getResourcePath(file);
-		imgEl.src = resourcePath;
+		const basePath = (this.app.vault as any).getResourcePath(file);
+		const mtime = file.stat?.mtime ?? 0;
+		const separator = basePath.includes("?") ? "&" : "?";
+		imgEl.src = `${basePath}${separator}t=${mtime}`;
 		imgEl.style.maxWidth = "100%";
 		imgEl.style.maxHeight = "100%";
 		imgEl.style.objectFit = "contain";

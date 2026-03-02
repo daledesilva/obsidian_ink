@@ -10,7 +10,7 @@ export const insertExistingDrawingFile = async (plugin: InkPlugin, editor: Edito
     const sourceFile = plugin.app.workspace.getActiveFile();
     const noteContent = editor.getValue();
     await openInkFilePicker(plugin, 'inkDrawing', 'Select drawing', (file: TFile) => {
-        const embedStr = buildDrawingEmbed(file.path);
+        const embedStr = buildDrawingEmbed(file.path, { pendingPaste: true });
         editor.replaceRange(embedStr, editor.getCursor());
     }, { sourceFile, noteContent });
 }

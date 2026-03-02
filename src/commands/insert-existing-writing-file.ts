@@ -10,7 +10,7 @@ export const insertExistingWritingFile = async (plugin: InkPlugin, editor: Edito
     const sourceFile = plugin.app.workspace.getActiveFile();
     const noteContent = editor.getValue();
     await openInkFilePicker(plugin, 'inkWriting', 'Select writing', (file: TFile) => {
-        const embedStr = buildWritingEmbed(file.path);
+        const embedStr = buildWritingEmbed(file.path, { pendingPaste: true });
         editor.replaceRange(embedStr, editor.getCursor());
     }, { sourceFile, noteContent });
 }

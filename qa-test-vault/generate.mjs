@@ -235,6 +235,101 @@ function generateAllNotes() {
   writeFile('04b - Callouts and Layout Containers/In Columns - Obsidian Columns.md', `# Obsidian Columns\n\n> [!col]\n>> Left\n>> ${w('hello-world.svg').replace(/\n/g,' ')}\n>\n>> [!col-md]\n>> Right\n>> ${d('simple-shape.svg').replace(/\n/g,' ')}`);
   writeFile('04b - Callouts and Layout Containers/In Columns - MCL List Grid.md', `# MCL List Grid\n\n- Item 1 #mcl/list-grid\n- ${w('hello-world.svg').replace(/\n/g,' ')}\n- ${d('simple-shape.svg').replace(/\n/g,' ')}`);
 
+  // In Columns - All Methods: comprehensive QA page covering all column plugin syntaxes (used by e2e tests)
+  {
+    const bt = '```';
+    writeFile('04b - Callouts and Layout Containers/In Columns - All Methods.md', [
+      '# Embeds in Column Layouts',
+      '',
+      '---',
+      '',
+      '## Multi-Column Markdown (code fence syntax)',
+      '*Requires: Multi-Column Markdown plugin*',
+      '',
+      bt + ' start-multi-column',
+      'ID: ink-test-1',
+      'number of columns: 2',
+      bt,
+      '',
+      '**Left column**',
+      ' ' + w('hello-world.svg').trim(),
+      '',
+      bt + ' column-break',
+      bt,
+      '',
+      '**Right column**',
+      ' ' + d('simple-shape.svg').trim(),
+      '',
+      bt + ' end-multi-column',
+      bt,
+      '',
+      '---',
+      '',
+      '## Obsidian Columns plugin ([!col] callout)',
+      '*Requires: Obsidian Columns plugin*',
+      '',
+      '> [!col]',
+      '>> **Left**',
+      '>> ' + w('hello-world.svg').trim(),
+      '>',
+      '>> [!col-md]',
+      '>> **Right**',
+      '>> ' + d('simple-shape.svg').trim(),
+      '',
+      '---',
+      '',
+      '## MCL Multi Column ([!multi-column] callout)',
+      '*Requires: Modular CSS Layout plugin or MCL CSS snippet*',
+      '',
+      '> [!multi-column]',
+      '>',
+      '>> [!col-md|30]',
+      '>> **Left 30%**',
+      '>> ' + w('hello-world.svg').trim(),
+      '>',
+      '>> [!col-md|70]',
+      '>> **Right 70%**',
+      '>> ' + d('simple-shape.svg').trim(),
+      '',
+      '---',
+      '',
+      '## MCL List Grid (hashtag syntax)',
+      '*Requires: Modular CSS Layout plugin or MCL CSS snippet*',
+      '',
+      '- #mcl/list-grid',
+      '-   ' + w('hello-world.svg').trim(),
+      '-   ' + d('simple-shape.svg').trim(),
+      '',
+      '---',
+      '',
+      '## Three-Column Layout (Multi-Column Markdown)',
+      '*Requires: Multi-Column Markdown plugin*',
+      '',
+      bt + ' start-multi-column',
+      'ID: ink-test-3col',
+      'number of columns: 3',
+      bt,
+      '',
+      '**Column A**',
+      ' ' + w('hello-world.svg').trim(),
+      '',
+      bt + ' column-break',
+      bt,
+      '',
+      '**Column B**',
+      ' ' + d('simple-shape.svg').trim(),
+      '',
+      bt + ' column-break',
+      bt,
+      '',
+      '**Column C**',
+      ' ' + w('hello-world.svg').trim(),
+      '',
+      bt + ' end-multi-column',
+      bt,
+    ].join('\n'));
+  }
+
   // 05 Settings
   writeFile('05 - Settings Variations/Writing Lines When Locked.md', `# Writing Lines When Locked\n\nToggle writingLinesWhenLocked.\n\n${w('hello-world.svg')}`);
   writeFile('05 - Settings Variations/Writing Background When Locked.md', `# Writing Background When Locked\n\nToggle writingBackgroundWhenLocked.\n\n${w('hello-world.svg')}`);
@@ -388,6 +483,12 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   generateCopyPastePathsTestAssets();
 
   ensureDir('.obsidian');
+  // Enable community plugins needed for column layout e2e tests.
+  // Note: Modular CSS Layout (MCL) is a CSS snippet only — it is NOT a community plugin
+  // and cannot be listed here. The [!multi-column] and #mcl/list-grid pages will render
+  // via standard callout/list fallback unless the MCL CSS snippet is also installed.
+  writeFile('.obsidian/community-plugins.json', JSON.stringify(['obsidian-columns', 'multi-column-markdown', 'obsidian-admonition'], null, 2));
+  writeFile('.obsidian/app.json', JSON.stringify({ safeMode: false }, null, 2));
   // Clear plugin persistence so onboarding tests see first-run state
   const dataPath = path.join(VAULT_ROOT, '.obsidian', 'data.json');
   if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);

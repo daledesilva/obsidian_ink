@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 /** Open the FileConversionModal for the given file and wait for the Convert button, then click it. */
 async function convertFileViaModal(filePath: string, toType: 'inkDrawing' | 'inkWriting') {
@@ -51,6 +52,7 @@ describe("File Conversion (write <-> draw)", function () {
 			async () => browser.executeObsidian(({ app }) => !!app.plugins.plugins["ink"]),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 	});
 
 	it("converts a writing SVG to drawing via pane menu", async function () {

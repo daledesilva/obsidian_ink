@@ -72,6 +72,17 @@ npm run test:e2e
 
 This builds the plugin, regenerates the qa-test-vault, and runs E2E specs against Obsidian. The first run downloads Obsidian into `.obsidian-cache/`. Requires Node.js and a supported OS (Windows, macOS, Linux).
 
+**E2E popup handling**
+
+Both Ink and Excalidraw are pre-seeded so their welcome popups do not appear:
+
+1. **Ink** — `generate.mjs` pre-seeds `.obsidian/plugins/ink/data.json` with `welcomeTipRead: true` and `lastVersionTipRead` set. The onboarding spec explicitly resets these flags and reloads the plugin to test the first-run flow.
+2. **Excalidraw** — `generate.mjs` pre-seeds `.obsidian/plugins/obsidian-excalidraw-plugin/data.json` with `previousRelease` set to the installed plugin version, so the release notes modal does not show.
+
+`tests/e2e/helpers/dismiss-popups.ts` provides `dismissBlockingPopups()` as a fallback (e.g. Ink notice if pre-seed ever fails). Every E2E spec’s `before` hook (except onboarding) calls it after `reloadObsidian` and `waitForPluginReady`.
+
+**Skipped specs** — `embeds-in-admonition.e2e.ts` and `embeds-in-columns.e2e.ts` are skipped with `describe.skip` because Ink embeds inside Admonition code fences or column layouts do not render in the e2e environment (content in code blocks is opaque to the markdown parser; column layouts may require additional setup such as the MCL CSS snippet).
+
 - **Manual vault inspection** (open Obsidian without running tests):
 
 ```bash

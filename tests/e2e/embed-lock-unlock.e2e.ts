@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 ////////
 // Shared setup
@@ -57,6 +58,7 @@ describe("Embed Lock/Unlock — Current Writing", function () {
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
+		await dismissBlockingPopups();
 	});
 
 	it("unlocks and re-locks without breaking the embed", async function () {
@@ -79,6 +81,7 @@ describe("Embed Lock/Unlock — Current Drawing", function () {
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
+		await dismissBlockingPopups();
 	});
 
 	it("unlocks and re-locks without breaking the embed", async function () {
@@ -101,6 +104,7 @@ describe("Embed Lock/Unlock — Legacy v1 Writing", function () {
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
+		await dismissBlockingPopups();
 	});
 
 	it("unlocks and re-locks without breaking the embed", async function () {
@@ -126,6 +130,7 @@ describe("Embed Lock/Unlock — Legacy v1 Drawing", function () {
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
+		await dismissBlockingPopups();
 	});
 
 	it("unlocks and re-locks without breaking the embed", async function () {

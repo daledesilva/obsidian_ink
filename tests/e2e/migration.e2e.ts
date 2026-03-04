@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 describe("Legacy Embed Migration", function () {
 	before(async function () {
@@ -8,6 +9,7 @@ describe("Legacy Embed Migration", function () {
 			async () => browser.executeObsidian(({ app }) => !!app.plugins.plugins["ink"]),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 	});
 
 	it("legacy writing embed renders before migration", async function () {
@@ -213,6 +215,7 @@ describe("Migration: cancel", function () {
 			async () => browser.executeObsidian(({ app }) => !!app.plugins.plugins["ink"]),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 	});
 
 	it("cancelling at the confirm phase leaves all files and notes unchanged", async function () {
@@ -284,6 +287,7 @@ describe("Migration: multi-note embed update", function () {
 			async () => browser.executeObsidian(({ app }) => !!app.plugins.plugins["ink"]),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 	});
 
 	it("migration updates embed strings in ALL affected notes (writing and drawing)", async function () {

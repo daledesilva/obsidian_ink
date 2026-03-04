@@ -40,6 +40,10 @@ download_plugin() {
 download_plugin "tnichols217/obsidian-columns"        "obsidian-columns"
 download_plugin "ckRobinson/multi-column-markdown"    "multi-column-markdown"
 download_plugin "javalent/admonitions"                "obsidian-admonition"
+download_plugin "mgmeyers/obsidian-kanban"            "obsidian-kanban"
+download_plugin "xhuajin/obsidian-tabs"               "tabs"
+download_plugin "nothingislost/obsidian-hover-editor" "obsidian-hover-editor"
+download_plugin "zsviczian/obsidian-excalidraw-plugin" "obsidian-excalidraw-plugin"
 
 echo ""
 echo "Done. Plugins downloaded to $PLUGINS_DIR"

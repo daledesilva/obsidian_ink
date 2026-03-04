@@ -1,6 +1,11 @@
 import { browser, expect } from "@wdio/globals";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 describe("Ink Settings", function () {
+  before(async function () {
+    await dismissBlockingPopups();
+  });
+
   it("can open settings and Ink plugin is loaded", async function () {
     await browser.executeObsidianCommand("app:open-settings");
 

@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 const PREVIEW_SELECTOR = ".ddc_ink_writing-embed-preview, .ddc_ink_drawing-embed-preview";
@@ -65,6 +66,7 @@ PATH_SCENARIOS.forEach((scenario) => {
 		before(async function () {
 			await browser.reloadObsidian({ vault: "qa-test-vault" });
 			await waitForPluginReady();
+			await dismissBlockingPopups();
 		});
 
 		it("cross-folder paste — writing embed resolves in different folder", async function () {
@@ -159,6 +161,7 @@ describe("Embed Copy-Paste Paths — relative path (scenario-independent)", func
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
+		await dismissBlockingPopups();
 	});
 
 	it("relative path — pasted into different folder shows not-found (path wrong in new context)", async function () {

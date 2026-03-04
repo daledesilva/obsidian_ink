@@ -1,7 +1,12 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 describe("Legacy Format (v1)", function () {
+  before(async function () {
+    await dismissBlockingPopups();
+  });
+
   it("renders v1 writing embed", async function () {
     await obsidianPage.openFile("02 - Legacy Format/V1 Writing Embed.md");
 

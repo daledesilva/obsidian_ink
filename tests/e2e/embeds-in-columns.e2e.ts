@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 
@@ -9,8 +10,22 @@ const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 // render, but the ink embeds themselves should still be present and correctly
 // sized. Run `npm run download-test-plugins` before these tests to install the
 // community plugins and verify full column layout behaviour.
+//
+// SKIP: Ink embeds inside column layouts (callouts, MCL, etc.) do not render
+// in the e2e environment—either the view mode or the container DOM structure
+// prevents our CodeMirror widgets from appearing. MCL also requires a CSS
+// snippet that is not downloaded by the test plugin script.
 
 describe("Embeds in Column Layouts", function () {
+  before(async function () {
+    await browser.reloadObsidian({ vault: "qa-test-vault" });
+    await browser.waitUntil(
+      async () =>
+        browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)["ink"]),
+      { timeout: 15000 }
+    );
+    await dismissBlockingPopups();
+  });
 
   // ─── Obsidian Columns plugin ([!col] callout) ──────────────────────────────
 
@@ -19,8 +34,11 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - Obsidian Columns.md"
       );
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 2,
+        { timeout: 10000, interval: 250 }
+      );
       const embeds = await $$(EMBED_SELECTOR);
-      await embeds[0]?.waitForExist({ timeout: 10000 });
       expect(embeds.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -28,9 +46,12 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - Obsidian Columns.md"
       );
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 2,
+        { timeout: 10000, interval: 250 }
+      );
       const embeds = await $$(EMBED_SELECTOR);
       for (const embed of embeds) {
-        await embed.waitForExist({ timeout: 10000 });
         const overflow = await browser.execute((el: Element) => {
           const parent = el.closest(".callout") ?? el.parentElement;
           if (!parent) return false;
@@ -50,8 +71,11 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - Multi-Column Layout.md"
       );
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 2,
+        { timeout: 10000, interval: 250 }
+      );
       const embeds = await $$(EMBED_SELECTOR);
-      await embeds[0]?.waitForExist({ timeout: 10000 });
       expect(embeds.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -59,9 +83,12 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - Multi-Column Layout.md"
       );
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 2,
+        { timeout: 10000, interval: 250 }
+      );
       const embeds = await $$(EMBED_SELECTOR);
       for (const embed of embeds) {
-        await embed.waitForExist({ timeout: 10000 });
         const overflow = await browser.execute((el: Element) => {
           // Multi-Column Markdown wraps columns in a div matching '[class*="column"]'
           const parent = el.closest('[class*="column"]') ?? el.parentElement;
@@ -82,8 +109,11 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - MCL List Grid.md"
       );
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 2,
+        { timeout: 10000, interval: 250 }
+      );
       const embeds = await $$(EMBED_SELECTOR);
-      await embeds[0]?.waitForExist({ timeout: 10000 });
       expect(embeds.length).toBeGreaterThanOrEqual(2);
     });
 
@@ -91,9 +121,12 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - MCL List Grid.md"
       );
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 2,
+        { timeout: 10000, interval: 250 }
+      );
       const embeds = await $$(EMBED_SELECTOR);
       for (const embed of embeds) {
-        await embed.waitForExist({ timeout: 10000 });
         const overflow = await browser.execute((el: Element) => {
           const parent = el.closest("li") ?? el.parentElement;
           if (!parent) return false;
@@ -113,10 +146,13 @@ describe("Embeds in Column Layouts", function () {
       await obsidianPage.openFile(
         "04b - Callouts and Layout Containers/In Columns - All Methods.md"
       );
-      const embeds = await $$(EMBED_SELECTOR);
-      await embeds[0]?.waitForExist({ timeout: 15000 });
       // Page has writing + drawing in 5 sections (2-col MCM, Obsidian Columns,
       // MCL callout, MCL list-grid, 3-col MCM) = at least 6 embeds expected.
+      await browser.waitUntil(
+        async () => (await $$(EMBED_SELECTOR)).length >= 6,
+        { timeout: 15000, interval: 250 }
+      );
+      const embeds = await $$(EMBED_SELECTOR);
       expect(embeds.length).toBeGreaterThanOrEqual(6);
     });
   });

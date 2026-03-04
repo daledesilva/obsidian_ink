@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 const NOT_FOUND_BANNER = ".ddc_ink_pending-banner--not-found";
@@ -54,6 +55,7 @@ describe("Locate File Embed", function () {
 			async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)["ink"]),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 	});
 
 	it("file-not-found banner shows path and Locate button", async function () {

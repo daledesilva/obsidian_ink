@@ -357,10 +357,12 @@ function generateAllNotes() {
   writeFile('07 - Theme and Layout/Embed After Horizontal Rule.md', `# After HR\n\n---\n${w('hello-world.svg')}`);
 
   // 08 Plugin
-  writeFile('08 - Plugin Compatibility/Kanban - Board with Ink.md', `---\ncssclasses: kanban\n---\n\n## Column A\n- ${w('hello-world.svg')}\n\n## Column B\n- ${d('simple-shape.svg')}`);
+  writeFile('08 - Plugin Compatibility/Kanban - Board with Ink.md', `---\n\nkanban-plugin: basic\n\n---\n\n## Column A\n\n- [ ]${w('hello-world.svg')}\n\n## Column B\n\n- [ ]${w('multi-line.svg')}\n\n%% kanban:settings\n\`\`\`\n{"kanban-plugin":"basic"}\n\`\`\`\n%%`);
   writeFile('08 - Plugin Compatibility/Tabs - Tabbed Ink Content.md', `# Tabs\n\n\`\`\`tabs\ntab: Tab 1\n${w('hello-world.svg')}\ntab: Tab 2\n${d('simple-shape.svg')}\n\`\`\``);
   writeFile('08 - Plugin Compatibility/Slides Extended - Presentation.md', `# Slide 1\n\n${w('hello-world.svg')}\n\n---\n\n# Slide 2\n\n${d('simple-shape.svg')}\n\n---\n\n# Slide 3`);
   writeFile('08 - Plugin Compatibility/Tasks - Alongside Ink.md', `# Tasks\n\n- [ ] Task 1\n${w('hello-world.svg')}\n- [ ] Task 2\n${d('simple-shape.svg')}\n- [x] Task 3`);
+  const excalidrawJson = JSON.stringify({type:'excalidraw',version:2,source:'https://excalidraw.com',elements:[{type:'rectangle',version:1,versionNonce:1,isDeleted:false,id:'rect1',fillStyle:'hachure',strokeWidth:1,strokeStyle:'solid',roughness:1,opacity:100,angle:0,x:50,y:50,strokeColor:'#000000',backgroundColor:'none',width:100,height:60,seed:1,groupIds:[],frameId:null,roundness:null,boundElements:[],updated:1,link:null,locked:false}],appState:{gridSize:null,viewBackgroundColor:'#ffffff'},files:{}});
+  writeFile('08 - Plugin Compatibility/sample.excalidraw', excalidrawJson);
   writeFile('08 - Plugin Compatibility/Excalidraw - Coexistence.md', `# Excalidraw\n\n${w('hello-world.svg')}\n\n![[sample.excalidraw]]\n\n${d('simple-shape.svg')}`);
   writeFile('08 - Plugin Compatibility/Style Settings - Variable Widths.md', `# Style Settings\n\n${w('hello-world.svg')}`);
   writeFile('08 - Plugin Compatibility/Better Export PDF - Print Test.md', `# PDF Export\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
@@ -487,11 +489,54 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   // Note: Modular CSS Layout (MCL) is a CSS snippet only — it is NOT a community plugin
   // and cannot be listed here. The [!multi-column] and #mcl/list-grid pages will render
   // via standard callout/list fallback unless the MCL CSS snippet is also installed.
-  writeFile('.obsidian/community-plugins.json', JSON.stringify(['obsidian-columns', 'multi-column-markdown', 'obsidian-admonition'], null, 2));
+  writeFile('.obsidian/community-plugins.json', JSON.stringify([
+    'obsidian-columns',
+    'multi-column-markdown',
+    'obsidian-admonition',
+    'obsidian-kanban',
+    'tabs',
+    'obsidian-hover-editor',
+    'obsidian-excalidraw-plugin',
+  ], null, 2));
   writeFile('.obsidian/app.json', JSON.stringify({ safeMode: false }, null, 2));
   // Clear plugin persistence so onboarding tests see first-run state
   const dataPath = path.join(VAULT_ROOT, '.obsidian', 'data.json');
   if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
+  // Pre-seed Ink plugin data so the welcome popup does not show during e2e tests.
+  // The onboarding test explicitly resets welcomeTipRead and reloads the plugin to test first-run flow.
+  const inkPluginDir = path.join(VAULT_ROOT, '.obsidian', 'plugins', 'ink');
+  ensureDir(inkPluginDir);
+  const inkPluginData = {
+    onboardingTips: { welcomeTipRead: true, strokeLimitTipRead: false, lastVersionTipRead: PLUGIN_VERSION },
+    customAttachmentFolders: false,
+    noteAttachmentFolderLocation: 'obsidian',
+    notelessAttachmentFolderLocation: 'root',
+    writingSubfolder: 'Ink/Writing',
+    drawingSubfolder: 'Ink/Drawing',
+    writingEnabled: true,
+    writingStrokeLimit: 200,
+    writingBufferLines: 3,
+    writingDynamicStrokeThickness: true,
+    writingSmoothing: false,
+    writingLinesWhenLocked: true,
+    writingBackgroundWhenLocked: true,
+    drawingEnabled: true,
+    drawingFrameWhenLocked: false,
+    drawingBackgroundWhenLocked: false,
+  };
+  fs.writeFileSync(path.join(inkPluginDir, 'data.json'), JSON.stringify(inkPluginData, null, 2), 'utf8');
+  // Pre-seed Excalidraw plugin so the "Welcome to Excalidraw" release notes modal does not show.
+  // The modal shows when previousRelease < PLUGIN_VERSION. Setting previousRelease to the installed
+  // version suppresses it. Read version from manifest so we stay in sync when the plugin is updated.
+  const excalidrawPluginDir = path.join(VAULT_ROOT, '.obsidian', 'plugins', 'obsidian-excalidraw-plugin');
+  const excalidrawManifestPath = path.join(excalidrawPluginDir, 'manifest.json');
+  if (fs.existsSync(excalidrawManifestPath)) {
+    ensureDir(excalidrawPluginDir);
+    const excalidrawManifest = JSON.parse(fs.readFileSync(excalidrawManifestPath, 'utf8'));
+    const excalidrawVersion = excalidrawManifest?.version ?? '2.20.6';
+    const excalidrawData = { previousRelease: excalidrawVersion };
+    fs.writeFileSync(path.join(excalidrawPluginDir, 'data.json'), JSON.stringify(excalidrawData, null, 2), 'utf8');
+  }
   console.log('Done. Vault at', VAULT_ROOT);
 }
 

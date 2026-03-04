@@ -1,7 +1,12 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 describe("Ink Plugin Commands", function () {
+  before(async function () {
+    await dismissBlockingPopups();
+  });
+
   it("plugin is loaded", async function () {
     const pluginLoaded = await browser.executeObsidian(({ app }) => {
       return !!app.plugins.plugins["ink"];

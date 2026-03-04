@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 ////////
 // Notes
@@ -227,6 +228,7 @@ describe("Writing Embed Buffer Lines — Settings", function () {
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 		// Reset to the current default
 		await setBufferLines(3);
 	});
@@ -299,6 +301,7 @@ describe("Writing Embed Buffer Lines — Mount Resize", function () {
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 		await setBufferLines(3);
 	});
 
@@ -382,6 +385,7 @@ describe("Writing Embed Buffer Lines — Sequential Add", function () {
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 		await setBufferLines(3);
 		await openWritingEditor(DYNAMIC_NOTE);
 		await installBrowserHelpers();
@@ -465,6 +469,7 @@ describe("Writing Embed Buffer Lines — Sequential Erase", function () {
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 		await setBufferLines(3);
 		await openWritingEditor(DYNAMIC_NOTE);
 		await installBrowserHelpers();
@@ -534,6 +539,7 @@ describe("Writing Embed Buffer Lines — Add, Erase, Add Again", function () {
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 		await setBufferLines(3);
 		await openWritingEditor(DYNAMIC_NOTE);
 		await installBrowserHelpers();
@@ -587,6 +593,7 @@ describe("Writing Embed Buffer Lines — Minimum Height Floor", function () {
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 	});
 
 	after(async function () {
@@ -656,6 +663,7 @@ describe("Writing Embed Buffer Lines — Setting Respected at Runtime", function
 				),
 			{ timeout: 15000 }
 		);
+		await dismissBlockingPopups();
 		await setBufferLines(3);
 		await openWritingEditor(DYNAMIC_NOTE);
 		await installBrowserHelpers();

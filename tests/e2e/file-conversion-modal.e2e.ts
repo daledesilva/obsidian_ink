@@ -1,5 +1,6 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
+import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ describe('FileConversionModal', function () {
 			async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 			{ timeout: 15000 },
 		);
+		await dismissBlockingPopups();
 	});
 
 	// ─── Scan phase ─────────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ describe('FileConversionModal', function () {
 				async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 				{ timeout: 15000 },
 			);
+			await dismissBlockingPopups();
 		});
 
 		it('modal opens and transitions from scan to confirm phase', async function () {
@@ -123,6 +126,7 @@ describe('FileConversionModal', function () {
 				async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 				{ timeout: 15000 },
 			);
+			await dismissBlockingPopups();
 		});
 
 		it('scan finds both notes that embed the writing file', async function () {
@@ -223,6 +227,7 @@ describe('FileConversionModal', function () {
 				async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 				{ timeout: 15000 },
 			);
+			await dismissBlockingPopups();
 		});
 
 		it('converts drawing SVG to writing and updates embed string in note', async function () {
@@ -286,6 +291,7 @@ describe('FileConversionModal', function () {
 				async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 				{ timeout: 15000 },
 			);
+			await dismissBlockingPopups();
 		});
 
 		it('moves the file to the drawing subfolder when the move option is accepted', async function () {
@@ -363,6 +369,7 @@ describe('FileConversionModal', function () {
 				async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 				{ timeout: 15000 },
 			);
+			await dismissBlockingPopups();
 		});
 
 		it('cancelling the modal leaves the file and notes unchanged', async function () {
@@ -435,6 +442,7 @@ describe('FileConversionModal', function () {
 				async () => browser.executeObsidian(({ app }) => !!(app.plugins.plugins as any)['ink']),
 				{ timeout: 15000 },
 			);
+			await dismissBlockingPopups();
 		});
 
 		it('shows "other notes" wording when triggered from an embed (sourceMdFile set)', async function () {

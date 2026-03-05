@@ -319,38 +319,6 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
     update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
 
-
-        // TODO: This should map the changes first?
-        // prevEmbeds = prevEmbeds.map(transaction.changes);
-
-        // TODO: See here and use transaction.effects to add things:
-        // https://codemirror.net/examples/decoration/
-        // But this will mean inserting an embed will need to cause an effect.
-        // Which would be good, but also won't help when document loads?
-
-
-
-        // if it's not the first run, check if widgets need to be reinitialized first.
-        // Skip updates if there are no changes to the markdown content.
-        // To prevent the react components in the widgets remounting.
-        const firstRun = prevEmbeds.size === 0;
-        
-        // Update highlight state for existing widgets when selection changes
-        if (!firstRun && transaction.changes.empty && transaction.selection) {
-            updateWidgetHighlights(transaction, prevEmbeds);
-        }
-        
-        // Check for refresh effect and extract viewportFrom if present
-        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
-        const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value as number | void;
-        
-        if ( !firstRun && transaction.changes.empty && !hasRefreshEffect) {
-                return prevEmbeds;
-        }
-        // debug(['transaction.changes', transaction.changes], {freeze: true});
-
-        
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
         const activeEditor = activeView?.editor;
         if (!activeEditor) return prevEmbeds;
@@ -358,11 +326,22 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
         // @ts-expect-error, not typed
         const cmEditorView = activeEditor.cm as EditorView;
         const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
+        if (!isLivePreview) return Decoration.none;
 
-        // const isReadingView = activeView.getMode() === 'preview';
-        
-        if (!isLivePreview) {
-            return Decoration.none;
+        const firstRun = prevEmbeds.size === 0;
+
+        // Update highlight state for existing widgets when selection changes
+        if (!firstRun && transaction.changes.empty && transaction.selection) {
+            updateWidgetHighlights(transaction, prevEmbeds);
+        }
+
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
+        const hasRefreshEffect = !!refreshEffect;
+        const viewportFrom = refreshEffect?.value as number | void;
+
+        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
+            return prevEmbeds;
         }
 
         const builder = new RangeSetBuilder<Decoration>();

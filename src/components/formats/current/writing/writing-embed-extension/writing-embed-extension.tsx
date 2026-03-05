@@ -316,22 +316,6 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
     update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
 
-        const firstRun = prevEmbeds.size === 0;
-        
-        // Update highlight state for existing widgets when selection changes
-        if (!firstRun && transaction.changes.empty && transaction.selection) {
-            updateWidgetHighlightsWriting(transaction, prevEmbeds);
-        }
-        
-        // Check for refresh effect and extract viewportFrom if present
-        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
-        const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value as number | void;
-        
-        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
-            return prevEmbeds;
-        }
-
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
         const activeEditor = activeView?.editor;
         if (!activeEditor) return prevEmbeds;
@@ -340,6 +324,22 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         const cmEditorView = activeEditor.cm as EditorView;
         const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
         if (!isLivePreview) return Decoration.none;
+
+        const firstRun = prevEmbeds.size === 0;
+
+        // Update highlight state for existing widgets when selection changes
+        if (!firstRun && transaction.changes.empty && transaction.selection) {
+            updateWidgetHighlightsWriting(transaction, prevEmbeds);
+        }
+
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
+        const hasRefreshEffect = !!refreshEffect;
+        const viewportFrom = refreshEffect?.value as number | void;
+
+        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
+            return prevEmbeds;
+        }
 
         const builder = new RangeSetBuilder<Decoration>();
 

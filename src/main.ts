@@ -20,10 +20,8 @@ import { drawingEmbedExtension, registerDrawingEmbed } from './components/format
 import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
 import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
-import { insertRememberedWritingFile_v1 } from './commands/insert-remembered-writing-file-v1';
 import { insertExistingWritingFile_v1 } from './commands/insert-existing-writing-file-v1';
 import { insertExistingDrawingFile_v1 } from './commands/insert-existing-drawing-file-v1';
-import { insertRememberedDrawingFile_v1 } from './commands/insert-remembered-drawing-file-v1';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
@@ -156,12 +154,6 @@ function implementWritingEmbedActions_v1(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'insert-copied-writing-v1',
-		name: 'Copied handwriting section (Legacy)',
-		icon: 'clipboard-pen',
-		editorCallback: (editor: Editor) => insertRememberedWritingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
 		id: 'embed-writing-file-v1',
 		name: 'Existing handwriting section (Legacy)',
 		icon: 'folder-pen',
@@ -196,12 +188,6 @@ function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
 		name: 'New drawing (Legacy)',
 		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'insert-copied-drawing-v1',
-		name: 'Copied drawing (Legacy)',
-		icon: 'clipboard-pen-line',
-		editorCallback: (editor: Editor) => insertRememberedDrawingFile_v1(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-drawing-file-v1',

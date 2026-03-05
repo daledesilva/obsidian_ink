@@ -1,5 +1,9 @@
 # Copy & paste embeds
 
+## Copy
+
+To copy an ink embed, select its markdown in the editor and use Ctrl+C (or Cmd+C). The embed text (including the image link and Edit link) is copied to the clipboard. No menu action or command is needed.
+
 ## Why it exists
 
 When a user copies an ink embed and pastes it into a note, the plugin needs to know whether to create a shared reference to the same underlying file, or to produce an independent duplicate. This doc describes how that decision is surfaced and resolved.

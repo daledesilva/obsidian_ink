@@ -6,7 +6,6 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
@@ -90,12 +89,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	}, [])
 
 	const commonExtendedOptions = [
-		{
-			text: 'Copy embed',
-			action: async () => {
-				await rememberDrawingFile(props.embeddedFile as TFile);
-			}
-		},
 		{
 			text: 'Convert to Writing',
 			action: () => {

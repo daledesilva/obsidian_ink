@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
-import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
@@ -101,13 +100,6 @@ export function WritingEmbed (props: {
 	// }
 
 	const commonExtendedOptions = [
-		{
-			text: 'Copy embed',
-			action: async () => {
-				if (!props.writingFileRef) return;
-				await rememberWritingFile(props.plugin, props.writingFileRef);
-			}
-		},
 		{
 			text: 'Convert to Drawing',
 			action: () => {

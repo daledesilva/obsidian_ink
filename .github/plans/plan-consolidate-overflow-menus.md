@@ -13,7 +13,7 @@ Move ink-specific file actions (currently in Obsidian's native "more options" pa
 ### Current state
 - The **Drawing full-page view** (`drawing-view.tsx`) registers a `onPaneMenu` entry called **"Convert to Writing"**. This appears in Obsidian's native three-dot/more-options menu (the pane header menu).
 - The **Writing full-page view** (`writing-view.tsx`) similarly registers **"Convert to Drawing"** in the same Obsidian pane menu.
-- Both views already render an **`ExtendedDrawingMenu`** / **`ExtendedWritingMenu`** which contains a lock button and an `OverflowMenu`. The Drawing overflow menu already has **"Copy embed"** and **"Grid on/off"** items.
+- Both views already render an **`ExtendedDrawingMenu`** / **`ExtendedWritingMenu`** which contains a lock button and an `OverflowMenu`. The Drawing overflow menu already has **"Grid on/off"** (copy is done via text selection + Ctrl+C).
 - The Writing view currently passes no `menuOptions` to its overflow, meaning its overflow button exists in the component but does nothing visible.
 
 ### Why consolidate
@@ -67,7 +67,7 @@ Having ink-only options buried in Obsidian's generic pane menu (alongside unrela
 Add a short note to `docs/` (e.g. `pen-vs-finger-handling.md` or a new `ux-decisions.md`) explaining this decision:
 
 > **Ink options live in the ink overflow menu, not the Obsidian pane menu.**
-> All actions specific to an ink file (conversion, grid toggle, copy embed, etc.) are surfaced in the overflow (⋯) button inside the ink canvas / view, rather than in Obsidian's generic "more options" pane header menu. This keeps ink-related options grouped, discoverable, and consistent whether the file is open as a full-page view or viewed as an embed.
+> All actions specific to an ink file (conversion, grid toggle, etc.) are surfaced in the overflow (⋯) button inside the ink canvas / view, rather than in Obsidian's generic "more options" pane header menu. Copy is done via text selection and Ctrl+C. This keeps ink-related options grouped, discoverable, and consistent whether the file is open as a full-page view or viewed as an embed.
 
 ---
 
@@ -86,7 +86,7 @@ Add a short note to `docs/` (e.g. `pen-vs-finger-handling.md` or a new `ux-decis
 ---
 
 ## Testing
-- Open a `.inkDrawing.svg` file — confirm the overflow (⋯) button shows "Copy embed", "Grid on/off", and **"Convert to Writing"**. Confirm Obsidian's "more options" menu no longer shows "Convert to Writing".
+- Open a `.inkDrawing.svg` file — confirm the overflow (⋯) button shows "Grid on/off" and **"Convert to Writing"**. Confirm Obsidian's "more options" menu no longer shows "Convert to Writing".
 - Open a `.inkWriting.svg` file — confirm the overflow (⋯) button shows **"Convert to Drawing"**. Confirm Obsidian's "more options" menu no longer shows "Convert to Drawing".
 - Trigger "Convert to Writing" from the drawing overflow — confirm the `FileConversionModal` opens correctly and conversion succeeds.
 - Trigger "Convert to Drawing" from the writing overflow — same check.

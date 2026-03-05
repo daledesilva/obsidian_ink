@@ -7,7 +7,6 @@ import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/dr
 import { 
 	Provider as JotaiProvider
 } from "jotai";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
@@ -24,12 +23,6 @@ export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
     return [
-        {
-            text: 'Copy embed',
-            action: async () => {
-                await rememberDrawingFile(fileRef);
-            }
-        },
         {
             text: 'Convert to Writing',
             action: () => {

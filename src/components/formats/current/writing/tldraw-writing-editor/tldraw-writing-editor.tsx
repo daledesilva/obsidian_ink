@@ -356,6 +356,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						menuOptions = {props.extendedMenu}
 					/>
 				)}
+				{!props.embedded && props.extendedMenu && (
+					<ExtendedWritingMenu
+						menuOptions = {props.extendedMenu}
+					/>
+				)}
 			</PrimaryMenuBar>
 
 		</div>

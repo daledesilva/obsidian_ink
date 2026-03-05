@@ -1,4 +1,4 @@
-import { Menu, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_V1_EXT } from "src/constants";
@@ -28,6 +28,15 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
             text: 'Copy embed',
             action: async () => {
                 await rememberDrawingFile(fileRef);
+            }
+        },
+        {
+            text: 'Convert to Writing',
+            action: () => {
+                if (!fileRef) return;
+                new FileConversionModal(plugin, fileRef, 'inkWriting', {
+                    onConversionComplete: () => openInkFile(fileRef),
+                }).open();
             }
         },
     ]
@@ -186,20 +195,6 @@ export class DrawingView extends TextFileView {
     }
 
     // onResize()
-
-    onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
-        menu.addItem((item) => {
-            item.setTitle('Convert to Writing');
-            item.setSection('action');
-            item.onClick(() => {
-                if (!this.file) return;
-                new FileConversionModal(this.plugin, this.file, 'inkWriting', {
-                    onConversionComplete: () => openInkFile(this.file!),
-                }).open();
-            });
-        });
-        super.onPaneMenu(menu, source);
-    }
 
 }
 

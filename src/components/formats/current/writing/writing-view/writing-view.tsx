@@ -1,4 +1,4 @@
-import { Menu, TextFileView, WorkspaceLeaf } from "obsidian";
+import { TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import InkPlugin from "src/main";
@@ -116,12 +116,23 @@ export class WritingView extends TextFileView {
         this.hostEl = host;
 
         this.root = createRoot(host);
-		this.root.render(
+        this.root.render(
             <TldrawWritingEditor
                 plugin = {this.plugin}
                 writingFile = {this.file}
                 save = {this.saveFile}
                 saveControlsReference = {this.registerEditorControls}
+                extendedMenu = {[
+                    {
+                        text: 'Convert to Drawing',
+                        action: () => {
+                            if (!this.file) return;
+                            new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
+                                onConversionComplete: () => openInkFile(this.file!),
+                            }).open();
+                        }
+                    }
+                ]}
 			/>
         );
     }
@@ -163,21 +174,6 @@ export class WritingView extends TextFileView {
         // TODO: Currently this doesn't refresh the width stored in the camera limits, so removed it for now
         // if(this.tldrawControls.resize) this.tldrawControls.resize();
     }
-
-    onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
-        menu.addItem((item) => {
-            item.setTitle('Convert to Drawing');
-            item.setSection('action');
-            item.onClick(() => {
-                if (!this.file) return;
-                new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
-                    onConversionComplete: () => openInkFile(this.file!),
-                }).open();
-            });
-        });
-        super.onPaneMenu(menu, source);
-    }
-
 
     async onClose(): Promise<void> {
         // Save current state before unmounting to prevent empty SVG

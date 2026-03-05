@@ -210,4 +210,8 @@ Troubleshooting:
 - Errors complaining about missing DOM APIs (e.g., `matchMedia`, `IntersectionObserver`) — add or extend shims in `tests/setupTests.ts`.
 - ESM packages failing with “Cannot use import statement outside a module” — add them to `transformIgnorePatterns` or mock them.
 
+### Related documentation
+
+- [Blocked features](blocked-features.md) — Features that are incomplete or non-functional and what's needed to unblock them.
+
 

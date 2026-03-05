@@ -13,3 +13,7 @@
 ### Embed extensions and Source mode
 
 The writing and drawing embed extensions must check `editorLivePreviewField` **before** the early-return optimisation that skips updates when there are no document changes and no refresh effect. If the mode check runs after that early return, widgets incorrectly persist when the user switches to Obsidian Source mode. The `isLivePreview` check must run first so that we return `Decoration.none` when in Source mode, regardless of whether the transaction has document changes.
+
+### Related documentation
+
+- [Blocked features](blocked-features.md) — Reading mode embed sizing and other incomplete features.

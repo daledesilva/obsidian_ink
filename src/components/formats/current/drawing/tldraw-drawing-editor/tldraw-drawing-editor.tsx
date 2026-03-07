@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import * as React from "react";
 import { TFile } from 'obsidian';
+import InkPlugin from 'src/main';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
@@ -18,13 +19,19 @@ import { verbose } from 'src/logic/utils/log-to-console';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { DrawingEmbedState, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
+import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
+import { register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
+import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 ///////
 ///////
 
 interface TldrawDrawingEditor_Props {
     onReady?: Function,
+	embedId?: string,
 	drawingFile: TFile,
+	plugin?: InkPlugin,
 	save: (pageData: InkFileData) => void,
 	extendedMenu?: any[]
 
@@ -102,6 +109,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			})
 		}
 
+		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change
+		if (props.embedded && props.embedId && props.plugin && editorWrapperRefEl.current) {
+			initialize(getObsidianUndoDepth(props.plugin), getTldrawNumUndos(editor));
+			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current);
+		}
 
 		// Make visible once prepared
 		if(editorWrapperRefEl.current) {
@@ -112,11 +124,26 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const removeUserActionListener = editor.store.listen((entry) => {
 
 			const activity = getActivityType(entry);
-			switch (activity) {
-				case Activity.PointerMoved:
-					// REVIEW: Consider whether things are being erased
-					break;
+			if (activity === Activity.PointerMoved) {
+				return;
+			}
 
+			const shouldSyncForActivity =
+				activity === Activity.DrawingCompleted ||
+				activity === Activity.DrawingErased ||
+				activity === Activity.CameraMovedAutomatically ||
+				activity === Activity.CameraMovedManually ||
+				activity === Activity.Unclassified;
+
+			if (props.embedded && props.embedId && shouldSyncForActivity) {
+				const options =
+					activity === Activity.DrawingCompleted || activity === Activity.DrawingErased
+						? { maxTldrawDelta: 1 }
+						: undefined;
+				syncUnifiedUndoHistory(props.embedId, options);
+			}
+
+			switch (activity) {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					break;
@@ -155,6 +182,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
+			if (props.embedded && props.embedId) {
+				unregisterInkEditor(props.embedId);
+			}
 		}
 
 		if(props.saveControlsReference) {
@@ -258,7 +288,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getDrawingSvg(editor);
 
-		
 		if(svgObj?.svg) {
 			const pageData = buildDrawingFileData({
 				tlEditorSnapshot,

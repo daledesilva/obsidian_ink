@@ -96,7 +96,8 @@ const config: Config = {
     "\\.(svg)$": "<rootDir>/tests/__mocks__/fileMock.js",
     "^src/(.*)$": "<rootDir>/src/$1",
     "^src/main$": "<rootDir>/tests/__mocks__/mainMock.js",
-    "^obsidian$": "<rootDir>/tests/__mocks__/obsidianMock.js"
+    "^obsidian$": "<rootDir>/tests/__mocks__/obsidianMock.js",
+    "^@codemirror/commands$": "<rootDir>/tests/__mocks__/codemirror-commands.js"
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader

@@ -44,6 +44,7 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
+	embedId?: string,
 	writingFileRef: TFile | null,
 	partialEmbedFilepath: string,
     pageData?: InkFileData,
@@ -201,6 +202,7 @@ export function WritingEmbed (props: {
 
 					<TldrawWritingEditorWrapper
 						plugin = {props.plugin} // TODO: Try and remove this
+						embedId = {props.embedId}
 						onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
 						writingFile = {props.writingFileRef}
 						save = {props.save}

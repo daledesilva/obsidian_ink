@@ -64,6 +64,7 @@ export class WritingEmbedWidget extends WidgetType {
             <JotaiProvider>
                 <WritingEmbed
                     plugin={plugin}
+                    embedId={this.id}
                     writingFileRef={this.embeddedFile}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                     embedSettings={this.embedSettings}

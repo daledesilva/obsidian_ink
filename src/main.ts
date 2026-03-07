@@ -27,6 +27,7 @@ import { registerDrawingView } from './components/formats/current/drawing/drawin
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
 import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
 import { findNotesContainingFileEmbed, executeFileConversion } from './logic/utils/convert-file-embeds';
+import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 
 ////////
 ////////
@@ -61,6 +62,7 @@ export default class InkPlugin extends Plugin {
 			// Current
 			registerWritingView(this);
 			registerWritingEmbed(this);
+			registerUnifiedUndoRedo(this);
 			implementWritingEmbedActions(this);
 			
 			// Legacy v1's are on to allow displaying, but not creating
@@ -74,6 +76,7 @@ export default class InkPlugin extends Plugin {
 			// Current
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
+			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
 			implementDrawingEmbedActions(this);
 
 			// Legacy v1's are on to allow displaying, but not creating

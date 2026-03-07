@@ -45,6 +45,7 @@ export type DrawingEditorControls = {
 }
 
 interface DrawingEmbed_Props {
+	embedId?: string,
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
 	saveSrcFile: (pageData: InkFileData) => {},
@@ -194,6 +195,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					/>
 				
 	                <TldrawDrawingEditorWrapper
+						embedId = {props.embedId}
+						plugin = {getGlobals().plugin}
 						onReady = {() => {}}
 						drawingFile = {props.embeddedFile}
 						save = {props.saveSrcFile}

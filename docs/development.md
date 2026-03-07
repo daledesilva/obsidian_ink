@@ -213,5 +213,7 @@ Troubleshooting:
 ### Related documentation
 
 - [Blocked features](blocked-features.md) — Features that are incomplete or non-functional and what's needed to unblock them.
+- [Undo/redo for ink embeds](undo-redo.md) — Conceptual approach and alternatives.
+- [Undo/redo implementation](undo-redo-implementation.md) — Technical details, data flow, and integration points.
 
 

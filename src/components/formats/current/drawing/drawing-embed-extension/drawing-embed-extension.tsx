@@ -80,6 +80,7 @@ export class DrawingEmbedWidget extends WidgetType {
         root.render(
             <JotaiProvider>
                 <DrawingEmbed
+                    embedId={this.id}
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     saveSrcFile={this.save}

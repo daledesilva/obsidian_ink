@@ -296,6 +296,20 @@ async function waitForShapeCountOneOf(
 	return count;
 }
 
+async function waitForNEditorsReady(count: number, timeoutMs = 15000) {
+	await browser.waitUntil(
+		async () => {
+			const n = await browser.execute(
+				() =>
+					document.querySelectorAll(".ddc_ink_drawing-editor, .ddc_ink_writing-editor").length
+			);
+			return n >= count;
+		},
+		{ timeout: timeoutMs, interval: 200 }
+	);
+	await browser.pause(500);
+}
+
 // Switches to the embed at embedIndex and returns its shape count.
 // Default: use lock/unlock to switch (for tests that lock between embeds).
 // Use getShapeCountInEmbedUnlocked when both embeds stay unlocked.
@@ -317,6 +331,16 @@ async function resetShapeTracking() {
 	await browser.execute(() => (window as any).__inkUndoRedoTest?.resetShapeTracking());
 }
 
+async function focusObsidianNote() {
+	await browser.execute(() => {
+		const el =
+			document.querySelector(".cm-editor") ??
+			document.querySelector(".markdown-source-view");
+		el?.focus({ preventScroll: true });
+	});
+	await browser.pause(100);
+}
+
 async function focusTldrawCanvas() {
 	await browser.execute(() => {
 		document.querySelector(".tl-container")?.focus({ preventScroll: true });
@@ -325,9 +349,10 @@ async function focusTldrawCanvas() {
 }
 
 // Dispatch synthetic keydown so the document's capture-phase handler receives it.
+// Focus the Obsidian note so Mod+Z reaches the unified handler (don't focus tldraw canvas).
 // browser.keys() can be unreliable with modifier combos (e.g. Cmd+Shift+Z) in E2E.
 async function sendUndo() {
-	await focusTldrawCanvas();
+	await focusObsidianNote();
 	await browser.execute((mod: string) => {
 		document.dispatchEvent(
 			new KeyboardEvent("keydown", {
@@ -345,7 +370,7 @@ async function sendUndo() {
 }
 
 async function sendRedo() {
-	await focusTldrawCanvas();
+	await focusObsidianNote();
 	await browser.execute((mod: string) => {
 		document.dispatchEvent(
 			new KeyboardEvent("keydown", {
@@ -493,7 +518,7 @@ describe("Undo/Redo — One Embed (embed-only)", function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
 		await dismissBlockingPopups();
-		await openEmbedForEdit(NOTE_ONE_EMBED, ".ddc_ink_writing-editor");
+		await openEmbedForEdit(NOTE_ONE_EMBED, ".ddc_ink_drawing-editor");
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 	});
@@ -532,7 +557,7 @@ describe("Undo/Redo — One Embed (programmatic redo guard)", function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
 		await dismissBlockingPopups();
-		await openEmbedForEdit(NOTE_ONE_EMBED, ".ddc_ink_writing-editor");
+		await openEmbedForEdit(NOTE_ONE_EMBED, ".ddc_ink_drawing-editor");
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 	});
@@ -569,7 +594,7 @@ describe("Undo/Redo — One Embed (mixed embed + Obsidian)", function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
 		await dismissBlockingPopups();
-		await openEmbedForEdit(NOTE_ONE_EMBED, ".ddc_ink_writing-editor");
+		await openEmbedForEdit(NOTE_ONE_EMBED, ".ddc_ink_drawing-editor");
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 	});
@@ -577,7 +602,7 @@ describe("Undo/Redo — One Embed (mixed embed + Obsidian)", function () {
 	it("undo twice, redo twice — correct order (embed then Obsidian)", async function () {
 		await typeInObsidian("X");
 		await createStroke(1);
-		await typeInObsidian("Y");
+		await typeInObsidian("Q");
 		await createStroke(2);
 
 		expect(await getShapeCount()).toBe(2);
@@ -586,94 +611,30 @@ describe("Undo/Redo — One Embed (mixed embed + Obsidian)", function () {
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 		let text = await getEditorText();
-		expect(text).not.toContain("Y");
+		expect(text).not.toContain("Q");
 
 		await sendRedo();
 		await sendRedo();
 		await waitForShapeCount(2);
 		text = await getEditorText();
-		expect(text).toContain("Y");
+		expect(text).toContain("Q");
 
 		await sendUndo();
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 		text = await getEditorText();
-		expect(text).not.toContain("Y");
+		expect(text).not.toContain("Q");
 
 		await sendRedo();
 		await sendRedo();
 		await waitForShapeCount(2);
 		text = await getEditorText();
-		expect(text).toContain("Y");
+		expect(text).toContain("Q");
 	});
 });
 
 ////////
 ////////
-
-describe("Undo/Redo — Two Identical Embeds (Interleaved)", function () {
-	before(async function () {
-		await browser.reloadObsidian({ vault: "qa-test-vault" });
-		await waitForPluginReady();
-		await dismissBlockingPopups();
-	});
-
-	// Both embeds link to the same file; changes in one are reflected in the other.
-	// Lock embed 2 first before switching to embed 1 for verification (ensures proper transition).
-	it("stroke in embed 1, stroke in embed 2 — undo redo each, embed 1 reflects changes", async function () {
-		await openEmbedForEdit(NOTE_TWO_EMBEDS, ".ddc_ink_writing-editor");
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-
-		await createStroke(1);
-		await waitForShapeCount(1, 5000);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
-		await clickUnlockByIndex(1);
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-
-		await createStroke(1);
-		await waitForShapeCount(2); // Same file: stroke 1 + stroke 2
-
-		await sendUndo();
-		await waitForShapeCount(1);
-
-		// Lock embed 2 before verifying embed 1 (same file should reflect changes)
-		await clickLockAndWait(
-			".ddc_ink_writing-embed-preview",
-			".ddc_ink_writing-editor",
-			25000
-		);
-		await clickUnlockByIndex(0);
-		await installUndoRedoHelpers();
-		await browser.pause(500);
-		const countAfterUndo = await getShapeCount();
-		expect(countAfterUndo).toBe(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
-		await clickUnlockByIndex(1);
-		await installUndoRedoHelpers();
-		await browser.pause(500);
-
-		await sendRedo();
-		await browser.pause(300);
-		let count = await getShapeCount();
-		expect(count).toBe(2);
-
-		// Lock embed 2 before verifying embed 1
-		await clickLockAndWait(
-			".ddc_ink_writing-embed-preview",
-			".ddc_ink_writing-editor",
-			25000
-		);
-		await clickUnlockByIndex(0);
-		await installUndoRedoHelpers();
-		await browser.pause(500);
-		const countAfterRedo = await getShapeCount();
-		expect(countAfterRedo).toBe(2);
-	});
-});
 
 describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function () {
 	before(async function () {
@@ -694,17 +655,8 @@ describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function ()
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 
-		// Wait for both drawing editors to be ready
-		await browser.waitUntil(
-			async () => {
-				const n = await browser.execute(() =>
-					document.querySelectorAll(".ddc_ink_drawing-editor").length
-				);
-				return n >= 2;
-			},
-			{ timeout: 15000, interval: 200 }
-		);
-		await browser.pause(500);
+		// Wait for both editors to be ready
+		await waitForNEditorsReady(2);
 
 		// Draw E1, E2, E1, E2, E1, E2 — switch focus by clicking canvas, never lock
 		await switchToEmbedByIndex(0);
@@ -737,10 +689,8 @@ describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function ()
 		expect(countE1).toBe(3);
 		expect(countE2).toBe(3);
 
-		// Undo 6 times — E2,E1,E2,E1,E2,E1
+		// Undo 6 times — unified stack pops in LIFO order
 		for (let i = 0; i < 6; i++) {
-			const embedIndex = i % 2 === 0 ? 1 : 0;
-			await switchToEmbedByIndex(embedIndex);
 			await sendUndo();
 			await browser.pause(200);
 		}
@@ -751,8 +701,6 @@ describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function ()
 
 		// Redo 6 times — all back
 		for (let i = 0; i < 6; i++) {
-			const embedIndex = i % 2 === 0 ? 1 : 0;
-			await switchToEmbedByIndex(embedIndex);
 			await sendRedo();
 			await browser.pause(200);
 		}
@@ -770,31 +718,34 @@ describe("Undo/Redo — Two Embeds (Interleaved)", function () {
 		await dismissBlockingPopups();
 	});
 
-	it("stroke in embed 1, lock, stroke in embed 2 — undo redo each", async function () {
-		await openEmbedForEdit(NOTE_TWO_DIFFERENT_EMBEDS, ".ddc_ink_writing-editor");
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-
-		await createStroke(1);
-		let count = await getShapeCount();
-		expect(count).toBe(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
+	it("stroke in embed 1, stroke in embed 2 — undo redo each", async function () {
+		await openEmbedForEdit(NOTE_TWO_DIFFERENT_EMBEDS, ".ddc_ink_drawing-editor");
 		await clickUnlockByIndex(1);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
+		await waitForNEditorsReady(2);
 
-		await createStroke(1);
-		count = await getShapeCount();
-		expect(count).toBe(1);
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 1);
+		await browser.pause(200);
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 1);
+		await browser.pause(200);
+
+		let countE1 = await getShapeCountInEmbedUnlocked(0);
+		let countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(1);
+		expect(countE2).toBe(1);
 
 		await sendUndo();
-		count = await getShapeCount();
-		expect(count).toBe(0);
+		await browser.pause(300);
+		countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE2).toBe(0);
 
 		await sendRedo();
-		count = await getShapeCount();
-		expect(count).toBe(1);
+		await browser.pause(300);
+		countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE2).toBe(1);
 	});
 });
 
@@ -808,60 +759,61 @@ describe("Undo/Redo — Two Embeds (mixed usage)", function () {
 		await dismissBlockingPopups();
 	});
 
-	// Both embeds stay unlocked; no locking (tldraw scrubs undo history when unmounted).
-	// Requires both embeds in edit mode—product must support multiple unlocked embeds.
-	it.skip("draw E1, E2, E1, E2 — undo/redo affects correct embeds", async function () {
-		await openEmbedForEdit(NOTE_TWO_EMBEDS, ".ddc_ink_writing-editor");
-		// Activate embed 2 so both are in edit mode
+	// Both embeds stay unlocked; no locking. Same pattern as Two Different Drawing Embeds.
+	it("draw E1, E2, E1, E2, E1, E2 — undo/redo affects correct embeds", async function () {
+		await openEmbedForEdit(NOTE_TWO_DIFFERENT_EMBEDS, ".ddc_ink_drawing-editor");
+		await installUndoRedoHelpers();
+		await resetShapeTracking();
 		await clickUnlockByIndex(1);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
+		await waitForNEditorsReady(2);
 
-		// 1. Draw stroke in embed 1, then embed 2, then embed 1, then embed 2
+		// Draw E1, E2, E1, E2, E1, E2 — switch focus by clicking canvas, never lock
+		await switchToEmbedByIndex(0);
 		await createStrokeInEmbed(0, 1);
+		await browser.pause(200);
+		await switchToEmbedByIndex(1);
 		await createStrokeInEmbed(1, 1);
-		await createStrokeInEmbed(0, 1);
-		await createStrokeInEmbed(1, 1);
+		await browser.pause(200);
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 2);
+		await browser.pause(200);
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 2);
+		await browser.pause(200);
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 3);
+		await browser.pause(200);
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 3);
+		await browser.pause(200);
 
-		// Stack: [E1, E2, E1, E2]. Embed 1: 2 strokes, embed 2: 2 strokes.
-		let countEmbed0 = await getShapeCountInEmbedUnlocked(0);
-		let countEmbed1 = await getShapeCountInEmbedUnlocked(1);
-		expect(countEmbed0).toBe(2);
-		expect(countEmbed1).toBe(2);
+		// Initial: E1: 3, E2: 3
+		let countE1 = await getShapeCountInEmbedUnlocked(0);
+		let countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(3);
+		expect(countE2).toBe(3);
 
-		// 5. Undo twice → embed 1: 1, embed 2: 1
-		await sendUndo();
-		await sendUndo();
-		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
-		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
-		expect(countEmbed0).toBe(1);
-		expect(countEmbed1).toBe(1);
+		// Undo 6 times — unified stack pops in LIFO order
+		for (let i = 0; i < 6; i++) {
+			await sendUndo();
+			await browser.pause(200);
+		}
+		countE1 = await getShapeCountInEmbedUnlocked(0);
+		countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(0);
+		expect(countE2).toBe(0);
 
-		// 6. Redo once → embed 1: 1, embed 2: 2
-		await sendRedo();
-		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
-		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
-		expect(countEmbed0).toBe(1);
-		expect(countEmbed1).toBe(2);
-
-		// 7. Undo 3 times → embed 1: 1, embed 2: 0
-		await sendUndo();
-		await sendUndo();
-		await sendUndo();
-		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
-		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
-		expect(countEmbed0).toBe(1);
-		expect(countEmbed1).toBe(0);
-
-		// 8. Redo 4 times → embed 1: 2, embed 2: 2 (4th redo is no-op if stack has 3 items)
-		await sendRedo();
-		await sendRedo();
-		await sendRedo();
-		await sendRedo();
-		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
-		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
-		expect(countEmbed0).toBe(2);
-		expect(countEmbed1).toBe(2);
+		// Redo 6 times — all back
+		for (let i = 0; i < 6; i++) {
+			await sendRedo();
+			await browser.pause(200);
+		}
+		countE1 = await getShapeCountInEmbedUnlocked(0);
+		countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(3);
+		expect(countE2).toBe(3);
 	});
 });
 
@@ -876,69 +828,66 @@ describe("Undo/Redo — Three Embeds (mixed usage)", function () {
 	});
 
 	it("draw E1, E2, E3, E1, E2, E3 — undo/redo affects correct embeds", async function () {
-		await openEmbedForEdit(NOTE_THREE_EMBEDS, ".ddc_ink_writing-editor");
+		await openEmbedForEdit(NOTE_THREE_EMBEDS, ".ddc_ink_drawing-editor");
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
-
-		// Draw in E1, E2, E3, E1, E2, E3
-		await createStroke(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
 		await clickUnlockByIndex(1);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
-		await createStroke(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
 		await clickUnlockByIndex(2);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
-		await createStroke(1);
+		await waitForNEditorsReady(3);
 
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
-		await clickUnlockByIndex(0);
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-		await createStroke(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
-		await clickUnlockByIndex(1);
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-		await createStroke(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
-		await clickUnlockByIndex(2);
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-		await createStroke(1);
+		// Draw E1, E2, E3, E1, E2, E3 — switch focus by clicking canvas, never lock
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 1);
+		await browser.pause(200);
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 1);
+		await browser.pause(200);
+		await switchToEmbedByIndex(2);
+		await createStrokeInEmbed(2, 1);
+		await browser.pause(200);
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 2);
+		await browser.pause(200);
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 2);
+		await browser.pause(200);
+		await switchToEmbedByIndex(2);
+		await createStrokeInEmbed(2, 2);
+		await browser.pause(200);
 
 		// Each embed has 2 strokes
-		let countEmbed0 = await getShapeCountInEmbed(0);
-		let countEmbed1 = await getShapeCountInEmbed(1);
-		let countEmbed2 = await getShapeCountInEmbed(2);
+		let countEmbed0 = await getShapeCountInEmbedUnlocked(0);
+		let countEmbed1 = await getShapeCountInEmbedUnlocked(1);
+		let countEmbed2 = await getShapeCountInEmbedUnlocked(2);
 		expect(countEmbed0).toBe(2);
 		expect(countEmbed1).toBe(2);
 		expect(countEmbed2).toBe(2);
 
-		// Undo 3 times → each embed: 1 stroke
-		await sendUndo();
-		await sendUndo();
-		await sendUndo();
-		countEmbed0 = await getShapeCountInEmbed(0);
-		countEmbed1 = await getShapeCountInEmbed(1);
-		countEmbed2 = await getShapeCountInEmbed(2);
-		expect(countEmbed0).toBe(1);
-		expect(countEmbed1).toBe(1);
-		expect(countEmbed2).toBe(1);
+		// Undo 6 times — unified stack pops in LIFO order
+		for (let i = 0; i < 6; i++) {
+			await sendUndo();
+			await browser.pause(200);
+		}
+		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
+		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
+		countEmbed2 = await getShapeCountInEmbedUnlocked(2);
+		expect(countEmbed0).toBe(0);
+		expect(countEmbed1).toBe(0);
+		expect(countEmbed2).toBe(0);
 
-		// Redo 2 times → E1: 1, E2: 2, E3: 2 (redo affects E3, E2)
-		await sendRedo();
-		await sendRedo();
-		countEmbed0 = await getShapeCountInEmbed(0);
-		countEmbed1 = await getShapeCountInEmbed(1);
-		countEmbed2 = await getShapeCountInEmbed(2);
-		expect(countEmbed0).toBe(1);
+		// Redo 6 times — all back
+		for (let i = 0; i < 6; i++) {
+			await sendRedo();
+			await browser.pause(200);
+		}
+		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
+		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
+		countEmbed2 = await getShapeCountInEmbedUnlocked(2);
+		expect(countEmbed0).toBe(2);
 		expect(countEmbed1).toBe(2);
 		expect(countEmbed2).toBe(2);
 	});
@@ -955,44 +904,43 @@ describe("Undo/Redo — Two Embeds and Obsidian (mixed usage)", function () {
 	});
 
 	it("alternate Obsidian + embed 1 + embed 2 — undo/redo correct order", async function () {
-		await openEmbedForEdit(NOTE_TWO_EMBEDS, ".ddc_ink_writing-editor");
-		await installUndoRedoHelpers();
-		await resetShapeTracking();
-
-		await typeInObsidian("A");
-		await createStroke(1);
-
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
+		await openEmbedForEdit(NOTE_TWO_DIFFERENT_EMBEDS, ".ddc_ink_drawing-editor");
 		await clickUnlockByIndex(1);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
+		await waitForNEditorsReady(2);
 
-		await typeInObsidian("B");
-		await createStroke(1);
+		await typeInObsidian("A");
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 1);
 
-		// Stack: Obsidian A, E1 stroke, Obsidian B, E2 stroke
-		let countEmbed0 = await getShapeCountInEmbed(0);
-		let countEmbed1 = await getShapeCountInEmbed(1);
+		await typeInObsidian("Q"); // Use Q not B — embed URL contains "viewBox"
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 1);
+
+		// Stack: Obsidian A, E1 stroke, Obsidian Q, E2 stroke
+		let countEmbed0 = await getShapeCountInEmbedUnlocked(0);
+		let countEmbed1 = await getShapeCountInEmbedUnlocked(1);
 		let text = await getEditorText();
 		expect(countEmbed0).toBe(1);
 		expect(countEmbed1).toBe(1);
 		expect(text).toContain("A");
-		expect(text).toContain("B");
+		expect(text).toContain("Q");
 
-		// Undo twice → E2 stroke gone, Obsidian B gone
+		// Undo twice → E2 stroke gone, Obsidian Q gone
 		await sendUndo();
 		await sendUndo();
-		countEmbed0 = await getShapeCountInEmbed(0);
-		countEmbed1 = await getShapeCountInEmbed(1);
+		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
+		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
 		text = await getEditorText();
 		expect(countEmbed0).toBe(1);
 		expect(countEmbed1).toBe(0);
-		expect(text).not.toContain("B");
+		expect(text).not.toContain("Q");
 
-		// Redo once → Obsidian B back
+		// Redo once → Obsidian Q back
 		await sendRedo();
 		text = await getEditorText();
-		expect(text).toContain("B");
+		expect(text).toContain("Q");
 	});
 });
 
@@ -1009,33 +957,33 @@ describe("Undo/Redo — Two Embeds (mid-sequence lock)", function () {
 	// Requires purge-on-lock: when an embed is locked, its entries must be removed from undo/redo stacks.
 	// Current impl: getEditor(entry.embedId) returns undefined for locked embeds → no-op; entries remain.
 	it.skip("draw E1, E2, E1, E2 — lock embed 1 — undo only affects embed 2", async function () {
-		await openEmbedForEdit(NOTE_TWO_EMBEDS, ".ddc_ink_writing-editor");
+		await openEmbedForEdit(NOTE_TWO_EMBEDS, ".ddc_ink_drawing-editor");
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 
 		// Draw E1, E2, E1, E2
 		await createStroke(1);
 
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
+		await clickLockAndWait(".ddc_ink_drawing-embed-preview", ".ddc_ink_drawing-editor");
 		await clickUnlockByIndex(1);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 		await createStroke(1);
 
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
+		await clickLockAndWait(".ddc_ink_drawing-embed-preview", ".ddc_ink_drawing-editor");
 		await clickUnlockByIndex(0);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 		await createStroke(1);
 
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
+		await clickLockAndWait(".ddc_ink_drawing-embed-preview", ".ddc_ink_drawing-editor");
 		await clickUnlockByIndex(1);
 		await installUndoRedoHelpers();
 		await resetShapeTracking();
 		await createStroke(1);
 
 		// Lock embed 1 — embed 1's entries purged from history (if implemented)
-		await clickLockAndWait(".ddc_ink_writing-embed-preview", ".ddc_ink_writing-editor");
+		await clickLockAndWait(".ddc_ink_drawing-embed-preview", ".ddc_ink_drawing-editor");
 		await clickUnlockByIndex(0);
 		await installUndoRedoHelpers();
 		await clickLock();

@@ -18,6 +18,7 @@ import {
 	notifyUndoExecuted,
 	notifyRedoExecuted,
 	getUndoStackSnapshot,
+	setProgrammaticRedoInProgress,
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
 function formatStackForLog(snapshot: readonly UnifiedUndoEntry[]): string {
@@ -33,8 +34,6 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 	const isRedo = (event.metaKey || event.ctrlKey) && event.key === 'z' && event.shiftKey;
 	if (!isUndo && !isRedo) return;
 
-	console.log('Received Undo or Redo action');
-
 	const activeEmbedId = getActiveEmbedId();
 	if (activeEmbedId === null) {
 		return;
@@ -43,7 +42,6 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 	event.preventDefault();
 	event.stopPropagation();
 
-	console.log("About to sync obsidian changes")
 	syncUnifiedUndoHistory(activeEmbedId);
 
 	if (isUndo) {
@@ -53,17 +51,24 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 		}
 		const entry = popUndo();
 		if (!entry) return;
+		notifyUndoExecuted(entry);
 		executeUndo(plugin, entry, activeEmbedId);
 		pushRedo(entry);
-		notifyUndoExecuted(entry);
 		verbose(`[undo-redo] Undo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot())}`);
 	} else {
 		if (isRedoStackEmpty()) return;
 		const entry = popRedo();
 		if (!entry) return;
-		executeRedo(plugin, entry, activeEmbedId);
-		pushUndo(entry);
 		notifyRedoExecuted(entry);
+		setProgrammaticRedoInProgress(true, plugin);
+		try {
+			executeRedo(plugin, entry, activeEmbedId);
+		} finally {
+			// Clear flag after a tick; store.listen may run in a macrotask after editor.redo() returns
+			const pluginRef = plugin;
+			setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+		}
+		pushUndo(entry);
 		verbose(`[undo-redo] Redo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot())}`);
 	}
 }

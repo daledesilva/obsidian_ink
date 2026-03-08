@@ -55,6 +55,29 @@ In `editor.store.listen` (tldraw store), when a user change is detected (excludi
 - If `"obsidian"`: call `editor.redo()` on the active MarkdownView
 - Push the popped entry onto the undo stack
 
+### Programmatic redo
+
+When we call `editor.redo()` on tldraw, the store updates and `store.listen` fires. Without a guard, sync would see the increased undo count, add an embed entry, and clear the redo stack—wiping the user's ability to redo further. We set a flag (`plugin.__inkProgrammaticRedoInProgress`) before `executeRedo` and clear it after 50ms. When sync sees the flag, it updates the baseline and returns early without adding entries or clearing the redo stack. See [undo-redo-implementation.md](undo-redo-implementation.md) for details.
+
+```mermaid
+flowchart LR
+    subgraph Before [Before fix]
+        B1[Redo] --> B2[executeRedo]
+        B2 --> B3[store.listen]
+        B3 --> B4[sync adds entry]
+        B4 --> B5[redoStack cleared]
+    end
+
+    subgraph After [After fix]
+        A1[Redo] --> A2[Set flag true]
+        A2 --> A3[executeRedo]
+        A3 --> A4[store.listen]
+        A4 --> A5{Flag set?}
+        A5 -->|yes| A6[Skip add/clear]
+        A6 --> A7[redoStack preserved]
+    end
+```
+
 ### When undo stack is empty and user presses Mod+Z
 
 Do not lock the embed. Instead, show an Obsidian notification:

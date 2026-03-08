@@ -8,7 +8,7 @@ Technical documentation for the unified undo/redo stack used when ink embeds are
 
 The internal undo history is synced in two places:
 
-**1. store.listen (canvas changes)** — When the user changes the canvas (stroke, erase, camera move), we call `syncUnifiedUndoHistory` for completion-level activities, with `maxTldrawDelta: 1` for draw/erase so each stroke adds one entry.
+**1. Switch branches (stroke completed/erased)** — When the user completes a stroke or erases, the store.listen switch hits `DrawingCompleted` or `DrawingErased`. We call `syncUnifiedUndoHistory` with `maxTldrawDelta: 1` just before `queueOrRunStorePostProcesses`. Programmatic undo/redo does not trigger these branches, so the redo stack is not cleared when the user redos.
 
 **2. Keydown (Mod+Z / Mod+Shift+Z)** — Before popping and executing undo/redo, we call `syncUnifiedUndoHistory(activeEmbedId)` to capture any Obsidian edits since the last tldraw action.
 
@@ -16,10 +16,10 @@ The internal undo history is synced in two places:
 flowchart TD
     subgraph storeListen [store.listen flow]
         A1[User changes canvas] --> A2[store.listen fires]
-        A2 --> A3{Completion-level activity?}
-        A3 -->|DrawingCompleted, DrawingErased, etc| A4["**SYNC: syncUnifiedUndoHistory**"]
-        A3 -->|PointerMoved, DrawingStarted, etc| A5[Skip]
-        A4 --> A6[Add Obsidian + embed entries to stack]
+        A2 --> A3{DrawingCompleted or DrawingErased?}
+        A3 -->|yes| A4["**SYNC: syncUnifiedUndoHistory**"]
+        A3 -->|no| A5[Skip sync]
+        A4 --> A6[queueOrRunStorePostProcesses]
     end
 
     subgraph keydown [Keydown flow]
@@ -35,6 +35,57 @@ flowchart TD
 
 ---
 
+## Programmatic redo guard
+
+When the user presses Mod+Shift+Z, we call `editor.redo()` on tldraw. That restores shapes and updates the store. tldraw's `store.listen` fires (with `source: 'user'`), the DrawingCompleted/DrawingErased branch runs, and `syncUnifiedUndoHistory` is called. Without a guard, sync would see `getNumUndos()` increased, add an embed entry, and clear the redo stack—wiping the user's ability to redo further.
+
+We use a flag stored on the plugin instance (`plugin.__inkProgrammaticRedoInProgress`). Before `executeRedo`, we set it to `true`; when sync runs and sees it set, we skip adding entries and clearing the redo stack, but still update the baseline. We clear the flag after 50ms via `setTimeout` so any async `store.listen` callback that runs after `editor.redo()` returns still sees it. The keyboard handler passes the plugin explicitly so the flag is set on the same instance that sync reads via `getGlobals().plugin`.
+
+### Redo flow with guard (sequence)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Handler
+    participant Stack
+    participant Execute
+    participant Store
+    participant Sync
+
+    User->>Handler: Mod+Shift+Z
+    Handler->>Stack: syncUnifiedUndoHistory
+    Handler->>Stack: popRedo
+    Handler->>Handler: setProgrammaticRedoInProgress true
+    Handler->>Execute: executeRedo editor.redo
+    Execute->>Store: editor.redo
+    Store->>Sync: store.listen fires
+    Sync->>Sync: isProgrammaticRedoInProgress yes
+    Sync->>Sync: Update baseline return skip add and clear
+    Sync-->>Execute: return
+    Execute-->>Handler: return
+    Handler->>Handler: setTimeout clear flag 50ms
+    Handler->>Stack: pushUndo
+```
+
+### Sync decision tree with guard
+
+```mermaid
+flowchart TD
+    A[syncUnifiedUndoHistory called] --> B[getObsidianUndoDepth getTldrawNumUndos]
+    B --> C{isProgrammaticRedoInProgress}
+    C -->|yes| D[Update prevObsidianDepth prevTldrawUndos]
+    D --> E[Return early skip add and clear]
+    C -->|no| F[Compute obsidianDelta tldrawDelta]
+    F --> G[Add entries to undo stack]
+    G --> H{added.length greater than 0}
+    H -->|yes| I[Clear redo stack]
+    H -->|no| J[Skip]
+    I --> K[Update baseline]
+    J --> K
+```
+
+---
+
 ## Files and modules
 
 | File | Purpose |
@@ -45,35 +96,33 @@ flowchart TD
 | `src/logic/undo-redo/keyboard-handler.ts` | Global keydown handler for Mod+Z and Mod+Shift+Z |
 
 **Wiring points:**
-- `TldrawWritingEditor.handleMount` / `TldrawDrawingEditor.handleMount` — register editor, sync in store.listen
+- `TldrawWritingEditor.handleMount` / `TldrawDrawingEditor.handleMount` — register editor, store.listen calls sync just before `queueOrRunStorePostProcesses` in DrawingCompleted/DrawingErased branches
 - `main.ts` — call `registerUnifiedUndoRedo(plugin)` on load when writing/drawing enabled
 
 ---
 
 ## Data flow
 
-### Sync (when tldraw store fires)
+### Sync (when stroke completed or erased)
 
-`syncUnifiedUndoHistory` runs **only on completion-level activities** to avoid duplicate entries per stroke. `store.listen` fires for `DrawingStarted`, `DrawingContinued`, and `DrawingCompleted`; we sync only on `DrawingCompleted`, `DrawingErased`, `CameraMovedManually`, `CameraMovedAutomatically`, and `Unclassified`. This ensures one logical stroke produces one embed entry.
+`syncUnifiedUndoHistory` runs just before `queueOrRunStorePostProcesses` in the `DrawingCompleted` and `DrawingErased` switch branches. We use `maxTldrawDelta: 1` so each stroke produces one embed entry. Programmatic `editor.undo()` / `editor.redo()` do not trigger these branches, so the redo stack is not cleared when the user redos.
 
 ```mermaid
 flowchart TD
-    subgraph SyncFlow [store.listen callback]
-        A[User change in tldraw canvas] --> B[Skip if PointerMoved]
-        B --> C{Completion-level activity?}
-        C -->|no| C1[Skip sync]
-        C -->|yes| D[getObsidianUndoDepth]
-        D --> E{obsidianDepth increased?}
-        E -->|yes| F[Add N obsidian entries to undo stack]
-        E -->|no| G[Skip]
-        F --> H[getTldrawNumUndos]
-        G --> H
-        H --> I{tldrawUndos increased?}
-        I -->|yes| J[Add M embed entries with embedId]
-        I -->|no| K[Skip]
-        J --> L[Update prevObsidianDepth prevTldrawUndos]
-        K --> L
-        L --> M[Clear redo stack]
+    subgraph SyncFlow [DrawingCompleted / DrawingErased switch branch]
+        A[DrawingCompleted or DrawingErased] --> B[syncUnifiedUndoHistory with maxTldrawDelta 1]
+        B --> C[getObsidianUndoDepth]
+        C --> D{obsidianDepth increased?}
+        D -->|yes| E[Add N obsidian entries to undo stack]
+        D -->|no| F[Skip]
+        E --> G[getTldrawNumUndos]
+        F --> G
+        G --> H{tldrawUndos increased?}
+        H -->|yes| I[Add M embed entries with embedId capped at 1]
+        H -->|no| J[Skip]
+        I --> K[Update prevObsidianDepth prevTldrawUndos]
+        J --> K
+        K --> L[Clear redo stack if entries added]
     end
 ```
 
@@ -151,7 +200,7 @@ function getObsidianRedoDepth(plugin: InkPlugin): number;  // for completeness
 2. `TldrawWritingEditor` / `TldrawDrawingEditor` mounts, `handleMount` runs
 3. In `handleMount`: call `initialize(getObsidianUndoDepth(plugin), getTldrawNumUndos(editor))`
 4. Register editor in registry with `embedId`
-5. Add store.listen that calls `syncUnifiedUndoHistory` on user changes
+5. Add store.listen that calls sync just before `queueOrRunStorePostProcesses` in DrawingCompleted/DrawingErased branches
 6. On unmount: unregister from registry
 
 ---
@@ -162,7 +211,7 @@ function getObsidianRedoDepth(plugin: InkPlugin): number;  // for completeness
 |----------|--------|
 | `WritingEmbedWidget` / `DrawingEmbedWidget` | Pass `widget.id` as `embedId` to WritingEmbed / DrawingEmbed |
 | `WritingEmbed` / `DrawingEmbed` | Pass `embedId` to TldrawWritingEditor / TldrawDrawingEditor |
-| `TldrawWritingEditor.handleMount` | Initialize stack, register editor, add sync to store.listen |
+| `TldrawWritingEditor.handleMount` | Initialize stack, register editor; sync just before queueOrRunStorePostProcesses in DrawingCompleted/DrawingErased branches |
 | `TldrawDrawingEditor.handleMount` | Same as writing |
 | `main.ts onload` | Call `registerUnifiedUndoRedo(plugin)` when writing or drawing enabled |
 
@@ -186,9 +235,9 @@ The keyboard handler checks `embedStateAtom` (writing) and `embedStateAtom_v2` (
 
 ## Technical gotchas
 
-### Programmatic undo guard
+### Programmatic undo/redo and sync placement
 
-When we call `editor.undo()` or `editor.redo()` on Obsidian, that triggers a document change. We do **not** have a separate Obsidian listener; we only sync in store.listen. Our undo decreases Obsidian's undoDepth, so the next store.listen would see a *decrease*, not an increase. We only add when depth *increases*. Therefore we naturally skip recording our own programmatic undos. No explicit guard needed for the sync path.
+Sync runs just before `queueOrRunStorePostProcesses` in the `DrawingCompleted` and `DrawingErased` switch branches. When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires—so sync *does* run during redo. Without a guard, that sync would add entries and clear the redo stack. We use `isProgrammaticRedoInProgress` (see Programmatic redo guard below). For Obsidian: we have no separate Obsidian listener; we only sync from these branches or keydown. Our undo decreases Obsidian's undoDepth, so we only add when depth *increases*.
 
 ### Programmatic saves
 
@@ -212,6 +261,16 @@ When null, we treat undo depth as 0. The handler should not crash.
 
 Writing uses `embedStateAtom`; drawing uses `embedStateAtom_v2`. Both use a single global atom, so only one embed is in edit mode at a time across the app. The keyboard handler must check both when deciding whether to capture.
 
-### Two tldraw history marks per stroke
+### Two tldraw history marks per logical action
 
 tldraw creates two history marks per draw stroke: one when the shape is added to the store, another when `isComplete` is set to true. We only sync on completion-level activities (e.g. `DrawingCompleted`), so we sync once per stroke—but at that moment `getNumUndos()` has already increased by 2, yielding `tldrawDelta = 2`. Without mitigation, we would add two embed entries per stroke. We cap `tldrawDelta` to 1 for `DrawingCompleted` and `DrawingErased` via `syncUnifiedUndoHistory(..., { maxTldrawDelta: 1 })`, so each stroke produces one embed entry. The keydown handler does not pass this option so all pending tldraw changes are synced before undo/redo.
+
+### Programmatic redo guard
+
+When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires with `source: 'user'`. The sync in the DrawingCompleted/DrawingErased branches would see an increased `getNumUndos()`, add entries, and clear the redo stack—wiping the user's ability to redo further. tldraw's history mark count per redo is not reliably 1 or 2, so we use a flag instead.
+
+**Flag storage:** Stored on the plugin instance (`plugin.__inkProgrammaticRedoInProgress`) so it is shared even if the build produces multiple module instances. The keyboard handler passes the plugin explicitly: `setProgrammaticRedoInProgress(true, plugin)`.
+
+**Timing:** We set the flag before `executeRedo`. We clear it with `setTimeout(..., 50)` in a `finally` block—`store.listen` may run asynchronously (e.g. in a macrotask) after `editor.redo()` returns, so the 50ms delay keeps the flag true long enough for that sync to see it and skip.
+
+**When the flag is set:** Sync updates the baseline (`prevObsidianDepth`, `prevTldrawUndos`) and returns early—no entries added, redo stack not cleared.

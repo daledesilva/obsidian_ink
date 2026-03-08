@@ -142,26 +142,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				return;
 			}
 
-			const shouldSyncForActivity =
-				activity === Activity.DrawingCompleted ||
-				activity === Activity.DrawingErased ||
-				activity === Activity.CameraMovedAutomatically ||
-				activity === Activity.CameraMovedManually ||
-				activity === Activity.Unclassified;
-
-			if (props.embedded && props.embedId && shouldSyncForActivity) {
-				const options =
-					activity === Activity.DrawingCompleted || activity === Activity.DrawingErased
-						? { maxTldrawDelta: 1 }
-						: undefined;
-				syncUnifiedUndoHistory(props.embedId, options);
-			}
-
 			switch (activity) {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					if(cameraLimitsRef.current) restrictWritingCamera(editor, cameraLimitsRef.current);
 					unstashStaleContent(editor);
+					if (props.embedded && props.embedId) {
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					break;
 
 				case Activity.DrawingStarted:
@@ -174,10 +162,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					break;
 							
 				case Activity.DrawingCompleted:
+					if (props.embedded && props.embedId) {
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					queueOrRunStorePostProcesses(editor);
 					break;
 					
 				case Activity.DrawingErased:
+					if (props.embedded && props.embedId) {
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					queueOrRunStorePostProcesses(editor);
 					break;
 					

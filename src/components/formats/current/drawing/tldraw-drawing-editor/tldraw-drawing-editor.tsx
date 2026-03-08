@@ -128,21 +128,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				return;
 			}
 
-			const shouldSyncForActivity =
-				activity === Activity.DrawingCompleted ||
-				activity === Activity.DrawingErased ||
-				activity === Activity.CameraMovedAutomatically ||
-				activity === Activity.CameraMovedManually ||
-				activity === Activity.Unclassified;
-
-			if (props.embedded && props.embedId && shouldSyncForActivity) {
-				const options =
-					activity === Activity.DrawingCompleted || activity === Activity.DrawingErased
-						? { maxTldrawDelta: 1 }
-						: undefined;
-				syncUnifiedUndoHistory(props.embedId, options);
-			}
-
 			switch (activity) {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
@@ -157,11 +142,20 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					break;
 
 				case Activity.DrawingCompleted:
+					if (props.embedded && props.embedId) {
+						// #region agent log
+						fetch('http://127.0.0.1:7808/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c988db'},body:JSON.stringify({sessionId:'c988db',location:'tldraw-drawing-editor:DrawingCompleted',message:'sync from store.listen',data:{activity:'DrawingCompleted'},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+						// #endregion
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
+					if (props.embedded && props.embedId) {
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);	// REVIEW: This could go inside a post process
 					break;

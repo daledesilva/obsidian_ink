@@ -20,6 +20,23 @@ let redoStack: UnifiedUndoEntry[] = [];
 let prevObsidianDepth = 0;
 let prevTldrawUndos = 0;
 
+const PLUGIN_FLAG_KEY = '__inkProgrammaticRedoInProgress';
+
+/** When true, sync skips adding entries and clearing redo (store.listen fires during our programmatic redo). Stored on plugin instance so it survives multiple module instances. */
+export function setProgrammaticRedoInProgress(value: boolean, plugin?: any): void {
+	const target = plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })();
+	if (target) (target as any)[PLUGIN_FLAG_KEY] = value;
+}
+
+function isProgrammaticRedoInProgress(): boolean {
+	try {
+		const plugin = getGlobals().plugin as any;
+		return !!plugin?.[PLUGIN_FLAG_KEY];
+	} catch {
+		return false;
+	}
+}
+
 function formatEntry(entry: UnifiedUndoEntry): string {
 	return entry.type === 'obsidian' ? 'Obsidian' : `Embed:${entry.embedId}`;
 }
@@ -58,8 +75,12 @@ export function syncUnifiedUndoHistory(
 		tldrawDelta = Math.min(tldrawDelta, options.maxTldrawDelta);
 	}
 
-	console.log('Obsidian delta', obsidianDelta);
-	console.log('Tldraw delta', tldrawDelta);
+	if (isProgrammaticRedoInProgress()) {
+		prevObsidianDepth = obsidianDepth;
+		prevTldrawUndos = tldrawUndos;
+		return;
+	}
+
 	const added: string[] = [];
 	for (let i = 0; i < obsidianDelta; i++) {
 		undoStack.push({ type: 'obsidian' });

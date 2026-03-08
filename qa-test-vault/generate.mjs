@@ -147,6 +147,7 @@ function generateSvgAssets() {
   <path d="m207 68-3.086-3.086a2 2 0 0 0-2.828 0L192 74" style="fill:none;stroke-width:2;stroke:rgb(255,255,255);stroke-opacity:1;" class="stroke-shape"/></g>
 </svg>`;
   writeFile('Ink/Drawing/empty-drawing.svg', emptyDrawSvg);
+  writeFile('Ink/Drawing/empty-drawing-2.svg', emptyDrawSvg);
 }
 
 function generateLegacyAssets() {
@@ -431,6 +432,7 @@ function generateAllNotes() {
   writeFile('11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md', `# Undo Redo One Embed\n\nBefore embed.\n\n${w('empty-writing.svg')}\n\nAfter embed.`);
   writeFile('11 - CodeMirror and Editor Behavior/Undo Redo Two Embeds.md', `# Undo Redo Two Embeds\n\n${w('empty-writing.svg')}\n\n${w('empty-writing.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Undo Redo Two Different Embeds.md', `# Undo Redo Two Different Embeds\n\n${w('empty-writing.svg')}\n\n${w('hello-world.svg')}`);
+  writeFile('11 - CodeMirror and Editor Behavior/Undo Redo Two Different Drawing Embeds.md', `# Undo Redo Two Different Drawing Embeds\n\n${d('empty-drawing.svg')}\n\n${d('empty-drawing-2.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Undo Redo Three Embeds.md', `# Undo Redo Three Embeds\n\n${w('empty-writing.svg')}\n\n${w('empty-writing.svg')}\n\n${w('empty-writing.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Paste Near Embed.md', `# Paste\n\n${w('hello-world.svg')}\n\nPaste after.`);
   writeFile('11 - CodeMirror and Editor Behavior/Search and Replace.md', `# Search\n\n${w('hello-world.svg')}`);

@@ -4,8 +4,8 @@ import * as React from 'react';
 // @ts-ignore
 import SVG from 'react-inlinesvg';
 import { TFile } from 'obsidian';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { DrawingEmbedState, embedStateAtom_v2, previewActiveAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
+import { useAtomValue } from 'jotai';
+import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { getGlobals } from 'src/stores/global-store';
 const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
@@ -14,6 +14,7 @@ const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
 //////////
 
 interface DrawingEmbedPreviewProps {
+    embedId?: string,
     embeddedFile: TFile | null,
     embedSettings: any,
     onReady: Function,
@@ -22,9 +23,8 @@ interface DrawingEmbedPreviewProps {
 
 // Wraps the component so that it can full unmount when inactive
 export const DrawingEmbedPreviewWrapper: React.FC<DrawingEmbedPreviewProps> = (props) => {
-    const previewActive = useAtomValue(previewActiveAtom_v2);
-
-    console.log('props', props);
+    const embedsInEditMode = useAtomValue(embedsInEditModeAtom_v2);
+    const previewActive = !props.embedId || !embedsInEditMode.has(props.embedId);
 
     if (previewActive) {
         return <DrawingEmbedPreview {...props} />
@@ -37,7 +37,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     const {plugin} = getGlobals();
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
-    const setEmbedState = useSetAtom(embedStateAtom_v2);
     const [fileSrc, setFileSrc] = React.useState<string | null>(null);
 
     React.useEffect(() => {
@@ -107,7 +106,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
         setTimeout(() => {
-            setEmbedState(DrawingEmbedState.preview);
             props.onReady();
         }, 100);
     }

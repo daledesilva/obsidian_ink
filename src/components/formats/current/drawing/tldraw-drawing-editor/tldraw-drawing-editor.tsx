@@ -12,12 +12,12 @@ import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/p
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
 import classNames from 'classnames';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
-import { DrawingEmbedState, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
+import { embedsInEditModeAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
@@ -44,7 +44,8 @@ interface TldrawDrawingEditor_Props {
 
 // Wraps the component so that it can full unmount when inactive
 export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditor_Props> = (props) => {
-    const editorActive = useAtomValue(editorActiveAtom_v2);
+    const embedsInEditMode = useAtomValue(embedsInEditModeAtom_v2);
+    const editorActive = !!props.embedId && embedsInEditMode.has(props.embedId);
 
     if(editorActive) {
         return <TldrawDrawingEditor {...props} />
@@ -62,7 +63,6 @@ const tlOptions: Partial<TldrawOptions> = {
 export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
-    const setEmbedState = useSetAtom(embedStateAtom_v2);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
@@ -91,7 +91,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-        setEmbedState(DrawingEmbedState.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 

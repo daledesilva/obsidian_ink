@@ -14,6 +14,8 @@ import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 const NOTE_ONE_EMBED = "11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md";
 const NOTE_TWO_EMBEDS = "11 - CodeMirror and Editor Behavior/Undo Redo Two Embeds.md";
 const NOTE_TWO_DIFFERENT_EMBEDS = "11 - CodeMirror and Editor Behavior/Undo Redo Two Different Embeds.md";
+const NOTE_TWO_DIFFERENT_DRAWING_EMBEDS =
+	"11 - CodeMirror and Editor Behavior/Undo Redo Two Different Drawing Embeds.md";
 const NOTE_THREE_EMBEDS = "11 - CodeMirror and Editor Behavior/Undo Redo Three Embeds.md";
 
 const isMac = process.platform === "darwin";
@@ -421,15 +423,18 @@ async function clickUnlockByIndex(embedIndex: number) {
 	await browser.execute(() => {
 		localStorage.setItem("ddc_ink_activateNextEmbed", "true");
 	});
-	// WebDriver click can be unreliable on previews inside CodeMirror; use JS to dispatch click
+	// Target the Nth embed container and click its preview (per-embed state: only non-edit embeds show preview)
 	await browser.execute((index: number) => {
-		const previews = document.querySelectorAll(
-			".ddc_ink_writing-embed-preview, .ddc_ink_drawing-embed-preview"
+		const embedContainers = document.querySelectorAll(
+			".ddc_ink_drawing-embed .ddc_ink_resize-container, .ddc_ink_writing-embed .ddc_ink_resize-container"
 		);
-		const target = previews[index];
-		if (target) {
-			target.scrollIntoView({ block: "center" });
-			target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+		const container = embedContainers[index];
+		const preview = container?.querySelector(
+			".ddc_ink_drawing-embed-preview, .ddc_ink_writing-embed-preview"
+		);
+		if (preview) {
+			preview.scrollIntoView({ block: "center" });
+			preview.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
 		}
 	}, embedIndex);
 	await browser.pause(800);
@@ -444,7 +449,7 @@ async function clickUnlockByIndex(embedIndex: number) {
 }
 
 // Switch focus to the Nth embed without locking. Use when both embeds stay unlocked.
-// Clicks the embed's editor canvas (or preview if that embed is in preview mode).
+// Dispatches mousedown and click so the ink-editor-registry updates activeEmbedId for undo/redo sync.
 async function switchToEmbedByIndex(embedIndex: number) {
 	await browser.execute((index: number) => {
 		const editors = document.querySelectorAll(".ddc_ink_writing-editor, .ddc_ink_drawing-editor");
@@ -452,7 +457,12 @@ async function switchToEmbedByIndex(embedIndex: number) {
 		if (target) {
 			target.scrollIntoView({ block: "center" });
 			const canvas = target.querySelector(".tl-container");
-			(canvas ?? target).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+			const el = canvas ?? target;
+			const rect = el.getBoundingClientRect();
+			const opts = { bubbles: true, cancelable: true, view: window, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+			el.dispatchEvent(new MouseEvent("mousedown", opts));
+			el.dispatchEvent(new MouseEvent("mouseup", opts));
+			el.dispatchEvent(new MouseEvent("click", opts));
 		}
 	}, embedIndex);
 	await browser.pause(300);
@@ -662,6 +672,94 @@ describe("Undo/Redo — Two Identical Embeds (Interleaved)", function () {
 		await browser.pause(500);
 		const countAfterRedo = await getShapeCount();
 		expect(countAfterRedo).toBe(2);
+	});
+});
+
+describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function () {
+	before(async function () {
+		await browser.reloadObsidian({ vault: "qa-test-vault" });
+		await waitForPluginReady();
+		await dismissBlockingPopups();
+	});
+
+	// Both embeds stay unlocked. Draw E1, E2, E1, E2, E1, E2. Never lock.
+	// Per-embed edit state: openEmbedForEdit unlocks E0; clickUnlockByIndex(1) unlocks E1 (no lock).
+	it("draw E1, E2, E1, E2, E1, E2 — undo/redo affects correct embeds", async function () {
+		await openEmbedForEdit(NOTE_TWO_DIFFERENT_DRAWING_EMBEDS, ".ddc_ink_drawing-editor");
+		await installUndoRedoHelpers();
+		await resetShapeTracking();
+
+		// Unlock embed 2 so both are in edit mode (E0 shows preview when we click E1's preview)
+		await clickUnlockByIndex(1);
+		await installUndoRedoHelpers();
+		await resetShapeTracking();
+
+		// Wait for both drawing editors to be ready
+		await browser.waitUntil(
+			async () => {
+				const n = await browser.execute(() =>
+					document.querySelectorAll(".ddc_ink_drawing-editor").length
+				);
+				return n >= 2;
+			},
+			{ timeout: 15000, interval: 200 }
+		);
+		await browser.pause(500);
+
+		// Draw E1, E2, E1, E2, E1, E2 — switch focus by clicking canvas, never lock
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 1);
+		await browser.pause(200);
+
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 1);
+		await browser.pause(200);
+
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 2);
+		await browser.pause(200);
+
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 2);
+		await browser.pause(200);
+
+		await switchToEmbedByIndex(0);
+		await createStrokeInEmbed(0, 3);
+		await browser.pause(200);
+
+		await switchToEmbedByIndex(1);
+		await createStrokeInEmbed(1, 3);
+		await browser.pause(200);
+
+		// Initial: E1: 3, E2: 3
+		let countE1 = await getShapeCountInEmbedUnlocked(0);
+		let countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(3);
+		expect(countE2).toBe(3);
+
+		// Undo 6 times — E2,E1,E2,E1,E2,E1
+		for (let i = 0; i < 6; i++) {
+			const embedIndex = i % 2 === 0 ? 1 : 0;
+			await switchToEmbedByIndex(embedIndex);
+			await sendUndo();
+			await browser.pause(200);
+		}
+		countE1 = await getShapeCountInEmbedUnlocked(0);
+		countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(0);
+		expect(countE2).toBe(0);
+
+		// Redo 6 times — all back
+		for (let i = 0; i < 6; i++) {
+			const embedIndex = i % 2 === 0 ? 1 : 0;
+			await switchToEmbedByIndex(embedIndex);
+			await sendRedo();
+			await browser.pause(200);
+		}
+		countE1 = await getShapeCountInEmbedUnlocked(0);
+		countE2 = await getShapeCountInEmbedUnlocked(1);
+		expect(countE1).toBe(3);
+		expect(countE2).toBe(3);
 	});
 });
 

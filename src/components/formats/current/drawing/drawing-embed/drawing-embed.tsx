@@ -20,22 +20,21 @@ import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-draw
 ///////
 ///////
 
-
+// Per-embed edit state: multiple drawing embeds can be in edit mode at once (both unlocked).
+// embedStateAtom_v2 retained for keyboard-handler "any embed in edit mode" check.
 export enum DrawingEmbedState {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom_v2 = atom(DrawingEmbedState.preview)
-export const previewActiveAtom_v2 = atom<boolean>((get) => {
-    const embedState = get(embedStateAtom_v2);
-    return embedState !== DrawingEmbedState.editor
-})
-export const editorActiveAtom_v2 = atom<boolean>((get) => {
-    const embedState = get(embedStateAtom_v2);
-    return embedState !== DrawingEmbedState.preview
-})
+export const embedsInEditModeAtom_v2 = atom<Set<string>>(new Set<string>());
+export const embedStateAtom_v2 = atom(DrawingEmbedState.preview);
+
+/** True if any drawing embed is in edit mode (for keyboard handler). */
+export const anyDrawingEmbedInEditModeAtom_v2 = atom<boolean>((get) => {
+	return get(embedsInEditModeAtom_v2).size > 0;
+});
 
 ///////
 
@@ -70,12 +69,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 
-    const setEmbedState = useSetAtom(embedStateAtom_v2);
+    const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
 
 	// On first mount
 	React.useEffect( () => {
-		if(embedShouldActivateImmediately()) {
-			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+		if(embedShouldActivateImmediately() && props.embedId) {
 			setTimeout( () => {
 				switchToEditMode();
 			},200);
@@ -186,6 +184,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				>
 				
 	                <DrawingEmbedPreviewWrapper
+						embedId = {props.embedId}
 						embeddedFile = {props.embeddedFile}
 						embedSettings = {props.embedSettings}
 						onReady = {() => {}}
@@ -269,23 +268,36 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	// }
 
 	function switchToEditMode() {
-		verbose('Set DrawingEmbedState: loadingEditor')
+		if (!props.embedId) return;
+		verbose(['Add embed to edit mode', props.embedId]);
 		applyEmbedHeight();
-        setEmbedState(DrawingEmbedState.loadingEditor);
+		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
 
 	function ignoreChangesAndSwitchToPreviewMode() {
-		setEmbedState(DrawingEmbedState.loadingPreview);
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
 	}
 
     async function saveAndSwitchToPreviewMode() {
-		verbose('Set DrawingEmbedState: loadingPreview');
+		verbose(['Remove embed from edit mode', props.embedId]);
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
-		
-        setEmbedState(DrawingEmbedState.loadingPreview);
+
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
         if (props.setEmbedProps) {
             props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
         }

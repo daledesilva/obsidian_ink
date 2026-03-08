@@ -244,7 +244,7 @@ The widget (`WritingEmbedWidget` / `DrawingEmbedWidget`) has `this.id` from `cry
 
 ### Edit-mode check
 
-The keyboard handler checks `embedStateAtom` (writing) and `embedStateAtom_v2` (drawing). If either indicates `editor` state, an embed is in edit mode and we capture the key.
+The keyboard handler uses `getActiveEmbedId()` from the ink-editor-registry. If non-null, an embed is in edit mode and we capture the key.
 
 ---
 
@@ -282,7 +282,7 @@ When null, we treat undo depth as 0. The handler should not crash.
 
 ### Embed state atoms
 
-Writing uses `embedStateAtom`; drawing uses `embedStateAtom_v2`. Both use a single global atom, so only one embed is in edit mode at a time across the app. The keyboard handler must check both when deciding whether to capture.
+Writing and drawing both use per-embed edit state: `embedsInEditModeAtom` (writing) and `embedsInEditModeAtom_v2` (drawing). Each is a `Set<string>` of embedIds, so multiple embeds can be in edit mode at once (both unlocked). The keyboard handler uses `getActiveEmbedId()` (from the ink-editor-registry) when deciding whether to capture; it does not read these atoms directly.
 
 ### Two tldraw history marks per logical action
 
@@ -323,7 +323,7 @@ Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo
 - **Lock button:** The editor starts with `opacity: 0` until `handleMount`; WebDriver may treat the lock button as not interactable. Tests use a JS click (`browser.execute`) to bypass interactability checks.
 - **Preview click in multi-embed:** WebDriver click on previews inside CodeMirror widgets can be unreliable. Tests use `browser.execute` with `querySelectorAll` to click the preview by index.
 - **Lock+switch flow:** Use `clickLockAndWait` (waits for editor to unmount) before `clickUnlockByIndex` when switching embeds, so the transition completes before activating the next embed.
-- **Per-embed assertions:** Only one embed is in edit mode at a time. Tests use `getShapeCountInEmbed(embedIndex)` to switch to that embed and read its shape count before asserting.
+- **Per-embed assertions:** Both writing and drawing embeds use per-embed state; multiple can be in edit mode at once. Use `getShapeCountInEmbedUnlocked(embedIndex)` when embeds stay unlocked. Use `getShapeCountInEmbed(embedIndex)` with lock-to-switch when the test locks between embeds.
 
 ### E2E technical gotchas
 

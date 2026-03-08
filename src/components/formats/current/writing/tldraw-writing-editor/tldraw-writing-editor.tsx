@@ -14,8 +14,8 @@ import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/p
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
 import classNames from 'classnames';
 import { WritingLinesUtil } from '../shapes/writing-lines';
-import { editorActiveAtom, WritingEmbedState, embedStateAtom } from '../writing-embed/writing-embed';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
+import { useAtomValue } from 'jotai';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { verbose } from 'src/logic/utils/log-to-console';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
@@ -44,7 +44,8 @@ interface TldrawWritingEditorProps {
 
 // Wraps the component so that it can full unmount when inactive
 export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (props) => {
-    const editorActive = useAtomValue(editorActiveAtom);
+    const embedsInEditMode = useAtomValue(embedsInEditModeAtom);
+    const editorActive = !!props.embedId && embedsInEditMode.has(props.embedId);
 
     if(editorActive) {
         return <TldrawWritingEditor {...props} />
@@ -62,7 +63,6 @@ const tlOptions: Partial<TldrawOptions> = {
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
-	const setEmbedState = useSetAtom(embedStateAtom);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
@@ -97,7 +97,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-		setEmbedState(WritingEmbedState.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 

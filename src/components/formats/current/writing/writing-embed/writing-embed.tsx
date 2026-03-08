@@ -19,21 +19,19 @@ import type { Box } from "@tldraw/tldraw";
 ///////
 
 
+// Per-embed edit state: multiple writing embeds can be in edit mode at once (both unlocked).
 export enum WritingEmbedState {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom = atom(WritingEmbedState.preview)
-export const previewActiveAtom = atom<boolean>((get) => {
-	const embedState = get(embedStateAtom);
-	return embedState !== WritingEmbedState.editor
-})
-export const editorActiveAtom = atom<boolean>((get) => {
-	const embedState = get(embedStateAtom);
-	return embedState !== WritingEmbedState.preview
-})
+export const embedsInEditModeAtom = atom<Set<string>>(new Set<string>());
+
+/** True if any writing embed is in edit mode (for keyboard handler). */
+export const anyWritingEmbedInEditModeAtom = atom<boolean>((get) => {
+	return get(embedsInEditModeAtom).size > 0;
+});
 
 ///////
 
@@ -69,8 +67,8 @@ export function WritingEmbed (props: {
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
-	const setEmbedState = useSetAtom(embedStateAtom);
-	
+	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom);
+
 	// Calculate initial height from aspectRatio for JSX styles
 	// Use a default width (700px) that matches typical CodeMirror content width
 	// The actual width will be determined by the container, and resize callbacks will update height
@@ -79,12 +77,10 @@ export function WritingEmbed (props: {
 	
 	// On first mount
 	React.useEffect( () => {
-		//console.log('EMBED mounted')
-		if(embedShouldActivateImmediately()) {
-			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+		if(embedShouldActivateImmediately() && props.embedId) {
 			setTimeout( () => {
 				switchToEditMode();
-			},200);	// TODO: Why is there a delay?
+			},200);
 		}
 	}, [])
 
@@ -192,6 +188,7 @@ export function WritingEmbed (props: {
 				>
 				
 					<WritingEmbedPreviewWrapper
+						embedId = {props.embedId}
 						plugin = {props.plugin}
 						onResize = {(height: number) => applySizingWhilePreviewing(height)}
 						writingFile = {props.writingFileRef}
@@ -266,16 +263,23 @@ export function WritingEmbed (props: {
 	}
 
 	function switchToEditMode() {
-		verbose('Set WritingEmbedState: loadingEditor')
-		setEmbedState(WritingEmbedState.loadingEditor);
+		if (!props.embedId) return;
+		verbose(['Add writing embed to edit mode', props.embedId]);
+		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
-	
+
 	function ignoreChangesAndSwitchToPreviewMode() {
-		setEmbedState(WritingEmbedState.loadingPreview);
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
 	}
 
 	async function saveAndSwitchToPreviewMode() {
-		verbose('Set WritingEmbedState: loadingPreview');
+		verbose(['Remove writing embed from edit mode', props.embedId]);
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
@@ -290,8 +294,14 @@ export function WritingEmbed (props: {
 			}
 		}
 
-		setEmbedState(WritingEmbedState.loadingPreview);
-		
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
+
 		// Persist the aspectRatio to markdown
 		if (props.setEmbedProps) {
 			props.setEmbedProps(embedAspectRatioRef.current);

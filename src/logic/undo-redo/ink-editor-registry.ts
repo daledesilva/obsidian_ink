@@ -18,6 +18,18 @@ let lastRegisteredEmbedId: string | null = null;
 export function register(embedId: string, editor: Editor, containerEl: HTMLElement): void {
 	registry.set(embedId, { editor, containerEl });
 	lastRegisteredEmbedId = embedId;
+	// Update active when embedding is focused (click) so undo/redo sync targets the right embed
+	containerEl.addEventListener('mousedown', () => setActiveEmbedId(embedId));
+}
+
+export function setActiveEmbedId(embedId: string | null): void {
+	if (embedId === null) {
+		lastRegisteredEmbedId = null;
+		return;
+	}
+	if (registry.has(embedId)) {
+		lastRegisteredEmbedId = embedId;
+	}
 }
 
 export function unregister(embedId: string): void {

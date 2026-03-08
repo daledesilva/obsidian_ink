@@ -5,8 +5,8 @@ import SVG from 'react-inlinesvg';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import TransitionMenu from 'src/components/jsx-components/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { WritingEmbedState, embedStateAtom, previewActiveAtom } from '../writing-embed/writing-embed';
+import { useAtomValue } from 'jotai';
+import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 import { TFile } from 'obsidian';
 import { getGlobals } from 'src/stores/global-store';
 const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
@@ -15,6 +15,7 @@ const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
 //////////
 
 interface WritingEmbedPreviewProps {
+    embedId?: string,
     plugin: InkPlugin,
     onResize: Function,
     writingFile: TFile,
@@ -23,8 +24,8 @@ interface WritingEmbedPreviewProps {
 
 // Wraps the component so that it can full unmount when inactive
 export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (props) => {
-    const previewActive = useAtomValue(previewActiveAtom);
-    //console.log('PREVIEW ACTIVE', previewActive)
+    const embedsInEditMode = useAtomValue(embedsInEditModeAtom);
+    const previewActive = !props.embedId || !embedsInEditMode.has(props.embedId);
 
     if (previewActive) {
         return <WritingEmbedPreview {...props} />
@@ -34,10 +35,7 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
 }
 
 const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
-    //console.log('PREVIEW rendering');
-
     const containerElRef = React.useRef<HTMLDivElement>(null);
-    const setEmbedState = useSetAtom(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
 
     React.useEffect(() => {
@@ -120,14 +118,8 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     ///////////////////
 
     function onLoad() {
-        // Don't recalcHeight - parent already set correct height from aspectRatio
-        // Measuring rendered height causes drift due to rounding
-        
         // Slight delay on transition because otherwise a flicker is sometimes seen
-        setTimeout(() => {
-            //console.log('--------------- SET EMBED STATE TO preview')
-            setEmbedState(WritingEmbedState.preview);
-        }, 100);
+        setTimeout(() => {}, 100);
     }
 
     async function fetchFileData() {

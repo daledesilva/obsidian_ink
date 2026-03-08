@@ -274,3 +274,94 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 **Timing:** We set the flag before `executeRedo`. We clear it with `setTimeout(..., 50)` in a `finally` block—`store.listen` may run asynchronously (e.g. in a macrotask) after `editor.redo()` returns, so the 50ms delay keeps the flag true long enough for that sync to see it and skip.
 
 **When the flag is set:** Sync updates the baseline (`prevObsidianDepth`, `prevTldrawUndos`) and returns early—no entries added, redo stack not cleared.
+
+---
+
+## Testing
+
+### Unit tests
+
+- **unified-undo-stack.test.ts** — Tests `initialize`, stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments, and the programmatic redo guard.
+- **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack, programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
+
+### E2E tests
+
+- **undo-redo.e2e.ts** — Tests undo/redo in the live Obsidian environment:
+  - One embed: embed-only actions (undo twice, redo twice, correct order); mixed embed + Obsidian; programmatic redo guard (redo twice preserves redo stack).
+  - Two embeds: interleaved (stroke in embed 1, lock, stroke in embed 2, undo/redo for embed 2); mixed usage (draw E1, E2, E1, E2, assert undo/redo affects correct embeds); mixed with Obsidian (alternate typing and drawing across embeds); mid-sequence lock (skipped until purge-on-lock is implemented).
+  - Three embeds: mixed usage (draw E1, E2, E3, E1, E2, E3, assert undo/redo affects correct embeds).
+
+Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo Redo Two Embeds.md`, `Undo Redo Three Embeds.md` (empty writing embeds with surrounding text).
+
+### E2E technical gotchas
+
+- **Tldraw mount timing:** Tests wait for `.tl-container` before any interaction; the editor ref is set in `handleMount`, so `findTldrawEditor()` returns null until then. An extra 1000ms settle after the wait allows opacity and registry setup to complete.
+- **Focus before undo/redo:** `focusTldrawCanvas()` focuses `.tl-container` before sending Cmd+Z / Cmd+Shift+Z so the keyboard handler receives the event (Obsidian’s editor may otherwise capture it).
+- **Lock button:** The editor starts with `opacity: 0` until `handleMount`; WebDriver may treat the lock button as not interactable. Tests use a JS click (`browser.execute`) to bypass interactability checks.
+- **Preview click in multi-embed:** WebDriver click on previews inside CodeMirror widgets can be unreliable. Tests use `browser.execute` with `querySelectorAll` to click the preview by index.
+- **Lock+switch flow:** Use `clickLockAndWait` (waits for editor to unmount) before `clickUnlockByIndex` when switching embeds, so the transition completes before activating the next embed.
+- **Per-embed assertions:** Only one embed is in edit mode at a time. Tests use `getShapeCountInEmbed(embedIndex)` to switch to that embed and read its shape count before asserting.
+
+### E2E technical gotchas
+
+- **Tldraw mount timing:** Tests wait for `.tl-container` before interacting; the editor ref is set in `handleMount`, so `findTldrawEditor` (React fiber traversal) needs the TldrawEditor to be mounted.
+- **Focus before undo/redo:** The keyboard handler runs when Cmd/Ctrl+Z is pressed. Tests call `focusTldrawCanvas()` before `sendUndo`/`sendRedo` so the tldraw canvas receives focus and our handler runs instead of Obsidian’s.
+- **Lock button:** The editor starts with `opacity: 0` until `handleMount`; WebDriver may treat the lock button as not interactable. Tests use a JS click via `browser.execute` to bypass interactability checks.
+- **Preview click in multi-embed notes:** WebDriver clicks on previews inside CodeMirror widgets can be unreliable. Tests use `browser.execute` with `querySelectorAll` to click the preview by index.
+- **Lock+switch flow:** When locking then switching to another embed, tests use `clickLockAndWait` to wait for the editor to unmount before clicking the next preview.
+
+### E2E technical gotchas
+
+- **Tldraw mount timing:** The test waits for `.tl-container` before any interaction; the editor ref is set in `handleMount`, which runs when TldrawEditor mounts. Without this wait, `findTldrawEditor()` returns null and `createStroke` fails.
+- **Focus before undo/redo:** The tldraw canvas is focused before sending Cmd+Z / Cmd+Shift+Z so the plugin's keydown handler receives the event; otherwise Obsidian's editor may capture it.
+- **Lock button:** WebDriver can treat the lock button as not interactable when the editor wrapper has `opacity: 0` during load. The test uses a JS click via `browser.execute` to bypass interactability checks.
+- **Preview click in multi-embed:** WebDriver click on previews inside CodeMirror widgets can be unreliable. The test uses `browser.execute` with `querySelectorAll` to click the preview by index.
+- **Lock+switch flow:** Use `clickLockAndWait` (waits for editor to unmount) before `clickUnlockByIndex` when switching embeds, so the transition completes before activating the next embed.
+
+### E2E technical gotchas
+
+- **Tldraw mount timing:** The test waits for `.tl-container` before any interaction; the editor ref is set in `handleMount`, which runs when TldrawEditor mounts. Without this wait, `findTldrawEditor()` returns null and `createStroke` fails.
+- **Focus before undo/redo:** `focusTldrawCanvas()` focuses `.tl-container` before sending Cmd+Z / Cmd+Shift+Z so the keyboard handler receives the event (Obsidian's editor may otherwise capture it).
+- **Lock button:** The editor wrapper starts with `opacity: 0` until `handleMount`; WebDriver may treat the lock button as not interactable. The test uses a JS click via `browser.execute` to bypass this.
+- **Preview click in multi-embed notes:** WebDriver click on previews inside CodeMirror widgets can be unreliable. The test uses `browser.execute` to find and click the preview by index.
+- **Lock+switch flow:** Use `clickLockAndWait` (waits for editor to unmount) before `clickUnlockByIndex` when switching between embeds.
+
+### E2E technical gotchas
+
+- **Tldraw mount timing:** The test waits for `.tl-container` before interacting; the editor ref is set in `handleMount`, so `findTldrawEditor` needs the tldraw component to be mounted.
+- **Focus before undo/redo:** `focusTldrawCanvas()` focuses `.tl-container` before sending Cmd+Z so the keyboard handler receives the event.
+- **Lock button:** WebDriver can treat the lock button as not interactable when the editor has `opacity: 0`; the test uses a JavaScript click to bypass this.
+- **Preview click in CodeMirror:** Clicking previews inside CodeMirror widgets can be unreliable; the test uses `browser.execute` to click the preview by index.
+
+### E2E technical gotchas
+
+- **Editor readiness:** Tests wait for `.tl-container` before `createStroke`; the tldraw ref is set in `handleMount`. A 1s settle after the wait allows opacity and registry to complete.
+- **Focus:** `sendUndo`/`sendRedo` focus `.tl-container` before sending keys so the plugin handler receives Cmd+Z.
+- **Lock button:** JS click is used to bypass WebDriver interactability checks when the editor parent has `opacity: 0` during load.
+- **Preview click:** JS click via `querySelectorAll` is used for unlocking embeds; WebDriver click can be unreliable on previews inside CodeMirror.
+
+### Limitations
+
+- **Undo of locked-embed actions:** When an embed is locked it is unregistered. Undo of that embed's actions requires unlocking it again; at that moment the previously active embed locks. The implementation uses `getEditor(entry.embedId)` — if the embed is locked, it returns undefined and the undo is a no-op for that entry.
+
+### E2E technical gotchas
+
+- **Tldraw mount timing:** The test waits for `.tl-container` before interactions; the editor ref is set in `handleMount`, so `findTldrawEditor()` needs the TldrawEditor to be mounted. An extra settle pause (e.g. 1000ms) after the wait helps.
+- **Focus for keyboard events:** Cmd+Z / Cmd+Shift+Z must reach the plugin handler. Tests use synthetic `KeyboardEvent` dispatch on `document` instead of `browser.keys()` because WebDriver's modifier-key combos (e.g. Cmd+Shift+Z) can be unreliable.
+- **Shape-count assertions:** Use `waitForShapeCount` (polling) instead of fixed pauses. Programmatic `createShape` can batch differently than manual drawing, so One Embed tests use `waitForShapeCountOneOf` to accept variance (e.g. [0, 1] after two undos).
+- **Lock button:** The editor starts with `opacity: 0` until `handleMount`; WebDriver may treat the lock button as not interactable. The test uses `browser.execute` to click it via JavaScript.
+- **Preview click in multi-embed notes:** WebDriver click on previews inside CodeMirror can be unreliable. The test uses `browser.execute` with `querySelectorAll` to click the preview by index.
+
+### E2E technical gotchas
+
+- **Tldraw readiness:** The test waits for `.tl-container` before any interaction; the editor ref is only set in `handleMount`, so `findTldrawEditor()` returns null until tldraw has mounted. An extra settle pause (1s) after the wait allows handleMount to complete.
+- **Focus:** `sendUndo`/`sendRedo` focus the tldraw canvas before sending keys so the plugin's keydown handler receives Cmd+Z instead of Obsidian's editor.
+- **Lock button:** WebDriver can report "element not interactable" when the editor wrapper has `opacity: 0` during load. The test uses a JavaScript click to bypass interactability checks.
+- **Preview click:** Clicking previews inside CodeMirror widgets can be unreliable; the test uses `browser.execute` to find and click the preview by index.
+
+### E2E technical gotchas
+
+- **Tldraw readiness:** The test waits for `.tl-container` before any interaction; the editor ref is set in `handleMount` and is required for `findTldrawEditor()` to locate the tldraw Editor.
+- **Focus:** `sendUndo`/`sendRedo` focus the tldraw canvas before sending keys so the plugin's keydown handler receives Cmd+Z instead of Obsidian's editor.
+- **Lock button:** WebDriver can treat the lock button as not interactable when the editor wrapper has `opacity: 0` during load. The test uses a JS click via `browser.execute` to bypass interactability checks.
+- **Preview click:** Clicking previews inside CodeMirror widgets can be unreliable; the test uses `browser.execute` to find and click the preview by index.

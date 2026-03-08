@@ -428,6 +428,9 @@ function generateAllNotes() {
   writeFile('11 - CodeMirror and Editor Behavior/Cursor Navigation Around Embeds.md', `# Cursor Nav\n\n${w('hello-world.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Split Pane - Two Notes Side by Side.md', `# Split Pane\n\n${d('simple-shape.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Undo Redo with Embeds.md', `# Undo Redo\n\nBefore.\n${w('hello-world.svg')}\nAdd after, Undo.`);
+  writeFile('11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md', `# Undo Redo One Embed\n\nBefore embed.\n\n${w('empty-writing.svg')}\n\nAfter embed.`);
+  writeFile('11 - CodeMirror and Editor Behavior/Undo Redo Two Embeds.md', `# Undo Redo Two Embeds\n\n${w('empty-writing.svg')}\n\n${w('empty-writing.svg')}`);
+  writeFile('11 - CodeMirror and Editor Behavior/Undo Redo Three Embeds.md', `# Undo Redo Three Embeds\n\n${w('empty-writing.svg')}\n\n${w('empty-writing.svg')}\n\n${w('empty-writing.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Paste Near Embed.md', `# Paste\n\n${w('hello-world.svg')}\n\nPaste after.`);
   writeFile('11 - CodeMirror and Editor Behavior/Search and Replace.md', `# Search\n\n${w('hello-world.svg')}`);
   writeFile('11 - CodeMirror and Editor Behavior/Native Print Export.md', `# Print\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);

@@ -37,6 +37,7 @@ import {
 	setProgrammaticRedoInProgress,
 	notifyUndoExecuted,
 	notifyRedoExecuted,
+	clearEmbedBaseline,
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
 
@@ -61,6 +62,7 @@ function setupSyncMocks(obsidianDepth: number, tldrawUndos: number) {
 describe('unified-undo-stack', () => {
 	beforeEach(() => {
 		resetMocks();
+		setProgrammaticRedoInProgress(false, MOCK_PLUGIN);
 		initialize(0, 0);
 	});
 
@@ -130,7 +132,7 @@ describe('unified-undo-stack', () => {
 
 	describe('notifyUndoExecuted', () => {
 		it('decrements prevObsidianDepth for obsidian entry', () => {
-			initialize(3, 2);
+			initialize(3, 0, { [EMBED_ID]: 2 });
 			notifyUndoExecuted({ type: 'obsidian' });
 			setupSyncMocks(2, 2);
 			syncUnifiedUndoHistory(EMBED_ID);
@@ -143,11 +145,14 @@ describe('unified-undo-stack', () => {
 		});
 
 		it('decrements prevTldrawUndos for embed entry', () => {
-			initialize(0, 3);
-			notifyUndoExecuted({ type: 'embed', embedId: EMBED_ID });
-			setupSyncMocks(0, 2);
+			initialize(0, 0);
+			setupSyncMocks(0, 3);
 			syncUnifiedUndoHistory(EMBED_ID);
-			expect(getUndoStackSnapshot()).toHaveLength(0);
+			const entry = popUndo()!;
+			notifyUndoExecuted(entry);
+			setupSyncMocks(0, 3);
+			syncUnifiedUndoHistory(EMBED_ID);
+			expect(getUndoStackSnapshot()).toHaveLength(3);
 		});
 	});
 
@@ -262,6 +267,53 @@ describe('unified-undo-stack', () => {
 
 			expect(getUndoStackSnapshot()).toHaveLength(0);
 			expect(isRedoStackEmpty()).toBe(false);
+		});
+
+		it('tracks tldraw baseline per embed when multiple embeds alternate strokes', () => {
+			const EMBED_A = 'embed-a';
+			const EMBED_B = 'embed-b';
+			const EDITOR_A = {} as any;
+			const EDITOR_B = {} as any;
+
+			initialize(0, 0);
+			mockGetGlobals.mockReturnValue({ plugin: MOCK_PLUGIN });
+			mockGetObsidianUndoDepth.mockReturnValue(0);
+
+			mockGetEditor.mockImplementation((id: string) =>
+				id === EMBED_A ? EDITOR_A : id === EMBED_B ? EDITOR_B : undefined,
+			);
+
+			mockGetTldrawNumUndos
+				.mockReturnValueOnce(1)
+				.mockReturnValueOnce(1)
+				.mockReturnValueOnce(2)
+				.mockReturnValueOnce(2);
+
+			syncUnifiedUndoHistory(EMBED_A);
+			syncUnifiedUndoHistory(EMBED_B);
+			syncUnifiedUndoHistory(EMBED_A);
+			syncUnifiedUndoHistory(EMBED_B);
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(4);
+			expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_A });
+			expect(stack[1]).toEqual({ type: 'embed', embedId: EMBED_B });
+			expect(stack[2]).toEqual({ type: 'embed', embedId: EMBED_A });
+			expect(stack[3]).toEqual({ type: 'embed', embedId: EMBED_B });
+		});
+	});
+
+	describe('clearEmbedBaseline', () => {
+		it('removes embed baseline so next sync uses fresh baseline', () => {
+			initialize(0, 0);
+			setupSyncMocks(0, 2);
+			syncUnifiedUndoHistory(EMBED_ID);
+			expect(getUndoStackSnapshot()).toHaveLength(2);
+
+			clearEmbedBaseline(EMBED_ID);
+			setupSyncMocks(0, 1);
+			syncUnifiedUndoHistory(EMBED_ID);
+			expect(getUndoStackSnapshot()).toHaveLength(3);
 		});
 	});
 

@@ -18,7 +18,7 @@ export type UnifiedUndoEntry =
 let undoStack: UnifiedUndoEntry[] = [];
 let redoStack: UnifiedUndoEntry[] = [];
 let prevObsidianDepth = 0;
-let prevTldrawUndos = 0;
+const prevTldrawUndosByEmbed = new Map<string, number>();
 
 const PLUGIN_FLAG_KEY = '__inkProgrammaticRedoInProgress';
 
@@ -45,9 +45,20 @@ function formatStackForLog(stack: UnifiedUndoEntry[]): string {
 	return '[' + stack.map(formatEntry).join(', ') + ']';
 }
 
-export function initialize(obsidianDepth: number, tldrawUndos: number): void {
+export function initialize(
+	obsidianDepth: number,
+	_tldrawUndos?: number,
+	seedTldrawByEmbed?: Record<string, number>,
+): void {
 	prevObsidianDepth = obsidianDepth;
-	prevTldrawUndos = tldrawUndos;
+	if (seedTldrawByEmbed) {
+		prevTldrawUndosByEmbed.clear();
+		for (const [id, count] of Object.entries(seedTldrawByEmbed)) {
+			prevTldrawUndosByEmbed.set(id, count);
+		}
+	} else {
+		prevTldrawUndosByEmbed.clear();
+	}
 	undoStack = [];
 	redoStack = [];
 }
@@ -69,6 +80,7 @@ export function syncUnifiedUndoHistory(
 	const obsidianDepth = getObsidianUndoDepth(plugin);
 	const tldrawUndos = getTldrawNumUndos(editor);
 
+	const prevTldrawUndos = prevTldrawUndosByEmbed.get(embedId) ?? 0;
 	const obsidianDelta = Math.max(0, obsidianDepth - prevObsidianDepth);
 	let tldrawDelta = Math.max(0, tldrawUndos - prevTldrawUndos);
 	if (options?.maxTldrawDelta !== undefined) {
@@ -77,7 +89,7 @@ export function syncUnifiedUndoHistory(
 
 	if (isProgrammaticRedoInProgress()) {
 		prevObsidianDepth = obsidianDepth;
-		prevTldrawUndos = tldrawUndos;
+		prevTldrawUndosByEmbed.set(embedId, tldrawUndos);
 		return;
 	}
 
@@ -98,7 +110,7 @@ export function syncUnifiedUndoHistory(
 	}
 
 	prevObsidianDepth = obsidianDepth;
-	prevTldrawUndos = tldrawUndos;
+	prevTldrawUndosByEmbed.set(embedId, tldrawUndos);
 }
 
 export function getUndoStackSnapshot(): readonly UnifiedUndoEntry[] {
@@ -137,7 +149,8 @@ export function notifyUndoExecuted(entry: UnifiedUndoEntry): void {
 	if (entry.type === 'obsidian') {
 		prevObsidianDepth = Math.max(0, prevObsidianDepth - 1);
 	} else {
-		prevTldrawUndos = Math.max(0, prevTldrawUndos - 1);
+		const current = prevTldrawUndosByEmbed.get(entry.embedId) ?? 0;
+		prevTldrawUndosByEmbed.set(entry.embedId, Math.max(0, current - 1));
 	}
 }
 
@@ -148,6 +161,15 @@ export function notifyRedoExecuted(entry: UnifiedUndoEntry): void {
 	if (entry.type === 'obsidian') {
 		prevObsidianDepth += 1;
 	} else {
-		prevTldrawUndos += 1;
+		const current = prevTldrawUndosByEmbed.get(entry.embedId) ?? 0;
+		prevTldrawUndosByEmbed.set(entry.embedId, current + 1);
 	}
+}
+
+/**
+ * Remove baseline for an embed when it is unregistered (e.g. on lock).
+ * Prevents unbounded growth of the per-embed baseline map.
+ */
+export function clearEmbedBaseline(embedId: string): void {
+	prevTldrawUndosByEmbed.delete(embedId);
 }

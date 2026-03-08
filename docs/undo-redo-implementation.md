@@ -73,7 +73,7 @@ sequenceDiagram
 flowchart TD
     A[syncUnifiedUndoHistory called] --> B[getObsidianUndoDepth getTldrawNumUndos]
     B --> C{isProgrammaticRedoInProgress}
-    C -->|yes| D[Update prevObsidianDepth prevTldrawUndos]
+    C -->|yes| D[Update prevObsidianDepth and prevTldrawUndosByEmbed for this embedId]
     D --> E[Return early skip add and clear]
     C -->|no| F[Compute obsidianDelta tldrawDelta]
     F --> G[Add entries to undo stack]
@@ -101,6 +101,28 @@ flowchart TD
 
 ---
 
+## Per-embed tldraw baseline
+
+The sync logic tracks `prevTldrawUndosByEmbed: Map<embedId, number>` instead of a single global `prevTldrawUndos`. This fixes undo double-ups when multiple embeds are unlocked: each embed's delta is computed against its own baseline, so strokes in Embed B are no longer missed when the baseline was last updated by Embed A.
+
+When an embed is unregistered (e.g. on lock), `clearEmbedBaseline(embedId)` removes its entry from the map to avoid unbounded growth.
+
+### Sync baseline flow (per embed)
+
+```mermaid
+flowchart TD
+    subgraph sync [syncUnifiedUndoHistory]
+        A[embedId] --> B[getEditor embedId]
+        B --> C[tldrawUndos = getTldrawNumUndos editor]
+        C --> D[prev = prevTldrawUndosByEmbed.get embedId or 0]
+        D --> E[tldrawDelta = tldrawUndos - prev]
+        E --> F[Push tldrawDelta entries with embedId]
+        F --> G[prevTldrawUndosByEmbed.set embedId, tldrawUndos]
+    end
+```
+
+---
+
 ## Data flow
 
 ### Sync (when stroke completed or erased)
@@ -117,10 +139,10 @@ flowchart TD
         D -->|no| F[Skip]
         E --> G[getTldrawNumUndos]
         F --> G
-        G --> H{tldrawUndos increased?}
+        G --> H{tldrawUndos increased vs this embed's baseline?}
         H -->|yes| I[Add M embed entries with embedId capped at 1]
         H -->|no| J[Skip]
-        I --> K[Update prevObsidianDepth prevTldrawUndos]
+        I --> K[Update prevObsidianDepth; update prevTldrawUndosByEmbed for this embedId]
         J --> K
         K --> L[Clear redo stack if entries added]
     end
@@ -168,7 +190,7 @@ type UnifiedUndoEntry =
   | { type: 'embed'; embedId: string }
   | { type: 'obsidian' };
 
-function initialize(obsidianDepth: number, tldrawUndos: number): void;
+function initialize(obsidianDepth: number, _tldrawUndos?: number, seedTldrawByEmbed?: Record<string, number>): void;
 function syncUnifiedUndoHistory(embedId: string, options?: { maxTldrawDelta?: number }): void;
 // Fetches plugin from getGlobals(), editor from getEditor(embedId); returns early if no editor.
 function popUndo(): UnifiedUndoEntry | null;
@@ -176,13 +198,14 @@ function pushRedo(entry: UnifiedUndoEntry): void;
 function popRedo(): UnifiedUndoEntry | null;
 function pushUndo(entry: UnifiedUndoEntry): void;
 function isUndoStackEmpty(): boolean;
+function clearEmbedBaseline(embedId: string): void;  // called by unregister
 ```
 
 ### ink-editor-registry.ts
 
 ```typescript
 function register(embedId: string, editor: Editor, containerEl: HTMLElement): void;
-function unregister(embedId: string): void;
+function unregister(embedId: string): void;  // also calls clearEmbedBaseline
 function getEditor(embedId: string): Editor | undefined;
 function getActiveEmbedId(): string | null;  // from embed state atoms
 ```
@@ -273,7 +296,7 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 **Timing:** We set the flag before `executeRedo`. We clear it with `setTimeout(..., 50)` in a `finally` block—`store.listen` may run asynchronously (e.g. in a macrotask) after `editor.redo()` returns, so the 50ms delay keeps the flag true long enough for that sync to see it and skip.
 
-**When the flag is set:** Sync updates the baseline (`prevObsidianDepth`, `prevTldrawUndos`) and returns early—no entries added, redo stack not cleared.
+**When the flag is set:** Sync updates the baseline (`prevObsidianDepth`, `prevTldrawUndosByEmbed` for this embedId) and returns early—no entries added, redo stack not cleared.
 
 ---
 
@@ -288,7 +311,7 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 - **undo-redo.e2e.ts** — Tests undo/redo in the live Obsidian environment:
   - One embed: embed-only actions (undo twice, redo twice, correct order); mixed embed + Obsidian; programmatic redo guard (redo twice preserves redo stack).
-  - Two embeds: interleaved (stroke in embed 1, lock, stroke in embed 2, undo/redo for embed 2); mixed usage (draw E1, E2, E1, E2, assert undo/redo affects correct embeds); mixed with Obsidian (alternate typing and drawing across embeds); mid-sequence lock (skipped until purge-on-lock is implemented).
+  - Two embeds: Two Identical Embeds (Interleaved) — same ink file; Two Embeds (Interleaved) — different ink files; mixed usage (draw E1, E2, E1, E2 with both unlocked, no locking—tldraw scrubs undo history when unmounted); mixed with Obsidian; mid-sequence lock (skipped until purge-on-lock is implemented).
   - Three embeds: mixed usage (draw E1, E2, E3, E1, E2, E3, assert undo/redo affects correct embeds).
 
 Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo Redo Two Embeds.md`, `Undo Redo Three Embeds.md` (empty writing embeds with surrounding text).

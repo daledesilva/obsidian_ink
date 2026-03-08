@@ -5,6 +5,7 @@
  */
 
 import type { Editor } from '@tldraw/tldraw';
+import { clearEmbedBaseline } from './unified-undo-stack';
 
 interface RegistryEntry {
 	editor: Editor;
@@ -21,6 +22,7 @@ export function register(embedId: string, editor: Editor, containerEl: HTMLEleme
 
 export function unregister(embedId: string): void {
 	registry.delete(embedId);
+	clearEmbedBaseline(embedId);
 	if (lastRegisteredEmbedId === embedId) {
 		lastRegisteredEmbedId = null;
 	}

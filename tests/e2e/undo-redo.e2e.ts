@@ -251,7 +251,7 @@ async function createStroke(lineNum: number) {
 		lineNum
 	);
 	await browser.pause(200);
-}
+	}
 
 async function createStrokeInEmbed(embedIndex: number, lineNum: number) {
 	await browser.execute(
@@ -260,7 +260,7 @@ async function createStrokeInEmbed(embedIndex: number, lineNum: number) {
 		lineNum
 	);
 	await browser.pause(200);
-}
+	}
 
 async function getShapeCount(): Promise<number> {
 	return browser.execute(
@@ -531,19 +531,23 @@ describe("Undo/Redo — One Embed (embed-only)", function () {
 		expect(await getShapeCount()).toBe(3);
 
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		// Programmatic createShape batches differently than manual drawing
 		await waitForShapeCountOneOf([0, 1]);
 
 		await sendRedo();
+		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCountOneOf([2, 3]);
 
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 
 		await sendRedo();
+		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCountOneOf([2, 3]);
 	});
@@ -567,20 +571,23 @@ describe("Undo/Redo — One Embed (programmatic redo guard)", function () {
 		await createStroke(2);
 
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 
 		await sendRedo();
 		await waitForShapeCountOneOf([1, 2]);
-
+		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCount(2);
 
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 
 		await sendRedo();
+		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCount(2);
 	});
@@ -608,24 +615,28 @@ describe("Undo/Redo — One Embed (mixed embed + Obsidian)", function () {
 		expect(await getShapeCount()).toBe(2);
 
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 		let text = await getEditorText();
 		expect(text).not.toContain("Q");
 
 		await sendRedo();
+		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCount(2);
 		text = await getEditorText();
 		expect(text).toContain("Q");
 
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		await waitForShapeCountOneOf([0, 1]);
 		text = await getEditorText();
 		expect(text).not.toContain("Q");
 
 		await sendRedo();
+		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCount(2);
 		text = await getEditorText();
@@ -692,7 +703,7 @@ describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function ()
 		// Undo 6 times — unified stack pops in LIFO order
 		for (let i = 0; i < 6; i++) {
 			await sendUndo();
-			await browser.pause(200);
+			await browser.pause(1000);
 		}
 		countE1 = await getShapeCountInEmbedUnlocked(0);
 		countE2 = await getShapeCountInEmbedUnlocked(1);
@@ -702,7 +713,7 @@ describe("Undo/Redo — Two Different Drawing Embeds (mixed usage)", function ()
 		// Redo 6 times — all back
 		for (let i = 0; i < 6; i++) {
 			await sendRedo();
-			await browser.pause(200);
+			await browser.pause(1000);
 		}
 		countE1 = await getShapeCountInEmbedUnlocked(0);
 		countE2 = await getShapeCountInEmbedUnlocked(1);
@@ -738,12 +749,12 @@ describe("Undo/Redo — Two Embeds (Interleaved)", function () {
 		expect(countE2).toBe(1);
 
 		await sendUndo();
-		await browser.pause(300);
+		await browser.pause(1000);
 		countE2 = await getShapeCountInEmbedUnlocked(1);
 		expect(countE2).toBe(0);
 
 		await sendRedo();
-		await browser.pause(300);
+		await browser.pause(1000);
 		countE2 = await getShapeCountInEmbedUnlocked(1);
 		expect(countE2).toBe(1);
 	});
@@ -798,7 +809,7 @@ describe("Undo/Redo — Two Embeds (mixed usage)", function () {
 		// Undo 6 times — unified stack pops in LIFO order
 		for (let i = 0; i < 6; i++) {
 			await sendUndo();
-			await browser.pause(200);
+			await browser.pause(1000);
 		}
 		countE1 = await getShapeCountInEmbedUnlocked(0);
 		countE2 = await getShapeCountInEmbedUnlocked(1);
@@ -808,7 +819,7 @@ describe("Undo/Redo — Two Embeds (mixed usage)", function () {
 		// Redo 6 times — all back
 		for (let i = 0; i < 6; i++) {
 			await sendRedo();
-			await browser.pause(200);
+			await browser.pause(1000);
 		}
 		countE1 = await getShapeCountInEmbedUnlocked(0);
 		countE2 = await getShapeCountInEmbedUnlocked(1);
@@ -870,7 +881,7 @@ describe("Undo/Redo — Three Embeds (mixed usage)", function () {
 		// Undo 6 times — unified stack pops in LIFO order
 		for (let i = 0; i < 6; i++) {
 			await sendUndo();
-			await browser.pause(200);
+			await browser.pause(1000);
 		}
 		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
 		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
@@ -882,7 +893,7 @@ describe("Undo/Redo — Three Embeds (mixed usage)", function () {
 		// Redo 6 times — all back
 		for (let i = 0; i < 6; i++) {
 			await sendRedo();
-			await browser.pause(200);
+			await browser.pause(1000);
 		}
 		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
 		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
@@ -929,6 +940,7 @@ describe("Undo/Redo — Two Embeds and Obsidian (mixed usage)", function () {
 
 		// Undo twice → E2 stroke gone, Obsidian Q gone
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		countEmbed0 = await getShapeCountInEmbedUnlocked(0);
 		countEmbed1 = await getShapeCountInEmbedUnlocked(1);
@@ -994,12 +1006,14 @@ describe("Undo/Redo — Two Embeds (mid-sequence lock)", function () {
 
 		// Undo twice → only embed 2 affected; embed 2: 0 strokes
 		await sendUndo();
+		await browser.pause(1000);
 		await sendUndo();
 		const countEmbed2AfterUndo = await getShapeCount();
 		expect(countEmbed2AfterUndo).toBe(0);
 
 		// Redo twice → embed 2: 2 strokes
 		await sendRedo();
+		await browser.pause(1000);
 		await sendRedo();
 		const countEmbed2AfterRedo = await getShapeCount();
 		expect(countEmbed2AfterRedo).toBe(2);

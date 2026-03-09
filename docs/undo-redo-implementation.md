@@ -105,7 +105,7 @@ flowchart TD
 
 The sync logic tracks `prevTldrawUndosByEmbed: Map<embedId, number>` instead of a single global `prevTldrawUndos`. This fixes undo double-ups when multiple embeds are unlocked: each embed's delta is computed against its own baseline, so strokes in Embed B are no longer missed when the baseline was last updated by Embed A.
 
-When an embed is unregistered (e.g. on lock), `clearEmbedBaseline(embedId)` removes its entry from the map to avoid unbounded growth.
+When an embed is unregistered (e.g. on lock), `clearEmbedBaseline(embedId)` removes its entry from the map to avoid unbounded growth. When unregistering the active embed, the registry falls back to another still-registered embed (if any) so the keyboard handler continues to intercept Mod+Z / Mod+Shift+Z and undo/redo keeps working for remaining embeds.
 
 ### Sync baseline flow (per embed)
 
@@ -205,7 +205,7 @@ function clearEmbedBaseline(embedId: string): void;  // called by unregister
 
 ```typescript
 function register(embedId: string, editor: Editor, containerEl: HTMLElement): void;
-function unregister(embedId: string): void;  // also calls clearEmbedBaseline
+function unregister(embedId: string): void;  // also calls clearEmbedBaseline; if unregistering active embed, falls back to another registered embed
 function getEditor(embedId: string): Editor | undefined;
 function getActiveEmbedId(): string | null;  // from embed state atoms
 ```

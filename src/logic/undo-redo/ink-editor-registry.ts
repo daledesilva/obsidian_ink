@@ -36,7 +36,9 @@ export function unregister(embedId: string): void {
 	registry.delete(embedId);
 	clearEmbedBaseline(embedId);
 	if (lastRegisteredEmbedId === embedId) {
-		lastRegisteredEmbedId = null;
+		// Fall back to another still-registered embed so undo/redo keeps working
+		const anyRemaining = registry.keys().next().value ?? null;
+		lastRegisteredEmbedId = anyRemaining;
 	}
 }
 

@@ -107,6 +107,8 @@ The sync logic tracks `prevTldrawUndosByEmbed: Map<embedId, number>` instead of 
 
 When an embed is unregistered (e.g. on lock), `clearEmbedBaseline(embedId)` removes its entry from the map to avoid unbounded growth. `purgeEmbedEntriesFromStacks(embedId)` removes the locked embed's entries from both undo and redo stacks so they no longer appear in history (they cannot be executed anyway since the embed is gone). When unregistering the active embed, the registry falls back to another still-registered embed (if any) so the keyboard handler continues to intercept Mod+Z / Mod+Shift+Z and undo/redo keeps working for remaining embeds.
 
+**Merge on embed unlock:** When a second (or Nth) embed is unlocked while others already have an undo/redo history, `initialize` is called with `{ mergeWithExisting: true, embedId }`. This preserves the existing undo and redo stacks and only adds the new embed's baseline to `prevTldrawUndosByEmbed`. The new embed's changes then append to the unified history instead of wiping it.
+
 ### Sync baseline flow (per embed)
 
 ```mermaid
@@ -190,7 +192,8 @@ type UnifiedUndoEntry =
   | { type: 'embed'; embedId: string }
   | { type: 'obsidian' };
 
-function initialize(obsidianDepth: number, _tldrawUndos?: number, seedTldrawByEmbed?: Record<string, number>): void;
+function initialize(obsidianDepth: number, tldrawUndos?: number, seedTldrawByEmbed?: Record<string, number>, options?: { mergeWithExisting: true; embedId: string }): void;
+// When options.mergeWithExisting is true, preserves undo/redo stacks and only adds this embed's baseline (used when unlocking a second embed).
 function syncUnifiedUndoHistory(embedId: string, options?: { maxTldrawDelta?: number }): void;
 // Fetches plugin from getGlobals(), editor from getEditor(embedId); returns early if no editor.
 function popUndo(): UnifiedUndoEntry | null;
@@ -208,6 +211,7 @@ function purgeEmbedEntriesFromStacks(embedId: string): void;  // called by unreg
 function register(embedId: string, editor: Editor, containerEl: HTMLElement): void;
 function unregister(embedId: string): void;  // also calls clearEmbedBaseline, purgeEmbedEntriesFromStacks; if unregistering active embed, falls back to another registered embed
 function getEditor(embedId: string): Editor | undefined;
+function getRegisteredEmbedCount(): number;  // used to detect merge mode when unlocking another embed
 function getActiveEmbedId(): string | null;  // from embed state atoms
 ```
 
@@ -222,7 +226,7 @@ function getObsidianRedoDepth(plugin: InkPlugin): number;  // for completeness
 
 1. User clicks embed to edit → `embedStateAtom` / `embedStateAtom_v2` → `editor`
 2. `TldrawWritingEditor` / `TldrawDrawingEditor` mounts, `handleMount` runs
-3. In `handleMount`: call `initialize(getObsidianUndoDepth(plugin), getTldrawNumUndos(editor))`
+3. In `handleMount`: if `getRegisteredEmbedCount() > 0`, call `initialize(..., { mergeWithExisting: true, embedId })` to preserve existing stacks; else call `initialize(obsidianDepth, tldrawUndos)` for a fresh session
 4. Register editor in registry with `embedId`
 5. Add store.listen that calls sync just before `queueOrRunStorePostProcesses` in DrawingCompleted/DrawingErased branches
 6. On unmount: unregister from registry
@@ -305,7 +309,7 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 ### Unit tests
 
-- **unified-undo-stack.test.ts** — Tests `initialize`, stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments, `purgeEmbedEntriesFromStacks`, and the programmatic redo guard.
+- **unified-undo-stack.test.ts** — Tests `initialize` (including merge mode when unlocking another embed), stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments, `purgeEmbedEntriesFromStacks`, and the programmatic redo guard.
 - **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack, programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
 
 ### E2E tests

@@ -45,12 +45,24 @@ function formatStackForLog(stack: UnifiedUndoEntry[]): string {
 	return '[' + stack.map(formatEntry).join(', ') + ']';
 }
 
+export interface InitializeOptions {
+	mergeWithExisting: true;
+	embedId: string;
+}
+
 export function initialize(
 	obsidianDepth: number,
-	_tldrawUndos?: number,
+	tldrawUndos?: number,
 	seedTldrawByEmbed?: Record<string, number>,
+	options?: InitializeOptions,
 ): void {
 	prevObsidianDepth = obsidianDepth;
+
+	if (options?.mergeWithExisting && options.embedId) {
+		prevTldrawUndosByEmbed.set(options.embedId, tldrawUndos ?? 0);
+		return;
+	}
+
 	if (seedTldrawByEmbed) {
 		prevTldrawUndosByEmbed.clear();
 		for (const [id, count] of Object.entries(seedTldrawByEmbed)) {

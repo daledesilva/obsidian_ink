@@ -48,6 +48,14 @@ export function getEditor(embedId: string): Editor | undefined {
 }
 
 /**
+ * Returns the number of embeds currently registered.
+ * Used to detect when a new embed is joining an existing session (merge mode).
+ */
+export function getRegisteredEmbedCount(): number {
+	return registry.size;
+}
+
+/**
  * Returns the most recently registered embed id, if any.
  * When only one embed is in edit mode at a time, this is the active one.
  */

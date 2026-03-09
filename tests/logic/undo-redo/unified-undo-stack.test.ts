@@ -77,6 +77,43 @@ describe('unified-undo-stack', () => {
 			expect(isRedoStackEmpty()).toBe(true);
 			expect(getUndoStackSnapshot()).toEqual([]);
 		});
+
+		describe('mergeWithExisting', () => {
+			const EMBED_A = 'embed-a';
+			const EMBED_B = 'embed-b';
+
+			it('preserves existing undo and redo stacks', () => {
+				pushUndo({ type: 'embed', embedId: EMBED_A });
+				pushUndo({ type: 'obsidian' });
+				pushRedo({ type: 'embed', embedId: EMBED_A });
+
+				initialize(2, 1, undefined, { mergeWithExisting: true, embedId: EMBED_B });
+
+				const undoStack = getUndoStackSnapshot();
+				expect(undoStack).toHaveLength(2);
+				expect(undoStack[0]).toEqual({ type: 'embed', embedId: EMBED_A });
+				expect(undoStack[1]).toEqual({ type: 'obsidian' });
+				expect(isRedoStackEmpty()).toBe(false);
+				expect(popRedo()).toEqual({ type: 'embed', embedId: EMBED_A });
+			});
+
+			it('sets baseline for the new embed so sync adds entries correctly', () => {
+				initialize(0, 0);
+				mockGetEditor.mockReturnValue(MOCK_EDITOR);
+				setupSyncMocks(0, 1);
+				syncUnifiedUndoHistory(EMBED_A);
+				expect(getUndoStackSnapshot()).toHaveLength(1);
+
+				initialize(0, 2, undefined, { mergeWithExisting: true, embedId: EMBED_B });
+				mockGetTldrawNumUndos.mockReturnValue(3);
+				syncUnifiedUndoHistory(EMBED_B, { maxTldrawDelta: 1 });
+
+				const stack = getUndoStackSnapshot();
+				expect(stack).toHaveLength(2);
+				expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_A });
+				expect(stack[1]).toEqual({ type: 'embed', embedId: EMBED_B });
+			});
+		});
 	});
 
 	describe('popUndo / pushUndo / popRedo / pushRedo', () => {

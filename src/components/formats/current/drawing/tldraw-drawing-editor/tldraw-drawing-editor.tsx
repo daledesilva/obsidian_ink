@@ -20,7 +20,7 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
-import { register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { getRegisteredEmbedCount, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
 import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
@@ -110,7 +110,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change
 		if (props.embedded && props.embedId && props.plugin && editorWrapperRefEl.current) {
-			initialize(getObsidianUndoDepth(props.plugin), getTldrawNumUndos(editor));
+			const obsidianDepth = getObsidianUndoDepth(props.plugin);
+			const tldrawUndos = getTldrawNumUndos(editor);
+			if (getRegisteredEmbedCount() > 0) {
+				initialize(obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
+			} else {
+				initialize(obsidianDepth, tldrawUndos);
+			}
 			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current);
 		}
 

@@ -72,6 +72,12 @@ npm run test:e2e
 
 This builds the plugin, regenerates the qa-test-vault, and runs E2E specs against Obsidian. The first run downloads Obsidian into `.obsidian-cache/`. Requires Node.js and a supported OS (Windows, macOS, Linux).
 
+To run a single spec file, use `test:e2e:spec` and pass the spec path after `--`:
+
+```bash
+npm run test:e2e:spec -- tests/e2e/undo-redo.e2e.ts
+```
+
 **E2E popup handling**
 
 Both Ink and Excalidraw are pre-seeded so their welcome popups do not appear:

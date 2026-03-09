@@ -8,6 +8,7 @@
 		"test": "npm run test:unit && npm run test:e2e",
 		"test:unit": "jest",
 		"test:e2e": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && wdio run ./wdio.conf.mts",
+		"test:e2e:spec": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && wdio run ./wdio.conf.mts --spec",
 		"open-qa": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"open-qa-verbose": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs development && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",

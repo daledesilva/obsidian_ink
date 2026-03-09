@@ -314,9 +314,9 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 ### E2E tests
 
-- **undo-redo.e2e.ts** — Tests undo/redo in the live Obsidian environment:
+- **undo-redo.e2e.ts** — Tests undo/redo in the live Obsidian environment. Three tests are skipped (purge-on-lock, stack-preserved-on-unlock, mid-sequence-lock) due to E2E timing/ordering issues; manual testing confirms the behaviors work:
   - One embed: embed-only actions (undo twice, redo twice, correct order); mixed embed + Obsidian; programmatic redo guard (redo twice preserves redo stack).
-  - Two embeds: Two Embeds (Interleaved) — different ink files; mixed usage (draw E1, E2, E1, E2, E1, E2 with both unlocked, no locking); mixed with Obsidian; mid-sequence lock (draw E1, E2, E1, E2, lock embed 1, undo only affects embed 2).
+  - Two embeds: Two Embeds (Interleaved) — different ink files; mixed usage (draw E1, E2, E1, E2, E1, E2 with both unlocked, no locking); mixed with Obsidian; purged entries on lock (6 strokes alternating, undo fully, redo halfway, lock one, undo/redo fully on remaining); stack preserved when second embed unlocks (6 strokes in E0, undo/redo halfway, unlock E1, redo/undo/redo to 4, 6 alternating, full undo/redo cycle); mid-sequence lock (draw E1, E2, E1, E2, lock embed 1, undo only affects embed 2).
   - Three embeds: mixed usage (draw E1, E2, E3, E1, E2, E3, assert undo/redo affects correct embeds).
 
 Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo Redo Two Embeds.md`, `Undo Redo Three Embeds.md` (empty drawing embeds with surrounding text). All undo/redo E2E tests use empty drawing embeds.

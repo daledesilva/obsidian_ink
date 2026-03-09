@@ -38,6 +38,7 @@ import {
 	notifyUndoExecuted,
 	notifyRedoExecuted,
 	clearEmbedBaseline,
+	purgeEmbedEntriesFromStacks,
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
 
@@ -314,6 +315,79 @@ describe('unified-undo-stack', () => {
 			setupSyncMocks(0, 1);
 			syncUnifiedUndoHistory(EMBED_ID);
 			expect(getUndoStackSnapshot()).toHaveLength(3);
+		});
+	});
+
+	describe('purgeEmbedEntriesFromStacks', () => {
+		const EMBED_A = 'embed-a';
+		const EMBED_B = 'embed-b';
+
+		it('removes embed entries from undo stack, leaves others', () => {
+			pushUndo({ type: 'embed', embedId: EMBED_B });
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+			pushUndo({ type: 'embed', embedId: EMBED_B });
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+
+			purgeEmbedEntriesFromStacks(EMBED_A);
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(2);
+			expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_B });
+			expect(stack[1]).toEqual({ type: 'embed', embedId: EMBED_B });
+		});
+
+		it('removes embed entries from redo stack, leaves others', () => {
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+			popUndo();
+			pushRedo({ type: 'embed', embedId: EMBED_A });
+			pushRedo({ type: 'embed', embedId: EMBED_B });
+			pushRedo({ type: 'embed', embedId: EMBED_A });
+
+			purgeEmbedEntriesFromStacks(EMBED_A);
+
+			expect(popRedo()).toEqual({ type: 'embed', embedId: EMBED_B });
+			expect(popRedo()).toBeNull();
+		});
+
+		it('leaves obsidian entries untouched', () => {
+			pushUndo({ type: 'obsidian' });
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+			pushUndo({ type: 'obsidian' });
+
+			purgeEmbedEntriesFromStacks(EMBED_A);
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(2);
+			expect(stack[0]).toEqual({ type: 'obsidian' });
+			expect(stack[1]).toEqual({ type: 'obsidian' });
+		});
+
+		it('preserves relative order of remaining entries', () => {
+			pushUndo({ type: 'embed', embedId: EMBED_B });
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+			pushUndo({ type: 'obsidian' });
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+			pushUndo({ type: 'embed', embedId: EMBED_B });
+
+			purgeEmbedEntriesFromStacks(EMBED_A);
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(3);
+			expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_B });
+			expect(stack[1]).toEqual({ type: 'obsidian' });
+			expect(stack[2]).toEqual({ type: 'embed', embedId: EMBED_B });
+		});
+
+		it('no-op when embed has no entries', () => {
+			pushUndo({ type: 'embed', embedId: EMBED_B });
+			pushUndo({ type: 'obsidian' });
+
+			purgeEmbedEntriesFromStacks(EMBED_A);
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(2);
+			expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_B });
+			expect(stack[1]).toEqual({ type: 'obsidian' });
 		});
 	});
 

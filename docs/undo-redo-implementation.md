@@ -105,7 +105,7 @@ flowchart TD
 
 The sync logic tracks `prevTldrawUndosByEmbed: Map<embedId, number>` instead of a single global `prevTldrawUndos`. This fixes undo double-ups when multiple embeds are unlocked: each embed's delta is computed against its own baseline, so strokes in Embed B are no longer missed when the baseline was last updated by Embed A.
 
-When an embed is unregistered (e.g. on lock), `clearEmbedBaseline(embedId)` removes its entry from the map to avoid unbounded growth. When unregistering the active embed, the registry falls back to another still-registered embed (if any) so the keyboard handler continues to intercept Mod+Z / Mod+Shift+Z and undo/redo keeps working for remaining embeds.
+When an embed is unregistered (e.g. on lock), `clearEmbedBaseline(embedId)` removes its entry from the map to avoid unbounded growth. `purgeEmbedEntriesFromStacks(embedId)` removes the locked embed's entries from both undo and redo stacks so they no longer appear in history (they cannot be executed anyway since the embed is gone). When unregistering the active embed, the registry falls back to another still-registered embed (if any) so the keyboard handler continues to intercept Mod+Z / Mod+Shift+Z and undo/redo keeps working for remaining embeds.
 
 ### Sync baseline flow (per embed)
 
@@ -199,13 +199,14 @@ function popRedo(): UnifiedUndoEntry | null;
 function pushUndo(entry: UnifiedUndoEntry): void;
 function isUndoStackEmpty(): boolean;
 function clearEmbedBaseline(embedId: string): void;  // called by unregister
+function purgeEmbedEntriesFromStacks(embedId: string): void;  // called by unregister; removes locked embed's entries from undo/redo stacks
 ```
 
 ### ink-editor-registry.ts
 
 ```typescript
 function register(embedId: string, editor: Editor, containerEl: HTMLElement): void;
-function unregister(embedId: string): void;  // also calls clearEmbedBaseline; if unregistering active embed, falls back to another registered embed
+function unregister(embedId: string): void;  // also calls clearEmbedBaseline, purgeEmbedEntriesFromStacks; if unregistering active embed, falls back to another registered embed
 function getEditor(embedId: string): Editor | undefined;
 function getActiveEmbedId(): string | null;  // from embed state atoms
 ```
@@ -304,14 +305,14 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 ### Unit tests
 
-- **unified-undo-stack.test.ts** — Tests `initialize`, stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments, and the programmatic redo guard.
+- **unified-undo-stack.test.ts** — Tests `initialize`, stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments, `purgeEmbedEntriesFromStacks`, and the programmatic redo guard.
 - **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack, programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
 
 ### E2E tests
 
 - **undo-redo.e2e.ts** — Tests undo/redo in the live Obsidian environment:
   - One embed: embed-only actions (undo twice, redo twice, correct order); mixed embed + Obsidian; programmatic redo guard (redo twice preserves redo stack).
-  - Two embeds: Two Embeds (Interleaved) — different ink files; mixed usage (draw E1, E2, E1, E2, E1, E2 with both unlocked, no locking); mixed with Obsidian; mid-sequence lock (skipped until purge-on-lock is implemented).
+  - Two embeds: Two Embeds (Interleaved) — different ink files; mixed usage (draw E1, E2, E1, E2, E1, E2 with both unlocked, no locking); mixed with Obsidian; mid-sequence lock (draw E1, E2, E1, E2, lock embed 1, undo only affects embed 2).
   - Three embeds: mixed usage (draw E1, E2, E3, E1, E2, E3, assert undo/redo affects correct embeds).
 
 Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo Redo Two Embeds.md`, `Undo Redo Three Embeds.md` (empty drawing embeds with surrounding text). All undo/redo E2E tests use empty drawing embeds.
@@ -329,5 +330,5 @@ Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo
 
 ### Limitations
 
-- **Undo of locked-embed actions:** When an embed is locked it is unregistered. Undo of that embed's actions requires unlocking it again; at that moment the previously active embed locks. The implementation uses `getEditor(entry.embedId)` — if the embed is locked, it returns undefined and the undo is a no-op for that entry.
+- **Purge on lock:** When an embed is locked it is unregistered. `purgeEmbedEntriesFromStacks(embedId)` removes its entries from both undo and redo stacks, so the user never steps through dead entries. Undo/redo for remaining embeds continues to work.
 - **Two Identical Embeds (implementation gap):** Multiple embeds linking to the same ink file do not share in-memory state when both are unlocked. Each embed has its own tldraw store; changes in one are not reflected in the other until save/reload. A test covering this scenario was removed as a known gap.

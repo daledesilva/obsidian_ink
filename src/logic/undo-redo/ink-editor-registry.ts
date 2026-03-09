@@ -5,7 +5,7 @@
  */
 
 import type { Editor } from '@tldraw/tldraw';
-import { clearEmbedBaseline } from './unified-undo-stack';
+import { clearEmbedBaseline, purgeEmbedEntriesFromStacks } from './unified-undo-stack';
 
 interface RegistryEntry {
 	editor: Editor;
@@ -35,6 +35,7 @@ export function setActiveEmbedId(embedId: string | null): void {
 export function unregister(embedId: string): void {
 	registry.delete(embedId);
 	clearEmbedBaseline(embedId);
+	purgeEmbedEntriesFromStacks(embedId);
 	if (lastRegisteredEmbedId === embedId) {
 		// Fall back to another still-registered embed so undo/redo keeps working
 		const anyRemaining = registry.keys().next().value ?? null;

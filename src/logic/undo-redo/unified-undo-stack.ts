@@ -173,3 +173,12 @@ export function notifyRedoExecuted(entry: UnifiedUndoEntry): void {
 export function clearEmbedBaseline(embedId: string): void {
 	prevTldrawUndosByEmbed.delete(embedId);
 }
+
+/**
+ * Remove all entries for a given embed from undo and redo stacks.
+ * Call when an embed is locked (unregistered). Preserves relative order of remaining entries.
+ */
+export function purgeEmbedEntriesFromStacks(embedId: string): void {
+	undoStack = undoStack.filter((e) => !(e.type === 'embed' && e.embedId === embedId));
+	redoStack = redoStack.filter((e) => !(e.type === 'embed' && e.embedId === embedId));
+}

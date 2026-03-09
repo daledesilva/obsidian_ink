@@ -966,9 +966,7 @@ describe("Undo/Redo — Two Embeds (mid-sequence lock)", function () {
 		await dismissBlockingPopups();
 	});
 
-	// Requires purge-on-lock: when an embed is locked, its entries must be removed from undo/redo stacks.
-	// Current impl: getEditor(entry.embedId) returns undefined for locked embeds → no-op; entries remain.
-	it.skip("draw E1, E2, E1, E2 — lock embed 1 — undo only affects embed 2", async function () {
+	it("draw E1, E2, E1, E2 — lock embed 1 — undo only affects embed 2", async function () {
 		await openEmbedForEdit(NOTE_TWO_EMBEDS, ".ddc_ink_drawing-editor");
 		await installUndoRedoHelpers();
 		await resetShapeTracking();

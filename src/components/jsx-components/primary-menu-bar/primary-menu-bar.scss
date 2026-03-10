@@ -17,7 +17,8 @@
 
 // If inside an embed block
 .ddc_ink_embed .ink_primary-menu-bar {
-    padding: 8px var(--file-margins);
+    padding-block: 16px;
+    //padding-inline:var(--file-margins);
 
     transition-property: transform;
     transition-duration: 0.2s;

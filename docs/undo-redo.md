@@ -101,7 +101,7 @@ Each `"embed"` entry stores which embed/editor it belongs to. When popping an `"
 
 ### Locked embed dimensions
 
-When an embed is locked, we persist its dimensions (width, aspect ratio) to the markdown. That update must not be added to CodeMirror's undo history; otherwise sync would add an Obsidian entry, and the next undo would revert the locked embed's size. We use `EditorState.addToHistory.of(false)` on that transaction. See [undo-redo-implementation.md](undo-redo-implementation.md) for details.
+When an embed is locked, we persist its dimensions (width, aspect ratio) to the markdown. That update must not be added to CodeMirror's undo history; otherwise sync would add an Obsidian entry, and the next undo would revert the locked embed's size. We use `Transaction.addToHistory.of(false)` on that transaction. See [undo-redo-implementation.md](undo-redo-implementation.md) for details.
 
 ---
 

@@ -298,7 +298,10 @@ export class DrawingEmbedWidget extends WidgetType {
                     updated = updated.replace(/(aspectRatio=)([^&\)]+)/, `$1${newEmbedSettings.embedDisplay.aspectRatio}`);
                 }
                 if (updated !== currentText) {
-                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    const tr = view.state.update({
+                        changes: { from, to, insert: updated },
+                        annotations: [Transaction.addToHistory.of(false)],
+                    });
                     view.dispatch(tr);
                 }
                 return;

@@ -314,7 +314,7 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 When an embed is locked, `setEmbedProps` updates the markdown with the saved width and aspect ratio. That document change would otherwise add a step to CodeMirror's undo history. Sync would then add an Obsidian entry to our stack, and the next undo would call `editor.undo()`—reverting the markdown and changing the locked embed's display size.
 
-**Decision:** Use `EditorState.addToHistory.of(false)` when dispatching the `updateEmbed` transaction that persists dimensions. The dimensions-on-lock update is programmatic, not user typing; the user has already confirmed them by locking. We suppress history so undo/redo does not affect the locked embed's size. Implementation: in `drawing-embed-extension.tsx` `updateEmbed`, pass `annotations: [EditorState.addToHistory.of(false)]` to the transaction.
+**Decision:** Use `Transaction.addToHistory.of(false)` when dispatching the `updateEmbed` transaction that persists dimensions. The dimensions-on-lock update is programmatic, not user typing; the user has already confirmed them by locking. We suppress history so undo/redo does not affect the locked embed's size. Implementation: in `drawing-embed-extension.tsx` `updateEmbed`, pass `annotations: [Transaction.addToHistory.of(false)]` to the transaction.
 
 ---
 

@@ -12,6 +12,8 @@ The internal undo history is synced in two places:
 
 **2. Keydown (Mod+Z / Mod+Shift+Z)** — Before popping and executing undo/redo, we call `syncUnifiedUndoHistory(activeEmbedId)` to capture any Obsidian edits since the last tldraw action.
 
+**3. Drawing embed resize (pointer up)** — When the user finishes resizing a drawing embed via the ResizeHandle, `onResizeEnd` runs and calls `pushDrawingEmbedResize` directly (not via sync). Resize entries store `fromWidth`/`fromAspectRatio` and `toWidth`/`toAspectRatio`; undo applies the former, redo applies the latter.
+
 ```mermaid
 flowchart TD
     subgraph storeListen [store.listen flow]
@@ -167,6 +169,7 @@ flowchart TD
         G -->|no| I[Pop from undo stack]
         I --> J{Entry type?}
         J -->|embed| K[editor.undo on registry lookup]
+        J -->|embed-resize| K2[getResizeApplier.apply fromWidth fromAspectRatio]
         J -->|obsidian| L[MarkdownView.editor.undo]
         K --> M[Push to redo stack]
         L --> M
@@ -175,6 +178,7 @@ flowchart TD
         N -->|no| P[Pop from redo stack]
         P --> Q{Entry type?}
         Q -->|embed| R[editor.redo on registry]
+        Q -->|embed-resize| R2[getResizeApplier.apply toWidth toAspectRatio]
         Q -->|obsidian| S[MarkdownView.editor.redo]
         R --> T[Push to undo stack]
         S --> T
@@ -190,6 +194,7 @@ flowchart TD
 ```typescript
 type UnifiedUndoEntry =
   | { type: 'embed'; embedId: string }
+  | { type: 'embed-resize'; embedId: string; fromWidth: number; fromAspectRatio: number; toWidth: number; toAspectRatio: number }
   | { type: 'obsidian' };
 
 function initialize(obsidianDepth: number, tldrawUndos?: number, seedTldrawByEmbed?: Record<string, number>, options?: { mergeWithExisting: true; embedId: string }): void;
@@ -202,15 +207,17 @@ function popRedo(): UnifiedUndoEntry | null;
 function pushUndo(entry: UnifiedUndoEntry): void;
 function isUndoStackEmpty(): boolean;
 function clearEmbedBaseline(embedId: string): void;  // called by unregister
-function purgeEmbedEntriesFromStacks(embedId: string): void;  // called by unregister; removes locked embed's entries from undo/redo stacks
+function purgeEmbedEntriesFromStacks(embedId: string): void;  // called by unregister; removes locked embed's entries (embed and embed-resize) from undo/redo stacks
+function pushDrawingEmbedResize(entry: Extract<UnifiedUndoEntry, { type: 'embed-resize' }>): void;  // called when resize ends; pushes directly, clears redo
 ```
 
 ### ink-editor-registry.ts
 
 ```typescript
-function register(embedId: string, editor: Editor, containerEl: HTMLElement): void;
+function register(embedId: string, editor: Editor, containerEl: HTMLElement, applyResize?: (width: number, aspectRatio: number) => void): void;
 function unregister(embedId: string): void;  // also calls clearEmbedBaseline, purgeEmbedEntriesFromStacks; if unregistering active embed, falls back to another registered embed
 function getEditor(embedId: string): Editor | undefined;
+function getResizeApplier(embedId: string): ((width: number, aspectRatio: number) => void) | undefined;  // for embed-resize undo/redo
 function getRegisteredEmbedCount(): number;  // used to detect merge mode when unlocking another embed
 function getActiveEmbedId(): string | null;  // from embed state atoms
 ```
@@ -303,14 +310,20 @@ When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires wi
 
 **When the flag is set:** Sync updates the baseline (`prevObsidianDepth`, `prevTldrawUndosByEmbed` for this embedId) and returns early—no entries added, redo stack not cleared.
 
+### Embed dimensions on lock (addToHistory)
+
+When an embed is locked, `setEmbedProps` updates the markdown with the saved width and aspect ratio. That document change would otherwise add a step to CodeMirror's undo history. Sync would then add an Obsidian entry to our stack, and the next undo would call `editor.undo()`—reverting the markdown and changing the locked embed's display size.
+
+**Decision:** Use `EditorState.addToHistory.of(false)` when dispatching the `updateEmbed` transaction that persists dimensions. The dimensions-on-lock update is programmatic, not user typing; the user has already confirmed them by locking. We suppress history so undo/redo does not affect the locked embed's size. Implementation: in `drawing-embed-extension.tsx` `updateEmbed`, pass `annotations: [EditorState.addToHistory.of(false)]` to the transaction.
+
 ---
 
 ## Testing
 
 ### Unit tests
 
-- **unified-undo-stack.test.ts** — Tests `initialize` (including merge mode when unlocking another embed), stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments, `purgeEmbedEntriesFromStacks`, and the programmatic redo guard.
-- **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack, programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
+- **unified-undo-stack.test.ts** — Tests `initialize` (including merge mode when unlocking another embed), stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `pushDrawingEmbedResize`, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments (including no-op for embed-resize), `purgeEmbedEntriesFromStacks` (including embed-resize entries), and the programmatic redo guard.
+- **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack (embed, embed-resize, obsidian), programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
 
 ### E2E tests
 

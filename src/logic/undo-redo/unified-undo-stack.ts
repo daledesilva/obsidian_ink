@@ -13,6 +13,7 @@ import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 export type UnifiedUndoEntry =
 	| { type: 'embed'; embedId: string }
+	| { type: 'embed-resize'; embedId: string; fromWidth: number; fromAspectRatio: number; toWidth: number; toAspectRatio: number }
 	| { type: 'obsidian' };
 
 let undoStack: UnifiedUndoEntry[] = [];
@@ -38,7 +39,9 @@ function isProgrammaticRedoInProgress(): boolean {
 }
 
 function formatEntry(entry: UnifiedUndoEntry): string {
-	return entry.type === 'obsidian' ? 'Obsidian' : `Embed:${entry.embedId}`;
+	if (entry.type === 'obsidian') return 'Obsidian';
+	if (entry.type === 'embed-resize') return `EmbedResize:${entry.embedId}`;
+	return `Embed:${entry.embedId}`;
 }
 
 function formatStackForLog(stack: UnifiedUndoEntry[]): string {
@@ -125,6 +128,17 @@ export function syncUnifiedUndoHistory(
 	prevTldrawUndosByEmbed.set(embedId, tldrawUndos);
 }
 
+/**
+ * Pushes a drawing embed resize entry directly to the undo stack (not via sync).
+ * Resizes do not affect tldraw or Obsidian depth, so no baseline update.
+ * Clears the redo stack.
+ */
+export function pushDrawingEmbedResize(entry: Extract<UnifiedUndoEntry, { type: 'embed-resize' }>): void {
+	undoStack.push(entry);
+	redoStack = [];
+	verbose(`[undo-redo] Pushed embed-resize. Undo stack after: ${formatStackForLog([...undoStack])}`);
+}
+
 export function getUndoStackSnapshot(): readonly UnifiedUndoEntry[] {
 	return [...undoStack];
 }
@@ -160,6 +174,8 @@ export function isRedoStackEmpty(): boolean {
 export function notifyUndoExecuted(entry: UnifiedUndoEntry): void {
 	if (entry.type === 'obsidian') {
 		prevObsidianDepth = Math.max(0, prevObsidianDepth - 1);
+	} else if (entry.type === 'embed-resize') {
+		// No baseline to adjust for resize entries.
 	} else {
 		const current = prevTldrawUndosByEmbed.get(entry.embedId) ?? 0;
 		prevTldrawUndosByEmbed.set(entry.embedId, Math.max(0, current - 1));
@@ -172,6 +188,8 @@ export function notifyUndoExecuted(entry: UnifiedUndoEntry): void {
 export function notifyRedoExecuted(entry: UnifiedUndoEntry): void {
 	if (entry.type === 'obsidian') {
 		prevObsidianDepth += 1;
+	} else if (entry.type === 'embed-resize') {
+		// No baseline to adjust for resize entries.
 	} else {
 		const current = prevTldrawUndosByEmbed.get(entry.embedId) ?? 0;
 		prevTldrawUndosByEmbed.set(entry.embedId, current + 1);
@@ -191,6 +209,8 @@ export function clearEmbedBaseline(embedId: string): void {
  * Call when an embed is locked (unregistered). Preserves relative order of remaining entries.
  */
 export function purgeEmbedEntriesFromStacks(embedId: string): void {
-	undoStack = undoStack.filter((e) => !(e.type === 'embed' && e.embedId === embedId));
-	redoStack = redoStack.filter((e) => !(e.type === 'embed' && e.embedId === embedId));
+	const matchesEmbed = (e: UnifiedUndoEntry) =>
+		(e.type === 'embed' && e.embedId === embedId) || (e.type === 'embed-resize' && e.embedId === embedId);
+	undoStack = undoStack.filter((e) => !matchesEmbed(e));
+	redoStack = redoStack.filter((e) => !matchesEmbed(e));
 }

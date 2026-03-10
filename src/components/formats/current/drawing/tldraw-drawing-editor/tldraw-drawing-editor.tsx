@@ -38,6 +38,9 @@ interface TldrawDrawingEditor_Props {
 	// For embeds
 	embedded?: boolean,
 	resizeEmbed?: (pxWidthDiff: number, pxHeightDiff: number) => void,
+	onResizeStart?: () => void,
+	onResizeEnd?: () => void,
+	applyEmbedDimensions?: (width: number, aspectRatio: number) => void,
 	closeEditor?: Function,
 	saveControlsReference?: Function,
 }
@@ -117,7 +120,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			} else {
 				initialize(obsidianDepth, tldrawUndos);
 			}
-			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current);
+			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current, props.applyEmbedDimensions);
 		}
 
 		// Make visible once prepared
@@ -381,7 +384,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		{props.resizeEmbed && (
 			<ResizeHandle
-				resizeEmbed = {resizeEmbed}
+				resizeEmbed={resizeEmbed}
+				onResizeStart={props.onResizeStart}
+				onResizeEnd={props.onResizeEnd}
 			/>
 		)}
 	</>;

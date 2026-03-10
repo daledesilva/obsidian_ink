@@ -13,6 +13,7 @@ import { TFile } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
+import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
@@ -68,8 +69,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
+	const resizeStartWidthRef = useRef<number>(0);
+	const resizeStartAspectRatioRef = useRef<number>(0);
 
-    const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
+	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
 
 	// On first mount
 	React.useEffect( () => {
@@ -204,6 +207,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						saveControlsReference = {registerEditorControls}
 						closeEditor = {saveAndSwitchToPreviewMode}
 						resizeEmbed = {resizeEmbed}
+						onResizeStart = {onResizeStart}
+						onResizeEnd = {onResizeEnd}
+						applyEmbedDimensions = {applyEmbedDimensions}
 					/>
 
 				</div>
@@ -243,6 +249,39 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		resizeContainerElRef.current.style.height = destHeight + 'px';
 		props.onRequestMeasure?.();
 		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
+	}
+
+	function onResizeStart() {
+		resizeStartWidthRef.current = embedWidthRef.current;
+		resizeStartAspectRatioRef.current = embedAspectRatioRef.current;
+	}
+
+	function onResizeEnd() {
+		const fromWidth = resizeStartWidthRef.current;
+		const fromAspectRatio = resizeStartAspectRatioRef.current;
+		const toWidth = embedWidthRef.current;
+		const toAspectRatio = embedAspectRatioRef.current;
+		const dimensionsChanged = fromWidth !== toWidth || fromAspectRatio !== toAspectRatio;
+		if (dimensionsChanged && props.embedId) {
+			pushDrawingEmbedResize({
+				type: 'embed-resize',
+				embedId: props.embedId,
+				fromWidth,
+				fromAspectRatio,
+				toWidth,
+				toAspectRatio,
+			});
+		}
+	}
+
+	function applyEmbedDimensions(width: number, aspectRatio: number) {
+		embedWidthRef.current = width;
+		embedAspectRatioRef.current = aspectRatio;
+		if (resizeContainerElRef.current) {
+			resizeContainerElRef.current.style.width = width + 'px';
+			resizeContainerElRef.current.style.height = width / aspectRatio + 'px';
+			props.onRequestMeasure?.();
+		}
 	}
 
 	/**

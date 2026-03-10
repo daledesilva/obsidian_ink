@@ -25,7 +25,10 @@ When an ink embed is **unlocked** (edit mode), the embed captures Mod+Z and Mod+
 Each entry is either:
 
 - `"embed"` with an embed/editor id (a tldraw canvas action: stroke drawn, shape erased, etc.)
+- `"embed-resize"` with an embed id and from/to dimensions (a drawing embed resize: width and aspect ratio changed via the resize handle)
 - `"obsidian"` (a CodeMirror action: text typed, embed inserted, etc.)
+
+Drawing embed resizes are pushed when the user finishes a resize gesture (pointer up). Writing embeds resize automatically and do not produce undo entries.
 
 ### How we add to the undo stack
 
@@ -45,6 +48,7 @@ In `editor.store.listen` (tldraw store), when a user change is detected (excludi
 - **First**: Sync — check Obsidian undo depth and tldraw undos; add any Obsidian (or tldraw) entries that accrued since the last store.listen. This ensures we capture Obsidian typing that happened without a canvas action.
 - Then: Pop from the custom undo stack
 - If `"embed"`: call undo on the recorded tldraw editor
+- If `"embed-resize"`: apply the previous dimensions (fromWidth, fromAspectRatio) to the drawing embed
 - If `"obsidian"`: call `editor.undo()` on the active MarkdownView (with a guard so we do not treat our own programmatic undo as a new action)
 - Push the popped entry onto the redo stack
 
@@ -52,6 +56,7 @@ In `editor.store.listen` (tldraw store), when a user change is detected (excludi
 
 - Pop from the custom redo stack
 - If `"embed"`: call redo on the recorded tldraw editor
+- If `"embed-resize"`: apply the post-resize dimensions (toWidth, toAspectRatio) to the drawing embed
 - If `"obsidian"`: call `editor.redo()` on the active MarkdownView
 - Push the popped entry onto the undo stack
 
@@ -93,6 +98,10 @@ When entering edit mode, capture `prevObsidianDepth` and `prevTldrawUndos` from 
 ### Multiple embeds
 
 Each `"embed"` entry stores which embed/editor it belongs to. When popping an `"embed"` entry, we undo the correct tldraw instance from the registry.
+
+### Locked embed dimensions
+
+When an embed is locked, we persist its dimensions (width, aspect ratio) to the markdown. That update must not be added to CodeMirror's undo history; otherwise sync would add an Obsidian entry, and the next undo would revert the locked embed's size. We use `EditorState.addToHistory.of(false)` on that transaction. See [undo-redo-implementation.md](undo-redo-implementation.md) for details.
 
 ---
 

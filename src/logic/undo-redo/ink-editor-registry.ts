@@ -7,16 +7,24 @@
 import type { Editor } from '@tldraw/tldraw';
 import { clearEmbedBaseline, purgeEmbedEntriesFromStacks } from './unified-undo-stack';
 
+export type ApplyResizeFn = (width: number, aspectRatio: number) => void;
+
 interface RegistryEntry {
 	editor: Editor;
 	containerEl: HTMLElement;
+	applyResize?: ApplyResizeFn;
 }
 
 const registry = new Map<string, RegistryEntry>();
 let lastRegisteredEmbedId: string | null = null;
 
-export function register(embedId: string, editor: Editor, containerEl: HTMLElement): void {
-	registry.set(embedId, { editor, containerEl });
+export function register(
+	embedId: string,
+	editor: Editor,
+	containerEl: HTMLElement,
+	applyResize?: ApplyResizeFn,
+): void {
+	registry.set(embedId, { editor, containerEl, applyResize });
 	lastRegisteredEmbedId = embedId;
 	// Update active when embedding is focused (click) so undo/redo sync targets the right embed
 	containerEl.addEventListener('mousedown', () => setActiveEmbedId(embedId));
@@ -45,6 +53,10 @@ export function unregister(embedId: string): void {
 
 export function getEditor(embedId: string): Editor | undefined {
 	return registry.get(embedId)?.editor;
+}
+
+export function getResizeApplier(embedId: string): ApplyResizeFn | undefined {
+	return registry.get(embedId)?.applyResize;
 }
 
 /**

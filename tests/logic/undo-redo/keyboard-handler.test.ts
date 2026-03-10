@@ -16,10 +16,12 @@ const mockNotifyRedoExecuted = jest.fn();
 const mockSetProgrammaticRedoInProgress = jest.fn();
 const mockGetUndoStackSnapshot = jest.fn();
 const mockGetEditor = jest.fn();
+const mockGetResizeApplier = jest.fn();
 
 jest.mock('src/logic/undo-redo/ink-editor-registry', () => ({
 	getActiveEmbedId: () => mockGetActiveEmbedId(),
 	getEditor: (embedId: string) => mockGetEditor(embedId),
+	getResizeApplier: (embedId: string) => mockGetResizeApplier(embedId),
 }));
 
 jest.mock('src/logic/undo-redo/unified-undo-stack', () => ({
@@ -198,6 +200,56 @@ describe('keyboard-handler', () => {
 
 			expect(mockPopRedo).not.toHaveBeenCalled();
 			expect(mockSetProgrammaticRedoInProgress).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('embed-resize undo', () => {
+		it('calls getResizeApplier with fromWidth and fromAspectRatio', () => {
+			const resizeEntry = {
+				type: 'embed-resize' as const,
+				embedId: EMBED_ID,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			};
+			const mockApplier = jest.fn();
+			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockIsUndoStackEmpty.mockReturnValue(false);
+			mockPopUndo.mockReturnValue(resizeEntry);
+			mockGetResizeApplier.mockReturnValue(mockApplier);
+
+			const event = createUndoEvent();
+			plugin._handlers[0](event);
+
+			expect(mockGetResizeApplier).toHaveBeenCalledWith(EMBED_ID);
+			expect(mockApplier).toHaveBeenCalledWith(500, 16 / 9);
+			expect(mockGetEditor).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('embed-resize redo', () => {
+		it('calls getResizeApplier with toWidth and toAspectRatio', () => {
+			const resizeEntry = {
+				type: 'embed-resize' as const,
+				embedId: EMBED_ID,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			};
+			const mockApplier = jest.fn();
+			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockIsRedoStackEmpty.mockReturnValue(false);
+			mockPopRedo.mockReturnValue(resizeEntry);
+			mockGetResizeApplier.mockReturnValue(mockApplier);
+
+			const event = createRedoEvent();
+			plugin._handlers[0](event);
+
+			expect(mockGetResizeApplier).toHaveBeenCalledWith(EMBED_ID);
+			expect(mockApplier).toHaveBeenCalledWith(600, 4 / 3);
+			expect(mockGetEditor).not.toHaveBeenCalled();
 		});
 	});
 

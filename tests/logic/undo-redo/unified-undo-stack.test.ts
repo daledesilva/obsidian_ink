@@ -34,6 +34,7 @@ import {
 	isRedoStackEmpty,
 	getUndoStackSnapshot,
 	syncUnifiedUndoHistory,
+	pushDrawingEmbedResize,
 	setProgrammaticRedoInProgress,
 	notifyUndoExecuted,
 	notifyRedoExecuted,
@@ -168,7 +169,54 @@ describe('unified-undo-stack', () => {
 		});
 	});
 
+	describe('pushDrawingEmbedResize', () => {
+		it('pushes entry to undo stack and clears redo stack', () => {
+			pushRedo({ type: 'obsidian' });
+			pushDrawingEmbedResize({
+				type: 'embed-resize',
+				embedId: EMBED_ID,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			});
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(1);
+			expect(stack[0]).toEqual({
+				type: 'embed-resize',
+				embedId: EMBED_ID,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			});
+			expect(isRedoStackEmpty()).toBe(true);
+		});
+	});
+
 	describe('notifyUndoExecuted', () => {
+		it('is no-op for embed-resize entry and does not change baseline', () => {
+			initialize(0, 0);
+			setupSyncMocks(0, 1);
+			syncUnifiedUndoHistory(EMBED_ID);
+			expect(getUndoStackSnapshot()).toHaveLength(1);
+
+			const resizeEntry = {
+				type: 'embed-resize' as const,
+				embedId: EMBED_ID,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			};
+			notifyUndoExecuted(resizeEntry);
+
+			setupSyncMocks(0, 1);
+			syncUnifiedUndoHistory(EMBED_ID);
+			expect(getUndoStackSnapshot()).toHaveLength(1);
+		});
+
 		it('decrements prevObsidianDepth for obsidian entry', () => {
 			initialize(3, 0, { [EMBED_ID]: 2 });
 			notifyUndoExecuted({ type: 'obsidian' });
@@ -195,6 +243,24 @@ describe('unified-undo-stack', () => {
 	});
 
 	describe('notifyRedoExecuted', () => {
+		it('is no-op for embed-resize entry', () => {
+			initialize(0, 0);
+			pushDrawingEmbedResize({
+				type: 'embed-resize',
+				embedId: EMBED_ID,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			});
+			const entry = popUndo()!;
+			notifyUndoExecuted(entry);
+			pushRedo(entry);
+			notifyRedoExecuted(entry);
+			pushUndo(entry);
+			expect(getUndoStackSnapshot()).toHaveLength(1);
+		});
+
 		it('increments prevObsidianDepth for obsidian entry', () => {
 			initialize(0, 0);
 			setupSyncMocks(1, 0);
@@ -425,6 +491,26 @@ describe('unified-undo-stack', () => {
 			expect(stack).toHaveLength(2);
 			expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_B });
 			expect(stack[1]).toEqual({ type: 'obsidian' });
+		});
+
+		it('removes embed-resize entries from undo and redo stacks', () => {
+			const resizeEntry = {
+				type: 'embed-resize' as const,
+				embedId: EMBED_A,
+				fromWidth: 500,
+				fromAspectRatio: 16 / 9,
+				toWidth: 600,
+				toAspectRatio: 4 / 3,
+			};
+			pushUndo({ type: 'embed', embedId: EMBED_B });
+			pushUndo(resizeEntry);
+			pushUndo({ type: 'embed', embedId: EMBED_A });
+
+			purgeEmbedEntriesFromStacks(EMBED_A);
+
+			const stack = getUndoStackSnapshot();
+			expect(stack).toHaveLength(1);
+			expect(stack[0]).toEqual({ type: 'embed', embedId: EMBED_B });
 		});
 	});
 

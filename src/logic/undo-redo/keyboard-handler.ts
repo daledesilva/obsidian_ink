@@ -6,7 +6,7 @@
 
 import { MarkdownView, Notice } from 'obsidian';
 import type InkPlugin from 'src/main';
-import { getActiveEmbedId, getEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { getActiveEmbedId, getEditor, getResizeApplier } from 'src/logic/undo-redo/ink-editor-registry';
 import {
 	syncUnifiedUndoHistory,
 	isUndoStackEmpty,
@@ -22,7 +22,11 @@ import {
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
 function formatStackForLog(snapshot: readonly UnifiedUndoEntry[]): string {
-	return '[' + snapshot.map(e => e.type === 'obsidian' ? 'Obsidian' : `Embed:${e.embedId}`).join(', ') + ']';
+	return '[' + snapshot.map(e => {
+		if (e.type === 'obsidian') return 'Obsidian';
+		if (e.type === 'embed-resize') return `EmbedResize:${e.embedId}`;
+		return `Embed:${e.embedId}`;
+	}).join(', ') + ']';
 }
 import { verbose } from 'src/logic/utils/log-to-console';
 
@@ -77,6 +81,9 @@ function executeUndo(plugin: InkPlugin, entry: UnifiedUndoEntry, activeEmbedId: 
 	if (entry.type === 'obsidian') {
 		const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
 		if (editor) editor.undo();
+	} else if (entry.type === 'embed-resize') {
+		const applier = getResizeApplier(entry.embedId);
+		if (applier) applier(entry.fromWidth, entry.fromAspectRatio);
 	} else {
 		const tldrawEditor = getEditor(entry.embedId ?? activeEmbedId);
 		if (tldrawEditor) tldrawEditor.undo();
@@ -87,6 +94,9 @@ function executeRedo(plugin: InkPlugin, entry: UnifiedUndoEntry, activeEmbedId: 
 	if (entry.type === 'obsidian') {
 		const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
 		if (editor) editor.redo();
+	} else if (entry.type === 'embed-resize') {
+		const applier = getResizeApplier(entry.embedId);
+		if (applier) applier(entry.toWidth, entry.toAspectRatio);
 	} else {
 		const tldrawEditor = getEditor(entry.embedId ?? activeEmbedId);
 		if (tldrawEditor) tldrawEditor.redo();

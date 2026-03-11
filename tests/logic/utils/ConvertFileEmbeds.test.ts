@@ -17,6 +17,7 @@ jest.mock('src/components/formats/current/utils/convertDrawFileToWrite', () => (
 import { TFile } from 'obsidian';
 import {
 	findNotesContainingFileEmbed,
+	removeAllEmbedsOfFileFromNote,
 	updateEmbedInNote,
 	executeFileConversion,
 } from 'src/logic/utils/convert-file-embeds';
@@ -166,6 +167,82 @@ describe('findNotesContainingFileEmbed', () => {
 		);
 		expect(results).toHaveLength(1);
 		expect(results[0].path).toBe('Notes/Good.md');
+	});
+});
+
+// ─── removeAllEmbedsOfFileFromNote ────────────────────────────────────────────
+
+describe('removeAllEmbedsOfFileFromNote', () => {
+	const WRITING_PATH = 'Ink/Writing/remove-me.svg';
+	const DRAWING_PATH = 'Ink/Drawing/remove-me.svg';
+
+	it('removes a writing embed line and returns true', async () => {
+		const note = { path: 'Notes/A.md' } as TFile;
+		const original = `# Title\n\n${writingLine(WRITING_PATH)}\n\nSome text.`;
+		const vault = makeVault({ 'Notes/A.md': original });
+
+		const changed = await removeAllEmbedsOfFileFromNote(
+			vault as any,
+			note,
+			WRITING_PATH,
+			'inkWriting',
+		);
+
+		expect(changed).toBe(true);
+		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
+		expect(written).not.toContain('![InkWriting]');
+		expect(written).toContain('Some text.');
+	});
+
+	it('removes a drawing embed line and returns true', async () => {
+		const note = { path: 'Notes/B.md' } as TFile;
+		const original = `# B\n\n${drawingLine(DRAWING_PATH)}\n`;
+		const vault = makeVault({ 'Notes/B.md': original });
+
+		const changed = await removeAllEmbedsOfFileFromNote(
+			vault as any,
+			note,
+			DRAWING_PATH,
+			'inkDrawing',
+		);
+
+		expect(changed).toBe(true);
+		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
+		expect(written).not.toContain('![InkDrawing]');
+	});
+
+	it('removes multiple embeds of the same file in one note', async () => {
+		const note = { path: 'Notes/C.md' } as TFile;
+		const original = `# C\n\n${writingLine(WRITING_PATH)}\n\n${writingLine(WRITING_PATH)}\n\nDone.`;
+		const vault = makeVault({ 'Notes/C.md': original });
+
+		const changed = await removeAllEmbedsOfFileFromNote(
+			vault as any,
+			note,
+			WRITING_PATH,
+			'inkWriting',
+		);
+
+		expect(changed).toBe(true);
+		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
+		expect(written).not.toContain('![InkWriting]');
+		expect(written).toContain('Done.');
+	});
+
+	it('returns false when no matching embed exists', async () => {
+		const note = { path: 'Notes/D.md' } as TFile;
+		const original = `# D\n\n${writingLine('Ink/Writing/other.svg')}\n`;
+		const vault = makeVault({ 'Notes/D.md': original });
+
+		const changed = await removeAllEmbedsOfFileFromNote(
+			vault as any,
+			note,
+			WRITING_PATH,
+			'inkWriting',
+		);
+
+		expect(changed).toBe(false);
+		expect(vault.modify).not.toHaveBeenCalled();
 	});
 });
 

@@ -55,6 +55,37 @@ export async function findNotesContainingFileEmbed(
 }
 
 /**
+ * Removes all v2 embed lines in a markdown note that reference the given SVG
+ * file path with the given embed type. Handles multiple embeds of the same
+ * file in one note.
+ *
+ * Returns true if the file was modified.
+ */
+export async function removeAllEmbedsOfFileFromNote(
+	vault: Vault,
+	note: TFile,
+	svgFilePath: string,
+	embedType: 'inkWriting' | 'inkDrawing',
+): Promise<boolean> {
+	let content = await vault.read(note);
+
+	const escapedPath = svgFilePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const altText = embedType === 'inkWriting' ? 'InkWriting' : 'InkDrawing';
+	// Match the full embed line (everything up to and including the newline)
+	const lineRegex = new RegExp(
+		` !\\[${altText}\\]\\(<${escapedPath}>\\)[^\\n]*\\r?\\n?`,
+		'g',
+	);
+
+	const updated = content.replace(lineRegex, '');
+
+	if (updated === content) return false;
+
+	await vault.modify(note, updated);
+	return true;
+}
+
+/**
  * Replaces all v2 embed lines in a markdown note that reference oldSvgPath
  * (of fromType) with a new embed for newSvgPath of toType.
  *

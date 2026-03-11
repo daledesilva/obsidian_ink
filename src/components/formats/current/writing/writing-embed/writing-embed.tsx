@@ -5,6 +5,7 @@ import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writ
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
 import { TFile } from "obsidian";
@@ -116,7 +117,17 @@ export function WritingEmbed (props: {
 		{
 			text: 'Remove embed',
 			action: () => {
-				props.remove()
+				if (!props.writingFileRef || !props.sourceMdFile) {
+					props.remove();
+					return;
+				}
+				openRemoveEmbedFlow(
+					props.plugin,
+					props.writingFileRef,
+					props.sourceMdFile,
+					'inkWriting',
+					() => props.remove(),
+				);
 			},
 		},
 	]

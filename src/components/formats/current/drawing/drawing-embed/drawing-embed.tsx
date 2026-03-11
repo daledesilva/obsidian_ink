@@ -9,6 +9,7 @@ import { verbose } from "src/logic/utils/log-to-console";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { TFile } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
@@ -110,7 +111,17 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		{
 			text: 'Remove embed',
 			action: () => {
-				props.remove()
+				if (!props.embeddedFile || !props.sourceMdFile) {
+					props.remove();
+					return;
+				}
+				openRemoveEmbedFlow(
+					getGlobals().plugin,
+					props.embeddedFile,
+					props.sourceMdFile,
+					'inkDrawing',
+					() => props.remove(),
+				);
 			},
 		},
 	].filter(Boolean)

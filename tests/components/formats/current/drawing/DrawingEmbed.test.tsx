@@ -5,6 +5,11 @@ import { DrawingEmbed } from 'src/components/formats/current/drawing/drawing-emb
 
 const makeEmbedSettings = () => ({ embedDisplay: { width: 400, aspectRatio: 1.6 }, viewBox: { x: 0, y: 0, width: 100, height: 100 } });
 const makeTFile = (): any => ({ path: 'Ink/Drawing/test.svg', stat: { mtime: 1234567890 } });
+const makeSourceMdFile = (): any => ({ path: 'Notes/A.md' });
+
+jest.mock('src/logic/utils/remove-embed-flow', () => ({
+	openRemoveEmbedFlow: jest.fn(),
+}));
 
 const wrap = (ui: React.ReactElement) => render(<JotaiProvider>{ui}</JotaiProvider>);
 
@@ -139,6 +144,35 @@ describe('DrawingEmbed', () => {
         />
       );
       expect(getByText(/Notes\/Some Drawing\.svg/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Remove embed action', () => {
+    it('mounts with embeddedFile and sourceMdFile for remove-embed flow', () => {
+      wrap(
+        <DrawingEmbed
+          embeddedFile={makeTFile()}
+          embedSettings={makeEmbedSettings() as any}
+          saveSrcFile={(_pageData: any) => ({})}
+          remove={() => {}}
+          partialEmbedFilepath={'Ink/Drawing/test.svg'}
+          sourceMdFile={makeSourceMdFile()}
+        />
+      );
+      expect(document.querySelector('.ddc_ink_resize-container')).toBeInTheDocument();
+    });
+
+    it('mounts with embeddedFile but without sourceMdFile (fallback path available)', () => {
+      wrap(
+        <DrawingEmbed
+          embeddedFile={makeTFile()}
+          embedSettings={makeEmbedSettings() as any}
+          saveSrcFile={(_pageData: any) => ({})}
+          remove={() => {}}
+          partialEmbedFilepath={'Ink/Drawing/test.svg'}
+        />
+      );
+      expect(document.querySelector('.ddc_ink_resize-container')).toBeInTheDocument();
     });
   });
 });

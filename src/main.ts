@@ -26,7 +26,9 @@ import { registerWritingView } from './components/formats/current/writing/writin
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
 import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
-import { findNotesContainingFileEmbed, executeFileConversion } from './logic/utils/convert-file-embeds';
+import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfFileFromNote } from './logic/utils/convert-file-embeds';
+import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
+import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 
 ////////
@@ -39,6 +41,9 @@ export default class InkPlugin extends Plugin {
 	readonly FileConversionModal = FileConversionModal;
 	readonly findNotesContainingFileEmbed = findNotesContainingFileEmbed;
 	readonly executeFileConversion = executeFileConversion;
+	readonly RemoveEmbedModal = RemoveEmbedModal;
+	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
+	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
 
 	async onload() {
 		await this.loadSettings();

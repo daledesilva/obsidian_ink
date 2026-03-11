@@ -131,7 +131,7 @@ The copy-paste e2e suite (`embed-copy-paste-paths.e2e.ts`) duplicates the resolu
 | Scenario | Plugin noteAttachmentFolderLocation | Obsidian attachment path | Example embed path |
 |----------|-------------------------------------|--------------------------|--------------------|
 | root | root (or obsidian + root) | (irrelevant) | `Ink/Writing/hello-world.svg` |
-| note | note | (irrelevant) | `15 - Copy Paste Paths/SourceFolder/Ink/Writing/note-mode-writing.svg` |
+| note | note | (irrelevant) | `16 - Copy Paste Paths/SourceFolder/Ink/Writing/note-mode-writing.svg` |
 | obsidian-attachments | obsidian | Attachments | `Attachments/Ink/Writing/obsidian-mode-writing.svg` |
 
 Each scenario runs: cross-folder paste (writing and drawing), deep nesting, duplicate embed, paste into 14 - Conversion Modal. The root scenario also runs a very long path test. A separate test verifies that relative paths (`../`) break when pasted into a different folder.

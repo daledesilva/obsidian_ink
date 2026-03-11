@@ -244,6 +244,50 @@ describe('removeAllEmbedsOfFileFromNote', () => {
 		expect(changed).toBe(false);
 		expect(vault.modify).not.toHaveBeenCalled();
 	});
+
+	it('preserves all other content in the note when removing embed', async () => {
+		const note = { path: 'Notes/E.md' } as TFile;
+		const original = `# Title\n\n${writingLine(WRITING_PATH)}\n\nSome text.`;
+		const vault = makeVault({ 'Notes/E.md': original });
+
+		await removeAllEmbedsOfFileFromNote(vault as any, note, WRITING_PATH, 'inkWriting');
+
+		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
+		expect(written).toContain('# Title');
+		expect(written).toContain('Some text.');
+		expect(written).not.toContain(WRITING_PATH);
+	});
+
+	it('removing embed of file A leaves embed of file B intact in same note', async () => {
+		const pathA = 'Ink/Writing/file-a.svg';
+		const pathB = 'Ink/Writing/file-b.svg';
+		const note = { path: 'Notes/F.md' } as TFile;
+		const original = `# Mixed\n\n${writingLine(pathA)}\n\n${writingLine(pathB)}\n\nDone.`;
+		const vault = makeVault({ 'Notes/F.md': original });
+
+		await removeAllEmbedsOfFileFromNote(vault as any, note, pathA, 'inkWriting');
+
+		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
+		expect(written).not.toContain(pathA);
+		expect(written).toContain(pathB);
+		expect(written).toContain('![InkWriting]');
+		expect(written).toContain('Done.');
+	});
+
+	it('vault.modify called exactly once and only for specified note', async () => {
+		const note = { path: 'Notes/G.md' } as TFile;
+		const original = `# G\n\n${writingLine(WRITING_PATH)}\n`;
+		const vault = makeVault({
+			'Notes/G.md': original,
+			'Notes/H.md': `# H\n\n${writingLine(WRITING_PATH)}\n`,
+		});
+
+		await removeAllEmbedsOfFileFromNote(vault as any, note, WRITING_PATH, 'inkWriting');
+
+		expect(vault.modify).toHaveBeenCalledTimes(1);
+		const modifyCall = (vault.modify as jest.Mock).mock.calls[0];
+		expect(modifyCall[0].path).toBe('Notes/G.md');
+	});
 });
 
 // ─── updateEmbedInNote ────────────────────────────────────────────────────────

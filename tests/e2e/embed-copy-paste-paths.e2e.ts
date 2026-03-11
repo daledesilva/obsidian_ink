@@ -17,8 +17,8 @@ const PATH_SCENARIOS = [
 	},
 	{
 		id: "note",
-		writing: "15 - Copy Paste Paths/SourceFolder/Ink/Writing/note-mode-writing.svg",
-		drawing: "15 - Copy Paste Paths/SourceFolder/Ink/Drawing/note-mode-drawing.svg",
+		writing: "16 - Copy Paste Paths/SourceFolder/Ink/Writing/note-mode-writing.svg",
+		drawing: "16 - Copy Paste Paths/SourceFolder/Ink/Drawing/note-mode-drawing.svg",
 		hasLongPath: false,
 		longPathWriting: "",
 	},
@@ -70,7 +70,7 @@ PATH_SCENARIOS.forEach((scenario) => {
 		});
 
 		it("cross-folder paste — writing embed resolves in different folder", async function () {
-			await obsidianPage.openFile("15 - Copy Paste Paths/Target Note Different Folder.md");
+			await obsidianPage.openFile("16 - Copy Paste Paths/Target Note Different Folder.md");
 			await browser.pause(500);
 
 			await simulatePasteEmbed(buildWritingEmbed(scenario.writing));
@@ -85,7 +85,7 @@ PATH_SCENARIOS.forEach((scenario) => {
 		});
 
 		it("cross-folder paste — drawing embed resolves in different folder", async function () {
-			await obsidianPage.openFile("15 - Copy Paste Paths/Target Note Different Folder.md");
+			await obsidianPage.openFile("16 - Copy Paste Paths/Target Note Different Folder.md");
 			await browser.pause(500);
 
 			await simulatePasteEmbed(buildDrawingEmbed(scenario.drawing));
@@ -100,7 +100,7 @@ PATH_SCENARIOS.forEach((scenario) => {
 		});
 
 		it("deep nesting — embed pasted into nested target resolves", async function () {
-			await obsidianPage.openFile("15 - Copy Paste Paths/Subfolder/Deep Target.md");
+			await obsidianPage.openFile("16 - Copy Paste Paths/Subfolder/Deep Target.md");
 			await browser.pause(500);
 
 			await simulatePasteEmbed(buildWritingEmbed(scenario.writing));
@@ -115,7 +115,7 @@ PATH_SCENARIOS.forEach((scenario) => {
 		});
 
 		it("duplicate embed in same note — both resolve independently", async function () {
-			await obsidianPage.openFile("15 - Copy Paste Paths/Target Note Different Folder.md");
+			await obsidianPage.openFile("16 - Copy Paste Paths/Target Note Different Folder.md");
 			await browser.pause(500);
 
 			await simulatePasteEmbed(buildWritingEmbed(scenario.writing));
@@ -143,7 +143,7 @@ PATH_SCENARIOS.forEach((scenario) => {
 
 		if (scenario.hasLongPath && scenario.longPathWriting) {
 			it("very long path — resolves", async function () {
-				await obsidianPage.openFile("15 - Copy Paste Paths/Target Note Different Folder.md");
+				await obsidianPage.openFile("16 - Copy Paste Paths/Target Note Different Folder.md");
 				await browser.pause(500);
 
 				await simulatePasteEmbed(buildWritingEmbed(scenario.longPathWriting));
@@ -167,7 +167,7 @@ describe("Embed Copy-Paste Paths — relative path (scenario-independent)", func
 	it("relative path — pasted into different folder shows not-found (path wrong in new context)", async function () {
 		const relativeEmbed = `\n ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1&pendingPaste=true)\n`;
 
-		await obsidianPage.openFile("15 - Copy Paste Paths/Subfolder/Deep Target.md");
+		await obsidianPage.openFile("16 - Copy Paste Paths/Subfolder/Deep Target.md");
 		await browser.pause(500);
 
 		await simulatePasteEmbed(relativeEmbed);

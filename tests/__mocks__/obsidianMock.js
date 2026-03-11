@@ -1,8 +1,26 @@
+const createDivResult = {
+  setText: () => {},
+  style: {},
+  addEventListener: () => {},
+  setAttr: () => {},
+  hide: () => {},
+  createDiv: () => createDivResult,
+  createEl: () => ({ addEventListener: () => {}, setAttr: () => {}, setText: () => {} }),
+};
+
 module.exports = {
   Menu: class {},
   Notice: class {},
   Modal: class {
-    constructor() { this.titleEl = { setText: () => {} }; this.contentEl = { empty: () => {}, createEl: () => ({ addEventListener: () => {}, hide: () => {} }), createDiv: () => ({ createDiv: () => ({ setText: () => {}, style: {} }), createEl: () => ({ addEventListener: () => {} }), hide: () => {}, setText: () => {} }), addClass: () => {} }; }
+    constructor() {
+      this.titleEl = { setText: () => {} };
+      this.contentEl = {
+        empty: () => {},
+        createEl: () => ({ addEventListener: () => {}, setAttr: () => {}, setText: () => {} }),
+        createDiv: () => createDivResult,
+        addClass: () => {},
+      };
+    }
     open() {}
     close() {}
   },

@@ -3,6 +3,10 @@ import { render, fireEvent } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
 import WritingEmbed from 'src/components/formats/current/writing/writing-embed/writing-embed';
 
+jest.mock('src/logic/utils/remove-embed-flow', () => ({
+	openRemoveEmbedFlow: jest.fn(),
+}));
+
 const makePlugin = (overrides: Partial<any> = {}) => ({
   app: { 
     vault: { 
@@ -153,6 +157,35 @@ describe('WritingEmbed', () => {
         />
       );
       expect(getByText(/Notes\/Some Writing\.svg/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Remove embed action', () => {
+    it('mounts with writingFileRef and sourceMdFile for remove-embed flow', () => {
+      wrap(
+        <WritingEmbed
+          plugin={makePlugin() as any}
+          writingFileRef={makeTFile()}
+          partialEmbedFilepath="path/to/file"
+          save={() => {}}
+          remove={() => {}}
+          sourceMdFile={{ path: 'Notes/A.md' } as any}
+        />
+      );
+      expect(document.querySelector('.ddc_ink_writing-embed')).toBeInTheDocument();
+    });
+
+    it('mounts with writingFileRef but without sourceMdFile (fallback path available)', () => {
+      wrap(
+        <WritingEmbed
+          plugin={makePlugin() as any}
+          writingFileRef={makeTFile()}
+          partialEmbedFilepath="path/to/file"
+          save={() => {}}
+          remove={() => {}}
+        />
+      );
+      expect(document.querySelector('.ddc_ink_writing-embed')).toBeInTheDocument();
     });
   });
 });

@@ -40,6 +40,33 @@ flowchart TD
 
 Scope: **current format only** (`formats/current/`). The v1 format keeps the original remove behaviour.
 
+## Testing
+
+The remove-embed feature has unit and e2e tests.
+
+**Unit tests**
+
+- `convert-file-embeds` (`ConvertFileEmbeds.test.ts`): `removeAllEmbedsOfFileFromNote` isolation — embed removed, other content preserved, other embeds untouched, `vault.modify` called once.
+- `remove-embed-flow` (`remove-embed-flow.test.ts`): `openRemoveEmbedFlow` modal wiring, callbacks, correct file deleted.
+- `RemoveEmbedModal` (`remove-embed-modal.test.ts`): Scan phase, notes > 1 vs = 1, button handlers, cancel, error handling.
+- `DrawingEmbed` / `WritingEmbed`: Remove embed calls `openRemoveEmbedFlow` vs fallback when `sourceMdFile` is missing.
+
+**E2E tests**
+
+- `remove-embed-modal.e2e.ts`: Full user flow — modal scan → confirm, multi-note (no modal), "Remove embed", "Remove embed and delete file", cancel, drawing flows, file in two notes. Overflow menu tests (7, 8) are skipped because the Obsidian Menu DOM is not reliably findable in e2e; flow coverage is via programmatic tests.
+
+**How to run**
+
+```bash
+# Unit
+npm test
+
+# E2E (run from obsidian_ink root; generates vault and runs all e2e specs)
+npm run test:e2e:spec -- tests/e2e/remove-embed-modal.e2e.ts
+```
+
+QA vault section **15 – Remove Embed** provides notes and fixtures for the e2e tests.
+
 ## Technical gotchas
 
 - **Same file embedded multiple times in one note**: "Remove embed and delete file" removes all such embed lines before deleting the file, so no broken references remain.

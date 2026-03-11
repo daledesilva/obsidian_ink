@@ -260,6 +260,34 @@ describe('convertDrawDataToWrite', () => {
 
 ////////
 
+describe('svgString preservation (file conversion flow)', () => {
+	// Simulates convertWriteFileToDraw: read → extract → convert → buildFileStr(svgStr)
+	test('write→draw: visual SVG content is preserved when using full file as svgString', () => {
+		const visualContent = '<g><path d="M10 10 L90 90" stroke="black"/></g>';
+		const writingSvgStr = buildFileStr(makeWritingFileData());
+		const fullSvgWithVisual = writingSvgStr.replace('</svg>', `${visualContent}</svg>`);
+		const data = extractInkJsonFromSvg(fullSvgWithVisual);
+		expect(data).not.toBeNull();
+		const converted = convertWriteDataToDraw(data!);
+		const outputStr = buildFileStr({ ...converted, svgString: fullSvgWithVisual });
+		expect(outputStr).toContain('M10 10 L90 90');
+	});
+
+	// Simulates convertDrawFileToWrite: read → extract → convert → buildFileStr(svgStr)
+	test('draw→write: visual SVG content is preserved when using full file as svgString', () => {
+		const visualContent = '<g><circle cx="50" cy="50" r="40"/></g>';
+		const drawingSvgStr = buildFileStr(makeDrawingFileData());
+		const fullSvgWithVisual = drawingSvgStr.replace('</svg>', `${visualContent}</svg>`);
+		const data = extractInkJsonFromSvg(fullSvgWithVisual);
+		expect(data).not.toBeNull();
+		const converted = convertDrawDataToWrite(data!);
+		const outputStr = buildFileStr({ ...converted, svgString: fullSvgWithVisual });
+		expect(outputStr).toContain('cx="50" cy="50" r="40"');
+	});
+});
+
+////////
+
 describe('write -> draw -> write round trip', () => {
 	test('file type returns to inkWriting after double conversion', () => {
 		const input = makeWritingFileData();

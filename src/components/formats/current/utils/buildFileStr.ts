@@ -21,6 +21,12 @@ export const buildFileStr = (pageData: InkFileData): string => {
 	// Prepare tldraw JSON only (no meta in JSON)
 	const tldrawJson = pageData.tldraw;
 
+	// Remove existing metadata to avoid duplicates when re-serializing
+	const existingMetadata = svgElement.getElementsByTagName('metadata');
+	while (existingMetadata.length > 0) {
+		existingMetadata[0].parentNode?.removeChild(existingMetadata[0]);
+	}
+
 	// Create settings in xml
 	const metadataElement = doc.createElement('metadata');
 

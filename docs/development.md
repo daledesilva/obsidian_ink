@@ -218,6 +218,7 @@ Troubleshooting:
 
 ### Related documentation
 
+- [File format and conversion](file-format-and-conversion.md) — Ink SVG structure, drawing↔writing conversion flow, and preview preservation.
 - [Blocked features](blocked-features.md) — Features that are incomplete or non-functional and what's needed to unblock them.
 - [Undo/redo for ink embeds](undo-redo.md) — Conceptual approach and alternatives.
 - [Undo/redo implementation](undo-redo-implementation.md) — Technical details, data flow, and integration points.

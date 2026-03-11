@@ -97,6 +97,6 @@ export const convertDrawFileToWrite = async (plugin: InkPlugin, file: TFile): Pr
 	if (data.meta.fileType !== 'inkDrawing') return;
 
 	const converted = convertDrawDataToWrite(data);
-	const newSvgStr = buildFileStr({ ...converted, svgString: data.svgString });
+	const newSvgStr = buildFileStr({ ...converted, svgString: svgStr });
 	await v.modify(file, newSvgStr);
 };

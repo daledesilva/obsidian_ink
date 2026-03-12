@@ -6,23 +6,37 @@ import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 //////////
 //////////
 
-interface menuOption {
-    text: string,
-    action: Function,
+interface MenuItemOption {
+    text: string;
+    action: Function;
+}
+
+interface MenuSeparator {
+    separator: true;
+}
+
+type MenuOption = MenuItemOption | MenuSeparator;
+
+function isSeparator(option: MenuOption): option is MenuSeparator {
+    return 'separator' in option && option.separator === true;
 }
 
 export const OverflowMenu: React.FC<{
-    menuOptions: menuOption[]
+    menuOptions: MenuOption[]
 }> = (props) => {
 
     const menu = new Menu();
 
-    props.menuOptions.forEach(menuOption => {
+    props.menuOptions.forEach((option) => {
+        if (isSeparator(option)) {
+            menu.addSeparator();
+            return;
+        }
         menu.addItem((item) =>
             item
-                .setTitle(menuOption.text)
+                .setTitle(option.text)
                 .onClick(() => {
-                    menuOption.action();
+                    option.action();
                 })
         );
     })

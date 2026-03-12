@@ -93,6 +93,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 	const commonExtendedOptions = [
 		{
+			text: 'Open drawing',
+			action: async () => {
+				await openInkFile(props.embeddedFile as TFile);
+			}
+		},
+		{ separator: true },
+		{
 			text: 'Convert to Writing',
 			action: () => {
 				if (!props.embeddedFile) return;
@@ -100,12 +107,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					sourceMdFile: props.sourceMdFile,
 					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
 				}).open();
-			}
-		},
-		{
-			text: 'Open drawing',
-			action: async () => {
-				await openInkFile(props.embeddedFile as TFile);
 			}
 		},
 		{

@@ -16,7 +16,7 @@ export type RemoveEmbedModalOpts = {
 	sourceMdFile: TFile;
 	/** Called when user chooses "Remove embed" only. */
 	onRemoveEmbedOnly: () => void;
-	/** Called when user chooses "Remove embed and delete file". */
+	/** Called when user chooses "Remove and delete file". */
 	onRemoveEmbedAndFile: () => void;
 };
 
@@ -122,8 +122,8 @@ export class RemoveEmbedModal extends Modal {
 		const cancelBtn = buttonsEl.createEl('button', { text: 'Cancel' });
 		cancelBtn.addEventListener('click', () => this.close());
 
-		const removeAndDeleteBtn = buttonsEl.createEl('button', { text: 'Remove embed and delete file' });
-		removeAndDeleteBtn.setAttr('aria-label', 'Remove embed and permanently delete file');
+		const removeAndDeleteBtn = buttonsEl.createEl('button', { cls: 'mod-warning', text: 'Remove and delete file' });
+		removeAndDeleteBtn.setAttr('aria-label', 'Remove and permanently delete file');
 		removeAndDeleteBtn.addEventListener('click', () => {
 			this.opts.onRemoveEmbedAndFile();
 			this.close();

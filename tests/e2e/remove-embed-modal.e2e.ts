@@ -133,7 +133,7 @@ describe("RemoveEmbedModal", function () {
 		await expect(modal).toExist();
 
 		await waitForModalButton("Remove embed");
-		await waitForModalButton("Remove embed and delete file");
+		await waitForModalButton("Remove and delete file");
 		const text = await modalText();
 		expect(text).toContain("writing");
 		expect(text).toContain("only embedded in this note");
@@ -327,9 +327,9 @@ describe("RemoveEmbedModal", function () {
 		expect(fileExists).toBe(true);
 	});
 
-	// ─── 4. Remove embed and delete file — run last (destructive) ───────────────
+	// ─── 4. Remove and delete file — run last (destructive) ───────────────
 
-	it("4. Remove embed and delete file — embed and file removed", async function () {
+	it("4. Remove and delete file — embed and file removed", async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
 		await waitForPluginReady();
 		await dismissBlockingPopups();
@@ -344,8 +344,8 @@ describe("RemoveEmbedModal", function () {
 		);
 		await browser.pause(500);
 
-		await waitForModalButton("Remove embed and delete file", 20000);
-		await clickModalButton("Remove embed and delete file");
+		await waitForModalButton("Remove and delete file", 20000);
+		await clickModalButton("Remove and delete file");
 		await browser.pause(2000);
 
 		const noteContent = await browser.executeObsidian(async ({ app }) => {

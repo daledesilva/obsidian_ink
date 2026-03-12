@@ -7,7 +7,7 @@ import { RemoveEmbedModal } from 'src/components/dom-components/modals/remove-em
  * Opens the remove-embed flow. Scans the vault for notes embedding the file.
  * If the file is only in the current note, shows a modal with two options:
  * - Remove embed only
- * - Remove embed and delete file
+ * - Remove and delete file
  * If the file is embedded elsewhere, removes the embed only without prompting.
  */
 export function openRemoveEmbedFlow(
@@ -30,7 +30,7 @@ export function openRemoveEmbedFlow(
 				);
 				await plugin.app.vault.delete(embeddedFile);
 			} catch (err) {
-				new Notice('Failed to remove embed and delete file: ' + String(err));
+				new Notice('Failed to remove and delete file: ' + String(err));
 			}
 		},
 	});

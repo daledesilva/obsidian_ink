@@ -19,15 +19,15 @@ flowchart TD
     Check -->|No| ShowModal[Show RemoveEmbedModal]
     ShowModal --> Choice{User choice}
     Choice -->|Remove embed| RemoveOnly
-    Choice -->|Remove embed and file| RemoveAllAndDelete[Remove all embeds of file from note + vault.delete]
+    Choice -->|Remove and delete file| RemoveAllAndDelete[Remove all embeds of file from note + vault.delete]
     RemoveOnly --> Done[Done]
     RemoveAllAndDelete --> Done
 ```
 
 - **File embedded in multiple notes** — Remove embed only, no prompt. The file remains for other notes.
-- **File embedded only in current note** — Modal with two options: "Remove embed" or "Remove embed and delete file".
+- **File embedded only in current note** — Modal with two options: "Remove embed" or "Remove and delete file".
 - **"Remove embed"** — Removes this embed from the note via the CodeMirror widget (same as before). The file stays.
-- **"Remove embed and delete file"** — Removes all embeds of that file from the current note (including when the same file is embedded multiple times), then deletes the file from the vault.
+- **"Remove and delete file"** — Removes all embeds of that file from the current note (including when the same file is embedded multiple times), then deletes the file from the vault.
 
 ## Technical implementation details
 
@@ -53,7 +53,7 @@ The remove-embed feature has unit and e2e tests.
 
 **E2E tests**
 
-- `remove-embed-modal.e2e.ts`: Full user flow — modal scan → confirm, multi-note (no modal), "Remove embed", "Remove embed and delete file", cancel, drawing flows, file in two notes. Overflow menu tests (7, 8) are skipped because the Obsidian Menu DOM is not reliably findable in e2e; flow coverage is via programmatic tests.
+- `remove-embed-modal.e2e.ts`: Full user flow — modal scan → confirm, multi-note (no modal), "Remove embed", "Remove and delete file", cancel, drawing flows, file in two notes. Overflow menu tests (7, 8) are skipped because the Obsidian Menu DOM is not reliably findable in e2e; flow coverage is via programmatic tests.
 
 **How to run**
 
@@ -69,6 +69,6 @@ QA vault section **15 – Remove Embed** provides notes and fixtures for the e2e
 
 ## Technical gotchas
 
-- **Same file embedded multiple times in one note**: "Remove embed and delete file" removes all such embed lines before deleting the file, so no broken references remain.
+- **Same file embedded multiple times in one note**: "Remove and delete file" removes all such embed lines before deleting the file, so no broken references remain.
 - **sourceMdFile required**: The flow needs the markdown note containing the embed. If `sourceMdFile` is missing (edge case), the action falls back to immediate removal without the prompt.
 - **Obsidian trash**: `vault.delete()` moves the file to system trash by default.

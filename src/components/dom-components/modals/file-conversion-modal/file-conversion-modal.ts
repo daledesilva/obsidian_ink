@@ -20,8 +20,8 @@ const enum Phase {
 export type FileConversionModalOpts = {
 	/** The markdown note the user is currently viewing (only set when triggered from an embed). */
 	sourceMdFile?: TFile;
-	/** Called immediately after SVG + notes are updated, before showing Done phase. */
-	onConversionComplete?: () => void;
+	/** Called immediately after SVG + notes are updated, before showing Done phase. Receives the file at its final path and the target type. */
+	onConversionComplete?: (finalFile: TFile | null, toType: 'inkWriting' | 'inkDrawing') => void;
 };
 
 export class FileConversionModal extends Modal {
@@ -29,7 +29,7 @@ export class FileConversionModal extends Modal {
 	private file: TFile;
 	private toType: 'inkWriting' | 'inkDrawing';
 	private sourceMdFile: TFile | undefined;
-	private onConversionComplete: (() => void) | undefined;
+	private onConversionComplete: ((finalFile: TFile | null, toType: 'inkWriting' | 'inkDrawing') => void) | undefined;
 
 	private phase: Phase = Phase.Scanning;
 	private affectedNotes: TFile[] = [];
@@ -247,7 +247,7 @@ export class FileConversionModal extends Modal {
 			return;
 		}
 
-		this.onConversionComplete?.();
+		this.onConversionComplete?.(this.conversionResult?.finalFile ?? null, this.toType);
 		this.renderDonePhase();
 	}
 

@@ -376,7 +376,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						menuOptions = {customExtendedMenu}
 					/>
 				)}
-				{!props.embedded && props.extendedMenu && (	// TODO: I think this can be removed as it will never show?
+				{!props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
 						menuOptions = {customExtendedMenu}
 					/>

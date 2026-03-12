@@ -24,11 +24,15 @@ Conversion between `inkDrawing` and `inkWriting` changes only the tldraw store (
 
 ### Flow
 
-1. Read full file content from vault (`svgStr`).
-2. Extract metadata via `extractInkJsonFromSvg(svgStr)` → `{ meta, tldraw }`.
-3. Transform data: `convertWriteDataToDraw` or `convertDrawDataToWrite`.
-4. Build new file: `buildFileStr({ ...converted, svgString: svgStr })`.
-5. Write to vault.
+1. **Close open ink views.** Any workspace leaves showing this file in the writing or drawing view are detached first. This prevents `getViewData()` from overwriting the converted file when those views save.
+2. (Optional) Move the file to the target subfolder if the user chose "Also move file to …".
+3. Read full file content from vault (`svgStr`).
+4. Extract metadata via `extractInkJsonFromSvg(svgStr)` → `{ meta, tldraw }`.
+5. Transform data: `convertWriteDataToDraw` or `convertDrawDataToWrite`.
+6. Build new file: `buildFileStr({ ...converted, svgString: svgStr })`.
+7. Write to vault.
+8. Update all markdown notes that embed the file.
+9. **Open in correct view.** After conversion, the file is opened in the matching view type (drawing view for `inkDrawing`, writing view for `inkWriting`).
 
 ### Technical gotchas
 

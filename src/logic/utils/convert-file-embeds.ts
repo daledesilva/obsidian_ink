@@ -3,13 +3,37 @@ import InkPlugin from "src/main";
 import { buildWritingEmbed, buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
 import { convertWriteFileToDraw } from "src/components/formats/current/utils/convertWriteFileToDraw";
 import { convertDrawFileToWrite } from "src/components/formats/current/utils/convertDrawFileToWrite";
+// View type strings (avoid importing from view modules to prevent heavy deps in tests)
+const INK_WRITING_VIEW_TYPE = "ink_writing-view";
+const INK_DRAWING_VIEW_TYPE = "ink_drawing-view";
 
 ////////
 ////////
+
+/**
+ * Closes any workspace leaves that have the given file open in an ink view.
+ * Prevents open views from overwriting the converted file when they save.
+ */
+function closeLeavesWithFileOpen(plugin: InkPlugin, filePath: string): void {
+	const workspace = plugin.app.workspace;
+	const viewTypes = [INK_WRITING_VIEW_TYPE, INK_DRAWING_VIEW_TYPE];
+
+	for (const viewType of viewTypes) {
+		const leaves = workspace.getLeavesOfType(viewType);
+		for (const leaf of leaves) {
+			const view = leaf.view as { file?: { path: string } };
+			if (view?.file?.path === filePath) {
+				leaf.detach();
+			}
+		}
+	}
+}
 
 export type FileConversionResult = {
 	updatedNotePaths: string[];
 	failed: string[];
+	/** The file at its final path after conversion (and optional move). */
+	finalFile: TFile | null;
 };
 
 ////////
@@ -145,10 +169,14 @@ export async function executeFileConversion(
 	const result: FileConversionResult = {
 		updatedNotePaths: [],
 		failed: [],
+		finalFile: null,
 	};
 
 	const oldPath = file.path;
 	let currentFile = file;
+
+	// Close any open ink views to prevent them from overwriting the converted file
+	closeLeavesWithFileOpen(plugin, oldPath);
 
 	// Step 1: Move file if requested
 	if (moveToPath) {
@@ -190,5 +218,6 @@ export async function executeFileConversion(
 		onProgress(done, total);
 	}
 
+	result.finalFile = currentFile;
 	return result;
 }

@@ -10,7 +10,7 @@ import {
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
-import { openInkFile } from "src/logic/utils/open-file";
+import { openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
@@ -28,7 +28,9 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
             action: () => {
                 if (!fileRef) return;
                 new FileConversionModal(plugin, fileRef, 'inkWriting', {
-                    onConversionComplete: () => openInkFile(fileRef),
+                    onConversionComplete: (finalFile) => {
+                        if (finalFile) openInkFileInView(finalFile, 'inkWriting');
+                    },
                 }).open();
             }
         },

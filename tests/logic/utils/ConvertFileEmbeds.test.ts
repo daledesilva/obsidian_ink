@@ -37,7 +37,14 @@ function makeVault(files: Record<string, string>) {
 }
 
 function makePlugin(vault: ReturnType<typeof makeVault>) {
-	return { app: { vault } } as any;
+	return {
+		app: {
+			vault,
+			workspace: {
+				getLeavesOfType: () => [],
+			},
+		},
+	} as any;
 }
 
 // ─── Embed line helpers ───────────────────────────────────────────────────────

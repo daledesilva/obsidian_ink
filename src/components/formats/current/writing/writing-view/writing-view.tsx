@@ -8,7 +8,7 @@ import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
-import { openInkFile } from "src/logic/utils/open-file";
+import { openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 
 ////////
@@ -128,7 +128,9 @@ export class WritingView extends TextFileView {
                         action: () => {
                             if (!this.file) return;
                             new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
-                                onConversionComplete: () => openInkFile(this.file!),
+                                onConversionComplete: (finalFile) => {
+                                    if (finalFile) openInkFileInView(finalFile, 'inkDrawing');
+                                },
                             }).open();
                         }
                     }

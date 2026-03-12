@@ -486,8 +486,21 @@ export const silentlyChangeStore = (editor: Editor, func: () => void) => {
 // }
 
 
+/** Writing embeds never show the drawing grid. Force isGridMode off before any other processing. */
+function forceWritingSnapshotGridOff(snapshot: TLEditorSnapshot): TLEditorSnapshot {
+	const session = (snapshot as { session?: { isGridMode?: boolean } }).session ?? {};
+	return {
+		...snapshot,
+		session: {
+			...session,
+			isGridMode: false,
+		},
+	} as TLEditorSnapshot;
+}
+
 export function prepareWritingSnapshot(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
-	return deleteObsoleteWritingTemplateShapes(TLEditorSnapshot);
+	const withGridOff = forceWritingSnapshotGridOff(TLEditorSnapshot);
+	return deleteObsoleteWritingTemplateShapes(withGridOff);
 }
 
 export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {

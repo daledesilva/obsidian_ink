@@ -67,6 +67,9 @@ export function convertDrawDataToWrite(data: InkFileData): InkFileData {
 		['shape:writing-lines' as TLShapeId]: writingLinesShape,
 	};
 
+	const existingSession = data.tldraw.session ?? {};
+	const sessionWithGridOff = { ...existingSession, isGridMode: false };
+
 	return {
 		...data,
 		meta: {
@@ -79,6 +82,7 @@ export function convertDrawDataToWrite(data: InkFileData): InkFileData {
 				...data.tldraw.document,
 				store: updatedStore,
 			},
+			session: sessionWithGridOff,
 		},
 	};
 }

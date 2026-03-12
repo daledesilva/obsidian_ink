@@ -21,6 +21,9 @@ export function convertWriteDataToDraw(data: InkFileData): InkFileData {
 	delete updatedStore['shape:writing-container' as TLShapeId];
 	delete updatedStore['shape:writing-lines' as TLShapeId];
 
+	const existingSession = data.tldraw.session ?? {};
+	const sessionWithGridOn = { ...existingSession, isGridMode: true };
+
 	return {
 		...data,
 		meta: {
@@ -33,6 +36,7 @@ export function convertWriteDataToDraw(data: InkFileData): InkFileData {
 				...data.tldraw.document,
 				store: updatedStore,
 			},
+			session: sessionWithGridOn,
 		},
 	};
 }

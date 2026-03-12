@@ -97,6 +97,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
+		editor.updateInstanceState({ isGridMode: false });
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 

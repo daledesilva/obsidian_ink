@@ -173,6 +173,13 @@ describe('convertWriteDataToDraw', () => {
 		expect(store(parsed!)['shape:strokeRT']).toBeDefined();
 		expect(store(parsed!)['shape:writing-container']).toBeUndefined();
 	});
+
+	test('sets isGridMode to true when converting writing to drawing', () => {
+		const input = makeWritingFileData();
+		expect(input.tldraw.session?.isGridMode).toBe(false);
+		const result = convertWriteDataToDraw(input);
+		expect(result.tldraw.session?.isGridMode).toBe(true);
+	});
 });
 
 ////////
@@ -255,6 +262,13 @@ describe('convertDrawDataToWrite', () => {
 		expect(parsed).not.toBeNull();
 		expect(store(parsed!)['shape:writing-container']).toBeDefined();
 		expect(store(parsed!)['shape:writing-lines']).toBeDefined();
+	});
+
+	test('sets isGridMode to false when converting drawing to writing', () => {
+		const input = makeDrawingFileData();
+		(input.tldraw as { session?: { isGridMode?: boolean } }).session = { ...input.tldraw.session, isGridMode: true };
+		const result = convertDrawDataToWrite(input);
+		expect(result.tldraw.session?.isGridMode).toBe(false);
 	});
 });
 

@@ -63,9 +63,10 @@ Embeds display in Reading mode, but sizing and full-bleed margins do not match L
 
 ## Technical gotchas
 
-1. **Live Preview vs Source** — Ink embeds exist only in Live Preview. Any view that uses raw markdown (Source mode, or collapsed column markup during edit) will not show interactive embeds.
-2. **Column plugins** — Community column plugins (Obsidian Columns, Multi-Column Markdown, MCL) rely on Live Preview’s rendered output. When you focus on editing that region, Obsidian may switch to a source representation, bypassing the widget pipeline.
-3. **Code fences** — Content inside ` ```...` code blocks is never parsed as markdown; ink embed syntax there is treated as literal text.
+1. **Writing embeds never show the drawing grid** — The teal dot grid is a drawing-only feature. Writing embeds always render without it, even if the source file was converted from a drawing.
+2. **Live Preview vs Source** — Ink embeds exist only in Live Preview. Any view that uses raw markdown (Source mode, or collapsed column markup during edit) will not show interactive embeds.
+3. **Column plugins** — Community column plugins (Obsidian Columns, Multi-Column Markdown, MCL) rely on Live Preview’s rendered output. When you focus on editing that region, Obsidian may switch to a source representation, bypassing the widget pipeline.
+4. **Code fences** — Content inside ` ```...` code blocks is never parsed as markdown; ink embed syntax there is treated as literal text.
 
 ## See also
 

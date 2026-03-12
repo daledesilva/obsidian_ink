@@ -10,6 +10,18 @@
     }
 }
 
+// When inside a blockquote, restore left padding so the embed clears the purple quote border.
+// Obsidian uses .HyperMD-quote on the cm-line for blockquote lines (no .cm-blockquote parent).
+// The generic rule above zeros padding; this restores it for blockquote context.
+.cm-line.HyperMD-quote:has(.ddc_ink_writing-embed) {
+    padding-inline-start: 1em !important;
+}
+
+// Fallback for .cm-blockquote parent structure if used in some themes
+.cm-blockquote .ddc_ink_embed.ddc_ink_writing-embed,
+.cm-line.HyperMD-quote .ddc_ink_embed.ddc_ink_writing-embed {
+    margin-inline-start: 0.5em;
+}
 
 // TODO: This is communal to both embed types, it should be moved to a common file.
 

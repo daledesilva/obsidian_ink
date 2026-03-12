@@ -33,6 +33,10 @@
     }
 }
 
+blockquote .ddc_ink_writing-embed {
+    margin-inline-start: 1em;
+}
+
 // Hide "Edit Writing" anchor tags
 a[href*="type=inkWriting"] {
     visibility: hidden;

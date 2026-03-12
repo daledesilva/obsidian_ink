@@ -14,6 +14,10 @@ The internal undo history is synced in two places:
 
 **3. Drawing embed resize (pointer up)** — When the user finishes resizing a drawing embed via the ResizeHandle, `onResizeEnd` runs and calls `pushDrawingEmbedResize` directly (not via sync). Resize entries store `fromWidth`/`fromAspectRatio` and `toWidth`/`toAspectRatio`; undo applies the former, redo applies the latter.
 
+**4. Local embed undo/redo buttons** — When the user clicks the undo or redo button within an embed's menu (DrawingMenu, WritingMenu), the menu performs the local tldraw undo/redo and calls `popEmbedUndoAndPushToRedo` or `popEmbedRedoAndPushToUndo` to move the corresponding embed entry between the unified undo and redo stacks. This keeps the embed state and unified history in sync regardless of whether the user uses global shortcuts (Mod+Z) or local buttons.
+
+**4. Local embed undo/redo buttons** — When the user clicks the undo or redo button within an embed (DrawingMenu or WritingMenu), the menu performs the local tldraw undo/redo and then calls `popEmbedUndoAndPushToRedo(embedId)` or `popEmbedRedoAndPushToUndo(embedId)` to move the corresponding entry in the unified stack. This keeps the embed's local state and the unified history in sync regardless of which trigger is used (keyboard shortcuts vs. local buttons). Programmatic undo and redo guards prevent sync from interfering during these operations.
+
 ```mermaid
 flowchart TD
     subgraph storeListen [store.listen flow]
@@ -37,11 +41,15 @@ flowchart TD
 
 ---
 
-## Programmatic redo guard
+## Programmatic undo and redo guards
 
-When the user presses Mod+Shift+Z, we call `editor.redo()` on tldraw. That restores shapes and updates the store. tldraw's `store.listen` fires (with `source: 'user'`), the DrawingCompleted/DrawingErased branch runs, and `syncUnifiedUndoHistory` is called. Without a guard, sync would see `getNumUndos()` increased, add an embed entry, and clear the redo stack—wiping the user's ability to redo further.
+When the user triggers undo or redo programmatically (via the local embed buttons), `editor.undo()` or `editor.redo()` runs and tldraw's `store.listen` may fire. Without guards, sync would add entries or clear the redo stack incorrectly.
 
-We use a flag stored on the plugin instance (`plugin.__inkProgrammaticRedoInProgress`). Before `executeRedo`, we set it to `true`; when sync runs and sees it set, we skip adding entries and clearing the redo stack, but still update the baseline. We clear the flag after 50ms via `setTimeout` so any async `store.listen` callback that runs after `editor.redo()` returns still sees it. The keyboard handler passes the plugin explicitly so the flag is set on the same instance that sync reads via `getGlobals().plugin`.
+**Redo guard:** When the user presses Mod+Shift+Z (or clicks the local redo button), we call `editor.redo()` on tldraw. Sync would see `getNumUndos()` increased, add an embed entry, and clear the redo stack—wiping the user's ability to redo further. We use `plugin.__inkProgrammaticRedoInProgress`: when set, sync skips adding entries and clearing the redo stack, but still updates the baseline.
+
+**Undo guard:** When the user clicks the local undo button, we call `editor.undo()` and then `popEmbedUndoAndPushToRedo(embedId)`. If sync ran during `editor.undo()`, it might update the baseline before we call `notifyUndoExecuted`, causing double-adjustment. We use `plugin.__inkProgrammaticUndoInProgress`: when set, sync returns early without any update; `notifyUndoExecuted` handles the baseline.
+
+Both flags are stored on the plugin instance. We clear them after 50ms via `setTimeout` so any async `store.listen` callback still sees them.
 
 ### Redo flow with guard (sequence)
 
@@ -77,7 +85,9 @@ flowchart TD
     B --> C{isProgrammaticRedoInProgress}
     C -->|yes| D[Update prevObsidianDepth and prevTldrawUndosByEmbed for this embedId]
     D --> E[Return early skip add and clear]
-    C -->|no| F[Compute obsidianDelta tldrawDelta]
+    C -->|no| C2{isProgrammaticUndoInProgress}
+    C2 -->|yes| E2[Return early no update]
+    C2 -->|no| F[Compute obsidianDelta tldrawDelta]
     F --> G[Add entries to undo stack]
     G --> H{added.length greater than 0}
     H -->|yes| I[Clear redo stack]
@@ -209,6 +219,10 @@ function isUndoStackEmpty(): boolean;
 function clearEmbedBaseline(embedId: string): void;  // called by unregister
 function purgeEmbedEntriesFromStacks(embedId: string): void;  // called by unregister; removes locked embed's entries (embed and embed-resize) from undo/redo stacks
 function pushDrawingEmbedResize(entry: Extract<UnifiedUndoEntry, { type: 'embed-resize' }>): void;  // called when resize ends; pushes directly, clears redo
+function popEmbedUndoAndPushToRedo(embedId: string): UnifiedUndoEntry | null;  // called by local embed undo button; finds topmost embed entry, moves to redo, updates baseline
+function popEmbedRedoAndPushToUndo(embedId: string): UnifiedUndoEntry | null;  // called by local embed redo button; finds topmost embed entry, moves to undo, updates baseline
+function setProgrammaticUndoInProgress(value: boolean, plugin?: any): void;  // guard for local embed undo
+function setProgrammaticRedoInProgress(value: boolean, plugin?: any): void;  // guard for local embed redo
 ```
 
 ### ink-editor-registry.ts
@@ -248,6 +262,8 @@ function getObsidianRedoDepth(plugin: InkPlugin): number;  // for completeness
 | `WritingEmbed` / `DrawingEmbed` | Pass `embedId` to TldrawWritingEditor / TldrawDrawingEditor |
 | `TldrawWritingEditor.handleMount` | Initialize stack, register editor; sync just before queueOrRunStorePostProcesses in DrawingCompleted/DrawingErased branches |
 | `TldrawDrawingEditor.handleMount` | Same as writing |
+| `DrawingMenu` / `WritingMenu` | When embedded: pass `embedId` and `plugin` from editor; on undo/redo button click, set programmatic guard, run local undo/redo, call `popEmbedUndoAndPushToRedo` / `popEmbedRedoAndPushToUndo`, clear guard |
+| `TldrawDrawingEditor` / `TldrawWritingEditor` | Pass `embedId` and `plugin` to DrawingMenu / WritingMenu when `embedded` |
 | `main.ts onload` | Call `registerUnifiedUndoRedo(plugin)` when writing or drawing enabled |
 
 ### embedId source

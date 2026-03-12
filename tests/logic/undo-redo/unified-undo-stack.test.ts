@@ -36,10 +36,13 @@ import {
 	syncUnifiedUndoHistory,
 	pushDrawingEmbedResize,
 	setProgrammaticRedoInProgress,
+	setProgrammaticUndoInProgress,
 	notifyUndoExecuted,
 	notifyRedoExecuted,
 	clearEmbedBaseline,
 	purgeEmbedEntriesFromStacks,
+	popEmbedUndoAndPushToRedo,
+	popEmbedRedoAndPushToUndo,
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
 
@@ -65,6 +68,7 @@ describe('unified-undo-stack', () => {
 	beforeEach(() => {
 		resetMocks();
 		setProgrammaticRedoInProgress(false, MOCK_PLUGIN);
+		setProgrammaticUndoInProgress(false, MOCK_PLUGIN);
 		initialize(0, 0);
 	});
 
@@ -541,6 +545,57 @@ describe('unified-undo-stack', () => {
 			mockGetTldrawNumUndos.mockReturnValue(2);
 			syncUnifiedUndoHistory(EMBED_ID);
 			expect(getUndoStackSnapshot()).toHaveLength(0);
+		});
+	});
+
+	describe('popEmbedUndoAndPushToRedo', () => {
+		it('moves topmost embed entry from undo to redo and updates baseline', () => {
+			pushUndo({ type: 'obsidian' });
+			pushUndo({ type: 'embed', embedId: EMBED_ID });
+			pushUndo({ type: 'embed', embedId: 'embed-2' });
+
+			const entry = popEmbedUndoAndPushToRedo(EMBED_ID);
+
+			expect(entry).toEqual({ type: 'embed', embedId: EMBED_ID });
+			const undoStackSnapshot = getUndoStackSnapshot();
+			expect(undoStackSnapshot).toHaveLength(2);
+			expect(undoStackSnapshot[0]).toEqual({ type: 'obsidian' });
+			expect(undoStackSnapshot[1]).toEqual({ type: 'embed', embedId: 'embed-2' });
+			expect(popRedo()).toEqual({ type: 'embed', embedId: EMBED_ID });
+		});
+
+		it('returns null when no embed entry for this embed in undo stack', () => {
+			pushUndo({ type: 'obsidian' });
+			pushUndo({ type: 'embed', embedId: 'embed-2' });
+
+			const entry = popEmbedUndoAndPushToRedo(EMBED_ID);
+
+			expect(entry).toBeNull();
+			expect(getUndoStackSnapshot()).toHaveLength(2);
+		});
+	});
+
+	describe('popEmbedRedoAndPushToUndo', () => {
+		it('moves topmost embed entry from redo to undo and updates baseline', () => {
+			pushUndo({ type: 'embed', embedId: EMBED_ID });
+			popUndo();
+			pushRedo({ type: 'embed', embedId: 'embed-2' });
+			pushRedo({ type: 'embed', embedId: EMBED_ID });
+
+			const entry = popEmbedRedoAndPushToUndo(EMBED_ID);
+
+			expect(entry).toEqual({ type: 'embed', embedId: EMBED_ID });
+			expect(popRedo()).toEqual({ type: 'embed', embedId: 'embed-2' });
+			expect(popUndo()).toEqual({ type: 'embed', embedId: EMBED_ID });
+		});
+
+		it('returns null when no embed entry for this embed in redo stack', () => {
+			pushRedo({ type: 'embed', embedId: 'embed-2' });
+
+			const entry = popEmbedRedoAndPushToUndo(EMBED_ID);
+
+			expect(entry).toBeNull();
+			expect(popRedo()).toEqual({ type: 'embed', embedId: 'embed-2' });
 		});
 	});
 });

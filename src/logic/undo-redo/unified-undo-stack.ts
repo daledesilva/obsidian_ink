@@ -21,18 +21,34 @@ let redoStack: UnifiedUndoEntry[] = [];
 let prevObsidianDepth = 0;
 const prevTldrawUndosByEmbed = new Map<string, number>();
 
-const PLUGIN_FLAG_KEY = '__inkProgrammaticRedoInProgress';
+const PLUGIN_FLAG_KEY_REDO = '__inkProgrammaticRedoInProgress';
+const PLUGIN_FLAG_KEY_UNDO = '__inkProgrammaticUndoInProgress';
 
 /** When true, sync skips adding entries and clearing redo (store.listen fires during our programmatic redo). Stored on plugin instance so it survives multiple module instances. */
 export function setProgrammaticRedoInProgress(value: boolean, plugin?: any): void {
 	const target = plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })();
-	if (target) (target as any)[PLUGIN_FLAG_KEY] = value;
+	if (target) (target as any)[PLUGIN_FLAG_KEY_REDO] = value;
+}
+
+/** When true, sync skips updating (store.listen fires during our programmatic undo from local embed button). */
+export function setProgrammaticUndoInProgress(value: boolean, plugin?: any): void {
+	const target = plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })();
+	if (target) (target as any)[PLUGIN_FLAG_KEY_UNDO] = value;
 }
 
 function isProgrammaticRedoInProgress(): boolean {
 	try {
 		const plugin = getGlobals().plugin as any;
-		return !!plugin?.[PLUGIN_FLAG_KEY];
+		return !!plugin?.[PLUGIN_FLAG_KEY_REDO];
+	} catch {
+		return false;
+	}
+}
+
+function isProgrammaticUndoInProgress(): boolean {
+	try {
+		const plugin = getGlobals().plugin as any;
+		return !!plugin?.[PLUGIN_FLAG_KEY_UNDO];
 	} catch {
 		return false;
 	}
@@ -105,6 +121,10 @@ export function syncUnifiedUndoHistory(
 	if (isProgrammaticRedoInProgress()) {
 		prevObsidianDepth = obsidianDepth;
 		prevTldrawUndosByEmbed.set(embedId, tldrawUndos);
+		return;
+	}
+	// Programmatic undo from local embed button: skip entirely; notifyUndoExecuted will update baseline
+	if (isProgrammaticUndoInProgress()) {
 		return;
 	}
 
@@ -213,4 +233,40 @@ export function purgeEmbedEntriesFromStacks(embedId: string): void {
 		(e.type === 'embed' && e.embedId === embedId) || (e.type === 'embed-resize' && e.embedId === embedId);
 	undoStack = undoStack.filter((e) => !matchesEmbed(e));
 	redoStack = redoStack.filter((e) => !matchesEmbed(e));
+}
+
+function findTopmostEmbedIndex(stack: UnifiedUndoEntry[], embedId: string): number {
+	return stack.findIndex((e) => e.type === 'embed' && e.embedId === embedId);
+}
+
+/**
+ * Pops the topmost embed entry for this embed from the undo stack and pushes it to redo.
+ * Call when the user triggers local undo from the embed UI.
+ * Updates the baseline via notifyUndoExecuted.
+ * @returns The entry that was moved, or null if none found.
+ */
+export function popEmbedUndoAndPushToRedo(embedId: string): UnifiedUndoEntry | null {
+	const index = findTopmostEmbedIndex(undoStack, embedId);
+	if (index < 0) return null;
+	const entry = undoStack.splice(index, 1)[0] as Extract<UnifiedUndoEntry, { type: 'embed' }>;
+	notifyUndoExecuted(entry);
+	redoStack.push(entry);
+	verbose(`[undo-redo] Local embed undo: moved ${formatEntry(entry)} to redo. Undo stack after: ${formatStackForLog([...undoStack])}`);
+	return entry;
+}
+
+/**
+ * Pops the topmost embed entry for this embed from the redo stack and pushes it to undo.
+ * Call when the user triggers local redo from the embed UI.
+ * Updates the baseline via notifyRedoExecuted.
+ * @returns The entry that was moved, or null if none found.
+ */
+export function popEmbedRedoAndPushToUndo(embedId: string): UnifiedUndoEntry | null {
+	const index = findTopmostEmbedIndex(redoStack, embedId);
+	if (index < 0) return null;
+	const entry = redoStack.splice(index, 1)[0] as Extract<UnifiedUndoEntry, { type: 'embed' }>;
+	notifyRedoExecuted(entry);
+	undoStack.push(entry);
+	verbose(`[undo-redo] Local embed redo: moved ${formatEntry(entry)} to undo. Undo stack after: ${formatStackForLog([...undoStack])}`);
+	return entry;
 }

@@ -16,4 +16,5 @@ The writing and drawing embed extensions must check `editorLivePreviewField` **b
 
 ### Related documentation
 
+- [Ink embeds: contexts and limitations](ink-embeds-contexts-and-limitations.md) — Supported and unsupported embed contexts.
 - [Blocked features](blocked-features.md) — Reading mode embed sizing and other incomplete features.

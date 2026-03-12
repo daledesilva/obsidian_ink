@@ -2,6 +2,8 @@
 
 Features that are known to be incomplete, blocked, or non-functional. Documented so future work can pick up with context.
 
+**See also:** [Ink embeds: contexts and limitations](ink-embeds-contexts-and-limitations.md) for the full picture of supported vs. unsupported embed contexts.
+
 ---
 
 ## Reading mode embed sizing

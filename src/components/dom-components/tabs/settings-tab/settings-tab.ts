@@ -134,6 +134,7 @@ function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
 		.setName('Migrate From Previous Versions')
 		.setDesc('Convert old Ink embed formats to the newer SVG format.')
 		.addButton((button) => {
+			button.setCta();
 			button.setButtonText('Update Ink files…');
 			button.onClick(() => plugin.openMigrationModal());
 		});

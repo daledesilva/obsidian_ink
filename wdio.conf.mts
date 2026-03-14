@@ -4,8 +4,10 @@ import { env } from "process";
 
 const cacheDir = path.resolve(".obsidian-cache");
 
-// "earliest" resolves to minAppVersion (1.00.0) which obsidian-launcher does not provide.
-// Use OBSIDIAN_VERSIONS env var to test specific versions, e.g. "1.4.0/1.4.0 latest/latest"
+// E2E tests run against Obsidian latest (stable) and latest-beta when available.
+// No pinned versions. Override with OBSIDIAN_VERSIONS for ad-hoc testing, e.g.:
+//   OBSIDIAN_VERSIONS=latest/latest   — only stable
+//   OBSIDIAN_VERSIONS=latest-beta/latest — only beta (when published)
 let defaultVersions = "latest/latest";
 if (await obsidianBetaAvailable({ cacheDir })) {
   defaultVersions += " latest-beta/latest";

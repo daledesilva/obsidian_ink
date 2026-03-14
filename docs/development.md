@@ -70,13 +70,31 @@ Coverage output appears under the `coverage/` directory.
 npm run test:e2e
 ```
 
-This builds the plugin, regenerates the qa-test-vault, and runs E2E specs against Obsidian. The first run downloads Obsidian into `.obsidian-cache/`. Requires Node.js and a supported OS (Windows, macOS, Linux).
+Each E2E run: builds the plugin, downloads test plugins (`scripts/download-test-plugins.sh`), generates the qa-test-vault, then runs WebdriverIO. The first run downloads Obsidian into `.obsidian-cache/`. Requires Node.js and a supported OS (Windows, macOS, Linux).
 
-To run a single spec file, use `test:e2e:spec` and pass the spec path after `--`:
+**E2E scripts**
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| `test:e2e` | `wdio run ./wdio.conf.mts` (after build + plugins + vault) | Full E2E run (latest + beta when available) |
+| `test:e2e:spec` | same + `--spec` (pass path after `--`) | Single spec file |
+| `test:e2e:versions` | `node scripts/show-e2e-versions.mjs` | Print which Obsidian version(s) will be tested |
+| `test:e2e:latest` | `OBSIDIAN_VERSIONS=latest/latest npm run test:e2e` | E2E against latest (stable) only |
+| `test:e2e:beta` | `OBSIDIAN_VERSIONS=latest-beta/latest npm run test:e2e` | E2E against latest-beta only (requires Insiders; see below) |
+
+Example for a single spec:
 
 ```bash
 npm run test:e2e:spec -- tests/e2e/undo-redo.e2e.ts
 ```
+
+**E2E Obsidian versions** — E2E runs against **latest (stable)** and **latest-beta** when available. Each run logs the version(s) at startup. Use `npm run test:e2e:versions` to see which versions will be tested without running the full suite. Use `npm run test:e2e:latest` to run only against latest (skipping beta) or `npm run test:e2e:beta` to run only against beta, for faster or targeted iteration. Override with `OBSIDIAN_VERSIONS` for ad-hoc testing (e.g. `OBSIDIAN_VERSIONS=latest/latest`). Pinned versions (e.g. `1.4.0/1.4.0`) are not used in normal development. The CI cache key reflects the resolved versions, so it updates when beta availability changes.
+
+**E2E credentials for Obsidian beta** — Obsidian beta builds require an Obsidian Insiders account. Set `OBSIDIAN_EMAIL` and `OBSIDIAN_PASSWORD` before running `test:e2e:beta` or any E2E run that includes beta:
+
+- **Option 1 (env vars):** `export OBSIDIAN_EMAIL="your@email.com"` and `export OBSIDIAN_PASSWORD="your-password"` before running.
+- **Option 2 (`.env` file):** Create `obsidian_ink/.env` with `OBSIDIAN_EMAIL=...` and `OBSIDIAN_PASSWORD=...`. Ensure `.env` is in `.gitignore`. The wdio-obsidian-service and obsidian-launcher tooling load these when present.
+- **CI:** The workflow uses these from repository secrets for the full E2E run (including beta when available).
 
 **E2E popup handling**
 

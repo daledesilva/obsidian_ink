@@ -9,6 +9,9 @@
 		"test:unit": "jest",
 		"test:e2e": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && wdio run ./wdio.conf.mts",
 		"test:e2e:spec": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && wdio run ./wdio.conf.mts --spec",
+		"test:e2e:versions": "node scripts/show-e2e-versions.mjs",
+		"test:e2e:latest": "OBSIDIAN_VERSIONS=latest/latest npm run test:e2e",
+		"test:e2e:beta": "OBSIDIAN_VERSIONS=latest-beta/latest npm run test:e2e",
 		"open-qa": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"open-qa-verbose": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs development && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
@@ -57,8 +60,8 @@
 		"tslib": "2.4.0",
 		"tsx": "^4.21.0",
 		"typescript": "^5.7.2",
-		"wdio-obsidian-reporter": "^2.3.2",
-		"wdio-obsidian-service": "^2.3.2"
+		"wdio-obsidian-reporter": "^2.4.0",
+		"wdio-obsidian-service": "^2.4.0"
 	},
 	"dependencies": {
 		"@codemirror/language": "^6.10.8",

@@ -18,6 +18,11 @@ dist/*
 # obsidian
 data.json
 
+# Env files (credentials for Obsidian Insiders / beta downloads)
+.env
+.env.*
+!.env.example
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 

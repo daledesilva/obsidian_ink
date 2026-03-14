@@ -485,8 +485,8 @@ function insertPrereleaseWarning(containerEl: HTMLElement) {
 	const headerSetting = new Setting(controlsEl)
 		.setClass('ddc_ink_controls-header')
 		.setClass('ddc_ink_controls-header--clickable')
-		.setName('This plugin is in an Alpha state')
-		.setDesc('Early development; may undergo large changes. Expand for details.');
+		.setName('This plugin is in Beta')
+		.setDesc('Always back up your files. Expand for details.');
 
 	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
 	arrowEl.setText('›');
@@ -497,7 +497,7 @@ function insertPrereleaseWarning(containerEl: HTMLElement) {
 	});
 
 	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
-	contentEl.createEl('p', { text: `Alpha means early development: the plugin may change in breaking ways. Use with caution. Files created now should remain compatible or be converted in future versions.` });
+	contentEl.createEl('p', { text: `Beta means the plugin is still evolving. Changes to embed formats and file-handling features, even when thoroughly tested, may occasionally introduce issues that affect your vault. Always keep backups of your data.` });
 }
 
 function insertGenericWarning(containerEl: HTMLElement, text: string) {

@@ -45,6 +45,10 @@ export default class InkPlugin extends Plugin {
 	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
 	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
 
+	openMigrationModal() {
+		new MigrationModal(this).open();
+	}
+
 	async onload() {
 		await this.loadSettings();
 
@@ -98,12 +102,6 @@ export default class InkPlugin extends Plugin {
 		}
 
 		registerSettingsTab(this);
-
-		this.addCommand({
-			id: 'migrate-legacy-embeds',
-			name: 'Migrate legacy ink embeds to current format',
-			callback: () => new MigrationModal(this).open(),
-		});
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.

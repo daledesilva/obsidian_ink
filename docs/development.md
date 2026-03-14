@@ -177,7 +177,7 @@ Migration from legacy v1 code-block embeds to current-format SVG embeds is cover
 | Test | What it tests |
 |---|---|
 | Legacy writing/drawing embed renders before migration | Pre-migration state. |
-| Migration command, modal, scan, execute | Full migration flow. |
+| Migration modal, scan, execute | Full migration flow (opened from settings). |
 | Migrated writing embed renders | Post-migration writing embed displays. |
 | Migrated drawing embed renders | Post-migration drawing embed displays. |
 | Mixed format note | Only legacy embed updated; current format unchanged. |

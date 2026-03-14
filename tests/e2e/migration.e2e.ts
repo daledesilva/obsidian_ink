@@ -27,7 +27,9 @@ describe("Legacy Embed Migration", function () {
 	});
 
 	it("migration command opens the migration modal", async function () {
-		await browser.executeObsidianCommand("ink:migrate-legacy-embeds");
+		await browser.executeObsidian(({ app }) => {
+			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
+		});
 		await browser.pause(500);
 		const modal = await browser.$(".modal-container");
 		await modal.waitForExist({ timeout: 5000 });
@@ -183,7 +185,9 @@ describe("Legacy Embed Migration", function () {
 	});
 
 	it("running migration again finds nothing to migrate (idempotent)", async function () {
-		await browser.executeObsidianCommand("ink:migrate-legacy-embeds");
+		await browser.executeObsidian(({ app }) => {
+			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
+		});
 		await browser.pause(500);
 
 		// Wait for modal
@@ -242,7 +246,9 @@ describe("Migration: cancel", function () {
 		expect(originalNoteContent).toContain('```handwritten-ink');
 
 		// Open migration modal and wait for confirm phase
-		await browser.executeObsidianCommand("ink:migrate-legacy-embeds");
+		await browser.executeObsidian(({ app }) => {
+			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
+		});
 		await browser.waitUntil(
 			async () => {
 				const buttons = await browser.$$(".modal-container button");
@@ -301,7 +307,9 @@ describe("Migration: multi-note embed update", function () {
 
 	it("migration updates embed strings in ALL affected notes (writing and drawing)", async function () {
 		// Run the full migration
-		await browser.executeObsidianCommand("ink:migrate-legacy-embeds");
+		await browser.executeObsidian(({ app }) => {
+			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
+		});
 
 		await browser.waitUntil(
 			async () => {

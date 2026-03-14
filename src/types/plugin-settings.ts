@@ -9,6 +9,7 @@ export interface PluginSettings {
 		lastVersionTipRead: string,
 	},
 	// General
+	gettingStartedExpanded: boolean,
 	customAttachmentFolders: boolean,
     noteAttachmentFolderLocation: 'obsidian' | 'root' | 'note',
     notelessAttachmentFolderLocation: 'obsidian' | 'root',
@@ -36,6 +37,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 		lastVersionTipRead: '',
 	},
 	// General
+	gettingStartedExpanded: true,
 	customAttachmentFolders: false,
     noteAttachmentFolderLocation: 'obsidian',
 	notelessAttachmentFolderLocation: 'obsidian',

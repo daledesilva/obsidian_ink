@@ -32,8 +32,7 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
 		
 		containerEl.createEl('hr');
-		insertMoreInfoLinks(containerEl);
-		insertPrereleaseWarning(containerEl);
+		insertGettingStartedSection(containerEl, this.plugin);
 
 		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
 		// The callbacks only fire on user interaction, after display() has completed
@@ -46,6 +45,8 @@ export class MySettingsTab extends PluginSettingTab {
 			(show) => { show ? drawingSectionEl.classList.add('ddc_ink_expanded') : drawingSectionEl.classList.remove('ddc_ink_expanded'); },
 		);
 
+		insertMigrateSection(containerEl, this.plugin);
+
 		containerEl.createEl('hr');
 		writingSectionEl = insertWritingSettings(containerEl, this.plugin);
 		if (this.plugin.settings.writingEnabled) writingSectionEl.classList.add('ddc_ink_expanded');
@@ -56,7 +57,7 @@ export class MySettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setClass('ddc_ink_bare-setting')
 			.addButton( (button) => {
-				button.setButtonText('Reset settings');
+				button.setButtonText('Reset settings…');
 				button.onClick(() => {
 					new ConfirmationModal({
 						plugin: this.plugin,
@@ -72,7 +73,8 @@ export class MySettingsTab extends PluginSettingTab {
 			})
 
 		containerEl.createEl('hr');
-		insertSetupGuide(this.plugin, containerEl);
+		insertPrereleaseWarning(containerEl);
+		insertPluginDevelopmentSection(containerEl);
 
 		createSupportButtonSet(containerEl);
 		
@@ -80,55 +82,87 @@ export class MySettingsTab extends PluginSettingTab {
 	}
 }
 
-function insertSetupGuide(plugin: InkPlugin, containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_setup-guide-section');
-	sectionEl.createEl('h3', { text: 'Setup tips' });
+function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin) {
+	const isExpanded = plugin.settings.gettingStartedExpanded ?? true;
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	if (isExpanded) wrapperEl.classList.add('ddc_ink_expanded');
 
-	new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Slash Commands')
-		.setDesc(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`)
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
-	new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName('iPadOS Pen Scribble')
-		.setDesc(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`)
+	const headerSetting = new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setClass('ddc_ink_controls-header--clickable')
+		.setName('Getting started')
+		.setDesc('Tips for using Ink, Compatibility with other processes, and migrating from older versions.');
 
-	new Setting(sectionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Obsidian Sync')
-		.setDesc(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`)
+	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
+	arrowEl.setText('›');
+	if (isExpanded) arrowEl.classList.add('ddc_ink_expanded');
 
-	new Setting(sectionEl)
+	headerSetting.settingEl.addEventListener('click', async () => {
+		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
+		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
+		plugin.settings.gettingStartedExpanded = expanded;
+		await plugin.saveSettings();
+	});
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	// Information (tips) first
+	const tipsSectionEl = contentEl.createDiv('ddc_ink_tips-section');
+	const tipsGridEl = tipsSectionEl.createDiv('ddc_ink_tips-grid');
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pen Scribble');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`);
+
+	// Rewatch button
+	new Setting(contentEl)
 		.setClass('ddc_ink_bare-setting')
-		.setClass('ddc_ink_bare-setting--left')
-		.addButton( btn => {
+		.setClass('ddc_ink_bare-setting--no-bottom-margin')
+		.addButton((btn) => {
 			btn.setButtonText('Rewatch welcome tips');
-			btn.onClick( () => showWelcomeTips(plugin) );
-			btn.setCta();
-		})
+			btn.onClick(() => showWelcomeTips(plugin));
+		});
 }
 
-function insertMoreInfoLinks(containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section');
-	sectionEl.createEl('p', { text: `For information on this plugin's development, visit the links below. Feel free to leave comments in the development diaries on YouTube.` });
-	const list = sectionEl.createEl('ul');
-	list.createEl('li').createEl('a', {
-		href: 'https://github.com/daledesilva/obsidian_ink/releases',
-		text: 'Latest Changes'
-	});
-	list.createEl('li').createEl('a', {
-		href: 'https://github.com/daledesilva/obsidian_ink',
-		text: 'Roadmap'
-	});
-	list.createEl('li').createEl('a', {
-		href: 'https://www.youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL',
-		text: 'Development Diaries.'
-	});
-	list.createEl('li').createEl('a', {
-		href: 'https://github.com/daledesilva/obsidian_ink/issues',
-		text: 'Request feature / Report bug.'
-	});
+function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Migrate From Previous Versions')
+		.setDesc('Convert old Ink embed formats to the newer SVG format.')
+		.addButton((button) => {
+			button.setButtonText('Update Ink files…');
+			button.onClick(() => plugin.openMigrationModal());
+		});
+}
+
+function insertPluginDevelopmentSection(containerEl: HTMLElement) {
+	const wrapperEl = containerEl.createDiv('ddc_ink_section');
+
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
+	new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setName('Plugin development')
+		.setDesc('For information on this plugin\'s development, visit the links below.');
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	const tipsGridEl = contentEl.createDiv('ddc_ink_tips-grid');
+	const addLinkRow = (parent: HTMLElement, href: string, label: string, description: string) => {
+		const labelEl = parent.createDiv('ddc_ink_tips-label');
+		const a = labelEl.createEl('a', { href, text: label });
+		a.setAttribute('target', '_blank');
+		a.setAttribute('rel', 'noopener');
+		parent.createDiv('ddc_ink_tips-desc').setText(description);
+	};
+	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink/releases', 'Latest Changes', 'Version history, release notes, and download links for each Ink release.');
+	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink', 'Roadmap', 'Main repository with source code, roadmap, and project information.');
+	addLinkRow(tipsGridEl, 'https://www.youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL', 'Development Diaries', 'Video diaries documenting the plugin\'s development progress.');
+	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink/issues', 'Request feature / Report bug', 'Submit feature requests, report bugs, or join the discussion.');
 }
 
 function insertHighLevelSettings(
@@ -445,12 +479,25 @@ function insertWritingLimitations(containerEl: HTMLElement) {
 }
 
 function insertPrereleaseWarning(containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_prerelease-warning-section');
-	const accordion = sectionEl.createEl('details', {cls: 'warning'});
-	accordion.createEl('summary', { text: `This plugin is in an Alpha state (Expand for details)` });
-	accordion.createEl('p', { text: `What does Alpha mean? Development of products like this plugin often involve moving through multiple different stages (e.g. Alpha, Beta, then Standard Release).` });
-	accordion.createEl('p', { text: `Alpha, the current stage, means that this plugin is in early development and may undergo large changes that break or change previous functionality.` });
-	accordion.createEl('p', { text: `While in Alpha, please exercise caution while using the plugin, however, note that I (The developer of this plugin) am proceeding with caution to help ensure any files created in this version will be compatible or converted to work with future versions (My own vaults depend on it as well).` });
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const controlsEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
+	const headerSetting = new Setting(controlsEl)
+		.setClass('ddc_ink_controls-header')
+		.setClass('ddc_ink_controls-header--clickable')
+		.setName('This plugin is in an Alpha state')
+		.setDesc('Early development; may undergo large changes. Expand for details.');
+
+	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
+	arrowEl.setText('›');
+
+	headerSetting.settingEl.addEventListener('click', () => {
+		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
+		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
+	});
+
+	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+	contentEl.createEl('p', { text: `Alpha means early development: the plugin may change in breaking ways. Use with caution. Files created now should remain compatible or be converted in future versions.` });
 }
 
 function insertGenericWarning(containerEl: HTMLElement, text: string) {

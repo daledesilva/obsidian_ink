@@ -68,12 +68,12 @@ export default class InkPlugin extends Plugin {
 			registerWritingView(this);
 			registerWritingEmbed(this);
 			registerUnifiedUndoRedo(this);
-			implementWritingEmbedActions(this);
+			implementWritingEmbedCommands(this);
 			
 			// Legacy v1's are on to allow displaying, but not creating
 			registerWritingView_v1(this);
 			registerWritingEmbed_v1(this);
-			implementWritingEmbedActions_v1(this);
+			// implementWritingEmbedCommandimplementWritingEmbedCommands_v1(this); s_v1(this);
 		}
 		
 		if (this.settings.drawingEnabled) {
@@ -82,12 +82,12 @@ export default class InkPlugin extends Plugin {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
 			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
-			implementDrawingEmbedActions(this);
+			implementDrawingEmbedCommands(this);
 
 			// Legacy v1's are on to allow displaying, but not creating
 			registerDrawingView_v1(this);
 			registerDrawingEmbed_v1(this);
-			implementDrawingEmbedActions_v1(this);
+			// implementDrawingEmbedCommands_v1(this);
 		}
 
 		// Register a single generic embed orchestrator if either format is enabled
@@ -134,7 +134,7 @@ export default class InkPlugin extends Plugin {
 
 export const inkPluginAtom = atom<InkPlugin>();
 
-function implementWritingEmbedActions(plugin: InkPlugin) {
+function implementWritingEmbedCommands(plugin: InkPlugin) {
 
 	// Current
 	plugin.addCommand({
@@ -152,7 +152,7 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 
 }
 
-function implementWritingEmbedActions_v1(plugin: InkPlugin) {
+function implementWritingEmbedCommands_v1(plugin: InkPlugin) {
 
 	// Legacy
 	plugin.addCommand({
@@ -170,7 +170,7 @@ function implementWritingEmbedActions_v1(plugin: InkPlugin) {
 
 }
 
-function implementDrawingEmbedActions(plugin: InkPlugin) {
+function implementDrawingEmbedCommands(plugin: InkPlugin) {
 
 	// Current
 	plugin.addCommand({
@@ -188,7 +188,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 
 }
 
-function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
+function implementDrawingEmbedCommands_v1(plugin: InkPlugin) {
 	
 	// Legacy
 	plugin.addCommand({

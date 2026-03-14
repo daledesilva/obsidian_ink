@@ -157,6 +157,32 @@ The lock/unlock round-trip is covered end-to-end by `tests/e2e/embed-lock-unlock
 | Legacy v1 Writing | `02 - Legacy Format/V1 Writing Embed.md` | Same round-trip for v1 writing code-block embeds. |
 | Legacy v1 Drawing | `02 - Legacy Format/V1 Drawing Embed.md` | Round-trip test + a second test that reads the `handdrawn-ink` code block from the vault file after locking and calls `JSON.parse()` on it, guarding against the regression where the wrong `replaceRange` end position caused properties to be appended outside the closing brace. |
 
+#### Legacy embed migration — test coverage
+
+Migration from legacy v1 code-block embeds to current-format SVG embeds is covered by unit tests and E2E tests.
+
+**Unit test coverage** (`tests/components/formats/current/utils/MigrationLogic.test.ts`)
+
+| Function | What it tests |
+|---|---|
+| `findLegacyEmbedBlocks` | Single/multiple embeds, v2 exclusion, malformed JSON, missing filepath. |
+| `getLegacySvgPath` | Extension replacement for `.writing`/`.drawing`, paths with dots. |
+| `scanVaultForLegacyEmbeds` | Empty vault, no legacy embeds, one/multiple legacy files, missing legacy file, `onProgress` callback, read error handling. |
+| `convertLegacyJsonToInkFileData` | Writing/drawing conversion, tldraw store preservation, `meta.transcript` preservation, invalid/missing JSON, round-trip via `buildFileStr`. |
+| `replaceLegacyBlockInMarkdown` | Replace block, preserve surrounding content, replace all occurrences. |
+| `executeMigration` | Updates all affected notes, skip when SVG exists, parse failure, create/delete failure, `onProgress` callback. |
+
+**E2E test coverage** (`tests/e2e/migration.e2e.ts`)
+
+| Test | What it tests |
+|---|---|
+| Legacy writing/drawing embed renders before migration | Pre-migration state. |
+| Migration command, modal, scan, execute | Full migration flow. |
+| Migrated writing embed renders | Post-migration writing embed displays. |
+| Migrated drawing embed renders | Post-migration drawing embed displays. |
+| Mixed format note | Only legacy embed updated; current format unchanged. |
+| Idempotent, cancel, multi-note | Second run finds nothing; cancel leaves files unchanged; all affected notes updated. |
+
 #### Buffer lines resize — test coverage
 
 The buffer lines resize system has a dedicated test suite split across two tiers.

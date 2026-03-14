@@ -160,6 +160,15 @@ describe("Legacy Embed Migration", function () {
 		await expect(embed).toExist();
 	});
 
+	it("migrated drawing embed renders in the note", async function () {
+		await obsidianPage.openFile("13 - Migration Test/Legacy Drawing Note.md");
+		await browser.pause(1000);
+		const embedSelector = ".ddc_ink_embed-block, .ddc_ink_widget-root, img[alt='InkDrawing'], .internal-embed[alt='InkDrawing']";
+		const embed = await browser.$(embedSelector);
+		await embed.waitForExist({ timeout: 10000 });
+		await expect(embed).toExist();
+	});
+
 	it("mixed format note: only legacy embed is updated, current format embed unchanged", async function () {
 		const noteContent = await browser.executeObsidian(async ({ app }) => {
 			const file = app.vault.getAbstractFileByPath("13 - Migration Test/Mixed Formats Note.md");

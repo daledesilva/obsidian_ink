@@ -1,10 +1,15 @@
 import { describe, expect, test } from '@jest/globals';
 import { TFile } from 'obsidian';
+
+// Provide valid SVG for migration-logic's convertLegacyJsonToInkFileData so buildFileStr can parse it
+jest.mock('src/defaults/empty-writing-embed.svg', () => '<svg xmlns="http://www.w3.org/2000/svg"><defs/></svg>', { virtual: true });
+jest.mock('src/defaults/empty-drawing-embed.svg', () => '<svg xmlns="http://www.w3.org/2000/svg"><defs/></svg>', { virtual: true });
 import {
 	findLegacyEmbedBlocks,
 	replaceLegacyBlockInMarkdown,
 	convertLegacyJsonToInkFileData,
 	getLegacySvgPath,
+	scanVaultForLegacyEmbeds,
 	executeMigration,
 	VaultScanResult,
 	LegacyEmbedBlock,
@@ -180,6 +185,120 @@ describe('getLegacySvgPath', () => {
 
 ////////
 
+describe('scanVaultForLegacyEmbeds', () => {
+	const LEGACY_PATH = 'Ink/Writing/note.writing';
+
+	function makeTFile(path: string): TFile {
+		const file = new TFile();
+		(file as any).path = path;
+		return file;
+	}
+
+	function makeScanVault(
+		noteContents: Record<string, string>,
+		existingLegacyPaths: string[] = [LEGACY_PATH],
+	) {
+		const notePaths = Object.keys(noteContents);
+		const legacyFileByPath = Object.fromEntries(
+			existingLegacyPaths.map((p) => [p, makeTFile(p)]),
+		);
+		return {
+			getMarkdownFiles: () => notePaths.map((p) => makeTFile(p)),
+			read: jest.fn(async (note: TFile) => noteContents[note.path] ?? ''),
+			getAbstractFileByPath: jest.fn((path: string) => legacyFileByPath[path] ?? null),
+		};
+	}
+
+	test('returns empty when no markdown files', async () => {
+		const vault = {
+			getMarkdownFiles: () => [],
+			read: jest.fn(),
+			getAbstractFileByPath: jest.fn(),
+		};
+		const result = await scanVaultForLegacyEmbeds(vault as any);
+		expect(result.legacyFiles).toHaveLength(0);
+		expect(result.affectedNotes).toHaveLength(0);
+	});
+
+	test('returns empty when no legacy embeds in any file', async () => {
+		const vault = makeScanVault({
+			'Notes/A.md': '# Title\n\nPlain text without embeds.',
+			'Notes/B.md': 'More plain text.',
+		});
+		const result = await scanVaultForLegacyEmbeds(vault as any);
+		expect(result.legacyFiles).toHaveLength(0);
+		expect(result.affectedNotes).toHaveLength(0);
+	});
+
+	test('finds one legacy file and one affected note', async () => {
+		const noteContent = '# Title\n\n' + wrapInCodeBlock(WRITE_KEY, JSON.stringify({ versionAtEmbed: '1.0.0', filepath: LEGACY_PATH })) + '\n';
+		const vault = makeScanVault({ 'Notes/A.md': noteContent });
+		const result = await scanVaultForLegacyEmbeds(vault as any);
+		expect(result.legacyFiles).toHaveLength(1);
+		expect(result.legacyFiles[0].legacyFile.path).toBe(LEGACY_PATH);
+		expect(result.legacyFiles[0].fileType).toBe('writing');
+		expect(result.affectedNotes).toHaveLength(1);
+		expect(result.legacyFiles[0].referencingNotes).toHaveLength(1);
+		expect(result.legacyFiles[0].referencingNotes[0].path).toBe('Notes/A.md');
+	});
+
+	test('same legacy file referenced from multiple notes', async () => {
+		const block = wrapInCodeBlock(WRITE_KEY, JSON.stringify({ versionAtEmbed: '1.0.0', filepath: LEGACY_PATH }));
+		const vault = makeScanVault({
+			'Notes/A.md': '# A\n\n' + block + '\n',
+			'Notes/B.md': '# B\n\n' + block + '\n',
+		});
+		const result = await scanVaultForLegacyEmbeds(vault as any);
+		expect(result.legacyFiles).toHaveLength(1);
+		expect(result.legacyFiles[0].referencingNotes).toHaveLength(2);
+		expect(result.affectedNotes).toHaveLength(2);
+	});
+
+	test('skips legacy file path when it does not exist', async () => {
+		const block = wrapInCodeBlock(WRITE_KEY, JSON.stringify({ versionAtEmbed: '1.0.0', filepath: 'Ink/Writing/nonexistent.writing' }));
+		const vault = makeScanVault(
+			{ 'Notes/A.md': '# A\n\n' + block + '\n' },
+			[], // no legacy files exist
+		);
+		const result = await scanVaultForLegacyEmbeds(vault as any);
+		expect(result.legacyFiles).toHaveLength(0);
+		expect(result.affectedNotes).toHaveLength(1);
+	});
+
+	test('onProgress called with (scanned, total) after each file', async () => {
+		const block = wrapInCodeBlock(WRITE_KEY, JSON.stringify({ versionAtEmbed: '1.0.0', filepath: LEGACY_PATH }));
+		const vault = makeScanVault({
+			'Notes/A.md': '# A\n\n' + block + '\n',
+			'Notes/B.md': '# B\n\nPlain text.',
+			'Notes/C.md': '# C\n\n' + block + '\n',
+		});
+		const progressCalls: [number, number][] = [];
+		await scanVaultForLegacyEmbeds(vault as any, (scanned, total) => progressCalls.push([scanned, total]));
+		expect(progressCalls).toEqual([[1, 3], [2, 3], [3, 3]]);
+	});
+
+	test('read error skips file and continues', async () => {
+		const block = wrapInCodeBlock(WRITE_KEY, JSON.stringify({ versionAtEmbed: '1.0.0', filepath: LEGACY_PATH }));
+		const noteContents: Record<string, string> = {
+			'Notes/A.md': '# A\n\n' + block + '\n',
+			'Notes/B.md': '# B\n\n' + block + '\n',
+		};
+		const vault = makeScanVault(noteContents);
+		(vault.read as jest.Mock).mockImplementation(async (note: TFile) => {
+			if (note.path === 'Notes/A.md') throw new Error('permission denied');
+			return noteContents[note.path] ?? '';
+		});
+		const progressCalls: [number, number][] = [];
+		const result = await scanVaultForLegacyEmbeds(vault as any, (s, t) => progressCalls.push([s, t]));
+		expect(progressCalls).toEqual([[1, 2], [2, 2]]);
+		expect(result.legacyFiles).toHaveLength(1);
+		expect(result.affectedNotes).toHaveLength(1);
+		expect(result.affectedNotes[0].path).toBe('Notes/B.md');
+	});
+});
+
+////////
+
 describe('convertLegacyJsonToInkFileData', () => {
 	test('converts a writing file JSON to inkWriting InkFileData', () => {
 		const json = makeV1WriteJson('Ink/Writing/note.writing');
@@ -214,6 +333,21 @@ describe('convertLegacyJsonToInkFileData', () => {
 
 	test('returns null for JSON missing tldraw field', () => {
 		const json = JSON.stringify({ meta: { pluginVersion: '1.0.0', tldrawVersion: '2.1.0' } });
+		const result = convertLegacyJsonToInkFileData(json, 'writing');
+		expect(result).toBeNull();
+	});
+
+	test('preserves meta.transcript when present', () => {
+		const base = JSON.parse(makeV1WriteJson('note.writing'));
+		base.meta.transcript = 'some transcript text';
+		const json = JSON.stringify(base);
+		const result = convertLegacyJsonToInkFileData(json, 'writing');
+		expect(result).not.toBeNull();
+		expect(result!.meta.transcript).toBe('some transcript text');
+	});
+
+	test('returns null for JSON missing meta field', () => {
+		const json = JSON.stringify({ tldraw: JSON.parse(makeV1WriteJson('x')).tldraw });
 		const result = convertLegacyJsonToInkFileData(json, 'writing');
 		expect(result).toBeNull();
 	});
@@ -299,22 +433,37 @@ describe('executeMigration', () => {
 	const LEGACY_WRITE_PATH = 'Ink/Writing/note.writing';
 	const NEW_SVG_PATH = 'Ink/Writing/note.svg';
 
-	function makeLegacyVault(noteContents: Record<string, string>, legacyJson: string) {
+	function makeLegacyVault(
+		noteContents: Record<string, string>,
+		legacyJson: string,
+		options?: {
+			existingSvgPath?: string;
+			createThrows?: boolean;
+			deleteThrows?: boolean;
+		},
+	) {
 		const created: Record<string, string> = {};
 		const deleted: string[] = [];
+		const existingFile = options?.existingSvgPath ? new TFile() : null;
+		if (existingFile) (existingFile as any).path = options!.existingSvgPath;
+
 		return {
 			read: jest.fn(async (f: TFile) => {
 				if (f.path === LEGACY_WRITE_PATH) return legacyJson;
 				return noteContents[f.path] ?? '';
 			}),
 			create: jest.fn(async (path: string, content: string) => {
+				if (options?.createThrows) throw new Error('permission denied');
 				created[path] = content;
 			}),
 			delete: jest.fn(async (_f: TFile) => {
+				if (options?.deleteThrows) throw new Error('delete failed');
 				deleted.push(_f.path);
 			}),
 			modify: jest.fn(async (_f: TFile, _content: string) => {}),
-			getAbstractFileByPath: jest.fn((_path: string) => null),
+			getAbstractFileByPath: jest.fn((path: string) =>
+				options?.existingSvgPath === path ? existingFile : null,
+			),
 			_created: created,
 			_deleted: deleted,
 		};
@@ -406,5 +555,117 @@ describe('executeMigration', () => {
 
 		expect(vault.modify).not.toHaveBeenCalled();
 		expect(result.updatedNotePaths).toHaveLength(0);
+	});
+
+	test('skips when target SVG already exists', async () => {
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH), {
+			existingSvgPath: NEW_SVG_PATH,
+		});
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(vault.create).not.toHaveBeenCalled();
+		expect(result.skipped).toContain(NEW_SVG_PATH + ' (already exists)');
+		expect(result.convertedFiles).toBe(0);
+	});
+
+	test('adds to skipped when parse returns null', async () => {
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, '{bad json}');
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(vault.create).not.toHaveBeenCalled();
+		expect(result.skipped.some((s) => s.includes('could not parse'))).toBe(true);
+	});
+
+	test('adds to failed when vault.create throws', async () => {
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH), {
+			createThrows: true,
+		});
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(result.failed.length).toBeGreaterThan(0);
+		expect(result.failed[0]).toContain('permission denied');
+		expect(result.convertedFiles).toBe(0);
+	});
+
+	test('adds to failed when vault.delete throws', async () => {
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH), {
+			deleteThrows: true,
+		});
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(result.failed.length).toBeGreaterThan(0);
+		expect(result.failed[0]).toContain('delete failed');
+	});
+
+	test('onProgress called with (done, total) after each step', async () => {
+		const notePaths = ['Notes/A.md', 'Notes/B.md'];
+		const noteContents: Record<string, string> = {};
+		for (const p of notePaths) {
+			noteContents[p] = `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n`;
+		}
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH));
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: notePaths.map(makeNote),
+		};
+
+		const progressCalls: [number, number][] = [];
+		await executeMigration(vault as any, scanResult, (done, total) => progressCalls.push([done, total]));
+
+		expect(progressCalls).toEqual([[1, 3], [2, 3], [3, 3]]);
 	});
 });

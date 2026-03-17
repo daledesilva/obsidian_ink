@@ -7,10 +7,11 @@ import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/dr
 import { 
 	Provider as JotaiProvider
 } from "jotai";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
+import { openInkFileInView } from "src/logic/utils/open-file";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
@@ -23,9 +24,14 @@ export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
     return [
         {
-            text: 'Copy drawing',
-            action: async () => {
-                await rememberDrawingFile(fileRef);
+            text: 'Convert to Writing',
+            action: () => {
+                if (!fileRef) return;
+                new FileConversionModal(plugin, fileRef, 'inkWriting', {
+                    onConversionComplete: (finalFile) => {
+                        if (finalFile) openInkFileInView(finalFile, 'inkWriting');
+                    },
+                }).open();
             }
         },
     ]
@@ -184,19 +190,6 @@ export class DrawingView extends TextFileView {
     }
 
     // onResize()
-
-    // TODO: Consider converting between drawings and writing files in future
-    
-    // onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
-    //     menu.addItem((item) => {
-    //         item.setTitle('Convert to Write file');
-    //         item.setSection('action');
-    //         item.onClick( () => {
-    //             console.log('clicked');
-    //         })
-    //     })
-    //     super.onPaneMenu(menu, source);
-    // }
 
 }
 

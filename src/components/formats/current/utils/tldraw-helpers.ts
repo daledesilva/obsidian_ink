@@ -6,6 +6,7 @@ import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-
 import { info, verbose } from "../../../../logic/utils/log-to-console";
 import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
+import { getGlobals } from "src/stores/global-store";
 
 //////////
 //////////
@@ -503,8 +504,21 @@ export const bypassReadonly = (editor: Editor, func: () => void) => {
 // }
 
 
+/** Writing embeds never show the drawing grid. Force isGridMode off before any other processing. */
+function forceWritingSnapshotGridOff(snapshot: TLEditorSnapshot): TLEditorSnapshot {
+	const session = (snapshot as { session?: { isGridMode?: boolean } }).session ?? {};
+	return {
+		...snapshot,
+		session: {
+			...session,
+			isGridMode: false,
+		},
+	} as TLEditorSnapshot;
+}
+
 export function prepareWritingSnapshot(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
-	return deleteObsoleteWritingTemplateShapes(TLEditorSnapshot);
+	const withGridOff = forceWritingSnapshotGridOff(TLEditorSnapshot);
+	return deleteObsoleteWritingTemplateShapes(withGridOff);
 }
 
 export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
@@ -631,13 +645,21 @@ interface svgObj {
 	svg: string,
 };
 
-export async function getWritingSvg(editor: Editor): Promise<svgObj | undefined> {
+export async function getWritingSvg(editor: Editor, curHeight?: number | null): Promise<svgObj | undefined> {
 	console.log('[ink] getWritingSvg');
 	let svgObj: undefined | svgObj;
 	resizeWritingTemplateTightly(editor);
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
 	svgObj = await editor.getSvgString(allShapeIds);
-	resizeWritingTemplateInvitingly(editor);
+	if (curHeight != null) {
+		// Restore to exactly the height before the tight resize, bypassing the buffer zone guard
+		// (the guard would incorrectly keep the tight height when content is still within the buffer zone)
+		resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, curHeight));
+	} else {
+		// Recalculate height since one wasn't passed in.
+		const invitingBounds = getInvitingWritingBounds(editor);
+		if (invitingBounds) resizeWritingTemplate(editor, invitingBounds);
+	}
 	return svgObj;
 }
 
@@ -714,18 +736,20 @@ export function cropWritingStrokeHeightTightly(height: number): number {
 /***
  * Convert an existing writing height to a value with excess space under writing strokes to to enable further writing.
  * Good for while in editing mode.
+ * bufferLines: number of empty writable lines to show below content. An additional 0.5 lines of visual padding is always added.
  */
-export function cropWritingStrokeHeightInvitingly(height: number): number {
-	const numFilledLines = Math.ceil(height / WRITING_LINE_HEIGHT);
-	const newLineHeight = (numFilledLines + 2 + 0.5) * WRITING_LINE_HEIGHT; // TODO: Convert the 2 to a user definable setting
-	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
+export function cropWritingStrokeHeightInvitingly(height: number, bufferLines: number = 2): number {
+	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
+	const newLineHeight = (numOfLines + bufferLines + 0.5) * WRITING_LINE_HEIGHT;
+	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT);
 }
 
 // Returns bounds sized for editing (with inviting extra space)
 export function getInvitingWritingBounds(editor: Editor): Box | null {
+	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h));
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, plugin.settings.writingBufferLines));
 	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
 	return newContentBounds;
 }
@@ -772,15 +796,65 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 
 
 /***
- * Add excess space under writing strokes to to enable further writing.
- * Good for while in editing mode.
+ * Resize the writing template to the inviting height based on current content.
+ * Always applies — no buffer zone guard.
+ * Use on mount or whenever an unconditional restore to inviting height is needed.
+ * Returns the new applied height, or null if no content bounds could be computed.
  */
-export const resizeWritingTemplateInvitingly = (editor: Editor) => {
-	verbose('resizeWritingTemplateInvitingly');
+export const resizeWritingTemplateInvitingly = (
+	editor: Editor,
+): number | null => {
 	console.log('[ink] resizeWritingTemplateInvitingly');
 	const contentBounds = getInvitingWritingBounds(editor);
-	if (!contentBounds) return;
+	if (!contentBounds) return null;
 	resizeWritingTemplate(editor, contentBounds);
+	return contentBounds.h;
+}
+
+/***
+ * Pure predicate: should the writing template resize given a new computed height?
+ * Extracted so the guard logic can be unit-tested without a live tldraw Editor.
+ */
+export function shouldResizeForNewHeight(
+	newHeight: number,
+	curHeight: number | null,
+	bufferLines: number,
+): boolean {
+	// First open — no previous height tracked yet
+	if (curHeight === null) return true;
+	// Content shrank — apply the smaller height immediately
+	if (newHeight < curHeight) return true;
+	// Content has grown past the buffer zone — time to expand
+	if (newHeight > curHeight + (bufferLines - 1) * WRITING_LINE_HEIGHT) return true;
+	// Content is still within the existing buffer zone — no resize needed
+	return false;
+}
+
+/***
+ * Resize the writing template to the inviting height only when necessary.
+ * Skips the resize if content is still within the existing buffer zone,
+ * preventing unnecessary resizes while the user is writing.
+ * Returns the new applied height, or curHeight if no resize was needed.
+ * The caller is responsible for storing the returned value for the next call.
+ */
+export const resizeWritingTemplateInvitinglyIfNecessary = (
+	editor: Editor,
+	curHeight: number | null
+): number | null => {
+	console.log('[ink] resizeWritingTemplateInvitinglyIfNecessary');
+	const contentBounds = getInvitingWritingBounds(editor);
+	if (!contentBounds) return null;
+	const {plugin} = getGlobals()
+
+	const newHeight = contentBounds.h;
+
+	if (shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines)) {
+		resizeWritingTemplate(editor, contentBounds);
+		return newHeight;
+	}
+
+	// Content is still within the existing buffer zone — no resize needed
+	return curHeight;
 }
 
 /***

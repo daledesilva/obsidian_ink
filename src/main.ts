@@ -18,24 +18,37 @@ import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
 import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
 import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
-import { insertRememberedWritingFile_v1 } from './commands/insert-remembered-writing-file-v1';
 import { insertExistingWritingFile_v1 } from './commands/insert-existing-writing-file-v1';
 import { insertExistingDrawingFile_v1 } from './commands/insert-existing-drawing-file-v1';
-import { insertRememberedDrawingFile_v1 } from './commands/insert-remembered-drawing-file-v1';
-import { insertRememberedDrawingFile } from './commands/insert-remembered-drawing-file';
-import { insertRememberedWritingFile } from './commands/insert-remembered-writing-file';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
-import * as semver from "semver";
-import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr } from './graphics/icons/command-icons';
-import { drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
+import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
+import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfFileFromNote } from './logic/utils/convert-file-embeds';
+import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
+import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
+import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
+import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
 
 ////////
 ////////
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
+
+	// Exposed for e2e testing
+	readonly FileConversionModal = FileConversionModal;
+	readonly findNotesContainingFileEmbed = findNotesContainingFileEmbed;
+	readonly executeFileConversion = executeFileConversion;
+	readonly RemoveEmbedModal = RemoveEmbedModal;
+	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
+	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
+
+	openMigrationModal() {
+		new MigrationModal(this).open();
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -67,12 +80,13 @@ export default class InkPlugin extends Plugin {
 			// Current
 			registerWritingView(this);
 			registerWritingEmbed(this);
-			implementWritingEmbedActions(this);
+			registerUnifiedUndoRedo(this);
+			implementWritingEmbedCommands(this);
 			
 			// Legacy v1's are on to allow displaying, but not creating
 			registerWritingView_v1(this);
 			registerWritingEmbed_v1(this);
-			// implementWritingEmbedActions_v1(this);
+			// implementWritingEmbedCommandimplementWritingEmbedCommands_v1(this); s_v1(this);
 		}
 		
 		if (this.settings.drawingEnabled) {
@@ -80,18 +94,20 @@ export default class InkPlugin extends Plugin {
 			// Current
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
-			implementDrawingEmbedActions(this);
+			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
+			implementDrawingEmbedCommands(this);
 
 			// Legacy v1's are on to allow displaying, but not creating
 			registerDrawingView_v1(this);
 			registerDrawingEmbed_v1(this);
-			// implementDrawingEmbedActions_v1(this);
+			// implementDrawingEmbedCommands_v1(this);
 		}
 
 		// Register a single generic embed orchestrator if either format is enabled
 		if (this.settings.writingEnabled || this.settings.drawingEnabled) {
 			const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
 			this.registerEditorExtension([inkEmbedsExtension()]);
+			registerPasteEmbedHandler(this);
 		}
 
 		registerSettingsTab(this);
@@ -125,7 +141,7 @@ export default class InkPlugin extends Plugin {
 
 export const inkPluginAtom = atom<InkPlugin>();
 
-function implementWritingEmbedActions(plugin: InkPlugin) {
+function implementWritingEmbedCommands(plugin: InkPlugin) {
 
 	// Current
 	plugin.addCommand({
@@ -135,12 +151,6 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
 	});
 	plugin.addCommand({
-		id: 'insert-copied-handwriting',
-		name: 'Copied handwriting section',
-		icon: 'clipboard-pen',
-		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
-	});
-	plugin.addCommand({
 		id: 'embed-writing-file',
 		name: 'Existing handwriting section',
 		icon: 'write_existing',
@@ -148,31 +158,25 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 	});
 }
 
-// function implementWritingEmbedActions_v1(plugin: InkPlugin) {
+function implementWritingEmbedCommands_v1(plugin: InkPlugin) {
 
-// 	// Legacy
-// 	plugin.addCommand({
-// 		id: 'create-handwritten-section-v1',
-// 		name: 'New handwriting section (Legacy)',
-// 		icon: 'signature',
-// 		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
-// 	});
-// 	plugin.addCommand({
-// 		id: 'insert-copied-writing-v1',
-// 		name: 'Copied handwriting section (Legacy)',
-// 		icon: 'clipboard-pen',
-// 		editorCallback: (editor: Editor) => insertRememberedWritingFile_v1(plugin, editor)
-// 	});
-// 	plugin.addCommand({
-// 		id: 'embed-writing-file-v1',
-// 		name: 'Existing handwriting section (Legacy)',
-// 		icon: 'folder-pen',
-// 		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
-// 	});
+	// Legacy
+	plugin.addCommand({
+		id: 'create-handwritten-section-v1',
+		name: 'New handwriting section (Legacy)',
+		icon: 'signature',
+		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'embed-writing-file-v1',
+		name: 'Existing handwriting section (Legacy)',
+		icon: 'folder-pen',
+		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
+	});
 
-// }
+}
 
-function implementDrawingEmbedActions(plugin: InkPlugin) {
+function implementDrawingEmbedCommands(plugin: InkPlugin) {
 
 	// Current
 	plugin.addCommand({
@@ -180,12 +184,6 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 		name: 'New drawing',
 		icon: 'draw_default',
 		editorCallback: (editor: Editor) => insertNewDrawingFile(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'insert-copied-drawing',
-		name: 'Copied drawing',
-		icon: 'draw_paste',
-		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-drawing-file',
@@ -196,29 +194,23 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 
 }
 
-// function implementDrawingEmbedActions_v1(plugin: InkPlugin) {
+function implementDrawingEmbedCommands_v1(plugin: InkPlugin) {
 	
-// 	// Legacy
-// 	plugin.addCommand({
-// 		id: 'create-drawing-section-v1',
-// 		name: 'New drawing (Legacy)',
-// 		icon: 'shapes',
-// 		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
-// 	});
-// 	plugin.addCommand({
-// 		id: 'insert-copied-drawing-v1',
-// 		name: 'Copied drawing (Legacy)',
-// 		icon: 'clipboard-pen-line',
-// 		editorCallback: (editor: Editor) => insertRememberedDrawingFile_v1(plugin, editor)
-// 	});
-// 	plugin.addCommand({
-// 		id: 'embed-drawing-file-v1',
-// 		name: 'Existing drawing (Legacy)',
-// 		icon: 'folder-dot',
-// 		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
-// 	});
+	// Legacy
+	plugin.addCommand({
+		id: 'create-drawing-section-v1',
+		name: 'New drawing (Legacy)',
+		icon: 'shapes',
+		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'embed-drawing-file-v1',
+		name: 'Existing drawing (Legacy)',
+		icon: 'folder-dot',
+		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
+	});
 
-// }
+}
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {
 // 	plugin.addCommand({

@@ -6,12 +6,15 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
+import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { TFile } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
+import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
@@ -19,22 +22,21 @@ import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-draw
 ///////
 ///////
 
-
+// Per-embed edit state: multiple drawing embeds can be in edit mode at once (both unlocked).
+// embedStateAtom_v2 retained for keyboard-handler "any embed in edit mode" check.
 export enum DrawingEmbedState {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom_v2 = atom(DrawingEmbedState.preview)
-export const previewActiveAtom_v2 = atom<boolean>((get) => {
-    const embedState = get(embedStateAtom_v2);
-    return embedState !== DrawingEmbedState.editor
-})
-export const editorActiveAtom_v2 = atom<boolean>((get) => {
-    const embedState = get(embedStateAtom_v2);
-    return embedState !== DrawingEmbedState.preview
-})
+export const embedsInEditModeAtom_v2 = atom<Set<string>>(new Set<string>());
+export const embedStateAtom_v2 = atom(DrawingEmbedState.preview);
+
+/** True if any drawing embed is in edit mode (for keyboard handler). */
+export const anyDrawingEmbedInEditModeAtom_v2 = atom<boolean>((get) => {
+	return get(embedsInEditModeAtom_v2).size > 0;
+});
 
 ///////
 
@@ -44,6 +46,7 @@ export type DrawingEditorControls = {
 }
 
 interface DrawingEmbed_Props {
+	embedId?: string,
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
 	saveSrcFile: (pageData: InkFileData) => {},
@@ -51,6 +54,11 @@ interface DrawingEmbed_Props {
     setEmbedProps?: (width: number, aspectRatio: number) => void,
     onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
+	sourceMdFile?: TFile,
+	isPendingPaste?: boolean,
+	resolveAsReference?: () => void,
+	resolveAsDuplicate?: () => Promise<void>,
+	locateFile?: () => void,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -62,13 +70,14 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const editorControlsRef = useRef<DrawingEditorControls>();
 	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
+	const resizeStartWidthRef = useRef<number>(0);
+	const resizeStartAspectRatioRef = useRef<number>(0);
 
-    const setEmbedState = useSetAtom(embedStateAtom_v2);
+	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
 
 	// On first mount
 	React.useEffect( () => {
-		if(embedShouldActivateImmediately()) {
-			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+		if(embedShouldActivateImmediately() && props.embedId) {
 			setTimeout( () => {
 				switchToEditMode();
 			},200);
@@ -84,21 +93,36 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 	const commonExtendedOptions = [
 		{
-			text: 'Copy drawing',
-			action: async () => {
-				await rememberDrawingFile(props.embeddedFile as TFile);
-			}
-		},
-		{
 			text: 'Open drawing',
 			action: async () => {
 				await openInkFile(props.embeddedFile as TFile);
 			}
 		},
+		{ separator: true },
+		{
+			text: 'Convert to Writing',
+			action: () => {
+				if (!props.embeddedFile) return;
+				new FileConversionModal(getGlobals().plugin, props.embeddedFile, 'inkWriting', {
+					sourceMdFile: props.sourceMdFile,
+					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
+				}).open();
+			}
+		},
 		{
 			text: 'Remove embed',
 			action: () => {
-				props.remove()
+				if (!props.embeddedFile || !props.sourceMdFile) {
+					props.remove();
+					return;
+				}
+				openRemoveEmbedFlow(
+					getGlobals().plugin,
+					props.embeddedFile,
+					props.sourceMdFile,
+					'inkDrawing',
+					() => props.remove(),
+				);
 			},
 		},
 	].filter(Boolean)
@@ -107,22 +131,23 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 	////////////
 
-	// TODO: style this
+	// When no file, show a unified not-found banner regardless of pending state
 	if (!props.embeddedFile) {
 		return <>
-		<div
-			style = {{
-				padding: '1em',
-				marginBlock: '0.5em',
-				color: 'red',
-				backgroundColor: 'rgba(255, 0, 0, 0.1)',
-				borderRadius: '0.5em',
-				textAlign: 'center',
-			}}
-		>
-			'{props.partialEmbedFilepath}' not found
-		</div>
-		</>
+			<div className='ddc_ink_embed ddc_ink_drawing-embed'>
+				<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
+					<span className='ddc_ink_pending-banner__title'>Drawing file not found: {props.partialEmbedFilepath}</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.locateFile?.()}
+						>
+							Locate file
+						</button>
+					</div>
+				</div>
+			</div>
+		</>;
 	}
 
 	return <>
@@ -131,6 +156,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			className = {classNames([
 				'ddc_ink_embed',
 				'ddc_ink_drawing-embed',
+				props.isPendingPaste && 'ddc_ink_embed--pending',
 			])}
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
@@ -138,41 +164,68 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				paddingBottom: '0.5em',
 			}}
 		>
-			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
-			<div
-				className = 'ddc_ink_resize-container'
-				ref = {resizeContainerElRef}
-				style = {{
-					width: embedWidthRef.current + 'px',
-					height: embedWidthRef.current / embedAspectRatioRef.current + 'px',
-					position: 'relative', // For absolute positioning inside
-					left: '50%',
-					translate: '-50%',
-				}}
-			>
-			
-                <DrawingEmbedPreviewWrapper
-					embeddedFile = {props.embeddedFile}
-					embedSettings = {props.embedSettings}
-					onReady = {() => {}}
-					onClick = { async () => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						switchToEditMode();
-					}}
-				/>
-			
-                <TldrawDrawingEditorWrapper
-					onReady = {() => {}}
-					drawingFile = {props.embeddedFile}
-					save = {props.saveSrcFile}
-					extendedMenu = {commonExtendedOptions}
-					embedded
-					saveControlsReference = {registerEditorControls}
-					closeEditor = {saveAndSwitchToPreviewMode}
-					resizeEmbed = {resizeEmbed}
-				/>
+			{props.isPendingPaste && props.embeddedFile && (
+				<div className='ddc_ink_pending-banner'>
+					<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsReference?.()}
+						>
+							Reference existing file
+						</button>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsDuplicate?.()}
+						>
+							Make duplicate
+						</button>
+					</div>
+				</div>
+			)}
 
-			</div>				
+			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
+			{props.embeddedFile && (
+				<div
+					className = 'ddc_ink_resize-container'
+					ref = {resizeContainerElRef}
+					style = {{
+						width: embedWidthRef.current + 'px',
+						height: embedWidthRef.current / embedAspectRatioRef.current + 'px',
+						position: 'relative', // For absolute positioning inside
+						left: '50%',
+						translate: '-50%',
+					}}
+				>
+				
+	                <DrawingEmbedPreviewWrapper
+						embedId = {props.embedId}
+						embeddedFile = {props.embeddedFile}
+						embedSettings = {props.embedSettings}
+						onReady = {() => {}}
+						onClick = {props.isPendingPaste ? async () => {} : async () => {
+							switchToEditMode();
+						}}
+					/>
+				
+	                <TldrawDrawingEditorWrapper
+						embedId = {props.embedId}
+						plugin = {getGlobals().plugin}
+						onReady = {() => {}}
+						drawingFile = {props.embeddedFile}
+						save = {props.saveSrcFile}
+						extendedMenu = {commonExtendedOptions}
+						embedded
+						saveControlsReference = {registerEditorControls}
+						closeEditor = {saveAndSwitchToPreviewMode}
+						resizeEmbed = {resizeEmbed}
+						onResizeStart = {onResizeStart}
+						onResizeEnd = {onResizeEnd}
+						applyEmbedDimensions = {applyEmbedDimensions}
+					/>
+
+				</div>
+			)}
 		</div>
 	</>;
 
@@ -210,6 +263,39 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
 	}
 
+	function onResizeStart() {
+		resizeStartWidthRef.current = embedWidthRef.current;
+		resizeStartAspectRatioRef.current = embedAspectRatioRef.current;
+	}
+
+	function onResizeEnd() {
+		const fromWidth = resizeStartWidthRef.current;
+		const fromAspectRatio = resizeStartAspectRatioRef.current;
+		const toWidth = embedWidthRef.current;
+		const toAspectRatio = embedAspectRatioRef.current;
+		const dimensionsChanged = fromWidth !== toWidth || fromAspectRatio !== toAspectRatio;
+		if (dimensionsChanged && props.embedId) {
+			pushDrawingEmbedResize({
+				type: 'embed-resize',
+				embedId: props.embedId,
+				fromWidth,
+				fromAspectRatio,
+				toWidth,
+				toAspectRatio,
+			});
+		}
+	}
+
+	function applyEmbedDimensions(width: number, aspectRatio: number) {
+		embedWidthRef.current = width;
+		embedAspectRatioRef.current = aspectRatio;
+		if (resizeContainerElRef.current) {
+			resizeContainerElRef.current.style.width = width + 'px';
+			resizeContainerElRef.current.style.height = width / aspectRatio + 'px';
+			props.onRequestMeasure?.();
+		}
+	}
+
 	/**
 	 * Used when initialising edit mode
 	 * @returns 
@@ -233,19 +319,36 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	// }
 
 	function switchToEditMode() {
-		verbose('Set DrawingEmbedState: loadingEditor')
+		if (!props.embedId) return;
+		verbose(['Add embed to edit mode', props.embedId]);
 		applyEmbedHeight();
-        setEmbedState(DrawingEmbedState.loadingEditor);
+		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
+	}
+
+	function ignoreChangesAndSwitchToPreviewMode() {
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
 	}
 
     async function saveAndSwitchToPreviewMode() {
-		verbose('Set DrawingEmbedState: loadingPreview');
+		verbose(['Remove embed from edit mode', props.embedId]);
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
-		
-        setEmbedState(DrawingEmbedState.loadingPreview);
+
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
         if (props.setEmbedProps) {
             props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
         }

@@ -5,6 +5,7 @@ import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getAc
 import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
 import * as React from "react";
 import { Notice, TFile } from 'obsidian';
+import InkPlugin from 'src/main';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
@@ -12,7 +13,7 @@ import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/p
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
 import classNames from 'classnames';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { debug, verbose, warn } from 'src/logic/utils/log-to-console';
@@ -20,28 +21,38 @@ import { connectWebSocket, sendUpdateDrawingArea, sendCloseDrawingArea, sendNewD
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
-import { DrawingEmbedState, editorActiveAtom_v2, embedStateAtom_v2 } from '../drawing-embed/drawing-embed';
+import { embedsInEditModeAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
+import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
+import { getRegisteredEmbedCount, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
+import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 ///////
 ///////
 
 interface TldrawDrawingEditor_Props {
     onReady?: Function,
+	embedId?: string,
 	drawingFile: TFile,
+	plugin?: InkPlugin,
 	save: (pageData: InkFileData) => void,
 	extendedMenu?: any[]
 
 	// For embeds
 	embedded?: boolean,
 	resizeEmbed?: (pxWidthDiff: number, pxHeightDiff: number) => void,
+	onResizeStart?: () => void,
+	onResizeEnd?: () => void,
+	applyEmbedDimensions?: (width: number, aspectRatio: number) => void,
 	closeEditor?: Function,
 	saveControlsReference?: Function,
 }
 
 // Wraps the component so that it can full unmount when inactive
 export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditor_Props> = (props) => {
-    const editorActive = useAtomValue(editorActiveAtom_v2);
+    const embedsInEditMode = useAtomValue(embedsInEditModeAtom_v2);
+    const editorActive = !!props.embedId && embedsInEditMode.has(props.embedId);
 
     if(editorActive) {
         return <TldrawDrawingEditor {...props} />
@@ -59,7 +70,6 @@ const tlOptions: Partial<TldrawOptions> = {
 export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
-    const setEmbedState = useSetAtom(embedStateAtom_v2);
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const tlEditorRef = useRef<Editor>();
@@ -157,7 +167,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-        setEmbedState(DrawingEmbedState.editor);
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
@@ -175,6 +184,17 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			})
 		}
 
+		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change
+		if (props.embedded && props.embedId && props.plugin && editorWrapperRefEl.current) {
+			const obsidianDepth = getObsidianUndoDepth(props.plugin);
+			const tldrawUndos = getTldrawNumUndos(editor);
+			if (getRegisteredEmbedCount() > 0) {
+				initialize(obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
+			} else {
+				initialize(obsidianDepth, tldrawUndos);
+			}
+			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current, props.applyEmbedDimensions);
+		}
 
 		// Make visible once prepared
 		if(editorWrapperRefEl.current) {
@@ -186,11 +206,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			if (websocketConnectedRef.current) return;
 
 			const activity = getActivityType(entry);
-			switch (activity) {
-				case Activity.PointerMoved:
-					// REVIEW: Consider whether things are being erased
-					break;
+			if (activity === Activity.PointerMoved) {
+				return;
+			}
 
+			switch (activity) {
 				case Activity.CameraMovedAutomatically:
 				case Activity.CameraMovedManually:
 					break;
@@ -204,11 +224,20 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					break;
 
 				case Activity.DrawingCompleted:
+					if (props.embedded && props.embedId) {
+						// #region agent log
+						fetch('http://127.0.0.1:7808/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c988db'},body:JSON.stringify({sessionId:'c988db',location:'tldraw-drawing-editor:DrawingCompleted',message:'sync from store.listen',data:{activity:'DrawingCompleted'},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+						// #endregion
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
+					if (props.embedded && props.embedId) {
+						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					}
 					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);	// REVIEW: This could go inside a post process
 					break;
@@ -229,6 +258,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
+			if (props.embedded && props.embedId) {
+				unregisterInkEditor(props.embedId);
+			}
 		}
 
 		if(props.saveControlsReference) {
@@ -332,7 +364,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getDrawingSvg(editor);
 
-		
 		if(svgObj?.svg) {
 			const pageData = buildDrawingFileData({
 				tlEditorSnapshot,
@@ -407,6 +438,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				<DrawingMenu
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
+					plugin = {props.embedded && props.plugin ? props.plugin : undefined}
 				/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
@@ -417,7 +450,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						menuOptions = {customExtendedMenu}
 					/>
 				)}
-				{!props.embedded && props.extendedMenu && (	// TODO: I think this can be removed as it will never show?
+				{!props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
 						menuOptions = {customExtendedMenu}
 					/>
@@ -434,7 +467,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		{props.resizeEmbed && (
 			<ResizeHandle
-				resizeEmbed = {resizeEmbed}
+				resizeEmbed={resizeEmbed}
+				onResizeStart={props.onResizeStart}
+				onResizeEnd={props.onResizeEnd}
 			/>
 		)}
 	</>;

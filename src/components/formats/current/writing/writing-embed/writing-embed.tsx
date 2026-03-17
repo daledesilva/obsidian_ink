@@ -4,7 +4,8 @@ import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
-import { rememberWritingFile } from "src/logic/utils/rememberDrawingFile";
+import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
 import { TFile } from "obsidian";
@@ -19,21 +20,19 @@ import type { Box } from "@tldraw/tldraw";
 ///////
 
 
+// Per-embed edit state: multiple writing embeds can be in edit mode at once (both unlocked).
 export enum WritingEmbedState {
 	preview = 'preview',
 	loadingEditor = 'loadingEditor',
 	editor = 'editor',
 	loadingPreview = 'unloadingEditor',
 }
-export const embedStateAtom = atom(WritingEmbedState.preview)
-export const previewActiveAtom = atom<boolean>((get) => {
-	const embedState = get(embedStateAtom);
-	return embedState !== WritingEmbedState.editor
-})
-export const editorActiveAtom = atom<boolean>((get) => {
-	const embedState = get(embedStateAtom);
-	return embedState !== WritingEmbedState.preview
-})
+export const embedsInEditModeAtom = atom<Set<string>>(new Set<string>());
+
+/** True if any writing embed is in edit mode (for keyboard handler). */
+export const anyWritingEmbedInEditModeAtom = atom<boolean>((get) => {
+	return get(embedsInEditModeAtom).size > 0;
+});
 
 ///////
 
@@ -44,13 +43,20 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
-	writingFileRef: TFile,
+	embedId?: string,
+	writingFileRef: TFile | null,
+	partialEmbedFilepath: string,
     pageData?: InkFileData,
 	embedSettings?: EmbedSettings,
     save: (pageData: InkFileData) => void,
 	remove: Function,
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
+	sourceMdFile?: TFile,
+	isPendingPaste?: boolean,
+	resolveAsReference?: () => void,
+	resolveAsDuplicate?: () => Promise<void>,
+	locateFile?: () => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -62,8 +68,8 @@ export function WritingEmbed (props: {
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
-	const setEmbedState = useSetAtom(embedStateAtom);
-	
+	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom);
+
 	// Calculate initial height from aspectRatio for JSX styles
 	// Use a default width (700px) that matches typical CodeMirror content width
 	// The actual width will be determined by the container, and resize callbacks will update height
@@ -72,12 +78,10 @@ export function WritingEmbed (props: {
 	
 	// On first mount
 	React.useEffect( () => {
-		//console.log('EMBED mounted')
-		if(embedShouldActivateImmediately()) {
-			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
+		if(embedShouldActivateImmediately() && props.embedId) {
 			setTimeout( () => {
 				switchToEditMode();
-			},200);	// TODO: Why is there a delay?
+			},200);
 		}
 	}, [])
 
@@ -95,9 +99,13 @@ export function WritingEmbed (props: {
 
 	const commonExtendedOptions = [
 		{
-			text: 'Copy writing',
-			action: async () => {
-				await rememberWritingFile(props.plugin, props.writingFileRef);
+			text: 'Convert to Drawing',
+			action: () => {
+				if (!props.writingFileRef) return;
+				new FileConversionModal(props.plugin, props.writingFileRef, 'inkDrawing', {
+					sourceMdFile: props.sourceMdFile,
+					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
+				}).open();
 			}
 		},
 		// {
@@ -109,12 +117,41 @@ export function WritingEmbed (props: {
 		{
 			text: 'Remove embed',
 			action: () => {
-				props.remove()
+				if (!props.writingFileRef || !props.sourceMdFile) {
+					props.remove();
+					return;
+				}
+				openRemoveEmbedFlow(
+					props.plugin,
+					props.writingFileRef,
+					props.sourceMdFile,
+					'inkWriting',
+					() => props.remove(),
+				);
 			},
 		},
 	]
 
 	////////////
+
+	// When no file, show a unified not-found banner regardless of pending state
+	if (!props.writingFileRef) {
+		return <>
+			<div className='ddc_ink_embed ddc_ink_writing-embed'>
+				<div className='ddc_ink_pending-banner ddc_ink_pending-banner--not-found'>
+					<span className='ddc_ink_pending-banner__title'>Writing file not found: {props.partialEmbedFilepath}</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.locateFile?.()}
+						>
+							Locate file
+						</button>
+					</div>
+				</div>
+			</div>
+		</>;
+	}
 
 	return <>		
 		<div
@@ -122,6 +159,7 @@ export function WritingEmbed (props: {
 			className = {classNames([
 				'ddc_ink_embed',
 				'ddc_ink_writing-embed',
+				props.isPendingPaste && 'ddc_ink_embed--pending',
 			])}
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
@@ -129,39 +167,61 @@ export function WritingEmbed (props: {
 				paddingBottom: '0.5em',
 			}}
 		>
+			{props.isPendingPaste && props.writingFileRef && (
+				<div className='ddc_ink_pending-banner'>
+					<span className='ddc_ink_pending-banner__title'>Copied embed — reference source or duplicate?</span>
+					<div className='ddc_ink_pending-banner__actions'>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsReference?.()}
+						>
+							Reference existing file
+						</button>
+						<button
+							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
+							onClick={() => props.resolveAsDuplicate?.()}
+						>
+							Make duplicate
+						</button>
+					</div>
+				</div>
+			)}
+
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
-			<div
-				className = 'ddc_ink_resize-container'
-				ref = {resizeContainerElRef}
-				style = {{
-					width: '100%',
-					height: initialHeight + 'px',
-				}}
-			>
-			
-				<WritingEmbedPreviewWrapper
-					plugin = {props.plugin}
-					onResize = {(height: number) => applySizingWhilePreviewing(height)}
-					writingFile = {props.writingFileRef}
-					onClick = {async (event) => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						// setPageData( await refreshPageData(props.plugin, props.fileRef) );
-						switchToEditMode();
+			{props.writingFileRef && (
+				<div
+					className = 'ddc_ink_resize-container'
+					ref = {resizeContainerElRef}
+					style = {{
+						width: '100%',
+						height: initialHeight + 'px',
 					}}
-				/>
+				>
+				
+					<WritingEmbedPreviewWrapper
+						embedId = {props.embedId}
+						plugin = {props.plugin}
+						onResize = {(height: number) => applySizingWhilePreviewing(height)}
+						writingFile = {props.writingFileRef}
+						onClick = {props.isPendingPaste ? async () => {} : async (event) => {
+							switchToEditMode();
+						}}
+					/>
 
-				<TldrawWritingEditorWrapper
-					plugin = {props.plugin} // TODO: Try and remove this
-					onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
-					writingFile = {props.writingFileRef}
-					save = {props.save}
-					embedded
-					saveControlsReference = {registerEditorControls}
-					closeEditor = {saveAndSwitchToPreviewMode}
-					extendedMenu = {commonExtendedOptions}
-				/>
+					<TldrawWritingEditorWrapper
+						plugin = {props.plugin} // TODO: Try and remove this
+						embedId = {props.embedId}
+						onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
+						writingFile = {props.writingFileRef}
+						save = {props.save}
+						embedded
+						saveControlsReference = {registerEditorControls}
+						closeEditor = {saveAndSwitchToPreviewMode}
+						extendedMenu = {commonExtendedOptions}
+					/>
 
-			</div>
+				</div>
+			)}
 
 		</div>
 	</>;
@@ -214,12 +274,23 @@ export function WritingEmbed (props: {
 	}
 
 	function switchToEditMode() {
-		verbose('Set WritingEmbedState: loadingEditor')
-		setEmbedState(WritingEmbedState.loadingEditor);
+		if (!props.embedId) return;
+		verbose(['Add writing embed to edit mode', props.embedId]);
+		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
-	
+
+	function ignoreChangesAndSwitchToPreviewMode() {
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
+	}
+
 	async function saveAndSwitchToPreviewMode() {
-		verbose('Set WritingEmbedState: loadingPreview');
+		verbose(['Remove writing embed from edit mode', props.embedId]);
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
@@ -234,8 +305,14 @@ export function WritingEmbed (props: {
 			}
 		}
 
-		setEmbedState(WritingEmbedState.loadingPreview);
-		
+		if (props.embedId) {
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
+
 		// Persist the aspectRatio to markdown
 		if (props.setEmbedProps) {
 			props.setEmbedProps(embedAspectRatioRef.current);

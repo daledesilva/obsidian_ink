@@ -1,6 +1,6 @@
 # Programmatic Pen Strokes via WebSocket
 
-This document describes how pen strokes are created programmatically when drawing input comes from an external device (e.g. Boox) over a WebSocket, rather than from direct pointer events on the tldraw canvas.
+This document describes how pen strokes are created programmatically when drawing input comes from an external device (e.g. Boox) over a WebSocket, rather than from direct pointer events on the tldraw canvas. For the WebSocket protocol (message shapes, endpoint, client/server messages), see **eink-bridge** documentation (`eink-bridge/docs/`).
 
 ## Overview
 

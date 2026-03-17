@@ -1,25 +1,37 @@
 import { TFile } from "obsidian";
 import { getGlobals } from "src/stores/global-store";
+import { WRITING_VIEW_TYPE } from "src/components/formats/current/writing/writing-view/writing-view";
+import { DRAWING_VIEW_TYPE } from "src/components/formats/current/drawing/drawing-view/drawing-view";
 
 ////////////////////////////////
 ////////////////////////////////
 
 export async function openInkFile(fileRef: TFile) {
-    // switch(position) {
-        // case ViewPosition.replacement:      openInActiveView(plugin, fileRef); break;
-        // case ViewPosition.tab:              activateTabView(plugin, fileRef); break;
-        // case ViewPosition.verticalSplit:    activateSplitView(plugin, fileRef, 'horizontal'); break;
-        // case ViewPosition.horizontalSplit:  activateSplitView(plugin, fileRef, 'vertical'); break;
-        // default: openInCurrentView(plugin, fileRef); break;
-    // }
-
     openInActiveView(fileRef);
 }
 
 export async function openInActiveView(fileRef: TFile) {
-    let { workspace }  = getGlobals().plugin.app;
-	let leaf = workspace.getLeaf();
+    const { workspace } = getGlobals().plugin.app;
+	const leaf = workspace.getLeaf();
     await leaf.openFile(fileRef);
+}
+
+/**
+ * Opens an ink file in the matching view type (writing or drawing).
+ * Use after conversion so the file opens in the correct editor.
+ */
+export async function openInkFileInView(
+	fileRef: TFile,
+	viewType: 'inkWriting' | 'inkDrawing',
+) {
+	const { workspace } = getGlobals().plugin.app;
+	const leaf = workspace.getLeaf();
+	const type = viewType === 'inkDrawing' ? DRAWING_VIEW_TYPE : WRITING_VIEW_TYPE;
+	await leaf.setViewState({
+		type,
+		state: { file: fileRef.path },
+		active: true,
+	});
 }
 
 // NOTE: Future possible additions

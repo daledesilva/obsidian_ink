@@ -7,8 +7,8 @@ import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/dr
 import { 
 	Provider as JotaiProvider
 } from "jotai";
-import { rememberDrawingFile } from "src/logic/utils/rememberDrawingFile";
 import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
+import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
 import { InkFileData_v1 } from "../../types/file-data";
 
 ////////
@@ -16,12 +16,12 @@ import { InkFileData_v1 } from "../../types/file-data";
 
 export const DRAWING_VIEW_V1_TYPE = "ink_drawing-v1-view";
 
-function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
+function getExtendedOptions(plugin: InkPlugin) {
     return [
         {
-            text: 'Copy drawing',
-            action: async () => {
-                await rememberDrawingFile(fileRef);
+            text: 'Update embed format',
+            action: () => {
+                new MigrationModal(plugin).open();
             }
         },
     ]
@@ -76,7 +76,7 @@ export class DrawingView_v1 extends TextFileView {
                     onReady = {() => {}}
                     drawingFile = {this.file}
                     save = {this.saveFile}
-                    extendedMenu = {getExtendedOptions(this.plugin, this.file)}
+                    extendedMenu = {getExtendedOptions(this.plugin)}
                 />
             </JotaiProvider>
         );

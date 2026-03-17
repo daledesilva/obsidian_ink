@@ -9,7 +9,9 @@ import { ResizeDiagonalIcon } from 'src/graphics/icons/resize-diagonal-icon';
 //////////
 
 interface ResizeHandleProps {
-    resizeEmbed: (pxWidthDiff: number, pxHeightDiff: number) => void,
+	resizeEmbed: (pxWidthDiff: number, pxHeightDiff: number) => void;
+	onResizeStart?: () => void;
+	onResizeEnd?: () => void;
 }
 
 export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
@@ -30,6 +32,7 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 	// Helpers
 	//////////
 	function startResizing(e: React.MouseEvent<HTMLElement>) {
+		props.onResizeStart?.();
 		document.addEventListener("mousemove", handleMouseResizing);
 		document.addEventListener("mouseup", stopResizing);
 
@@ -47,6 +50,8 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 
 		delete lastPointerXPosition.current;
 		delete lastPointerYPosition.current;
+
+		props.onResizeEnd?.();
 	}
 	function handleMouseResizing(e: MouseEvent) {
 		let horzDiff = e.movementX;

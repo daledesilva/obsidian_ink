@@ -13,7 +13,7 @@ import {
     ViewPlugin,
     WidgetType,
 } from "@codemirror/view";
-import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
+import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from "react";
 import { createRoot } from "react-dom/client";
@@ -30,6 +30,9 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
+import { buildDrawingEmbed } from '../../utils/build-embeds';
+import { duplicateDrawingFile } from '../../utils/duplicate-files';
+import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 
 /////////////////////
 /////////////////////
@@ -45,16 +48,18 @@ export class DrawingEmbedWidget extends WidgetType {
     embeddedFile: TFile | null;
     embedSettings: any;
     partialEmbedFilepath: string;
+    isPendingPaste: boolean;
     isHighlighted: boolean = false;
     // mounted = false;
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
         this.embeddedFile = embeddedFile;
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
+        this.isPendingPaste = isPendingPaste;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -75,6 +80,7 @@ export class DrawingEmbedWidget extends WidgetType {
         root.render(
             <JotaiProvider>
                 <DrawingEmbed
+                    embedId={this.id}
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
                     saveSrcFile={this.save}
@@ -82,6 +88,11 @@ export class DrawingEmbedWidget extends WidgetType {
                     setEmbedProps={(width, aspectRatio) => this.setEmbedProps(view, width, aspectRatio)}
                     onRequestMeasure={() => this.requestMeasure(view)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
+                    sourceMdFile={this.mdFile}
+                    isPendingPaste={this.isPendingPaste}
+                    resolveAsReference={() => this.resolveAsReference(view)}
+                    resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
+                    locateFile={() => this.locateFile(view)}
                 />
             </JotaiProvider>
         );
@@ -166,6 +177,84 @@ export class DrawingEmbedWidget extends WidgetType {
         this.updateEmbed(view, newEmbedSettings);
 	}
 
+    private resolveAsReference(view: EditorView) {
+        const decorations = view.state.field(embedStateField, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                // Remove the pendingPaste param - always appended last by the paste handler
+                const updated = currentText.replace(/&pendingPaste=true/, '');
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async resolveAsDuplicate(view: EditorView) {
+        if (!this.embeddedFile) return;
+        const { plugin } = getGlobals();
+        const duplicatedFile = await duplicateDrawingFile(plugin, this.embeddedFile, this.mdFile);
+        if (!duplicatedFile) return;
+
+        new Notice('Drawing file duplicated');
+
+        const decorations = view.state.field(embedStateField, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                // Replace the entire widget range with a fresh embed pointing to the duplicate
+                const newEmbedStr = buildDrawingEmbed(duplicatedFile.path);
+                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
+                view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async locateFile(view: EditorView) {
+        const { plugin } = getGlobals();
+        await openInkFilePicker(plugin, 'inkDrawing', 'Locate drawing file', (chosenFile) => {
+            this.updateEmbedFilepath(view, chosenFile.path);
+        });
+    }
+
+    private updateEmbedFilepath(view: EditorView, newFilepath: string) {
+        const decorations = view.state.field(embedStateField, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                let updated = currentText.replace(/\(<([^>]+)>\)/, `(<${newFilepath}>)`);
+                // Preserve pendingPaste when the embed was pasted so user still gets reference/duplicate prompt
+                if (!this.isPendingPaste) {
+                    updated = updated.replace(/&pendingPaste=true/, '');
+                }
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
+
     private removeEmbed(view: EditorView) {
         // Find this widget's decoration range and remove it
         const decorations = view.state.field(embedStateField, false);
@@ -209,7 +298,10 @@ export class DrawingEmbedWidget extends WidgetType {
                     updated = updated.replace(/(aspectRatio=)([^&\)]+)/, `$1${newEmbedSettings.embedDisplay.aspectRatio}`);
                 }
                 if (updated !== currentText) {
-                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    const tr = view.state.update({
+                        changes: { from, to, insert: updated },
+                        annotations: [Transaction.addToHistory.of(false)],
+                    });
                     view.dispatch(tr);
                 }
                 return;
@@ -231,38 +323,6 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
     update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
 
-
-        // TODO: This should map the changes first?
-        // prevEmbeds = prevEmbeds.map(transaction.changes);
-
-        // TODO: See here and use transaction.effects to add things:
-        // https://codemirror.net/examples/decoration/
-        // But this will mean inserting an embed will need to cause an effect.
-        // Which would be good, but also won't help when document loads?
-
-
-
-        // if it's not the first run, check if widgets need to be reinitialized first.
-        // Skip updates if there are no changes to the markdown content.
-        // To prevent the react components in the widgets remounting.
-        const firstRun = prevEmbeds.size === 0;
-        
-        // Update highlight state for existing widgets when selection changes
-        if (!firstRun && transaction.changes.empty && transaction.selection) {
-            updateWidgetHighlights(transaction, prevEmbeds);
-        }
-        
-        // Check for refresh effect and extract viewportFrom if present
-        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
-        const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value as number | void;
-        
-        if ( !firstRun && transaction.changes.empty && !hasRefreshEffect) {
-                return prevEmbeds;
-        }
-        // debug(['transaction.changes', transaction.changes], {freeze: true});
-
-        
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
         const activeEditor = activeView?.editor;
         if (!activeEditor) return prevEmbeds;
@@ -270,11 +330,22 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
         // @ts-expect-error, not typed
         const cmEditorView = activeEditor.cm as EditorView;
         const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
+        if (!isLivePreview) return Decoration.none;
 
-        // const isReadingView = activeView.getMode() === 'preview';
-        
-        if (!isLivePreview) {
-            return Decoration.none;
+        const firstRun = prevEmbeds.size === 0;
+
+        // Update highlight state for existing widgets when selection changes
+        if (!firstRun && transaction.changes.empty && transaction.selection) {
+            updateWidgetHighlights(transaction, prevEmbeds);
+        }
+
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
+        const hasRefreshEffect = !!refreshEffect;
+        const viewportFrom = refreshEffect?.value as number | void;
+
+        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
+            return prevEmbeds;
         }
 
         const builder = new RangeSetBuilder<Decoration>();
@@ -320,9 +391,21 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                 // Find the relevant decoration reference if it already exists
                 while(oldDecoration.value) {
                     const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
-                    const oldDecTo = transaction.changes.mapPos(oldDecoration.to); // TODO: Not sure about "to" as if I change the settings this will change.
-                    decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
-                    if(decorationAlreadyExists) break;
+                    const oldDecTo = transaction.changes.mapPos(oldDecoration.to);
+                    const positionsMatch = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
+                    if (positionsMatch) {
+                        // Don't reuse if any change touched this decoration's range — stale widget would show wrong state
+                        let rangeWasModified = false;
+                        if (!transaction.changes.empty) {
+                            transaction.changes.iterChangedRanges((fromA, toA) => {
+                                if (fromA < oldDecoration.to && toA > oldDecoration.from) {
+                                    rangeWasModified = true;
+                                }
+                            });
+                        }
+                        decorationAlreadyExists = !rangeWasModified;
+                        if (decorationAlreadyExists) break;
+                    }
                     oldDecoration.next();
                 }
 
@@ -339,7 +422,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                     embedLinkInfo.startPosition,  
                     embedLinkInfo.endPosition,
                     Decoration.replace({
-                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
+                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste),
                         isBlock: true,
                     })
                 );
@@ -465,6 +548,7 @@ interface embedLinkInfoNew {
     embeddedFile: TFile | null,
     embedSettings: any,
     partialEmbedFilepath: string,
+    isPendingPaste: boolean,
 }
 
 
@@ -653,7 +737,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     const startOfReplacement = previewLinkStartNode.from;
     const endOfReplacement = settingsUrlEndNode.to;
 
-    const {embedSettings} = parseSettingsFromUrl(urlAndSettings);
+    const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
 
     // Log the complete detected embed structure
     // console.log(`---- Successfully detected complete embed structure:`);
@@ -676,6 +760,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
             partialEmbedFilepath: previewPartialFilepath,
+            isPendingPaste: isPendingPaste,
         },
     }
 

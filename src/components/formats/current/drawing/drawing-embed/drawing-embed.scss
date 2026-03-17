@@ -80,6 +80,60 @@ a[href*="type=inkDrawing"] {
     visibility: hidden;
 }
 
+.ddc_ink_pending-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0.75em;
+    margin-bottom: 0.5em;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+
+    .ddc_ink_pending-banner__title {
+        font-weight: var(--font-semibold);
+        font-size: var(--font-ui-small);
+        color: var(--text-normal);
+        white-space: nowrap;
+    }
+
+    .ddc_ink_pending-banner__actions {
+        display: flex;
+        gap: 0.5em;
+        margin-left: auto;
+    }
+
+    .ddc_ink_pending-banner__btn {
+        cursor: pointer;
+        padding: 0.4em 1em;
+        border-radius: var(--radius-s);
+        border: 1px solid var(--background-modifier-border);
+        background-color: var(--interactive-normal);
+        color: var(--text-normal);
+        font-size: var(--font-ui-small);
+
+        &:hover {
+            background-color: var(--interactive-hover);
+        }
+
+        &--primary {
+            background-color: var(--interactive-accent);
+            color: var(--text-on-accent);
+            border-color: var(--interactive-accent);
+
+            &:hover {
+                background-color: var(--interactive-accent-hover);
+                border-color: var(--interactive-accent-hover);
+            }
+        }
+    }
+
+    &--not-found {
+        border-color: var(--color-orange);
+    }
+}
+
 
 .theme-dark {
     .ddc_ink_drawing-embed-preview {

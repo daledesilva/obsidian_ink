@@ -94,4 +94,4 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
         console.error('Error extracting tldraw metadata JSON:', error);
         return null;
     }
-} 
+}

@@ -1,0 +1,70 @@
+name: Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    name: Test ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Get Obsidian cache key
+        run: |
+          npx tsx wdio.conf.mts 2>/dev/null | grep "obsidian-cache-key:" > obsidian-versions-lock.txt || true
+          rm -rf .obsidian-cache
+        env:
+          CI: true
+          OBSIDIAN_EMAIL: ${{ secrets.OBSIDIAN_EMAIL }}
+          OBSIDIAN_PASSWORD: ${{ secrets.OBSIDIAN_PASSWORD }}
+
+      - name: Cache Obsidian
+        uses: actions/cache@v4
+        with:
+          path: .obsidian-cache
+          key: obsidian-cache-${{ matrix.os }}-${{ hashFiles('obsidian-versions-lock.txt') }}
+
+      - if: ${{ matrix.os == 'ubuntu-latest' }}
+        name: Setup virtual graphics
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -q herbstluftwm x11-xserver-utils
+          export DISPLAY=:99
+          echo "DISPLAY=$DISPLAY" >> "$GITHUB_ENV"
+          Xvfb $DISPLAY -screen 0 1280x1024x24 +extension GLX -noreset &
+          sleep 2
+          herbstluftwm &
+          sleep 1
+
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          WDIO_MAX_INSTANCES: 2
+          OBSIDIAN_EMAIL: ${{ secrets.OBSIDIAN_EMAIL }}
+          OBSIDIAN_PASSWORD: ${{ secrets.OBSIDIAN_PASSWORD }}

@@ -5,9 +5,15 @@ import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { Editor } from "@tldraw/tldraw";
-import { silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
 import classNames from "classnames";
+import { silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import {
+	setProgrammaticUndoInProgress,
+	setProgrammaticRedoInProgress,
+	popEmbedUndoAndPushToRedo,
+	popEmbedRedoAndPushToUndo,
+} from "src/logic/undo-redo/unified-undo-stack";
 
 //////////
 //////////
@@ -18,8 +24,11 @@ export enum tool {
 	eraser = 'eraser',
 }
 interface DrawingMenuProps {
-    getTlEditor: () => Editor | undefined,
-    onStoreChange: (elEditor: Editor) => void,
+	getTlEditor: () => Editor | undefined,
+	onStoreChange: (elEditor: Editor) => void,
+	/** When provided, local undo/redo sync with the unified stack. */
+	embedId?: string,
+	plugin?: import("src/main").default,
 }
 
 export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((props, ref) => {
@@ -28,22 +37,43 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 
     ///////////
 
-    function undo() {
+	function undo() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
-		silentlyChangeStore( editor, () => {
-			editor.undo();
-		});
-		props.onStoreChange(editor)
+		const embedId = props.embedId;
+		const plugin = props.plugin;
+		if (embedId && plugin) {
+			setProgrammaticUndoInProgress(true, plugin);
+			try {
+				silentlyChangeStore(editor, () => editor.undo());
+				popEmbedUndoAndPushToRedo(embedId);
+			} finally {
+				const pluginRef = plugin;
+				setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
+			}
+		} else {
+			silentlyChangeStore(editor, () => editor.undo());
+		}
+		props.onStoreChange(editor);
 	}
 	function redo() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
-		silentlyChangeStore( editor, () => {
-			editor.redo();
-		});
-		props.onStoreChange(editor)
-
+		const embedId = props.embedId;
+		const plugin = props.plugin;
+		if (embedId && plugin) {
+			setProgrammaticRedoInProgress(true, plugin);
+			try {
+				silentlyChangeStore(editor, () => editor.redo());
+				popEmbedRedoAndPushToUndo(embedId);
+			} finally {
+				const pluginRef = plugin;
+				setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+			}
+		} else {
+			silentlyChangeStore(editor, () => editor.redo());
+		}
+		props.onStoreChange(editor);
 	}
 	function activateSelectTool() {
 		const editor = props.getTlEditor();

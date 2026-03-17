@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { Extension, RangeSetBuilder, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
-import { editorLivePreviewField, MarkdownView, normalizePath, TFile } from 'obsidian';
+import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -11,6 +11,9 @@ import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
+import { buildWritingEmbed } from '../../utils/build-embeds';
+import { duplicateWritingFile } from '../../utils/duplicate-files';
+import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
@@ -28,16 +31,18 @@ export class WritingEmbedWidget extends WidgetType {
     embeddedFile: TFile | null;
     embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
+    isPendingPaste: boolean;
     isHighlighted: boolean = false;
     private rootEl?: HTMLElement; // Store reference for dynamic height updates
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID();
         this.embeddedFile = embeddedFile;
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
+        this.isPendingPaste = isPendingPaste;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -59,7 +64,9 @@ export class WritingEmbedWidget extends WidgetType {
             <JotaiProvider>
                 <WritingEmbed
                     plugin={plugin}
-                    writingFileRef={this.embeddedFile as TFile}
+                    embedId={this.id}
+                    writingFileRef={this.embeddedFile}
+                    partialEmbedFilepath={this.partialEmbedFilepath}
                     embedSettings={this.embedSettings}
                     save={this.save}
                     remove={() => {
@@ -67,6 +74,11 @@ export class WritingEmbedWidget extends WidgetType {
                     }}
                     setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
                     onRequestMeasure={() => this.onRequestMeasure(view)}
+                    sourceMdFile={this.mdFile}
+                    isPendingPaste={this.isPendingPaste}
+                    resolveAsReference={() => this.resolveAsReference(view)}
+                    resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
+                    locateFile={() => this.locateFile(view)}
                 />
             </JotaiProvider>
         );
@@ -172,6 +184,84 @@ export class WritingEmbedWidget extends WidgetType {
         }
     }
 
+    private resolveAsReference(view: EditorView) {
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                // Remove the pendingPaste param - always appended last by the paste handler
+                const updated = currentText.replace(/&pendingPaste=true/, '');
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async resolveAsDuplicate(view: EditorView) {
+        if (!this.embeddedFile) return;
+        const { plugin } = getGlobals();
+        const duplicatedFile = await duplicateWritingFile(plugin, this.embeddedFile, this.mdFile);
+        if (!duplicatedFile) return;
+
+        new Notice('Writing file duplicated');
+
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                // Replace the entire widget range with a fresh embed pointing to the duplicate
+                const newEmbedStr = buildWritingEmbed(duplicatedFile.path);
+                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
+                view.dispatch(tr);
+                return;
+            }
+            it.next();
+        }
+    }
+
+    private async locateFile(view: EditorView) {
+        const { plugin } = getGlobals();
+        await openInkFilePicker(plugin, 'inkWriting', 'Locate writing file', (chosenFile) => {
+            this.updateEmbedFilepath(view, chosenFile.path);
+        });
+    }
+
+    private updateEmbedFilepath(view: EditorView, newFilepath: string) {
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            if (widget && widget.id === this.id) {
+                const from = it.from;
+                const to = it.to;
+                const currentText = view.state.doc.sliceString(from, to);
+                let updated = currentText.replace(/\(<([^>]+)>\)/, `(<${newFilepath}>)`);
+                // Preserve pendingPaste when the embed was pasted so user still gets reference/duplicate prompt
+                if (!this.isPendingPaste) {
+                    updated = updated.replace(/&pendingPaste=true/, '');
+                }
+                if (updated !== currentText) {
+                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    view.dispatch(tr);
+                }
+                return;
+            }
+            it.next();
+        }
+    }
+
     private setEmbedProps(view: EditorView, aspectRatio: number) {
         // Update instance settings
         this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
@@ -209,7 +299,10 @@ export class WritingEmbedWidget extends WidgetType {
                 }
                 
                 if (updated !== currentText) {
-                    const tr = view.state.update({ changes: { from, to, insert: updated } });
+                    const tr = view.state.update({
+                        changes: { from, to, insert: updated },
+                        annotations: [Transaction.addToHistory.of(false)],
+                    });
                     view.dispatch(tr);
                 }
                 return;
@@ -227,22 +320,6 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
     update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
 
-        const firstRun = prevEmbeds.size === 0;
-        
-        // Update highlight state for existing widgets when selection changes
-        if (!firstRun && transaction.changes.empty && transaction.selection) {
-            updateWidgetHighlightsWriting(transaction, prevEmbeds);
-        }
-        
-        // Check for refresh effect and extract viewportFrom if present
-        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
-        const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value as number | void;
-        
-        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
-            return prevEmbeds;
-        }
-
         const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
         const activeEditor = activeView?.editor;
         if (!activeEditor) return prevEmbeds;
@@ -251,6 +328,22 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         const cmEditorView = activeEditor.cm as EditorView;
         const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
         if (!isLivePreview) return Decoration.none;
+
+        const firstRun = prevEmbeds.size === 0;
+
+        // Update highlight state for existing widgets when selection changes
+        if (!firstRun && transaction.changes.empty && transaction.selection) {
+            updateWidgetHighlightsWriting(transaction, prevEmbeds);
+        }
+
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
+        const hasRefreshEffect = !!refreshEffect;
+        const viewportFrom = refreshEffect?.value as number | void;
+
+        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
+            return prevEmbeds;
+        }
 
         const builder = new RangeSetBuilder<Decoration>();
 
@@ -292,8 +385,20 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                 while (oldDecoration.value) {
                     const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
                     const oldDecTo = transaction.changes.mapPos(oldDecoration.to);
-                    decorationAlreadyExists = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
-                    if (decorationAlreadyExists) break;
+                    const positionsMatch = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
+                    if (positionsMatch) {
+                        // Don't reuse if any change touched this decoration's range — stale widget would show wrong state
+                        let rangeWasModified = false;
+                        if (!transaction.changes.empty) {
+                            transaction.changes.iterChangedRanges((fromA, toA) => {
+                                if (fromA < oldDecoration.to && toA > oldDecoration.from) {
+                                    rangeWasModified = true;
+                                }
+                            });
+                        }
+                        decorationAlreadyExists = !rangeWasModified;
+                        if (decorationAlreadyExists) break;
+                    }
                     oldDecoration.next();
                 }
 
@@ -304,7 +409,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                     embedLinkInfo.startPosition,
                     embedLinkInfo.endPosition,
                     Decoration.replace({
-                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath),
+                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste),
                         isBlock: true,
                     })
                 );
@@ -429,6 +534,7 @@ interface EmbedLinkInfoWriting {
     embeddedFile: TFile | null;
     embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
+    isPendingPaste: boolean;
 }
 
 function detectMarkdownEmbedLinkWriting(
@@ -536,7 +642,7 @@ function detectMarkdownEmbedLinkWriting(
     const endOfReplacement = settingsUrlEndNode.to;
 
     // Parse settings from URL parameters
-    const { embedSettings } = parseSettingsFromUrl(urlAndSettings);
+    const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
 
     const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path);
 
@@ -547,6 +653,7 @@ function detectMarkdownEmbedLinkWriting(
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
             partialEmbedFilepath: previewPartialFilepath,
+            isPendingPaste: isPendingPaste,
         },
     };
 }

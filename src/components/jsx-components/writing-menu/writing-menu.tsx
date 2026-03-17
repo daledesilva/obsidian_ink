@@ -3,11 +3,15 @@ import * as React from "react";
 import { WriteIcon } from "src/graphics/icons/write-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
-import { UndoIcon } from "src/graphics/icons/undo-icon";
-import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { Editor } from "@tldraw/tldraw";
-import { Activity, getActivityType, silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
 import classNames from "classnames";
+import { silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
+import {
+	setProgrammaticUndoInProgress,
+	setProgrammaticRedoInProgress,
+	popEmbedUndoAndPushToRedo,
+	popEmbedRedoAndPushToUndo,
+} from "src/logic/undo-redo/unified-undo-stack";
 
 //////////
 //////////
@@ -18,32 +22,60 @@ export enum tool {
 	eraser = 'eraser',
 }
 interface WritingMenuProps {
-    getTlEditor: () => Editor | undefined,
-    onStoreChange: (elEditor: Editor) => void,
+	getTlEditor: () => Editor | undefined,
+	onStoreChange: (elEditor: Editor) => void,
+	/** When provided, local undo/redo sync with the unified stack. */
+	embedId?: string,
+	plugin?: import("src/main").default,
 }
 
 export const WritingMenu = (props: WritingMenuProps) => {
 
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
+    const [canUndo, setCanUndo] = React.useState<boolean>(false);
+    const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
     ///////////
 
-    function undo() {
+	function undo() {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
-		silentlyChangeStore( tlEditor, () => {
-			tlEditor.undo();
-		});
-		props.onStoreChange(tlEditor)
+		const embedId = props.embedId;
+		const plugin = props.plugin;
+		if (embedId && plugin) {
+			setProgrammaticUndoInProgress(true, plugin);
+			try {
+				silentlyChangeStore(tlEditor, () => tlEditor.undo());
+				popEmbedUndoAndPushToRedo(embedId);
+			} finally {
+				const pluginRef = plugin;
+				setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
+			}
+		} else {
+			silentlyChangeStore(tlEditor, () => tlEditor.undo());
+		}
+		setCanUndo(tlEditor.getCanUndo());
+		props.onStoreChange(tlEditor);
 	}
 	function redo() {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
-		silentlyChangeStore( tlEditor, () => {
-			tlEditor.redo();
-		});
-		props.onStoreChange(tlEditor)
-
+		const embedId = props.embedId;
+		const plugin = props.plugin;
+		if (embedId && plugin) {
+			setProgrammaticRedoInProgress(true, plugin);
+			try {
+				silentlyChangeStore(tlEditor, () => tlEditor.redo());
+				popEmbedRedoAndPushToUndo(embedId);
+			} finally {
+				const pluginRef = plugin;
+				setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+			}
+		} else {
+			silentlyChangeStore(tlEditor, () => tlEditor.redo());
+		}
+		setCanRedo(tlEditor.getCanRedo());
+		props.onStoreChange(tlEditor);
 	}
 	function activateSelectTool() {
 		const tlEditor = props.getTlEditor();

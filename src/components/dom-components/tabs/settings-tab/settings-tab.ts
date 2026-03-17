@@ -1,6 +1,6 @@
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, ButtonComponent, PluginSettingTab, Setting } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -32,20 +32,32 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
 		
 		containerEl.createEl('hr');
-		insertMoreInfoLinks(containerEl);
-		insertPrereleaseWarning(containerEl);
-		insertSetupGuide(this.plugin, containerEl);
+		insertGettingStartedSection(containerEl, this.plugin);
 
-		insertHighLevelSettings(containerEl, this.plugin, () => this.display());
-		insertSubfolderSettings(containerEl, this.plugin, () => this.display());
+		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
+		// The callbacks only fire on user interaction, after display() has completed
+		// and both refs are assigned below.
+		let writingSectionEl!: HTMLElement;
+		let drawingSectionEl!: HTMLElement;
+
+		insertHighLevelSettings(containerEl, this.plugin,
+			(show) => { show ? writingSectionEl.classList.add('ddc_ink_expanded') : writingSectionEl.classList.remove('ddc_ink_expanded'); },
+			(show) => { show ? drawingSectionEl.classList.add('ddc_ink_expanded') : drawingSectionEl.classList.remove('ddc_ink_expanded'); },
+		);
+
+		insertMigrateSection(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
-		if(this.plugin.settings.writingEnabled)	insertWritingSettings(containerEl, this.plugin, () => this.display());
-		if(this.plugin.settings.drawingEnabled)	insertDrawingSettings(containerEl, this.plugin, () => this.display());
-	
+		writingSectionEl = insertWritingSettings(containerEl, this.plugin);
+		if (this.plugin.settings.writingEnabled) writingSectionEl.classList.add('ddc_ink_expanded');
+		drawingSectionEl = insertDrawingSettings(containerEl, this.plugin);
+		if (this.plugin.settings.drawingEnabled) drawingSectionEl.classList.add('ddc_ink_expanded');
+		insertFileOrganisationSection(containerEl, this.plugin);
+
 		new Setting(containerEl)
+			.setClass('ddc_ink_bare-setting')
 			.addButton( (button) => {
-				button.setButtonText('Reset settings');
+				button.setButtonText('Reset settings…');
 				button.onClick(() => {
 					new ConfirmationModal({
 						plugin: this.plugin,
@@ -60,63 +72,106 @@ export class MySettingsTab extends PluginSettingTab {
 				})
 			})
 
+		containerEl.createEl('hr');
+		insertPrereleaseWarning(containerEl);
+		insertPluginDevelopmentSection(containerEl);
+
 		createSupportButtonSet(containerEl);
 		
 
 	}
 }
 
-function insertSetupGuide(plugin: InkPlugin, containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_setup-guide-section');
-	const accordionEl = sectionEl.createEl('details');
-	accordionEl.createEl('summary', { text: `Expand setup tips` });
+function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin) {
+	const isExpanded = plugin.settings.gettingStartedExpanded ?? true;
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	if (isExpanded) wrapperEl.classList.add('ddc_ink_expanded');
 
-	new Setting(accordionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Slash Commands')
-		.setDesc(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`)
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
-	new Setting(accordionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Pen Scribble')
-		.setDesc(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`)
+	const headerSetting = new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setClass('ddc_ink_controls-header--clickable')
+		.setName('Getting started')
+		.setDesc('Tips for using Ink, Compatibility with other processes, and migrating from older versions.');
 
-	new Setting(accordionEl)
-		.setClass('ddc_ink_setting')
-		.setName('Obsidian Sync')
-		.setDesc(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`)
+	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
+	arrowEl.setText('›');
+	if (isExpanded) arrowEl.classList.add('ddc_ink_expanded');
 
-	new Setting(accordionEl)
-		.addButton( btn => {
+	headerSetting.settingEl.addEventListener('click', async () => {
+		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
+		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
+		plugin.settings.gettingStartedExpanded = expanded;
+		await plugin.saveSettings();
+	});
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	// Information (tips) first
+	const tipsSectionEl = contentEl.createDiv('ddc_ink_tips-section');
+	const tipsGridEl = tipsSectionEl.createDiv('ddc_ink_tips-grid');
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pen Scribble');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`);
+
+	// Rewatch button
+	new Setting(contentEl)
+		.setClass('ddc_ink_bare-setting')
+		.setClass('ddc_ink_bare-setting--no-bottom-margin')
+		.addButton((btn) => {
 			btn.setButtonText('Rewatch welcome tips');
-			btn.onClick( () => showWelcomeTips(plugin) );
-			btn.setCta();
-		})
+			btn.onClick(() => showWelcomeTips(plugin));
+		});
 }
 
-function insertMoreInfoLinks(containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section');
-	sectionEl.createEl('p', { text: `For information on this plugin's development, visit the links below. Feel free to leave comments in the development diaries on YouTube.` });
-	const list = sectionEl.createEl('ul');
-	list.createEl('li').createEl('a', {
-		href: 'https://github.com/daledesilva/obsidian_ink/releases',
-		text: 'Latest Changes'
-	});
-	list.createEl('li').createEl('a', {
-		href: 'https://github.com/daledesilva/obsidian_ink',
-		text: 'Roadmap'
-	});
-	list.createEl('li').createEl('a', {
-		href: 'https://www.youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL',
-		text: 'Development Diaries.'
-	});
-	list.createEl('li').createEl('a', {
-		href: 'https://github.com/daledesilva/obsidian_ink/issues',
-		text: 'Request feature / Report bug.'
-	});
+function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Migrate From Previous Versions')
+		.setDesc('Convert old Ink embed formats to the newer SVG format.')
+		.addButton((button) => {
+			button.setCta();
+			button.setButtonText('Update Ink files…');
+			button.onClick(() => plugin.openMigrationModal());
+		});
 }
 
-function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertPluginDevelopmentSection(containerEl: HTMLElement) {
+	const wrapperEl = containerEl.createDiv('ddc_ink_section');
+
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
+	new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setName('Plugin development')
+		.setDesc('For information on this plugin\'s development, visit the links below.');
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	const tipsGridEl = contentEl.createDiv('ddc_ink_tips-grid');
+	const addLinkRow = (parent: HTMLElement, href: string, label: string, description: string) => {
+		const labelEl = parent.createDiv('ddc_ink_tips-label');
+		const a = labelEl.createEl('a', { href, text: label });
+		a.setAttribute('target', '_blank');
+		a.setAttribute('rel', 'noopener');
+		parent.createDiv('ddc_ink_tips-desc').setText(description);
+	};
+	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink/releases', 'Latest Changes', 'Version history, release notes, and download links for each Ink release.');
+	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink', 'Roadmap', 'Main repository with source code, roadmap, and project information.');
+	addLinkRow(tipsGridEl, 'https://www.youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL', 'Development Diaries', 'Video diaries documenting the plugin\'s development progress.');
+	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink/issues', 'Request feature / Report bug', 'Submit feature requests, report bugs, or join the discussion.');
+}
+
+function insertHighLevelSettings(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	onToggleWriting: (show: boolean) => void,
+	onToggleDrawing: (show: boolean) => void,
+) {
 
 	new Setting(containerEl)
 		.setClass('ddc_ink_setting')
@@ -128,7 +183,7 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			toggle.onChange(async (value) => {
 				plugin.settings.writingEnabled = value;
 				await plugin.saveSettings();
-				refresh();
+				onToggleWriting(value);
 			});
 		});
 
@@ -142,26 +197,24 @@ function insertHighLevelSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 			toggle.onChange(async (value) => {
 				plugin.settings.drawingEnabled = value;
 				await plugin.saveSettings();
-				refresh();
+				onToggleDrawing(value);
 			});
 		});
 
 }
 
-function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlugin) {
 
 	const saveWritingFolder = async (enteredValue: string) => {
 		const value = enteredValue || DEFAULT_SETTINGS.writingSubfolder;
 		plugin.settings.writingSubfolder = value.trim();
 		await plugin.saveSettings();
-		refresh();
 	}
 
 	const saveDrawingFolder = async (enteredValue: string) => {
 		const value = enteredValue || DEFAULT_SETTINGS.drawingSubfolder;
 		plugin.settings.drawingSubfolder = value.trim();
 		await plugin.saveSettings();
-		refresh();
 	}
 
 	const accordionSection = new ToggleAccordionSetting(containerEl)
@@ -170,15 +223,25 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 		.onToggle( async (value: boolean) => {
 			plugin.settings.customAttachmentFolders = value;
 			await plugin.saveSettings();
-			refresh();
 		})
 		.setContent((container) => {
 			// TODO: This should be abstracted as a dom component
+			let obsidianBtn: ButtonComponent, rootBtn: ButtonComponent, noteBtn: ButtonComponent;
+
+			const setActiveLocationButton = (active: 'obsidian' | 'root' | 'note') => {
+				obsidianBtn.removeCta(); obsidianBtn.setDisabled(false);
+				rootBtn.removeCta();    rootBtn.setDisabled(false);
+				noteBtn.removeCta();    noteBtn.setDisabled(false);
+				const activeBtn = active === 'obsidian' ? obsidianBtn : active === 'root' ? rootBtn : noteBtn;
+				activeBtn.setCta(); activeBtn.setDisabled(true);
+			};
+
 			new Setting(container)
 				.setClass('ddc_ink_button-set')
 				.setName(`Where should Ink files be saved when created in a note?`)
 				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
 				.addButton( (button) => {
+					obsidianBtn = button;
 					button.setButtonText('Obsidian attachment folder')
 					button.setClass('ddc_ink_left-most')
 					if(plugin.settings.noteAttachmentFolderLocation === 'obsidian') {
@@ -188,10 +251,11 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					button.onClick( async (e) => {
 						plugin.settings.noteAttachmentFolderLocation = 'obsidian';
 						await plugin.saveSettings();
-						refresh();
+						setActiveLocationButton('obsidian');
 					})
 				})
 				.addButton( (button) => {
+					rootBtn = button;
 					button.setButtonText('Vault root')
 					button.setClass('ddc_ink_middle')
 					if(plugin.settings.noteAttachmentFolderLocation === 'root') {
@@ -201,10 +265,11 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					button.onClick( async (e) => {
 						plugin.settings.noteAttachmentFolderLocation = 'root';
 						await plugin.saveSettings();
-						refresh();
+						setActiveLocationButton('root');
 					})
 				})
 				.addButton( (button) => {
+					noteBtn = button;
 					button.setButtonText('Next to the note')
 					button.setClass('ddc_ink_right-most')
 					if(plugin.settings.noteAttachmentFolderLocation === 'note') {
@@ -214,7 +279,7 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 					button.onClick( async (e) => {
 						plugin.settings.noteAttachmentFolderLocation = 'note';
 						await plugin.saveSettings();
-						refresh();
+						setActiveLocationButton('note');
 					})
 				})
 			// TODO: This should be abstracted as a dom component
@@ -283,12 +348,18 @@ function insertSubfolderSettings(containerEl: HTMLElement, plugin: InkPlugin, re
 
 }
 
-function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-	sectionEl.createEl('h2', { text: 'Drawing' });
-	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.` });
+function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
 	new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setName('Drawing')
+		.setDesc(`While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.`);
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show frame around drawing when not editing')
 
@@ -297,11 +368,10 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.drawingFrameWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 
-	new Setting(sectionEl)
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show background when not editing')
 
@@ -310,26 +380,38 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.drawingBackgroundWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 
+	return wrapperEl;
 }
 
-function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refresh: Function) {
+function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
 
 	const saveWritingStrokeLimit = async (enteredValue: string) => {
 		const value = parseInt(enteredValue) || DEFAULT_SETTINGS.writingStrokeLimit;
 		plugin.settings.writingStrokeLimit = value;
 		await plugin.saveSettings();
-		refresh();
 	}
 
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_controls-section');
-	sectionEl.createEl('h2', { text: 'Writing' });
-	sectionEl.createEl('p', { text: `While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.` });
-	
+	const saveWritingBufferLines = async (enteredValue: string) => {
+		const parsed = parseInt(enteredValue);
+		const value = (!isNaN(parsed) && parsed >= 0) ? parsed : DEFAULT_SETTINGS.writingBufferLines;
+		plugin.settings.writingBufferLines = value;
+		await plugin.saveSettings();
+	}
+
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
 	new Setting(sectionEl)
+		.setClass('ddc_ink_controls-header')
+		.setName('Writing')
+		.setDesc(`While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.`);
+
+	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show ruled lines when not editing')
 
@@ -338,11 +420,10 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.writingLinesWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 
-	new Setting(sectionEl)
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show background when not editing')
 
@@ -351,11 +432,26 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 			toggle.onChange( async (value: boolean) => {
 				plugin.settings.writingBackgroundWhenLocked = value;
 				await plugin.saveSettings();
-				refresh();
 			})
 		});
 	
-	new Setting(sectionEl)
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Buffer lines when editing')
+		.setDesc(`Number of empty lines shown below your writing while editing. Writing reaches the last line before the embed extends in height.`)
+
+		.addText((textItem) => {
+			textItem.setValue(plugin.settings.writingBufferLines.toString());
+			textItem.setPlaceholder(DEFAULT_SETTINGS.writingBufferLines.toString());
+			textItem.inputEl.addEventListener('blur', async () => {
+				saveWritingBufferLines(textItem.getValue());
+			});
+			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+				if (ev.key === 'Enter') saveWritingBufferLines(textItem.getValue());
+			});
+		});
+
+	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Writing stroke limit')
 		.setDesc(`Too much writing in one embed can create a lag between your physical pen movement and the line appearing on screen. The stroke limit defines the maximum pen strokes before old strokes start becoming invisible until the embed is locked. Set this to a lower number if you're experiencing lag or jagged writing.`)
@@ -371,7 +467,8 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin, refr
 				if(ev.key === 'Enter') saveWritingStrokeLimit(textItem.getValue())
 			})
 		});
-	insertWritingLimitations(sectionEl);
+	insertWritingLimitations(contentEl);
+	return wrapperEl;
 }
 
 function insertWritingLimitations(containerEl: HTMLElement) {
@@ -383,12 +480,25 @@ function insertWritingLimitations(containerEl: HTMLElement) {
 }
 
 function insertPrereleaseWarning(containerEl: HTMLElement) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_prerelease-warning-section');
-	const accordion = sectionEl.createEl('details', {cls: 'warning'});
-	accordion.createEl('summary', { text: `This plugin is in an Alpha state (Expand for details)` });
-	accordion.createEl('p', { text: `What does Alpha mean? Development of products like this plugin often involve moving through multiple different stages (e.g. Alpha, Beta, then Standard Release).` });
-	accordion.createEl('p', { text: `Alpha, the current stage, means that this plugin is in early development and may undergo large changes that break or change previous functionality.` });
-	accordion.createEl('p', { text: `While in Alpha, please exercise caution while using the plugin, however, note that I (The developer of this plugin) am proceeding with caution to help ensure any files created in this version will be compatible or converted to work with future versions (My own vaults depend on it as well).` });
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const controlsEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
+	const headerSetting = new Setting(controlsEl)
+		.setClass('ddc_ink_controls-header')
+		.setClass('ddc_ink_controls-header--clickable')
+		.setName('This plugin is in Beta')
+		.setDesc('Always back up your files. Expand for details.');
+
+	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
+	arrowEl.setText('›');
+
+	headerSetting.settingEl.addEventListener('click', () => {
+		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
+		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
+	});
+
+	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+	contentEl.createEl('p', { text: `Beta means the plugin is still evolving. Changes to embed formats and file-handling features, even when thoroughly tested, may occasionally introduce issues that affect your vault. Always keep backups of your data.` });
 }
 
 function insertGenericWarning(containerEl: HTMLElement, text: string) {

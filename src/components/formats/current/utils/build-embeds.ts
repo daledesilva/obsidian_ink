@@ -3,7 +3,7 @@ import { DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 extension detects
 
-export const buildDrawingEmbed = (filepath: string): string => {
+export const buildDrawingEmbed = (filepath: string, options?: { pendingPaste?: boolean }): string => {
 	const s = DEFAULT_EMBED_SETTINGS;
 	const params = new URLSearchParams({
 		version: String(s.version),
@@ -14,6 +14,7 @@ export const buildDrawingEmbed = (filepath: string): string => {
 		viewBoxWidth: String(s.viewBox.width),
 		viewBoxHeight: String(s.viewBox.height),
 	});
+	if (options?.pendingPaste) params.append('pendingPaste', 'true');
 
 	// Leading space before '!' and newline after are important for the CM6 detector
 	// Full URL with type=InkDrawing
@@ -23,11 +24,12 @@ export const buildDrawingEmbed = (filepath: string): string => {
 };
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 writing extension detects
 
-export const buildWritingEmbed = (filepath: string): string => {
+export const buildWritingEmbed = (filepath: string, options?: { pendingPaste?: boolean }): string => {
 	const s = DEFAULT_EMBED_SETTINGS;
 	const params = new URLSearchParams({
 		version: String(s.version),
 	});
+	if (options?.pendingPaste) params.append('pendingPaste', 'true');
 
 	// Full URL with type=InkWriting
 	const url = `${INK_EMBED_BASE_URL}?type=inkWriting&${params.toString()}`;

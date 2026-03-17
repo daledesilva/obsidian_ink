@@ -92,11 +92,12 @@ const config: Config = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
-    "\\.(css|scss)$": "<rootDir>/test/__mocks__/styleMock.js",
-    "\\.(svg)$": "<rootDir>/test/__mocks__/fileMock.js",
+    "\\.(css|scss)$": "<rootDir>/tests/__mocks__/styleMock.js",
+    "\\.(svg)$": "<rootDir>/tests/__mocks__/fileMock.js",
     "^src/(.*)$": "<rootDir>/src/$1",
-    "^src/main$": "<rootDir>/test/__mocks__/mainMock.js",
-    "^obsidian$": "<rootDir>/test/__mocks__/obsidianMock.js"
+    "^src/main$": "<rootDir>/tests/__mocks__/mainMock.js",
+    "^obsidian$": "<rootDir>/tests/__mocks__/obsidianMock.js",
+    "^@codemirror/commands$": "<rootDir>/tests/__mocks__/codemirror-commands.js"
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
@@ -153,7 +154,7 @@ const config: Config = {
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
   setupFilesAfterEnv: [
-    "<rootDir>/test/setupTests.ts"
+    "<rootDir>/tests/setupTests.ts"
   ],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.

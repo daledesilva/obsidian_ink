@@ -286,6 +286,18 @@ The keyboard handler uses `getActiveEmbedId()` from the ink-editor-registry. If 
 
 ## Technical gotchas
 
+### Keydown capture
+
+The unified keyboard handler intercepts unified undo/redo only when there is an active ink embed in edit mode (`getActiveEmbedId()` is non-null).
+
+Supported shortcuts:
+- Undo: `Mod+Z`
+- Redo: `Mod+Shift+Z`
+
+Matching behavior:
+- `event.key` is normalized to lowercase before comparing `'z'`/`'y'`, so uppercase `Z` is treated as undo.
+- For `Mod+Z`, `shiftKey` must be false; for `Mod+Shift+Z`, `shiftKey` must be true.
+
 ### Programmatic undo/redo and sync placement
 
 Sync runs just before `queueOrRunStorePostProcesses` in the `DrawingCompleted` and `DrawingErased` switch branches. When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires—so sync *does* run during redo. Without a guard, that sync would add entries and clear the redo stack. We use `isProgrammaticRedoInProgress` (see Programmatic redo guard below). For Obsidian: we have no separate Obsidian listener; we only sync from these branches or keydown. Our undo decreases Obsidian's undoDepth, so we only add when depth *increases*.

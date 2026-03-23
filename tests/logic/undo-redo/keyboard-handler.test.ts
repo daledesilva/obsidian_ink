@@ -79,6 +79,21 @@ function createRedoEvent(): KeyboardEvent {
 	return createUndoEvent(true);
 }
 
+function createKeyboardEvent(params: { key: string; shiftKey: boolean }): KeyboardEvent {
+	return {
+		metaKey: true,
+		ctrlKey: false,
+		key: params.key,
+		shiftKey: params.shiftKey,
+		preventDefault: jest.fn(),
+		stopPropagation: jest.fn(),
+	} as unknown as KeyboardEvent;
+}
+
+function createUndoUppercaseZEvent(): KeyboardEvent {
+	return createKeyboardEvent({ key: 'Z', shiftKey: false });
+}
+
 describe('keyboard-handler', () => {
 	let plugin: ReturnType<typeof createMockPlugin>;
 
@@ -121,6 +136,7 @@ describe('keyboard-handler', () => {
 			expect(event.preventDefault).not.toHaveBeenCalled();
 			expect(mockSyncUnifiedUndoHistory).not.toHaveBeenCalled();
 		});
+
 	});
 
 	describe('when active embed — undo', () => {
@@ -140,6 +156,20 @@ describe('keyboard-handler', () => {
 			expect(mockNotifyUndoExecuted).toHaveBeenCalledWith(MOCK_ENTRY);
 			expect(MOCK_EDITOR.undo).toHaveBeenCalled();
 			expect(mockPushRedo).toHaveBeenCalledWith(MOCK_ENTRY);
+		});
+
+		it('matches undo case-insensitively for Z', () => {
+			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockIsUndoStackEmpty.mockReturnValue(false);
+			mockPopUndo.mockReturnValue(MOCK_ENTRY);
+			mockGetEditor.mockReturnValue(MOCK_EDITOR);
+
+			const event = createUndoUppercaseZEvent();
+			plugin._handlers[0](event);
+
+			expect(event.preventDefault).toHaveBeenCalled();
+			expect(mockPopUndo).toHaveBeenCalled();
+			expect(MOCK_EDITOR.undo).toHaveBeenCalled();
 		});
 
 		it('shows Notice when undo stack is empty', () => {

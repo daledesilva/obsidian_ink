@@ -33,10 +33,25 @@ import { verbose } from 'src/logic/utils/log-to-console';
 const EMPTY_UNDO_MESSAGE =
 	'To undo further in Obsidian you must lock the Ink embed (which will discard any redo ability in the embed).';
 
+function getUnifiedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | null {
+	const isUnifiedModPressed = event.metaKey || event.ctrlKey;
+	if (!isUnifiedModPressed) return null;
+
+	// Just incase z comes in as captial because of shift or capslock
+	const key = (event.key ?? '').toLowerCase();
+
+	// Undo: Mod+Z (no shift)
+	if (key === 'z' && !event.shiftKey) return 'undo';
+
+	// Redo: Mod+Shift+Z
+	if (key === 'z' && event.shiftKey) return 'redo';
+
+	return null;
+}
+
 function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
-	const isUndo = (event.metaKey || event.ctrlKey) && event.key === 'z' && !event.shiftKey;
-	const isRedo = (event.metaKey || event.ctrlKey) && event.key === 'z' && event.shiftKey;
-	if (!isUndo && !isRedo) return;
+	const intent = getUnifiedUndoRedoIntent(event);
+	if (intent === null) return;
 
 	const activeEmbedId = getActiveEmbedId();
 	if (activeEmbedId === null) {
@@ -48,7 +63,7 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 
 	syncUnifiedUndoHistory(activeEmbedId);
 
-	if (isUndo) {
+	if (intent === 'undo') {
 		if (isUndoStackEmpty()) {
 			new Notice(EMPTY_UNDO_MESSAGE);
 			return;

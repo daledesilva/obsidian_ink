@@ -11,6 +11,22 @@ const createDivResult = {
 module.exports = {
   Menu: class {},
   Notice: class {},
+  TextFileView: class {
+    constructor(leaf) {
+      this.leaf = leaf;
+      this.file = null;
+      // Minimal containerEl used by some views during `setViewData`.
+      this.containerEl = {
+        children: [],
+        appendChild: () => {},
+      };
+    }
+    getViewType() {
+      return '';
+    }
+    setViewData() {}
+    clear() {}
+  },
   Modal: class {
     constructor() {
       this.titleEl = { setText: () => {} };

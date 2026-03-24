@@ -10,7 +10,7 @@ The internal undo history is synced in two places:
 
 **1. Switch branches (stroke completed/erased)** — When the user completes a stroke or erases, the store.listen switch hits `DrawingCompleted` or `DrawingErased`. We call `syncUnifiedUndoHistory` with `maxTldrawDelta: 1` just before `queueOrRunStorePostProcesses`. Programmatic undo/redo does not trigger these branches, so the redo stack is not cleared when the user redos.
 
-**2. Keydown (Mod+Z / Mod+Shift+Z)** — Before popping and executing undo/redo, we call `syncUnifiedUndoHistory(activeEmbedId)` to capture any Obsidian edits since the last tldraw action.
+**2. Key routing (CM6 keymap Mod+Z / Mod+Shift+Z; DOM keydown fallback)** — Before popping and executing undo/redo, we call `syncUnifiedUndoHistory(activeEmbedId)` to capture any Obsidian edits since the last tldraw action.
 
 **3. Drawing embed resize (pointer up)** — When the user finishes resizing a drawing embed via the ResizeHandle, `onResizeEnd` runs and calls `pushDrawingEmbedResize` directly (not via sync). Resize entries store `fromWidth`/`fromAspectRatio` and `toWidth`/`toAspectRatio`; undo applies the former, redo applies the latter.
 
@@ -28,10 +28,10 @@ flowchart TD
         A4 --> A6[queueOrRunStorePostProcesses]
     end
 
-    subgraph keydown [Keydown flow]
+    subgraph keyrouting [CM6 keymap + DOM fallback flow]
         B1[Mod+Z or Mod+Shift+Z] --> B2{Embed in edit mode?}
         B2 -->|no| B3[Let propagate]
-        B2 -->|yes| B4[preventDefault stopPropagation]
+        B2 -->|yes| B4[preventDefault stopPropagation (DOM fallback)]
         B4 --> B5["**SYNC: syncUnifiedUndoHistory**"]
         B5 --> B7{Undo or Redo?}
         B7 -->|Undo| B8[popUndo, execute, pushRedo]
@@ -105,11 +105,12 @@ flowchart TD
 | `src/logic/undo-redo/unified-undo-stack.ts` | Custom undo/redo stack state and sync logic |
 | `src/logic/undo-redo/ink-editor-registry.ts` | Map of embedId → tldraw Editor; register/unregister on mount |
 | `src/logic/undo-redo/obsidian-undo-depth.ts` | Helper to get CodeMirror `undoDepth(state)` from active MarkdownView |
-| `src/logic/undo-redo/keyboard-handler.ts` | Global keydown handler for Mod+Z and Mod+Shift+Z |
+| `src/logic/undo-redo/keyboard-handler.ts` | DOM fallback keydown handler for Mod+Z and Mod+Shift+Z |
+| `src/logic/undo-redo/cm6-keymap.ts` | CM6 keymap interception for Mod+Z and Mod+Shift+Z |
 
 **Wiring points:**
 - `TldrawWritingEditor.handleMount` / `TldrawDrawingEditor.handleMount` — register editor, store.listen calls sync just before `queueOrRunStorePostProcesses` in DrawingCompleted/DrawingErased branches
-- `main.ts` — call `registerUnifiedUndoRedo(plugin)` on load when writing/drawing enabled
+- `main.ts` — call `registerUnifiedUndoRedo(plugin)` (DOM fallback) and `registerUnifiedUndoRedoKeymap(plugin)` (CM6 primary) on load when writing/drawing enabled
 
 ---
 
@@ -162,9 +163,9 @@ flowchart TD
     end
 ```
 
-### Keydown (Mod+Z / Mod+Shift+Z)
+### Key routing (Mod+Z / Mod+Shift+Z)
 
-The handler syncs before undo and redo to capture any Obsidian changes that occurred without a tldraw store event (e.g. user typed in markdown while the embed was in edit mode).
+The CM6 keymap is the primary path for unified undo/redo when an embed is in edit mode. The DOM `keydown` listener remains as a scoped fallback. Both paths sync before undo/redo to capture any Obsidian changes that occurred without a tldraw store event (e.g. user typed in markdown while the embed was in edit mode).
 
 ```mermaid
 flowchart TD
@@ -264,7 +265,7 @@ function getObsidianRedoDepth(plugin: InkPlugin): number;  // for completeness
 | `TldrawDrawingEditor.handleMount` | Same as writing |
 | `DrawingMenu` / `WritingMenu` | When embedded: pass `embedId` and `plugin` from editor; on undo/redo button click, set programmatic guard, run local undo/redo, call `popEmbedUndoAndPushToRedo` / `popEmbedRedoAndPushToUndo`, clear guard |
 | `TldrawDrawingEditor` / `TldrawWritingEditor` | Pass `embedId` and `plugin` to DrawingMenu / WritingMenu when `embedded` |
-| `main.ts onload` | Call `registerUnifiedUndoRedo(plugin)` when writing or drawing enabled |
+| `main.ts onload` | Call `registerUnifiedUndoRedo(plugin)` (DOM fallback) and `registerUnifiedUndoRedoKeymap(plugin)` (CM6 primary) when writing or drawing enabled |
 
 ### embedId source
 
@@ -286,9 +287,9 @@ The keyboard handler uses `getActiveEmbedId()` from the ink-editor-registry. If 
 
 ## Technical gotchas
 
-### Keydown capture
+### Key routing capture
 
-The unified keyboard handler intercepts unified undo/redo only when there is an active ink embed in edit mode (`getActiveEmbedId()` is non-null).
+CM6 keymap interception is primary for unified undo/redo only when there is an active ink embed in edit mode (`getActiveEmbedId()` is non-null). The DOM `keydown` listener remains as a fallback and is scoped to the same active-embed condition.
 
 Supported shortcuts:
 - Undo: `Mod+Z`
@@ -352,6 +353,7 @@ When an embed is locked, `setEmbedProps` updates the markdown with the saved wid
 
 - **unified-undo-stack.test.ts** — Tests `initialize` (including merge mode when unlocking another embed), stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `pushDrawingEmbedResize`, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments (including no-op for embed-resize), `purgeEmbedEntriesFromStacks` (including embed-resize entries), and the programmatic redo guard.
 - **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack (embed, embed-resize, obsidian), programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
+- **cm6-keymap.test.ts** — Tests keymap handling: early return when activeEmbedId is null, and unified undo/redo flow when active.
 
 ### E2E tests
 
@@ -365,13 +367,13 @@ Vault notes: `11 - CodeMirror and Editor Behavior/Undo Redo One Embed.md`, `Undo
 ### E2E technical gotchas
 
 - **Tldraw mount timing:** Tests wait for `.tl-container` before any interaction; the editor ref is set in `handleMount`, so `findTldrawEditor()` returns null until then. An extra 1000ms settle after the wait allows opacity and registry setup to complete.
-- **Undo/redo activation:** Put focus in the Obsidian note (markdown editor, e.g. `.cm-editor` or `.markdown-source-view`) and dispatch `KeyboardEvent` (Mod+Z / Mod+Shift+Z) on `document`. Do not focus the tldraw canvas or simulate undo/redo button clicks.
+- **Undo/redo activation:** Put focus in the Obsidian note (markdown editor, e.g. `.cm-editor`) and dispatch `KeyboardEvent` (Mod+Z / Mod+Shift+Z) to the CodeMirror element. Do not focus the tldraw canvas or simulate undo/redo button clicks.
 - **Lock button:** The editor starts with `opacity: 0` until `handleMount`; WebDriver may treat the lock button as not interactable. Tests use a JS click (`browser.execute`) to bypass interactability checks.
 - **Preview click in multi-embed:** WebDriver click on previews inside CodeMirror widgets can be unreliable. Tests use `browser.execute` with `querySelectorAll` to click the preview by index.
 - **Lock+switch flow:** Use `clickLockAndWait` (waits for editor to unmount) before `clickUnlockByIndex` when switching embeds, so the transition completes before activating the next embed.
 - **Per-embed assertions:** Use `getShapeCountInEmbedUnlocked(embedIndex)` when embeds stay unlocked. Use `getShapeCountInEmbed(embedIndex)` with lock-to-switch when the test locks between embeds.
 - **Shape-count assertions:** Use `waitForShapeCount` (polling) instead of fixed pauses. Programmatic `createShape` can batch differently than manual drawing; One Embed tests use `waitForShapeCountOneOf` to accept variance.
-- **Keyboard events:** Tests use synthetic `KeyboardEvent` dispatch on `document` instead of `browser.keys()` because WebDriver's modifier-key combos (e.g. Cmd+Shift+Z) can be unreliable.
+- **Keyboard events:** Tests use synthetic `KeyboardEvent` dispatch to the CodeMirror element instead of `browser.keys()` because WebDriver's modifier-key combos (e.g. Cmd+Shift+Z) can be unreliable.
 
 ### Limitations
 

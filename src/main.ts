@@ -30,6 +30,7 @@ import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfF
 import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
 import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
+import { registerUnifiedUndoRedoKeymap } from './logic/undo-redo/cm6-keymap';
 import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
 
 ////////
@@ -81,6 +82,7 @@ export default class InkPlugin extends Plugin {
 			registerWritingView(this);
 			registerWritingEmbed(this);
 			registerUnifiedUndoRedo(this);
+			registerUnifiedUndoRedoKeymap(this);
 			implementWritingEmbedCommands(this);
 			
 			// Legacy v1's are on to allow displaying, but not creating
@@ -95,6 +97,7 @@ export default class InkPlugin extends Plugin {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
 			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
+			if (!this.settings.writingEnabled) registerUnifiedUndoRedoKeymap(this);
 			implementDrawingEmbedCommands(this);
 
 			// Legacy v1's are on to allow displaying, but not creating

@@ -389,13 +389,18 @@ async function focusTldrawCanvas() {
 	await browser.pause(100);
 }
 
-// Dispatch synthetic keydown so the document's capture-phase handler receives it.
-// Focus the Obsidian note so Mod+Z reaches the unified handler (don't focus tldraw canvas).
+// Dispatch synthetic keydown so CodeMirror's keymap can receive it.
+// Focus the Obsidian note so Mod+Z reaches the unified keymap (don't focus tldraw canvas).
 // browser.keys() can be unreliable with modifier combos (e.g. Cmd+Shift+Z) in E2E.
 async function sendUndo() {
 	await focusObsidianNote();
 	await browser.execute((mod: string) => {
-		document.dispatchEvent(
+		const target =
+			(document.querySelector(".cm-editor") as HTMLElement | null) ??
+			(document.querySelector(".cm-scroller") as HTMLElement | null) ??
+			(document.activeElement as HTMLElement | null) ??
+			document;
+		target.dispatchEvent(
 			new KeyboardEvent("keydown", {
 				key: "z",
 				code: "KeyZ",
@@ -413,7 +418,12 @@ async function sendUndo() {
 async function sendRedo() {
 	await focusObsidianNote();
 	await browser.execute((mod: string) => {
-		document.dispatchEvent(
+		const target =
+			(document.querySelector(".cm-editor") as HTMLElement | null) ??
+			(document.querySelector(".cm-scroller") as HTMLElement | null) ??
+			(document.activeElement as HTMLElement | null) ??
+			document;
+		target.dispatchEvent(
 			new KeyboardEvent("keydown", {
 				key: "z",
 				code: "KeyZ",

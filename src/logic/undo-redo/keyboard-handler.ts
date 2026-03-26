@@ -7,6 +7,9 @@
 import { MarkdownView, Notice } from 'obsidian';
 import type InkPlugin from 'src/main';
 import { getActiveEmbedId, getEditor, getResizeApplier } from 'src/logic/undo-redo/ink-editor-registry';
+import { getDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
+import { WRITING_VIEW_TYPE } from 'src/components/formats/current/writing/writing-view/writing-view';
+import { DRAWING_VIEW_TYPE } from 'src/components/formats/current/drawing/drawing-view/drawing-view';
 import {
 	syncUnifiedUndoHistory,
 	isUndoStackEmpty,
@@ -51,12 +54,47 @@ function getUnifiedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | null 
 	return null;
 }
 
+/** Matches dedicated ink editor shortcuts (includes Mod+Y redo). */
+function getDedicatedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | null {
+	const isUnifiedModPressed = event.metaKey || event.ctrlKey;
+	if (!isUnifiedModPressed) return null;
+	const key = (event.key ?? '').toLowerCase();
+	if (key === 'z' && !event.shiftKey) return 'undo';
+	if (key === 'z' && event.shiftKey) return 'redo';
+	if (key === 'y') return 'redo';
+	return null;
+}
+
+function isActiveLeafDedicatedInk(plugin: InkPlugin): boolean {
+	const viewType = plugin.app.workspace.activeLeaf?.view?.getViewType?.();
+	return viewType === WRITING_VIEW_TYPE || viewType === DRAWING_VIEW_TYPE;
+}
+
 function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
+	const isDedicatedLeaf = isActiveLeafDedicatedInk(plugin);
+	const dedicatedEditor = getDedicatedInkEditor();
+
+	// Dedicated ink view: keydown target is often BODY; wrapper never sees Mod+Z.
+	if (isDedicatedLeaf && dedicatedEditor !== null) {
+		const dedicatedIntent = getDedicatedUndoRedoIntent(event);
+		if (dedicatedIntent !== null) {
+			event.preventDefault();
+			event.stopPropagation();
+			if (dedicatedIntent === 'undo') {
+				dedicatedEditor.undo();
+			} else {
+				dedicatedEditor.redo();
+			}
+			return;
+		}
+	}
+
 	const intent = getUnifiedUndoRedoIntent(event);
 	if (intent === null) return;
 
 	const activeEmbedId = getActiveEmbedId();
-	if (activeEmbedId === null) {
+	// Avoid embed unified stack while a dedicated ink leaf is active (stale embed id from another tab).
+	if (activeEmbedId === null || isDedicatedLeaf) {
 		return;
 	}
 

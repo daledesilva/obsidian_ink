@@ -25,6 +25,7 @@ import { embedsInEditModeAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { getRegisteredEmbedCount, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
@@ -167,6 +168,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
+		if (!props.embedded) {
+			registerDedicatedInkEditor(editor);
+		}
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
@@ -199,6 +203,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// Make visible once prepared
 		if(editorWrapperRefEl.current) {
 			editorWrapperRefEl.current.style.opacity = '1';
+			// Dedicated view: keep key events on the wrapper (tabIndex + keydown capture).
+			// Embeds: avoid stealing focus from Obsidian / CodeMirror.
+			if (!props.embedded) {
+				editorWrapperRefEl.current.focus({ preventScroll: true });
+			}
 		}
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
@@ -225,9 +234,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 				case Activity.DrawingCompleted:
 					if (props.embedded && props.embedId) {
-						// #region agent log
-						fetch('http://127.0.0.1:7808/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c988db'},body:JSON.stringify({sessionId:'c988db',location:'tldraw-drawing-editor:DrawingCompleted',message:'sync from store.listen',data:{activity:'DrawingCompleted'},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-						// #endregion
 						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
 					}
 					queueOrRunStorePostProcesses(editor);
@@ -260,6 +266,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			removeUserActionListener();
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
+			}
+			if (!props.embedded) {
+				unregisterDedicatedInkEditor(editor);
 			}
 		}
 
@@ -412,6 +421,33 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				position: 'relative',
 				opacity: 0, // So it's invisible while it loads
 			}}
+			tabIndex={props.embedded ? undefined : 0}
+			onKeyDownCapture={(e) => {
+				if (props.embedded) return;
+				const editor = tlEditorRef.current;
+				if (!editor) return;
+
+				const modKey = e.metaKey || e.ctrlKey;
+				const key = (e.key ?? '').toLowerCase();
+
+				// Undo: Mod+Z
+				if (modKey && !e.shiftKey && key === 'z') {
+					e.preventDefault();
+					editor.undo();
+					return;
+				}
+
+				// Redo: Mod+Shift+Z or Mod+Y
+				if (modKey && ((e.shiftKey && key === 'z') || key === 'y')) {
+					e.preventDefault();
+					editor.redo();
+					return;
+				}
+			}}
+			onPointerDown={() => {
+				if (props.embedded) return;
+				editorWrapperRefEl.current?.focus({ preventScroll: true });
+			}}
 		>
 			<TldrawEditor
 				options = {tlOptions}
@@ -426,7 +462,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 				onMount = {handleMount}
 
-				// Prevent autoFocussing so it can be handled in the handleMount
+				// Prevent autoFocussing so it can be handled in the handleMount / wrapper focus.
 				autoFocus = {false}
 			/>
 			<FingerBlocker

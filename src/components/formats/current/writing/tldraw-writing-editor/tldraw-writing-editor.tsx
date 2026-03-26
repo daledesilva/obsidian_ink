@@ -23,6 +23,7 @@ import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-b
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { getRegisteredEmbedCount, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
@@ -99,12 +100,20 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
+		if (!props.embedded) {
+			registerDedicatedInkEditor(editor);
+		}
 		editor.updateInstanceState({ isGridMode: false });
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
 		if(editorWrapperRefEl.current) {
 			editorWrapperRefEl.current.style.opacity = '1';
+			// Dedicated view: keep key events on the wrapper (tabIndex + keydown capture).
+			// Embeds: avoid stealing focus from Obsidian / CodeMirror.
+			if (!props.embedded) {
+				editorWrapperRefEl.current.focus({ preventScroll: true });
+			}
 		}
 
 		updateWritingStoreIfNeeded(editor);
@@ -201,6 +210,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			removeUserActionListener();
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
+			}
+			if (!props.embedded) {
+				unregisterDedicatedInkEditor(editor);
 			}
 		}
 
@@ -354,6 +366,33 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				position: 'relative',
 				opacity: 0, // So it's invisible while it loads
 			}}
+			tabIndex={props.embedded ? undefined : 0}
+			onKeyDownCapture={(e) => {
+				if (props.embedded) return;
+				const editor = tlEditorRef.current;
+				if (!editor) return;
+
+				const modKey = e.metaKey || e.ctrlKey;
+				const key = (e.key ?? '').toLowerCase();
+
+				// Undo: Mod+Z
+				if (modKey && !e.shiftKey && key === 'z') {
+					e.preventDefault();
+					editor.undo();
+					return;
+				}
+
+				// Redo: Mod+Shift+Z or Mod+Y
+				if (modKey && ((e.shiftKey && key === 'z') || key === 'y')) {
+					e.preventDefault();
+					editor.redo();
+					return;
+				}
+			}}
+			onPointerDown={() => {
+				if (props.embedded) return;
+				editorWrapperRefEl.current?.focus({ preventScroll: true });
+			}}
 		>
 			<TldrawEditor
 				options = {tlOptions}
@@ -368,7 +407,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 				onMount = {handleMount}
 
-				// Prevent autoFocussing so it can be handled in the handleMount
+				// Prevent autoFocussing so it can be handled in the handleMount / wrapper focus.
 				autoFocus = {false}
 			/>
 			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={editorWrapperRefEl} />
@@ -405,7 +444,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			
 		</div>
 	</>;
-
 
 	// Helper functions
 	///////////////////

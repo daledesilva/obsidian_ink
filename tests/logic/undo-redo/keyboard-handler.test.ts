@@ -3,7 +3,7 @@
  * @see docs/undo-redo-implementation.md
  */
 
-const mockGetActiveEmbedId = jest.fn();
+const mockGetActiveEmbedIdForLeaf = jest.fn();
 const mockSyncUnifiedUndoHistory = jest.fn();
 const mockIsUndoStackEmpty = jest.fn();
 const mockIsRedoStackEmpty = jest.fn();
@@ -17,31 +17,37 @@ const mockSetProgrammaticRedoInProgress = jest.fn();
 const mockGetUndoStackSnapshot = jest.fn();
 const mockGetEditor = jest.fn();
 const mockGetResizeApplier = jest.fn();
+const mockGetDedicatedInkEditor = jest.fn();
 
 jest.mock('src/logic/undo-redo/ink-editor-registry', () => ({
-	getActiveEmbedId: () => mockGetActiveEmbedId(),
+	getActiveEmbedIdForLeaf: (leafId: string) => mockGetActiveEmbedIdForLeaf(leafId),
 	getEditor: (embedId: string) => mockGetEditor(embedId),
 	getResizeApplier: (embedId: string) => mockGetResizeApplier(embedId),
 }));
 
+jest.mock('src/logic/undo-redo/dedicated-ink-editor-registry', () => ({
+	getDedicatedInkEditor: (leafId: string) => mockGetDedicatedInkEditor(leafId),
+}));
+
 jest.mock('src/logic/undo-redo/unified-undo-stack', () => ({
-	syncUnifiedUndoHistory: (embedId: string, opts?: any) =>
-		mockSyncUnifiedUndoHistory(embedId, opts),
-	isUndoStackEmpty: () => mockIsUndoStackEmpty(),
-	isRedoStackEmpty: () => mockIsRedoStackEmpty(),
-	popUndo: () => mockPopUndo(),
-	popRedo: () => mockPopRedo(),
-	pushUndo: (entry: any) => mockPushUndo(entry),
-	pushRedo: (entry: any) => mockPushRedo(entry),
-	notifyUndoExecuted: (entry: any) => mockNotifyUndoExecuted(entry),
-	notifyRedoExecuted: (entry: any) => mockNotifyRedoExecuted(entry),
+	syncUnifiedUndoHistory: (leafId: string, embedId: string, opts?: any) =>
+		mockSyncUnifiedUndoHistory(leafId, embedId, opts),
+	isUndoStackEmpty: (leafId: string) => mockIsUndoStackEmpty(leafId),
+	isRedoStackEmpty: (leafId: string) => mockIsRedoStackEmpty(leafId),
+	popUndo: (leafId: string) => mockPopUndo(leafId),
+	popRedo: (leafId: string) => mockPopRedo(leafId),
+	pushUndo: (leafId: string, entry: any) => mockPushUndo(leafId, entry),
+	pushRedo: (leafId: string, entry: any) => mockPushRedo(leafId, entry),
+	notifyUndoExecuted: (leafId: string, entry: any) => mockNotifyUndoExecuted(leafId, entry),
+	notifyRedoExecuted: (leafId: string, entry: any) => mockNotifyRedoExecuted(leafId, entry),
 	setProgrammaticRedoInProgress: (value: boolean, plugin?: any) =>
 		mockSetProgrammaticRedoInProgress(value, plugin),
-	getUndoStackSnapshot: () => mockGetUndoStackSnapshot(),
+	getUndoStackSnapshot: (leafId: string) => mockGetUndoStackSnapshot(leafId),
 }));
 
 import { registerUnifiedUndoRedo } from 'src/logic/undo-redo/keyboard-handler';
 
+const LEAF_ID = 'leaf-test';
 const EMBED_ID = 'embed-1';
 const MOCK_ENTRY = { type: 'embed' as const, embedId: EMBED_ID };
 const MOCK_EDITOR = { undo: jest.fn(), redo: jest.fn() };
@@ -58,6 +64,7 @@ function createMockPlugin() {
 		_handlers: handlers,
 		app: {
 			workspace: {
+				activeLeaf: { id: LEAF_ID, view: { getViewType: () => 'markdown' } },
 				getActiveViewOfType: jest.fn(() => ({ editor: null })),
 			},
 		},
@@ -101,6 +108,7 @@ describe('keyboard-handler', () => {
 		jest.clearAllMocks();
 		jest.useFakeTimers();
 		mockGetUndoStackSnapshot.mockReturnValue([]);
+		mockGetDedicatedInkEditor.mockReturnValue(null);
 		plugin = createMockPlugin();
 		registerUnifiedUndoRedo(plugin as any);
 	});
@@ -118,9 +126,9 @@ describe('keyboard-handler', () => {
 		);
 	});
 
-	describe('when no active embed', () => {
+	describe('when no active embed for leaf', () => {
 		it('returns early and does not preventDefault for undo', () => {
-			mockGetActiveEmbedId.mockReturnValue(null);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(null);
 			const event = createUndoEvent();
 			plugin._handlers[0](event);
 
@@ -129,19 +137,18 @@ describe('keyboard-handler', () => {
 		});
 
 		it('returns early and does not preventDefault for redo', () => {
-			mockGetActiveEmbedId.mockReturnValue(null);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(null);
 			const event = createRedoEvent();
 			plugin._handlers[0](event);
 
 			expect(event.preventDefault).not.toHaveBeenCalled();
 			expect(mockSyncUnifiedUndoHistory).not.toHaveBeenCalled();
 		});
-
 	});
 
 	describe('when active embed — undo', () => {
 		it('calls sync, popUndo, notifyUndoExecuted, executeUndo, pushRedo in order', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsUndoStackEmpty.mockReturnValue(false);
 			mockPopUndo.mockReturnValue(MOCK_ENTRY);
 			mockGetEditor.mockReturnValue(MOCK_EDITOR);
@@ -151,15 +158,15 @@ describe('keyboard-handler', () => {
 
 			expect(event.preventDefault).toHaveBeenCalled();
 			expect(event.stopPropagation).toHaveBeenCalled();
-			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(EMBED_ID, undefined);
-			expect(mockPopUndo).toHaveBeenCalled();
-			expect(mockNotifyUndoExecuted).toHaveBeenCalledWith(MOCK_ENTRY);
+			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(LEAF_ID, EMBED_ID, undefined);
+			expect(mockPopUndo).toHaveBeenCalledWith(LEAF_ID);
+			expect(mockNotifyUndoExecuted).toHaveBeenCalledWith(LEAF_ID, MOCK_ENTRY);
 			expect(MOCK_EDITOR.undo).toHaveBeenCalled();
-			expect(mockPushRedo).toHaveBeenCalledWith(MOCK_ENTRY);
+			expect(mockPushRedo).toHaveBeenCalledWith(LEAF_ID, MOCK_ENTRY);
 		});
 
 		it('matches undo case-insensitively for Z', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsUndoStackEmpty.mockReturnValue(false);
 			mockPopUndo.mockReturnValue(MOCK_ENTRY);
 			mockGetEditor.mockReturnValue(MOCK_EDITOR);
@@ -168,12 +175,12 @@ describe('keyboard-handler', () => {
 			plugin._handlers[0](event);
 
 			expect(event.preventDefault).toHaveBeenCalled();
-			expect(mockPopUndo).toHaveBeenCalled();
+			expect(mockPopUndo).toHaveBeenCalledWith(LEAF_ID);
 			expect(MOCK_EDITOR.undo).toHaveBeenCalled();
 		});
 
 		it('shows Notice when undo stack is empty', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsUndoStackEmpty.mockReturnValue(true);
 
 			const event = createUndoEvent();
@@ -186,7 +193,7 @@ describe('keyboard-handler', () => {
 
 	describe('when active embed — redo', () => {
 		it('calls sync, popRedo, notifyRedoExecuted, setProgrammaticRedoInProgress(true), executeRedo, pushUndo', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsRedoStackEmpty.mockReturnValue(false);
 			mockPopRedo.mockReturnValue(MOCK_ENTRY);
 			mockGetEditor.mockReturnValue(MOCK_EDITOR);
@@ -195,16 +202,16 @@ describe('keyboard-handler', () => {
 			plugin._handlers[0](event);
 
 			expect(event.preventDefault).toHaveBeenCalled();
-			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(EMBED_ID, undefined);
-			expect(mockPopRedo).toHaveBeenCalled();
-			expect(mockNotifyRedoExecuted).toHaveBeenCalledWith(MOCK_ENTRY);
+			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(LEAF_ID, EMBED_ID, undefined);
+			expect(mockPopRedo).toHaveBeenCalledWith(LEAF_ID);
+			expect(mockNotifyRedoExecuted).toHaveBeenCalledWith(LEAF_ID, MOCK_ENTRY);
 			expect(mockSetProgrammaticRedoInProgress).toHaveBeenCalledWith(true, plugin);
 			expect(MOCK_EDITOR.redo).toHaveBeenCalled();
-			expect(mockPushUndo).toHaveBeenCalledWith(MOCK_ENTRY);
+			expect(mockPushUndo).toHaveBeenCalledWith(LEAF_ID, MOCK_ENTRY);
 		});
 
 		it('clears programmatic redo flag after 50ms via setTimeout', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsRedoStackEmpty.mockReturnValue(false);
 			mockPopRedo.mockReturnValue(MOCK_ENTRY);
 			mockGetEditor.mockReturnValue(MOCK_EDITOR);
@@ -222,7 +229,7 @@ describe('keyboard-handler', () => {
 		});
 
 		it('returns early when redo stack is empty', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsRedoStackEmpty.mockReturnValue(true);
 
 			const event = createRedoEvent();
@@ -244,7 +251,7 @@ describe('keyboard-handler', () => {
 				toAspectRatio: 4 / 3,
 			};
 			const mockApplier = jest.fn();
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsUndoStackEmpty.mockReturnValue(false);
 			mockPopUndo.mockReturnValue(resizeEntry);
 			mockGetResizeApplier.mockReturnValue(mockApplier);
@@ -269,7 +276,7 @@ describe('keyboard-handler', () => {
 				toAspectRatio: 4 / 3,
 			};
 			const mockApplier = jest.fn();
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsRedoStackEmpty.mockReturnValue(false);
 			mockPopRedo.mockReturnValue(resizeEntry);
 			mockGetResizeApplier.mockReturnValue(mockApplier);
@@ -285,7 +292,7 @@ describe('keyboard-handler', () => {
 
 	describe('Ctrl+Z (Windows/Linux)', () => {
 		it('handles ctrlKey for undo', () => {
-			mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+			mockGetActiveEmbedIdForLeaf.mockReturnValue(EMBED_ID);
 			mockIsUndoStackEmpty.mockReturnValue(false);
 			mockPopUndo.mockReturnValue(MOCK_ENTRY);
 			mockGetEditor.mockReturnValue(MOCK_EDITOR);

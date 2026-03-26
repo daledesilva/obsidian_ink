@@ -33,6 +33,7 @@ import { buildFileStr } from '../../utils/buildFileStr';
 import { buildDrawingEmbed } from '../../utils/build-embeds';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
+import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 
 /////////////////////
 /////////////////////
@@ -74,12 +75,17 @@ export class DrawingEmbedWidget extends WidgetType {
 
         mountedDecorationIds.push(this.id);
 
+        const { plugin } = getGlobals();
+        const hostLeaf = getWorkspaceLeafForEditorView(plugin, view);
+        const workspaceLeafId = hostLeaf?.id ?? '';
+
         // Update highlight state based on current selection
         this.updateHighlightState(view, rootEl);
 
         root.render(
             <JotaiProvider>
                 <DrawingEmbed
+                    workspaceLeafId={workspaceLeafId}
                     embedId={this.id}
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}

@@ -26,6 +26,7 @@ describe('WritingEmbed (legacy)', () => {
       <JotaiProvider>
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={makeTFile()}
           partialEmbedFilepath="path/to/file"
           pageData={{} as any}

@@ -14,8 +14,11 @@ describe('TldrawDrawingEditorWrapper (legacy)', () => {
       <JotaiProvider>
         <TldrawDrawingEditorWrapper
           onReady={() => {}}
+          workspaceLeafId="test-leaf"
+          embedId="test-embed"
           drawingFile={makeTFile()}
           save={(_pageData: any) => {}}
+          plugin={{} as any}
         />
       </JotaiProvider>
     );

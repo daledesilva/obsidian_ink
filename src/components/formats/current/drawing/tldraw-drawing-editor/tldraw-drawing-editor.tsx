@@ -24,9 +24,9 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom_v2 } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
-import { getRegisteredEmbedCount, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { getRegisteredEmbedCountForLeaf, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
-import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
+import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 ///////
@@ -34,6 +34,8 @@ import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 interface TldrawDrawingEditor_Props {
     onReady?: Function,
+	/** Owning workspace leaf; empty string if unresolved (embed unified undo skipped). */
+	workspaceLeafId: string,
 	embedId?: string,
 	drawingFile: TFile,
 	plugin?: InkPlugin,
@@ -168,8 +170,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-		if (!props.embedded) {
-			registerDedicatedInkEditor(editor);
+		const leafId = props.workspaceLeafId;
+		if (!props.embedded && leafId) {
+			registerDedicatedInkEditor(leafId, editor);
 		}
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
@@ -188,16 +191,16 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			})
 		}
 
-		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change
-		if (props.embedded && props.embedId && props.plugin && editorWrapperRefEl.current) {
-			const obsidianDepth = getObsidianUndoDepth(props.plugin);
+		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change (per leaf)
+		if (props.embedded && props.embedId && props.plugin && leafId && editorWrapperRefEl.current) {
+			const obsidianDepth = getObsidianUndoDepthForLeaf(props.plugin, leafId);
 			const tldrawUndos = getTldrawNumUndos(editor);
-			if (getRegisteredEmbedCount() > 0) {
-				initialize(obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
+			if (getRegisteredEmbedCountForLeaf(leafId) > 0) {
+				initialize(leafId, obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
 			} else {
-				initialize(obsidianDepth, tldrawUndos);
+				initialize(leafId, obsidianDepth, tldrawUndos);
 			}
-			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current, props.applyEmbedDimensions);
+			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current, leafId, props.applyEmbedDimensions);
 		}
 
 		// Make visible once prepared
@@ -233,16 +236,16 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					break;
 
 				case Activity.DrawingCompleted:
-					if (props.embedded && props.embedId) {
-						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					if (props.embedded && props.embedId && leafId) {
+						syncUnifiedUndoHistory(leafId, props.embedId, { maxTldrawDelta: 1 });
 					}
 					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);
 					break;
 
 				case Activity.DrawingErased:
-					if (props.embedded && props.embedId) {
-						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					if (props.embedded && props.embedId && leafId) {
+						syncUnifiedUndoHistory(leafId, props.embedId, { maxTldrawDelta: 1 });
 					}
 					queueOrRunStorePostProcesses(editor);
 					embedPostProcess(editor);	// REVIEW: This could go inside a post process
@@ -267,8 +270,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
 			}
-			if (!props.embedded) {
-				unregisterDedicatedInkEditor(editor);
+			if (!props.embedded && leafId) {
+				unregisterDedicatedInkEditor(leafId, editor);
 			}
 		}
 
@@ -475,6 +478,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
+					workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin = {props.embedded && props.plugin ? props.plugin : undefined}
 				/>
 				{props.embedded && props.extendedMenu && (

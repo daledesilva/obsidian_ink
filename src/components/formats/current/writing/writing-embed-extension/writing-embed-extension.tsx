@@ -17,6 +17,7 @@ import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
+import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 
@@ -54,6 +55,8 @@ export class WritingEmbedWidget extends WidgetType {
         const root = createRoot(rootEl);
 
         const { plugin } = getGlobals();
+        const hostLeaf = getWorkspaceLeafForEditorView(plugin, view);
+        const workspaceLeafId = hostLeaf?.id ?? '';
 
         preventWidgetRootStealingFocus(rootEl);
 
@@ -64,6 +67,7 @@ export class WritingEmbedWidget extends WidgetType {
             <JotaiProvider>
                 <WritingEmbed
                     plugin={plugin}
+                    workspaceLeafId={workspaceLeafId}
                     embedId={this.id}
                     writingFileRef={this.embeddedFile}
                     partialEmbedFilepath={this.partialEmbedFilepath}

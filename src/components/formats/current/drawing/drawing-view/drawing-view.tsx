@@ -138,6 +138,7 @@ export class DrawingView extends TextFileView {
             <JotaiProvider>
                 <TldrawDrawingEditor
                     onReady = {() => {}}
+                    workspaceLeafId = {this.leaf.id}
                     drawingFile = {this.file}
                     save = {this.saveFile}
                     extendedMenu = {getExtendedOptions(this.plugin, this.file)}

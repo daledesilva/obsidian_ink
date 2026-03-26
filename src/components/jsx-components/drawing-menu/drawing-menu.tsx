@@ -28,6 +28,7 @@ interface DrawingMenuProps {
 	onStoreChange: (elEditor: Editor) => void,
 	/** When provided, local undo/redo sync with the unified stack. */
 	embedId?: string,
+	workspaceLeafId?: string,
 	plugin?: import("src/main").default,
 }
 
@@ -41,12 +42,13 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		const editor = props.getTlEditor();
 		if (!editor) return;
 		const embedId = props.embedId;
+		const leafId = props.workspaceLeafId;
 		const plugin = props.plugin;
-		if (embedId && plugin) {
+		if (embedId && leafId && plugin) {
 			setProgrammaticUndoInProgress(true, plugin);
 			try {
 				silentlyChangeStore(editor, () => editor.undo());
-				popEmbedUndoAndPushToRedo(embedId);
+				popEmbedUndoAndPushToRedo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
 				setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
@@ -60,12 +62,13 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		const editor = props.getTlEditor();
 		if (!editor) return;
 		const embedId = props.embedId;
+		const leafId = props.workspaceLeafId;
 		const plugin = props.plugin;
-		if (embedId && plugin) {
+		if (embedId && leafId && plugin) {
 			setProgrammaticRedoInProgress(true, plugin);
 			try {
 				silentlyChangeStore(editor, () => editor.redo());
-				popEmbedRedoAndPushToUndo(embedId);
+				popEmbedRedoAndPushToUndo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
 				setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);

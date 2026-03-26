@@ -31,6 +31,7 @@ describe('WritingEmbed', () => {
     wrap(
       <WritingEmbed
         plugin={makePlugin() as any}
+        workspaceLeafId="test-leaf"
         writingFileRef={makeTFile()}
         partialEmbedFilepath="path/to/file"
         pageData={{} as any}
@@ -48,6 +49,7 @@ describe('WritingEmbed', () => {
       wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={makeTFile()}
           partialEmbedFilepath="path/to/file"
           save={() => {}}
@@ -88,6 +90,7 @@ describe('WritingEmbed', () => {
       wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={null}
           partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
@@ -102,6 +105,7 @@ describe('WritingEmbed', () => {
       wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={null}
           partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
@@ -118,6 +122,7 @@ describe('WritingEmbed', () => {
       wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={null}
           partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
@@ -135,6 +140,7 @@ describe('WritingEmbed', () => {
       const { getByText } = wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={null}
           partialEmbedFilepath="Ink/Writing/missing.svg"
           save={() => {}}
@@ -150,6 +156,7 @@ describe('WritingEmbed', () => {
       const { getByText } = wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={null}
           partialEmbedFilepath="Notes/Some Writing.svg"
           save={() => {}}
@@ -165,6 +172,7 @@ describe('WritingEmbed', () => {
       wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={makeTFile()}
           partialEmbedFilepath="path/to/file"
           save={() => {}}
@@ -179,6 +187,7 @@ describe('WritingEmbed', () => {
       wrap(
         <WritingEmbed
           plugin={makePlugin() as any}
+          workspaceLeafId="test-leaf"
           writingFileRef={makeTFile()}
           partialEmbedFilepath="path/to/file"
           save={() => {}}

@@ -1,12 +1,13 @@
 /**
  * Global keydown handler for unified undo/redo when an ink embed is in edit mode.
  * Captures Mod+Z and Mod+Shift+Z so the custom stack is used instead of Obsidian's.
+ * State is scoped by WorkspaceLeaf.id.
  * @see docs/undo-redo-implementation.md
  */
 
-import { MarkdownView, Notice } from 'obsidian';
+import { Notice } from 'obsidian';
 import type InkPlugin from 'src/main';
-import { getActiveEmbedId, getEditor, getResizeApplier } from 'src/logic/undo-redo/ink-editor-registry';
+import { getActiveEmbedIdForLeaf, getEditor, getResizeApplier } from 'src/logic/undo-redo/ink-editor-registry';
 import { getDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { WRITING_VIEW_TYPE } from 'src/components/formats/current/writing/writing-view/writing-view';
 import { DRAWING_VIEW_TYPE } from 'src/components/formats/current/drawing/drawing-view/drawing-view';
@@ -24,6 +25,9 @@ import {
 	setProgrammaticRedoInProgress,
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
+import { getMarkdownViewForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
+import { verbose } from 'src/logic/utils/log-to-console';
+
 function formatStackForLog(snapshot: readonly UnifiedUndoEntry[]): string {
 	return '[' + snapshot.map(e => {
 		if (e.type === 'obsidian') return 'Obsidian';
@@ -31,30 +35,19 @@ function formatStackForLog(snapshot: readonly UnifiedUndoEntry[]): string {
 		return `Embed:${e.embedId}`;
 	}).join(', ') + ']';
 }
-import { verbose } from 'src/logic/utils/log-to-console';
 
 const EMPTY_UNDO_MESSAGE =
 	'To undo further in Obsidian you must lock the Ink embed (which will discard any redo ability in the embed).';
 
-type UnifiedUndoRedoIntent = 'undo' | 'redo';
-
 function getUnifiedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | null {
 	const isUnifiedModPressed = event.metaKey || event.ctrlKey;
 	if (!isUnifiedModPressed) return null;
-
-	// Just incase z comes in as captial because of shift or capslock
 	const key = (event.key ?? '').toLowerCase();
-
-	// Undo: Mod+Z (no shift)
 	if (key === 'z' && !event.shiftKey) return 'undo';
-
-	// Redo: Mod+Shift+Z
 	if (key === 'z' && event.shiftKey) return 'redo';
-
 	return null;
 }
 
-/** Matches dedicated ink editor shortcuts (includes Mod+Y redo). */
 function getDedicatedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | null {
 	const isUnifiedModPressed = event.metaKey || event.ctrlKey;
 	if (!isUnifiedModPressed) return null;
@@ -71,10 +64,12 @@ function isActiveLeafDedicatedInk(plugin: InkPlugin): boolean {
 }
 
 function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
-	const isDedicatedLeaf = isActiveLeafDedicatedInk(plugin);
-	const dedicatedEditor = getDedicatedInkEditor();
+	const leafId = plugin.app.workspace.activeLeaf?.id;
+	if (!leafId) return;
 
-	// Dedicated ink view: keydown target is often BODY; wrapper never sees Mod+Z.
+	const isDedicatedLeaf = isActiveLeafDedicatedInk(plugin);
+	const dedicatedEditor = getDedicatedInkEditor(leafId);
+
 	if (isDedicatedLeaf && dedicatedEditor !== null) {
 		const dedicatedIntent = getDedicatedUndoRedoIntent(event);
 		if (dedicatedIntent !== null) {
@@ -92,8 +87,7 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 	const intent = getUnifiedUndoRedoIntent(event);
 	if (intent === null) return;
 
-	const activeEmbedId = getActiveEmbedId();
-	// Avoid embed unified stack while a dedicated ink leaf is active (stale embed id from another tab).
+	const activeEmbedId = getActiveEmbedIdForLeaf(leafId);
 	if (activeEmbedId === null || isDedicatedLeaf) {
 		return;
 	}
@@ -102,49 +96,49 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 	event.stopPropagation();
 
 	if (intent === 'undo') {
-		executeUnifiedUndo(plugin, activeEmbedId);
+		executeUnifiedUndo(plugin, leafId, activeEmbedId);
 	} else {
-		executeUnifiedRedo(plugin, activeEmbedId);
+		executeUnifiedRedo(plugin, leafId, activeEmbedId);
 	}
 }
 
-export function executeUnifiedUndo(plugin: InkPlugin, activeEmbedId: string): void {
-	syncUnifiedUndoHistory(activeEmbedId);
+export function executeUnifiedUndo(plugin: InkPlugin, leafId: string, activeEmbedId: string): void {
+	syncUnifiedUndoHistory(leafId, activeEmbedId);
 
-	if (isUndoStackEmpty()) {
+	if (isUndoStackEmpty(leafId)) {
 		new Notice(EMPTY_UNDO_MESSAGE);
 		return;
 	}
-	const entry = popUndo();
+	const entry = popUndo(leafId);
 	if (!entry) return;
-	notifyUndoExecuted(entry);
-	executeUndo(plugin, entry, activeEmbedId);
-	pushRedo(entry);
-	verbose(`[undo-redo] Undo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot())}`);
+	notifyUndoExecuted(leafId, entry);
+	executeUndo(plugin, leafId, entry, activeEmbedId);
+	pushRedo(leafId, entry);
+	verbose(`[undo-redo] Undo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot(leafId))}`);
 }
 
-export function executeUnifiedRedo(plugin: InkPlugin, activeEmbedId: string): void {
-	syncUnifiedUndoHistory(activeEmbedId);
+export function executeUnifiedRedo(plugin: InkPlugin, leafId: string, activeEmbedId: string): void {
+	syncUnifiedUndoHistory(leafId, activeEmbedId);
 
-	if (isRedoStackEmpty()) return;
-	const entry = popRedo();
+	if (isRedoStackEmpty(leafId)) return;
+	const entry = popRedo(leafId);
 	if (!entry) return;
-	notifyRedoExecuted(entry);
+	notifyRedoExecuted(leafId, entry);
 	setProgrammaticRedoInProgress(true, plugin);
 	try {
-		executeRedo(plugin, entry, activeEmbedId);
+		executeRedo(plugin, leafId, entry, activeEmbedId);
 	} finally {
-		// Clear flag after a tick; store.listen may run in a macrotask after editor.redo() returns
 		const pluginRef = plugin;
 		setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
 	}
-	pushUndo(entry);
-	verbose(`[undo-redo] Redo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot())}`);
+	pushUndo(leafId, entry);
+	verbose(`[undo-redo] Redo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot(leafId))}`);
 }
 
-function executeUndo(plugin: InkPlugin, entry: UnifiedUndoEntry, activeEmbedId: string): void {
+function executeUndo(plugin: InkPlugin, leafId: string, entry: UnifiedUndoEntry, activeEmbedId: string): void {
 	if (entry.type === 'obsidian') {
-		const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+		const md = getMarkdownViewForLeaf(plugin, leafId);
+		const editor = md?.editor;
 		if (editor) editor.undo();
 	} else if (entry.type === 'embed-resize') {
 		const applier = getResizeApplier(entry.embedId);
@@ -155,9 +149,10 @@ function executeUndo(plugin: InkPlugin, entry: UnifiedUndoEntry, activeEmbedId: 
 	}
 }
 
-function executeRedo(plugin: InkPlugin, entry: UnifiedUndoEntry, activeEmbedId: string): void {
+function executeRedo(plugin: InkPlugin, leafId: string, entry: UnifiedUndoEntry, activeEmbedId: string): void {
 	if (entry.type === 'obsidian') {
-		const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+		const md = getMarkdownViewForLeaf(plugin, leafId);
+		const editor = md?.editor;
 		if (editor) editor.redo();
 	} else if (entry.type === 'embed-resize') {
 		const applier = getResizeApplier(entry.embedId);
@@ -168,10 +163,6 @@ function executeRedo(plugin: InkPlugin, entry: UnifiedUndoEntry, activeEmbedId: 
 	}
 }
 
-/**
- * Registers the global keydown handler for unified undo/redo.
- * Call from main.ts onload when writing or drawing is enabled.
- */
 export function registerUnifiedUndoRedo(plugin: InkPlugin): void {
 	plugin.registerDomEvent(document, 'keydown', (event: KeyboardEvent) => {
 		handleKeydown(plugin, event);

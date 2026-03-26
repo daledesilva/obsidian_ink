@@ -8,10 +8,16 @@ This document describes the conceptual approach for undo and redo when ink embed
 
 When an ink embed is **unlocked** (edit mode), the embed captures Mod+Z and Mod+Shift+Z and maintains its own unified undo/redo history that interleaves tldraw (canvas) actions and Obsidian (markdown) actions.
 
+### Per workspace leaf (pane)
+
+- Each **Obsidian leaf** (`WorkspaceLeaf.id`) has its **own** unified stacks, Obsidian-depth baseline, “active” embed pointer, and (for dedicated ink tabs) its registered tldraw editor.
+- Splitting the same note into two panes ⇒ **two** histories; focus determines which leaf’s stack Mod+Z uses (`activeLeaf`).
+- Implementation detail: [undo-redo-implementation.md](undo-redo-implementation.md).
+
 ### When active
 
-- The embed captures Mod+Z and Mod+Shift+Z **only when unlocked** (edit mode)
-- When no embed is in edit mode, the event propagates and Obsidian handles it as usual
+- The embed captures Mod+Z and Mod+Shift+Z **only when unlocked** (edit mode) **and** the leaf could be resolved for that embed (see implementation doc if leaf lookup fails).
+- When no embed is active for **that** leaf, the event propagates and Obsidian handles it as usual
 
 ### Two stacks
 
@@ -36,8 +42,8 @@ We add entries **only when the tldraw store fires** (i.e. when the user does som
 
 In `editor.store.listen` (tldraw store), when a user change is detected (excluding pointer moves):
 
-1. **Check Obsidian**: Get the active MarkdownView editor and call CodeMirror's `undoDepth(editor.cm.state)`. Compare to `prevObsidianDepth`. If it increased, those Obsidian actions necessarily happened *before* the tldraw change that triggered this callback.
-2. **Add Obsidian entries**: Add that many `"obsidian"` entries to the custom undo stack
+1. **Check Obsidian**: For this embed’s **`workspaceLeafId`**, read undo depth from **that leaf’s** `MarkdownView` (same leaf as the stack), via `getObsidianUndoDepthForLeaf`, and compare to `prevObsidianDepth` for that leaf. If depth increased, those Obsidian actions necessarily happened *before* the tldraw change that triggered this callback.
+2. **Add Obsidian entries**: Add that many `"obsidian"` entries to that leaf’s custom undo stack
 3. **Check tldraw**: Get tldraw's `getNumUndos()` and compare to `prevTldrawUndos`. If it increased, add that many `"embed"` entries with the current embed/editor id
 4. **Update baseline**: Set `prevObsidianDepth` and `prevTldrawUndos` to current values; clear the redo stack
 
@@ -49,7 +55,7 @@ In `editor.store.listen` (tldraw store), when a user change is detected (excludi
 - Then: Pop from the custom undo stack
 - If `"embed"`: call undo on the recorded tldraw editor
 - If `"embed-resize"`: apply the previous dimensions (fromWidth, fromAspectRatio) to the drawing embed
-- If `"obsidian"`: call `editor.undo()` on the active MarkdownView (with a guard so we do not treat our own programmatic undo as a new action)
+- If `"obsidian"`: call `editor.undo()` on the **MarkdownView for the same `leafId`** as the stack (not “whatever view happens to be active” if it differed)
 - Push the popped entry onto the redo stack
 
 ### On Mod+Shift+Z
@@ -57,7 +63,7 @@ In `editor.store.listen` (tldraw store), when a user change is detected (excludi
 - Pop from the custom redo stack
 - If `"embed"`: call redo on the recorded tldraw editor
 - If `"embed-resize"`: apply the post-resize dimensions (toWidth, toAspectRatio) to the drawing embed
-- If `"obsidian"`: call `editor.redo()` on the active MarkdownView
+- If `"obsidian"`: call `editor.redo()` on the **MarkdownView for that `leafId`**
 - Push the popped entry onto the undo stack
 
 ### Programmatic redo
@@ -97,7 +103,7 @@ When entering edit mode, capture `prevObsidianDepth` and `prevTldrawUndos` from 
 
 ### Multiple embeds
 
-Each `"embed"` entry stores which embed/editor it belongs to. When popping an `"embed"` entry, we undo the correct tldraw instance from the registry.
+Each `"embed"` entry stores which embed/editor it belongs to. When popping an `"embed"` entry, we undo the correct tldraw instance from the registry. **Within one leaf**, only one embed is “active” for keyboard shortcuts at a time (last mousedown on an embed in that pane); stacks still hold entries tagged per embed id.
 
 ### Locked embed dimensions
 

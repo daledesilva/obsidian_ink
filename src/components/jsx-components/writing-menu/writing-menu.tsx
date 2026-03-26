@@ -26,6 +26,7 @@ interface WritingMenuProps {
 	onStoreChange: (elEditor: Editor) => void,
 	/** When provided, local undo/redo sync with the unified stack. */
 	embedId?: string,
+	workspaceLeafId?: string,
 	plugin?: import("src/main").default,
 }
 
@@ -41,12 +42,13 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
 		const embedId = props.embedId;
+		const leafId = props.workspaceLeafId;
 		const plugin = props.plugin;
-		if (embedId && plugin) {
+		if (embedId && leafId && plugin) {
 			setProgrammaticUndoInProgress(true, plugin);
 			try {
 				silentlyChangeStore(tlEditor, () => tlEditor.undo());
-				popEmbedUndoAndPushToRedo(embedId);
+				popEmbedUndoAndPushToRedo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
 				setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
@@ -61,12 +63,13 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
 		const embedId = props.embedId;
+		const leafId = props.workspaceLeafId;
 		const plugin = props.plugin;
-		if (embedId && plugin) {
+		if (embedId && leafId && plugin) {
 			setProgrammaticRedoInProgress(true, plugin);
 			try {
 				silentlyChangeStore(tlEditor, () => tlEditor.redo());
-				popEmbedRedoAndPushToUndo(embedId);
+				popEmbedRedoAndPushToUndo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
 				setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);

@@ -119,6 +119,7 @@ export class WritingView extends TextFileView {
         this.root.render(
             <TldrawWritingEditor
                 plugin = {this.plugin}
+                workspaceLeafId = {this.leaf.id}
                 writingFile = {this.file}
                 save = {this.saveFile}
                 saveControlsReference = {this.registerEditorControls}

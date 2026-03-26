@@ -43,6 +43,8 @@ export type WritingEditorControls = {
 
 export function WritingEmbed (props: {
 	plugin: InkPlugin,
+	/** Empty if leaf could not be resolved from CodeMirror (unified undo disabled for this embed). */
+	workspaceLeafId: string,
 	embedId?: string,
 	writingFileRef: TFile | null,
 	partialEmbedFilepath: string,
@@ -210,6 +212,7 @@ export function WritingEmbed (props: {
 
 					<TldrawWritingEditorWrapper
 						plugin = {props.plugin} // TODO: Try and remove this
+						workspaceLeafId = {props.workspaceLeafId}
 						embedId = {props.embedId}
 						onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
 						writingFile = {props.writingFileRef}

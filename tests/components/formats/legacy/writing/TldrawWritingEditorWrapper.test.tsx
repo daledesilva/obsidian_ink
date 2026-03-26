@@ -11,6 +11,8 @@ describe('TldrawWritingEditorWrapper (legacy)', () => {
       <JotaiProvider>
         <TldrawWritingEditorWrapper
           plugin={{} as any}
+          workspaceLeafId="test-leaf"
+          embedId="test-embed"
           onResize={() => {}}
           writingFile={makeTFile()}
           save={() => {}}

@@ -22,9 +22,9 @@ import { verbose } from 'src/logic/utils/log-to-console';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
-import { getRegisteredEmbedCount, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
+import { getRegisteredEmbedCountForLeaf, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
-import { getObsidianUndoDepth } from 'src/logic/undo-redo/obsidian-undo-depth';
+import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 ///////
@@ -33,6 +33,8 @@ import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 interface TldrawWritingEditorProps {
 	onResize?: (invitingBounds: Box, tightBounds: Box) => void,
 	plugin: InkPlugin,
+	/** Owning workspace leaf; empty string if unresolved (embed unified undo skipped). */
+	workspaceLeafId: string,
 	embedId?: string,
 	writingFile: TFile,
     save: (inkFileData: InkFileData) => void,
@@ -100,8 +102,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
-		if (!props.embedded) {
-			registerDedicatedInkEditor(editor);
+		const leafId = props.workspaceLeafId;
+		if (!props.embedded && leafId) {
+			registerDedicatedInkEditor(leafId, editor);
 		}
 		editor.updateInstanceState({ isGridMode: false });
 		focusChildTldrawEditor(editorWrapperRefEl.current);
@@ -139,16 +142,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
 		}
 
-		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change
-		if (props.embedded && props.embedId && editorWrapperRefEl.current) {
-			const obsidianDepth = getObsidianUndoDepth(props.plugin);
+		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change (per leaf)
+		if (props.embedded && props.embedId && leafId && editorWrapperRefEl.current) {
+			const obsidianDepth = getObsidianUndoDepthForLeaf(props.plugin, leafId);
 			const tldrawUndos = getTldrawNumUndos(editor);
-			if (getRegisteredEmbedCount() > 0) {
-				initialize(obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
+			if (getRegisteredEmbedCountForLeaf(leafId) > 0) {
+				initialize(leafId, obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
 			} else {
-				initialize(obsidianDepth, tldrawUndos);
+				initialize(leafId, obsidianDepth, tldrawUndos);
 			}
-			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current);
+			registerInkEditor(props.embedId, editor, editorWrapperRefEl.current, leafId);
 		}
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
@@ -164,8 +167,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				case Activity.CameraMovedManually:
 					if(cameraLimitsRef.current) restrictWritingCamera(editor, cameraLimitsRef.current);
 					unstashStaleContent(editor);
-					if (props.embedded && props.embedId) {
-						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					if (props.embedded && props.embedId && leafId) {
+						syncUnifiedUndoHistory(leafId, props.embedId, { maxTldrawDelta: 1 });
 					}
 					break;
 
@@ -179,15 +182,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					break;
 							
 				case Activity.DrawingCompleted:
-					if (props.embedded && props.embedId) {
-						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					if (props.embedded && props.embedId && leafId) {
+						syncUnifiedUndoHistory(leafId, props.embedId, { maxTldrawDelta: 1 });
 					}
 					queueOrRunStorePostProcesses(editor);
 					break;
 					
 				case Activity.DrawingErased:
-					if (props.embedded && props.embedId) {
-						syncUnifiedUndoHistory(props.embedId, { maxTldrawDelta: 1 });
+					if (props.embedded && props.embedId && leafId) {
+						syncUnifiedUndoHistory(leafId, props.embedId, { maxTldrawDelta: 1 });
 					}
 					queueOrRunStorePostProcesses(editor);
 					break;
@@ -211,8 +214,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
 			}
-			if (!props.embedded) {
-				unregisterDedicatedInkEditor(editor);
+			if (!props.embedded && leafId) {
+				unregisterDedicatedInkEditor(leafId, editor);
 			}
 		}
 
@@ -417,6 +420,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
+					workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin = {props.embedded && props.plugin ? props.plugin : undefined}
 				/>
 				{props.embedded && props.extendedMenu && (

@@ -46,6 +46,8 @@ export type DrawingEditorControls = {
 }
 
 interface DrawingEmbed_Props {
+	/** Empty if leaf could not be resolved from CodeMirror (unified undo disabled for this embed). */
+	workspaceLeafId: string,
 	embedId?: string,
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
@@ -210,6 +212,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				
 	                <TldrawDrawingEditorWrapper
 						embedId = {props.embedId}
+						workspaceLeafId = {props.workspaceLeafId}
 						plugin = {getGlobals().plugin}
 						onReady = {() => {}}
 						drawingFile = {props.embeddedFile}
@@ -274,8 +277,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		const toWidth = embedWidthRef.current;
 		const toAspectRatio = embedAspectRatioRef.current;
 		const dimensionsChanged = fromWidth !== toWidth || fromAspectRatio !== toAspectRatio;
-		if (dimensionsChanged && props.embedId) {
-			pushDrawingEmbedResize({
+		if (dimensionsChanged && props.embedId && props.workspaceLeafId) {
+			pushDrawingEmbedResize(props.workspaceLeafId, {
 				type: 'embed-resize',
 				embedId: props.embedId,
 				fromWidth,

@@ -1,22 +1,21 @@
 /**
- * Single tldraw Editor instance for the active dedicated ink view (writing or drawing).
- * Used for document-capture undo/redo when focus is on BODY (wrapper does not receive keydown).
+ * tldraw Editor instances for dedicated ink views, keyed by WorkspaceLeaf.id.
  */
 
 import type { Editor } from '@tldraw/tldraw';
 
-let dedicatedInkEditor: Editor | null = null;
+const dedicatedInkEditorByLeafId = new Map<string, Editor>();
 
-export function registerDedicatedInkEditor(editor: Editor): void {
-	dedicatedInkEditor = editor;
+export function registerDedicatedInkEditor(leafId: string, editor: Editor): void {
+	dedicatedInkEditorByLeafId.set(leafId, editor);
 }
 
-export function unregisterDedicatedInkEditor(editor: Editor): void {
-	if (dedicatedInkEditor === editor) {
-		dedicatedInkEditor = null;
+export function unregisterDedicatedInkEditor(leafId: string, editor: Editor): void {
+	if (dedicatedInkEditorByLeafId.get(leafId) === editor) {
+		dedicatedInkEditorByLeafId.delete(leafId);
 	}
 }
 
-export function getDedicatedInkEditor(): Editor | null {
-	return dedicatedInkEditor;
+export function getDedicatedInkEditor(leafId: string): Editor | null {
+	return dedicatedInkEditorByLeafId.get(leafId) ?? null;
 }

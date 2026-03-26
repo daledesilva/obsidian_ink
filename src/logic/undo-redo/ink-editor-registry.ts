@@ -1,6 +1,5 @@
 /**
- * Registry mapping embedId to tldraw Editor instances.
- * Used to look up which editor to call undo/redo on when popping an "embed" entry.
+ * Registry mapping embedId to tldraw Editor instances and owning WorkspaceLeaf.id.
  * @see docs/undo-redo-implementation.md
  */
 
@@ -12,42 +11,55 @@ export type ApplyResizeFn = (width: number, aspectRatio: number) => void;
 interface RegistryEntry {
 	editor: Editor;
 	containerEl: HTMLElement;
+	workspaceLeafId: string;
 	applyResize?: ApplyResizeFn;
 }
 
 const registry = new Map<string, RegistryEntry>();
-let lastRegisteredEmbedId: string | null = null;
+/** Last-focused embed per markdown leaf (mousedown on embed container). */
+const activeEmbedIdByLeafId = new Map<string, string>();
+
+function firstEmbedIdInLeaf(workspaceLeafId: string): string | null {
+	for (const [embedId, entry] of registry) {
+		if (entry.workspaceLeafId === workspaceLeafId) {
+			return embedId;
+		}
+	}
+	return null;
+}
 
 export function register(
 	embedId: string,
 	editor: Editor,
 	containerEl: HTMLElement,
+	workspaceLeafId: string,
 	applyResize?: ApplyResizeFn,
 ): void {
-	registry.set(embedId, { editor, containerEl, applyResize });
-	lastRegisteredEmbedId = embedId;
-	// Update active when embedding is focused (click) so undo/redo sync targets the right embed
-	containerEl.addEventListener('mousedown', () => setActiveEmbedId(embedId));
+	registry.set(embedId, { editor, containerEl, workspaceLeafId, applyResize });
+	activeEmbedIdByLeafId.set(workspaceLeafId, embedId);
+	containerEl.addEventListener('mousedown', () => {
+		setActiveEmbedForLeaf(workspaceLeafId, embedId);
+	});
 }
 
-export function setActiveEmbedId(embedId: string | null): void {
-	if (embedId === null) {
-		lastRegisteredEmbedId = null;
-		return;
-	}
-	if (registry.has(embedId)) {
-		lastRegisteredEmbedId = embedId;
+export function setActiveEmbedForLeaf(workspaceLeafId: string, embedId: string): void {
+	const entry = registry.get(embedId);
+	if (entry && entry.workspaceLeafId === workspaceLeafId) {
+		activeEmbedIdByLeafId.set(workspaceLeafId, embedId);
 	}
 }
 
 export function unregister(embedId: string): void {
+	const entry = registry.get(embedId);
+	if (!entry) return;
+	const { workspaceLeafId } = entry;
 	registry.delete(embedId);
-	clearEmbedBaseline(embedId);
-	purgeEmbedEntriesFromStacks(embedId);
-	if (lastRegisteredEmbedId === embedId) {
-		// Fall back to another still-registered embed so undo/redo keeps working
-		const anyRemaining = registry.keys().next().value ?? null;
-		lastRegisteredEmbedId = anyRemaining;
+	clearEmbedBaseline(workspaceLeafId, embedId);
+	purgeEmbedEntriesFromStacks(workspaceLeafId, embedId);
+	if (activeEmbedIdByLeafId.get(workspaceLeafId) === embedId) {
+		const next = firstEmbedIdInLeaf(workspaceLeafId);
+		if (next) activeEmbedIdByLeafId.set(workspaceLeafId, next);
+		else activeEmbedIdByLeafId.delete(workspaceLeafId);
 	}
 }
 
@@ -59,18 +71,20 @@ export function getResizeApplier(embedId: string): ApplyResizeFn | undefined {
 	return registry.get(embedId)?.applyResize;
 }
 
-/**
- * Returns the number of embeds currently registered.
- * Used to detect when a new embed is joining an existing session (merge mode).
- */
 export function getRegisteredEmbedCount(): number {
 	return registry.size;
 }
 
-/**
- * Returns the most recently registered embed id, if any.
- * When only one embed is in edit mode at a time, this is the active one.
- */
-export function getActiveEmbedId(): string | null {
-	return lastRegisteredEmbedId;
+export function getRegisteredEmbedCountForLeaf(workspaceLeafId: string): number {
+	let n = 0;
+	for (const entry of registry.values()) {
+		if (entry.workspaceLeafId === workspaceLeafId) n++;
+	}
+	return n;
+}
+
+export function getActiveEmbedIdForLeaf(workspaceLeafId: string): string | null {
+	const id = activeEmbedIdByLeafId.get(workspaceLeafId);
+	if (id && registry.has(id)) return id;
+	return null;
 }

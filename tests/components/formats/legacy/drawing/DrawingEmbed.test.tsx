@@ -20,6 +20,7 @@ describe('DrawingEmbed (legacy)', () => {
     render(
       <JotaiProvider>
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={makeTFile()}
           embedSettings={DEFAULT_EMBED_SETTINGS}
           saveSrcFile={(_pageData: any) => ({})}

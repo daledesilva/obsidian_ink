@@ -17,6 +17,7 @@ describe('DrawingEmbed', () => {
   it('shows not-found banner when embeddedFile is null and not pending', () => {
     wrap(
       <DrawingEmbed
+        workspaceLeafId="test-leaf"
         embeddedFile={null}
         embedSettings={makeEmbedSettings() as any}
         saveSrcFile={(_pageData: any) => ({})}
@@ -33,6 +34,7 @@ describe('DrawingEmbed', () => {
     const renderPending = (overrides: Partial<any> = {}) =>
       wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={makeTFile()}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -73,6 +75,7 @@ describe('DrawingEmbed', () => {
     it('renders the not-found banner variant', () => {
       wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={null}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -87,6 +90,7 @@ describe('DrawingEmbed', () => {
     it('does not render the resize container when file is missing', () => {
       wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={null}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -103,6 +107,7 @@ describe('DrawingEmbed', () => {
     it('renders the unified not-found banner when embeddedFile is null', () => {
       wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={null}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -121,6 +126,7 @@ describe('DrawingEmbed', () => {
       const locateFile = jest.fn();
       const { getByText } = wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={null}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -136,6 +142,7 @@ describe('DrawingEmbed', () => {
     it('displays partialEmbedFilepath in the not-found banner', () => {
       const { getByText } = wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={null}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -151,6 +158,7 @@ describe('DrawingEmbed', () => {
     it('mounts with embeddedFile and sourceMdFile for remove-embed flow', () => {
       wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={makeTFile()}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}
@@ -165,6 +173,7 @@ describe('DrawingEmbed', () => {
     it('mounts with embeddedFile but without sourceMdFile (fallback path available)', () => {
       wrap(
         <DrawingEmbed
+          workspaceLeafId="test-leaf"
           embeddedFile={makeTFile()}
           embedSettings={makeEmbedSettings() as any}
           saveSrcFile={(_pageData: any) => ({})}

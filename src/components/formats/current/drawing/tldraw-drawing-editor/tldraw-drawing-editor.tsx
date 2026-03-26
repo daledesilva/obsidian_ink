@@ -456,13 +456,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					/>
 				)}
 			</PrimaryMenuBar>
-			{/* Not sure why this was in here... Disabled for now */}
-			{/* <SecondaryMenuBar>
+			<SecondaryMenuBar>
 				<ModifyMenu
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
-			</SecondaryMenuBar> */}
+			</SecondaryMenuBar>
 		</div>
 
 		{props.resizeEmbed && (

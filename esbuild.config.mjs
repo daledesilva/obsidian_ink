@@ -52,6 +52,7 @@ if you want to view the source, please visit the github repository of this plugi
 const buildMode = process.argv[2];
 const prod = buildMode === 'production';
 const watch = buildMode === undefined;
+const emulateMobile = process.env.INK_EMULATE_MOBILE === 'true';
 
 esbuild.build({
 	banner: {
@@ -109,7 +110,8 @@ esbuild.build({
 		renamePlugin(),
 	],
 	define: {
-		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development')
+		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
+		'process.env.INK_EMULATE_MOBILE': JSON.stringify(emulateMobile ? 'true' : 'false'),
 	}
 }).catch(() => process.exit(1));
 

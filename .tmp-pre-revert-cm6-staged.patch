@@ -1,0 +1,471 @@
+diff --git a/docs/development.md b/docs/development.md
+index 7299997..770077d 100644
+--- a/docs/development.md
++++ b/docs/development.md
+@@ -119,6 +119,20 @@ Use this when you want to manually inspect the plugin's behaviour against specif
+ 
+ For debugging with verbose logs (e.g. embed state transitions, activity tracking), use `npm run open-qa-verbose` instead. It builds in development mode so `verbose`, `debug`, and `http` logs appear in the DevTools console.
+ 
++For mobile UI emulation on desktop, use:
++
++```bash
++npm run open-qa-mobile
++```
++
++And the verbose variant:
++
++```bash
++npm run open-qa-verbose-mobile
++```
++
++These scripts set `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
++
+ #### Writing new tests
+ 
+ General guidelines:
+diff --git a/docs/undo-redo-implementation.md b/docs/undo-redo-implementation.md
+index 18be78f..80766f6 100644
+--- a/docs/undo-redo-implementation.md
++++ b/docs/undo-redo-implementation.md
+@@ -12,11 +12,11 @@ The internal undo history is synced in two places:
+ 
+ **2. Key routing (CM6 keymap Mod+Z / Mod+Shift+Z; DOM keydown fallback)** — Before popping and executing undo/redo, we call `syncUnifiedUndoHistory(activeEmbedId)` to capture any Obsidian edits since the last tldraw action.
+ 
+-**3. Drawing embed resize (pointer up)** — When the user finishes resizing a drawing embed via the ResizeHandle, `onResizeEnd` runs and calls `pushDrawingEmbedResize` directly (not via sync). Resize entries store `fromWidth`/`fromAspectRatio` and `toWidth`/`toAspectRatio`; undo applies the former, redo applies the latter.
++**3. Plugin unified undo/redo commands** — The plugin registers `Unified undo` and `Unified redo` commands. Each command dispatches a synthetic keyboard event (`Mod+Z` / `Mod+Shift+Z`) to route through the same CM6/DOM handlers used by keyboard input. This provides a command target for mobile toolbar mapping while preserving key-event compatibility for other plugins.
+ 
+-**4. Local embed undo/redo buttons** — When the user clicks the undo or redo button within an embed's menu (DrawingMenu, WritingMenu), the menu performs the local tldraw undo/redo and calls `popEmbedUndoAndPushToRedo` or `popEmbedRedoAndPushToUndo` to move the corresponding embed entry between the unified undo and redo stacks. This keeps the embed state and unified history in sync regardless of whether the user uses global shortcuts (Mod+Z) or local buttons.
++**4. Drawing embed resize (pointer up)** — When the user finishes resizing a drawing embed via the ResizeHandle, `onResizeEnd` runs and calls `pushDrawingEmbedResize` directly (not via sync). Resize entries store `fromWidth`/`fromAspectRatio` and `toWidth`/`toAspectRatio`; undo applies the former, redo applies the latter.
+ 
+-**4. Local embed undo/redo buttons** — When the user clicks the undo or redo button within an embed (DrawingMenu or WritingMenu), the menu performs the local tldraw undo/redo and then calls `popEmbedUndoAndPushToRedo(embedId)` or `popEmbedRedoAndPushToUndo(embedId)` to move the corresponding entry in the unified stack. This keeps the embed's local state and the unified history in sync regardless of which trigger is used (keyboard shortcuts vs. local buttons). Programmatic undo and redo guards prevent sync from interfering during these operations.
++**5. Local embed undo/redo buttons** — When the user clicks the undo or redo button within an embed (DrawingMenu or WritingMenu), the menu performs the local tldraw undo/redo and then calls `popEmbedUndoAndPushToRedo(embedId)` or `popEmbedRedoAndPushToUndo(embedId)` to move the corresponding entry in the unified stack. This keeps the embed's local state and the unified history in sync regardless of which trigger is used (keyboard shortcuts vs. local buttons). Programmatic undo and redo guards prevent sync from interfering during these operations.
+ 
+ ```mermaid
+ flowchart TD
+@@ -107,10 +107,12 @@ flowchart TD
+ | `src/logic/undo-redo/obsidian-undo-depth.ts` | Helper to get CodeMirror `undoDepth(state)` from active MarkdownView |
+ | `src/logic/undo-redo/keyboard-handler.ts` | DOM fallback keydown handler for Mod+Z and Mod+Shift+Z |
+ | `src/logic/undo-redo/cm6-keymap.ts` | CM6 keymap interception for Mod+Z and Mod+Shift+Z |
++| `src/logic/undo-redo/unified-commands.ts` | Plugin commands that dispatch synthetic Mod+Z / Mod+Shift+Z keydown events |
+ 
+ **Wiring points:**
+ - `TldrawWritingEditor.handleMount` / `TldrawDrawingEditor.handleMount` — register editor, store.listen calls sync just before `queueOrRunStorePostProcesses` in DrawingCompleted/DrawingErased branches
+ - `main.ts` — call `registerUnifiedUndoRedo(plugin)` (DOM fallback) and `registerUnifiedUndoRedoKeymap(plugin)` (CM6 primary) on load when writing/drawing enabled
++- `main.ts` — call `registerUnifiedUndoRedoCommands(plugin)` so command palette/mobile toolbar can invoke unified undo/redo routing
+ 
+ ---
+ 
+@@ -266,6 +268,7 @@ function getObsidianRedoDepth(plugin: InkPlugin): number;  // for completeness
+ | `DrawingMenu` / `WritingMenu` | When embedded: pass `embedId` and `plugin` from editor; on undo/redo button click, set programmatic guard, run local undo/redo, call `popEmbedUndoAndPushToRedo` / `popEmbedRedoAndPushToUndo`, clear guard |
+ | `TldrawDrawingEditor` / `TldrawWritingEditor` | Pass `embedId` and `plugin` to DrawingMenu / WritingMenu when `embedded` |
+ | `main.ts onload` | Call `registerUnifiedUndoRedo(plugin)` (DOM fallback) and `registerUnifiedUndoRedoKeymap(plugin)` (CM6 primary) when writing or drawing enabled |
++| `main.ts onload` | Call `registerUnifiedUndoRedoCommands(plugin)` to expose command IDs `ink:unified-undo` and `ink:unified-redo` |
+ 
+ ### embedId source
+ 
+@@ -299,6 +302,16 @@ Matching behavior:
+ - `event.key` is normalized to lowercase before comparing `'z'`/`'y'`, so uppercase `Z` is treated as undo.
+ - For `Mod+Z`, `shiftKey` must be false; for `Mod+Shift+Z`, `shiftKey` must be true.
+ 
++### Unified command dispatch
++
++`Unified undo` and `Unified redo` commands dispatch synthetic `keydown` events with:
++- Undo: `key='z'`, `code='KeyZ'`, `shiftKey=false`
++- Redo: `key='z'`, `code='KeyZ'`, `shiftKey=true`
++
++Dispatch targets:
++- Primary: active/nearest `.cm-editor` host
++- Fallback: `document` (mirrored dispatch) to ensure DOM capture handlers can still process the event when host routing differs.
++
+ ### Programmatic undo/redo and sync placement
+ 
+ Sync runs just before `queueOrRunStorePostProcesses` in the `DrawingCompleted` and `DrawingErased` switch branches. When we call `editor.redo()`, tldraw restores shapes and `store.listen` fires—so sync *does* run during redo. Without a guard, that sync would add entries and clear the redo stack. We use `isProgrammaticRedoInProgress` (see Programmatic redo guard below). For Obsidian: we have no separate Obsidian listener; we only sync from these branches or keydown. Our undo decreases Obsidian's undoDepth, so we only add when depth *increases*.
+@@ -354,6 +367,7 @@ When an embed is locked, `setEmbedProps` updates the markdown with the saved wid
+ - **unified-undo-stack.test.ts** — Tests `initialize` (including merge mode when unlocking another embed), stack operations (pop/push), `syncUnifiedUndoHistory` with mocked dependencies, `pushDrawingEmbedResize`, `notifyUndoExecuted`/`notifyRedoExecuted` baseline adjustments (including no-op for embed-resize), `purgeEmbedEntriesFromStacks` (including embed-resize entries), and the programmatic redo guard.
+ - **keyboard-handler.test.ts** — Tests keydown handling: early return when no active embed, undo/redo flow with mocked stack (embed, embed-resize, obsidian), programmatic redo flag set/clear timing, and Ctrl+Z (Windows/Linux) support.
+ - **cm6-keymap.test.ts** — Tests keymap handling: early return when activeEmbedId is null, and unified undo/redo flow when active.
++- **unified-commands.test.ts** — Tests command registration, synthetic key payloads, cm-editor target selection, and document fallback dispatch.
+ 
+ ### E2E tests
+ 
+diff --git a/esbuild.config.mjs b/esbuild.config.mjs
+index ef5da5a..bab74bc 100644
+--- a/esbuild.config.mjs
++++ b/esbuild.config.mjs
+@@ -52,6 +52,7 @@ if you want to view the source, please visit the github repository of this plugi
+ const buildMode = process.argv[2];
+ const prod = buildMode === 'production';
+ const watch = buildMode === undefined;
++const emulateMobile = process.env.INK_EMULATE_MOBILE === 'true';
+ 
+ esbuild.build({
+ 	banner: {
+@@ -109,7 +110,8 @@ esbuild.build({
+ 		renamePlugin(),
+ 	],
+ 	define: {
+-		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development')
++		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
++		'process.env.INK_EMULATE_MOBILE': JSON.stringify(emulateMobile ? 'true' : 'false'),
+ 	}
+ }).catch(() => process.exit(1));
+ 
+diff --git a/package.json b/package.json
+index 48dd9da..8fb44c1 100644
+--- a/package.json
++++ b/package.json
+@@ -14,6 +14,8 @@
+ 		"test:e2e:beta": "OBSIDIAN_VERSIONS=latest-beta/latest npm run test:e2e",
+ 		"open-qa": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
+ 		"open-qa-verbose": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs development && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
++		"open-qa-mobile": "INK_EMULATE_MOBILE=true npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
++		"open-qa-verbose-mobile": "INK_EMULATE_MOBILE=true tsc -noEmit -skipLibCheck && INK_EMULATE_MOBILE=true node esbuild.config.mjs development && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
+ 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+ 		"version": "node version-bump.mjs && git add manifest.json versions.json",
+ 		"internal-release": "sh ./scripts/internal-release.sh",
+diff --git a/src/logic/undo-redo/unified-commands.ts b/src/logic/undo-redo/unified-commands.ts
+new file mode 100644
+index 0000000..9495c26
+--- /dev/null
++++ b/src/logic/undo-redo/unified-commands.ts
+@@ -0,0 +1,67 @@
++import { Platform } from 'obsidian';
++import type InkPlugin from 'src/main';
++
++const COMMAND_UNIFIED_UNDO_ID = 'unified-undo';
++const COMMAND_UNIFIED_REDO_ID = 'unified-redo';
++
++function getUndoRedoDispatchTarget(): EventTarget {
++	const activeElement = document.activeElement;
++	if (activeElement instanceof HTMLElement) {
++		const cmEditorHost = activeElement.closest('.cm-editor');
++		if (cmEditorHost) return cmEditorHost;
++		if (activeElement.classList.contains('cm-editor')) return activeElement;
++	}
++
++	const firstCmEditor = document.querySelector('.cm-editor');
++	if (firstCmEditor) return firstCmEditor;
++
++	return document;
++}
++
++function createSyntheticUndoRedoKeyboardEvent(shiftKey: boolean): KeyboardEvent {
++	const isMacLikePlatform = Platform.isMacOS || Platform.isIosApp;
++
++	return new KeyboardEvent('keydown', {
++		key: 'z',
++		code: 'KeyZ',
++		metaKey: isMacLikePlatform,
++		ctrlKey: !isMacLikePlatform,
++		shiftKey,
++		bubbles: true,
++		cancelable: true,
++	});
++}
++
++function dispatchSyntheticUndoRedoKeydown(shiftKey: boolean): void {
++	const primaryTarget = getUndoRedoDispatchTarget();
++	primaryTarget.dispatchEvent(createSyntheticUndoRedoKeyboardEvent(shiftKey));
++
++	// Some hosts don't route synthetic keyboard events through the same path as user keypresses.
++	// Mirror to document as a fallback so the DOM capture handler still sees the event.
++	if (primaryTarget !== document) {
++		document.dispatchEvent(createSyntheticUndoRedoKeyboardEvent(shiftKey));
++	}
++}
++
++export function dispatchSyntheticUndoKeydown(_plugin: InkPlugin): void {
++	dispatchSyntheticUndoRedoKeydown(false);
++}
++
++export function dispatchSyntheticRedoKeydown(_plugin: InkPlugin): void {
++	dispatchSyntheticUndoRedoKeydown(true);
++}
++
++export function registerUnifiedUndoRedoCommands(plugin: InkPlugin): void {
++	plugin.addCommand({
++		id: COMMAND_UNIFIED_UNDO_ID,
++		name: 'Unified undo',
++		callback: () => dispatchSyntheticUndoKeydown(plugin),
++	});
++
++	plugin.addCommand({
++		id: COMMAND_UNIFIED_REDO_ID,
++		name: 'Unified redo',
++		callback: () => dispatchSyntheticRedoKeydown(plugin),
++	});
++}
++
+diff --git a/src/main.ts b/src/main.ts
+index faf3cb9..c4ddb51 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1,5 +1,5 @@
+ import './ddc-library/settings-styles.scss';
+-import { Editor, Notice, Plugin, addIcon } from 'obsidian';
++import { Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
+ import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
+ import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
+ import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
+@@ -31,6 +31,7 @@ import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
+ import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
+ import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
+ import { registerUnifiedUndoRedoKeymap } from './logic/undo-redo/cm6-keymap';
++import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
+ import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+ 
+ ////////
+@@ -75,6 +76,24 @@ export default class InkPlugin extends Plugin {
+ 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
+ 		// implementHandwrittenNoteAction(this)
+ 		// implementHandDrawnNoteAction(this)
++		const emulateMobileRequested = process.env.INK_EMULATE_MOBILE === 'true';
++		const mobileEmulationReloadGuardKey = '__inkMobileEmulationReloadInProgress';
++		const appWithMobileEmulation = this.app as any;
++		const canEmulateMobile = typeof appWithMobileEmulation.emulateMobile === 'function';
++		const alreadyInMobileMode = !!(Platform.isMobile || Platform.isMobileApp || appWithMobileEmulation.isMobile);
++		const mobileEmulationReloadInProgress = window.localStorage.getItem(mobileEmulationReloadGuardKey) === 'true';
++
++		if (emulateMobileRequested && canEmulateMobile && !alreadyInMobileMode && !mobileEmulationReloadInProgress) {
++			// emulateMobile(true) can reload the app; guard to avoid repeatedly requesting emulation on each reload.
++			window.localStorage.setItem(mobileEmulationReloadGuardKey, 'true');
++			appWithMobileEmulation.emulateMobile(true);
++			return;
++		}
++
++		// Once emulation is active (or not requested), clear the guard for future sessions.
++		if (!emulateMobileRequested || alreadyInMobileMode) {
++			window.localStorage.removeItem(mobileEmulationReloadGuardKey);
++		}
+ 
+ 		if (this.settings.writingEnabled) {
+ 
+@@ -83,6 +102,7 @@ export default class InkPlugin extends Plugin {
+ 			registerWritingEmbed(this);
+ 			registerUnifiedUndoRedo(this);
+ 			registerUnifiedUndoRedoKeymap(this);
++			registerUnifiedUndoRedoCommands(this);
+ 			implementWritingEmbedCommands(this);
+ 			
+ 			// Legacy v1's are on to allow displaying, but not creating
+@@ -98,6 +118,7 @@ export default class InkPlugin extends Plugin {
+ 			registerDrawingEmbed(this);
+ 			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
+ 			if (!this.settings.writingEnabled) registerUnifiedUndoRedoKeymap(this);
++			if (!this.settings.writingEnabled) registerUnifiedUndoRedoCommands(this);
+ 			implementDrawingEmbedCommands(this);
+ 
+ 			// Legacy v1's are on to allow displaying, but not creating
+diff --git a/tests/__mocks__/obsidianMock.js b/tests/__mocks__/obsidianMock.js
+index 88220d6..9fffc9b 100644
+--- a/tests/__mocks__/obsidianMock.js
++++ b/tests/__mocks__/obsidianMock.js
+@@ -9,6 +9,10 @@ const createDivResult = {
+ };
+ 
+ module.exports = {
++  Platform: {
++    isMacOS: true,
++    isIosApp: false,
++  },
+   Menu: class {},
+   Notice: class {},
+   TextFileView: class {
+diff --git a/tests/e2e/undo-redo.e2e.ts b/tests/e2e/undo-redo.e2e.ts
+index 1dfb8ae..dd86877 100644
+--- a/tests/e2e/undo-redo.e2e.ts
++++ b/tests/e2e/undo-redo.e2e.ts
+@@ -561,6 +561,39 @@ async function getEditorText(): Promise<string> {
+ 	});
+ }
+ 
++async function executePluginCommandById(commandIdSuffix: "unified-undo" | "unified-redo") {
++	await browser.executeObsidian(({ app }, suffix: string) => {
++		const commandId = `ink:${suffix}`;
++		const commandManager = (app as any).commands;
++		if (!commandManager) {
++			throw new Error("Obsidian command manager is unavailable");
++		}
++
++		const executeResult =
++			typeof commandManager.executeCommandById === "function"
++				? commandManager.executeCommandById(commandId)
++				: false;
++		if (executeResult === true) return;
++
++		// Fallback for environments where executeCommandById returns false despite command registration.
++		const command = commandManager.commands?.[commandId];
++		if (command?.callback) {
++			command.callback();
++			return;
++		}
++		if (command?.editorCallback) {
++			const view = app.workspace.activeLeaf?.view;
++			const editor = (view as { editor?: unknown })?.editor;
++			if (editor) {
++				command.editorCallback(editor, view);
++				return;
++			}
++		}
++		throw new Error(`Unable to execute command: ${commandId}`);
++	}, commandIdSuffix);
++	await browser.pause(300);
++}
++
+ ////////
+ ////////
+ 
+@@ -602,6 +635,20 @@ describe("Undo/Redo — One Embed (embed-only)", function () {
+ 		await sendRedo();
+ 		await waitForShapeCountOneOf([2, 3]);
+ 	});
++
++	it("plugin unified commands undo and redo embed strokes", async function () {
++		const initialShapeCount = await getShapeCount();
++
++		await createStroke(1);
++		await createStroke(2);
++		await waitForShapeCount(initialShapeCount + 2);
++
++		await executePluginCommandById("unified-undo");
++		await waitForShapeCountOneOf([initialShapeCount, initialShapeCount + 1]);
++
++		await executePluginCommandById("unified-redo");
++		await waitForShapeCountOneOf([initialShapeCount + 1, initialShapeCount + 2]);
++	});
+ });
+ 
+ ////////
+diff --git a/tests/logic/undo-redo/cm6-keymap.test.ts b/tests/logic/undo-redo/cm6-keymap.test.ts
+index e9806c6..961cc52 100644
+--- a/tests/logic/undo-redo/cm6-keymap.test.ts
++++ b/tests/logic/undo-redo/cm6-keymap.test.ts
+@@ -40,6 +40,7 @@ jest.mock('src/logic/undo-redo/unified-undo-stack', () => ({
+ 
+ import type InkPlugin from 'src/main';
+ import { unifiedRedoKeymapCommand, unifiedUndoKeymapCommand } from 'src/logic/undo-redo/cm6-keymap';
++import { markDomUnifiedUndoRedoHandled } from 'src/logic/undo-redo/keyboard-handler';
+ 
+ const EMBED_ID = 'embed-1';
+ const MOCK_ENTRY = { type: 'embed' as const, embedId: EMBED_ID };
+@@ -94,6 +95,17 @@ describe('cm6-keymap', () => {
+ 		expect(mockSyncUnifiedUndoHistory).not.toHaveBeenCalled();
+ 	});
+ 
++	it('returns true when DOM fallback already handled this undo keypress', () => {
++		mockGetActiveEmbedId.mockReturnValue(null);
++		markDomUnifiedUndoRedoHandled(plugin, 'undo');
++
++		const command = unifiedUndoKeymapCommand(plugin);
++		const handled = command(createFakeEditorView());
++
++		expect(handled).toBe(true);
++		expect(mockSyncUnifiedUndoHistory).not.toHaveBeenCalled();
++	});
++
+ 	it('unified undo keymap returns true and runs unified undo when active', () => {
+ 		mockGetActiveEmbedId.mockReturnValue(EMBED_ID);
+ 		mockIsUndoStackEmpty.mockReturnValue(false);
+diff --git a/tests/logic/undo-redo/unified-commands.test.ts b/tests/logic/undo-redo/unified-commands.test.ts
+new file mode 100644
+index 0000000..9100b47
+--- /dev/null
++++ b/tests/logic/undo-redo/unified-commands.test.ts
+@@ -0,0 +1,97 @@
++/**
++ * Unit tests for unified-commands.ts (plugin commands -> synthetic undo/redo keydown)
++ * @see docs/undo-redo-implementation.md
++ */
++
++import type InkPlugin from 'src/main';
++import {
++	dispatchSyntheticRedoKeydown,
++	dispatchSyntheticUndoKeydown,
++	registerUnifiedUndoRedoCommands,
++} from 'src/logic/undo-redo/unified-commands';
++
++function createMockPlugin() {
++	const commands: any[] = [];
++
++	const plugin = {
++		addCommand: jest.fn((command) => {
++			commands.push(command);
++			return command;
++		}),
++	} as unknown as InkPlugin;
++
++	return { plugin, commands };
++}
++
++describe('unified-commands', () => {
++	beforeEach(() => {
++		jest.restoreAllMocks();
++		document.body.innerHTML = '';
++	});
++
++	it('registers unified undo/redo commands', () => {
++		const { plugin, commands } = createMockPlugin();
++		registerUnifiedUndoRedoCommands(plugin);
++
++		expect(commands.map((command) => command.id)).toEqual([
++			'unified-undo',
++			'unified-redo',
++		]);
++		expect(commands.map((command) => command.name)).toEqual([
++			'Unified undo',
++			'Unified redo',
++		]);
++	});
++
++	it('dispatches undo keydown on closest .cm-editor host when active element is inside it', () => {
++		const cmEditor = document.createElement('div');
++		cmEditor.className = 'cm-editor';
++		const child = document.createElement('button');
++		cmEditor.appendChild(child);
++		document.body.appendChild(cmEditor);
++
++		const eventListener = jest.fn();
++		cmEditor.addEventListener('keydown', eventListener);
++		child.focus();
++
++		dispatchSyntheticUndoKeydown({} as InkPlugin);
++
++		expect(eventListener).toHaveBeenCalledTimes(1);
++		const event = eventListener.mock.calls[0][0] as KeyboardEvent;
++		expect(event.key).toBe('z');
++		expect(event.code).toBe('KeyZ');
++		expect(event.shiftKey).toBe(false);
++		expect(event.metaKey || event.ctrlKey).toBe(true);
++	});
++
++	it('dispatches redo keydown on first .cm-editor when active element is outside editor', () => {
++		const cmEditor = document.createElement('div');
++		cmEditor.className = 'cm-editor';
++		document.body.appendChild(cmEditor);
++
++		const eventListener = jest.fn();
++		cmEditor.addEventListener('keydown', eventListener);
++
++		dispatchSyntheticRedoKeydown({} as InkPlugin);
++
++		expect(eventListener).toHaveBeenCalledTimes(1);
++		const event = eventListener.mock.calls[0][0] as KeyboardEvent;
++		expect(event.key).toBe('z');
++		expect(event.code).toBe('KeyZ');
++		expect(event.shiftKey).toBe(true);
++		expect(event.metaKey || event.ctrlKey).toBe(true);
++	});
++
++	it('falls back to document dispatch when no .cm-editor exists', () => {
++		const eventListener = jest.fn();
++		document.addEventListener('keydown', eventListener);
++
++		dispatchSyntheticUndoKeydown({} as InkPlugin);
++
++		expect(eventListener).toHaveBeenCalledTimes(1);
++		const event = eventListener.mock.calls[0][0] as KeyboardEvent;
++		expect(event.bubbles).toBe(true);
++		expect(event.cancelable).toBe(true);
++	});
++});
++

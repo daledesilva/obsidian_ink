@@ -119,6 +119,20 @@ Use this when you want to manually inspect the plugin's behaviour against specif
 
 For debugging with verbose logs (e.g. embed state transitions, activity tracking), use `npm run open-qa-verbose` instead. It builds in development mode so `verbose`, `debug`, and `http` logs appear in the DevTools console.
 
+For mobile UI emulation on desktop, use:
+
+```bash
+npm run open-qa-mobile
+```
+
+And the verbose variant:
+
+```bash
+npm run open-qa-verbose-mobile
+```
+
+These scripts set `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
+
 #### Writing new tests
 
 General guidelines:

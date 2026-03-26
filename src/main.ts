@@ -1,5 +1,5 @@
 import './ddc-library/settings-styles.scss';
-import { Editor, Notice, Plugin, addIcon } from 'obsidian';
+import { Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
@@ -30,7 +30,7 @@ import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfF
 import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
 import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
-import { registerUnifiedUndoRedoKeymap } from './logic/undo-redo/cm6-keymap';
+import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
 import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
 
 ////////
@@ -75,6 +75,24 @@ export default class InkPlugin extends Plugin {
 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
+		const emulateMobileRequested = process.env.INK_EMULATE_MOBILE === 'true';
+		const mobileEmulationReloadGuardKey = '__inkMobileEmulationReloadInProgress';
+		const appWithMobileEmulation = this.app as any;
+		const canEmulateMobile = typeof appWithMobileEmulation.emulateMobile === 'function';
+		const alreadyInMobileMode = !!(Platform.isMobile || Platform.isMobileApp || appWithMobileEmulation.isMobile);
+		const mobileEmulationReloadInProgress = window.localStorage.getItem(mobileEmulationReloadGuardKey) === 'true';
+
+		if (emulateMobileRequested && canEmulateMobile && !alreadyInMobileMode && !mobileEmulationReloadInProgress) {
+			// emulateMobile(true) can reload the app; guard to avoid repeatedly requesting emulation on each reload.
+			window.localStorage.setItem(mobileEmulationReloadGuardKey, 'true');
+			appWithMobileEmulation.emulateMobile(true);
+			return;
+		}
+
+		// Once emulation is active (or not requested), clear the guard for future sessions.
+		if (!emulateMobileRequested || alreadyInMobileMode) {
+			window.localStorage.removeItem(mobileEmulationReloadGuardKey);
+		}
 
 		if (this.settings.writingEnabled) {
 
@@ -82,7 +100,7 @@ export default class InkPlugin extends Plugin {
 			registerWritingView(this);
 			registerWritingEmbed(this);
 			registerUnifiedUndoRedo(this);
-			registerUnifiedUndoRedoKeymap(this);
+			registerUnifiedUndoRedoCommands(this);
 			implementWritingEmbedCommands(this);
 			
 			// Legacy v1's are on to allow displaying, but not creating
@@ -97,7 +115,7 @@ export default class InkPlugin extends Plugin {
 			registerDrawingView(this);
 			registerDrawingEmbed(this);
 			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
-			if (!this.settings.writingEnabled) registerUnifiedUndoRedoKeymap(this);
+			if (!this.settings.writingEnabled) registerUnifiedUndoRedoCommands(this);
 			implementDrawingEmbedCommands(this);
 
 			// Legacy v1's are on to allow displaying, but not creating

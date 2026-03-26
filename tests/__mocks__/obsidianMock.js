@@ -9,6 +9,10 @@ const createDivResult = {
 };
 
 module.exports = {
+  Platform: {
+    isMacOS: true,
+    isIosApp: false,
+  },
   Menu: class {},
   Notice: class {},
   TextFileView: class {

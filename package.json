@@ -14,6 +14,8 @@
 		"test:e2e:beta": "OBSIDIAN_VERSIONS=latest-beta/latest npm run test:e2e",
 		"open-qa": "npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"open-qa-verbose": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs development && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
+		"open-qa-mobile": "INK_EMULATE_MOBILE=true npm run build && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
+		"open-qa-verbose-mobile": "INK_EMULATE_MOBILE=true tsc -noEmit -skipLibCheck && INK_EMULATE_MOBILE=true node esbuild.config.mjs development && bash scripts/download-test-plugins.sh && node qa-test-vault/generate.mjs && npx obsidian-launcher launch --copy --plugin ./dist qa-test-vault",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"internal-release": "sh ./scripts/internal-release.sh",

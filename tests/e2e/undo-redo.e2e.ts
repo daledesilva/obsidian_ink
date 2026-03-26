@@ -561,6 +561,39 @@ async function getEditorText(): Promise<string> {
 	});
 }
 
+async function executePluginCommandById(commandIdSuffix: "unified-undo" | "unified-redo") {
+	await browser.executeObsidian(({ app }, suffix: string) => {
+		const commandId = `ink:${suffix}`;
+		const commandManager = (app as any).commands;
+		if (!commandManager) {
+			throw new Error("Obsidian command manager is unavailable");
+		}
+
+		const executeResult =
+			typeof commandManager.executeCommandById === "function"
+				? commandManager.executeCommandById(commandId)
+				: false;
+		if (executeResult === true) return;
+
+		// Fallback for environments where executeCommandById returns false despite command registration.
+		const command = commandManager.commands?.[commandId];
+		if (command?.callback) {
+			command.callback();
+			return;
+		}
+		if (command?.editorCallback) {
+			const view = app.workspace.activeLeaf?.view;
+			const editor = (view as { editor?: unknown })?.editor;
+			if (editor) {
+				command.editorCallback(editor, view);
+				return;
+			}
+		}
+		throw new Error(`Unable to execute command: ${commandId}`);
+	}, commandIdSuffix);
+	await browser.pause(300);
+}
+
 ////////
 ////////
 
@@ -601,6 +634,20 @@ describe("Undo/Redo — One Embed (embed-only)", function () {
 		await browser.pause(1000);
 		await sendRedo();
 		await waitForShapeCountOneOf([2, 3]);
+	});
+
+	it("plugin unified commands undo and redo embed strokes", async function () {
+		const initialShapeCount = await getShapeCount();
+
+		await createStroke(1);
+		await createStroke(2);
+		await waitForShapeCount(initialShapeCount + 2);
+
+		await executePluginCommandById("unified-undo");
+		await waitForShapeCountOneOf([initialShapeCount, initialShapeCount + 1]);
+
+		await executePluginCommandById("unified-redo");
+		await waitForShapeCountOneOf([initialShapeCount + 1, initialShapeCount + 2]);
 	});
 });
 

@@ -1,9 +1,6 @@
 /**
- * DOM `keydown` fallback handler for unified undo/redo when an ink embed is in edit mode.
- *
- * The CM6 keymap interception is the primary path (see `cm6-keymap.ts`), but we keep this
- * handler as a fallback for cases where iOS/Safari doesn't route shortcuts into CodeMirror.
- *
+ * Global keydown handler for unified undo/redo when an ink embed is in edit mode.
+ * Captures Mod+Z and Mod+Shift+Z so the custom stack is used instead of Obsidian's.
  * @see docs/undo-redo-implementation.md
  */
 
@@ -37,44 +34,6 @@ const EMPTY_UNDO_MESSAGE =
 	'To undo further in Obsidian you must lock the Ink embed (which will discard any redo ability in the embed).';
 
 type UnifiedUndoRedoIntent = 'undo' | 'redo';
-const PLUGIN_FLAG_KEY_DOM_UNIFIED_UNDO_REDO_HANDLED = '__inkDomUnifiedUndoRedoHandled';
-
-function getDomUnifiedUndoRedoHandledIntent(plugin: InkPlugin): UnifiedUndoRedoIntent | null {
-	try {
-		return (plugin as any)[PLUGIN_FLAG_KEY_DOM_UNIFIED_UNDO_REDO_HANDLED] ?? null;
-	} catch {
-		return null;
-	}
-}
-
-function clearDomUnifiedUndoRedoHandledIntent(plugin: InkPlugin): void {
-	try {
-		delete (plugin as any)[PLUGIN_FLAG_KEY_DOM_UNIFIED_UNDO_REDO_HANDLED];
-	} catch {
-		// no-op
-	}
-}
-
-/**
- * Marks that the DOM `keydown` fallback executed unified undo/redo for this event.
- * CM6 keymap can consume it to avoid triggering Obsidian's native undo/redo.
- */
-export function markDomUnifiedUndoRedoHandled(plugin: InkPlugin, intent: UnifiedUndoRedoIntent): void {
-	(plugin as any)[PLUGIN_FLAG_KEY_DOM_UNIFIED_UNDO_REDO_HANDLED] = intent;
-	// Auto-clear so a future keypress doesn't get "consumed" by mistake.
-	setTimeout(() => {
-		if (getDomUnifiedUndoRedoHandledIntent(plugin) === intent) clearDomUnifiedUndoRedoHandledIntent(plugin);
-	}, 0);
-}
-
-/**
- * If the DOM fallback already handled this intent, consume the flag.
- */
-export function consumeDomUnifiedUndoRedoHandled(plugin: InkPlugin, intent: UnifiedUndoRedoIntent): boolean {
-	if (getDomUnifiedUndoRedoHandledIntent(plugin) !== intent) return false;
-	clearDomUnifiedUndoRedoHandledIntent(plugin);
-	return true;
-}
 
 function getUnifiedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | null {
 	const isUnifiedModPressed = event.metaKey || event.ctrlKey;
@@ -105,10 +64,8 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 	event.stopPropagation();
 
 	if (intent === 'undo') {
-		markDomUnifiedUndoRedoHandled(plugin, intent);
 		executeUnifiedUndo(plugin, activeEmbedId);
 	} else {
-		markDomUnifiedUndoRedoHandled(plugin, intent);
 		executeUnifiedRedo(plugin, activeEmbedId);
 	}
 }

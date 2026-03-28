@@ -3,8 +3,24 @@ import { verbose } from 'src/logic/utils/log-to-console';
 
 const INK_LOG_PREFIX = '[Ink]';
 
-/** Loopback URL for eInk Bridge on the same device as Obsidian (port and path must match Bridge). */
-export const BOOX_BRIDGE_WEBSOCKET_URL = 'ws://127.0.0.1:8080/ws';
+/**
+ * Candidate ports for eInk Bridge on loopback; order must match
+ * `INK_BRIDGE_WEBSOCKET_PORTS` in eink-bridge `WebSocketServer.kt`.
+ */
+export const INK_BRIDGE_WEBSOCKET_PORTS = [
+	8080, 37810, 37811, 37812, 37813, 37814, 37815, 37816, 37817, 37818,
+] as const;
+
+export const INK_BRIDGE_PROTOCOL_VERSION = 1;
+
+/** @deprecated Use parallel probe URLs; kept for any external reference to primary port. */
+export const BOOX_BRIDGE_WEBSOCKET_URL = `ws://127.0.0.1:${INK_BRIDGE_WEBSOCKET_PORTS[0]}/ws`;
+
+function inkBridgeWebSocketUrls(): string[] {
+	return INK_BRIDGE_WEBSOCKET_PORTS.map(
+		(port) => `ws://127.0.0.1:${port}/ws`,
+	);
+}
 
 /** One neutral line per failed connect attempt (companion not reachable). */
 const MSG_BOOX_COMPANION_NOT_FOUND =
@@ -12,6 +28,10 @@ const MSG_BOOX_COMPANION_NOT_FOUND =
 
 /** Chromium uses 1006 when the connection ends abnormally (e.g. refused, reset, blocked). */
 const WS_CLOSE_ABNORMAL = 1006;
+
+const MAX_PROBE_WAVES = 3;
+const WAVE_HANDSHAKE_TIMEOUT_MS = 1200;
+const INTER_WAVE_DELAY_MS = 500;
 
 function logBooxCompanionNotFound(
 	isLastAttempt: boolean,
@@ -28,12 +48,12 @@ function logBooxCompanionNotFound(
 		if (closeCode === WS_CLOSE_ABNORMAL) {
 			console.log(
 				INK_LOG_PREFIX,
-				'WebSocket closed before opening (1006): nothing accepted the connection — start eInk Bridge so its foreground service is running, then check Android logcat for "Ktor WebSocket" / "WebSocket" lines. The plugin uses ws://127.0.0.1:8080/ws on this device only.',
+				'WebSocket closed before opening (1006): nothing accepted the connection — start eInk Bridge so its foreground service is running, then check Android logcat for "Ktor WebSocket" / "WebSocket" lines. The plugin probes loopback ports in order (see eink-bridge WebSocket docs) until it handshakes with eInk Bridge.',
 			);
 		} else if (Platform.isMobileApp || Platform.isMobile) {
 			console.log(
 				INK_LOG_PREFIX,
-				'Boox tip: Keep eInk Bridge running (foreground service). Obsidian Ink connects only on this tablet at ws://127.0.0.1:8080/ws.',
+				'Boox tip: Keep eInk Bridge running (foreground service). Obsidian Ink connects on this tablet over loopback only; it tries several ports and verifies the companion with a short handshake.',
 			);
 		}
 	}
@@ -55,6 +75,21 @@ type DrawingSessionEntry = {
 	onStroke: (strokePoints: unknown) => void;
 	onSocketOpen: () => void;
 };
+
+function delayMs(ms: number): Promise<void> {
+	return new Promise((resolve) => {
+		window.setTimeout(resolve, ms);
+	});
+}
+
+function isValidInkBridgePongData(data: unknown): boolean {
+	if (typeof data !== 'object' || data === null) return false;
+	const record = data as Record<string, unknown>;
+	return (
+		record.bridgeId === 'eink-bridge' &&
+		record.protocolVersion === INK_BRIDGE_PROTOCOL_VERSION
+	);
+}
 
 /**
  * WebSocket is only open while at least one drawing editor is active (unlocked).
@@ -104,7 +139,7 @@ export class BooxConnection {
 			this.resetReconnectBudgetsForNewEditCycle();
 		}
 		void this.ensureConnected().catch(() => {
-			/* Outcome logged once in connectOnce onclose */
+			/* Outcome logged once in handleFailedOpenBeforeHandshake */
 		});
 		return () => {
 			const index = this.drawingSessions.indexOf(entry);
@@ -149,9 +184,29 @@ export class BooxConnection {
 			this.reconnectTimer = null;
 			if (this.disposed || this.drawingSessions.length === 0) return;
 			void this.ensureConnected().catch(() => {
-				/* Outcome logged once in connectOnce onclose */
+				/* Outcome logged once in handleFailedOpenBeforeHandshake */
 			});
 		}, delay + jitter);
+	}
+
+	private handleFailedOpenBeforeHandshake(closeCode?: number): void {
+		if (this.drawingSessions.length === 0) return;
+		if (!this.hasEverOpenedSuccessfully) {
+			this.initialConnectAttemptNumber += 1;
+			const attempt = this.initialConnectAttemptNumber;
+			const max = MAX_INITIAL_CONNECT_ATTEMPTS;
+			const isLast = attempt >= max;
+			logBooxCompanionNotFound(isLast, attempt, max, closeCode);
+			if (isLast) return;
+		} else {
+			this.afterDisconnectConnectAttemptNumber += 1;
+			const attempt = this.afterDisconnectConnectAttemptNumber;
+			const max = MAX_AFTER_DISCONNECT_CONNECT_ATTEMPTS;
+			const isLast = attempt >= max;
+			logBooxCompanionNotFound(isLast, attempt, max, closeCode);
+			if (isLast) return;
+		}
+		this.scheduleReconnect();
 	}
 
 	async ensureConnected(): Promise<void> {
@@ -163,9 +218,7 @@ export class BooxConnection {
 			throw new Error('Boox companion app disabled');
 		}
 
-		const url = BOOX_BRIDGE_WEBSOCKET_URL;
-
-		if (this.ws?.readyState === WebSocket.OPEN && this.currentUrl === url) {
+		if (this.ws?.readyState === WebSocket.OPEN) {
 			return;
 		}
 
@@ -173,56 +226,65 @@ export class BooxConnection {
 			return this.inFlightConnect;
 		}
 
-		if (this.ws && this.currentUrl !== url) {
+		if (this.ws) {
 			this.intentionalClose = true;
 			this.teardownWebSocket();
 			this.intentionalClose = false;
 		}
 
-		if (this.ws?.readyState === WebSocket.OPEN) return;
-
-		this.inFlightConnect = this.connectOnce(url).finally(() => {
+		this.inFlightConnect = this.connectOnce().finally(() => {
 			this.inFlightConnect = null;
 		});
 
 		return this.inFlightConnect;
 	}
 
-	private connectOnce(url: string): Promise<void> {
-		this.currentUrl = url;
-
+	private connectOnce(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			let settled = false;
-			const socket = new WebSocket(url);
-			this.ws = socket;
+			void this.runParallelProbeWaves()
+				.then(() => resolve())
+				.catch((err: Error) => reject(err ?? new Error('WebSocket connection failed')));
+		});
+	}
 
-			const finish = (ok: boolean, err?: Error) => {
-				if (settled) return;
-				settled = true;
-				if (ok) resolve();
-				else reject(err ?? new Error('WebSocket connection failed'));
-			};
+	/**
+	 * Opens 10 WebSockets in parallel per wave; first valid ink-bridge-pong wins.
+	 * Up to MAX_PROBE_WAVES waves with INTER_WAVE_DELAY_MS between failures.
+	 */
+	private async runParallelProbeWaves(): Promise<void> {
+		for (let waveIndex = 0; waveIndex < MAX_PROBE_WAVES; waveIndex++) {
+			if (waveIndex > 0) {
+				await delayMs(INTER_WAVE_DELAY_MS);
+			}
+			if (this.disposed || this.drawingSessions.length === 0) {
+				throw new Error('BooxConnection: probe aborted');
+			}
 
-			socket.onopen = () => {
+			const waveResult = await this.probeOneWaveParallel();
+
+			if (waveResult.kind === 'success') {
 				this.reconnectAttempt = 0;
 				if (this.drawingSessions.length === 0) {
-					verbose('BooxConnection: WebSocket open but no active drawing; closing');
+					verbose(
+						'BooxConnection: handshake ok but no active drawing; closing',
+					);
 					this.intentionalClose = true;
 					try {
-						socket.close();
+						waveResult.socket.close();
 					} catch {
 						// ignore
 					}
 					this.intentionalClose = false;
-					if (this.ws === socket) {
+					if (this.ws === waveResult.socket) {
 						this.ws = null;
 					}
-					finish(true);
+					this.currentUrl = null;
 					return;
 				}
-				verbose('BooxConnection: WebSocket open');
+				verbose('BooxConnection: WebSocket open (handshake ok)');
 				this.hasEverOpenedSuccessfully = true;
 				this.afterDisconnectConnectAttemptNumber = 0;
+				this.attachProductionHandlers(waveResult.socket, waveResult.url);
 				this.sendInitMessage();
 				for (const session of this.drawingSessions) {
 					try {
@@ -231,81 +293,213 @@ export class BooxConnection {
 						verbose(['BooxConnection: onSocketOpen error', error]);
 					}
 				}
-				finish(true);
-			};
+				return;
+			}
+		}
 
-			socket.onmessage = (event) => {
-				let parsed: unknown;
-				try {
-					parsed = JSON.parse(String(event.data));
-				} catch {
-					verbose('BooxConnection: invalid JSON message');
-					return;
-				}
-				if (
-					typeof parsed !== 'object' ||
-					parsed === null ||
-					!('data' in parsed)
-				) {
-					return;
-				}
-				const action = (parsed as { action?: string }).action;
-				if (action !== 'new-stroke') {
-					return;
-				}
-				const last = this.drawingSessions[this.drawingSessions.length - 1];
-				if (last) {
+		this.handleFailedOpenBeforeHandshake(WS_CLOSE_ABNORMAL);
+		throw new Error('WebSocket connection failed');
+	}
+
+	private attachProductionHandlers(socket: WebSocket, url: string): void {
+		this.currentUrl = url;
+		this.ws = socket;
+
+		socket.onmessage = (event: MessageEvent) => {
+			this.dispatchStrokeMessage(event);
+		};
+
+		socket.onerror = () => {};
+
+		socket.onclose = (event: CloseEvent) => {
+			const closeCode = event.code;
+			const wasThisSocket = this.ws === socket;
+			if (wasThisSocket) {
+				this.ws = null;
+			}
+
+			if (this.disposed) return;
+			if (this.intentionalClose) return;
+
+			if (wasThisSocket && this.drawingSessions.length > 0) {
+				this.reconnectAttempt = 0;
+				this.afterDisconnectConnectAttemptNumber = 0;
+				this.scheduleReconnect();
+			}
+		};
+	}
+
+	private dispatchStrokeMessage(event: MessageEvent): void {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(String(event.data));
+		} catch {
+			verbose('BooxConnection: invalid JSON message');
+			return;
+		}
+		if (
+			typeof parsed !== 'object' ||
+			parsed === null ||
+			!('data' in parsed)
+		) {
+			return;
+		}
+		const action = (parsed as { action?: string }).action;
+		if (action !== 'new-stroke') {
+			return;
+		}
+		const last = this.drawingSessions[this.drawingSessions.length - 1];
+		if (last) {
+			try {
+				last.onStroke((parsed as { data: unknown }).data);
+			} catch (error) {
+				verbose(['BooxConnection: onStroke error', error]);
+			}
+		}
+	}
+
+	private probeOneWaveParallel(): Promise<
+		| { kind: 'success'; socket: WebSocket; url: string }
+		| { kind: 'failed' }
+	> {
+		const urls = inkBridgeWebSocketUrls();
+		return new Promise((resolve) => {
+			let settled = false;
+			let hasWinner = false;
+			let intentionalProbeClose = false;
+			const sockets: WebSocket[] = [];
+			let closedWithoutWinner = 0;
+
+			const closeAllProbeSockets = (): void => {
+				intentionalProbeClose = true;
+				for (const s of sockets) {
 					try {
-						last.onStroke((parsed as { data: unknown }).data);
-					} catch (error) {
-						verbose(['BooxConnection: onStroke error', error]);
+						s.close();
+					} catch {
+						// ignore
 					}
 				}
+				intentionalProbeClose = false;
 			};
 
-			// Chromium/Electron always prints "WebSocket connection to … failed" on failure;
-			// that is not from this plugin and cannot be turned off while using WebSocket.
-			socket.onerror = () => {};
+			const settleFailure = (): void => {
+				if (settled) return;
+				settled = true;
+				window.clearTimeout(waveTimeoutId);
+				closeAllProbeSockets();
+				resolve({ kind: 'failed' });
+			};
 
-			socket.onclose = (event: CloseEvent) => {
-				const closeCode = event.code;
-				const wasThisSocket = this.ws === socket;
-				if (wasThisSocket) {
-					this.ws = null;
-				}
-
-				if (!settled) {
-					finish(false, new Error('WebSocket closed before open'));
-					if (this.drawingSessions.length > 0) {
-						if (!this.hasEverOpenedSuccessfully) {
-							this.initialConnectAttemptNumber += 1;
-							const attempt = this.initialConnectAttemptNumber;
-							const max = MAX_INITIAL_CONNECT_ATTEMPTS;
-							const isLast = attempt >= max;
-							logBooxCompanionNotFound(isLast, attempt, max, closeCode);
-							if (isLast) return;
-						} else {
-							this.afterDisconnectConnectAttemptNumber += 1;
-							const attempt = this.afterDisconnectConnectAttemptNumber;
-							const max = MAX_AFTER_DISCONNECT_CONNECT_ATTEMPTS;
-							const isLast = attempt >= max;
-							logBooxCompanionNotFound(isLast, attempt, max, closeCode);
-							if (isLast) return;
+			const settleSuccess = (socket: WebSocket, url: string): void => {
+				if (settled) return;
+				settled = true;
+				hasWinner = true;
+				window.clearTimeout(waveTimeoutId);
+				intentionalProbeClose = true;
+				for (const s of sockets) {
+					if (s !== socket) {
+						try {
+							s.close();
+						} catch {
+							// ignore
 						}
-						this.scheduleReconnect();
 					}
-					return;
 				}
+				intentionalProbeClose = false;
+				resolve({ kind: 'success', socket, url });
+			};
 
-				if (this.disposed) return;
-				if (this.intentionalClose) return;
+			const waveTimeoutId = window.setTimeout(() => {
+				settleFailure();
+			}, WAVE_HANDSHAKE_TIMEOUT_MS);
 
-				if (wasThisSocket && this.drawingSessions.length > 0) {
-					this.reconnectAttempt = 0;
-					this.afterDisconnectConnectAttemptNumber = 0;
-					this.scheduleReconnect();
+			const onProbeSocketClosed = (): void => {
+				if (settled || hasWinner) return;
+				closedWithoutWinner += 1;
+				if (closedWithoutWinner >= urls.length) {
+					settleFailure();
 				}
 			};
+
+			for (const url of urls) {
+				const socket = new WebSocket(url);
+				sockets.push(socket);
+
+				socket.onopen = () => {
+					if (settled || hasWinner || this.disposed) {
+						intentionalProbeClose = true;
+						try {
+							socket.close();
+						} catch {
+							// ignore
+						}
+						intentionalProbeClose = false;
+						return;
+					}
+					if (this.drawingSessions.length === 0) {
+						intentionalProbeClose = true;
+						try {
+							socket.close();
+						} catch {
+							// ignore
+						}
+						intentionalProbeClose = false;
+						return;
+					}
+					try {
+						socket.send(
+							JSON.stringify({
+								action: 'ink-bridge-ping',
+								data: {
+									protocolVersion: INK_BRIDGE_PROTOCOL_VERSION,
+								},
+							}),
+						);
+					} catch {
+						// onclose will count toward wave failure
+					}
+				};
+
+				socket.onmessage = (event: MessageEvent) => {
+					if (settled || hasWinner) return;
+					let parsed: unknown;
+					try {
+						parsed = JSON.parse(String(event.data));
+					} catch {
+						return;
+					}
+					if (typeof parsed !== 'object' || parsed === null) return;
+					const action = (parsed as { action?: string }).action;
+					const data = (parsed as { data?: unknown }).data;
+					if (action !== 'ink-bridge-pong' || !isValidInkBridgePongData(data)) {
+						return;
+					}
+					if (this.disposed || this.drawingSessions.length === 0) {
+						intentionalProbeClose = true;
+						try {
+							socket.close();
+						} catch {
+							// ignore
+						}
+						intentionalProbeClose = false;
+						if (!settled) {
+							settled = true;
+							window.clearTimeout(waveTimeoutId);
+							closeAllProbeSockets();
+							resolve({ kind: 'failed' });
+						}
+						return;
+					}
+					settleSuccess(socket, url);
+				};
+
+				socket.onerror = () => {};
+
+				socket.onclose = () => {
+					if (intentionalProbeClose) return;
+					onProbeSocketClosed();
+				};
+			}
 		});
 	}
 

@@ -15,6 +15,7 @@ export interface PluginSettings {
     notelessAttachmentFolderLocation: 'obsidian' | 'root',
 	writingSubfolder: string,
 	drawingSubfolder: string,
+	booxConnectionEnabled: boolean,
 	// Writing specific
 	writingEnabled: boolean,
 	writingStrokeLimit: number,
@@ -27,10 +28,6 @@ export interface PluginSettings {
 	drawingEnabled: boolean,
 	drawingFrameWhenLocked: boolean,
 	drawingBackgroundWhenLocked: boolean,
-	/** Boox companion app: connect over WebSocket when editing a drawing */
-	booxConnectionEnabled: boolean,
-	/** Full WebSocket URL — must match eInk Bridge bind (local: ws://127.0.0.1:8080/ws; LAN: tablet IP with Bridge “network-wide”) */
-	booxConnectionWebSocketUrl: string,
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -47,6 +44,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	notelessAttachmentFolderLocation: 'obsidian',
 	writingSubfolder: 'Ink/Writing',
 	drawingSubfolder: 'Ink/Drawing',
+	booxConnectionEnabled: false,
 	// Writing specific
 	writingEnabled: true,
 	writingStrokeLimit: 200,
@@ -59,6 +57,4 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	drawingEnabled: true,
 	drawingFrameWhenLocked: false,
 	drawingBackgroundWhenLocked: false,
-	booxConnectionEnabled: true,
-	booxConnectionWebSocketUrl: 'ws://127.0.0.1:8080/ws',
 }

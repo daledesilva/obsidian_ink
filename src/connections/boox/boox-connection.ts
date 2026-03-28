@@ -3,6 +3,9 @@ import { verbose } from 'src/logic/utils/log-to-console';
 
 const INK_LOG_PREFIX = '[Ink]';
 
+/** Loopback URL for eInk Bridge on the same device as Obsidian (port and path must match Bridge). */
+export const BOOX_BRIDGE_WEBSOCKET_URL = 'ws://127.0.0.1:8080/ws';
+
 /** One neutral line per failed connect attempt (companion not reachable). */
 const MSG_BOOX_COMPANION_NOT_FOUND =
 	"Attempted Boox Companion app connection but didn't find one.";
@@ -25,12 +28,12 @@ function logBooxCompanionNotFound(
 		if (closeCode === WS_CLOSE_ABNORMAL) {
 			console.log(
 				INK_LOG_PREFIX,
-				'WebSocket closed before opening (1006): usually nothing accepted the connection — start eInk Bridge so its service is running, then check Android logcat for "Ktor WebSocket" / "WebSocket" bind lines. If you use local-only bind, the URL must be ws://127.0.0.1:8080/ws; on some setups use Bridge network-wide mode and the tablet IP URL from logcat instead.',
+				'WebSocket closed before opening (1006): nothing accepted the connection — start eInk Bridge so its foreground service is running, then check Android logcat for "Ktor WebSocket" / "WebSocket" lines. The plugin uses ws://127.0.0.1:8080/ws on this device only.',
 			);
 		} else if (Platform.isMobileApp || Platform.isMobile) {
 			console.log(
 				INK_LOG_PREFIX,
-				'Boox tip: Keep eInk Bridge running (foreground service). If it still fails, turn on network-wide access in Bridge and use the ws:// URL it shows for this tablet.',
+				'Boox tip: Keep eInk Bridge running (foreground service). Obsidian Ink connects only on this tablet at ws://127.0.0.1:8080/ws.',
 			);
 		}
 	}
@@ -46,16 +49,6 @@ const MAX_AFTER_DISCONNECT_CONNECT_ATTEMPTS = 5;
 
 export interface BooxConnectionSettings {
 	booxConnectionEnabled: boolean;
-	booxConnectionWebSocketUrl: string;
-}
-
-export function isValidBooxWebSocketUrl(url: string): boolean {
-	try {
-		const parsed = new URL(url);
-		return parsed.protocol === 'ws:' || parsed.protocol === 'wss:';
-	} catch {
-		return false;
-	}
 }
 
 type DrawingSessionEntry = {
@@ -139,8 +132,8 @@ export class BooxConnection {
 	private scheduleReconnect(): void {
 		if (this.disposed) return;
 		if (this.drawingSessions.length === 0) return;
-		const { booxConnectionEnabled, booxConnectionWebSocketUrl } = this.getSettings();
-		if (!booxConnectionEnabled || !isValidBooxWebSocketUrl(booxConnectionWebSocketUrl)) {
+		const { booxConnectionEnabled } = this.getSettings();
+		if (!booxConnectionEnabled) {
 			return;
 		}
 
@@ -162,25 +155,17 @@ export class BooxConnection {
 	}
 
 	async ensureConnected(): Promise<void> {
-		const { booxConnectionEnabled, booxConnectionWebSocketUrl } = this.getSettings();
+		const { booxConnectionEnabled } = this.getSettings();
 		if (this.disposed) {
 			throw new Error('BooxConnection disposed');
 		}
 		if (!booxConnectionEnabled) {
 			throw new Error('Boox companion app disabled');
 		}
-		if (!isValidBooxWebSocketUrl(booxConnectionWebSocketUrl)) {
-			console.log(
-				INK_LOG_PREFIX,
-				'Boox connection is enabled but the URL must use ws:// or wss://.',
-			);
-			throw new Error('Invalid WebSocket URL');
-		}
 
-		if (
-			this.ws?.readyState === WebSocket.OPEN &&
-			this.currentUrl === booxConnectionWebSocketUrl
-		) {
+		const url = BOOX_BRIDGE_WEBSOCKET_URL;
+
+		if (this.ws?.readyState === WebSocket.OPEN && this.currentUrl === url) {
 			return;
 		}
 
@@ -188,7 +173,7 @@ export class BooxConnection {
 			return this.inFlightConnect;
 		}
 
-		if (this.ws && this.currentUrl !== booxConnectionWebSocketUrl) {
+		if (this.ws && this.currentUrl !== url) {
 			this.intentionalClose = true;
 			this.teardownWebSocket();
 			this.intentionalClose = false;
@@ -196,7 +181,7 @@ export class BooxConnection {
 
 		if (this.ws?.readyState === WebSocket.OPEN) return;
 
-		this.inFlightConnect = this.connectOnce(booxConnectionWebSocketUrl).finally(() => {
+		this.inFlightConnect = this.connectOnce(url).finally(() => {
 			this.inFlightConnect = null;
 		});
 

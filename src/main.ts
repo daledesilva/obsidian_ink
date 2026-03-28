@@ -60,7 +60,6 @@ export default class InkPlugin extends Plugin {
 
 		this.booxConnection = new BooxConnection(() => ({
 			booxConnectionEnabled: this.settings.booxConnectionEnabled,
-			booxConnectionWebSocketUrl: this.settings.booxConnectionWebSocketUrl,
 		}));
 
 		setGlobals({
@@ -167,14 +166,6 @@ export default class InkPlugin extends Plugin {
 					: typeof loaded.einkBridgeEnabled === 'boolean'
 						? loaded.einkBridgeEnabled
 						: DEFAULT_SETTINGS.booxConnectionEnabled,
-			booxConnectionWebSocketUrl:
-				typeof loaded.booxConnectionWebSocketUrl === 'string' &&
-				loaded.booxConnectionWebSocketUrl.trim() !== ''
-					? loaded.booxConnectionWebSocketUrl.trim()
-					: typeof loaded.einkBridgeWebSocketUrl === 'string' &&
-						  loaded.einkBridgeWebSocketUrl.trim() !== ''
-						? loaded.einkBridgeWebSocketUrl.trim()
-						: DEFAULT_SETTINGS.booxConnectionWebSocketUrl,
 		} as PluginSettings;
 	}
 

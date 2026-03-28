@@ -383,6 +383,42 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Enable Boox companion app')
+		.setDesc('When editing a drawing, connect to the Boox companion app on your tablet over WebSocket. Turn off if you do not use the companion app.')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.booxConnectionEnabled);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.booxConnectionEnabled = value;
+				await plugin.saveSettings();
+				plugin.booxConnection.onSettingsChanged();
+			});
+		});
+
+	const bridgeUrlSetting = new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Boox companion app WebSocket URL')
+		.setDesc('Full URL including path (e.g. ws://192.168.x.x:8080/ws from a laptop on the same LAN, or ws://127.0.0.1:8080/ws when Obsidian runs on the tablet). Must match the companion app’s network mode.')
+		.addText((textItem) => {
+			textItem.setValue(plugin.settings.booxConnectionWebSocketUrl);
+			textItem.setPlaceholder(DEFAULT_SETTINGS.booxConnectionWebSocketUrl);
+			const saveUrl = async () => {
+				const value =
+					textItem.getValue().trim() || DEFAULT_SETTINGS.booxConnectionWebSocketUrl;
+				plugin.settings.booxConnectionWebSocketUrl = value;
+				await plugin.saveSettings();
+				plugin.booxConnection.onSettingsChanged();
+			};
+			textItem.inputEl.addEventListener('blur', () => {
+				void saveUrl();
+			});
+			textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
+				if (ev.key === 'Enter') void saveUrl();
+			});
+		});
+	bridgeUrlSetting.settingEl.classList.add('ddc_ink_input-medium');
+
 	return wrapperEl;
 }
 

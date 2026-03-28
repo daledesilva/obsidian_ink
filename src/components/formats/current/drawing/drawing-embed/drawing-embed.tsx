@@ -213,7 +213,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	                <TldrawDrawingEditorWrapper
 						embedId = {props.embedId}
 						workspaceLeafId = {props.workspaceLeafId}
-						plugin = {getGlobals().plugin}
 						onReady = {() => {}}
 						drawingFile = {props.embeddedFile}
 						save = {props.saveSrcFile}

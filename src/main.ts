@@ -32,12 +32,16 @@ import { RemoveEmbedModal } from './components/dom-components/modals/remove-embe
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
 import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+import { BooxConnection } from 'src/connections/boox/boox-connection';
 
 ////////
 ////////
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
+
+	/** Boox companion app WebSocket: open only while a drawing editor is active (unlocked). */
+	booxConnection: BooxConnection;
 
 	// Exposed for e2e testing
 	readonly FileConversionModal = FileConversionModal;
@@ -53,6 +57,11 @@ export default class InkPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		this.booxConnection = new BooxConnection(() => ({
+			booxConnectionEnabled: this.settings.booxConnectionEnabled,
+			booxConnectionWebSocketUrl: this.settings.booxConnectionWebSocketUrl,
+		}));
 
 		setGlobals({
 			plugin: this,
@@ -143,10 +152,30 @@ export default class InkPlugin extends Plugin {
 
 	}
 
-	onunload() { }
+	onunload() {
+		this.booxConnection?.dispose();
+	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loaded = (await this.loadData()) as Record<string, unknown>;
+		this.settings = {
+			...DEFAULT_SETTINGS,
+			...loaded,
+			booxConnectionEnabled:
+				typeof loaded.booxConnectionEnabled === 'boolean'
+					? loaded.booxConnectionEnabled
+					: typeof loaded.einkBridgeEnabled === 'boolean'
+						? loaded.einkBridgeEnabled
+						: DEFAULT_SETTINGS.booxConnectionEnabled,
+			booxConnectionWebSocketUrl:
+				typeof loaded.booxConnectionWebSocketUrl === 'string' &&
+				loaded.booxConnectionWebSocketUrl.trim() !== ''
+					? loaded.booxConnectionWebSocketUrl.trim()
+					: typeof loaded.einkBridgeWebSocketUrl === 'string' &&
+						  loaded.einkBridgeWebSocketUrl.trim() !== ''
+						? loaded.einkBridgeWebSocketUrl.trim()
+						: DEFAULT_SETTINGS.booxConnectionWebSocketUrl,
+		} as PluginSettings;
 	}
 
 	async saveSettings() {

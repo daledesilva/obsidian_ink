@@ -5,7 +5,6 @@ import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getAc
 import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
 import * as React from "react";
 import { Notice, TFile } from 'obsidian';
-import InkPlugin from 'src/main';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
@@ -17,7 +16,7 @@ import { useAtomValue } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { debug, verbose, warn } from 'src/logic/utils/log-to-console';
-import { connectWebSocket, sendUpdateDrawingArea, sendCloseDrawingArea, sendNewDrawingArea } from 'src/connections/local-websocket/local-websocket';
+import { getGlobals } from 'src/stores/global-store';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
@@ -29,6 +28,17 @@ import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/lo
 import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
+/** Boox stroke payload in canvas-relative coordinates */
+interface CanvasRelativeStrokePoint {
+	pressure: number;
+	size: number;
+	tiltX: number;
+	tiltY: number;
+	timestamp: number;
+	x: number;
+	y: number;
+}
+
 ///////
 ///////
 
@@ -38,7 +48,6 @@ interface TldrawDrawingEditor_Props {
 	workspaceLeafId: string,
 	embedId?: string,
 	drawingFile: TFile,
-	plugin?: InkPlugin,
 	save: (pageData: InkFileData) => void,
 	extendedMenu?: any[]
 
@@ -97,27 +106,31 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 	}, [])
 
-	// Connect WebSocket only after snapshot (and thus editor wrapper div) exists
+	// Boox companion app: one WebSocket per plugin session; register only while this drawing is active.
 	React.useEffect(() => {
 		if (!tlEditorSnapshot) return;
-		connectWebSocket({
-			onConnected: () => {
+		const inkPlugin = getGlobals().plugin;
+		if (!inkPlugin.settings.booxConnectionEnabled) return;
+
+		const unregister = inkPlugin.booxConnection.registerDrawingSession({
+			onStroke: (strokePoints: unknown) => {
+				createStrokeFromBoox(strokePoints as CanvasRelativeStrokePoint[]);
+			},
+			onSocketOpen: () => {
 				websocketConnectedRef.current = true;
 				if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
-				debug('Connected to WebSocket');
-				new Notice('Connected to Boox WebSocket');
+				debug('Connected to Boox companion app WebSocket');
+				new Notice('Connected to Boox companion app');
 				newAndroidDrawingArea();
 			},
-			onError: () => {
-				new Notice('Failed to connect to Boox WebSocket');
-			},
-			onStrokePoints: createStrokeFromBoox
 		});
+
 		return () => {
 			websocketConnectedRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-			closeDrawingAreaThroughWebSocket();
+			inkPlugin.booxConnection.sendCloseDrawingArea();
+			unregister();
 		};
 	}, [tlEditorSnapshot])
 
@@ -192,8 +205,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 
 		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change (per leaf)
-		if (props.embedded && props.embedId && props.plugin && leafId && editorWrapperRefEl.current) {
-			const obsidianDepth = getObsidianUndoDepthForLeaf(props.plugin, leafId);
+		if (props.embedded && props.embedId && leafId && editorWrapperRefEl.current) {
+			const obsidianDepth = getObsidianUndoDepthForLeaf(getGlobals().plugin, leafId);
 			const tldrawUndos = getTldrawNumUndos(editor);
 			if (getRegisteredEmbedCountForLeaf(leafId) > 0) {
 				initialize(leafId, obsidianDepth, tldrawUndos, undefined, { mergeWithExisting: true, embedId: props.embedId });
@@ -479,7 +492,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
 					workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
-					plugin = {props.embedded && props.plugin ? props.plugin : undefined}
+					plugin = {props.embedded ? getGlobals().plugin : undefined}
 				/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
@@ -525,6 +538,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function newAndroidDrawingArea() {
 		if(!editorWrapperRefEl.current) return;
 
+		const inkPlugin = getGlobals().plugin;
+		if (!inkPlugin.settings.booxConnectionEnabled) return;
+
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
 
@@ -537,14 +553,14 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
-		sendNewDrawingArea({
+		inkPlugin.booxConnection.sendNewDrawingArea({
 			x: canvasX,
 			y: canvasY,
 			canvasWidth: canvasWidth,
 			canvasHeight: canvasHeight,
 			appWidth: windowWidth,
 			appHeight: windowHeight,
-		})
+		});
 	}
 
 	function adjustAndroidDrawingArea() {
@@ -559,6 +575,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function sendAdjustment() {
 		if(!editorWrapperRefEl.current) return;
 
+		const inkPlugin = getGlobals().plugin;
+		if (!inkPlugin.settings.booxConnectionEnabled) return;
+
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
 
@@ -570,7 +589,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
-		sendUpdateDrawingArea({
+		inkPlugin.booxConnection.sendUpdateDrawingArea({
 			x: canvasX,
 			y: canvasY,
 			canvasWidth,
@@ -580,11 +599,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		});
 	}
 
-	function closeDrawingAreaThroughWebSocket() {
-		removeCanvasDebugOverlays();
-		sendCloseDrawingArea();
-	}
-
 	function removeCanvasDebugOverlays() {
 		document.getElementById('debug-drawing-area-overlay')?.remove();
 		editorWrapperRefEl.current?.querySelectorAll('.debug-stroke-dot').forEach(el => el.remove());
@@ -592,7 +606,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function drawCanvasDebugOverlays(options: {
 		rect?: { x: number; y: number; width: number; height: number },
-		strokePoints?: canvasRelativeStrokePoint[],
+		strokePoints?: CanvasRelativeStrokePoint[],
 	}) {
 		// Drawing area rect overlay
 		if (options.rect) {
@@ -636,16 +650,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	/**
 	 * Converts Boox formatted stroke points to a common format
 	 */
-	interface canvasRelativeStrokePoint {
-		pressure: number,
-		size: number,
-		tiltX: number,
-		tiltY: number,
-		timestamp: number,
-		x: number,
-		y: number
-	}
-	function createStrokeFromBoox(canvasRelativeStrokePoints: canvasRelativeStrokePoint[]) {
+	function createStrokeFromBoox(canvasRelativeStrokePoints: CanvasRelativeStrokePoint[]) {
 		if(!editorWrapperRefEl.current) return;
 		if(!tlEditorRef.current) return;
 
@@ -655,7 +660,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// convert from embed coordinates to tldraw camera coordinates
 		const xScaleCoeff = tlBounds.w / embedBounds.width;
 		const yScaleCoeff = tlBounds.h / embedBounds.height;
-		const tldrawStrokePoints = canvasRelativeStrokePoints.map( (canvasStrokePoint: canvasRelativeStrokePoint) => ({
+		const tldrawStrokePoints = canvasRelativeStrokePoints.map( (canvasStrokePoint: CanvasRelativeStrokePoint) => ({
 			x: tlBounds.x + canvasStrokePoint.x * xScaleCoeff,
 			y: tlBounds.y + canvasStrokePoint.y * yScaleCoeff,
 			z: canvasStrokePoint.pressure,

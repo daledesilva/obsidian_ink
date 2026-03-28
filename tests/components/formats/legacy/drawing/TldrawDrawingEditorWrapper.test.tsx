@@ -18,7 +18,6 @@ describe('TldrawDrawingEditorWrapper (legacy)', () => {
           embedId="test-embed"
           drawingFile={makeTFile()}
           save={(_pageData: any) => {}}
-          plugin={{} as any}
         />
       </JotaiProvider>
     );

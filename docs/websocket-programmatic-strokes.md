@@ -1,6 +1,6 @@
 # Programmatic Pen Strokes via WebSocket
 
-This document describes how pen strokes are created programmatically when drawing input comes from an external device (e.g. Boox) over a WebSocket, rather than from direct pointer events on the tldraw canvas. For the WebSocket protocol (message shapes, endpoint, client/server messages), see **eink-bridge** documentation (`eink-bridge/docs/`).
+This document describes how pen strokes are created programmatically when drawing input comes from an external device (e.g. Boox) over a WebSocket, rather than from direct pointer events on the tldraw canvas. For the WebSocket protocol (message shapes, endpoint, client/server messages), see the **Boox companion app** documentation in the Android companion package (`eink-bridge/docs/` in this repo).
 
 ## Overview
 
@@ -25,10 +25,10 @@ sequenceDiagram
 ```
 
 1. **WebSocket message**  
-   The connection is set up in `src/connections/local-websocket/local-websocket.ts`. On each message, `message.data` is passed to the `onStrokePoints` callback registered by the drawing editor.
+   The connection is managed by `BooxConnection` in `src/connections/boox/boox-connection.ts` (WebSocket is open only while a drawing is being edited / unlocked; URL and enable flag in plugin settings). Incoming `new-stroke` messages are routed to the active drawing editor’s stroke handler.
 
 2. **Callback**  
-   The drawing editor passes `createStrokeFromBoox` as `onStrokePoints` when connecting (see `tldraw-drawing-editor.tsx`). So each WebSocket payload is a single stroke’s worth of points.
+   The drawing editor registers `createStrokeFromBoox` via `registerDrawingSession` (see `tldraw-drawing-editor.tsx`). So each WebSocket payload is a single stroke’s worth of points.
 
 3. **Coordinate conversion**  
    `createStrokeFromBoox` receives points in **canvas-relative** coordinates (relative to the embed/canvas element). It uses the editor’s viewport page bounds and the embed’s bounding rect to scale and translate into **tldraw page coordinates**, so strokes appear in the correct place on the canvas.
@@ -57,8 +57,8 @@ Other fields (`size`, `tiltX`, `tiltY`, `timestamp`) are available in the interf
 
 ## Relevant Code
 
-- **WebSocket connection and message dispatch:** `src/connections/local-websocket/local-websocket.ts`  
-  `connectWebSocket({ onStrokePoints })` and `ws.onmessage` → `props.onStrokePoints(message.data)`.
+- **WebSocket connection and message dispatch:** `src/connections/boox/boox-connection.ts`  
+  `InkPlugin.booxConnection` — `registerDrawingSession`, `ensureConnected`, and inbound JSON handling for `new-stroke`.
 
 - **Stroke handling and coordinate conversion:** `src/components/formats/current/drawing/tldraw-drawing-editor/tldraw-drawing-editor.tsx`  
   `createStrokeFromBoox`, `createTldrawStroke`, and the `bypassReadonly` wrapper.

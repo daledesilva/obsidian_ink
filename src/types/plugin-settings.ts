@@ -27,6 +27,10 @@ export interface PluginSettings {
 	drawingEnabled: boolean,
 	drawingFrameWhenLocked: boolean,
 	drawingBackgroundWhenLocked: boolean,
+	/** Boox companion app: connect over WebSocket when editing a drawing */
+	booxConnectionEnabled: boolean,
+	/** Full WebSocket URL — must match eInk Bridge bind (local: ws://127.0.0.1:8080/ws; LAN: tablet IP with Bridge “network-wide”) */
+	booxConnectionWebSocketUrl: string,
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -55,4 +59,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	drawingEnabled: true,
 	drawingFrameWhenLocked: false,
 	drawingBackgroundWhenLocked: false,
+	booxConnectionEnabled: true,
+	booxConnectionWebSocketUrl: 'ws://127.0.0.1:8080/ws',
 }

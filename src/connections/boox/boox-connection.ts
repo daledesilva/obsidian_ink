@@ -556,6 +556,16 @@ export class BooxConnection {
 		);
 	}
 
+	sendUpdateTool(tool: 'draw' | 'eraser'): void {
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		this.ws.send(
+			JSON.stringify({
+				action: 'update-tool',
+				data: { tool },
+			}),
+		);
+	}
+
 	private teardownWebSocket(): void {
 		if (this.ws) {
 			try {

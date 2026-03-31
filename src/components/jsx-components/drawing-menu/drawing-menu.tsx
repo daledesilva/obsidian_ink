@@ -14,6 +14,7 @@ import {
 	popEmbedUndoAndPushToRedo,
 	popEmbedRedoAndPushToUndo,
 } from "src/logic/undo-redo/unified-undo-stack";
+import { getGlobals } from "src/stores/global-store";
 
 //////////
 //////////
@@ -83,19 +84,21 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		if (!editor) return;
 		editor.setCurrentTool('select');
 		setCurTool(tool.select);
-
+		getGlobals().plugin.booxConnection.sendUpdateTool('draw');
 	}
 	function activateDrawTool() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
 		editor.setCurrentTool('draw');
 		setCurTool(tool.draw);
+		getGlobals().plugin.booxConnection.sendUpdateTool('draw');
 	}
 	function activateEraseTool() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
+		getGlobals().plugin.booxConnection.sendUpdateTool('eraser');
 	}
 
     ///////////

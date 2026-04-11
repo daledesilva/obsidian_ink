@@ -7,6 +7,7 @@
 
 import { Notice } from 'obsidian';
 import type InkPlugin from 'src/main';
+import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getActiveEmbedIdForLeaf, getEditor, getResizeApplier } from 'src/logic/undo-redo/ink-editor-registry';
 import { getDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { WRITING_VIEW_TYPE } from 'src/components/formats/current/writing/writing-view/writing-view';
@@ -114,6 +115,7 @@ export function executeUnifiedUndo(plugin: InkPlugin, leafId: string, activeEmbe
 	notifyUndoExecuted(leafId, entry);
 	executeUndo(plugin, leafId, entry, activeEmbedId);
 	pushRedo(leafId, entry);
+	logToVault('Unified undo executed. Entry: ' + entry.type);
 	verbose(`[undo-redo] Undo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot(leafId))}`);
 }
 
@@ -132,6 +134,7 @@ export function executeUnifiedRedo(plugin: InkPlugin, leafId: string, activeEmbe
 		setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
 	}
 	pushUndo(leafId, entry);
+	logToVault('Unified redo executed. Entry: ' + entry.type);
 	verbose(`[undo-redo] Redo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot(leafId))}`);
 }
 

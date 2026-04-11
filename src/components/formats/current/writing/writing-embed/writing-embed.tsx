@@ -8,6 +8,7 @@ import { FileConversionModal } from "src/components/dom-components/modals/file-c
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
+import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
@@ -279,10 +280,12 @@ export function WritingEmbed (props: {
 	function switchToEditMode() {
 		if (!props.embedId) return;
 		verbose(['Add writing embed to edit mode', props.embedId]);
+		logToVault('Writing embed → edit: ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
 		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
 
 	function ignoreChangesAndSwitchToPreviewMode() {
+		logToVault('Writing embed → preview (discarded): ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
 		if (props.embedId) {
 			setEmbedsInEditMode((prev: Set<string>) => {
 				const next = new Set(prev);
@@ -294,6 +297,7 @@ export function WritingEmbed (props: {
 
 	async function saveAndSwitchToPreviewMode() {
 		verbose(['Remove writing embed from edit mode', props.embedId]);
+		logToVault('Writing embed → preview (saved): ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();

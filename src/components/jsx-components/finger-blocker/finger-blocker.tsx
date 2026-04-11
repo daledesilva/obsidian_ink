@@ -471,11 +471,8 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}}
 			// Fallback that's useful only if hover is supported
 			// Fires on pointer hover and also pointer up (Because the blocker reappears)
-			onPointerEnter={(e) => {
-				console.log('pointer enter!!!!');
-				closeKeyboard();
-			}}
-			
+			onPointerEnter={(e) => {			closeKeyboard();
+		}}
 			// Fallback that's useful only if hover is supported
 			// Fires on pointer leave and also pointer down (Because the blocker dissappears)
 			// onPointerLeave={() => {

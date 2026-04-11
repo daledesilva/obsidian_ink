@@ -516,7 +516,7 @@ function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Enable debug logging')
-		.setDesc('When enabled, debug information is written to ink-debug.md in your vault root. Intended for troubleshooting only — only enable to create logs for reporting a bug.')
+		.setDesc('When enabled, debug information is written to an ink-debug.md file in your vault root. This includes writing and drawing activity, so do not enable this unless you are actively troubleshooting a bug to provide logs for a bug report. Disable it again once you\'re done.')
 		.addToggle((toggle) => {
 			toggle.setValue(plugin.settings.debugLoggingEnabled);
 			toggle.onChange(async (value: boolean) => {

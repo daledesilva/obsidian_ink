@@ -1,5 +1,6 @@
 import { TFile, Vault } from "obsidian";
 import { PLUGIN_VERSION, TLDRAW_VERSION, WRITE_EMBED_KEY, DRAW_EMBED_KEY } from "src/constants";
+import { logToVault } from "src/logic/utils/log-to-vault";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
@@ -206,6 +207,8 @@ export async function executeMigration(
 	const total = scanResult.legacyFiles.length + scanResult.affectedNotes.length;
 	let done = 0;
 
+	logToVault('Migration started. Files: ' + scanResult.legacyFiles.length + ', Notes: ' + scanResult.affectedNotes.length);
+
 	// Step 1: Convert each legacy file to SVG
 	for (const entry of scanResult.legacyFiles) {
 		try {
@@ -233,6 +236,7 @@ export async function executeMigration(
 			await vault.delete(entry.legacyFile);
 			result.convertedFiles++;
 		} catch (err: any) {
+			logToVault('Migration file error: ' + entry.legacyFile.path + ' – ' + (err?.message ?? String(err)));
 			result.failed.push(entry.legacyFile.path + ': ' + (err?.message ?? String(err)));
 		}
 
@@ -265,6 +269,8 @@ export async function executeMigration(
 		done++;
 		onProgress?.(done, total);
 	}
+
+	logToVault('Migration complete. Converted: ' + result.convertedFiles + ', Failed: ' + result.failed.length + ', Skipped: ' + result.skipped.length);
 
 	return result;
 }

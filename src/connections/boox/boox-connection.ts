@@ -46,6 +46,7 @@ function logBooxCompanionNotFound(
 		: `${MSG_BOOX_COMPANION_NOT_FOUND}${suffix}`;
 	console.log(INK_LOG_PREFIX, message);
 	if (isLastAttempt) {
+		logToVault('Boox companion not found after ' + attempt + '/' + maxAttempts + ' attempts');
 		if (closeCode === WS_CLOSE_ABNORMAL) {
 			console.log(
 				INK_LOG_PREFIX,
@@ -136,6 +137,7 @@ export class BooxConnection {
 	registerDrawingSession(entry: DrawingSessionEntry): () => void {
 		const hadNoSessions = this.drawingSessions.length === 0;
 		this.drawingSessions.push(entry);
+		logToVault('Boox drawing session registered. Active: ' + this.drawingSessions.length);
 		if (hadNoSessions) {
 			this.resetReconnectBudgetsForNewEditCycle();
 		}
@@ -145,6 +147,7 @@ export class BooxConnection {
 		return () => {
 			const index = this.drawingSessions.indexOf(entry);
 			if (index >= 0) this.drawingSessions.splice(index, 1);
+			logToVault('Boox drawing session unregistered. Active: ' + this.drawingSessions.length);
 			if (this.drawingSessions.length === 0) {
 				this.clearReconnectTimer();
 				this.reconnectAttempt = 0;
@@ -283,6 +286,7 @@ export class BooxConnection {
 					return;
 				}
 				verbose('BooxConnection: WebSocket open (handshake ok)');
+				logToVault('Boox WebSocket open (handshake ok): ' + waveResult.url);
 				this.hasEverOpenedSuccessfully = true;
 				this.afterDisconnectConnectAttemptNumber = 0;
 				this.attachProductionHandlers(waveResult.socket, waveResult.url);

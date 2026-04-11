@@ -34,6 +34,7 @@ import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-comma
 import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
+import { logToVault } from 'src/logic/utils/log-to-vault';
 
 ////////
 ////////
@@ -66,6 +67,8 @@ export default class InkPlugin extends Plugin {
 		setGlobals({
 			plugin: this,
 		})
+
+		logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${this.settings.booxConnectionEnabled}`);
 
 		addIcon('write_default', writeDefaultSvgStr);
 		addIcon('write_existing', writeExistingSvgStr);
@@ -153,6 +156,7 @@ export default class InkPlugin extends Plugin {
 	}
 
 	onunload() {
+		logToVault('Plugin unloaded');
 		this.booxConnection?.dispose();
 	}
 

@@ -19,6 +19,7 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { useAtomValue } from 'jotai';
 import { verbose } from 'src/logic/utils/log-to-console';
+import { logToVault } from 'src/logic/utils/log-to-vault';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
@@ -80,9 +81,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	// On mount
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
+		logToVault('Writing editor mounted: ' + props.writingFile.path + (props.embedded ? ' [embed]' : ' [dedicated]'));
 		fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
+			logToVault('Writing editor unmounted: ' + props.writingFile.path);
 		}
 	}, [])
 
@@ -123,9 +126,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
-		console.log('[ink] handleMount: curHeightRef.current before resize:', curHeightRef.current);
+		logToVault('Writing handleMount: curHeightRef=' + curHeightRef.current);
 		const mountHeight = resizeWritingTemplateInvitingly(editor);
-		console.log('[ink] handleMount: resizeWritingTemplateInvitingly returned:', mountHeight);
+		logToVault('Writing handleMount: mountHeight=' + mountHeight);
 		if (mountHeight !== null) {
 			curHeightRef.current = mountHeight;
 			resizeContainerIfEmbed(editor, mountHeight);	// Has an effect if the embed is new and started at 0
@@ -260,10 +263,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
-		console.log('[ink] instantInputPostProcess: curHeightRef.current before resize:', curHeightRef.current);
+		logToVault('Writing instantInputPostProcess: curHeightRef=' + curHeightRef.current);
 		const prevHeight = curHeightRef.current;
 		const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
-		console.log('[ink] instantInputPostProcess: resizeWritingTemplateInvitinglyIfNecessary returned:', newHeight);
+		logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
 		if (newHeight !== null) curHeightRef.current = newHeight;
 		if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
 		// entry && simplifyLines(editor, entry);
@@ -308,6 +311,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const incrementalSave = async (editor: Editor) => {
 		verbose('incrementalSave');
+		logToVault('incrementalSave (writing): ' + props.writingFile.path);
 		unstashStaleContent(editor);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getWritingSvg(editor, curHeightRef.current);
@@ -322,6 +326,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const completeSave = async (editor: Editor): Promise<void> => {
 		verbose('completeSave');
+		logToVault('completeSave (writing): ' + props.writingFile.path);
         let svgString;
 		
 		unstashStaleContent(editor);
@@ -459,7 +464,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
             if(svgSettings && svgSettings.tldraw) {
                 const snapshot = prepareWritingSnapshot(svgSettings.tldraw as TLEditorSnapshot);
                 setTlEditorSnapshot(snapshot);
+            } else {
+                logToVault('Writing file has no ink JSON: ' + props.writingFile.path);
             }
+        } else {
+            logToVault('Writing file unreadable: ' + props.writingFile.path);
         }
     }
 

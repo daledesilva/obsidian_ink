@@ -6,6 +6,7 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
+import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
@@ -64,8 +65,6 @@ interface DrawingEmbed_Props {
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
-
-	console.log('props.embedSettings', props.embedSettings);
 
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -128,8 +127,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			},
 		},
 	].filter(Boolean)
-
-	console.log('props.embeddedFile', props.embeddedFile);
 
 	////////////
 
@@ -323,11 +320,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function switchToEditMode() {
 		if (!props.embedId) return;
 		verbose(['Add embed to edit mode', props.embedId]);
+		logToVault('Drawing embed → edit: ' + (props.embeddedFile?.path ?? props.partialEmbedFilepath));
 		applyEmbedHeight();
 		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
 
 	function ignoreChangesAndSwitchToPreviewMode() {
+		logToVault('Drawing embed → preview (discarded): ' + (props.embeddedFile?.path ?? props.partialEmbedFilepath));
 		if (props.embedId) {
 			setEmbedsInEditMode((prev: Set<string>) => {
 				const next = new Set(prev);
@@ -339,6 +338,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
     async function saveAndSwitchToPreviewMode() {
 		verbose(['Remove embed from edit mode', props.embedId]);
+		logToVault('Drawing embed → preview (saved): ' + (props.embeddedFile?.path ?? props.partialEmbedFilepath));
 
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();

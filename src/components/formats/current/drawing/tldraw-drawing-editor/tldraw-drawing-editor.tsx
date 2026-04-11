@@ -16,6 +16,7 @@ import { useAtomValue } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { debug, verbose, warn } from 'src/logic/utils/log-to-console';
+import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getGlobals } from 'src/stores/global-store';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
@@ -101,9 +102,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	// On mount
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
+		logToVault('Drawing editor mounted: ' + props.drawingFile.path + (props.embedded ? ' [embed]' : ' [dedicated]'));
 		fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
+			logToVault('Drawing editor unmounted: ' + props.drawingFile.path);
 			removeCanvasDebugOverlays();
 		}
 	}, [])
@@ -325,8 +328,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			if(svgSettings) {
 				const snapshot = prepareDrawingSnapshot(svgSettings.tldraw);
 				setTlEditorSnapshot(snapshot);
+			} else {
+				logToVault('Drawing file has no ink JSON: ' + props.drawingFile.path);
 			}
-        }
+        } else {
+			logToVault('Drawing file unreadable: ' + props.drawingFile.path);
+		}
     }
 
 	const embedPostProcess = (editor: Editor) => {
@@ -383,6 +390,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const incrementalSave = async (editor: Editor) => {
 		verbose('incrementalSave');
+		logToVault('incrementalSave (drawing): ' + props.drawingFile.path);
 		const tlEditorSnapshot = getSnapshot(editor.store);
 		const svgObj = await getDrawingSvg(editor);
 		const drawingFileData = buildDrawingFileData({
@@ -394,6 +402,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const completeSave = async (editor: Editor): Promise<void> => {
 		verbose('completeSave');
+		logToVault('completeSave (drawing): ' + props.drawingFile.path);
 		let svgString;
 
 		const tlEditorSnapshot = getSnapshot(editor.store);

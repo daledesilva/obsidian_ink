@@ -14,7 +14,6 @@ import {
 	popEmbedUndoAndPushToRedo,
 	popEmbedRedoAndPushToUndo,
 } from "src/logic/undo-redo/unified-undo-stack";
-import { getGlobals } from "src/stores/global-store";
 
 //////////
 //////////
@@ -27,6 +26,7 @@ export enum tool {
 interface DrawingMenuProps {
 	getTlEditor: () => Editor | undefined,
 	onStoreChange: (elEditor: Editor) => void,
+	onActivateTool?: (tool: 'draw' | 'eraser' | 'select') => void,
 	/** When provided, local undo/redo sync with the unified stack. */
 	embedId?: string,
 	workspaceLeafId?: string,
@@ -84,21 +84,21 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 		if (!editor) return;
 		editor.setCurrentTool('select');
 		setCurTool(tool.select);
-		getGlobals().plugin.booxConnection.sendUpdateTool('draw');
+		props.onActivateTool?.('select');
 	}
 	function activateDrawTool() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
 		editor.setCurrentTool('draw');
 		setCurTool(tool.draw);
-		getGlobals().plugin.booxConnection.sendUpdateTool('draw');
+		props.onActivateTool?.('draw');
 	}
 	function activateEraseTool() {
 		const editor = props.getTlEditor();
 		if (!editor) return;
 		editor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
-		getGlobals().plugin.booxConnection.sendUpdateTool('eraser');
+		props.onActivateTool?.('eraser');
 	}
 
     ///////////

@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo, TLShapeId } from "@tldraw/tldraw";
+import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
@@ -80,8 +80,6 @@ const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
 }
 
-const ERASER_HIT_MARGIN = 10; // tldraw page units; tune based on testing
-
 export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
@@ -119,15 +117,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		const unregister = inkPlugin.booxConnection.registerDrawingSession({
 			onStroke: (strokePoints: unknown) => {
-				const payload = strokePoints as { tool?: string; points?: CanvasRelativeStrokePoint[] };
-				const strokeTool = payload.tool ?? 'draw';
+				const payload = strokePoints as { points?: CanvasRelativeStrokePoint[] };
 				const points = payload.points ?? (strokePoints as CanvasRelativeStrokePoint[]);
-
-				if (strokeTool === 'eraser') {
-					eraseFromBoox(points);
-				} else {
-					createStrokeFromBoox(points);
-				}
+				createStrokeFromBoox(points);
 			},
 			onSocketOpen: () => {
 				websocketConnectedRef.current = true;
@@ -506,13 +498,26 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			/>
 			
 			<PrimaryMenuBar>
-				<DrawingMenu
-					getTlEditor = {getTlEditor}
-					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
-					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
-					workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
-					plugin = {props.embedded ? getGlobals().plugin : undefined}
-				/>
+			<DrawingMenu
+				getTlEditor = {getTlEditor}
+				onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				onActivateTool = {(activatedTool) => {
+					const inkPlugin = getGlobals().plugin;
+					const isNonDrawTool = activatedTool === 'eraser' || activatedTool === 'select';
+					if (isNonDrawTool && websocketConnectedRef.current) {
+						websocketConnectedRef.current = false;
+						if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
+						inkPlugin.booxConnection.sendCloseDrawingArea();
+					} else if (activatedTool === 'draw' && !websocketConnectedRef.current && inkPlugin.booxConnection.isConnected()) {
+						websocketConnectedRef.current = true;
+						if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
+						newAndroidDrawingArea();
+					}
+				}}
+				embedId = {props.embedded && props.embedId ? props.embedId : undefined}
+				workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
+				plugin = {props.embedded ? getGlobals().plugin : undefined}
+			/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
 						onLockClick = { async () => {
@@ -665,45 +670,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 	}
 
-
-	function eraseFromBoox(canvasRelativeStrokePoints: CanvasRelativeStrokePoint[]) {
-		if (!editorWrapperRefEl.current) return;
-		if (!tlEditorRef.current) return;
-		if (canvasRelativeStrokePoints.length < 2) return;
-
-		const tlBounds = tlEditorRef.current.getViewportPageBounds();
-		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
-
-		const xScaleCoeff = tlBounds.w / embedBounds.width;
-		const yScaleCoeff = tlBounds.h / embedBounds.height;
-
-		const tldrawPoints = canvasRelativeStrokePoints.map((p) => ({
-			x: tlBounds.x + p.x * xScaleCoeff,
-			y: tlBounds.y + p.y * yScaleCoeff,
-		}));
-
-		const shapes = tlEditorRef.current.getCurrentPageShapes();
-		const shapeIdsToDelete = new Set<TLShapeId>();
-
-		for (const shape of shapes) {
-			if (shapeIdsToDelete.has(shape.id)) continue;
-			const geometry = tlEditorRef.current.getShapeGeometry(shape);
-			for (let i = 0; i < tldrawPoints.length - 1; i++) {
-				const localA = tlEditorRef.current.getPointInShapeSpace(shape, tldrawPoints[i]);
-				const localB = tlEditorRef.current.getPointInShapeSpace(shape, tldrawPoints[i + 1]);
-				if (geometry.hitTestLineSegment(localA, localB, ERASER_HIT_MARGIN)) {
-					shapeIdsToDelete.add(shape.id);
-					break;
-				}
-			}
-		}
-
-		if (shapeIdsToDelete.size === 0) return;
-
-		bypassReadonly(tlEditorRef.current, () => {
-			tlEditorRef.current!.deleteShapes([...shapeIdsToDelete]);
-		});
-	}
 
 	/**
 	 * Converts Boox formatted stroke points to a common format

@@ -563,6 +563,10 @@ export class BooxConnection {
 		);
 	}
 
+	isConnected(): boolean {
+		return this.ws?.readyState === WebSocket.OPEN;
+	}
+
 	sendUpdateTool(tool: 'draw' | 'eraser'): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 		this.ws.send(

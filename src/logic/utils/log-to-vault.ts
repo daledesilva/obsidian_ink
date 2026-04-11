@@ -24,7 +24,7 @@ function getTimestamp(): string {
  * Does nothing if vault logging is disabled in plugin settings.
  */
 export function logToVault(message: string): void {
-	if (!getGlobals().plugin.settings.vaultLoggingEnabled) return;
+	if (!getGlobals().plugin.settings.debugLoggingEnabled) return;
 	const filename = `ink-debug_${getTodayDateString()}.md`;
 	const line = `[${getTimestamp()}] ${message}\n`;
 	getGlobals().plugin.app.vault.adapter.append(filename, line);

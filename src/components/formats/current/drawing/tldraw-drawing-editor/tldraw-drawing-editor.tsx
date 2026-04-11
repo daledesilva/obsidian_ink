@@ -79,6 +79,8 @@ const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness
 }
 
+const ERASER_HIT_MARGIN = 10; // tldraw page units; tune based on testing
+
 export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
@@ -655,11 +657,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 
-	const ERASER_HIT_MARGIN = 10; // tldraw page units; tune based on testing
-
 	function eraseFromBoox(canvasRelativeStrokePoints: CanvasRelativeStrokePoint[]) {
 		if (!editorWrapperRefEl.current) return;
 		if (!tlEditorRef.current) return;
+		if (canvasRelativeStrokePoints.length < 2) return;
 
 		const tlBounds = tlEditorRef.current.getViewportPageBounds();
 		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
@@ -672,11 +673,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			y: tlBounds.y + p.y * yScaleCoeff,
 		}));
 
+		const shapes = tlEditorRef.current.getCurrentPageShapes();
 		const shapeIdsToDelete = new Set<TLShapeId>();
-		for (const point of tldrawPoints) {
-			const shape = tlEditorRef.current.getShapeAtPoint(point, { hitInside: false, margin: ERASER_HIT_MARGIN });
-			if (shape) {
-				shapeIdsToDelete.add(shape.id);
+
+		for (const shape of shapes) {
+			if (shapeIdsToDelete.has(shape.id)) continue;
+			const geometry = tlEditorRef.current.getShapeGeometry(shape);
+			for (let i = 0; i < tldrawPoints.length - 1; i++) {
+				const localA = tlEditorRef.current.getPointInShapeSpace(shape, tldrawPoints[i]);
+				const localB = tlEditorRef.current.getPointInShapeSpace(shape, tldrawPoints[i + 1]);
+				if (geometry.hitTestLineSegment(localA, localB, ERASER_HIT_MARGIN)) {
+					shapeIdsToDelete.add(shape.id);
+					break;
+				}
 			}
 		}
 

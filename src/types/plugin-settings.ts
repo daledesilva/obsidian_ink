@@ -16,6 +16,7 @@ export interface PluginSettings {
 	writingSubfolder: string,
 	drawingSubfolder: string,
 	booxConnectionEnabled: boolean,
+	debugLoggingEnabled: boolean,
 	// Writing specific
 	writingEnabled: boolean,
 	writingStrokeLimit: number,
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	writingSubfolder: 'Ink/Writing',
 	drawingSubfolder: 'Ink/Drawing',
 	booxConnectionEnabled: false,
+	debugLoggingEnabled: false,
 	// Writing specific
 	writingEnabled: true,
 	writingStrokeLimit: 200,

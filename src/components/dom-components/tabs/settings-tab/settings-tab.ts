@@ -73,7 +73,7 @@ export class MySettingsTab extends PluginSettingTab {
 			})
 
 		containerEl.createEl('hr');
-		insertPrereleaseWarning(containerEl);
+		insertPrereleaseWarning(containerEl, this.plugin);
 		insertPluginDevelopmentSection(containerEl);
 
 		createSupportButtonSet(containerEl);
@@ -492,7 +492,7 @@ function insertWritingLimitations(containerEl: HTMLElement) {
 	// accordion.createEl('p', { text: `All your writing is still saved, however, and will appear in full whenever the embed is locked.` });
 }
 
-function insertPrereleaseWarning(containerEl: HTMLElement) {
+function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
 	const controlsEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
@@ -512,6 +512,18 @@ function insertPrereleaseWarning(containerEl: HTMLElement) {
 
 	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
 	contentEl.createEl('p', { text: `Beta means the plugin is still evolving. Changes to embed formats and file-handling features, even when thoroughly tested, may occasionally introduce issues that affect your vault. Always keep backups of your data.` });
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Enable debug logging')
+		.setDesc('When enabled, debug information is written to ink-debug.md in your vault root. Intended for troubleshooting only — only enable to create logs for reporting a bug.')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.debugLoggingEnabled);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.debugLoggingEnabled = value;
+				await plugin.saveSettings();
+			});
+		});
 }
 
 function insertGenericWarning(containerEl: HTMLElement, text: string) {

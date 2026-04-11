@@ -1,6 +1,6 @@
 import { Platform } from 'obsidian';
 import { verbose } from 'src/logic/utils/log-to-console';
-import { getGlobals } from 'src/stores/global-store';
+import { logToVault } from 'src/logic/utils/log-to-vault';
 
 const INK_LOG_PREFIX = '[Ink]';
 
@@ -347,7 +347,7 @@ export class BooxConnection {
 		}
 		const action = (parsed as { action?: string }).action;
 		const rawTool = ((parsed as { data?: { tool?: string } }).data)?.tool ?? '(none)';
-		getGlobals().plugin.app.vault.adapter.append('eraser-debug.md', `dispatchStroke action:${action} tool:${rawTool}\n`);
+		logToVault(`dispatchStroke action:${action} tool:${rawTool}`);
 		if (action !== 'new-stroke') {
 			return;
 		}

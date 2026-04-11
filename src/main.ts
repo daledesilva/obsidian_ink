@@ -33,6 +33,7 @@ import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
 import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
 import { BooxConnection } from 'src/connections/boox/boox-connection';
+import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 
 ////////
 ////////
@@ -156,17 +157,14 @@ export default class InkPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		const loaded = (await this.loadData()) as Record<string, unknown>;
-		this.settings = {
-			...DEFAULT_SETTINGS,
-			...loaded,
-			booxConnectionEnabled:
-				typeof loaded.booxConnectionEnabled === 'boolean'
-					? loaded.booxConnectionEnabled
-					: typeof loaded.einkBridgeEnabled === 'boolean'
-						? loaded.einkBridgeEnabled
-						: DEFAULT_SETTINGS.booxConnectionEnabled,
-		} as PluginSettings;
+		const loaded = await this.loadData() as Record<string, unknown> | null;
+		const isNewInstall = !loaded || Object.keys(loaded).length === 0;
+		if (isNewInstall) {
+			this.settings = Object.assign({}, DEFAULT_SETTINGS);
+		} else {
+			this.settings = migrateOutdatedSettings(loaded);
+			await this.saveSettings();
+		}
 	}
 
 	async saveSettings() {

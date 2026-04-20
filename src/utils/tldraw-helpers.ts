@@ -804,3 +804,65 @@ export function focusChildTldrawEditor(containerEl: HTMLElement | null) {
 		containerEl.find('.tl-container').focus({preventScroll: true});
 	}
 }
+
+/***
+ * Wire Cmd/Ctrl+Z (undo) and Cmd/Ctrl+Shift+Z (redo) on the Ink canvas.
+ *
+ * The listener is attached to the editor wrapper in the capture phase so
+ * Obsidian's global keymap can't swallow the event before tldraw sees it.
+ * Because it sits on the wrapper rather than document, it's naturally scoped:
+ * it only fires when focus is inside the canvas — if the user's cursor is in
+ * a regular Markdown editor, Cmd+Z still performs Obsidian's normal undo.
+ *
+ * Returns a cleanup function.
+ */
+export function setupUndoRedoHotkeys(
+	containerEl: HTMLElement | null,
+	getEditor: () => Editor | undefined,
+	onStoreChange?: (editor: Editor) => void,
+): () => void {
+	if (!containerEl) return () => { /* no-op */ };
+
+	const handler = (ev: KeyboardEvent) => {
+		// Only the modifier that owns undo/redo on this platform
+		// (Cmd on macOS/iPadOS, Ctrl elsewhere).
+		if (!(ev.metaKey || ev.ctrlKey)) return;
+		if (ev.altKey) return;
+		if (ev.isComposing) return; // Leave IME sequences alone.
+		if (ev.key.toLowerCase() !== 'z') return;
+
+		// Don't preempt native undo inside text inputs (e.g. an active tldraw
+		// text shape in edit mode, or any <input>/<textarea>/contentEditable).
+		// Those have their own per-field undo stacks that we shouldn't override.
+		const target = ev.target as HTMLElement | null;
+		if (target && isEditableElement(target)) return;
+
+		const editor = getEditor();
+		if (!editor) return;
+
+		// Own the shortcut whenever focus is in the canvas: even a no-op press
+		// shouldn't fall through to Obsidian's document-level undo.
+		ev.preventDefault();
+		ev.stopPropagation();
+
+		const isRedo = ev.shiftKey;
+		const canAct = isRedo ? editor.getCanRedo() : editor.getCanUndo();
+		if (!canAct) return;
+
+		silentlyChangeStore(editor, () => {
+			if (isRedo) editor.redo();
+			else editor.undo();
+		});
+		if (onStoreChange) onStoreChange(editor);
+	};
+
+	containerEl.addEventListener('keydown', handler, { capture: true });
+	return () => containerEl.removeEventListener('keydown', handler, { capture: true });
+}
+
+function isEditableElement(el: HTMLElement): boolean {
+	const tag = el.tagName;
+	if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+	if (el.isContentEditable) return true;
+	return false;
+}

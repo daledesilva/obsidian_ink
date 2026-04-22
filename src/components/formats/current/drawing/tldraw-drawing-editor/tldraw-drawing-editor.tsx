@@ -593,11 +593,14 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 	function getBooxStrokeSizeCssPx(editor: Editor): number {
+		// Boox overlay strokes render lighter than equivalent tldraw strokes due to pressure
+		// sensitivity differences, so we scale up to compensate.
+		const BOOX_STROKE_SIZE_SCALE = 2;
 		const TLDRAW_SIZE_TO_BASE_PX: Record<string, number> = { s: 2, m: 3.5, l: 5, xl: 10 };
 		const sizeStyle = editor.getStyleForNextShape(DefaultSizeStyle);
 		const basePx = TLDRAW_SIZE_TO_BASE_PX[sizeStyle] ?? TLDRAW_SIZE_TO_BASE_PX['m'];
 		const zoom = editor.getCamera().z;
-		return basePx * zoom;
+		return basePx * zoom * BOOX_STROKE_SIZE_SCALE;
 	}
 
 	function adjustAndroidDrawingArea() {

@@ -567,12 +567,14 @@ export class BooxConnection {
 		return this.ws?.readyState === WebSocket.OPEN;
 	}
 
-	sendUpdateTool(tool: 'draw' | 'eraser'): void {
+	sendUpdateTool(tool: 'draw' | 'eraser', strokeSizeDevicePx?: number): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		const data: Record<string, unknown> = { tool };
+		if (strokeSizeDevicePx !== undefined) data.strokeSize = strokeSizeDevicePx;
 		this.ws.send(
 			JSON.stringify({
 				action: 'update-tool',
-				data: { tool },
+				data,
 			}),
 		);
 	}

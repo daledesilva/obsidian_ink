@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { DefaultSizeStyle, Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
@@ -127,6 +127,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				debug('Connected to Boox companion app WebSocket');
 				new Notice('Connected to Boox companion app');
 				newAndroidDrawingArea();
+				const inkPlugin = getGlobals().plugin;
+				if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
 			},
 		});
 
@@ -512,6 +514,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						websocketConnectedRef.current = true;
 						if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 						newAndroidDrawingArea();
+						if (tlEditorRef.current) {
+							inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current))
+						};
 					}
 				}}
 				embedId = {props.embedded && props.embedId ? props.embedId : undefined}
@@ -585,6 +590,14 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 		});
+	}
+
+	function getBooxStrokeSizeCssPx(editor: Editor): number {
+		const TLDRAW_SIZE_TO_BASE_PX: Record<string, number> = { s: 2, m: 3.5, l: 5, xl: 10 };
+		const sizeStyle = editor.getStyleForNextShape(DefaultSizeStyle);
+		const basePx = TLDRAW_SIZE_TO_BASE_PX[sizeStyle] ?? TLDRAW_SIZE_TO_BASE_PX['m'];
+		const zoom = editor.getCamera().z;
+		return basePx * zoom;
 	}
 
 	function adjustAndroidDrawingArea() {

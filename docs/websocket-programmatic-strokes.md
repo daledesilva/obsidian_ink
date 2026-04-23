@@ -1,6 +1,8 @@
 # Programmatic Pen Strokes via WebSocket
 
-This document describes how pen strokes are created programmatically when drawing input comes from the Boox companion app (eInk Bridge) over a WebSocket on the **same device** as Obsidian, rather than from direct pointer events on the tldraw canvas. For **loopback ports, handshake, and full WebSocket message protocol**, see **`eink-bridge/docs/`** (e.g. [WebSocket security](../../eink-bridge/docs/implementations/websocket-security.md)) in this repo.
+> **This document covers stroke creation only.** For the full Boox companion integration — `BooxConnection` lifecycle, parallel port probing, drawing area lifecycle, coordinate conversion, and tldraw input locking — see [boox-companion-integration.md](boox-companion-integration.md). For the Boox companion app side (protocol messages, `new-stroke` format, overlay positioning), see `eink-bridge/docs/implementations/obsidian-ink-embed-integration.md`.
+
+This document describes how pen strokes are created programmatically when drawing input comes from the Boox companion app over a WebSocket on the **same device** as Obsidian, rather than from direct pointer events on the tldraw canvas.
 
 ## Overview
 

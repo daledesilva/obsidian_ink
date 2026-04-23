@@ -298,7 +298,6 @@ export function WritingEmbed (props: {
 	async function saveAndSwitchToPreviewMode() {
 		verbose(['Remove writing embed from edit mode', props.embedId]);
 		logToVault('Writing embed → preview (saved): ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
-
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}

@@ -251,7 +251,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const invitingBounds = new Box(0, 0, WRITING_PAGE_WIDTH, curTlDrawHeight);
 		const tightBounds = getTightWritingBounds(editor);
 		if (!tightBounds) return;
-
 		props.onResize(invitingBounds, tightBounds);
 	}
 
@@ -431,6 +430,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
 						onLockClick = { async () => {
+							// Force a final onResize emission so preview aspect ratio is fresh at lock time.
+							// This avoids using a stale tightBounds ratio when content changed within the buffer zone.
+							const editor = tlEditorRef.current;
+							if (editor && curHeightRef.current != null) {
+								resizeContainerIfEmbed(editor, curHeightRef.current);
+							}
 							// REVIEW: Save immediately? incase it hasn't been saved yet
 							if(props.closeEditor) props.closeEditor();
 						}}

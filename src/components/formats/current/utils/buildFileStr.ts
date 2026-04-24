@@ -34,6 +34,9 @@ export const buildFileStr = (pageData: InkFileData): string => {
 	const inkMetaElement = doc.createElement('ink');
 	inkMetaElement.setAttribute('plugin-version', String(pageData.meta.pluginVersion));
 	inkMetaElement.setAttribute('file-type', pageData.meta.fileType);
+	if (pageData.meta.writingLineHeight !== undefined) {
+		inkMetaElement.setAttribute('writing-line-height', String(pageData.meta.writingLineHeight));
+	}
 	metadataElement.appendChild(inkMetaElement);
 
 	// <tldraw version="..."> JSON </tldraw>

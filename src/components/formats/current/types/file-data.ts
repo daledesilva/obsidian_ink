@@ -6,6 +6,8 @@ export type InkFileMetadata = {
     tldrawVersion: string;
     previewIsOutdated?: boolean;
     transcript?: string;
+    /** Height in pixels of each ruled line. Stored per-file so existing embeds are unaffected by the global setting. */
+    writingLineHeight?: number;
 };
 
 export type InkFileData = {

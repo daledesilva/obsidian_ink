@@ -22,12 +22,14 @@ export const buildWritingFileData = (props: {
   tlEditorSnapshot: TLEditorSnapshot,
   transcript?: string,
   svgString?: string,
+  writingLineHeight?: number,
 }): InkFileData => {
   return buildFileData({
     tlEditorSnapshot: props.tlEditorSnapshot,
     svgString: props.svgString,
     transcript: props.transcript,
     fileType: "inkWriting",
+    writingLineHeight: props.writingLineHeight,
   });
 }
 
@@ -36,6 +38,7 @@ export const buildFileData = (props: {
   transcript?: string,
   svgString?: string,
   fileType: "inkDrawing" | "inkWriting",
+  writingLineHeight?: number,
 }): InkFileData => {
 
   let pageData: InkFileData = {
@@ -43,6 +46,7 @@ export const buildFileData = (props: {
       pluginVersion: PLUGIN_VERSION,
       tldrawVersion: TLDRAW_VERSION,
       fileType: props.fileType,
+      writingLineHeight: props.writingLineHeight,
     },
     tldraw: props.tlEditorSnapshot,
     // Always set svgString to either provided svg or default empty svg

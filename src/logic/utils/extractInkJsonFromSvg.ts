@@ -78,12 +78,17 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
         // Read tldraw version from <tldraw version="...">
         const tldrawVersionAttr = settingsElement.getAttribute('version') || undefined;
 
+        // Read per-file writingLineHeight (absent on old files — intentionally left undefined)
+        const writingLineHeightAttr = inkElements.length > 0 ? inkElements[0].getAttribute('writing-line-height') : null;
+        const writingLineHeight = writingLineHeightAttr ? parseInt(writingLineHeightAttr, 10) : undefined;
+
         // Construct InkFileData result
         const inkFileData: InkFileData = {
             meta: {
                 pluginVersion: pluginVersionAttr || '',
                 tldrawVersion: tldrawVersionAttr || '',
                 fileType: fileTypeText,
+                writingLineHeight,
             },
             tldraw: tldrawSnapshot,
         } as InkFileData;

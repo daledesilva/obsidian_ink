@@ -1,12 +1,12 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_PAGE_WIDTH } from 'src/constants';
+import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildWritingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { TFile } from 'obsidian';
@@ -327,6 +327,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
         const writingFileData = buildWritingFileData({
 			tlEditorSnapshot: tlEditorSnapshot,
 			svgString: svgObj?.svg,
+			writingLineHeight: getLineHeightFromEditor(editor),
 		})
 		props.save(writingFileData);
 	}
@@ -350,6 +351,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
             const pageData = buildWritingFileData({
                 tlEditorSnapshot: tlEditorSnapshot,
                 svgString,
+                writingLineHeight: getLineHeightFromEditor(editor),
             })
 			props.save(pageData);
 			// await savePngExport(props.plugin, previewUri, props.fileRef) // REVIEW: Still need a png?
@@ -357,6 +359,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		} else {
             const pageData = buildWritingFileData({
 				tlEditorSnapshot: tlEditorSnapshot,
+				writingLineHeight: getLineHeightFromEditor(editor),
 			})
 			props.save(pageData);
 		}
@@ -476,6 +479,21 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
             const svgSettings = extractInkJsonFromSvg(svg);
             if(svgSettings && svgSettings.tldraw) {
                 const snapshot = prepareWritingSnapshot(svgSettings.tldraw as TLEditorSnapshot);
+
+                // Inject per-file lineHeight into tldraw document meta so shape utils can read
+                // it from the editor at runtime. Old files without the attribute fall back to
+                // the constant default (150), not the current setting — so existing embeds are
+                // frozen at the height they were created with.
+                const lineHeight = svgSettings.meta.writingLineHeight ?? WRITING_LINE_HEIGHT;
+                const store = snapshot.document?.store as Record<string, unknown> | undefined;
+                const documentRecord = store?.['document:document'] as Record<string, unknown> | undefined;
+                if (store && documentRecord) {
+                    store['document:document'] = {
+                        ...documentRecord,
+                        meta: { ...(documentRecord.meta as object), writingLineHeight: lineHeight },
+                    };
+                }
+
                 setTlEditorSnapshot(snapshot);
             } else {
                 logToVault('Writing file has no ink JSON: ' + props.writingFile.path);

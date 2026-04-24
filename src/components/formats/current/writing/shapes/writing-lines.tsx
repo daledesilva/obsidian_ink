@@ -1,8 +1,8 @@
 import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, TLShapeUtilCanBindOpts, resizeBox } from '@tldraw/tldraw';
 import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
-import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
-import { getGlobals } from 'src/stores/global-store';
+import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
+import { getLineHeightFromEditor } from 'src/components/formats/current/utils/tldraw-helpers';
 
 //////////
 //////////
@@ -42,8 +42,7 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 	
 	// Prevent resizing horizontally
 	onResize: TLOnResizeHandler<WritingLines> = (shape, info) => {
-		const { plugin } = getGlobals();
-		const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+		const lineHeight = getLineHeightFromEditor(this.editor);
 		const minPageHeight = lineHeight * 2.5;
 		return resizeBox(shape, info, {
 			minWidth: WRITING_PAGE_WIDTH,
@@ -78,8 +77,7 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 	//////////////
 
 	createSvg(shape: WritingLines): React.JSX.Element {
-		const { plugin } = getGlobals();
-		const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+		const lineHeight = getLineHeightFromEditor(this.editor);
 		const numberOfLines = Math.floor(shape.props.h / lineHeight);
 		const margin = 0.05 * shape.props.w;
 		this.isAspectRatioLocked(shape);

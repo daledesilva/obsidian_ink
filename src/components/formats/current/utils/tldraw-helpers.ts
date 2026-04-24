@@ -724,6 +724,19 @@ export function simplifyWritingLines(editor: Editor, entry: HistoryEntry<TLRecor
 // }
 
 /***
+ * Reads the per-file line height baked into the tldraw document meta at editor mount time.
+ * Falls back to the constant default so old files (no stored value) are unaffected by
+ * the current global setting.
+ */
+export function getLineHeightFromEditor(editor: Editor): number {
+	const documentRecord = editor.store.get('document:document' as TLShapeId);
+	const storedLineHeight = (documentRecord as any)?.meta?.writingLineHeight;
+	const isValidLineHeight = typeof storedLineHeight === 'number' && storedLineHeight > 0;
+	if (isValidLineHeight) return storedLineHeight;
+	return WRITING_LINE_HEIGHT;
+}
+
+/***
  * Convert an existing writing height to a value with just enough space under writing strokes to view baseline.
  * Good for screenshots and other non-interactive states.
  */
@@ -751,7 +764,7 @@ export function getInvitingWritingBounds(editor: Editor): Box | null {
 	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	const lineHeight = getLineHeightFromEditor(editor);
 	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, plugin.settings.writingBufferLines, lineHeight));
 	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
 	return newContentBounds;
@@ -762,7 +775,7 @@ export function getTightWritingBounds(editor: Editor): Box | null {
 	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	const lineHeight = getLineHeightFromEditor(editor);
 	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightTightly(contentBounds.h, lineHeight));
 	console.log('[ink] getTightWritingBounds tightWritingBounds', newContentBounds);
 	return newContentBounds;
@@ -853,7 +866,7 @@ export const resizeWritingTemplateInvitinglyIfNecessary = (
 	const {plugin} = getGlobals()
 
 	const newHeight = contentBounds.h;
-	const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	const lineHeight = getLineHeightFromEditor(editor);
 
 	if (shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines, lineHeight)) {
 		resizeWritingTemplate(editor, contentBounds);

@@ -5,6 +5,7 @@ import { getNewTimestampedWritingSvgFilepath } from "src/logic/utils/file-manipu
 import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
 import { TFile } from "obsidian";
 import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
+import { WRITING_LINE_HEIGHT } from "src/constants";
 
 ////////
 ////////
@@ -13,6 +14,7 @@ export const createNewWritingFile = async (plugin: InkPlugin, instigatingFile?: 
     const filepath = await getNewTimestampedWritingSvgFilepath(plugin, instigatingFile);
     const pageData = buildWritingFileData({
         tlEditorSnapshot: DEFAULT_TLEDITOR_WRITING_SNAPSHOT,
+        writingLineHeight: plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT,
     });
     await createFoldersForFilepath(plugin, filepath);
     const fileRef = await plugin.app.vault.create(filepath, buildFileStr(pageData));

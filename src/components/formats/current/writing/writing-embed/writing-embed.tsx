@@ -7,6 +7,7 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
+import { openInkFile } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
 import { logToVault } from "src/logic/utils/log-to-vault";
@@ -113,12 +114,12 @@ export function WritingEmbed (props: {
 				}).open();
 			}
 		},
-		// {
-		// 	text: 'Open writing',
-		// 	action: async () => {
-		// 		openInkFile(props.plugin, props.fileRef)
-		// 	}
-		// },
+		{
+			text: 'Open writing',
+			action: async () => {
+				await openInkFile(props.writingFileRef as TFile);
+			}
+		},
 		{
 			text: 'Remove embed',
 			action: () => {

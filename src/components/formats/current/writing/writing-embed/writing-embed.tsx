@@ -16,7 +16,6 @@ import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-emb
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
-import { WRITING_LINE_HEIGHT } from "src/constants";
 import type { Box } from "@tldraw/tldraw";
 
 ///////

@@ -10,6 +10,7 @@ const { shouldResizeForNewHeight } = jest.requireActual(
 		newHeight: number,
 		curHeight: number | null,
 		bufferLines: number,
+		lineHeight?: number,
 	) => boolean;
 };
 

@@ -2,6 +2,7 @@ import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnResizeHan
 import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
+import { getGlobals } from 'src/stores/global-store';
 
 //////////
 //////////
@@ -41,10 +42,13 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 	
 	// Prevent resizing horizontally
 	onResize: TLOnResizeHandler<WritingLines> = (shape, info) => {
+		const { plugin } = getGlobals();
+		const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+		const minPageHeight = lineHeight * 2.5;
 		return resizeBox(shape, info, {
 			minWidth: WRITING_PAGE_WIDTH,
 			maxWidth: WRITING_PAGE_WIDTH,
-			minHeight: WRITING_MIN_PAGE_HEIGHT,
+			minHeight: minPageHeight,
 			maxHeight: 50000
 		});
 	}
@@ -74,7 +78,9 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 	//////////////
 
 	createSvg(shape: WritingLines): React.JSX.Element {
-		const numberOfLines = Math.floor(shape.props.h / WRITING_LINE_HEIGHT);
+		const { plugin } = getGlobals();
+		const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+		const numberOfLines = Math.floor(shape.props.h / lineHeight);
 		const margin = 0.05 * shape.props.w;
 		this.isAspectRatioLocked(shape);
 
@@ -82,9 +88,9 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 		<line
 				key = {index}
 				x1 = {margin}
-				y1 = {(index+1) * WRITING_LINE_HEIGHT}
+				y1 = {(index+1) * lineHeight}
 				x2 = {shape.props.w - margin}
-				y2 = {(index+1) * WRITING_LINE_HEIGHT}
+				y2 = {(index+1) * lineHeight}
 				// NOTE: Styling is done through CSS
 			/>
 		));

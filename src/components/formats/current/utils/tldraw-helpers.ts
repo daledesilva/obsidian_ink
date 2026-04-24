@@ -727,10 +727,11 @@ export function simplifyWritingLines(editor: Editor, entry: HistoryEntry<TLRecor
  * Convert an existing writing height to a value with just enough space under writing strokes to view baseline.
  * Good for screenshots and other non-interactive states.
  */
-export function cropWritingStrokeHeightTightly(height: number): number {
-	const numFilledLines = Math.ceil(height / WRITING_LINE_HEIGHT);
-	const newLineHeight = (numFilledLines + 0.5) * WRITING_LINE_HEIGHT;
-	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT)
+export function cropWritingStrokeHeightTightly(height: number, lineHeight: number = WRITING_LINE_HEIGHT): number {
+	const minPageHeight = lineHeight * 2.5;
+	const numFilledLines = Math.ceil(height / lineHeight);
+	const newLineHeight = (numFilledLines + 0.5) * lineHeight;
+	return Math.max(newLineHeight, minPageHeight)
 }
 
 /***
@@ -738,10 +739,11 @@ export function cropWritingStrokeHeightTightly(height: number): number {
  * Good for while in editing mode.
  * bufferLines: number of empty writable lines to show below content. An additional 0.5 lines of visual padding is always added.
  */
-export function cropWritingStrokeHeightInvitingly(height: number, bufferLines: number = 2): number {
-	const numOfLines = Math.ceil(height / WRITING_LINE_HEIGHT);
-	const newLineHeight = (numOfLines + bufferLines + 0.5) * WRITING_LINE_HEIGHT;
-	return Math.max(newLineHeight, WRITING_MIN_PAGE_HEIGHT);
+export function cropWritingStrokeHeightInvitingly(height: number, bufferLines: number = 2, lineHeight: number = WRITING_LINE_HEIGHT): number {
+	const minPageHeight = lineHeight * 2.5;
+	const numOfLines = Math.ceil(height / lineHeight);
+	const newLineHeight = (numOfLines + bufferLines + 0.5) * lineHeight;
+	return Math.max(newLineHeight, minPageHeight);
 }
 
 // Returns bounds sized for editing (with inviting extra space)
@@ -749,16 +751,19 @@ export function getInvitingWritingBounds(editor: Editor): Box | null {
 	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, plugin.settings.writingBufferLines));
+	const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, plugin.settings.writingBufferLines, lineHeight));
 	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
 	return newContentBounds;
 }
 
 // Returns bounds sized tightly for preview/screenshot (minimal extra space)
 export function getTightWritingBounds(editor: Editor): Box | null {
+	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
-	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightTightly(contentBounds.h));
+	const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightTightly(contentBounds.h, lineHeight));
 	console.log('[ink] getTightWritingBounds tightWritingBounds', newContentBounds);
 	return newContentBounds;
 }
@@ -819,13 +824,14 @@ export function shouldResizeForNewHeight(
 	newHeight: number,
 	curHeight: number | null,
 	bufferLines: number,
+	lineHeight: number = WRITING_LINE_HEIGHT,
 ): boolean {
 	// First open — no previous height tracked yet
 	if (curHeight === null) return true;
 	// Content shrank — apply the smaller height immediately
 	if (newHeight < curHeight) return true;
 	// Content has grown past the buffer zone — time to expand
-	if (newHeight > curHeight + (bufferLines - 1) * WRITING_LINE_HEIGHT) return true;
+	if (newHeight > curHeight + (bufferLines - 1) * lineHeight) return true;
 	// Content is still within the existing buffer zone — no resize needed
 	return false;
 }
@@ -847,8 +853,9 @@ export const resizeWritingTemplateInvitinglyIfNecessary = (
 	const {plugin} = getGlobals()
 
 	const newHeight = contentBounds.h;
+	const lineHeight = plugin.settings.writingLineHeight ?? WRITING_LINE_HEIGHT;
 
-	if (shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines)) {
+	if (shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines, lineHeight)) {
 		resizeWritingTemplate(editor, contentBounds);
 		return newHeight;
 	}

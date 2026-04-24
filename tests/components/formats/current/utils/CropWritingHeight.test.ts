@@ -7,8 +7,8 @@ const {
 	cropWritingStrokeHeightInvitingly,
 	cropWritingStrokeHeightTightly,
 } = jest.requireActual('src/components/formats/current/utils/tldraw-helpers') as {
-	cropWritingStrokeHeightInvitingly: (height: number, bufferLines?: number) => number;
-	cropWritingStrokeHeightTightly: (height: number) => number;
+	cropWritingStrokeHeightInvitingly: (height: number, bufferLines?: number, lineHeight?: number) => number;
+	cropWritingStrokeHeightTightly: (height: number, lineHeight?: number) => number;
 };
 
 ////////
@@ -189,7 +189,7 @@ describe('cropWritingStrokeHeightTightly (unchanged signature)', () => {
 		expect(result).toBe(3.5 * L);
 	});
 
-	test('does not accept a buffer parameter (exactly 1 param)', () => {
+	test('does not accept a buffer parameter (exactly 1 required param)', () => {
 		expect(typeof cropWritingStrokeHeightTightly).toBe('function');
 		expect(cropWritingStrokeHeightTightly.length).toBe(1);
 	});

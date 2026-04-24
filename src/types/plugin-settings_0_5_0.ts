@@ -14,6 +14,7 @@ export interface PluginSettings_0_5_0 extends PluginSettings_0_4_0 {
 	debugLoggingEnabled: boolean,
 	// Writing specific (new in 0.5.0)
 	writingBufferLines: number,
+	writingLineHeight: number,
 }
 
 export const DEFAULT_PLUGIN_SETTINGS_0_5_0: PluginSettings_0_5_0 = {
@@ -37,6 +38,7 @@ export const DEFAULT_PLUGIN_SETTINGS_0_5_0: PluginSettings_0_5_0 = {
 	writingEnabled: true,
 	writingStrokeLimit: 200,
 	writingBufferLines: 3,
+	writingLineHeight: 150,
 	writingDynamicStrokeThickness: true,
 	writingSmoothing: false,
 	writingLinesWhenLocked: true,

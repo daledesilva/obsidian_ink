@@ -1,6 +1,6 @@
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
-import { App, ButtonComponent, PluginSettingTab, Setting } from "obsidian";
+import { App, ButtonComponent, PluginSettingTab, Setting, SliderComponent, TextComponent } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -414,6 +414,17 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 		await plugin.saveSettings();
 	}
 
+	let lineHeightSliderComponent: SliderComponent;
+	let lineHeightTextComponent: TextComponent;
+
+	const applyWritingLineHeight = async (value: number) => {
+		const clampedValue = Math.max(50, Math.min(400, value));
+		plugin.settings.writingLineHeight = clampedValue;
+		await plugin.saveSettings();
+		lineHeightSliderComponent.setValue(clampedValue);
+		lineHeightTextComponent.setValue(clampedValue.toString());
+	}
+
 	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
 	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
@@ -448,6 +459,45 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			})
 		});
 	
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Line height')
+		.setDesc(`Height in pixels of each ruled line. Only affects new writing embeds.`)
+
+		.addSlider((slider) => {
+			lineHeightSliderComponent = slider;
+			const currentValue = plugin.settings.writingLineHeight ?? DEFAULT_SETTINGS.writingLineHeight;
+			slider
+				.setLimits(50, 400, 10)
+				.setValue(currentValue);
+			// 'input' fires continuously while dragging — update the text field in real time
+			slider.sliderEl.addEventListener('input', () => {
+				lineHeightTextComponent.setValue(slider.getValue().toString());
+			});
+			// 'onChange' uses the native 'change' event — fires on release, persists the value
+			slider.onChange(async (value: number) => {
+				await applyWritingLineHeight(value);
+			});
+		})
+		.addText((textItem) => {
+			lineHeightTextComponent = textItem;
+			const currentValue = plugin.settings.writingLineHeight ?? DEFAULT_SETTINGS.writingLineHeight;
+			textItem.setValue(currentValue.toString());
+			textItem.inputEl.style.width = '4em';
+			textItem.inputEl.addEventListener('blur', async () => {
+				const parsed = parseInt(textItem.getValue());
+				const valueToApply = !isNaN(parsed) ? parsed : DEFAULT_SETTINGS.writingLineHeight;
+				await applyWritingLineHeight(valueToApply);
+			});
+			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+				if (ev.key === 'Enter') {
+					const parsed = parseInt(textItem.getValue());
+					const valueToApply = !isNaN(parsed) ? parsed : DEFAULT_SETTINGS.writingLineHeight;
+					await applyWritingLineHeight(valueToApply);
+				}
+			});
+		});
+
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Buffer lines when editing')

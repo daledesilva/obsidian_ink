@@ -266,3 +266,49 @@ describe('shouldResizeForNewHeight', () => {
 	});
 
 });
+
+////////
+
+describe('shouldResizeForNewHeight — custom lineHeight', () => {
+	// Verifies that the resize threshold formula uses the injected lineHeight,
+	// not the constant WRITING_LINE_HEIGHT.
+	// With bufferLines = 3 and lineHeight = 200:
+	//   inviting height at n lines = (n + 3 + 0.5) * 200
+	//   threshold = curHeight + (3-1) * 200 = curHeight + 400
+
+	const CUSTOM_L = 200;
+
+	// line 1 inviting height: (1 + 3 + 0.5) * 200 = 900
+	// line 4 inviting height: (4 + 3 + 0.5) * 200 = 1500
+
+	test('first stroke (curHeight null) always triggers resize with custom lineHeight', () => {
+		expect(shouldResizeForNewHeight(900, null, 3, CUSTOM_L)).toBe(true);
+	});
+
+	test('line 2 stroke (1100) stays within buffer zone after line 1 resize (curHeight 900)', () => {
+		// threshold = 900 + 2*200 = 1300; 1100 < 1300 → no resize
+		expect(shouldResizeForNewHeight(1100, 900, 3, CUSTOM_L)).toBe(false);
+	});
+
+	test('line 3 stroke (1300) at exact threshold does not resize', () => {
+		// threshold = 900 + 400 = 1300; 1300 > 1300 is false
+		expect(shouldResizeForNewHeight(1300, 900, 3, CUSTOM_L)).toBe(false);
+	});
+
+	test('line 4 stroke (1500) exceeds threshold and triggers resize', () => {
+		// threshold = 900 + 400 = 1300; 1500 > 1300 → resize
+		expect(shouldResizeForNewHeight(1500, 900, 3, CUSTOM_L)).toBe(true);
+	});
+
+	test('resize triggers at a different height than with the default lineHeight', () => {
+		// With default L=150 and curHeight=675, threshold = 675 + 300 = 975.
+		// With custom L=200 and curHeight=900, threshold = 900 + 400 = 1300.
+		// A newHeight of 1100 would trigger with default-L thresholds but not with custom-L.
+		expect(shouldResizeForNewHeight(1100, 900, 3, CUSTOM_L)).toBe(false);
+		expect(shouldResizeForNewHeight(1100, 675, 3)).toBe(true);
+	});
+
+	test('erase resize still triggers when newHeight is below curHeight with custom lineHeight', () => {
+		expect(shouldResizeForNewHeight(500, 900, 3, CUSTOM_L)).toBe(true);
+	});
+});

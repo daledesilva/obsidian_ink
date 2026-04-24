@@ -211,3 +211,76 @@ describe('WRITING_MIN_PAGE_HEIGHT constant', () => {
 		expect(WRITING_MIN_PAGE_HEIGHT).toBe(375);
 	});
 });
+
+////////
+
+describe('cropWritingStrokeHeightInvitingly — custom lineHeight', () => {
+	// Verifies that the formula scales correctly when a per-file line height is used.
+	// formula: (Math.ceil(height / lineHeight) + bufferLines + 0.5) * lineHeight
+	// floored at lineHeight * 2.5
+
+	const CUSTOM_L = 200;
+
+	test('1 line of content with default buffer (2) at lineHeight 200', () => {
+		// numOfLines = ceil(200/200) = 1; result = (1 + 2 + 0.5) * 200 = 700
+		expect(cropWritingStrokeHeightInvitingly(CUSTOM_L, 2, CUSTOM_L)).toBe(3.5 * CUSTOM_L);
+	});
+
+	test('2 lines of content with default buffer (2) at lineHeight 200', () => {
+		// numOfLines = 2; result = (2 + 2 + 0.5) * 200 = 900
+		expect(cropWritingStrokeHeightInvitingly(2 * CUSTOM_L, 2, CUSTOM_L)).toBe(4.5 * CUSTOM_L);
+	});
+
+	test('content just 1px past a line boundary triggers next line', () => {
+		// numOfLines = ceil(201/200) = 2; result = (2 + 2 + 0.5) * 200 = 900
+		expect(cropWritingStrokeHeightInvitingly(CUSTOM_L + 1, 2, CUSTOM_L)).toBe(4.5 * CUSTOM_L);
+	});
+
+	test('empty content floors at lineHeight * 2.5 (min page height scales with lineHeight)', () => {
+		// numOfLines = 0; result = (0 + 2 + 0.5) * 200 = 500
+		// floor = 200 * 2.5 = 500; same value
+		const result = cropWritingStrokeHeightInvitingly(0, 2, CUSTOM_L);
+		expect(result).toBe(Math.max(2.5 * CUSTOM_L, WRITING_MIN_PAGE_HEIGHT));
+	});
+
+	test('result is different from the default-lineHeight result for same content height', () => {
+		// With L=200: result = (1 + 2 + 0.5) * 200 = 700
+		// With L=150: result = (1 + 2 + 0.5) * 150 = 525
+		const withCustomL = cropWritingStrokeHeightInvitingly(CUSTOM_L, 2, CUSTOM_L);
+		const withDefaultL = cropWritingStrokeHeightInvitingly(CUSTOM_L, 2);
+		expect(withCustomL).not.toBe(withDefaultL);
+	});
+
+	test('successive line heights are exactly CUSTOM_L apart', () => {
+		for (let n = 1; n <= 5; n++) {
+			const current = cropWritingStrokeHeightInvitingly(n * CUSTOM_L, 2, CUSTOM_L);
+			const next = cropWritingStrokeHeightInvitingly((n + 1) * CUSTOM_L, 2, CUSTOM_L);
+			expect(next - current).toBe(CUSTOM_L);
+		}
+	});
+});
+
+////////
+
+describe('cropWritingStrokeHeightTightly — custom lineHeight', () => {
+	const CUSTOM_L = 200;
+
+	test('1 line at lineHeight 200 — tight crop with 0.5 padding', () => {
+		// numOfLines = ceil(200/200) = 1; raw = (1 + 0.5) * 200 = 300
+		// floor = lineHeight * 2.5 = 200 * 2.5 = 500; result = max(300, 500) = 500
+		const result = cropWritingStrokeHeightTightly(CUSTOM_L, CUSTOM_L);
+		expect(result).toBe(2.5 * CUSTOM_L);
+	});
+
+	test('3 lines at lineHeight 200 — result is above the constant floor', () => {
+		// numOfLines = 3; result = (3 + 0.5) * 200 = 700; floor = 500
+		expect(cropWritingStrokeHeightTightly(3 * CUSTOM_L, CUSTOM_L)).toBe(3.5 * CUSTOM_L);
+	});
+
+	test('result scales with lineHeight, not with the constant', () => {
+		const withCustomL = cropWritingStrokeHeightTightly(3 * CUSTOM_L, CUSTOM_L);
+		const withDefaultL = cropWritingStrokeHeightTightly(3 * L);
+		// 3.5 * 200 = 700 vs 3.5 * 150 = 525
+		expect(withCustomL).not.toBe(withDefaultL);
+	});
+});

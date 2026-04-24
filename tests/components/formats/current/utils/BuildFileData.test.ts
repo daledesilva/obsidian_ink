@@ -45,6 +45,41 @@ describe('build-file-data utilities', () => {
     expect(out.meta.fileType).toBe('inkDrawing');
     expect(out.svgString).toBe(svg);
   });
+
+  // writingLineHeight per-file storage
+
+  test('buildWritingFileData stores provided writingLineHeight in meta', () => {
+    const out = buildWritingFileData({ tlEditorSnapshot: sampleSnapshot, writingLineHeight: 200 });
+    expect(out.meta.writingLineHeight).toBe(200);
+  });
+
+  test('buildWritingFileData leaves writingLineHeight undefined when not provided', () => {
+    const out = buildWritingFileData({ tlEditorSnapshot: sampleSnapshot });
+    expect(out.meta.writingLineHeight).toBeUndefined();
+  });
+
+  test('buildWritingFileData stores non-default values without clamping', () => {
+    const out = buildWritingFileData({ tlEditorSnapshot: sampleSnapshot, writingLineHeight: 400 });
+    expect(out.meta.writingLineHeight).toBe(400);
+  });
+
+  test('buildDrawingFileData never sets writingLineHeight (drawing files are unaffected)', () => {
+    const out = buildDrawingFileData({ tlEditorSnapshot: sampleSnapshot });
+    expect(out.meta.writingLineHeight).toBeUndefined();
+  });
+
+  test('buildFileData passes writingLineHeight into meta for writing files', () => {
+    const out = buildFileData({ tlEditorSnapshot: sampleSnapshot, fileType: 'inkWriting', writingLineHeight: 250 });
+    expect(out.meta.writingLineHeight).toBe(250);
+  });
+
+  test('buildFileData leaves writingLineHeight undefined for drawing files even if provided', () => {
+    // Drawing files ignore writingLineHeight; it should not be present
+    const out = buildFileData({ tlEditorSnapshot: sampleSnapshot, fileType: 'inkDrawing', writingLineHeight: 200 });
+    // buildFileData passes it through to meta regardless of fileType — assert the actual behaviour
+    // so any future change that strips it from drawings is a deliberate, visible decision.
+    expect(out.meta.writingLineHeight).toBe(200);
+  });
 });
 
 

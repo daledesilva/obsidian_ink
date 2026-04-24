@@ -78,9 +78,11 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
         // Read tldraw version from <tldraw version="...">
         const tldrawVersionAttr = settingsElement.getAttribute('version') || undefined;
 
-        // Read per-file writingLineHeight (absent on old files — intentionally left undefined)
+        // Read per-file writingLineHeight (absent on old files — intentionally left undefined).
+        // Guard against NaN from parseInt so corrupted attribute values don't propagate.
         const writingLineHeightAttr = inkElements.length > 0 ? inkElements[0].getAttribute('writing-line-height') : null;
-        const writingLineHeight = writingLineHeightAttr ? parseInt(writingLineHeightAttr, 10) : undefined;
+        const writingLineHeightParsed = writingLineHeightAttr ? parseInt(writingLineHeightAttr, 10) : undefined;
+        const writingLineHeight = writingLineHeightParsed !== undefined && !isNaN(writingLineHeightParsed) ? writingLineHeightParsed : undefined;
 
         // Construct InkFileData result
         const inkFileData: InkFileData = {

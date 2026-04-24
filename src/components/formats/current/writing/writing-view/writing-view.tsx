@@ -10,6 +10,7 @@ import { WritingEditorControls } from "../writing-embed/writing-embed";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 
 ////////
 ////////
@@ -134,7 +135,21 @@ export class WritingView extends TextFileView {
                                 },
                             }).open();
                         }
-                    }
+                    },
+                    { separator: true },
+                    {
+                        text: 'Erase all',
+                        warning: true,
+                        action: () => {
+                            new ConfirmationModal({
+                                plugin: this.plugin,
+                                title: 'Erase all strokes?',
+                                message: 'This will remove all strokes from the canvas.',
+                                confirmLabel: 'Erase all',
+                                confirmAction: () => this.editorControls?.eraseAll?.(),
+                            }).open();
+                        },
+                    },
                 ]}
 			/>
         );

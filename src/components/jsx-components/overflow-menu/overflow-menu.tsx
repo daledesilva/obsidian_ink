@@ -9,6 +9,7 @@ import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 interface MenuItemOption {
     text: string;
     action: Function;
+    warning?: boolean;
 }
 
 interface MenuSeparator {
@@ -32,13 +33,14 @@ export const OverflowMenu: React.FC<{
             menu.addSeparator();
             return;
         }
-        menu.addItem((item) =>
+        menu.addItem((item) => {
             item
                 .setTitle(option.text)
                 .onClick(() => {
                     option.action();
-                })
-        );
+                });
+            if (option.warning) (item as any).dom.addClass('mod-warning');
+        });
     })
 
     return <>

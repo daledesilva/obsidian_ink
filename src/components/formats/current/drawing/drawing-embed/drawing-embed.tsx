@@ -10,6 +10,7 @@ import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFile } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { TFile } from "obsidian";
 import classNames from "classnames";
@@ -44,6 +45,7 @@ export const anyDrawingEmbedInEditModeAtom_v2 = atom<boolean>((get) => {
 export type DrawingEditorControls = {
 	save: Function,
 	saveAndHalt: Function,
+	eraseAll: () => Promise<void>,
 }
 
 interface DrawingEmbed_Props {
@@ -124,6 +126,20 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					'inkDrawing',
 					() => props.remove(),
 				);
+			},
+		},
+		{ separator: true },
+		{
+			text: 'Erase all',
+			warning: true,
+			action: () => {
+				new ConfirmationModal({
+					plugin: getGlobals().plugin,
+					title: 'Erase all strokes?',
+					message: 'This will remove all strokes from the canvas.',
+					confirmLabel: 'Erase all',
+					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
+				}).open();
 			},
 		},
 	].filter(Boolean)

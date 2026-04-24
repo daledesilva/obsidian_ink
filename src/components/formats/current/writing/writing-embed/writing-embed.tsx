@@ -5,6 +5,7 @@ import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writ
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
@@ -40,6 +41,7 @@ export const anyWritingEmbedInEditModeAtom = atom<boolean>((get) => {
 export type WritingEditorControls = {
 	save: Function,
 	saveAndHalt: Function,
+	eraseAll: () => Promise<void>,
 }
 
 export function WritingEmbed (props: {
@@ -131,6 +133,20 @@ export function WritingEmbed (props: {
 					'inkWriting',
 					() => props.remove(),
 				);
+			},
+		},
+		{ separator: true },
+		{
+			text: 'Erase all',
+			warning: true,
+			action: () => {
+				new ConfirmationModal({
+					plugin: props.plugin,
+					title: 'Erase all strokes?',
+					message: 'This will remove all strokes from the canvas.',
+					confirmLabel: 'Erase all',
+					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
+				}).open();
 			},
 		},
 	]

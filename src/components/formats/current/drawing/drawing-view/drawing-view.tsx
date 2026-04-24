@@ -12,6 +12,7 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
+import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
@@ -141,7 +142,23 @@ export class DrawingView extends TextFileView {
                     workspaceLeafId = {this.leaf.id}
                     drawingFile = {this.file}
                     save = {this.saveFile}
-                    extendedMenu = {getExtendedOptions(this.plugin, this.file)}
+                    extendedMenu = {[
+                        ...getExtendedOptions(this.plugin, this.file),
+                        { separator: true },
+                        {
+                            text: 'Erase all',
+                            warning: true,
+                            action: () => {
+                                new ConfirmationModal({
+                                    plugin: this.plugin,
+                                    title: 'Erase all strokes?',
+                                    message: 'This will remove all strokes from the canvas.',
+                                    confirmLabel: 'Erase all',
+                                    confirmAction: () => this.editorControls?.eraseAll?.(),
+                                }).open();
+                            },
+                        },
+                    ]}
                     saveControlsReference = {this.registerEditorControls} // Add this
                 />
             </JotaiProvider>

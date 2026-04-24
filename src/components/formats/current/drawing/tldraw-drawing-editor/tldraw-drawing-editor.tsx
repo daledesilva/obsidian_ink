@@ -302,6 +302,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					await completeSave(editor)
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
+				clearAll: async (): Promise<void> => {
+					const allShapeIds = [...editor.getCurrentPageShapeIds()];
+					editor.deleteShapes(allShapeIds);
+					await completeSave(editor);
+				},
 			})
 		}
 		

@@ -155,6 +155,9 @@ export interface WritingCameraLimits {
 		min: number,
 		max: number,
 	},
+	y: {
+		max: number,	// Initial camera y — prevents scrolling above the writing area
+	},
 	zoom: {
 		min: number,
 		max: number,
@@ -166,6 +169,9 @@ export function initWritingCameraLimits(editor: Editor): WritingCameraLimits {
 		x: {
 			min: editor.getCamera().x,
 			max: editor.getCamera().x
+		},
+		y: {
+			max: editor.getCamera().y,
 		},
 		zoom: {
 			min: editor.getCamera().z,
@@ -179,12 +185,15 @@ export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCamer
 	const bounds = editor.getCurrentPageBounds();
 	if (!bounds) return;
 
-	const yMin = bounds.minY - 500;
-	const yMax = bounds.maxY + 1000;
-
+	const viewportHeight = editor.getViewportScreenBounds().h;
+	const lineHeight = getLineHeightFromEditor(editor);
 	let x = editor.getCamera().x;
 	let y = editor.getCamera().y;
 	let zoom = editor.getZoomLevel();
+
+	// Allow scrolling until (template bottom + 10 line heights) is at the bottom of the viewport
+	const yMin = viewportHeight - (bounds.maxY + 10 * lineHeight) * zoom;
+	const yMax = cameraLimits.y.max;	// Cap at initial position — no scrolling above the writing area
 
 	x = Math.max(x, cameraLimits.x.min);
 	x = Math.min(x, cameraLimits.x.max);
@@ -887,6 +896,24 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 	const contentBounds = getTightWritingBounds(editor);
 	if (!contentBounds) return;
 	resizeWritingTemplate(editor, contentBounds);
+}
+
+/***
+ * Extend the writing template height to fill the available viewport in the dedicated writing view.
+ * Only ever grows the template — never shrinks it.
+ * Returns the new height if it was extended, or null if already tall enough.
+ */
+export function extendWritingTemplateToFillViewport(editor: Editor, topReservedPx: number = 0): number | null {
+	const zoom = editor.getZoomLevel();
+	const viewportHeight = editor.getViewportScreenBounds().h;
+	const availablePageHeight = (viewportHeight - topReservedPx) / zoom;
+
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines | undefined;
+	if (!writingLinesShape) return null;
+	if (writingLinesShape.props.h >= availablePageHeight) return null;
+
+	resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, availablePageHeight));
+	return availablePageHeight;
 }
 
 

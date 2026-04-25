@@ -89,6 +89,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
 	const websocketConnectedRef = useRef(false);
+	// Holds pan/zoom listener cleanup fns. Populated in handleMount; also referenced by
+	// the safety-net useEffect so cleanup is guaranteed even if tldraw's onMount return
+	// is never called (e.g. due to exceptions or future tldraw API changes).
+	const panZoomCleanupFnsRef = useRef<Array<() => void>>([]);
 
 	// For testing on laptop only
 	// React.useEffect(() => {
@@ -175,6 +179,17 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			resizeObserver.disconnect();
 		};
 	}, [tlEditorSnapshot])
+
+	// Safety-net: guarantee all pan/zoom event listeners are removed when this component
+	// unmounts, regardless of whether tldraw calls the handleMount return value. React's
+	// own lifecycle is far more reliable than a third-party callback, so this is the
+	// primary guard against listeners surviving note navigation or plugin/tldraw updates.
+	React.useEffect(() => {
+		return () => {
+			panZoomCleanupFnsRef.current.forEach(fn => fn());
+			panZoomCleanupFnsRef.current = [];
+		};
+	}, []);
 
 	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')
@@ -397,6 +412,176 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			});
 		}
 
+		// Embed mouse pan/zoom: middle-mouse drag to pan, mod+scroll zoom, right-drag zoom.
+		// Camera is locked by default in embeds; we unlock only for the duration of each gesture.
+		if (props.embedded) {
+			const tlContainer = editor.getContainer();
+			const wrapperEl = editorWrapperRefEl.current;
+
+			const EMBED_WHEEL_ZOOM_FACTOR = 0.08;
+			const EMBED_DRAG_ZOOM_FACTOR_PER_PX = 0.015;
+
+			// Restores the Obsidian note scroll container after FingerBlocker locks it.
+			// FingerBlocker locks on any mouse/pen pointerdown but never receives our
+			// gesture's pointerup (because we transfer pointer capture to tlContainer).
+			// We must mirror FingerBlocker's unlockScroll() exactly so state stays consistent.
+			const cmScroller = wrapperEl?.closest<HTMLElement>('.cm-scroller') ?? null;
+			const restoreEmbedScroll = () => {
+				if (!cmScroller) return;
+				cmScroller.style.overflow = 'auto';
+				// scrollbarColor is set transparent by FingerBlocker; restore after same
+				// delay it uses so the transition matches.
+				setTimeout(() => {
+					cmScroller.style.scrollbarColor = 'auto';
+				}, 200);
+			};
+			let wheelScrollRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+
+			const embedZoomAroundPoint = (sx: number, sy: number, newZ: number) => {
+				const { x: cx, y: cy, z: cz } = editor.getCamera();
+				editor.setCamera({ x: cx + sx * (1 / newZ - 1 / cz), y: cy + sy * (1 / newZ - 1 / cz), z: newZ }, { animation: { duration: 0 } });
+			};
+			const embedClampedZoom = (cz: number, factor: number) => {
+				const { zoomSteps } = editor.getCameraOptions();
+				return Math.max(zoomSteps[0], Math.min(zoomSteps[zoomSteps.length - 1], cz * factor));
+			};
+
+			// ── Mod+scroll zoom ──────────────────────────────────────────────────
+			if (wrapperEl) {
+				const embedWheelHandler = (e: WheelEvent) => {
+					if (!(e.metaKey || e.ctrlKey)) return;
+					e.preventDefault();
+					// Do NOT call stopPropagation on wheel events. On macOS, interrupting a
+					// trackpad gesture sequence with stopPropagation corrupts the native OS
+					// gesture recogniser state for the entire Electron session — permanently
+					// breaking scroll until the window is closed. preventDefault alone is
+					// sufficient to block the browser-level zoom action.
+					const containerRect = tlContainer.getBoundingClientRect();
+					const sx = e.clientX - containerRect.left;
+					const sy = e.clientY - containerRect.top;
+					const { z: cz } = editor.getCamera();
+					const factor = e.deltaY < 0 ? (1 + EMBED_WHEEL_ZOOM_FACTOR) : (1 / (1 + EMBED_WHEEL_ZOOM_FACTOR));
+					const newZ = embedClampedZoom(cz, factor);
+					console.log('[drawing pan/zoom] embed: mod+wheel zoom', { direction: e.deltaY < 0 ? 'in' : 'out', newZ });
+					editor.setCameraOptions({ isLocked: false });
+					embedZoomAroundPoint(sx, sy, newZ);
+					editor.setCameraOptions({ isLocked: true });
+					// Restore scroll after a brief idle — wheel events have no end event.
+					if (wheelScrollRestoreTimer !== null) clearTimeout(wheelScrollRestoreTimer);
+					wheelScrollRestoreTimer = setTimeout(() => {
+						wheelScrollRestoreTimer = null;
+						restoreEmbedScroll();
+					}, 150);
+				};
+				wrapperEl.addEventListener('wheel', embedWheelHandler, { capture: true, passive: false });
+				panZoomCleanupFns.push(() => wrapperEl.removeEventListener('wheel', embedWheelHandler, { capture: true }));
+			}
+
+			// ── Middle-mouse-button drag to pan ──────────────────────────────────
+			let midPanPointerId: number | null = null;
+			let lastMidPanPoint = { x: 0, y: 0 };
+
+			const midPanPointerDownHandler = (e: PointerEvent) => {
+				if (e.button !== 1) return;
+				midPanPointerId = e.pointerId;
+				lastMidPanPoint = { x: e.clientX, y: e.clientY };
+				tlContainer.setPointerCapture(e.pointerId);
+				tlContainer.style.cursor = 'grabbing';
+				e.preventDefault();
+				e.stopPropagation();
+				console.log('[drawing pan/zoom] embed: mid-button pan started');
+			};
+			const midPanPointerMoveHandler = (e: PointerEvent) => {
+				if (e.pointerId !== midPanPointerId) return;
+				const dx = e.clientX - lastMidPanPoint.x;
+				const dy = e.clientY - lastMidPanPoint.y;
+				lastMidPanPoint = { x: e.clientX, y: e.clientY };
+				const { x: cx, y: cy, z: cz } = editor.getCamera();
+				editor.setCameraOptions({ isLocked: false });
+				editor.setCamera({ x: cx + dx / cz, y: cy + dy / cz, z: cz });
+				editor.setCameraOptions({ isLocked: true });
+				e.preventDefault();
+				e.stopPropagation();
+			};
+			const midPanPointerUpHandler = (e: PointerEvent) => {
+				if (e.pointerId !== midPanPointerId) return;
+				midPanPointerId = null;
+				tlContainer.style.cursor = '';
+				restoreEmbedScroll();
+				e.preventDefault();
+				e.stopPropagation();
+				console.log('[drawing pan/zoom] embed: mid-button pan ended');
+			};
+			tlContainer.addEventListener('pointerdown', midPanPointerDownHandler, true);
+			tlContainer.addEventListener('pointermove', midPanPointerMoveHandler, true);
+			tlContainer.addEventListener('pointerup', midPanPointerUpHandler, true);
+			panZoomCleanupFns.push(() => {
+				tlContainer.removeEventListener('pointerdown', midPanPointerDownHandler, true);
+				tlContainer.removeEventListener('pointermove', midPanPointerMoveHandler, true);
+				tlContainer.removeEventListener('pointerup', midPanPointerUpHandler, true);
+			});
+
+			// ── Right-mouse-button drag-to-zoom ──────────────────────────────────
+			let embedDragZoomPointerId: number | null = null;
+			let embedDragZoomStartPoint = { x: 0, y: 0 };
+			let embedDragZoomLastPoint = { x: 0, y: 0 };
+
+			const embedDragZoomPointerDownHandler = (e: PointerEvent) => {
+				if (e.button !== 2) return;
+				embedDragZoomPointerId = e.pointerId;
+				embedDragZoomStartPoint = { x: e.clientX, y: e.clientY };
+				embedDragZoomLastPoint = { x: e.clientX, y: e.clientY };
+				tlContainer.setPointerCapture(e.pointerId);
+				tlContainer.style.cursor = 'ns-resize';
+				e.preventDefault();
+				e.stopPropagation();
+				console.log('[drawing pan/zoom] embed: right-drag zoom started');
+			};
+			const embedDragZoomPointerMoveHandler = (e: PointerEvent) => {
+				if (e.pointerId !== embedDragZoomPointerId) return;
+				const dx = e.clientX - embedDragZoomLastPoint.x;
+				const dy = e.clientY - embedDragZoomLastPoint.y;
+				embedDragZoomLastPoint = { x: e.clientX, y: e.clientY };
+				const dominantDelta = Math.abs(dx) >= Math.abs(dy) ? dx : -dy;
+				if (dominantDelta !== 0) {
+					const { z: cz } = editor.getCamera();
+					const newZ = embedClampedZoom(cz, Math.pow(1 + EMBED_DRAG_ZOOM_FACTOR_PER_PX, dominantDelta));
+					const containerRect = tlContainer.getBoundingClientRect();
+					const sx = embedDragZoomStartPoint.x - containerRect.left;
+					const sy = embedDragZoomStartPoint.y - containerRect.top;
+					editor.setCameraOptions({ isLocked: false });
+					embedZoomAroundPoint(sx, sy, newZ);
+					editor.setCameraOptions({ isLocked: true });
+				}
+				e.preventDefault();
+				e.stopPropagation();
+			};
+			const embedDragZoomPointerUpHandler = (e: PointerEvent) => {
+				if (e.pointerId !== embedDragZoomPointerId) return;
+				embedDragZoomPointerId = null;
+				tlContainer.style.cursor = '';
+				restoreEmbedScroll();
+				e.preventDefault();
+				e.stopPropagation();
+				console.log('[drawing pan/zoom] embed: right-drag zoom ended');
+			};
+			const embedContextMenuSuppressHandler = (e: MouseEvent) => {
+				if (embedDragZoomStartPoint.x !== e.clientX || embedDragZoomStartPoint.y !== e.clientY) {
+					e.preventDefault();
+				}
+			};
+			tlContainer.addEventListener('pointerdown', embedDragZoomPointerDownHandler, true);
+			tlContainer.addEventListener('pointermove', embedDragZoomPointerMoveHandler, true);
+			tlContainer.addEventListener('pointerup', embedDragZoomPointerUpHandler, true);
+			tlContainer.addEventListener('contextmenu', embedContextMenuSuppressHandler, true);
+			panZoomCleanupFns.push(() => {
+				tlContainer.removeEventListener('pointerdown', embedDragZoomPointerDownHandler, true);
+				tlContainer.removeEventListener('pointermove', embedDragZoomPointerMoveHandler, true);
+				tlContainer.removeEventListener('pointerup', embedDragZoomPointerUpHandler, true);
+				tlContainer.removeEventListener('contextmenu', embedContextMenuSuppressHandler, true);
+			});
+		}
+
 		// Two-finger pinch zoom in embeds: temporarily unlock camera during multi-touch
 		if (props.embedded) {
 			const tlCanvas = editor.getContainer().querySelector('.tl-canvas') as HTMLElement | null;
@@ -521,6 +706,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			resetInputPostProcessTimers();
 			removeUserActionListener();
 			panZoomCleanupFns.forEach(fn => fn());
+			panZoomCleanupFnsRef.current = []; // Clear ref so the safety-net useEffect doesn't double-run
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
 			}
@@ -545,6 +731,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 		
 		if(props.onReady) props.onReady();
+
+		// Expose to safety-net useEffect so cleanup runs even if this return is never called
+		panZoomCleanupFnsRef.current = panZoomCleanupFns;
 
 		return () => {
 			unmountActions();

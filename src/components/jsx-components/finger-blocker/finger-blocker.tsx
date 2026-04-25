@@ -105,9 +105,18 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				// Lock Scroll: Find scroller and set overflow hidden
-				lockScroll();
-				isPenDownRef.current = true;
+				// Only lock scroll for left-click (button 0) and pen input.
+				// Middle (button 1) and right (button 2) mouse events are used exclusively
+				// by embed pan/zoom gestures in tldraw-drawing-editor, which call
+				// tlContainer.setPointerCapture() — transferring native capture away from
+				// this element. Because setPointerCapture() on a synthetic forwarded event
+				// doesn't reliably fire lostpointercapture on this element in Electron/Chromium,
+				// the simplest safe approach is to never lock scroll for non-primary buttons.
+				const isDrawingInput = e.pointerType === 'pen' || e.button === 0;
+				if (isDrawingInput) {
+					lockScroll();
+					isPenDownRef.current = true;
+				}
 
 				// Dynamically prevent touch gestures for Pen (keep this as backup)
 				element.style.touchAction = 'none';
@@ -238,11 +247,24 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}
 		};
 
+		// When an embed pan/zoom gesture calls tlContainer.setPointerCapture(), pointer
+		// capture transfers away from this element. The browser fires lostpointercapture
+		// here, but pointerup never arrives — so unlockScroll() would never be called and
+		// the scroll-pinning mechanism (isPenDownRef + handleScroll) would stay active
+		// indefinitely, blocking all scroll attempts even after the gesture ends.
+		const handleLostPointerCapture = () => {
+			if (isPenDownRef.current) {
+				console.log('[FingerBlocker] lostpointercapture — unlocking scroll');
+				unlockScroll();
+			}
+		};
+
 		// Add listeners with passive: false to ensure preventDefault works
 		element.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
 		element.addEventListener('pointermove', handlePointerMove, { passive: false, capture: true });
 		element.addEventListener('pointerup', handlePointerUp, { passive: false, capture: true });
 		element.addEventListener('pointercancel', handlePointerCancel, { passive: false, capture: true });
+		element.addEventListener('lostpointercapture', handleLostPointerCapture);
 		element.addEventListener('wheel', handleWheel, { passive: false, capture: true });
 		element.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
 
@@ -251,6 +273,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
 			element.removeEventListener('pointerup', handlePointerUp, { capture: true });
 			element.removeEventListener('pointercancel', handlePointerCancel, { capture: true });
+			element.removeEventListener('lostpointercapture', handleLostPointerCapture);
 			element.removeEventListener('wheel', handleWheel, { capture: true });
 			element.removeEventListener('touchmove', handleTouchMove, { capture: true });
 		};

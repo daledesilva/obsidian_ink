@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { DefaultSizeStyle, Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { DefaultSizeStyle, Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, Vec, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
@@ -197,6 +197,163 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
+		// Pan/zoom event listener cleanup functions
+		const panZoomCleanupFns: Array<() => void> = [];
+
+		// Dedicated-view pan/zoom listeners
+		if (!props.embedded) {
+			const wrapperEl = editorWrapperRefEl.current;
+			const tlContainer = editor.getContainer();
+
+			// Mod+wheel zoom
+			if (wrapperEl) {
+				const wheelHandler = (e: WheelEvent) => {
+					if (e.metaKey || e.ctrlKey) {
+						e.preventDefault();
+						e.stopPropagation();
+						// zoomIn/zoomOut expects screen-space coordinates (not page-space)
+						const containerRect = tlContainer.getBoundingClientRect();
+						const screenPoint = new Vec(e.clientX - containerRect.left, e.clientY - containerRect.top);
+						if (e.deltaY < 0) {
+							console.log('[drawing pan/zoom] Mod+wheel zoom IN', { screenPoint, deltaY: e.deltaY, mod: e.metaKey ? 'meta' : 'ctrl' });
+							editor.zoomIn(screenPoint, { animation: { duration: 0 } });
+						} else {
+							console.log('[drawing pan/zoom] Mod+wheel zoom OUT', { screenPoint, deltaY: e.deltaY, mod: e.metaKey ? 'meta' : 'ctrl' });
+							editor.zoomOut(screenPoint, { animation: { duration: 0 } });
+						}
+					} else {
+						// Plain wheel: prevent page scroll, let tldraw handle panning naturally.
+						console.log('[drawing pan/zoom] plain wheel — preventing page scroll, tldraw pans', { deltaX: e.deltaX, deltaY: e.deltaY });
+						e.preventDefault();
+					}
+				};
+				wrapperEl.addEventListener('wheel', wheelHandler, { capture: true, passive: false });
+				panZoomCleanupFns.push(() => wrapperEl.removeEventListener('wheel', wheelHandler, { capture: true }));
+			}
+
+			// Space+drag panning: implemented manually via setCamera rather than the hand
+			// tool, because the hand tool needs a pointerdown routed through its own state
+			// machine to begin dragging, which doesn't happen when we switch to it mid-gesture.
+			//
+			// Guard: cursor must be over the editor wrapper (hover check), NOT a focus check.
+			// Focus is unreliable — any click elsewhere in Obsidian moves focus to BODY with
+			// no reliable way to restore it before the next keydown.
+			//
+			// Pointer events are tracked by pointerId so they are always cleanly paired:
+			// if we stopPropagation on pointerdown, we MUST also stopPropagation on pointermove
+			// and pointerup for that same pointer — otherwise tldraw receives an orphaned
+			// pointerup and its internal state breaks for subsequent interactions.
+			const isSpaceHeld = { current: false };
+			const isPointerOverEditor = { current: false };
+			let panPointerId: number | null = null;
+			const lastSpacePanPoint = { current: { x: 0, y: 0 } };
+
+			// Track hover so Space only activates when cursor is over the editor
+			const editorMouseEnterHandler = () => { isPointerOverEditor.current = true; };
+			const editorMouseLeaveHandler = () => { isPointerOverEditor.current = false; };
+			if (wrapperEl) {
+				wrapperEl.addEventListener('mouseenter', editorMouseEnterHandler);
+				wrapperEl.addEventListener('mouseleave', editorMouseLeaveHandler);
+				panZoomCleanupFns.push(() => {
+					wrapperEl.removeEventListener('mouseenter', editorMouseEnterHandler);
+					wrapperEl.removeEventListener('mouseleave', editorMouseLeaveHandler);
+				});
+			}
+
+			const spaceKeyDownHandler = (e: KeyboardEvent) => {
+				if (e.key !== ' ' || e.metaKey || e.ctrlKey || e.repeat) return;
+				if (!isPointerOverEditor.current) {
+					console.log('[drawing pan/zoom] Space pressed but cursor not over editor — ignoring');
+					return;
+				}
+				isSpaceHeld.current = true;
+				tlContainer.style.cursor = 'grab';
+				e.preventDefault();
+				console.log('[drawing pan/zoom] Space held — ready to pan');
+			};
+			const spaceKeyUpHandler = (e: KeyboardEvent) => {
+				if (e.key !== ' ') return;
+				isSpaceHeld.current = false;
+				if (panPointerId === null) {
+					tlContainer.style.cursor = '';
+				}
+				// Don't clear panPointerId here — let pointerup handle cleanup so we always
+				// stopPropagation the paired pointerup even if Space is released before mouse.
+				console.log('[drawing pan/zoom] Space released');
+			};
+			const spacePointerDownHandler = (e: PointerEvent) => {
+				if (!isSpaceHeld.current || e.button !== 0) return;
+				panPointerId = e.pointerId;
+				lastSpacePanPoint.current = { x: e.clientX, y: e.clientY };
+				tlContainer.setPointerCapture(e.pointerId);
+				tlContainer.style.cursor = 'grabbing';
+				e.preventDefault();
+				e.stopPropagation(); // prevent tldraw from starting a draw stroke
+				console.log('[drawing pan/zoom] Space+pointer down — pan started at', { x: e.clientX, y: e.clientY });
+			};
+			const spacePointerMoveHandler = (e: PointerEvent) => {
+				if (e.pointerId !== panPointerId) return;
+				const dx = e.clientX - lastSpacePanPoint.current.x;
+				const dy = e.clientY - lastSpacePanPoint.current.y;
+				lastSpacePanPoint.current = { x: e.clientX, y: e.clientY };
+				const cam = editor.getCamera();
+				editor.setCamera({ x: cam.x + dx, y: cam.y + dy, z: cam.z });
+				e.preventDefault();
+				e.stopPropagation();
+			};
+			const spacePointerUpHandler = (e: PointerEvent) => {
+				if (e.pointerId !== panPointerId) return;
+				panPointerId = null;
+				tlContainer.style.cursor = isSpaceHeld.current ? 'grab' : '';
+				e.preventDefault();
+				e.stopPropagation(); // must match — tldraw never saw the pointerdown, so it must not see the pointerup
+				console.log('[drawing pan/zoom] Space+pointer up — pan ended');
+			};
+
+			document.addEventListener('keydown', spaceKeyDownHandler, true);
+			document.addEventListener('keyup', spaceKeyUpHandler, true);
+			tlContainer.addEventListener('pointerdown', spacePointerDownHandler, true);
+			tlContainer.addEventListener('pointermove', spacePointerMoveHandler, true);
+			tlContainer.addEventListener('pointerup', spacePointerUpHandler, true);
+			panZoomCleanupFns.push(() => {
+				document.removeEventListener('keydown', spaceKeyDownHandler, true);
+				document.removeEventListener('keyup', spaceKeyUpHandler, true);
+				tlContainer.removeEventListener('pointerdown', spacePointerDownHandler, true);
+				tlContainer.removeEventListener('pointermove', spacePointerMoveHandler, true);
+				tlContainer.removeEventListener('pointerup', spacePointerUpHandler, true);
+			});
+		}
+
+		// Two-finger pinch zoom in embeds: temporarily unlock camera during multi-touch
+		if (props.embedded) {
+			const tlCanvas = editor.getContainer().querySelector('.tl-canvas') as HTMLElement | null;
+			console.log('[drawing pan/zoom] embed: setting up touch listeners, tlCanvas found:', !!tlCanvas);
+			if (tlCanvas) {
+				const onTouchStart = (e: TouchEvent) => {
+					console.log('[drawing pan/zoom] embed touchstart, touches:', e.touches.length);
+					if (e.touches.length >= 2) {
+						console.log('[drawing pan/zoom] embed: 2+ fingers — unlocking camera');
+						editor.setCameraOptions({ isLocked: false });
+					}
+				};
+				const onTouchEnd = (e: TouchEvent) => {
+					console.log('[drawing pan/zoom] embed touchend/touchcancel, remaining touches:', e.touches.length);
+					if (e.touches.length < 2) {
+						console.log('[drawing pan/zoom] embed: <2 fingers — re-locking camera');
+						editor.setCameraOptions({ isLocked: true });
+					}
+				};
+				tlCanvas.addEventListener('touchstart', onTouchStart, { passive: true });
+				tlCanvas.addEventListener('touchend', onTouchEnd, { passive: true });
+				tlCanvas.addEventListener('touchcancel', onTouchEnd, { passive: true });
+				panZoomCleanupFns.push(() => {
+					tlCanvas.removeEventListener('touchstart', onTouchStart);
+					tlCanvas.removeEventListener('touchend', onTouchEnd);
+					tlCanvas.removeEventListener('touchcancel', onTouchEnd);
+				});
+			}
+		}
+
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
 		editor.updateInstanceState({
@@ -229,7 +386,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			// Dedicated view: keep key events on the wrapper (tabIndex + keydown capture).
 			// Embeds: avoid stealing focus from Obsidian / CodeMirror.
 			if (!props.embedded) {
-				editorWrapperRefEl.current.focus({ preventScroll: true });
+				// Focus the tldraw container so tldraw's own key handlers (e.g. space-to-pan) fire.
+				// Our onKeyDownCapture on the wrapper still fires in capture phase for undo/redo.
+				console.log('[drawing pan/zoom] dedicated: focusing tldraw container on mount');
+				editor.getContainer().focus({ preventScroll: true });
 			}
 		}
 
@@ -287,6 +447,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
+			panZoomCleanupFns.forEach(fn => fn());
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
 			}
@@ -464,23 +625,28 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				const modKey = e.metaKey || e.ctrlKey;
 				const key = (e.key ?? '').toLowerCase();
 
-				// Undo: Mod+Z
+				// Undo: Mod+Z — stopPropagation so tldraw doesn't also handle it
 				if (modKey && !e.shiftKey && key === 'z') {
 					e.preventDefault();
+					e.stopPropagation();
 					editor.undo();
 					return;
 				}
 
-				// Redo: Mod+Shift+Z or Mod+Y
+				// Redo: Mod+Shift+Z or Mod+Y — stopPropagation so tldraw doesn't also handle it
 				if (modKey && ((e.shiftKey && key === 'z') || key === 'y')) {
 					e.preventDefault();
+					e.stopPropagation();
 					editor.redo();
 					return;
 				}
+				// Space+drag pan is handled by native document-level listeners in handleMount.
 			}}
 			onPointerDown={() => {
 				if (props.embedded) return;
-				editorWrapperRefEl.current?.focus({ preventScroll: true });
+				// Focus the tldraw container (not the wrapper) so tldraw's own key handlers fire.
+				console.log('[drawing pan/zoom] dedicated: onPointerDown — re-focusing tldraw container');
+				tlEditorRef.current?.getContainer().focus({ preventScroll: true });
 			}}
 		>
 			<TldrawEditor

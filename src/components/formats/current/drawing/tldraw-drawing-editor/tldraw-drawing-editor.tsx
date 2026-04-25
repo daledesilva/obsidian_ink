@@ -205,22 +205,24 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const wrapperEl = editorWrapperRefEl.current;
 			const tlContainer = editor.getContainer();
 
-			// Mod+wheel zoom
+			// Mod+wheel zoom — continuous setCamera for fine-grained control
+			const WHEEL_ZOOM_FACTOR = 0.08; // 8% per scroll notch
 			if (wrapperEl) {
 				const wheelHandler = (e: WheelEvent) => {
 					if (e.metaKey || e.ctrlKey) {
 						e.preventDefault();
 						e.stopPropagation();
-						// zoomIn/zoomOut expects screen-space coordinates (not page-space)
 						const containerRect = tlContainer.getBoundingClientRect();
-						const screenPoint = new Vec(e.clientX - containerRect.left, e.clientY - containerRect.top);
-						if (e.deltaY < 0) {
-							console.log('[drawing pan/zoom] Mod+wheel zoom IN', { screenPoint, deltaY: e.deltaY, mod: e.metaKey ? 'meta' : 'ctrl' });
-							editor.zoomIn(screenPoint, { animation: { duration: 0 } });
-						} else {
-							console.log('[drawing pan/zoom] Mod+wheel zoom OUT', { screenPoint, deltaY: e.deltaY, mod: e.metaKey ? 'meta' : 'ctrl' });
-							editor.zoomOut(screenPoint, { animation: { duration: 0 } });
-						}
+						const sx = e.clientX - containerRect.left;
+						const sy = e.clientY - containerRect.top;
+						const { x: cx, y: cy, z: cz } = editor.getCamera();
+						const { zoomSteps } = editor.getCameraOptions();
+						const factor = e.deltaY < 0 ? (1 + WHEEL_ZOOM_FACTOR) : (1 / (1 + WHEEL_ZOOM_FACTOR));
+						const newZ = Math.max(zoomSteps[0], Math.min(zoomSteps[zoomSteps.length - 1], cz * factor));
+						// tldraw transform: viewportX = (pageX + cx) * cz
+						// To keep viewport point (sx, sy) fixed: newCx = cx + sx * (1/newZ - 1/cz)
+						console.log('[drawing pan/zoom] Mod+wheel zoom', { direction: e.deltaY < 0 ? 'in' : 'out', newZ });
+						editor.setCamera({ x: cx + sx * (1 / newZ - 1 / cz), y: cy + sy * (1 / newZ - 1 / cz), z: newZ }, { animation: { duration: 0 } });
 					} else {
 						// Plain wheel: prevent page scroll, let tldraw handle panning naturally.
 						console.log('[drawing pan/zoom] plain wheel — preventing page scroll, tldraw pans', { deltaX: e.deltaX, deltaY: e.deltaY });
@@ -296,8 +298,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				const dx = e.clientX - lastSpacePanPoint.current.x;
 				const dy = e.clientY - lastSpacePanPoint.current.y;
 				lastSpacePanPoint.current = { x: e.clientX, y: e.clientY };
-				const cam = editor.getCamera();
-				editor.setCamera({ x: cam.x + dx, y: cam.y + dy, z: cam.z });
+				const { x: cx, y: cy, z: cz } = editor.getCamera();
+				// Camera x/y are in page-space; divide screen-pixel delta by zoom to keep
+				// pan speed consistent regardless of zoom level.
+				editor.setCamera({ x: cx + dx / cz, y: cy + dy / cz, z: cz });
 				e.preventDefault();
 				e.stopPropagation();
 			};
@@ -321,6 +325,75 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				tlContainer.removeEventListener('pointerdown', spacePointerDownHandler, true);
 				tlContainer.removeEventListener('pointermove', spacePointerMoveHandler, true);
 				tlContainer.removeEventListener('pointerup', spacePointerUpHandler, true);
+			});
+
+			// Right-mouse-button drag-to-zoom — continuous setCamera for smooth control.
+			// Up or right = zoom in; down or left = zoom out.
+			// Uses the dominant axis (whichever has the larger absolute delta), not the sum.
+			const DRAG_ZOOM_FACTOR_PER_PX = 0.015; // 1.5% zoom per pixel of dominant-axis movement
+			let dragZoomPointerId: number | null = null;
+			let dragZoomStartPoint = { x: 0, y: 0 };
+			let dragZoomLastPoint = { x: 0, y: 0 };
+
+			const dragZoomPointerDownHandler = (e: PointerEvent) => {
+				if (e.button !== 2) return; // right button only
+				dragZoomPointerId = e.pointerId;
+				dragZoomStartPoint = { x: e.clientX, y: e.clientY };
+				dragZoomLastPoint = { x: e.clientX, y: e.clientY };
+				tlContainer.setPointerCapture(e.pointerId);
+				tlContainer.style.cursor = 'ns-resize';
+				e.preventDefault();
+				e.stopPropagation();
+				console.log('[drawing pan/zoom] Right-drag zoom started at', { x: e.clientX, y: e.clientY });
+			};
+			const dragZoomPointerMoveHandler = (e: PointerEvent) => {
+				if (e.pointerId !== dragZoomPointerId) return;
+				const dx = e.clientX - dragZoomLastPoint.x;
+				const dy = e.clientY - dragZoomLastPoint.y;
+				dragZoomLastPoint = { x: e.clientX, y: e.clientY };
+
+				// Dominant axis wins: right/up = zoom in, left/down = zoom out.
+				const dominantDelta = Math.abs(dx) >= Math.abs(dy) ? dx : -dy;
+				if (dominantDelta !== 0) {
+					const { x: cx, y: cy, z: cz } = editor.getCamera();
+					const { zoomSteps } = editor.getCameraOptions();
+					const factor = Math.pow(1 + DRAG_ZOOM_FACTOR_PER_PX, dominantDelta);
+					const newZ = Math.max(zoomSteps[0], Math.min(zoomSteps[zoomSteps.length - 1], cz * factor));
+					const containerRect = tlContainer.getBoundingClientRect();
+					const sx = dragZoomStartPoint.x - containerRect.left;
+					const sy = dragZoomStartPoint.y - containerRect.top;
+					// tldraw transform: viewportX = (pageX + cx) * cz
+					// To keep viewport point (sx, sy) fixed: newCx = cx + sx * (1/newZ - 1/cz)
+					editor.setCamera({ x: cx + sx * (1 / newZ - 1 / cz), y: cy + sy * (1 / newZ - 1 / cz), z: newZ }, { animation: { duration: 0 } });
+				}
+
+				e.preventDefault();
+				e.stopPropagation();
+			};
+			const dragZoomPointerUpHandler = (e: PointerEvent) => {
+				if (e.pointerId !== dragZoomPointerId) return;
+				dragZoomPointerId = null;
+				tlContainer.style.cursor = isSpaceHeld.current ? 'grab' : '';
+				e.preventDefault();
+				e.stopPropagation();
+				console.log('[drawing pan/zoom] Right-drag zoom ended');
+			};
+			// Suppress the context menu only if the pointer actually moved (drag, not tap)
+			const contextMenuSuppressHandler = (e: MouseEvent) => {
+				if (dragZoomStartPoint.x !== e.clientX || dragZoomStartPoint.y !== e.clientY) {
+					e.preventDefault();
+				}
+			};
+
+			tlContainer.addEventListener('pointerdown', dragZoomPointerDownHandler, true);
+			tlContainer.addEventListener('pointermove', dragZoomPointerMoveHandler, true);
+			tlContainer.addEventListener('pointerup', dragZoomPointerUpHandler, true);
+			tlContainer.addEventListener('contextmenu', contextMenuSuppressHandler, true);
+			panZoomCleanupFns.push(() => {
+				tlContainer.removeEventListener('pointerdown', dragZoomPointerDownHandler, true);
+				tlContainer.removeEventListener('pointermove', dragZoomPointerMoveHandler, true);
+				tlContainer.removeEventListener('pointerup', dragZoomPointerUpHandler, true);
+				tlContainer.removeEventListener('contextmenu', contextMenuSuppressHandler, true);
 			});
 		}
 

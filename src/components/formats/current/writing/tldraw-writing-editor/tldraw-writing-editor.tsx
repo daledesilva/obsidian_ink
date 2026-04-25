@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Box, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, extendWritingTemplateToFillViewport, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -126,28 +126,51 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
-		logToVault('Writing handleMount: curHeightRef=' + curHeightRef.current);
-		const mountHeight = resizeWritingTemplateInvitingly(editor);
-		logToVault('Writing handleMount: mountHeight=' + mountHeight);
-		if (mountHeight !== null) {
-			curHeightRef.current = mountHeight;
-			resizeContainerIfEmbed(editor, mountHeight);	// Has an effect if the embed is new and started at 0
-		}
-				
+
 		// view set up
 		let removeWheelListener: (() => void) | undefined;
+		let removeBeforeChangeHandler: (() => void) | undefined;
 		if(props.embedded) {
+			// Resize to content + buffer lines, then lock camera
+			logToVault('Writing handleMount: curHeightRef=' + curHeightRef.current);
+			const mountHeight = resizeWritingTemplateInvitingly(editor);
+			logToVault('Writing handleMount: mountHeight=' + mountHeight);
+			if (mountHeight !== null) {
+				curHeightRef.current = mountHeight;
+				resizeContainerIfEmbed(editor, mountHeight);
+			}
 			initWritingCamera(editor);
 			editor.setCameraOptions({
 				isLocked: true,
 			})
 		} else {
+			// Set up camera first so resizeWritingTemplateForDedicatedView can use the correct camera.y
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 			cameraLimitsRef.current = initWritingCameraLimits(editor);
 
-			// Extend lines to fill the visible writing area on first open
-			const viewportFillHeight = extendWritingTemplateToFillViewport(editor, MENUBAR_HEIGHT_PX);
-			if (viewportFillHeight !== null) curHeightRef.current = viewportFillHeight;
+			logToVault('Writing handleMount: curHeightRef=' + curHeightRef.current);
+			const mountHeight = resizeWritingTemplateForDedicatedView(editor);
+			logToVault('Writing handleMount: mountHeight=' + mountHeight);
+			if (mountHeight !== null) curHeightRef.current = mountHeight;
+
+			// Clamp camera before tldraw commits it — eliminates snap-back on middle-mouse pan and any other pan
+			removeBeforeChangeHandler = editor.sideEffects.registerBeforeChangeHandler(
+				'camera',
+				(_prev: TLCamera, next: TLCamera) => {
+					const limits = cameraLimitsRef.current;
+					if (!limits) return next;
+					const pageBounds = editor.getCurrentPageBounds();
+					if (!pageBounds) return next;
+					const vp = editor.getViewportScreenBounds();
+					const yMin = vp.h - pageBounds.maxY * next.z;
+					return {
+						...next,
+						x: Math.max(Math.min(next.x, limits.x.max), limits.x.min),
+						y: Math.max(Math.min(next.y, limits.y.max), yMin),
+						z: Math.max(Math.min(next.z, limits.zoom.max), limits.zoom.min),
+					};
+				}
+			);
 
 			// Handle wheel: vertical scroll only — intercept before Obsidian sees it
 			const wrapperEl = editorWrapperRefEl.current;
@@ -236,6 +259,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			resetInputPostProcessTimers();
 			removeUserActionListener();
 			removeWheelListener?.();
+			removeBeforeChangeHandler?.();
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
 			}
@@ -293,11 +317,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	// Use this to run optimisations that that are quick and need to occur immediately on lifting the stylus
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
 		logToVault('Writing instantInputPostProcess: curHeightRef=' + curHeightRef.current);
-		const prevHeight = curHeightRef.current;
-		const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
-		logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
-		if (newHeight !== null) curHeightRef.current = newHeight;
-		if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
+		if (props.embedded) {
+			const prevHeight = curHeightRef.current;
+			const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
+			logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
+			if (newHeight !== null) curHeightRef.current = newHeight;
+			if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
+		} else {
+			// Dedicated view: extend to cover viewport bottom + 10 lines at current scroll position
+			const newHeight = resizeWritingTemplateForDedicatedView(editor);
+			logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
+			if (newHeight !== null) curHeightRef.current = newHeight;
+		}
 		// entry && simplifyLines(editor, entry);
 	};
 

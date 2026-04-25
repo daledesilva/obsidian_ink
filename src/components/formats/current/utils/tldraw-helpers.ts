@@ -186,13 +186,12 @@ export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCamer
 	if (!bounds) return;
 
 	const viewportHeight = editor.getViewportScreenBounds().h;
-	const lineHeight = getLineHeightFromEditor(editor);
 	let x = editor.getCamera().x;
 	let y = editor.getCamera().y;
 	let zoom = editor.getZoomLevel();
 
-	// Allow scrolling until (template bottom + 10 line heights) is at the bottom of the viewport
-	const yMin = viewportHeight - (bounds.maxY + 10 * lineHeight) * zoom;
+	// Allow scrolling until the template bottom reaches the viewport bottom (lines cover the full scroll area)
+	const yMin = viewportHeight - bounds.maxY * zoom;
 	const yMax = cameraLimits.y.max;	// Cap at initial position — no scrolling above the writing area
 
 	x = Math.max(x, cameraLimits.x.min);
@@ -906,7 +905,9 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 export function extendWritingTemplateToFillViewport(editor: Editor, topReservedPx: number = 0): number | null {
 	const zoom = editor.getZoomLevel();
 	const viewportHeight = editor.getViewportScreenBounds().h;
-	const availablePageHeight = (viewportHeight - topReservedPx) / zoom;
+	const lineHeight = getLineHeightFromEditor(editor);
+	// Include 10 extra line heights so lines cover the full scrollable area past the viewport
+	const availablePageHeight = (viewportHeight - topReservedPx) / zoom + 10 * lineHeight;
 
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines | undefined;
 	if (!writingLinesShape) return null;
@@ -914,6 +915,39 @@ export function extendWritingTemplateToFillViewport(editor: Editor, topReservedP
 
 	resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, availablePageHeight));
 	return availablePageHeight;
+}
+
+/***
+ * Resize the writing template for the dedicated (non-embed) writing view.
+ * Unlike the embed-oriented helpers, this:
+ * - Accounts for the current scroll position so lines always fill the visible scrollable area.
+ * - Takes the maximum of content+bufferLines and currentViewportBottom+10 lines.
+ * - Never shrinks the template — only grows it.
+ * Returns the current template height (grown or unchanged), or null if the shape cannot be found.
+ */
+export function resizeWritingTemplateForDedicatedView(editor: Editor): number | null {
+	const camera = editor.getCamera();
+	const viewportHeight = editor.getViewportScreenBounds().h;
+	const zoom = editor.getZoomLevel();
+	const lineHeight = getLineHeightFromEditor(editor);
+
+	// Viewport bottom in page coordinates — correctly accounts for current scroll position
+	const pageBottomVisible = (viewportHeight - camera.y) / zoom;
+	const minFromViewport = pageBottomVisible + 10 * lineHeight;
+
+	// Content-based minimum: strokes + user-configured buffer lines
+	const contentBounds = getInvitingWritingBounds(editor);
+	const minFromContent = contentBounds ? contentBounds.h : 0;
+
+	const targetHeight = Math.max(minFromViewport, minFromContent);
+
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines | undefined;
+	if (!writingLinesShape) return null;
+	// Never shrink
+	if (writingLinesShape.props.h >= targetHeight) return writingLinesShape.props.h;
+
+	resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, targetHeight));
+	return targetHeight;
 }
 
 

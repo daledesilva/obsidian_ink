@@ -60,6 +60,7 @@ interface TldrawDrawingEditor_Props {
 	applyEmbedDimensions?: (width: number, aspectRatio: number) => void,
 	closeEditor?: Function,
 	saveControlsReference?: Function,
+	onOpenInDedicatedView?: Function,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -962,6 +963,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 							// TODO: Save immediately incase it hasn't been saved yet?
 							if(props.closeEditor) props.closeEditor();
 						}}
+						onExpandClick = {props.onOpenInDedicatedView}
 						menuOptions = {customExtendedMenu}
 					/>
 				)}

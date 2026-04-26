@@ -7,7 +7,7 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
-import { openInkFile } from "src/logic/utils/open-file";
+import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { verbose } from "src/logic/utils/log-to-console";
 import { logToVault } from "src/logic/utils/log-to-vault";
@@ -116,7 +116,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Open writing',
 			action: async () => {
-				await openInkFile(props.writingFileRef as TFile);
+				await openInkFileInView(props.writingFileRef as TFile, 'inkWriting');
 			}
 		},
 		{
@@ -238,6 +238,7 @@ export function WritingEmbed (props: {
 						saveControlsReference = {registerEditorControls}
 						closeEditor = {saveAndSwitchToPreviewMode}
 						extendedMenu = {commonExtendedOptions}
+						onOpenInDedicatedView = {openInDedicatedView}
 					/>
 
 				</div>
@@ -251,6 +252,11 @@ export function WritingEmbed (props: {
 
 	function registerEditorControls(handlers: WritingEditorControls) {
 		editorControlsRef.current = handlers;
+	}
+
+	async function openInDedicatedView() {
+		if (!props.writingFileRef) return;
+		await openInkFileInView(props.writingFileRef, 'inkWriting');
 	}
 
 	function applySizingWhilePreviewing(height: number) {

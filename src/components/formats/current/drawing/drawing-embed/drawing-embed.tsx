@@ -8,7 +8,7 @@ import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { verbose } from "src/logic/utils/log-to-console";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
-import { openInkFile } from "src/logic/utils/open-file";
+import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
@@ -98,7 +98,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		{
 			text: 'Open drawing',
 			action: async () => {
-				await openInkFile(props.embeddedFile as TFile);
+				await openInkFileInView(props.embeddedFile as TFile, 'inkDrawing');
 			}
 		},
 		{ separator: true },
@@ -237,10 +237,12 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						onResizeStart = {onResizeStart}
 						onResizeEnd = {onResizeEnd}
 						applyEmbedDimensions = {applyEmbedDimensions}
-					/>
+					onOpenInDedicatedView = {openInDedicatedView}
+				/>
 
-				</div>
-			)}
+			</div>
+		)}
+
 		</div>
 	</>;
 
@@ -350,6 +352,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				return next;
 			});
 		}
+	}
+
+    async function openInDedicatedView() {
+		if (!props.embeddedFile) return;
+		await openInkFileInView(props.embeddedFile, 'inkDrawing');
 	}
 
     async function saveAndSwitchToPreviewMode() {

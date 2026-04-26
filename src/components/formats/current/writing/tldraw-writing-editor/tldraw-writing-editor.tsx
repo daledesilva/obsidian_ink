@@ -46,6 +46,7 @@ interface TldrawWritingEditorProps {
 	resizeEmbedContainer?: (pxHeight: number) => void,
 	closeEditor?: Function,
 	saveControlsReference?: Function,
+	onOpenInDedicatedView?: Function,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -503,6 +504,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							// REVIEW: Save immediately? incase it hasn't been saved yet
 							if(props.closeEditor) props.closeEditor();
 						}}
+						onExpandClick = {props.onOpenInDedicatedView}
 						menuOptions = {props.extendedMenu}
 					/>
 				)}

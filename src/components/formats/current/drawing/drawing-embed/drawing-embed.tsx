@@ -98,7 +98,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		{
 			text: 'Open drawing',
 			action: async () => {
-				await openInkFileInView(props.embeddedFile as TFile, 'inkDrawing');
+				await openInDedicatedView();
 			}
 		},
 		{ separator: true },
@@ -356,6 +356,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
     async function openInDedicatedView() {
 		if (!props.embeddedFile) return;
+		if (editorControlsRef.current) {
+			await editorControlsRef.current.saveAndHalt();
+		}
 		await openInkFileInView(props.embeddedFile, 'inkDrawing');
 	}
 

@@ -116,7 +116,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Open writing',
 			action: async () => {
-				await openInkFileInView(props.writingFileRef as TFile, 'inkWriting');
+				await openInDedicatedView();
 			}
 		},
 		{
@@ -256,6 +256,9 @@ export function WritingEmbed (props: {
 
 	async function openInDedicatedView() {
 		if (!props.writingFileRef) return;
+		if (editorControlsRef.current) {
+			await editorControlsRef.current.saveAndHalt();
+		}
 		await openInkFileInView(props.writingFileRef, 'inkWriting');
 	}
 

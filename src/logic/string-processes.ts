@@ -13,18 +13,14 @@ export const singleOrPlural = (count: number, singleVersion: string, pluralVersi
 }
 
 export function filenameSanitize(str: string) {
+	let newStr = str;
 
-	// Remove /
-	let newArr = str.split('/');
-	let newStr = newArr.join();
-
-	// Remove \
-	newArr = newStr.split('\\');
-	newStr = newArr.join();
-
-	// Remove :
-	newArr = newStr.split(':');
-	newStr = newArr.join();
+	newStr = newStr.replace(/\.{2,}/g, '');
+	newStr = newStr.replace(/[\x00-\x1f\x7f]/g, '');
+	newStr = newStr.replace(/[\\/:*?"<>|]/g, '');
+	newStr = newStr.replace(/^\.+/, '');
+	newStr = newStr.replace(/\s+/g, ' ').trim();
+	newStr = newStr.replace(/[^a-zA-Z0-9 _.-]/g, '');
 
 	return newStr;
 }

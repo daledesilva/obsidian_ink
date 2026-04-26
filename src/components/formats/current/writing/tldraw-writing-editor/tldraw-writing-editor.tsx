@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, startCameraSettleRaf, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -132,6 +132,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		let removeWheelListener: (() => void) | undefined;
 		let removeBeforeChangeHandler: (() => void) | undefined;
 		let cancelCameraSettleRaf: (() => void) | undefined;
+		let disconnectResizeObserver: (() => void) | undefined;
 		if(props.embedded) {
 			// Resize to content + buffer lines, then lock camera
 			logToVault('Writing handleMount: curHeightRef=' + curHeightRef.current);
@@ -145,6 +146,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			editor.setCameraOptions({
 				isLocked: true,
 			})
+			// Re-fit zoom on container resize (sidebar toggle, window resize, etc.).
+			// Camera must be temporarily unlocked because isLocked blocks programmatic setCamera calls.
+			disconnectResizeObserver = startCameraResizeObserver(editor, () => {
+				editor.setCameraOptions({ isLocked: false });
+				initWritingCamera(editor);
+				editor.setCameraOptions({ isLocked: true });
+			});
 		} else {
 			// Set up camera first so resizeWritingTemplateForDedicatedView can use the correct camera.y
 			initWritingCamera(editor, MENUBAR_HEIGHT_PX);
@@ -196,6 +204,20 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				cameraLimitsRef.current = undefined;
 				initWritingCamera(editor, MENUBAR_HEIGHT_PX);
 				cameraLimitsRef.current = initWritingCameraLimits(editor);
+			});
+
+			// Re-fit zoom on container resize, preserving the user's scroll position.
+			disconnectResizeObserver = startCameraResizeObserver(editor, () => {
+				const prevY = editor.getCamera().y;
+				cameraLimitsRef.current = undefined;
+				initWritingCamera(editor, MENUBAR_HEIGHT_PX);
+				cameraLimitsRef.current = initWritingCameraLimits(editor);
+				const pageBounds = editor.getCurrentPageBounds();
+				const vp = editor.getViewportScreenBounds();
+				const cam = editor.getCamera();
+				const yMin = pageBounds ? vp.h - pageBounds.maxY * cam.z : cam.y;
+				const clampedY = Math.max(yMin, Math.min(cameraLimitsRef.current.y.max, prevY));
+				editor.run(() => editor.setCamera({ ...cam, y: clampedY }), { history: 'ignore' });
 			});
 		}
 
@@ -269,6 +291,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			resetInputPostProcessTimers();
 			removeUserActionListener();
 			cancelCameraSettleRaf?.();
+			disconnectResizeObserver?.();
 			removeWheelListener?.();
 			removeBeforeChangeHandler?.();
 			if (props.embedded && props.embedId) {

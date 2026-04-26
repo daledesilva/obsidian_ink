@@ -128,26 +128,37 @@ export function initWritingCamera(editor: Editor, topMarginPx: number = 0) {
 	let x = containerMargin;
 	let y = topMarginPx;//containerMargin * 2;  // Pushes canvas down an arbitrary amount to prevent the "exit pen mode" button getting in the way
 
-	silentlyChangeStore(editor, () => {
-		editor.setCamera({
-			x: x,
-			y: y,
-			z: zoom
-		})
-	})
+	// editor.run with history:'ignore' is required for camera updates — camera is an instance-scoped
+	// record and mergeRemoteChanges (used by silentlyChangeStore) silently skips instance records.
+	editor.run(() => {
+		editor.setCamera({ x, y, z: zoom })
+	}, { history: 'ignore' })
 }
 
 export function initDrawingCamera(editor: Editor) {
 	const allShapesBounds = editor.getCurrentPageBounds();
+	// editor.run with history:'ignore' is required for camera updates — camera is an instance-scoped
+	// record and mergeRemoteChanges (used by silentlyChangeStore) silently skips instance records.
 	if (!allShapesBounds) {
-		// Adjust zoom to to make line thickness similar to writing
-		const curCameraProps = editor.getCamera();
-		editor.setCamera({ ...curCameraProps, z: 0.3 })
+		// Adjust zoom to make line thickness similar to writing
+		const cam = editor.getCamera();
+		editor.run(() => { editor.setCamera({ ...cam, z: 0.3 }); }, { history: 'ignore' });
 		return;
 	};
 
-	const targetZoom = 1;
-	editor.zoomToBounds(allShapesBounds, { targetZoom });
+	const vw = editor.getContainer().clientWidth;
+	const vh = editor.getContainer().clientHeight;
+	const INSET = 16;
+	const zoom = Math.max(0.01, Math.min(
+		allShapesBounds.w > 0 ? (vw - INSET * 2) / allShapesBounds.w : 1,
+		allShapesBounds.h > 0 ? (vh - INSET * 2) / allShapesBounds.h : 1,
+		1,
+	));
+	// In tldraw: screenPos = pagePos * zoom + cameraOffset
+	// To centre bounds: cameraOffset = viewportCentre - boundsCentre * zoom
+	const x = vw / 2 - allShapesBounds.midX * zoom;
+	const y = vh / 2 - allShapesBounds.midY * zoom;
+	editor.run(() => { editor.setCamera({ x, y, z: zoom }); }, { history: 'ignore' });
 }
 
 /**
@@ -182,6 +193,55 @@ export function startCameraSettleRaf(
 	};
 	rafHandle = requestAnimationFrame(checkAndReposition);
 	return () => cancelAnimationFrame(rafHandle);
+}
+
+/**
+ * Starts a ResizeObserver on the editor container. On each width change it calls `onResize`
+ * immediately, then runs a stability-based RAF loop that keeps calling `onResize` for as long
+ * as the container width keeps changing (e.g. during a slow window drag or sidebar animation)
+ * and stops only once the width has been stable for 3 consecutive frames.
+ * Height-only changes (e.g. embed template resizing) are intentionally ignored.
+ * Returns a cleanup function — call it in cleanup/unmount.
+ */
+export function startCameraResizeObserver(
+	editor: Editor,
+	onResize: () => void,
+): () => void {
+	const STABLE_FRAMES_NEEDED = 3;
+	let rafHandle = 0;
+	let lastWidth = 0;
+
+	const runSettleRaf = () => {
+		cancelAnimationFrame(rafHandle);
+		let stableFrames = 0;
+		const tick = () => {
+			const width = editor.getContainer().clientWidth;
+			if (width !== lastWidth) {
+				lastWidth = width;
+				stableFrames = 0;
+				onResize();
+			} else {
+				stableFrames++;
+			}
+			if (stableFrames < STABLE_FRAMES_NEEDED) rafHandle = requestAnimationFrame(tick);
+		};
+		rafHandle = requestAnimationFrame(tick);
+	};
+
+	const observer = new ResizeObserver(() => {
+		const width = editor.getContainer().clientWidth;
+		// Only react to width changes — height changes (e.g. embed template resizing) should
+		// not trigger a camera reset or restart the settle RAF.
+		if (width === lastWidth) return;
+		lastWidth = width;
+		onResize();
+		runSettleRaf();
+	});
+	observer.observe(editor.getContainer());
+	return () => {
+		observer.disconnect();
+		cancelAnimationFrame(rafHandle);
+	};
 }
 
 export interface WritingCameraLimits {

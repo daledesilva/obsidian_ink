@@ -385,7 +385,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function handleResize() {
 		const maxWidth = getFullPageWidth(embedContainerElRef.current);
 		if (resizeContainerElRef.current) {
-			resizeContainerElRef.current.style.maxWidth = '100%';
+			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
 			props.onRequestMeasure?.();

@@ -150,6 +150,40 @@ export function initDrawingCamera(editor: Editor) {
 	editor.zoomToBounds(allShapesBounds, { targetZoom });
 }
 
+/**
+ * Starts a RAF loop that watches the editor container's clientWidth each frame and calls
+ * `onWidthChange` whenever it changes. Stops once the width has been stable for
+ * 3 consecutive frames AND at least 30 total frames have elapsed (~500ms at 60fps),
+ * ensuring the loop outlives any sidebar-collapse CSS animation.
+ * Returns a cancel function — call it in cleanup/unmount.
+ */
+export function startCameraSettleRaf(
+	editor: Editor,
+	onWidthChange: () => void,
+): () => void {
+	const SETTLE_FRAMES_NEEDED = 3;
+	const MIN_FRAMES_BEFORE_SETTLE = 30;
+	let lastWidth = editor.getContainer().clientWidth;
+	let stableFrames = 0;
+	let totalFrames = 0;
+	let rafHandle = 0;
+	const checkAndReposition = () => {
+		totalFrames++;
+		const width = editor.getContainer().clientWidth;
+		if (width !== lastWidth) {
+			lastWidth = width;
+			stableFrames = 0;
+			onWidthChange();
+		} else {
+			stableFrames++;
+		}
+		if (stableFrames >= SETTLE_FRAMES_NEEDED && totalFrames >= MIN_FRAMES_BEFORE_SETTLE) return;
+		rafHandle = requestAnimationFrame(checkAndReposition);
+	};
+	rafHandle = requestAnimationFrame(checkAndReposition);
+	return () => cancelAnimationFrame(rafHandle);
+}
+
 export interface WritingCameraLimits {
 	x: {
 		min: number,

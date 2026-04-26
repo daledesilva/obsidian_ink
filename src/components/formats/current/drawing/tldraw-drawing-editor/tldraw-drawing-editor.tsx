@@ -2,7 +2,7 @@ import './tldraw-drawing-editor.scss';
 import { DefaultSizeStyle, Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, Vec, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
-import { lockTldrawInput, unlockTldrawInput, bypassReadonly } from "src/components/formats/current/utils/tldraw-helpers";
+import { lockTldrawInput, unlockTldrawInput, bypassReadonly, startCameraSettleRaf } from "src/components/formats/current/utils/tldraw-helpers";
 import * as React from "react";
 import { Notice, TFile } from 'obsidian';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
@@ -625,6 +625,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			editor.setCameraOptions({
 				isLocked: true,
 			})
+		}
+
+		// Re-fit camera on each animation frame until the canvas width stabilises after
+		// the sidebar collapse animation completes.
+		if (!props.embedded) {
+			panZoomCleanupFns.push(startCameraSettleRaf(editor, () => initDrawingCamera(editor)));
 		}
 
 		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change (per leaf)

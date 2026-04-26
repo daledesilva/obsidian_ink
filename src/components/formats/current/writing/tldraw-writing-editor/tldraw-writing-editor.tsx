@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, startCameraSettleRaf, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -131,6 +131,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		// view set up
 		let removeWheelListener: (() => void) | undefined;
 		let removeBeforeChangeHandler: (() => void) | undefined;
+		let cancelCameraSettleRaf: (() => void) | undefined;
 		if(props.embedded) {
 			// Resize to content + buffer lines, then lock camera
 			logToVault('Writing handleMount: curHeightRef=' + curHeightRef.current);
@@ -188,6 +189,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				wrapperEl.addEventListener('wheel', onWheelScroll, { capture: true, passive: false });
 				removeWheelListener = () => wrapperEl.removeEventListener('wheel', onWheelScroll, { capture: true });
 			}
+
+			// Re-fit camera on each animation frame until the canvas width stabilises after
+			// the sidebar collapse animation completes.
+			cancelCameraSettleRaf = startCameraSettleRaf(editor, () => {
+				cameraLimitsRef.current = undefined;
+				initWritingCamera(editor, MENUBAR_HEIGHT_PX);
+				cameraLimitsRef.current = initWritingCameraLimits(editor);
+			});
 		}
 
 		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change (per leaf)
@@ -259,6 +268,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
+			cancelCameraSettleRaf?.();
 			removeWheelListener?.();
 			removeBeforeChangeHandler?.();
 			if (props.embedded && props.embedId) {

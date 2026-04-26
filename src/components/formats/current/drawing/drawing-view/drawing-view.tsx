@@ -59,6 +59,11 @@ export function registerDrawingView (plugin: InkPlugin) {
             const svgString = await plugin.app.vault.read(file);
             if (!svgString || !svgString.trim().startsWith('<svg')) return;
 
+            // Re-check after the async read — the leaf may have transitioned to
+            // DRAWING_VIEW_TYPE while vault.read was awaited (race condition when
+            // opening via Obsidian Menu whose onClick is not awaited by Obsidian)
+            if (leaf.view?.getViewType?.() === DRAWING_VIEW_TYPE) return;
+
             const inkFileData = extractInkJsonFromSvg(svgString);
             if (!inkFileData) return;
             if (inkFileData.meta.fileType !== "inkDrawing") return;

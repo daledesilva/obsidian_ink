@@ -45,6 +45,9 @@ export default class InkPlugin extends Plugin {
 	/** Boox companion app WebSocket: open only while a drawing editor is active (unlocked). */
 	booxConnection: BooxConnection;
 
+	/** Sidebar collapsed state captured before opening a dedicated ink view, restored on close. */
+	inkViewSidebarState: { leftWasCollapsed: boolean; rightWasCollapsed: boolean } | null = null;
+
 	// Exposed for e2e testing
 	readonly FileConversionModal = FileConversionModal;
 	readonly findNotesContainingFileEmbed = findNotesContainingFileEmbed;

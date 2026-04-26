@@ -8,7 +8,7 @@ import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
 import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
-import { openInkFileInView } from "src/logic/utils/open-file";
+import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 
@@ -206,6 +206,7 @@ export class WritingView extends TextFileView {
         
         // Then cleanup
         this.clear();
+        restoreSidebarsAfterInkView();
         return await super.onClose();
     }
 }

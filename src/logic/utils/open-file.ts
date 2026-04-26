@@ -19,19 +19,59 @@ export async function openInActiveView(fileRef: TFile) {
 /**
  * Opens an ink file in the matching view type (writing or drawing).
  * Use after conversion so the file opens in the correct editor.
+ * Also collapses the sidebars to maximise canvas space.
  */
 export async function openInkFileInView(
 	fileRef: TFile,
 	viewType: 'inkWriting' | 'inkDrawing',
 ) {
-	const { workspace } = getGlobals().plugin.app;
+	const plugin = getGlobals().plugin;
+	const { workspace } = plugin.app;
 	const leaf = workspace.getLeaf();
 	const type = viewType === 'inkDrawing' ? DRAWING_VIEW_TYPE : WRITING_VIEW_TYPE;
+
+	// Check BEFORE opening so the new view isn't counted as "already open"
+	const inkViewAlreadyOpen = [
+		...workspace.getLeavesOfType(DRAWING_VIEW_TYPE),
+		...workspace.getLeavesOfType(WRITING_VIEW_TYPE),
+	].length > 0;
+
 	await leaf.setViewState({
 		type,
 		state: { file: fileRef.path },
 		active: true,
 	});
+
+	if (!inkViewAlreadyOpen) {
+		plugin.inkViewSidebarState = {
+			leftWasCollapsed: workspace.leftSplit.collapsed,
+			rightWasCollapsed: workspace.rightSplit.collapsed,
+		};
+		workspace.leftSplit.collapse();
+		workspace.rightSplit.collapse();
+	}
+}
+
+/**
+ * Restores sidebar state that was captured before opening a dedicated ink view.
+ * Should be called from onClose() of DrawingView and WritingView.
+ * Defers the check to ensure the closing leaf is fully removed first.
+ */
+export function restoreSidebarsAfterInkView() {
+	const plugin = getGlobals().plugin;
+	const { workspace } = plugin.app;
+	setTimeout(() => {
+		const remainingInkLeaves = [
+			...workspace.getLeavesOfType(DRAWING_VIEW_TYPE),
+			...workspace.getLeavesOfType(WRITING_VIEW_TYPE),
+		];
+		if (remainingInkLeaves.length > 0) return;
+		const state = plugin.inkViewSidebarState;
+		if (!state) return;
+		if (!state.leftWasCollapsed) workspace.leftSplit.expand();
+		if (!state.rightWasCollapsed) workspace.rightSplit.expand();
+		plugin.inkViewSidebarState = null;
+	}, 0);
 }
 
 // NOTE: Future possible additions

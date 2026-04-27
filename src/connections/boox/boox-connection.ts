@@ -3,6 +3,9 @@ import { verbose } from 'src/logic/utils/log-to-console';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 
 const INK_LOG_PREFIX = '[Ink]';
+const AGENT_DEBUG_RUN_ID = 'pre-fix';
+const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
+const AGENT_DEBUG_SESSION_ID = 'd78e27';
 
 /**
  * Candidate ports for eInk Bridge on loopback; order must match
@@ -59,6 +62,36 @@ function logBooxCompanionNotFound(
 			);
 		}
 	}
+}
+
+function agentBridgeLog(
+	hypothesisId: string,
+	location: string,
+	message: string,
+	data: Record<string, unknown>,
+): void {
+	const payload = {
+		sessionId: AGENT_DEBUG_SESSION_ID,
+		runId: AGENT_DEBUG_RUN_ID,
+		hypothesisId,
+		location,
+		message,
+		data,
+		timestamp: Date.now(),
+	};
+	console.log('[InkBridgeDebug]', message, data);
+	// #region agent log
+	fetch(AGENT_DEBUG_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': AGENT_DEBUG_SESSION_ID }, body: JSON.stringify(payload) }).catch(() => {});
+	// #endregion
+}
+
+function webSocketReadyStateName(ws: WebSocket | null): string {
+	if (!ws) return 'none';
+	if (ws.readyState === WebSocket.CONNECTING) return 'CONNECTING';
+	if (ws.readyState === WebSocket.OPEN) return 'OPEN';
+	if (ws.readyState === WebSocket.CLOSING) return 'CLOSING';
+	if (ws.readyState === WebSocket.CLOSED) return 'CLOSED';
+	return `unknown:${ws.readyState}`;
 }
 
 const RECONNECT_BASE_MS = 1000;
@@ -511,7 +544,19 @@ export class BooxConnection {
 	}
 
 	private sendInitMessage(): void {
-		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			agentBridgeLog('A', 'boox-connection.ts:sendInitMessage', 'Dropped init send because socket is not open', {
+				readyState: webSocketReadyStateName(this.ws),
+				sessionCount: this.drawingSessions.length,
+				currentUrl: this.currentUrl,
+			});
+			return;
+		}
+		agentBridgeLog('A', 'boox-connection.ts:sendInitMessage', 'Sending init message', {
+			readyState: webSocketReadyStateName(this.ws),
+			sessionCount: this.drawingSessions.length,
+			currentUrl: this.currentUrl,
+		});
 		this.ws.send(
 			JSON.stringify({
 				action: 'init',
@@ -528,7 +573,21 @@ export class BooxConnection {
 		appWidth: number;
 		appHeight: number;
 	}): void {
-		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			agentBridgeLog('A', 'boox-connection.ts:sendNewDrawingArea', 'Dropped new-drawing-area because socket is not open', {
+				readyState: webSocketReadyStateName(this.ws),
+				sessionCount: this.drawingSessions.length,
+				currentUrl: this.currentUrl,
+				dimensions,
+			});
+			return;
+		}
+		agentBridgeLog('A,B,C', 'boox-connection.ts:sendNewDrawingArea', 'Sending new-drawing-area', {
+			readyState: webSocketReadyStateName(this.ws),
+			sessionCount: this.drawingSessions.length,
+			currentUrl: this.currentUrl,
+			dimensions,
+		});
 		this.ws.send(
 			JSON.stringify({
 				action: 'new-drawing-area',
@@ -545,7 +604,21 @@ export class BooxConnection {
 		appWidth: number;
 		appHeight: number;
 	}): void {
-		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			agentBridgeLog('A', 'boox-connection.ts:sendUpdateDrawingArea', 'Dropped update-drawing-area because socket is not open', {
+				readyState: webSocketReadyStateName(this.ws),
+				sessionCount: this.drawingSessions.length,
+				currentUrl: this.currentUrl,
+				dimensions,
+			});
+			return;
+		}
+		agentBridgeLog('B,C', 'boox-connection.ts:sendUpdateDrawingArea', 'Sending update-drawing-area', {
+			readyState: webSocketReadyStateName(this.ws),
+			sessionCount: this.drawingSessions.length,
+			currentUrl: this.currentUrl,
+			dimensions,
+		});
 		this.ws.send(
 			JSON.stringify({
 				action: 'update-drawing-area',
@@ -555,7 +628,19 @@ export class BooxConnection {
 	}
 
 	sendCloseDrawingArea(): void {
-		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			agentBridgeLog('A,C', 'boox-connection.ts:sendCloseDrawingArea', 'Dropped close-drawing-area because socket is not open', {
+				readyState: webSocketReadyStateName(this.ws),
+				sessionCount: this.drawingSessions.length,
+				currentUrl: this.currentUrl,
+			});
+			return;
+		}
+		agentBridgeLog('A,C', 'boox-connection.ts:sendCloseDrawingArea', 'Sending close-drawing-area', {
+			readyState: webSocketReadyStateName(this.ws),
+			sessionCount: this.drawingSessions.length,
+			currentUrl: this.currentUrl,
+		});
 		this.ws.send(
 			JSON.stringify({
 				action: 'close-drawing-area',
@@ -568,9 +653,25 @@ export class BooxConnection {
 	}
 
 	sendUpdateTool(tool: 'draw' | 'eraser', strokeSizeDevicePx?: number): void {
-		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			agentBridgeLog('A,E', 'boox-connection.ts:sendUpdateTool', 'Dropped update-tool because socket is not open', {
+				readyState: webSocketReadyStateName(this.ws),
+				sessionCount: this.drawingSessions.length,
+				currentUrl: this.currentUrl,
+				tool,
+				strokeSizeDevicePx,
+			});
+			return;
+		}
 		const data: Record<string, unknown> = { tool };
 		if (strokeSizeDevicePx !== undefined) data.strokeSize = strokeSizeDevicePx;
+		agentBridgeLog('A,E', 'boox-connection.ts:sendUpdateTool', 'Sending update-tool', {
+			readyState: webSocketReadyStateName(this.ws),
+			sessionCount: this.drawingSessions.length,
+			currentUrl: this.currentUrl,
+			tool,
+			strokeSizeDevicePx,
+		});
 		this.ws.send(
 			JSON.stringify({
 				action: 'update-tool',

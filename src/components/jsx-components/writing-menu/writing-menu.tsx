@@ -24,6 +24,7 @@ export enum tool {
 interface WritingMenuProps {
 	getTlEditor: () => Editor | undefined,
 	onStoreChange: (elEditor: Editor) => void,
+	onActivateTool?: (activatedTool: tool) => void,
 	/** When provided, local undo/redo sync with the unified stack. */
 	embedId?: string,
 	workspaceLeafId?: string,
@@ -85,6 +86,7 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		if (!tlEditor) return;
 		tlEditor.setCurrentTool('select');
 		setCurTool(tool.select);
+		props.onActivateTool?.(tool.select);
 
 	}
 	function activateDrawTool() {
@@ -92,12 +94,14 @@ export const WritingMenu = (props: WritingMenuProps) => {
 		if (!tlEditor) return;
 		tlEditor.setCurrentTool('draw');
 		setCurTool(tool.draw);
+		props.onActivateTool?.(tool.draw);
 	}
 	function activateEraseTool() {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;
 		tlEditor.setCurrentTool('eraser');
 		setCurTool(tool.eraser);
+		props.onActivateTool?.(tool.eraser);
 	}
 
     ///////////

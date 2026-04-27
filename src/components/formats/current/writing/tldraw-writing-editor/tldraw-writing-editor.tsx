@@ -1,9 +1,9 @@
 import './tldraw-writing-editor.scss';
-import { Box, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Box, DefaultSizeStyle, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, bypassReadonly, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, lockTldrawInput, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, unlockTldrawInput, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
-import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
+import { WritingMenu, tool as WritingTool } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
 import * as React from "react";
 import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -30,6 +30,48 @@ import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 
 ///////
 ///////
+
+/** Boox stroke payload in canvas-relative coordinates */
+interface CanvasRelativeStrokePoint {
+	pressure: number;
+	size: number;
+	tiltX: number;
+	tiltY: number;
+	timestamp: number;
+	x: number;
+	y: number;
+}
+
+interface TldrawStrokePoint {
+	x: number,
+	y: number,
+	z?: number,
+}
+
+const AGENT_DEBUG_RUN_ID = 'pre-fix';
+const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
+const AGENT_DEBUG_SESSION_ID = 'd78e27';
+
+function agentWritingBridgeLog(
+	hypothesisId: string,
+	location: string,
+	message: string,
+	data: Record<string, unknown>,
+): void {
+	const payload = {
+		sessionId: AGENT_DEBUG_SESSION_ID,
+		runId: AGENT_DEBUG_RUN_ID,
+		hypothesisId,
+		location,
+		message,
+		data,
+		timestamp: Date.now(),
+	};
+	console.log('[InkBridgeDebug]', message, data);
+	// #region agent log
+	fetch(AGENT_DEBUG_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': AGENT_DEBUG_SESSION_ID }, body: JSON.stringify(payload) }).catch(() => {});
+	// #endregion
+}
 
 interface TldrawWritingEditorProps {
 	onResize?: (invitingBounds: Box, tightBounds: Box) => void,
@@ -77,6 +119,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const curHeightRef = useRef<number | null>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
+	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
+	const websocketConnectedRef = useRef(false);
 	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
 	// On mount
@@ -89,6 +133,80 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			logToVault('Writing editor unmounted: ' + props.writingFile.path);
 		}
 	}, [])
+
+	// Boox companion app: mirror the drawing editor lifecycle for writing embeds.
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		if (!props.plugin.settings.booxConnectionEnabled) return;
+
+		const unregister = props.plugin.booxConnection.registerDrawingSession({
+			onStroke: (strokePoints: unknown) => {
+				const payload = strokePoints as { points?: CanvasRelativeStrokePoint[] };
+				const points = payload.points ?? (strokePoints as CanvasRelativeStrokePoint[]);
+				createStrokeFromBoox(points);
+			},
+			onSocketOpen: () => {
+				agentWritingBridgeLog('F,G,H,I', 'tldraw-writing-editor.tsx:onSocketOpen', 'Boox writing socket opened for active editor', {
+					wasWebsocketConnectedRef: websocketConnectedRef.current,
+					hasTlEditor: !!tlEditorRef.current,
+					file: props.writingFile.path,
+					embedded: !!props.embedded,
+				});
+				websocketConnectedRef.current = true;
+				if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
+				logToVault('Connected writing editor to Boox companion app: ' + props.writingFile.path);
+				newAndroidDrawingArea();
+				if (tlEditorRef.current) props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+			},
+		});
+
+		return () => {
+			agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:drawingSessionCleanup', 'Boox writing session cleanup is closing overlay', {
+				wasWebsocketConnectedRef: websocketConnectedRef.current,
+				isBooxConnected: props.plugin.booxConnection.isConnected(),
+				file: props.writingFile.path,
+				embedded: !!props.embedded,
+			});
+			websocketConnectedRef.current = false;
+			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
+			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+			props.plugin.booxConnection.sendCloseDrawingArea();
+			unregister();
+		};
+	}, [tlEditorSnapshot])
+
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		if (!editorWrapperRefEl.current) return;
+
+		const scrollEl = editorWrapperRefEl.current.closest('.cm-scroller');
+		if (!scrollEl) return;
+
+		const handleScroll = () => {
+			adjustAndroidDrawingArea();
+		};
+
+		scrollEl.addEventListener('scroll', handleScroll);
+
+		return () => {
+			scrollEl.removeEventListener('scroll', handleScroll);
+		};
+	}, [tlEditorSnapshot])
+
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		if (!editorWrapperRefEl.current) return;
+
+		const resizeObserver = new ResizeObserver(() => {
+			adjustAndroidDrawingArea();
+		});
+
+		resizeObserver.observe(editorWrapperRefEl.current);
+
+		return () => {
+			resizeObserver.disconnect();
+		};
+	}, [tlEditorSnapshot])
 
 	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')
@@ -521,6 +639,51 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				<WritingMenu
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+					onActivateTool = {(activatedTool) => {
+						const isNonDrawTool = activatedTool === WritingTool.eraser || activatedTool === WritingTool.select;
+						const wasWebsocketConnectedRef = websocketConnectedRef.current;
+						const isBooxConnected = props.plugin.booxConnection.isConnected();
+						agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:onActivateTool', 'Writing tool activated', {
+							activatedTool,
+							wasWebsocketConnectedRef,
+							isBooxConnected,
+							hasTlEditor: !!tlEditorRef.current,
+							file: props.writingFile.path,
+							embedded: !!props.embedded,
+						});
+						if (isNonDrawTool && websocketConnectedRef.current) {
+							websocketConnectedRef.current = false;
+							if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
+							agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:onActivateTool', 'Non-draw writing tool selected; closing Android drawing area', {
+								activatedTool,
+								isBooxConnected,
+								file: props.writingFile.path,
+							});
+							props.plugin.booxConnection.sendCloseDrawingArea();
+						} else if (activatedTool === WritingTool.draw && !websocketConnectedRef.current && isBooxConnected) {
+							websocketConnectedRef.current = true;
+							if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
+							agentWritingBridgeLog('F,H,I', 'tldraw-writing-editor.tsx:onActivateTool', 'Draw writing tool selected; reopening Android drawing area', {
+								activatedTool,
+								previousWebsocketConnectedRef: wasWebsocketConnectedRef,
+								isBooxConnected,
+								file: props.writingFile.path,
+							});
+							newAndroidDrawingArea();
+							if (tlEditorRef.current) {
+								props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+							}
+						} else {
+							agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:onActivateTool', 'Writing tool activation did not change Android drawing area', {
+								activatedTool,
+								wasWebsocketConnectedRef,
+								currentWebsocketConnectedRef: websocketConnectedRef.current,
+								isBooxConnected,
+								isNonDrawTool,
+								file: props.writingFile.path,
+							});
+						}
+					}}
 					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
 					workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin = {props.embedded && props.plugin ? props.plugin : undefined}
@@ -560,6 +723,133 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	// Helper functions
 	///////////////////
+
+	function newAndroidDrawingArea() {
+		if(!editorWrapperRefEl.current) {
+			agentWritingBridgeLog('F,I', 'tldraw-writing-editor.tsx:newAndroidDrawingArea', 'Skipped writing overlay because wrapper is missing', {
+				file: props.writingFile.path,
+				hasTlEditor: !!tlEditorRef.current,
+			});
+			return;
+		}
+
+		if (!props.plugin.settings.booxConnectionEnabled) return;
+
+		const windowWidth = window.innerWidth;
+		const windowHeight = window.innerHeight;
+
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+		const canvasX = Math.round(embedRect.x);
+		const canvasY = Math.round(embedRect.y);
+		const canvasWidth = Math.round(embedRect.width);
+		const canvasHeight = Math.round(embedRect.height);
+
+		agentWritingBridgeLog('F,H,I', 'tldraw-writing-editor.tsx:newAndroidDrawingArea', 'Computed Android drawing area for writing overlay', {
+			x: canvasX,
+			y: canvasY,
+			canvasWidth,
+			canvasHeight,
+			appWidth: windowWidth,
+			appHeight: windowHeight,
+			file: props.writingFile.path,
+		});
+		props.plugin.booxConnection.sendNewDrawingArea({
+			x: canvasX,
+			y: canvasY,
+			canvasWidth: canvasWidth,
+			canvasHeight: canvasHeight,
+			appWidth: windowWidth,
+			appHeight: windowHeight,
+		});
+	}
+
+	function getBooxStrokeSizeCssPx(editor: Editor): number {
+		const BOOX_STROKE_SIZE_SCALE = 2;
+		const TLDRAW_SIZE_TO_BASE_PX: Record<string, number> = { s: 2, m: 3.5, l: 5, xl: 10 };
+		const sizeStyle = editor.getStyleForNextShape(DefaultSizeStyle);
+		const basePx = TLDRAW_SIZE_TO_BASE_PX[sizeStyle] ?? TLDRAW_SIZE_TO_BASE_PX['m'];
+		const zoom = editor.getCamera().z;
+		return basePx * zoom * BOOX_STROKE_SIZE_SCALE;
+	}
+
+	function adjustAndroidDrawingArea() {
+		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+
+		adjustThrottleRef.current = setTimeout(() => {
+			adjustThrottleRef.current = null;
+			sendAdjustment();
+		}, 200);
+	}
+
+	function sendAdjustment() {
+		if(!editorWrapperRefEl.current) return;
+		if (!props.plugin.settings.booxConnectionEnabled) return;
+
+		const windowWidth = window.innerWidth;
+		const windowHeight = window.innerHeight;
+
+		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
+		const canvasX = Math.round(embedRect.x);
+		const canvasY = Math.round(embedRect.y);
+		const canvasWidth = Math.round(embedRect.width);
+		const canvasHeight = Math.round(embedRect.height);
+
+		agentWritingBridgeLog('I', 'tldraw-writing-editor.tsx:sendAdjustment', 'Computed Android drawing area update for writing overlay', {
+			x: canvasX,
+			y: canvasY,
+			canvasWidth,
+			canvasHeight,
+			appWidth: windowWidth,
+			appHeight: windowHeight,
+			file: props.writingFile.path,
+		});
+		props.plugin.booxConnection.sendUpdateDrawingArea({
+			x: canvasX,
+			y: canvasY,
+			canvasWidth,
+			canvasHeight,
+			appWidth: windowWidth,
+			appHeight: windowHeight,
+		});
+	}
+
+	function createStrokeFromBoox(canvasRelativeStrokePoints: CanvasRelativeStrokePoint[]) {
+		if(!editorWrapperRefEl.current) return;
+		if(!tlEditorRef.current) return;
+
+		const tlBounds = tlEditorRef.current.getViewportPageBounds();
+		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
+
+		const xScaleCoeff = tlBounds.w / embedBounds.width;
+		const yScaleCoeff = tlBounds.h / embedBounds.height;
+		const tldrawStrokePoints = canvasRelativeStrokePoints.map( (canvasStrokePoint: CanvasRelativeStrokePoint) => ({
+			x: tlBounds.x + canvasStrokePoint.x * xScaleCoeff,
+			y: tlBounds.y + canvasStrokePoint.y * yScaleCoeff,
+			z: canvasStrokePoint.pressure,
+		}))
+
+		createTldrawStroke(tldrawStrokePoints);
+	}
+
+	function createTldrawStroke(strokePoints: TldrawStrokePoint[]) {
+		if(!tlEditorRef.current) return;
+		verbose(["Creating writing stroke", strokePoints]);
+	
+		bypassReadonly(tlEditorRef.current, () => {
+			tlEditorRef.current!.createShape({
+				type: 'draw',
+				props: {
+					isPen: true,
+					segments: [
+						{
+							type: 'free',
+							points: strokePoints,
+						}
+					]
+				}
+			})
+		});
+	}
 
     async function fetchFileData() {
         const svg = await props.writingFile.vault.read(props.writingFile);

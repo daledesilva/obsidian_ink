@@ -105,6 +105,10 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				// Let browser back/forward mouse buttons (3 & 4) pass through so
+				// Obsidian's history navigation is not intercepted.
+				if (e.pointerType === 'mouse' && (e.button === 3 || e.button === 4)) return;
+
 				// Only lock scroll for left-click (button 0) and pen input.
 				// Middle (button 1) and right (button 2) mouse events are used exclusively
 				// by embed pan/zoom gestures in tldraw-drawing-editor, which call

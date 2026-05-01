@@ -3,7 +3,7 @@ import { verbose } from 'src/logic/utils/log-to-console';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 
 const INK_LOG_PREFIX = '[Ink]';
-const AGENT_DEBUG_RUN_ID = 'pre-fix';
+const AGENT_DEBUG_RUN_ID = 'invisible-strokes-v1';
 const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
 const AGENT_DEBUG_SESSION_ID = 'd78e27';
 
@@ -107,7 +107,9 @@ export interface BooxConnectionSettings {
 }
 
 type DrawingSessionEntry = {
+	onStrokeStart?: (strokeStart: unknown) => void;
 	onStroke: (strokePoints: unknown) => void;
+	onDrawingAreaReady?: (drawingAreaReady: unknown) => void;
 	onSocketOpen: () => void;
 };
 
@@ -171,11 +173,23 @@ export class BooxConnection {
 		const hadNoSessions = this.drawingSessions.length === 0;
 		this.drawingSessions.push(entry);
 		logToVault('Boox drawing session registered. Active: ' + this.drawingSessions.length);
+		agentBridgeLog('CONN', 'boox-connection.ts:registerDrawingSession', 'Drawing session registered', {
+			hadNoSessions,
+			activeSessions: this.drawingSessions.length,
+			disposed: this.disposed,
+			booxConnectionEnabled: this.getSettings().booxConnectionEnabled,
+			wsState: webSocketReadyStateName(this.ws),
+			currentUrl: this.currentUrl,
+			hasInFlightConnect: !!this.inFlightConnect,
+		});
 		if (hadNoSessions) {
 			this.resetReconnectBudgetsForNewEditCycle();
 		}
-		void this.ensureConnected().catch(() => {
-			/* Outcome logged once in handleFailedOpenBeforeHandshake */
+		void this.ensureConnected().catch((err) => {
+			agentBridgeLog('CONN', 'boox-connection.ts:registerDrawingSession', 'ensureConnected rejected after register', {
+				error: String(err),
+				activeSessions: this.drawingSessions.length,
+			});
 		});
 		return () => {
 			const index = this.drawingSessions.indexOf(entry);
@@ -227,6 +241,13 @@ export class BooxConnection {
 	}
 
 	private handleFailedOpenBeforeHandshake(closeCode?: number): void {
+		agentBridgeLog('CONN', 'boox-connection.ts:handleFailedOpenBeforeHandshake', 'Handling failed open', {
+			closeCode,
+			activeSessions: this.drawingSessions.length,
+			hasEverOpenedSuccessfully: this.hasEverOpenedSuccessfully,
+			initialConnectAttemptNumber: this.initialConnectAttemptNumber,
+			afterDisconnectConnectAttemptNumber: this.afterDisconnectConnectAttemptNumber,
+		});
 		if (this.drawingSessions.length === 0) return;
 		if (!this.hasEverOpenedSuccessfully) {
 			this.initialConnectAttemptNumber += 1;
@@ -248,6 +269,15 @@ export class BooxConnection {
 
 	async ensureConnected(): Promise<void> {
 		const { booxConnectionEnabled } = this.getSettings();
+		agentBridgeLog('CONN', 'boox-connection.ts:ensureConnected', 'ensureConnected called', {
+			disposed: this.disposed,
+			booxConnectionEnabled,
+			wsState: webSocketReadyStateName(this.ws),
+			hasInFlightConnect: !!this.inFlightConnect,
+			activeSessions: this.drawingSessions.length,
+			hasEverOpenedSuccessfully: this.hasEverOpenedSuccessfully,
+			initialConnectAttemptNumber: this.initialConnectAttemptNumber,
+		});
 		if (this.disposed) {
 			throw new Error('BooxConnection disposed');
 		}
@@ -256,10 +286,12 @@ export class BooxConnection {
 		}
 
 		if (this.ws?.readyState === WebSocket.OPEN) {
+			agentBridgeLog('CONN', 'boox-connection.ts:ensureConnected', 'Already open, returning', {});
 			return;
 		}
 
 		if (this.inFlightConnect) {
+			agentBridgeLog('CONN', 'boox-connection.ts:ensureConnected', 'In-flight connect exists, returning existing promise', {});
 			return this.inFlightConnect;
 		}
 
@@ -289,17 +321,35 @@ export class BooxConnection {
 	 * Up to MAX_PROBE_WAVES waves with INTER_WAVE_DELAY_MS between failures.
 	 */
 	private async runParallelProbeWaves(): Promise<void> {
+		agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Starting probe waves', {
+			maxWaves: MAX_PROBE_WAVES,
+			activeSessions: this.drawingSessions.length,
+			disposed: this.disposed,
+		});
 		for (let waveIndex = 0; waveIndex < MAX_PROBE_WAVES; waveIndex++) {
 			if (waveIndex > 0) {
 				await delayMs(INTER_WAVE_DELAY_MS);
 			}
 			if (this.disposed || this.drawingSessions.length === 0) {
+				agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Probe aborted (disposed or no sessions)', {
+					waveIndex,
+					disposed: this.disposed,
+					activeSessions: this.drawingSessions.length,
+				});
 				throw new Error('BooxConnection: probe aborted');
 			}
 
+			agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Starting probe wave', {
+				waveIndex,
+			});
 			const waveResult = await this.probeOneWaveParallel();
 
 			if (waveResult.kind === 'success') {
+				agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Probe wave SUCCESS', {
+					waveIndex,
+					url: waveResult.url,
+					activeSessions: this.drawingSessions.length,
+				});
 				this.reconnectAttempt = 0;
 				if (this.drawingSessions.length === 0) {
 					verbose(
@@ -333,8 +383,16 @@ export class BooxConnection {
 				}
 				return;
 			}
+			agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Probe wave FAILED, will retry', {
+				waveIndex,
+				activeSessions: this.drawingSessions.length,
+			});
 		}
 
+		agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'All probe waves failed', {
+			maxWaves: MAX_PROBE_WAVES,
+			activeSessions: this.drawingSessions.length,
+		});
 		this.handleFailedOpenBeforeHandshake(WS_CLOSE_ABNORMAL);
 		throw new Error('WebSocket connection failed');
 	}
@@ -385,6 +443,28 @@ export class BooxConnection {
 		const action = (parsed as { action?: string }).action;
 		const rawTool = ((parsed as { data?: { tool?: string } }).data)?.tool ?? '(none)';
 		logToVault(`dispatchStroke action:${action} tool:${rawTool}`);
+		if (action === 'stroke-start') {
+			const last = this.drawingSessions[this.drawingSessions.length - 1];
+			if (last) {
+				try {
+					last.onStrokeStart?.((parsed as { data: unknown }).data);
+				} catch (error) {
+					verbose(['BooxConnection: onStrokeStart error', error]);
+				}
+			}
+			return;
+		}
+		if (action === 'drawing-area-ready') {
+			const last = this.drawingSessions[this.drawingSessions.length - 1];
+			if (last) {
+				try {
+					last.onDrawingAreaReady?.((parsed as { data: unknown }).data);
+				} catch (error) {
+					verbose(['BooxConnection: onDrawingAreaReady error', error]);
+				}
+			}
+			return;
+		}
 		if (action !== 'new-stroke') {
 			return;
 		}
@@ -603,6 +683,7 @@ export class BooxConnection {
 		canvasHeight: number;
 		appWidth: number;
 		appHeight: number;
+		immediate?: boolean;
 	}): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
 			agentBridgeLog('A', 'boox-connection.ts:sendUpdateDrawingArea', 'Dropped update-drawing-area because socket is not open', {
@@ -622,7 +703,15 @@ export class BooxConnection {
 		this.ws.send(
 			JSON.stringify({
 				action: 'update-drawing-area',
-				data: dimensions,
+				data: {
+					x: dimensions.x,
+					y: dimensions.y,
+					canvasWidth: dimensions.canvasWidth,
+					canvasHeight: dimensions.canvasHeight,
+					appWidth: dimensions.appWidth,
+					appHeight: dimensions.appHeight,
+					immediate: dimensions.immediate ?? false,
+				},
 			}),
 		);
 	}
@@ -676,6 +765,16 @@ export class BooxConnection {
 			JSON.stringify({
 				action: 'update-tool',
 				data,
+			}),
+		);
+	}
+
+	sendStrokeRendered(strokeId: number): void {
+		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+		this.ws.send(
+			JSON.stringify({
+				action: 'stroke-rendered',
+				data: { strokeId },
 			}),
 		);
 	}

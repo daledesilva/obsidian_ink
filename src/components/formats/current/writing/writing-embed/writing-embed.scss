@@ -7,6 +7,12 @@
     transition-timing-function: ease-out;
 }
 
+.ddc_ink_resize-container.ddc_ink_resize-container--boox,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox.ddc_ink_smooth-transition,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox .ddc_ink_writing-editor {
+    transition: none !important;
+}
+
 
 
 

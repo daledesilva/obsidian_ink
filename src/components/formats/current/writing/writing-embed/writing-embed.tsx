@@ -209,7 +209,10 @@ export function WritingEmbed (props: {
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
 			{props.writingFileRef && (
 				<div
-					className = 'ddc_ink_resize-container'
+					className = {classNames([
+						'ddc_ink_resize-container',
+						props.plugin.settings.booxConnectionEnabled && 'ddc_ink_resize-container--boox',
+					])}
 					ref = {resizeContainerElRef}
 					style = {{
 						width: '100%',
@@ -298,6 +301,7 @@ export function WritingEmbed (props: {
 		setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize
 			if(!resizeContainerElRef.current) return;
+			if(props.plugin.settings.booxConnectionEnabled) return;
 			resizeContainerElRef.current.classList.add('ddc_ink_smooth-transition');
 		}, 100)
 	}

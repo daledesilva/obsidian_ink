@@ -443,7 +443,8 @@ export const unhideWritingTemplate = (editor: Editor) => {
 export const hideWritingContainer = (editor: Editor) => {
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!writingContainerShape) return;
-	const savedH = writingContainerShape.props.h;
+	const isAlreadyHidden = writingContainerShape.props.h === 0 && typeof writingContainerShape.meta.savedH === 'number';
+	const savedH = isAlreadyHidden ? writingContainerShape.meta.savedH : writingContainerShape.props.h;
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingContainerShape);
@@ -465,7 +466,8 @@ export const hideWritingContainer = (editor: Editor) => {
 export const hideWritingLines = (editor: Editor) => {
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	if (!writingLinesShape) return;
-	const savedH = writingLinesShape.props.h;
+	const isAlreadyHidden = writingLinesShape.props.h === 0 && typeof writingLinesShape.meta.savedH === 'number';
+	const savedH = isAlreadyHidden ? writingLinesShape.meta.savedH : writingLinesShape.props.h;
 
 	editor.store.update(writingLinesShape.id, (record: WritingContainer) => {
 		record.isLocked = false;
@@ -493,6 +495,7 @@ export const unhideWritingContainer = (editor: Editor) => {
 	const writingContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
 	if (!writingContainerShape) return;
 	const h = writingContainerShape.meta.savedH;
+	if (typeof h !== 'number') return;
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingContainerShape);
@@ -515,6 +518,7 @@ export const unhideWritingLines = (editor: Editor) => {
 	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
 	if (!writingLinesShape) return;
 	const h = writingLinesShape.meta.savedH;
+	if (typeof h !== 'number') return;
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingLinesShape);
@@ -783,9 +787,11 @@ export function getAllStrokeBounds(editor: Editor): Box {
 
 export function getDrawShapeBounds(editor: Editor): Box {
 	hideWritingTemplate(editor);
-	let bounds = editor.getCurrentPageBounds() || new Box(0,0)
-	unhideWritingTemplate(editor);
-	return bounds
+	try {
+		return editor.getCurrentPageBounds() || new Box(0,0)
+	} finally {
+		unhideWritingTemplate(editor);
+	}
 }
 
 export function simplifyWritingLines(editor: Editor, entry: HistoryEntry<TLRecord>) {

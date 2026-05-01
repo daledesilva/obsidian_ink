@@ -147,9 +147,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		const unregister = inkPlugin.booxConnection.registerDrawingSession({
 			onStroke: (strokePoints: unknown) => {
-				const payload = strokePoints as { points?: CanvasRelativeStrokePoint[] };
+				const payload = strokePoints as { strokeId?: number; points?: CanvasRelativeStrokePoint[] };
 				const points = payload.points ?? (strokePoints as CanvasRelativeStrokePoint[]);
-				createStrokeFromBoox(points);
+				if (createStrokeFromBoox(points) && payload.strokeId !== undefined) {
+					inkPlugin.booxConnection.sendStrokeRendered(payload.strokeId);
+				}
 			},
 			onSocketOpen: () => {
 				agentDrawingBridgeLog('A,C', 'tldraw-drawing-editor.tsx:onSocketOpen', 'Boox drawing socket opened for active editor', {
@@ -1013,19 +1015,25 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 							file: props.drawingFile.path,
 						});
 						inkPlugin.booxConnection.sendCloseDrawingArea();
-					} else if (activatedTool === 'draw' && !websocketConnectedRef.current && inkPlugin.booxConnection.isConnected()) {
-						websocketConnectedRef.current = true;
-						if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
-						agentDrawingBridgeLog('A,B,C,E', 'tldraw-drawing-editor.tsx:onActivateTool', 'Draw tool selected; reopening Android drawing area', {
+					} else if (activatedTool === 'draw' && !websocketConnectedRef.current) {
+						agentDrawingBridgeLog('A,B,C,E', 'tldraw-drawing-editor.tsx:onActivateTool', 'Draw tool selected; opening or reconnecting Android drawing area', {
 							activatedTool,
 							previousWebsocketConnectedRef: wasWebsocketConnectedRef,
 							isBooxConnected,
 							file: props.drawingFile.path,
 						});
-						newAndroidDrawingArea();
-						if (tlEditorRef.current) {
-							inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current))
-						};
+						if (isBooxConnected) {
+							websocketConnectedRef.current = true;
+							if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
+							newAndroidDrawingArea();
+							if (tlEditorRef.current) {
+								inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current))
+							};
+						} else {
+							void inkPlugin.booxConnection.ensureConnected().catch((error) => {
+								verbose(['BooxConnection: reconnect from drawing draw tool failed', error]);
+							});
+						}
 					} else {
 						agentDrawingBridgeLog('A', 'tldraw-drawing-editor.tsx:onActivateTool', 'Tool activation did not change Android drawing area', {
 							activatedTool,
@@ -1227,9 +1235,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	/**
 	 * Converts Boox formatted stroke points to a common format
 	 */
-	function createStrokeFromBoox(canvasRelativeStrokePoints: CanvasRelativeStrokePoint[]) {
-		if(!editorWrapperRefEl.current) return;
-		if(!tlEditorRef.current) return;
+	function createStrokeFromBoox(canvasRelativeStrokePoints: CanvasRelativeStrokePoint[]): boolean {
+		if(!editorWrapperRefEl.current) return false;
+		if(!tlEditorRef.current) return false;
 
 		const tlBounds = tlEditorRef.current.getViewportPageBounds();
 		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
@@ -1248,6 +1256,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// drawCanvasDebugOverlays({ strokePoints: canvasRelativeStrokePoints });
 		
 		createTldrawStroke(tldrawStrokePoints);
+		return true;
 	}
 
 

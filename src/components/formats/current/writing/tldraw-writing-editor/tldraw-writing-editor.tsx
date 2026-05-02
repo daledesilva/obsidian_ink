@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
 import { Box, DefaultSizeStyle, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, bypassReadonly, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, lockTldrawInput, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, unlockTldrawInput, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, bypassReadonly, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, lockTldrawInput, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, resizeWritingTemplate, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, unlockTldrawInput, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu, tool as WritingTool } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
@@ -22,6 +22,7 @@ import { configureNetworkIngest, info, verbose } from 'src/logic/utils/log-to-co
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
+import { ExpandLinesButton } from 'src/tldraw/expand-lines-button/expand-lines-button';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { getRegisteredEmbedCountForLeaf, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
@@ -94,6 +95,16 @@ const myOverrides: Record<string, never> = {}
 const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
+const stableShapeUtils = [...defaultShapeUtils, ...MyCustomShapes];
+const stableTools = [...defaultTools, ...defaultShapeTools];
+const stableComponents = {
+	Scribble: TldrawScribble,
+	ShapeIndicators: TldrawShapeIndicators,
+	CollaboratorScribble: TldrawScribble,
+	SelectionForeground: TldrawSelectionForeground,
+	SelectionBackground: TldrawSelectionBackground,
+	Handles: TldrawHandles,
+}
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
@@ -108,6 +119,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
 	const websocketConnectedRef = useRef(false);
+	const [booxConnected, setBooxConnected] = React.useState(false);
 	const pendingBooxStrokeCompletionsRef = useRef(0);
 	const isAndroidDrawingAreaResizingRef = useRef(false);
 	const queuedBooxStrokePayloadsRef = useRef<BooxStrokePayload[]>([]);
@@ -182,6 +194,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					embedded: !!props.embedded,
 				}]);
 				websocketConnectedRef.current = true;
+				setBooxConnected(true);
 				if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 				logToVault('Connected writing editor to Boox companion app: ' + props.writingFile.path);
 				newAndroidDrawingArea();
@@ -193,6 +206,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		// onSocketOpen won't fire again, so lock input and send drawing area now.
 		if (props.plugin.booxConnection.isConnected()) {
 			websocketConnectedRef.current = true;
+			setBooxConnected(true);
 			if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 			newAndroidDrawingArea();
 			if (tlEditorRef.current) props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
@@ -206,6 +220,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				embedded: !!props.embedded,
 			}]);
 			websocketConnectedRef.current = false;
+			setBooxConnected(false);
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 			props.plugin.booxConnection.sendCloseDrawingArea();
@@ -250,15 +265,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	verbose('EDITOR snapshot loaded')
 
 	////////
-
-	const defaultComponents = {
-		Scribble: TldrawScribble,
-		ShapeIndicators: TldrawShapeIndicators,
-		CollaboratorScribble: TldrawScribble,
-		SelectionForeground: TldrawSelectionForeground,
-		SelectionBackground: TldrawSelectionBackground,
-		Handles: TldrawHandles,
-	}
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
@@ -632,18 +638,27 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
 		logToVault('Writing instantInputPostProcess: curHeightRef=' + curHeightRef.current);
 		if (props.embedded) {
-			const prevHeight = curHeightRef.current;
-			info(['Guide lines: instantInputPostProcess start', { prevHeight, embedded: true }]);
-			const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
-			logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
-			info(['Guide lines: instantInputPostProcess result', {
-				prevHeight,
-				newHeight,
-				heightChanged: newHeight !== null && newHeight !== prevHeight,
-				willCallResizeContainerIfEmbed: newHeight !== null && newHeight !== prevHeight,
-			}]);
-			if (newHeight !== null) curHeightRef.current = newHeight;
-			if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
+			// When Boox is connected, skip automatic resize — the user must press the
+			// expand-lines button instead to avoid resize-during-writing conflicts.
+			const skipAutoResize = websocketConnectedRef.current;
+			if (skipAutoResize) {
+				info(['Guide lines: instantInputPostProcess SKIPPED (Boox connected)', {
+					curHeight: curHeightRef.current,
+				}]);
+			} else {
+				const prevHeight = curHeightRef.current;
+				info(['Guide lines: instantInputPostProcess start', { prevHeight, embedded: true }]);
+				const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
+				logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
+				info(['Guide lines: instantInputPostProcess result', {
+					prevHeight,
+					newHeight,
+					heightChanged: newHeight !== null && newHeight !== prevHeight,
+					willCallResizeContainerIfEmbed: newHeight !== null && newHeight !== prevHeight,
+				}]);
+				if (newHeight !== null) curHeightRef.current = newHeight;
+				if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
+			}
 		} else {
 			// Dedicated view: extend to cover viewport bottom + 10 lines at current scroll position
 			const newHeight = resizeWritingTemplateForDedicatedView(editor);
@@ -750,6 +765,27 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		return tlEditorRef.current;
 	};
 
+	function expandWritingLinesByOne() {
+		const editor = tlEditorRef.current;
+		if (!editor) return;
+
+		const lineHeight = getLineHeightFromEditor(editor);
+		const bufferLines = props.plugin.settings.writingBufferLines;
+		const prevHeight = curHeightRef.current ?? lineHeight * 2.5; // fallback to min page height
+		const newHeight = prevHeight + bufferLines * lineHeight;
+
+		info(['Manual expand-lines clicked', {
+			prevHeight,
+			newHeight,
+			lineHeight,
+			bufferLines,
+		}]);
+
+		resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, newHeight));
+		curHeightRef.current = newHeight;
+		resizeContainerIfEmbed(editor, newHeight);
+	}
+
 	//////////////
 
 	return <>
@@ -793,14 +829,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		>
 			<TldrawEditor
 				options = {tlOptions}
-				shapeUtils = {[...defaultShapeUtils, ...MyCustomShapes]}
-				tools = {[...defaultTools, ...defaultShapeTools]}
+				shapeUtils = {stableShapeUtils}
+				tools = {stableTools}
 				initialState = "draw"
 				snapshot = {tlEditorSnapshot}
 				// persistenceKey = {props.fileRef.path}
 
 				// bindingUtils = {defaultBindingUtils}
-				components = {defaultComponents}
+				components = {stableComponents}
 
 				onMount = {handleMount}
 
@@ -827,6 +863,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						}]);
 						if (isNonDrawTool && websocketConnectedRef.current) {
 							websocketConnectedRef.current = false;
+							setBooxConnected(false);
 							if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 							info(['Non-draw writing tool selected; closing Android drawing area', {
 								activatedTool,
@@ -843,6 +880,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							}]);
 							if (isBooxConnected) {
 								websocketConnectedRef.current = true;
+								setBooxConnected(true);
 								if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 								newAndroidDrawingArea();
 								if (tlEditorRef.current) {
@@ -896,6 +934,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
+				{props.embedded && booxConnected && (
+					<ExpandLinesButton
+						onExpandLines = {expandWritingLinesByOne}
+					/>
+				)}
 			</SecondaryMenuBar>
 			
 		</div>

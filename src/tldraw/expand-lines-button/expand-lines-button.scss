@@ -1,0 +1,28 @@
+
+.ink_expand-lines-button {
+    // Positioned at the far right of the SecondaryMenuBar while undo/redo stays centered
+    position: absolute;
+    right: 8px;
+
+    display: flex;
+    flex-direction: row;
+
+    pointer-events: auto;
+
+    button {
+        width: 2.5em;
+        height: 2.5em;
+        border-radius: 0.8em;
+        padding: 0 !important;
+
+        svg {
+            width: 1.5em !important;
+            height: 1.5em !important;
+        }
+    }
+}
+
+// Match file-margins padding when inside an embed
+.cm-embed-block .ink_expand-lines-button {
+    right: var(--file-margins);
+}

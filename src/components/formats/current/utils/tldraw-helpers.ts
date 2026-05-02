@@ -448,17 +448,13 @@ export const hideWritingContainer = (editor: Editor) => {
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingContainerShape);
-		editor.updateShape({
-			id: writingContainerShape.id,
-			type: writingContainerShape.type,
-			// isLocked: true,
-			props: {
-				h: 0,
-			},
-			meta: {
-				savedH: savedH,
-			},
-		});
+		// editor.updateShape() is silently ignored when isReadonly is true,
+		// so update the store directly instead.
+		editor.store.update(writingContainerShape.id, (record: any) => ({
+			...record,
+			props: { ...record.props, h: 0 },
+			meta: { ...record.meta, savedH: savedH },
+		}));
 		lockShape(editor, writingContainerShape);
 	});
 }
@@ -469,24 +465,15 @@ export const hideWritingLines = (editor: Editor) => {
 	const isAlreadyHidden = writingLinesShape.props.h === 0 && typeof writingLinesShape.meta.savedH === 'number';
 	const savedH = isAlreadyHidden ? writingLinesShape.meta.savedH : writingLinesShape.props.h;
 
-	editor.store.update(writingLinesShape.id, (record: WritingContainer) => {
-		record.isLocked = false;
-		return record;
-	})
-
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingLinesShape);
-		editor.updateShape({
-			id: writingLinesShape.id,
-			type: writingLinesShape.type,
-			// isLocked: true,
-			props: {
-				h: 0,
-			},
-			meta: {
-				savedH: savedH,
-			}
-		});
+		// editor.updateShape() is silently ignored when isReadonly is true,
+		// so update the store directly instead.
+		editor.store.update(writingLinesShape.id, (record: any) => ({
+			...record,
+			props: { ...record.props, h: 0 },
+			meta: { ...record.meta, savedH: savedH },
+		}));
 		lockShape(editor, writingLinesShape);
 	});
 }
@@ -499,16 +486,11 @@ export const unhideWritingContainer = (editor: Editor) => {
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingContainerShape);
-		editor.updateShape({
-			id: writingContainerShape.id,
-			type: writingContainerShape.type,
-			// isLocked: true,
-			props: {
-				h: h,
-			},
-			meta: {
-				savedH: undefined,
-			}
+		// editor.updateShape() is silently ignored when isReadonly is true,
+		// so update the store directly instead.
+		editor.store.update(writingContainerShape.id, (record: any) => {
+			const { savedH: _, ...restMeta } = record.meta;
+			return { ...record, props: { ...record.props, h: h }, meta: restMeta };
 		});
 		lockShape(editor, writingContainerShape);
 	});
@@ -522,16 +504,11 @@ export const unhideWritingLines = (editor: Editor) => {
 
 	silentlyChangeStore(editor, () => {
 		unlockShape(editor, writingLinesShape);
-		editor.updateShape({
-			id: writingLinesShape.id,
-			type: writingLinesShape.type,
-			// isLocked: true,
-			props: {
-				h: h,
-			},
-			meta: {
-				savedH: undefined,
-			}
+		// editor.updateShape() is silently ignored when isReadonly is true,
+		// so update the store directly instead.
+		editor.store.update(writingLinesShape.id, (record: any) => {
+			const { savedH: _, ...restMeta } = record.meta;
+			return { ...record, props: { ...record.props, h: h }, meta: restMeta };
 		});
 		lockShape(editor, writingLinesShape);
 	});

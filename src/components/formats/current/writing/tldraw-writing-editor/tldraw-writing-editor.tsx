@@ -270,6 +270,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
+		// If the Boox socket is already open when tldraw mounts, lock input now.
+		// The useEffect that runs on tlEditorSnapshot fires before handleMount,
+		// so its lockTldrawInput call is skipped because tlEditorRef.current is still null.
+		if (props.plugin.settings.booxConnectionEnabled && props.plugin.booxConnection.isConnected()) {
+			info(['handleMount: Boox already connected, locking tldraw input', {
+				isReadonlyBefore: editor.getInstanceState().isReadonly,
+			}]);
+			lockTldrawInput(editor);
+		}
+
 		if(editorWrapperRefEl.current) {
 			editorWrapperRefEl.current.style.opacity = '1';
 			// Dedicated view: keep key events on the wrapper (tabIndex + keydown capture).
@@ -968,12 +978,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}, 200);
 	}
 
-	/** Immediate variant — use when the DOM has already resized and we need Bridge to catch up ASAP. */
+	/** Immediate variant — use when the DOM has already resized and we need Bridge to catch up ASAP.
+	 *  Uses a 50ms micro-debounce to collapse rapid duplicate sends (e.g. when a resize triggers
+	 *  store changes that trigger another resize check, both producing the same dimensions). */
 	function sendAdjustmentImmediate() {
-		info(['Sending IMMEDIATE update-drawing-area (no throttle)', {}]);
 		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-		adjustThrottleRef.current = null;
-		sendAdjustment(true);
+		adjustThrottleRef.current = setTimeout(() => {
+			adjustThrottleRef.current = null;
+			info(['Sending IMMEDIATE update-drawing-area (micro-debounced)', {}]);
+			sendAdjustment(true);
+		}, 50) as unknown as ReturnType<typeof setTimeout>;
 	}
 
 	function sendAdjustment(immediate: boolean) {

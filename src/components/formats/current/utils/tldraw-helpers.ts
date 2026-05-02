@@ -896,6 +896,10 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 	
 	if(!writingLinesShape) return;
 	if(!writingContainerShape) return;
+
+	const prevLinesH = writingLinesShape.props.h;
+	const prevContainerH = writingContainerShape.props.h;
+	info(['resizeWritingTemplate BEFORE', { prevLinesH, prevContainerH, targetH: contentBounds.h }]);
 	
 	silentlyChangeStore( editor, () => {
 		unlockShape(editor, writingContainerShape);
@@ -918,6 +922,16 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
 	})
+
+	const afterLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines;
+	const afterContainerShape = editor.getShape('shape:writing-container' as TLShapeId) as WritingContainer;
+	const afterGeom = editor.getShapeGeometry(afterLinesShape);
+	info(['resizeWritingTemplate AFTER', {
+		afterLinesH: afterLinesShape?.props.h,
+		afterContainerH: afterContainerShape?.props.h,
+		geomBoundsH: afterGeom?.bounds.h,
+		geomBoundsW: afterGeom?.bounds.w,
+	}]);
 }
 
 
@@ -970,13 +984,25 @@ export const resizeWritingTemplateInvitinglyIfNecessary = (
 ): number | null => {
 	console.log('[ink] resizeWritingTemplateInvitinglyIfNecessary');
 	const contentBounds = getInvitingWritingBounds(editor);
-	if (!contentBounds) return null;
+	if (!contentBounds) {
+		info('NO contentBounds, returning null');
+		return null;
+	}
 	const {plugin} = getGlobals()
 
 	const newHeight = contentBounds.h;
 	const lineHeight = getLineHeightFromEditor(editor);
+	const shouldResize = shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines, lineHeight);
 
-	if (shouldResizeForNewHeight(newHeight, curHeight, plugin.settings.writingBufferLines, lineHeight)) {
+	info(['shouldResize decision', {
+		curHeight,
+		newHeight,
+		lineHeight,
+		bufferLines: plugin.settings.writingBufferLines,
+		shouldResize,
+	}]);
+
+	if (shouldResize) {
 		resizeWritingTemplate(editor, contentBounds);
 		return newHeight;
 	}

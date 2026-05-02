@@ -16,6 +16,46 @@ import chalk from "chalk";
 /////////////
 /////////////
 
+// Network ingest configuration
+let networkIngestUrl: string | null = null;
+let networkSessionId: string | null = null;
+let networkRunId: string | null = null;
+
+/**
+ * Enable network log forwarding. When configured, every log call (info, warn,
+ * error, debug, http, verbose) also POSTs a structured JSON payload to the
+ * ingest server. This is essential on Android/Boox where console.log output is
+ * not reliably forwarded to adb logcat.
+ *
+ * Call once at module scope (e.g. top of the main editor file). When not
+ * called, all functions simply console.log as usual — zero behaviour change.
+ */
+export function configureNetworkIngest(port: number, sessionId: string, runId: string): void {
+    networkIngestUrl = `http://127.0.0.1:${port}/ingest/${sessionId}`;
+    networkSessionId = sessionId;
+    networkRunId = runId;
+}
+
+function postToIngest(level: string, message: string, data?: Record<string, unknown>): void {
+    if (!networkIngestUrl || !networkSessionId || !networkRunId) return;
+    const payload = {
+        sessionId: networkSessionId,
+        runId: networkRunId,
+        level,
+        message,
+        data: data ?? {},
+        timestamp: Date.now(),
+    };
+    fetch(networkIngestUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': networkSessionId,
+        },
+        body: JSON.stringify(payload),
+    }).catch(() => {});
+}
+
 
 function getTimestamp() {
     const now = new Date();
@@ -33,24 +73,43 @@ interface LogOptions {
 
 export function info(_data: any|any[], _options: LogOptions = {}) {
     print(chalk.blue.bold('Ink info:'), _data, _options);
+    forwardToIngest('info', _data);
 }
 export function warn(_data: any|any[], _options: LogOptions = {}) {
     print(chalk.yellow.bold('Ink warn:'), _data, _options);
+    forwardToIngest('warn', _data);
 }
 export function error(_data: any|any[], _options: LogOptions = {}) {
     print(chalk.red.bold('Ink error:'), _data, _options);
+    forwardToIngest('error', _data);
 }
 export function debug(_data: any|any[], _options: LogOptions = {}) {
     if(process.env.NODE_ENV === 'production') return;
     print(chalk.green.bold('Ink debug:'), _data, _options);
+    forwardToIngest('debug', _data);
 }
 export function http(_data: any|any[], _options: LogOptions = {}) {
     if(process.env.NODE_ENV === 'production') return;
     print(chalk.magenta.bold('Ink http:'), _data, _options);
+    forwardToIngest('http', _data);
 }
 export function verbose(_data: any|any[], _options: LogOptions = {}) {
     if(process.env.NODE_ENV === 'production') return;
     print(chalk.cyan.bold('Ink verbose:'), _data, _options);
+    forwardToIngest('verbose', _data);
+}
+
+function forwardToIngest(level: string, _data: any|any[]): void {
+    if (!networkIngestUrl) return;
+    if (_data instanceof Array) {
+        const message = _data.filter(d => typeof d === 'string').join(' ');
+        const dataObj = _data.find(d => d instanceof Object && !(d instanceof Array));
+        postToIngest(level, message || level, dataObj);
+    } else if (_data instanceof Object) {
+        postToIngest(level, level, _data);
+    } else {
+        postToIngest(level, String(_data));
+    }
 }
 
 function print(_label: string, _data: any|any[], _options: LogOptions = {}) {

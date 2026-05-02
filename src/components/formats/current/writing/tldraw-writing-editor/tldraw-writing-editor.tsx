@@ -18,7 +18,7 @@ import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { useAtomValue } from 'jotai';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { configureNetworkIngest, info, verbose } from 'src/logic/utils/log-to-console';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
@@ -56,29 +56,8 @@ interface TldrawStrokePoint {
 }
 
 const AGENT_DEBUG_RUN_ID = 'invisible-strokes-v1';
-const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
 const AGENT_DEBUG_SESSION_ID = 'd78e27';
-
-function agentWritingBridgeLog(
-	hypothesisId: string,
-	location: string,
-	message: string,
-	data: Record<string, unknown>,
-): void {
-	const payload = {
-		sessionId: AGENT_DEBUG_SESSION_ID,
-		runId: AGENT_DEBUG_RUN_ID,
-		hypothesisId,
-		location,
-		message,
-		data,
-		timestamp: Date.now(),
-	};
-	console.log('[InkBridgeDebug]', message, data);
-	// #region agent log
-	fetch(AGENT_DEBUG_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': AGENT_DEBUG_SESSION_ID }, body: JSON.stringify(payload) }).catch(() => {});
-	// #endregion
-}
+configureNetworkIngest(7662, AGENT_DEBUG_SESSION_ID, AGENT_DEBUG_RUN_ID);
 
 interface TldrawWritingEditorProps {
 	onResize?: (invitingBounds: Box, tightBounds: Box) => void,
@@ -152,11 +131,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		const unregister = props.plugin.booxConnection.registerDrawingSession({
 			onStrokeStart: () => {
-				agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:onStrokeStart', 'Boox stroke-start received, cancelling pending resize debounce', {
+				info(['Boox stroke-start received, cancelling pending resize debounce', {
 					isResizing: isAndroidDrawingAreaResizingRef.current,
 					queuedCount: queuedBooxStrokePayloadsRef.current.length,
 					hasPendingResizeTimer: resizePostProcessTimeoutRef.current !== undefined,
-				});
+				}]);
 				cancelDelayedBooxResizePostProcess();
 			},
 			onStroke: (strokePoints: unknown) => {
@@ -168,40 +147,40 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					canvasHeight: payload.canvasHeight,
 				};
 				if (isAndroidDrawingAreaResizingRef.current) {
-					agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:onStroke:queued', 'Boox stroke QUEUED (resize in progress)', {
+					info(['Boox stroke QUEUED (resize in progress)', {
 						strokeId: strokePayload.strokeId,
 						queuedCountBefore: queuedBooxStrokePayloadsRef.current.length,
 						canvasWidth: strokePayload.canvasWidth,
 						canvasHeight: strokePayload.canvasHeight,
-					});
+					}]);
 					queuedBooxStrokePayloadsRef.current.push(strokePayload);
 					return;
 				}
-				agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:onStroke:immediate', 'Boox stroke rendered IMMEDIATELY (no resize in progress)', {
+				info(['Boox stroke rendered IMMEDIATELY (no resize in progress)', {
 					strokeId: strokePayload.strokeId,
 					canvasWidth: strokePayload.canvasWidth,
 					canvasHeight: strokePayload.canvasHeight,
-				});
+				}]);
 				if (createStrokeFromBoox(strokePayload) && strokePayload.strokeId !== undefined) {
 					props.plugin.booxConnection.sendStrokeRendered(strokePayload.strokeId);
 				}
 			},
 			onDrawingAreaReady: () => {
-				agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:onDrawingAreaReady', 'Bridge drawing-area-ready received', {
+				info(['Bridge drawing-area-ready received', {
 					wasResizing: isAndroidDrawingAreaResizingRef.current,
 					queuedCount: queuedBooxStrokePayloadsRef.current.length,
-				});
+				}]);
 				if (!isAndroidDrawingAreaResizingRef.current && queuedBooxStrokePayloadsRef.current.length === 0) return;
 				isAndroidDrawingAreaResizingRef.current = false;
 				flushQueuedBooxStrokesAfterResize();
 			},
 			onSocketOpen: () => {
-				agentWritingBridgeLog('F,G,H,I', 'tldraw-writing-editor.tsx:onSocketOpen', 'Boox writing socket opened for active editor', {
+				info(['Boox writing socket opened for active editor', {
 					wasWebsocketConnectedRef: websocketConnectedRef.current,
 					hasTlEditor: !!tlEditorRef.current,
 					file: props.writingFile.path,
 					embedded: !!props.embedded,
-				});
+				}]);
 				websocketConnectedRef.current = true;
 				if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 				logToVault('Connected writing editor to Boox companion app: ' + props.writingFile.path);
@@ -210,13 +189,22 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			},
 		});
 
+		// If the socket is already open (e.g. reconnecting after deleting/recreating an embed),
+		// onSocketOpen won't fire again, so lock input and send drawing area now.
+		if (props.plugin.booxConnection.isConnected()) {
+			websocketConnectedRef.current = true;
+			if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
+			newAndroidDrawingArea();
+			if (tlEditorRef.current) props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+		}
+
 		return () => {
-			agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:drawingSessionCleanup', 'Boox writing session cleanup is closing overlay', {
+			info(['Boox writing session cleanup is closing overlay', {
 				wasWebsocketConnectedRef: websocketConnectedRef.current,
 				isBooxConnected: props.plugin.booxConnection.isConnected(),
 				file: props.writingFile.path,
 				embedded: !!props.embedded,
-			});
+			}]);
 			websocketConnectedRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
@@ -512,19 +500,93 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const tightBounds = getTightWritingBounds(editor);
 		if (!tightBounds) return;
 
+		// --- H1/H2/H4 diagnostic: snapshot state BEFORE resize ---
+		const writingLinesShapeBefore = editor.getShape('shape:writing-lines' as any);
+		const viewportPageBoundsBefore = editor.getViewportPageBounds();
+		const viewportScreenBoundsBefore = editor.getViewportScreenBounds();
+		const containerBefore = editor.getContainer().getBoundingClientRect();
+		const culledBefore = editor.getCulledShapes();
+		const linesGeomBefore = writingLinesShapeBefore ? editor.getShapeGeometry(writingLinesShapeBefore) : null;
+		info(['Guide lines diagnostic BEFORE resize', {
+			curTlDrawHeight,
+			prevHeightRef: curHeightRef.current,
+			writingLinesH: (writingLinesShapeBefore as any)?.props?.h,
+			linesGeomH: linesGeomBefore?.bounds.h,
+			vpPageX: viewportPageBoundsBefore.x, vpPageY: viewportPageBoundsBefore.y, vpPageW: viewportPageBoundsBefore.w, vpPageH: viewportPageBoundsBefore.h,
+			vpScreenX: viewportScreenBoundsBefore.x, vpScreenY: viewportScreenBoundsBefore.y, vpScreenW: viewportScreenBoundsBefore.w, vpScreenH: viewportScreenBoundsBefore.h,
+			containerW: containerBefore.width, containerH: containerBefore.height,
+			isCulled: culledBefore.has('shape:writing-lines' as any),
+			culledCount: culledBefore.size,
+			cameraX: editor.getCamera().x, cameraY: editor.getCamera().y, cameraZ: editor.getCamera().z,
+			zoom: editor.getZoomLevel(),
+		}]);
+
 		// Set queuing flag *before* the DOM height changes so any Boox strokes arriving
 		// during or after the resize are queued instead of rendered with stale coordinates.
 		if (props.plugin.settings.booxConnectionEnabled) {
-			agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:resizeContainerIfEmbed', 'Setting resize queuing flag BEFORE DOM change', {
+			info(['Setting resize queuing flag BEFORE DOM change', {
 				curTlDrawHeight,
 				prevHeight: curHeightRef.current,
 				queuedCount: queuedBooxStrokePayloadsRef.current.length,
 				wasAlreadyResizing: isAndroidDrawingAreaResizingRef.current,
-			});
+			}]);
 			isAndroidDrawingAreaResizingRef.current = true;
 		}
 
 		props.onResize(invitingBounds, tightBounds);
+
+		// Force tldraw to recognise the new container height immediately.
+		const container = editor.getContainer();
+		const rect = container.getBoundingClientRect();
+		editor.updateViewportScreenBounds(
+			new Box(rect.left, rect.top, Math.max(rect.width, 1), Math.max(rect.height, 1))
+		);
+
+		// --- H1/H2/H4 diagnostic: snapshot state AFTER resize ---
+		const writingLinesShapeAfter = editor.getShape('shape:writing-lines' as any);
+		const viewportPageBoundsAfter = editor.getViewportPageBounds();
+		const viewportScreenBoundsAfter = editor.getViewportScreenBounds();
+		const containerAfter = editor.getContainer().getBoundingClientRect();
+		const culledAfter = editor.getCulledShapes();
+		const linesGeomAfter = writingLinesShapeAfter ? editor.getShapeGeometry(writingLinesShapeAfter) : null;
+		const linesMaskedPageBoundsAfter = writingLinesShapeAfter ? editor.getShapeMaskedPageBounds(writingLinesShapeAfter.id) : null;
+		const shapeEl = editor.getContainer().querySelector('[data-shape-type="writing-lines"]') as HTMLElement | null;
+		info(['Guide lines diagnostic AFTER resize', {
+			writingLinesH: (writingLinesShapeAfter as any)?.props?.h,
+			linesGeomH: linesGeomAfter?.bounds.h,
+			linesMaskedH: linesMaskedPageBoundsAfter?.h,
+			vpPageX: viewportPageBoundsAfter.x, vpPageY: viewportPageBoundsAfter.y, vpPageW: viewportPageBoundsAfter.w, vpPageH: viewportPageBoundsAfter.h,
+			vpScreenW: viewportScreenBoundsAfter.w, vpScreenH: viewportScreenBoundsAfter.h,
+			containerW: containerAfter.width, containerH: containerAfter.height,
+			isCulled: culledAfter.has('shape:writing-lines' as any),
+			culledCount: culledAfter.size,
+			cameraX: editor.getCamera().x, cameraY: editor.getCamera().y, cameraZ: editor.getCamera().z,
+			domWidth: shapeEl?.style.width,
+			domHeight: shapeEl?.style.height,
+			domDisplay: shapeEl?.style.display,
+			domOffsetW: shapeEl?.offsetWidth,
+			domOffsetH: shapeEl?.offsetHeight,
+			domSvgLen: shapeEl?.querySelector('svg')?.innerHTML?.length,
+			domFound: !!shapeEl,
+		}]);
+
+		// Schedule a delayed re-check to see if tldraw catches up
+		setTimeout(() => {
+			const linesShapeDelayed = editor.getShape('shape:writing-lines' as any);
+			const vpDelayed = editor.getViewportPageBounds();
+			const culledDelayed = editor.getCulledShapes();
+			const containerDelayed = editor.getContainer().getBoundingClientRect();
+			const shapeElDelayed = editor.getContainer().querySelector('[data-shape-type="writing-lines"]') as HTMLElement | null;
+			info(['Guide lines 500ms delayed check', {
+				writingLinesH: (linesShapeDelayed as any)?.props?.h,
+				vpPageW: vpDelayed.w, vpPageH: vpDelayed.h,
+				containerW: containerDelayed.width, containerH: containerDelayed.height,
+				isCulled: culledDelayed.has('shape:writing-lines' as any),
+				domHeight: shapeElDelayed?.style.height,
+				domDisplay: shapeElDelayed?.style.display,
+				domSvgLen: shapeElDelayed?.querySelector('svg')?.innerHTML?.length,
+			}]);
+		}, 500);
 
 		// Send the new dimensions to Bridge immediately (no throttle) so it can
 		// reposition the overlay and reply with drawing-area-ready to unblock the queue.
@@ -561,8 +623,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		logToVault('Writing instantInputPostProcess: curHeightRef=' + curHeightRef.current);
 		if (props.embedded) {
 			const prevHeight = curHeightRef.current;
+			info(['Guide lines: instantInputPostProcess start', { prevHeight, embedded: true }]);
 			const newHeight = resizeWritingTemplateInvitinglyIfNecessary(editor, curHeightRef.current);
 			logToVault('Writing instantInputPostProcess: newHeight=' + newHeight);
+			info(['Guide lines: instantInputPostProcess result', {
+				prevHeight,
+				newHeight,
+				heightChanged: newHeight !== null && newHeight !== prevHeight,
+				willCallResizeContainerIfEmbed: newHeight !== null && newHeight !== prevHeight,
+			}]);
 			if (newHeight !== null) curHeightRef.current = newHeight;
 			if (newHeight !== null && newHeight !== prevHeight) resizeContainerIfEmbed(editor, newHeight);
 		} else {
@@ -738,30 +807,30 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						const isNonDrawTool = activatedTool === WritingTool.eraser || activatedTool === WritingTool.select;
 						const wasWebsocketConnectedRef = websocketConnectedRef.current;
 						const isBooxConnected = props.plugin.booxConnection.isConnected();
-						agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:onActivateTool', 'Writing tool activated', {
+						info(['Writing tool activated', {
 							activatedTool,
 							wasWebsocketConnectedRef,
 							isBooxConnected,
 							hasTlEditor: !!tlEditorRef.current,
 							file: props.writingFile.path,
 							embedded: !!props.embedded,
-						});
+						}]);
 						if (isNonDrawTool && websocketConnectedRef.current) {
 							websocketConnectedRef.current = false;
 							if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
-							agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:onActivateTool', 'Non-draw writing tool selected; closing Android drawing area', {
+							info(['Non-draw writing tool selected; closing Android drawing area', {
 								activatedTool,
 								isBooxConnected,
 								file: props.writingFile.path,
-							});
+							}]);
 							props.plugin.booxConnection.sendCloseDrawingArea();
 						} else if (activatedTool === WritingTool.draw && !websocketConnectedRef.current) {
-							agentWritingBridgeLog('F,H,I', 'tldraw-writing-editor.tsx:onActivateTool', 'Draw writing tool selected; opening or reconnecting Android drawing area', {
+							info(['Draw writing tool selected; opening or reconnecting Android drawing area', {
 								activatedTool,
 								previousWebsocketConnectedRef: wasWebsocketConnectedRef,
 								isBooxConnected,
 								file: props.writingFile.path,
-							});
+							}]);
 							if (isBooxConnected) {
 								websocketConnectedRef.current = true;
 								if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
@@ -775,14 +844,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 								});
 							}
 						} else {
-							agentWritingBridgeLog('F,H', 'tldraw-writing-editor.tsx:onActivateTool', 'Writing tool activation did not change Android drawing area', {
+							info(['Writing tool activation did not change Android drawing area', {
 								activatedTool,
 								wasWebsocketConnectedRef,
 								currentWebsocketConnectedRef: websocketConnectedRef.current,
 								isBooxConnected,
 								isNonDrawTool,
 								file: props.writingFile.path,
-							});
+							}]);
 						}
 					}}
 					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
@@ -825,12 +894,26 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	// Helper functions
 	///////////////////
 
+	/** Clamp a canvas rect to the portion visible on screen so the Bridge overlay matches 1:1 */
+	function clampToVisibleViewport(embedRect: DOMRect) {
+		const visibleTop = Math.max(0, embedRect.y);
+		const visibleBottom = Math.min(window.innerHeight, embedRect.y + embedRect.height);
+		const visibleLeft = Math.max(0, embedRect.x);
+		const visibleRight = Math.min(window.innerWidth, embedRect.x + embedRect.width);
+		return {
+			x: Math.round(visibleLeft),
+			y: Math.round(visibleTop),
+			width: Math.round(Math.max(0, visibleRight - visibleLeft)),
+			height: Math.round(Math.max(0, visibleBottom - visibleTop)),
+		};
+	}
+
 	function newAndroidDrawingArea() {
 		if(!editorWrapperRefEl.current) {
-			agentWritingBridgeLog('F,I', 'tldraw-writing-editor.tsx:newAndroidDrawingArea', 'Skipped writing overlay because wrapper is missing', {
+			info(['Skipped writing overlay because wrapper is missing', {
 				file: props.writingFile.path,
 				hasTlEditor: !!tlEditorRef.current,
-			});
+			}]);
 			return;
 		}
 
@@ -840,20 +923,22 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const windowHeight = window.innerHeight;
 
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		const canvasX = Math.round(embedRect.x);
-		const canvasY = Math.round(embedRect.y);
-		const canvasWidth = Math.round(embedRect.width);
-		const canvasHeight = Math.round(embedRect.height);
+		const visible = clampToVisibleViewport(embedRect);
+		const canvasX = visible.x;
+		const canvasY = visible.y;
+		const canvasWidth = visible.width;
+		const canvasHeight = visible.height;
 
-		agentWritingBridgeLog('F,H,I', 'tldraw-writing-editor.tsx:newAndroidDrawingArea', 'Computed Android drawing area for writing overlay', {
+		info(['Computed Android drawing area for writing overlay', {
 			x: canvasX,
 			y: canvasY,
 			canvasWidth,
 			canvasHeight,
+			rawEmbedHeight: Math.round(embedRect.height),
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 			file: props.writingFile.path,
-		});
+		}]);
 		props.plugin.booxConnection.sendNewDrawingArea({
 			x: canvasX,
 			y: canvasY,
@@ -885,7 +970,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	/** Immediate variant — use when the DOM has already resized and we need Bridge to catch up ASAP. */
 	function sendAdjustmentImmediate() {
-		agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:sendAdjustmentImmediate', 'Sending IMMEDIATE update-drawing-area (no throttle)', {});
+		info(['Sending IMMEDIATE update-drawing-area (no throttle)', {}]);
 		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 		adjustThrottleRef.current = null;
 		sendAdjustment(true);
@@ -899,31 +984,33 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const windowHeight = window.innerHeight;
 
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		const canvasX = Math.round(embedRect.x);
-		const canvasY = Math.round(embedRect.y);
-		const canvasWidth = Math.round(embedRect.width);
-		const canvasHeight = Math.round(embedRect.height);
+		const visible = clampToVisibleViewport(embedRect);
+		const canvasX = visible.x;
+		const canvasY = visible.y;
+		const canvasWidth = visible.width;
+		const canvasHeight = visible.height;
 
 		if (canvasWidth <= 0 || canvasHeight <= 0) {
-			agentWritingBridgeLog('RESIZE', 'tldraw-writing-editor.tsx:sendAdjustment', 'Skipping update-drawing-area because canvas dimensions are zero/negative', {
+			info(['Skipping update-drawing-area because canvas dimensions are zero/negative', {
 				canvasWidth,
 				canvasHeight,
 				immediate,
 				file: props.writingFile.path,
-			});
+			}]);
 			return;
 		}
 
-		agentWritingBridgeLog('I', 'tldraw-writing-editor.tsx:sendAdjustment', 'Computed Android drawing area update for writing overlay', {
+		info(['Computed Android drawing area update for writing overlay', {
 			x: canvasX,
 			y: canvasY,
 			canvasWidth,
 			canvasHeight,
+			rawEmbedHeight: Math.round(embedRect.height),
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 			immediate,
 			file: props.writingFile.path,
-		});
+		}]);
 		props.plugin.booxConnection.sendUpdateDrawingArea({
 			x: canvasX,
 			y: canvasY,
@@ -951,17 +1038,17 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			: strokePayload;
 		const canvasRelativeStrokePoints = payload.points ?? [];
 		if(!editorWrapperRefEl.current) {
-			agentWritingBridgeLog('H1', 'tldraw-writing-editor.tsx:createStrokeFromBoox', 'BAIL: no wrapper ref', {
+			info(['BAIL: no wrapper ref', {
 				strokeId: (strokePayload as BooxStrokePayload).strokeId,
 				pointCount: canvasRelativeStrokePoints.length,
-			});
+			}]);
 			return false;
 		}
 		if(!tlEditorRef.current) {
-			agentWritingBridgeLog('H1', 'tldraw-writing-editor.tsx:createStrokeFromBoox', 'BAIL: no tldraw editor ref', {
+			info(['BAIL: no tldraw editor ref', {
 				strokeId: (strokePayload as BooxStrokePayload).strokeId,
 				pointCount: canvasRelativeStrokePoints.length,
-			});
+			}]);
 			return false;
 		}
 
@@ -969,12 +1056,19 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
 		const sourceCanvasWidth = payload.canvasWidth && payload.canvasWidth > 0 ? payload.canvasWidth : embedBounds.width;
 		const sourceCanvasHeight = payload.canvasHeight && payload.canvasHeight > 0 ? payload.canvasHeight : embedBounds.height;
+		// Compute how far the visible area is offset into the embed (for scroll compensation)
+		const visibleTopOffsetPx = Math.max(0, -embedBounds.y);
+		const visibleLeftOffsetPx = Math.max(0, -embedBounds.x);
+		const pageYOffset = visibleTopOffsetPx / embedBounds.width * WRITING_PAGE_WIDTH;
+		const pageXOffset = visibleLeftOffsetPx / embedBounds.width * WRITING_PAGE_WIDTH;
 		const isReadonly = tlEditorRef.current.getInstanceState().isReadonly;
-		agentWritingBridgeLog('H1,H2', 'tldraw-writing-editor.tsx:createStrokeFromBoox', 'Creating Boox stroke in tldraw', {
+		info(['Creating Boox stroke in tldraw', {
 			strokeId: (strokePayload as BooxStrokePayload).strokeId,
 			pointCount: canvasRelativeStrokePoints.length,
 			sourceCanvasWidth,
 			sourceCanvasHeight,
+			visibleTopOffsetPx,
+			pageYOffset,
 			tlBoundsX: currentTlBounds.x,
 			tlBoundsY: currentTlBounds.y,
 			tlBoundsW: currentTlBounds.w,
@@ -984,10 +1078,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			isReadonlyBefore: isReadonly,
 			isResizing: isAndroidDrawingAreaResizingRef.current,
 			shapeCountBefore: tlEditorRef.current.getCurrentPageShapeIds().size,
-		});
+		}]);
 		const sourceTlBounds = new Box(
-			currentTlBounds.x,
-			currentTlBounds.y,
+			currentTlBounds.x + pageXOffset,
+			currentTlBounds.y + pageYOffset,
 			WRITING_PAGE_WIDTH,
 			sourceCanvasHeight / sourceCanvasWidth * WRITING_PAGE_WIDTH,
 		);
@@ -1002,12 +1096,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		pendingBooxStrokeCompletionsRef.current += 1;
 		createTldrawStroke(tldrawStrokePoints);
-		agentWritingBridgeLog('H1,H2', 'tldraw-writing-editor.tsx:createStrokeFromBoox', 'Boox stroke creation completed', {
+		info(['Boox stroke creation completed', {
 			strokeId: (strokePayload as BooxStrokePayload).strokeId,
 			shapeCountAfter: tlEditorRef.current!.getCurrentPageShapeIds().size,
 			isReadonlyAfter: tlEditorRef.current!.getInstanceState().isReadonly,
 			pendingCompletions: pendingBooxStrokeCompletionsRef.current,
-		});
+		}]);
 		return true;
 	}
 

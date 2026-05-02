@@ -904,21 +904,18 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 	silentlyChangeStore( editor, () => {
 		unlockShape(editor, writingContainerShape);
 		unlockShape(editor, writingLinesShape);
-		// resize container and lines
-		editor.updateShape({
-			id: writingContainerShape.id,
-			type: writingContainerShape.type,
-			props: {
-				h: contentBounds.h,
-			}
-		})
-		editor.updateShape({
-			id: writingLinesShape.id,
-			type: writingLinesShape.type,
-			props: {
-				h: contentBounds.h,
-			}
-		})
+
+		// editor.updateShape() is silently ignored when isReadonly is true,
+		// so update the store directly instead.
+		editor.store.update(writingContainerShape.id, (record: any) => ({
+			...record,
+			props: { ...record.props, h: contentBounds.h },
+		}));
+		editor.store.update(writingLinesShape.id, (record: any) => ({
+			...record,
+			props: { ...record.props, h: contentBounds.h },
+		}));
+
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
 	})

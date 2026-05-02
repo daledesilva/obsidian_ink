@@ -3,6 +3,7 @@ import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { getLineHeightFromEditor } from 'src/components/formats/current/utils/tldraw-helpers';
+import { info } from 'src/logic/utils/log-to-console';
 
 //////////
 //////////
@@ -64,6 +65,15 @@ export class WritingLinesUtil extends ShapeUtil<WritingLines> {
 	}
 
 	component(shape: WritingLines) {
+		const lineHeight = getLineHeightFromEditor(this.editor);
+		const numberOfLines = Math.floor(shape.props.h / lineHeight);
+		info(['WritingLinesUtil.component RENDER', {
+			shapeH: shape.props.h,
+			shapeW: shape.props.w,
+			lineHeight,
+			numberOfLines,
+			shapeId: shape.id,
+		}]);
 		return <SVGContainer>
 			{this.createSvg(shape)}
 		</SVGContainer>

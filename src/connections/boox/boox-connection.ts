@@ -7,62 +7,18 @@ const AGENT_DEBUG_RUN_ID = 'invisible-strokes-v1';
 const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
 const AGENT_DEBUG_SESSION_ID = 'd78e27';
 
-/**
- * Candidate ports for eInk Bridge on loopback; order must match
- * `INK_BRIDGE_WEBSOCKET_PORTS` in eink-bridge `WebSocketServer.kt`.
- */
-export const INK_BRIDGE_WEBSOCKET_PORTS = [
-	8080, 37810, 37811, 37812, 37813, 37814, 37815, 37816, 37817, 37818,
-] as const;
+/** Port for eInk Bridge on loopback. */
+export const INK_BRIDGE_WEBSOCKET_PORT = 8080;
 
 export const INK_BRIDGE_PROTOCOL_VERSION = 1;
 
-/** @deprecated Use parallel probe URLs; kept for any external reference to primary port. */
-export const BOOX_BRIDGE_WEBSOCKET_URL = `ws://127.0.0.1:${INK_BRIDGE_WEBSOCKET_PORTS[0]}/ws`;
+export const BOOX_BRIDGE_WEBSOCKET_URL = `ws://127.0.0.1:${INK_BRIDGE_WEBSOCKET_PORT}/ws`;
 
-function inkBridgeWebSocketUrls(): string[] {
-	return INK_BRIDGE_WEBSOCKET_PORTS.map(
-		(port) => `ws://127.0.0.1:${port}/ws`,
-	);
-}
-
-/** One neutral line per failed connect attempt (companion not reachable). */
+/** One neutral line when probe waves fail to find the companion. */
 const MSG_BOOX_COMPANION_NOT_FOUND =
 	"Attempted Boox Companion app connection but didn't find one.";
 
-/** Chromium uses 1006 when the connection ends abnormally (e.g. refused, reset, blocked). */
-const WS_CLOSE_ABNORMAL = 1006;
-
-const MAX_PROBE_WAVES = 3;
-const WAVE_HANDSHAKE_TIMEOUT_MS = 1200;
-const INTER_WAVE_DELAY_MS = 500;
-
-function logBooxCompanionNotFound(
-	isLastAttempt: boolean,
-	attempt: number,
-	maxAttempts: number,
-	closeCode?: number,
-): void {
-	const suffix = ` (${attempt}/${maxAttempts})`;
-	const message = isLastAttempt
-		? `${MSG_BOOX_COMPANION_NOT_FOUND}${suffix} Stopped retrying.`
-		: `${MSG_BOOX_COMPANION_NOT_FOUND}${suffix}`;
-	console.log(INK_LOG_PREFIX, message);
-	if (isLastAttempt) {
-		logToVault('Boox companion not found after ' + attempt + '/' + maxAttempts + ' attempts');
-		if (closeCode === WS_CLOSE_ABNORMAL) {
-			console.log(
-				INK_LOG_PREFIX,
-				'WebSocket closed before opening (1006): nothing accepted the connection — start eInk Bridge so its foreground service is running, then check Android logcat for "Ktor WebSocket" / "WebSocket" lines. The plugin probes loopback ports in order (see eink-bridge WebSocket docs) until it handshakes with eInk Bridge.',
-			);
-		} else if (Platform.isMobileApp || Platform.isMobile) {
-			console.log(
-				INK_LOG_PREFIX,
-				'Boox tip: Keep eInk Bridge running (foreground service). Obsidian Ink connects on this tablet over loopback only; it tries several ports and verifies the companion with a short handshake.',
-			);
-		}
-	}
-}
+const PROBE_TIMEOUT_MS = 2000;
 
 function agentBridgeLog(
 	hypothesisId: string,
@@ -94,13 +50,11 @@ function webSocketReadyStateName(ws: WebSocket | null): string {
 	return `unknown:${ws.readyState}`;
 }
 
-const RECONNECT_BASE_MS = 1000;
-const RECONNECT_MAX_MS = 30000;
-
-/** Total WebSocket open tries before first successful open (per drawing-edit session). */
-const MAX_INITIAL_CONNECT_ATTEMPTS = 3;
-/** Open tries after an established connection drops unexpectedly; reset on each such disconnect. */
-const MAX_AFTER_DISCONNECT_CONNECT_ATTEMPTS = 5;
+/**
+ * How long the WebSocket stays alive after the last drawing session unregisters.
+ * Covers a lock → unlock cycle so the existing connection is reused.
+ */
+const IDLE_GRACE_PERIOD_MS = 5_000;
 
 export interface BooxConnectionSettings {
 	booxConnectionEnabled: boolean;
@@ -113,12 +67,6 @@ type DrawingSessionEntry = {
 	onSocketOpen: () => void;
 };
 
-function delayMs(ms: number): Promise<void> {
-	return new Promise((resolve) => {
-		window.setTimeout(resolve, ms);
-	});
-}
-
 function isValidInkBridgePongData(data: unknown): boolean {
 	if (typeof data !== 'object' || data === null) return false;
 	const record = data as Record<string, unknown>;
@@ -130,51 +78,37 @@ function isValidInkBridgePongData(data: unknown): boolean {
 
 /**
  * WebSocket is only open while at least one drawing editor is active (unlocked).
- * When the last drawing locks or unmounts, the socket is closed after close-drawing-area.
+ * When the last drawing locks or unmounts, the socket stays open for a grace period
+ * so that a quick unlock reuses the existing connection without re-probing.
  */
 export class BooxConnection {
 	private ws: WebSocket | null = null;
 	private disposed = false;
-	private reconnectTimer: number | null = null;
-	private reconnectAttempt = 0;
 	private intentionalClose = false;
 	private currentUrl: string | null = null;
 	private inFlightConnect: Promise<void> | null = null;
 
 	private readonly drawingSessions: DrawingSessionEntry[] = [];
 
-	/** True after at least one successful WebSocket open with an active drawing session. */
-	private hasEverOpenedSuccessfully = false;
-	/** Counts failed opens this session before first successful open (1..MAX_INITIAL_CONNECT_ATTEMPTS). */
-	private initialConnectAttemptNumber = 0;
-	/** Counts failed opens in the current post-disconnect recovery wave. */
-	private afterDisconnectConnectAttemptNumber = 0;
+	/** Timer that tears down the idle WebSocket after the grace period expires. */
+	private idleGraceTimer: number | null = null;
 
 	constructor(private readonly getSettings: () => BooxConnectionSettings) {}
 
 	onSettingsChanged(): void {
-		this.clearReconnectTimer();
+		this.clearIdleGraceTimer();
 		this.intentionalClose = true;
 		this.teardownWebSocket();
 		this.intentionalClose = false;
 		this.currentUrl = null;
 		this.inFlightConnect = null;
-		this.resetReconnectBudgetsForNewEditCycle();
-	}
-
-	private resetReconnectBudgetsForNewEditCycle(): void {
-		this.hasEverOpenedSuccessfully = false;
-		this.initialConnectAttemptNumber = 0;
-		this.afterDisconnectConnectAttemptNumber = 0;
-		this.reconnectAttempt = 0;
 	}
 
 	registerDrawingSession(entry: DrawingSessionEntry): () => void {
-		const hadNoSessions = this.drawingSessions.length === 0;
+		this.clearIdleGraceTimer();
 		this.drawingSessions.push(entry);
 		logToVault('Boox drawing session registered. Active: ' + this.drawingSessions.length);
 		agentBridgeLog('CONN', 'boox-connection.ts:registerDrawingSession', 'Drawing session registered', {
-			hadNoSessions,
 			activeSessions: this.drawingSessions.length,
 			disposed: this.disposed,
 			booxConnectionEnabled: this.getSettings().booxConnectionEnabled,
@@ -182,9 +116,6 @@ export class BooxConnection {
 			currentUrl: this.currentUrl,
 			hasInFlightConnect: !!this.inFlightConnect,
 		});
-		if (hadNoSessions) {
-			this.resetReconnectBudgetsForNewEditCycle();
-		}
 		void this.ensureConnected().catch((err) => {
 			agentBridgeLog('CONN', 'boox-connection.ts:registerDrawingSession', 'ensureConnected rejected after register', {
 				error: String(err),
@@ -195,76 +126,49 @@ export class BooxConnection {
 			const index = this.drawingSessions.indexOf(entry);
 			if (index >= 0) this.drawingSessions.splice(index, 1);
 			logToVault('Boox drawing session unregistered. Active: ' + this.drawingSessions.length);
+			agentBridgeLog('CONN', 'boox-connection.ts:unregisterDrawingSession', 'Drawing session unregistered', {
+				activeSessions: this.drawingSessions.length,
+				wsState: webSocketReadyStateName(this.ws),
+				currentUrl: this.currentUrl,
+				willStartGracePeriod: this.drawingSessions.length === 0,
+			});
 			if (this.drawingSessions.length === 0) {
-				this.clearReconnectTimer();
-				this.reconnectAttempt = 0;
-				this.intentionalClose = true;
-				this.teardownWebSocket();
-				this.intentionalClose = false;
-				this.currentUrl = null;
-				this.inFlightConnect = null;
-				this.resetReconnectBudgetsForNewEditCycle();
+				this.startIdleGracePeriod();
 			}
 		};
 	}
 
-	private clearReconnectTimer(): void {
-		if (this.reconnectTimer !== null) {
-			window.clearTimeout(this.reconnectTimer);
-			this.reconnectTimer = null;
+	/** Returns true if a grace timer was active and cancelled. */
+	private clearIdleGraceTimer(): boolean {
+		if (this.idleGraceTimer !== null) {
+			window.clearTimeout(this.idleGraceTimer);
+			this.idleGraceTimer = null;
+			return true;
 		}
+		return false;
 	}
 
-	private scheduleReconnect(): void {
-		if (this.disposed) return;
-		if (this.drawingSessions.length === 0) return;
-		const { booxConnectionEnabled } = this.getSettings();
-		if (!booxConnectionEnabled) {
-			return;
-		}
-
-		const delay = Math.min(
-			RECONNECT_MAX_MS,
-			RECONNECT_BASE_MS * Math.pow(2, this.reconnectAttempt),
-		);
-		const jitter = Math.floor(Math.random() * 500);
-		this.reconnectAttempt++;
-
-		this.clearReconnectTimer();
-		this.reconnectTimer = window.setTimeout(() => {
-			this.reconnectTimer = null;
-			if (this.disposed || this.drawingSessions.length === 0) return;
-			void this.ensureConnected().catch(() => {
-				/* Outcome logged once in handleFailedOpenBeforeHandshake */
-			});
-		}, delay + jitter);
-	}
-
-	private handleFailedOpenBeforeHandshake(closeCode?: number): void {
-		agentBridgeLog('CONN', 'boox-connection.ts:handleFailedOpenBeforeHandshake', 'Handling failed open', {
-			closeCode,
-			activeSessions: this.drawingSessions.length,
-			hasEverOpenedSuccessfully: this.hasEverOpenedSuccessfully,
-			initialConnectAttemptNumber: this.initialConnectAttemptNumber,
-			afterDisconnectConnectAttemptNumber: this.afterDisconnectConnectAttemptNumber,
+	/** Starts a timer that tears down the WebSocket after the grace period. */
+	private startIdleGracePeriod(): void {
+		this.clearIdleGraceTimer();
+		agentBridgeLog('CONN', 'boox-connection.ts:startIdleGracePeriod', 'Starting idle grace period', {
+			gracePeriodMs: IDLE_GRACE_PERIOD_MS,
+			wsState: webSocketReadyStateName(this.ws),
+			currentUrl: this.currentUrl,
 		});
-		if (this.drawingSessions.length === 0) return;
-		if (!this.hasEverOpenedSuccessfully) {
-			this.initialConnectAttemptNumber += 1;
-			const attempt = this.initialConnectAttemptNumber;
-			const max = MAX_INITIAL_CONNECT_ATTEMPTS;
-			const isLast = attempt >= max;
-			logBooxCompanionNotFound(isLast, attempt, max, closeCode);
-			if (isLast) return;
-		} else {
-			this.afterDisconnectConnectAttemptNumber += 1;
-			const attempt = this.afterDisconnectConnectAttemptNumber;
-			const max = MAX_AFTER_DISCONNECT_CONNECT_ATTEMPTS;
-			const isLast = attempt >= max;
-			logBooxCompanionNotFound(isLast, attempt, max, closeCode);
-			if (isLast) return;
-		}
-		this.scheduleReconnect();
+		this.idleGraceTimer = window.setTimeout(() => {
+			this.idleGraceTimer = null;
+			if (this.drawingSessions.length > 0) return;
+			agentBridgeLog('CONN', 'boox-connection.ts:startIdleGracePeriod', 'Grace period expired, tearing down idle WebSocket', {
+				wsState: webSocketReadyStateName(this.ws),
+				currentUrl: this.currentUrl,
+			});
+			this.intentionalClose = true;
+			this.teardownWebSocket();
+			this.intentionalClose = false;
+			this.currentUrl = null;
+			this.inFlightConnect = null;
+		}, IDLE_GRACE_PERIOD_MS);
 	}
 
 	async ensureConnected(): Promise<void> {
@@ -275,8 +179,6 @@ export class BooxConnection {
 			wsState: webSocketReadyStateName(this.ws),
 			hasInFlightConnect: !!this.inFlightConnect,
 			activeSessions: this.drawingSessions.length,
-			hasEverOpenedSuccessfully: this.hasEverOpenedSuccessfully,
-			initialConnectAttemptNumber: this.initialConnectAttemptNumber,
 		});
 		if (this.disposed) {
 			throw new Error('BooxConnection disposed');
@@ -310,90 +212,74 @@ export class BooxConnection {
 
 	private connectOnce(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			void this.runParallelProbeWaves()
+			void this.probePort()
 				.then(() => resolve())
 				.catch((err: Error) => reject(err ?? new Error('WebSocket connection failed')));
 		});
 	}
 
 	/**
-	 * Opens 10 WebSockets in parallel per wave; first valid ink-bridge-pong wins.
-	 * Up to MAX_PROBE_WAVES waves with INTER_WAVE_DELAY_MS between failures.
+	 * Attempts a single WebSocket connection to the known Bridge port.
 	 */
-	private async runParallelProbeWaves(): Promise<void> {
-		agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Starting probe waves', {
-			maxWaves: MAX_PROBE_WAVES,
+	private async probePort(): Promise<void> {
+		const url = BOOX_BRIDGE_WEBSOCKET_URL;
+
+		agentBridgeLog('CONN', 'boox-connection.ts:probePort', 'Starting probe', {
+			url,
 			activeSessions: this.drawingSessions.length,
 			disposed: this.disposed,
 		});
-		for (let waveIndex = 0; waveIndex < MAX_PROBE_WAVES; waveIndex++) {
-			if (waveIndex > 0) {
-				await delayMs(INTER_WAVE_DELAY_MS);
-			}
-			if (this.disposed || this.drawingSessions.length === 0) {
-				agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Probe aborted (disposed or no sessions)', {
-					waveIndex,
-					disposed: this.disposed,
-					activeSessions: this.drawingSessions.length,
-				});
-				throw new Error('BooxConnection: probe aborted');
-			}
 
-			agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Starting probe wave', {
-				waveIndex,
-			});
-			const waveResult = await this.probeOneWaveParallel();
+		const result = await this.probeSinglePort(url);
 
-			if (waveResult.kind === 'success') {
-				agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Probe wave SUCCESS', {
-					waveIndex,
-					url: waveResult.url,
-					activeSessions: this.drawingSessions.length,
-				});
-				this.reconnectAttempt = 0;
-				if (this.drawingSessions.length === 0) {
-					verbose(
-						'BooxConnection: handshake ok but no active drawing; closing',
-					);
-					this.intentionalClose = true;
-					try {
-						waveResult.socket.close();
-					} catch {
-						// ignore
-					}
-					this.intentionalClose = false;
-					if (this.ws === waveResult.socket) {
-						this.ws = null;
-					}
-					this.currentUrl = null;
-					return;
-				}
-				verbose('BooxConnection: WebSocket open (handshake ok)');
-				logToVault('Boox WebSocket open (handshake ok): ' + waveResult.url);
-				this.hasEverOpenedSuccessfully = true;
-				this.afterDisconnectConnectAttemptNumber = 0;
-				this.attachProductionHandlers(waveResult.socket, waveResult.url);
-				this.sendInitMessage();
-				for (const session of this.drawingSessions) {
-					try {
-						session.onSocketOpen();
-					} catch (error) {
-						verbose(['BooxConnection: onSocketOpen error', error]);
-					}
-				}
-				return;
-			}
-			agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'Probe wave FAILED, will retry', {
-				waveIndex,
+		if (result.kind === 'success') {
+			agentBridgeLog('CONN', 'boox-connection.ts:probePort', 'Probe SUCCESS', {
+				url: result.url,
 				activeSessions: this.drawingSessions.length,
 			});
+
+			if (this.drawingSessions.length === 0) {
+				verbose(
+					'BooxConnection: handshake ok but no active drawing; closing',
+				);
+				this.intentionalClose = true;
+				try {
+					result.socket.close();
+				} catch {
+					// ignore
+				}
+				this.intentionalClose = false;
+				if (this.ws === result.socket) {
+					this.ws = null;
+				}
+				this.currentUrl = null;
+				return;
+			}
+			verbose('BooxConnection: WebSocket open (handshake ok)');
+			logToVault('Boox WebSocket open (handshake ok): ' + result.url);
+			this.attachProductionHandlers(result.socket, result.url);
+			this.sendInitMessage();
+			for (const session of this.drawingSessions) {
+				try {
+					session.onSocketOpen();
+				} catch (error) {
+					verbose(['BooxConnection: onSocketOpen error', error]);
+				}
+			}
+			return;
 		}
 
-		agentBridgeLog('CONN', 'boox-connection.ts:runParallelProbeWaves', 'All probe waves failed', {
-			maxWaves: MAX_PROBE_WAVES,
+		agentBridgeLog('CONN', 'boox-connection.ts:probePort', 'Probe failed', {
 			activeSessions: this.drawingSessions.length,
 		});
-		this.handleFailedOpenBeforeHandshake(WS_CLOSE_ABNORMAL);
+		console.log(INK_LOG_PREFIX, MSG_BOOX_COMPANION_NOT_FOUND);
+		logToVault('Boox companion not found on port ' + INK_BRIDGE_WEBSOCKET_PORT);
+		if (Platform.isMobileApp || Platform.isMobile) {
+			console.log(
+				INK_LOG_PREFIX,
+				'Boox tip: Keep eInk Bridge running (foreground service). Obsidian Ink connects on this tablet over loopback only.',
+			);
+		}
 		throw new Error('WebSocket connection failed');
 	}
 
@@ -407,20 +293,10 @@ export class BooxConnection {
 
 		socket.onerror = () => {};
 
-		socket.onclose = (event: CloseEvent) => {
-			const closeCode = event.code;
+		socket.onclose = () => {
 			const wasThisSocket = this.ws === socket;
 			if (wasThisSocket) {
 				this.ws = null;
-			}
-
-			if (this.disposed) return;
-			if (this.intentionalClose) return;
-
-			if (wasThisSocket && this.drawingSessions.length > 0) {
-				this.reconnectAttempt = 0;
-				this.afterDisconnectConnectAttemptNumber = 0;
-				this.scheduleReconnect();
 			}
 		};
 	}
@@ -478,148 +354,102 @@ export class BooxConnection {
 		}
 	}
 
-	private probeOneWaveParallel(): Promise<
+	/**
+	 * Opens ONE WebSocket and waits up to PROBE_TIMEOUT_MS for
+	 * open → ink-bridge-ping → ink-bridge-pong handshake.
+	 */
+	private probeSinglePort(url: string): Promise<
 		| { kind: 'success'; socket: WebSocket; url: string }
 		| { kind: 'failed' }
 	> {
-		const urls = inkBridgeWebSocketUrls();
+		const probeStart = Date.now();
 		return new Promise((resolve) => {
 			let settled = false;
-			let hasWinner = false;
-			let intentionalProbeClose = false;
-			const sockets: WebSocket[] = [];
-			let closedWithoutWinner = 0;
 
-			const closeAllProbeSockets = (): void => {
-				intentionalProbeClose = true;
-				for (const s of sockets) {
-					try {
-						s.close();
-					} catch {
-						// ignore
-					}
-				}
-				intentionalProbeClose = false;
-			};
-
-			const settleFailure = (): void => {
+			const settle = (result: { kind: 'success'; socket: WebSocket; url: string } | { kind: 'failed' }): void => {
 				if (settled) return;
 				settled = true;
-				window.clearTimeout(waveTimeoutId);
-				closeAllProbeSockets();
-				resolve({ kind: 'failed' });
+				window.clearTimeout(timeoutId);
+				if (result.kind === 'failed') {
+					try { socket.close(); } catch { /* ignore */ }
+				}
+				resolve(result);
 			};
 
-			const settleSuccess = (socket: WebSocket, url: string): void => {
+			const timeoutId = window.setTimeout(() => {
+				agentBridgeLog('PROBE', 'boox-connection.ts:probeSinglePort', 'Probe timeout', {
+					url,
+					elapsedMs: Date.now() - probeStart,
+					readyState: webSocketReadyStateName(socket),
+				});
+				settle({ kind: 'failed' });
+			}, PROBE_TIMEOUT_MS);
+
+			const socket = new WebSocket(url);
+
+			socket.onopen = () => {
+				agentBridgeLog('PROBE', 'boox-connection.ts:probeSinglePort', 'Socket opened', {
+					url,
+					elapsedMs: Date.now() - probeStart,
+				});
+				if (settled || this.disposed || this.drawingSessions.length === 0) {
+					settle({ kind: 'failed' });
+					return;
+				}
+				try {
+					socket.send(
+						JSON.stringify({
+							action: 'ink-bridge-ping',
+							data: {
+								protocolVersion: INK_BRIDGE_PROTOCOL_VERSION,
+							},
+						}),
+					);
+				} catch {
+					settle({ kind: 'failed' });
+				}
+			};
+
+			socket.onmessage = (event: MessageEvent) => {
 				if (settled) return;
-				settled = true;
-				hasWinner = true;
-				window.clearTimeout(waveTimeoutId);
-				intentionalProbeClose = true;
-				for (const s of sockets) {
-					if (s !== socket) {
-						try {
-							s.close();
-						} catch {
-							// ignore
-						}
-					}
+				let parsed: unknown;
+				try {
+					parsed = JSON.parse(String(event.data));
+				} catch {
+					return;
 				}
-				intentionalProbeClose = false;
-				resolve({ kind: 'success', socket, url });
+				if (typeof parsed !== 'object' || parsed === null) return;
+				const action = (parsed as { action?: string }).action;
+				const data = (parsed as { data?: unknown }).data;
+				if (action !== 'ink-bridge-pong' || !isValidInkBridgePongData(data)) {
+					return;
+				}
+				agentBridgeLog('PROBE', 'boox-connection.ts:probeSinglePort', 'Handshake success', {
+					url,
+					elapsedMs: Date.now() - probeStart,
+				});
+				if (this.disposed || this.drawingSessions.length === 0) {
+					settle({ kind: 'failed' });
+					return;
+				}
+				settle({ kind: 'success', socket, url });
 			};
 
-			const waveTimeoutId = window.setTimeout(() => {
-				settleFailure();
-			}, WAVE_HANDSHAKE_TIMEOUT_MS);
-
-			const onProbeSocketClosed = (): void => {
-				if (settled || hasWinner) return;
-				closedWithoutWinner += 1;
-				if (closedWithoutWinner >= urls.length) {
-					settleFailure();
-				}
+			socket.onerror = () => {
+				agentBridgeLog('PROBE', 'boox-connection.ts:probeSinglePort', 'Socket error', {
+					url,
+					elapsedMs: Date.now() - probeStart,
+					readyState: webSocketReadyStateName(socket),
+				});
 			};
 
-			for (const url of urls) {
-				const socket = new WebSocket(url);
-				sockets.push(socket);
-
-				socket.onopen = () => {
-					if (settled || hasWinner || this.disposed) {
-						intentionalProbeClose = true;
-						try {
-							socket.close();
-						} catch {
-							// ignore
-						}
-						intentionalProbeClose = false;
-						return;
-					}
-					if (this.drawingSessions.length === 0) {
-						intentionalProbeClose = true;
-						try {
-							socket.close();
-						} catch {
-							// ignore
-						}
-						intentionalProbeClose = false;
-						return;
-					}
-					try {
-						socket.send(
-							JSON.stringify({
-								action: 'ink-bridge-ping',
-								data: {
-									protocolVersion: INK_BRIDGE_PROTOCOL_VERSION,
-								},
-							}),
-						);
-					} catch {
-						// onclose will count toward wave failure
-					}
-				};
-
-				socket.onmessage = (event: MessageEvent) => {
-					if (settled || hasWinner) return;
-					let parsed: unknown;
-					try {
-						parsed = JSON.parse(String(event.data));
-					} catch {
-						return;
-					}
-					if (typeof parsed !== 'object' || parsed === null) return;
-					const action = (parsed as { action?: string }).action;
-					const data = (parsed as { data?: unknown }).data;
-					if (action !== 'ink-bridge-pong' || !isValidInkBridgePongData(data)) {
-						return;
-					}
-					if (this.disposed || this.drawingSessions.length === 0) {
-						intentionalProbeClose = true;
-						try {
-							socket.close();
-						} catch {
-							// ignore
-						}
-						intentionalProbeClose = false;
-						if (!settled) {
-							settled = true;
-							window.clearTimeout(waveTimeoutId);
-							closeAllProbeSockets();
-							resolve({ kind: 'failed' });
-						}
-						return;
-					}
-					settleSuccess(socket, url);
-				};
-
-				socket.onerror = () => {};
-
-				socket.onclose = () => {
-					if (intentionalProbeClose) return;
-					onProbeSocketClosed();
-				};
-			}
+			socket.onclose = () => {
+				agentBridgeLog('PROBE', 'boox-connection.ts:probeSinglePort', 'Socket closed', {
+					url,
+					elapsedMs: Date.now() - probeStart,
+				});
+				settle({ kind: 'failed' });
+			};
 		});
 	}
 
@@ -792,13 +622,12 @@ export class BooxConnection {
 
 	dispose(): void {
 		this.disposed = true;
-		this.clearReconnectTimer();
+		this.clearIdleGraceTimer();
 		this.drawingSessions.length = 0;
 		this.intentionalClose = true;
 		this.teardownWebSocket();
 		this.intentionalClose = false;
 		this.currentUrl = null;
 		this.inFlightConnect = null;
-		this.resetReconnectBudgetsForNewEditCycle();
 	}
 }

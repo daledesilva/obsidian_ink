@@ -864,6 +864,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						if (isNonDrawTool && websocketConnectedRef.current) {
 							websocketConnectedRef.current = false;
 							setBooxConnected(false);
+							if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 							if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 							info(['Non-draw writing tool selected; closing Android drawing area', {
 								activatedTool,
@@ -1035,6 +1036,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	function sendAdjustment(immediate: boolean) {
 		if(!editorWrapperRefEl.current) return;
+		if (!websocketConnectedRef.current) return;
 		if (!props.plugin.settings.booxConnectionEnabled) return;
 
 		const windowWidth = window.innerWidth;

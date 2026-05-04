@@ -1008,6 +1008,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					});
 					if (isNonDrawTool && websocketConnectedRef.current) {
 						websocketConnectedRef.current = false;
+						if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 						if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 						agentDrawingBridgeLog('A,C', 'tldraw-drawing-editor.tsx:onActivateTool', 'Non-draw tool selected; closing Android drawing area', {
 							activatedTool,
@@ -1150,6 +1151,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function sendAdjustment() {
 		if(!editorWrapperRefEl.current) return;
+		if (!websocketConnectedRef.current) return;
 
 		const inkPlugin = getGlobals().plugin;
 		if (!inkPlugin.settings.booxConnectionEnabled) return;

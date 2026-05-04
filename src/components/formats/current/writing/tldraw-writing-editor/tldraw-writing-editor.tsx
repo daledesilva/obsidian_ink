@@ -485,7 +485,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					await completeSave(editor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
 				},
-				clearAll: async (): Promise<void> => {
+				eraseAll: async (): Promise<void> => {
 					const allShapes = editor.getCurrentPageShapes();
 					const drawShapeIds = allShapes
 						.filter(shape => shape.type === 'draw')

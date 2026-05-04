@@ -17,6 +17,7 @@ import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 import type { Box } from "@tldraw/tldraw";
+import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 
 ///////
 ///////
@@ -307,16 +308,23 @@ export function WritingEmbed (props: {
 		}, 100)
 	}
 
-	function switchToEditMode() {
+	async function switchToEditMode() {
 		if (!props.embedId) return;
 		verbose(['Add writing embed to edit mode', props.embedId]);
 		logToVault('Writing embed → edit: ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
+
+		// When Boox is enabled, only one ink embed (writing or drawing) can be active at a time.
+		if (props.plugin.settings.booxConnectionEnabled) {
+			await replaceActiveInkEmbed(props.embedId, saveAndSwitchToPreviewMode);
+		}
+
 		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
 
 	function ignoreChangesAndSwitchToPreviewMode() {
 		logToVault('Writing embed → preview (discarded): ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
 		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
 			setEmbedsInEditMode((prev: Set<string>) => {
 				const next = new Set(prev);
 				next.delete(props.embedId!);
@@ -342,6 +350,7 @@ export function WritingEmbed (props: {
 		}
 
 		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
 			setEmbedsInEditMode((prev: Set<string>) => {
 				const next = new Set(prev);
 				next.delete(props.embedId!);

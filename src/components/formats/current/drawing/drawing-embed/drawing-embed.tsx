@@ -20,6 +20,7 @@ import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 
 ///////
 ///////
@@ -335,10 +336,17 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	// 	}
 	// }
 
-	function switchToEditMode() {
+	async function switchToEditMode() {
 		if (!props.embedId) return;
 		verbose(['Add embed to edit mode', props.embedId]);
 		logToVault('Drawing embed → edit: ' + (props.embeddedFile?.path ?? props.partialEmbedFilepath));
+
+		// When Boox is enabled, only one ink embed (writing or drawing) can be active at a time.
+		const { plugin } = getGlobals();
+		if (plugin.settings.booxConnectionEnabled) {
+			await replaceActiveInkEmbed(props.embedId, saveAndSwitchToPreviewMode);
+		}
+
 		applyEmbedHeight();
 		setEmbedsInEditMode((prev: Set<string>) => new Set(prev).add(props.embedId!));
 	}
@@ -346,6 +354,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function ignoreChangesAndSwitchToPreviewMode() {
 		logToVault('Drawing embed → preview (discarded): ' + (props.embeddedFile?.path ?? props.partialEmbedFilepath));
 		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
 			setEmbedsInEditMode((prev: Set<string>) => {
 				const next = new Set(prev);
 				next.delete(props.embedId!);
@@ -371,6 +380,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		}
 
 		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
 			setEmbedsInEditMode((prev: Set<string>) => {
 				const next = new Set(prev);
 				next.delete(props.embedId!);

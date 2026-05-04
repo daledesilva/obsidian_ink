@@ -104,6 +104,13 @@ export function WritingEmbed (props: {
 
 	const commonExtendedOptions = [
 		{
+			text: 'Open writing',
+			action: async () => {
+				await openInDedicatedView();
+			}
+		},
+		{ separator: true },
+		{
 			text: 'Convert to Drawing',
 			action: () => {
 				if (!props.writingFileRef) return;
@@ -113,11 +120,19 @@ export function WritingEmbed (props: {
 				}).open();
 			}
 		},
+		{ separator: true },
 		{
-			text: 'Open writing',
-			action: async () => {
-				await openInDedicatedView();
-			}
+			text: 'Erase all',
+			warning: true,
+			action: () => {
+				new ConfirmationModal({
+					plugin: props.plugin,
+					title: 'Erase all strokes?',
+					message: 'This will remove all strokes from the canvas.',
+					confirmLabel: 'Erase all',
+					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
+				}).open();
+			},
 		},
 		{
 			text: 'Remove embed',
@@ -133,20 +148,6 @@ export function WritingEmbed (props: {
 					'inkWriting',
 					() => props.remove(),
 				);
-			},
-		},
-		{ separator: true },
-		{
-			text: 'Erase all',
-			warning: true,
-			action: () => {
-				new ConfirmationModal({
-					plugin: props.plugin,
-					title: 'Erase all strokes?',
-					message: 'This will remove all strokes from the canvas.',
-					confirmLabel: 'Erase all',
-					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
-				}).open();
 			},
 		},
 	]

@@ -112,6 +112,20 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				}).open();
 			}
 		},
+		{ separator: true },
+		{
+			text: 'Erase all',
+			warning: true,
+			action: () => {
+				new ConfirmationModal({
+					plugin: getGlobals().plugin,
+					title: 'Erase all strokes?',
+					message: 'This will remove all strokes from the canvas.',
+					confirmLabel: 'Erase all',
+					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
+				}).open();
+			},
+		},
 		{
 			text: 'Remove embed',
 			action: () => {
@@ -126,20 +140,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					'inkDrawing',
 					() => props.remove(),
 				);
-			},
-		},
-		{ separator: true },
-		{
-			text: 'Erase all',
-			warning: true,
-			action: () => {
-				new ConfirmationModal({
-					plugin: getGlobals().plugin,
-					title: 'Erase all strokes?',
-					message: 'This will remove all strokes from the canvas.',
-					confirmLabel: 'Erase all',
-					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
-				}).open();
 			},
 		},
 	].filter(Boolean)

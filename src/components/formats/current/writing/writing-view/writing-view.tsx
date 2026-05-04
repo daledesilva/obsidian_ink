@@ -130,6 +130,7 @@ export class WritingView extends TextFileView {
                 save = {this.saveFile}
                 saveControlsReference = {this.registerEditorControls}
                 extendedMenu = {[
+                    { separator: true },
                     {
                         text: 'Convert to Drawing',
                         action: () => {

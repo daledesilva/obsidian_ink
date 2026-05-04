@@ -24,6 +24,7 @@ export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
     return [
+        { separator: true },
         {
             text: 'Convert to Writing',
             action: () => {

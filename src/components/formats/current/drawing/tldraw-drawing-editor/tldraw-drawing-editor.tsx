@@ -252,6 +252,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		focusChildTldrawEditor(editorWrapperRefEl.current);
 		preventTldrawCanvasesCausingObsidianGestures(editor);
 
+		// If Boox is already connected (session registered before tldraw mounted),
+		// lock tldraw input now since onSocketOpen fired before tlEditorRef was set.
+		const inkPlugin = getGlobals().plugin;
+		if (inkPlugin.settings.booxConnectionEnabled && inkPlugin.booxConnection.isConnected()) {
+			lockTldrawInput(editor);
+		}
+
 		// Pan/zoom event listener cleanup functions
 		const panZoomCleanupFns: Array<() => void> = [];
 

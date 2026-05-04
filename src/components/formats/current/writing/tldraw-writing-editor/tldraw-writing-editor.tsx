@@ -202,16 +202,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			},
 		});
 
-		// If the socket is already open (e.g. reconnecting after deleting/recreating an embed),
-		// onSocketOpen won't fire again, so lock input and send drawing area now.
-		if (props.plugin.booxConnection.isConnected()) {
-			websocketConnectedRef.current = true;
-			setBooxConnected(true);
-			if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
-			newAndroidDrawingArea();
-			if (tlEditorRef.current) props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
-		}
-
 		return () => {
 			info(['Boox writing session cleanup is closing overlay', {
 				wasWebsocketConnectedRef: websocketConnectedRef.current,

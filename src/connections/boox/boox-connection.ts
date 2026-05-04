@@ -116,7 +116,17 @@ export class BooxConnection {
 			currentUrl: this.currentUrl,
 			hasInFlightConnect: !!this.inFlightConnect,
 		});
-		void this.ensureConnected().catch((err) => {
+		void this.ensureConnected().then(() => {
+			// If the socket was already open (reused during the grace period),
+			// onSocketOpen won't have fired via probePort, so notify this session now.
+			if (this.ws?.readyState === WebSocket.OPEN && this.drawingSessions.includes(entry)) {
+				try {
+					entry.onSocketOpen();
+				} catch (error) {
+					verbose(['BooxConnection: late onSocketOpen error', error]);
+				}
+			}
+		}).catch((err) => {
 			agentBridgeLog('CONN', 'boox-connection.ts:registerDrawingSession', 'ensureConnected rejected after register', {
 				error: String(err),
 				activeSessions: this.drawingSessions.length,

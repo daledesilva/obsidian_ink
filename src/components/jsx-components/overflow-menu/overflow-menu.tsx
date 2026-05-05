@@ -26,30 +26,39 @@ export const OverflowMenu: React.FC<{
     menuOptions: MenuOption[]
 }> = (props) => {
 
-    const menu = new Menu();
-
-    props.menuOptions.forEach((option) => {
-        if (isSeparator(option)) {
-            menu.addSeparator();
-            return;
-        }
-        menu.addItem((item) => {
-            item
-                .setTitle(option.text)
-                .onClick(() => {
-                    option.action();
-                });
-            if (option.warning) (item as any).dom.addClass('mod-warning');
-        });
-    })
+    const menuRef = React.useRef<Menu | null>(null);
+    const isMenuOpenRef = React.useRef(false);
 
     return <>
         <div className="ddc_ink_overflow-button-and-menu">
             <button
                 className="ddc_ink_btn-slim"
                 onClick={(e) => {
+                    if (isMenuOpenRef.current && menuRef.current) {
+                        menuRef.current.hide();
+                        isMenuOpenRef.current = false;
+                        return;
+                    }
+                    const menu = new Menu();
+                    props.menuOptions.forEach((option) => {
+                        if (isSeparator(option)) {
+                            menu.addSeparator();
+                            return;
+                        }
+                        menu.addItem((item) => {
+                            item
+                                .setTitle(option.text)
+                                .onClick(() => { option.action(); });
+                            if (option.warning) (item as any).dom.addClass('mod-warning');
+                        });
+                    });
+                    menu.onHide(() => {
+                        isMenuOpenRef.current = false;
+                        menuRef.current = null;
+                    });
+                    menuRef.current = menu;
+                    isMenuOpenRef.current = true;
                     menu.showAtMouseEvent(e.nativeEvent);
-                    // props.onOverflowClick();
                 }}
             >
                 <OverflowIcon />

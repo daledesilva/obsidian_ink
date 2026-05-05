@@ -137,6 +137,7 @@ export function WritingEmbed (props: {
 		},
 		{
 			text: 'Remove embed',
+			warning: true,
 			action: () => {
 				if (!props.writingFileRef || !props.sourceMdFile) {
 					props.remove();

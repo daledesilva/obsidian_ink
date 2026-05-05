@@ -129,6 +129,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		},
 		{
 			text: 'Remove embed',
+			warning: true,
 			action: () => {
 				if (!props.embeddedFile || !props.sourceMdFile) {
 					props.remove();

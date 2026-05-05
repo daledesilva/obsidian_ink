@@ -19,20 +19,20 @@ export const ExtendedDrawingMenu: React.FC<{
 		<div
             className = 'ink_extended-writing-menu'
         >
-            {props.onLockClick && (
-                <TooltipButton
-                    tooltip='Lock'
-                    onClick={() => props.onLockClick?.()}
-                >
-                    <LockIcon/>
-                </TooltipButton>
-            )}
             {props.onExpandClick && (
                 <TooltipButton
                     tooltip='Open in full view'
                     onClick={() => props.onExpandClick?.()}
                 >
                     <ExpandIcon />
+                </TooltipButton>
+            )}
+            {props.onLockClick && (
+                <TooltipButton
+                    tooltip='Lock'
+                    onClick={() => props.onLockClick?.()}
+                >
+                    <LockIcon/>
                 </TooltipButton>
             )}
             <OverflowMenu

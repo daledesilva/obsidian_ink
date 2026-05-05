@@ -20,7 +20,7 @@ export const ExtendedWritingMenu: React.FC<{
         >
             {props.onLockClick && (
                 <button
-                    onPointerDown = {() => props.onLockClick?.()}
+                    onClick = {() => props.onLockClick?.()}
                 >
                     <LockIcon/>
                 </button>

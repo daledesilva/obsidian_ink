@@ -5,6 +5,7 @@ import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
 import { Editor } from "@tldraw/tldraw";
 import classNames from "classnames";
+import { TooltipButton } from "src/components/jsx-components/tooltip-button/tooltip-button";
 import { silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
 import {
 	setProgrammaticUndoInProgress,
@@ -133,24 +134,27 @@ export const WritingMenu = (props: WritingMenuProps) => {
             <div
                 className='ink_tool-menu'
             >
-                <button
-                    onPointerDown={activateSelectTool}
+                <TooltipButton
+                    tooltip='Select'
+                    onClick={activateSelectTool}
                     disabled={curTool === tool.select}
                 >
                     <SelectIcon/>
-                </button>
-                <button
-                    onPointerDown={activateDrawTool}
+                </TooltipButton>
+                <TooltipButton
+                    tooltip='Write'
+                    onClick={activateDrawTool}
                     disabled={curTool === tool.draw}
                 >
                     <WriteIcon/>
-                </button>
-                <button
-                    onPointerDown={activateEraseTool}
+                </TooltipButton>
+                <TooltipButton
+                    tooltip='Erase'
+                    onClick={activateEraseTool}
                     disabled={curTool === tool.eraser}
                 >
                     <EraseIcon/>
-                </button>
+                </TooltipButton>
             </div>
             <div
                 className='ink_other-menu'

@@ -19,11 +19,10 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 	const lastPointerYPosition = React.useRef<number>();
 
 	return <button
-		className = {classNames([
+		className={classNames([
 			'ddc_ink_resize-handle',
 			'ddc_ink_vertical',
 		])}
-		// onMouseDown={startResizing}
 		onPointerDown={startResizing}
 	>
 		<ResizeDiagonalIcon/>

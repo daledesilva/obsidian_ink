@@ -3,6 +3,7 @@ import "./transition-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 import OverflowMenu from "../overflow-menu/overflow-menu";
+import { TooltipButton } from "../tooltip-button/tooltip-button";
 
 //////////
 //////////
@@ -16,11 +17,12 @@ export const TransitionMenu: React.FC<{
 		<div
             className = 'ink_transition_menu'
         >
-            <button
-                onPointerDown = {() => props.onEditClick()}
+            <TooltipButton
+                tooltip='Unlock to edit'
+                onClick={() => props.onEditClick()}
             >
                 <UnlockIcon/>
-            </button>
+            </TooltipButton>
             <OverflowMenu
                 menuOptions = {props.menuOptions}
             />

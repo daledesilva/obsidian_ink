@@ -7,6 +7,7 @@ import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { Editor } from "@tldraw/tldraw";
 import { DrawIcon } from "src/graphics/icons/draw-icon";
 import classNames from "classnames";
+import { TooltipButton } from "src/components/jsx-components/tooltip-button/tooltip-button";
 import { silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import {
 	setProgrammaticUndoInProgress,
@@ -131,24 +132,27 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
             <div
                 className='ink_tool-menu'
             >
-                <button
-                    onPointerDown={activateSelectTool}
+                <TooltipButton
+                    tooltip='Select'
+                    onClick={activateSelectTool}
                     disabled={curTool === tool.select}
                 >
                     <SelectIcon/>
-                </button>
-                <button
-                    onPointerDown={activateDrawTool}
+                </TooltipButton>
+                <TooltipButton
+                    tooltip='Draw'
+                    onClick={activateDrawTool}
                     disabled={curTool === tool.draw}
                 >
                     <DrawIcon/>
-                </button>
-                <button
-                    onPointerDown={activateEraseTool}
+                </TooltipButton>
+                <TooltipButton
+                    tooltip='Erase'
+                    onClick={activateEraseTool}
                     disabled={curTool === tool.eraser}
                 >
                     <EraseIcon/>
-                </button>
+                </TooltipButton>
             </div>
             <div
                 className='ink_other-menu'

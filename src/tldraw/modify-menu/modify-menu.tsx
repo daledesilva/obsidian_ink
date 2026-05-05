@@ -5,6 +5,7 @@ import { RedoIcon } from "src/graphics/icons/redo-icon";
 import { Editor } from "@tldraw/tldraw";
 import { silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
 import classNames from "classnames";
+import { TooltipButton } from "src/components/jsx-components/tooltip-button/tooltip-button";
 
 //////////
 //////////
@@ -78,18 +79,20 @@ export const ModifyMenu = React.forwardRef<HTMLDivElement, ModifyMenuProps>((pro
             <div
                 className='ink_modify-menu'
             >
-                <button
-                    onPointerDown={undo}
+                <TooltipButton
+                    tooltip='Undo'
+                    onClick={undo}
                     disabled={!canUndo}
                 >
                     <UndoIcon/>
-                </button>
-                <button
-                    onPointerDown={redo}
+                </TooltipButton>
+                <TooltipButton
+                    tooltip='Redo'
+                    onClick={redo}
                     disabled={!canRedo}
                 >
                     <RedoIcon/>
-                </button>
+                </TooltipButton>
             </div>
         </div>
     </>;

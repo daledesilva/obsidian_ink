@@ -65,6 +65,10 @@ type DrawingSessionEntry = {
 	onStroke: (strokePoints: unknown) => void;
 	onDrawingAreaReady?: (drawingAreaReady: unknown) => void;
 	onSocketOpen: () => void;
+	/** Called when another session has just unregistered but this session is still active.
+	 *  The session should re-send new-drawing-area so the Bridge overlay is updated to
+	 *  this session's bounds instead of the departed session's. */
+	onReactivate?: () => void;
 };
 
 function isValidInkBridgePongData(data: unknown): boolean {
@@ -143,7 +147,17 @@ export class BooxConnection {
 				willStartGracePeriod: this.drawingSessions.length === 0,
 			});
 			if (this.drawingSessions.length === 0) {
+				// Only close the Bridge overlay when the last session unregisters.
+				// If other sessions are still active (e.g. a view opening while an embed
+				// is still closing), their overlay must not be killed.
+				this.sendCloseDrawingArea();
 				this.startIdleGracePeriod();
+			} else {
+				// Another session is still active. Tell it to re-announce its drawing
+				// area so the Bridge overlay moves to its bounds (e.g. back to the embed
+				// after the view closes).
+				const remaining = this.drawingSessions[this.drawingSessions.length - 1];
+				remaining.onReactivate?.();
 			}
 		};
 	}

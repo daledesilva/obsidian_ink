@@ -47,6 +47,11 @@ export type DrawingEditorControls = {
 	save: Function,
 	saveAndHalt: Function,
 	eraseAll: () => Promise<void>,
+	/** Notify the editor that the host view is becoming active or inactive.
+	 *  When inactive, the Boox overlay is closed and adjustment sends are suppressed.
+	 *  When active, the overlay is re-opened at the current bounds. Only meaningful
+	 *  for dedicated drawing views; embeds can ignore this. */
+	setBooxOverlayActive?: (isActive: boolean) => void,
 }
 
 interface DrawingEmbed_Props {

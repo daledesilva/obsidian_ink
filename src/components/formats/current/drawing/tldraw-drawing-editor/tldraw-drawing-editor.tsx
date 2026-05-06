@@ -40,7 +40,7 @@ interface CanvasRelativeStrokePoint {
 	y: number;
 }
 
-const AGENT_DEBUG_RUN_ID = 'pre-fix';
+const AGENT_DEBUG_RUN_ID = 'view-connect-debug';
 const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
 const AGENT_DEBUG_SESSION_ID = 'd78e27';
 
@@ -115,6 +115,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
 	const websocketConnectedRef = useRef(false);
+	// Tracks whether the host view is currently the active leaf. False while the view is
+	// hidden (e.g. user navigated back); prevents stale adjustment sends reaching the Bridge.
+	const isViewActiveRef = useRef(true);
+	// Set when the Bridge overlay needs to be (re)created but newAndroidDrawingArea() returned
+	// early due to zero dimensions (DOM mid-transition). sendAdjustment() checks this and
+	// escalates the next call to a full new-drawing-area instead of update-drawing-area.
+	const needsNewOverlayRef = useRef(false);
 	// Holds pan/zoom listener cleanup fns. Populated in handleMount; also referenced by
 	// the safety-net useEffect so cleanup is guaranteed even if tldraw's onMount return
 	// is never called (e.g. due to exceptions or future tldraw API changes).
@@ -141,8 +148,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	// Boox companion app: one WebSocket per plugin session; register only while this drawing is active.
 	React.useEffect(() => {
+		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:booxEffect', 'Boox useEffect fired', { hasSnapshot: !!tlEditorSnapshot, embedded: !!props.embedded, file: props.drawingFile.path });
 		if (!tlEditorSnapshot) return;
 		const inkPlugin = getGlobals().plugin;
+		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:booxEffect', 'Snapshot present — checking booxConnectionEnabled', { booxConnectionEnabled: inkPlugin.settings.booxConnectionEnabled, embedded: !!props.embedded, file: props.drawingFile.path });
 		if (!inkPlugin.settings.booxConnectionEnabled) return;
 
 		const unregister = inkPlugin.booxConnection.registerDrawingSession({
@@ -168,6 +177,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				const inkPlugin = getGlobals().plugin;
 				if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
 			},
+			onReactivate: () => {
+				if (!websocketConnectedRef.current) return;
+				// Mark that a fresh overlay is needed. newAndroidDrawingArea may return early with
+				// zero dims if the DOM is mid-transition; the rAF retry + needsNewOverlayRef
+				// together guarantee it fires once layout is complete.
+				needsNewOverlayRef.current = true;
+				newAndroidDrawingArea();
+				requestAnimationFrame(() => {
+					if (websocketConnectedRef.current) newAndroidDrawingArea();
+				});
+				const inkPlugin = getGlobals().plugin;
+				if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+			},
 		});
 
 		return () => {
@@ -180,7 +202,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			websocketConnectedRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-			inkPlugin.booxConnection.sendCloseDrawingArea();
+			// Don't call sendCloseDrawingArea here — the unregister callback in
+			// BooxConnection handles it once the last session unregisters, so we
+			// don't accidentally close the Bridge overlay that another active session
+			// (e.g. a view opening while this embed is still closing) just opened.
 			unregister();
 		};
 	}, [tlEditorSnapshot])
@@ -245,6 +270,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const handleMount = (_editor: Editor) => {
 		const editor = tlEditorRef.current = _editor;
+		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:handleMount', 'tldraw mounted', { embedded: !!props.embedded, file: props.drawingFile.path, websocketConnectedRef: websocketConnectedRef.current });
 		const leafId = props.workspaceLeafId;
 		if (!props.embedded && leafId) {
 			registerDedicatedInkEditor(leafId, editor);
@@ -255,7 +281,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// If Boox is already connected (session registered before tldraw mounted),
 		// lock tldraw input now since onSocketOpen fired before tlEditorRef was set.
 		const inkPlugin = getGlobals().plugin;
-		if (inkPlugin.settings.booxConnectionEnabled && inkPlugin.booxConnection.isConnected()) {
+		const isAlreadyConnected = inkPlugin.settings.booxConnectionEnabled && inkPlugin.booxConnection.isConnected();
+		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:handleMount', 'Checking if Boox already connected at mount time', { booxConnectionEnabled: inkPlugin.settings.booxConnectionEnabled, isConnected: inkPlugin.booxConnection.isConnected(), willLockInput: isAlreadyConnected, embedded: !!props.embedded });
+		if (isAlreadyConnected) {
 			lockTldrawInput(editor);
 		}
 
@@ -761,6 +789,24 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					editor.deleteShapes(allShapeIds);
 					await completeSave(editor);
 				},
+				setBooxOverlayActive: (isActive: boolean) => {
+					isViewActiveRef.current = isActive;
+					if (!websocketConnectedRef.current) return;
+					const inkPlugin = getGlobals().plugin;
+					if (!inkPlugin.settings.booxConnectionEnabled) return;
+					if (isActive) {
+						// Mark that a fresh overlay is needed; retry after one frame for the
+						// tab-become-visible case where DOM layout may not be settled yet.
+						needsNewOverlayRef.current = true;
+						newAndroidDrawingArea();
+						requestAnimationFrame(() => {
+							if (websocketConnectedRef.current) newAndroidDrawingArea();
+						});
+						if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+					} else {
+						inkPlugin.booxConnection.sendCloseDrawingArea();
+					}
+				},
 			})
 		}
 		
@@ -778,16 +824,20 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	///////////////////
 
     async function fetchFileData() {
+		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:fetchFileData', 'Reading drawing file', { file: props.drawingFile.path, embedded: !!props.embedded });
 		const svg = await props.drawingFile.vault.read(props.drawingFile);
         if(svg) {
 			const svgSettings = extractInkJsonFromSvg(svg);
 			if(svgSettings) {
 				const snapshot = prepareDrawingSnapshot(svgSettings.tldraw);
+				agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:fetchFileData', 'Snapshot ready — calling setTlEditorSnapshot', { file: props.drawingFile.path, embedded: !!props.embedded });
 				setTlEditorSnapshot(snapshot);
 			} else {
+				agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:fetchFileData', 'No ink JSON in file', { file: props.drawingFile.path });
 				logToVault('Drawing file has no ink JSON: ' + props.drawingFile.path);
 			}
         } else {
+			agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:fetchFileData', 'File unreadable', { file: props.drawingFile.path });
 			logToVault('Drawing file unreadable: ' + props.drawingFile.path);
 		}
     }
@@ -964,7 +1014,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			<FingerBlocker
 				getTlEditor={getTlEditor}
 				wrapperRef={editorWrapperRefEl}
-				enableTwoFingerGestures={!!props.embedded}
+				enableTwoFingerGestures={true}
 			/>
 			
 			<PrimaryMenuBar>
@@ -1086,6 +1136,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const canvasWidth = Math.round(embedRect.width);
 		const canvasHeight = Math.round(embedRect.height);
 
+		// Skip if the wrapper has no size — it's still laying out or already collapsing.
+		if (canvasWidth === 0 || canvasHeight === 0) return;
+
+		// Dims are valid — clear the pending-new-overlay flag so sendAdjustment won't
+		// keep escalating future updates unnecessarily.
+		needsNewOverlayRef.current = false;
+
 		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
 		agentDrawingBridgeLog('B,C', 'tldraw-drawing-editor.tsx:newAndroidDrawingArea', 'Computed Android drawing area for new overlay', {
@@ -1130,6 +1187,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function sendAdjustment() {
 		if(!editorWrapperRefEl.current) return;
 		if (!websocketConnectedRef.current) return;
+		if (!isViewActiveRef.current) return;
 
 		const inkPlugin = getGlobals().plugin;
 		if (!inkPlugin.settings.booxConnectionEnabled) return;
@@ -1142,6 +1200,18 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const canvasY = Math.round(embedRect.y);
 		const canvasWidth = Math.round(embedRect.width);
 		const canvasHeight = Math.round(embedRect.height);
+
+		// Skip zero-dimension updates — the wrapper is collapsing (e.g. embed closing while
+		// another session is active). The Bridge is told to remove the overlay via
+		// sendCloseDrawingArea, not via a zero-size update.
+		if (canvasWidth === 0 || canvasHeight === 0) return;
+
+		// If a fresh overlay is still pending (onReactivate/setBooxOverlayActive fired but
+		// newAndroidDrawingArea returned early with zero dims), escalate to new-drawing-area.
+		if (needsNewOverlayRef.current) {
+			newAndroidDrawingArea();
+			return;
+		}
 
 		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 

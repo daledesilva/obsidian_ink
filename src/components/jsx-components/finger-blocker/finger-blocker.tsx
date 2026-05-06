@@ -51,6 +51,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 	const twoFingerModeActiveRef = React.useRef(false);
 	const prevTwoFingerMidpointRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 	const prevTwoFingerDistanceRef = React.useRef<number>(0);
+	// Captures the camera's isLocked state before a two-finger gesture unlocks it, so it
+	// can be restored when the gesture ends (preserves free camera in dedicated views).
+	const prevCameraLockedRef = React.useRef(false);
 
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
@@ -203,9 +206,13 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 					element.style.touchAction = 'none';
 					twoFingerModeActiveRef.current = true;
 
+					// Capture the camera's current lock state so it can be restored when
+					// the gesture ends — preserves free camera in dedicated views.
+					const editorForLock = getTlEditor();
+					prevCameraLockedRef.current = editorForLock ? editorForLock.getCameraOptions().isLocked : false;
 					// Unlock the camera for the duration of the gesture.
-					// Camera is re-locked in handleTouchEnd when fingers drop below 2.
-					getTlEditor()?.setCameraOptions({ isLocked: false });
+					// Camera lock state is restored in handleTouchEnd when fingers drop below 2.
+					editorForLock?.setCameraOptions({ isLocked: false });
 
 					// Seed prev-state refs so the first pointermove frame has a valid baseline.
 					// We do NOT apply any camera update here — the gesture hasn't moved yet.
@@ -391,7 +398,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			});
 
 			if (twoFingerModeActiveRef.current && e.touches.length < 2) {
-				getTlEditor()?.setCameraOptions({ isLocked: true });
+				// Restore the camera lock state that was captured when the gesture started,
+				// rather than always locking — keeps dedicated view cameras free.
+				getTlEditor()?.setCameraOptions({ isLocked: prevCameraLockedRef.current });
 				twoFingerModeActiveRef.current = false;
 			}
 			if (e.touches.length === 0) {

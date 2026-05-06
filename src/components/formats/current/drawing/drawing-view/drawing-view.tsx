@@ -103,6 +103,8 @@ export class DrawingView extends TextFileView {
     inkFileData: InkFileData;
     hostEl: HTMLElement | null;
     editorControls: DrawingEditorControls | null = null; // Add this
+    /** Prevents active-leaf-change from being registered more than once per view instance. */
+    private leafChangeListenerRegistered = false;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -165,10 +167,29 @@ export class DrawingView extends TextFileView {
                             },
                         },
                     ]}
-                    saveControlsReference = {this.registerEditorControls} // Add this
+                    saveControlsReference = {this.registerEditorControls}
                 />
             </JotaiProvider>
         );
+
+		// Close the Boox overlay when the user navigates away from this view leaf,
+		// and restore it when they navigate back.
+		// Note: when the user clicks "back", Obsidian reuses the same leaf object but
+		// replaces the view type (it now shows a Markdown note). We must also verify
+		// the leaf's current view is still the drawing view, not just the same leaf.
+		// Guard: setViewData can be called multiple times (e.g. when the SVG is saved by
+		// the embed and Obsidian detects the external change), which would register multiple
+		// listeners — causing multiple close-drawing-area sends per tab switch.
+		if (!this.leafChangeListenerRegistered) {
+			this.leafChangeListenerRegistered = true;
+			this.registerEvent(
+				this.plugin.app.workspace.on('active-leaf-change', (leaf) => {
+					const isThisLeafActive = leaf === this.leaf;
+					const isThisViewStillInLeaf = this.leaf?.view?.getViewType?.() === DRAWING_VIEW_TYPE;
+					this.editorControls?.setBooxOverlayActive?.(isThisLeafActive && isThisViewStillInLeaf);
+				})
+			);
+		}
     }
 
     saveFile = (inkFileData: InkFileData) => {

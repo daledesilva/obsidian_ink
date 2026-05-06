@@ -15,9 +15,15 @@ interface ToolWithPointerHandlers {
 type FingerBlockerProps = {
 	getTlEditor: () => Editor | undefined;
 	wrapperRef?: React.RefObject<HTMLDivElement>;
+	/**
+	 * When true, FingerBlocker will detect two-finger touch gestures and forward them to
+	 * tldraw's canvas as synthetic pointer events, unlocking the camera for the duration.
+	 * Use in embedded drawing editors where the camera is normally locked.
+	 */
+	enableTwoFingerGestures?: boolean;
 };
 
-export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
+export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
 	const pointerDownRef = React.useRef<boolean>(false);
 	const recentPenInputRef = React.useRef<boolean>(false);
@@ -30,6 +36,21 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 	// Refs for tracking tldraw tool handlers
 	const currentTldrawToolIdRef = React.useRef<string | null>(null);
 	const tldrawToolCleanupMap = React.useRef<Map<string, () => void>>(new Map());
+
+	// Refs for two-finger gesture mode (only active when enableTwoFingerGestures is true)
+	const activeTouchPointerDataRef = React.useRef<Map<number, {
+		pointerId: number;
+		clientX: number;
+		clientY: number;
+		screenX: number;
+		screenY: number;
+		width: number;
+		height: number;
+		pressure: number;
+	}>>(new Map());
+	const twoFingerModeActiveRef = React.useRef(false);
+	const prevTwoFingerMidpointRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+	const prevTwoFingerDistanceRef = React.useRef<number>(0);
 
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
@@ -161,8 +182,47 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 					recentPenInputRef.current = true;
 				}
 			} else if (e.pointerType === 'touch') {
-				// Explicitly allow touch actions for Finger
-				element.style.touchAction = 'pan-x pan-y';
+				// Track this touch pointer's coordinates for potential two-finger forwarding
+				activeTouchPointerDataRef.current.set(e.pointerId, {
+					pointerId: e.pointerId,
+					clientX: e.clientX,
+					clientY: e.clientY,
+					screenX: e.screenX,
+					screenY: e.screenY,
+					width: e.width,
+					height: e.height,
+					pressure: e.pressure,
+				});
+				const touchCount = activeTouchPointerDataRef.current.size;
+
+				if (touchCount >= 2 && enableTwoFingerGestures && !twoFingerModeActiveRef.current) {
+					// Switch from single-finger scroll mode to two-finger gesture mode.
+					// Prevent the browser from handling this as a scroll or system gesture.
+					e.preventDefault();
+					e.stopPropagation();
+					element.style.touchAction = 'none';
+					twoFingerModeActiveRef.current = true;
+
+					// Unlock the camera for the duration of the gesture.
+					// Camera is re-locked in handleTouchEnd when fingers drop below 2.
+					getTlEditor()?.setCameraOptions({ isLocked: false });
+
+					// Seed prev-state refs so the first pointermove frame has a valid baseline.
+					// We do NOT apply any camera update here — the gesture hasn't moved yet.
+					const editor = getTlEditor();
+					if (editor) {
+						const [pa, pb] = [...activeTouchPointerDataRef.current.values()];
+						const containerRect = editor.getContainer().getBoundingClientRect();
+						prevTwoFingerMidpointRef.current = {
+							x: (pa.clientX + pb.clientX) / 2 - containerRect.left,
+							y: (pa.clientY + pb.clientY) / 2 - containerRect.top,
+						};
+						prevTwoFingerDistanceRef.current = Math.hypot(pb.clientX - pa.clientX, pb.clientY - pa.clientY);
+					}
+				} else if (!twoFingerModeActiveRef.current) {
+					// Single finger: let the browser handle scrolling
+					element.style.touchAction = 'pan-x pan-y';
+				}
 			}
 		};
 
@@ -191,6 +251,54 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 						left: scroller.scrollLeft - e.movementX,
 					});
 				}
+			} else if (e.pointerType === 'touch' && twoFingerModeActiveRef.current) {
+				// Update this pointer's stored position so we always use the latest coordinates.
+				const existing = activeTouchPointerDataRef.current.get(e.pointerId);
+				if (!existing) return;
+				activeTouchPointerDataRef.current.set(e.pointerId, {
+					...existing,
+					clientX: e.clientX,
+					clientY: e.clientY,
+					screenX: e.screenX,
+					screenY: e.screenY,
+				});
+
+				if (activeTouchPointerDataRef.current.size < 2) return;
+
+				const editor = getTlEditor();
+				if (!editor) return;
+
+				const [p0, p1] = [...activeTouchPointerDataRef.current.values()];
+				const containerRect = editor.getContainer().getBoundingClientRect();
+
+				// Current midpoint in container-relative coords
+				const cm = {
+					x: (p0.clientX + p1.clientX) / 2 - containerRect.left,
+					y: (p0.clientY + p1.clientY) / 2 - containerRect.top,
+				};
+				const curDist = Math.hypot(p1.clientX - p0.clientX, p1.clientY - p0.clientY);
+
+				const pm = prevTwoFingerMidpointRef.current;
+				const prevDist = prevTwoFingerDistanceRef.current;
+
+				// Compute new zoom from pinch ratio
+				const { x: cx, y: cy, z: cz } = editor.getCamera();
+				const { zoomSteps } = editor.getCameraOptions();
+				const factor = prevDist > 0 ? curDist / prevDist : 1;
+				const newZ = Math.max(zoomSteps[0], Math.min(zoomSteps[zoomSteps.length - 1], cz * factor));
+
+				// Combined pan + zoom: the page point under pm must appear under cm at newZ.
+				// tldraw transform: screenX = (pageX + cx) * cz  →  pageX = screenX/cz - cx
+				// pageUnderPm = pm.x/cz - cx  →  set equal to pageUnderCm = cm.x/newZ - newCx
+				// Solving: newCx = cx + cm.x/newZ - pm.x/cz
+				const newCx = cx + cm.x / newZ - pm.x / cz;
+				const newCy = cy + cm.y / newZ - pm.y / cz;
+
+				editor.setCamera({ x: newCx, y: newCy, z: newZ }, { animation: { duration: 0 } });
+
+				// Update prev-state for next frame
+				prevTwoFingerMidpointRef.current = cm;
+				prevTwoFingerDistanceRef.current = curDist;
 			}
 		};
 
@@ -214,7 +322,11 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 					}
 				}
 			} else if (e.pointerType === 'touch') {
+				activeTouchPointerDataRef.current.delete(e.pointerId);
 				recentPenInputRef.current = false;
+				// Camera re-locking when the gesture ends is handled by the touchend listener
+				// below, since tldraw may have captured these pointer IDs (preventing
+				// pointerup from reliably reaching FingerBlocker for captured pointers).
 			}
 		};
 
@@ -232,6 +344,8 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 						// Ignore
 					}
 				}
+			} else if (e.pointerType === 'touch') {
+				activeTouchPointerDataRef.current.delete(e.pointerId);
 			}
 		}
 
@@ -244,7 +358,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
-			if (isPenDownRef.current) {
+			if (isPenDownRef.current || twoFingerModeActiveRef.current) {
 				e.preventDefault();
 				e.stopPropagation();
 				e.stopImmediatePropagation();
@@ -263,6 +377,29 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			}
 		};
 
+		// Re-lock tldraw camera when a two-finger gesture ends.
+		// Touch Events (touchend/touchcancel) are NOT affected by Pointer Events capture,
+		// so this fires reliably even when tldraw has captured the touch pointer IDs via
+		// our synthetic pointerdowns in the two-finger activation path above.
+		const handleTouchEnd = (e: TouchEvent) => {
+			if (!enableTwoFingerGestures) return;
+
+			// Keep activeTouchPointerDataRef in sync (Touch Events use .identifier which
+			// corresponds to pointerId on all major browsers for touch input)
+			Array.from(e.changedTouches).forEach((touch) => {
+				activeTouchPointerDataRef.current.delete(touch.identifier);
+			});
+
+			if (twoFingerModeActiveRef.current && e.touches.length < 2) {
+				getTlEditor()?.setCameraOptions({ isLocked: true });
+				twoFingerModeActiveRef.current = false;
+			}
+			if (e.touches.length === 0) {
+				element.style.touchAction = '';
+				activeTouchPointerDataRef.current.clear();
+			}
+		};
+
 		// Add listeners with passive: false to ensure preventDefault works
 		element.addEventListener('pointerdown', handlePointerDown, { passive: false, capture: true });
 		element.addEventListener('pointermove', handlePointerMove, { passive: false, capture: true });
@@ -271,6 +408,8 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 		element.addEventListener('lostpointercapture', handleLostPointerCapture);
 		element.addEventListener('wheel', handleWheel, { passive: false, capture: true });
 		element.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+		element.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
+		element.addEventListener('touchcancel', handleTouchEnd, { passive: true, capture: true });
 
 		return () => {
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
@@ -280,6 +419,8 @@ export function FingerBlocker({ getTlEditor, wrapperRef }: FingerBlockerProps) {
 			element.removeEventListener('lostpointercapture', handleLostPointerCapture);
 			element.removeEventListener('wheel', handleWheel, { capture: true });
 			element.removeEventListener('touchmove', handleTouchMove, { capture: true });
+			element.removeEventListener('touchend', handleTouchEnd, { capture: true });
+			element.removeEventListener('touchcancel', handleTouchEnd, { capture: true });
 		};
 	}, []);
 

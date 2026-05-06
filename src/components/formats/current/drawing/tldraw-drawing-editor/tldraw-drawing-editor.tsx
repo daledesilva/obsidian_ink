@@ -629,36 +629,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			});
 		}
 
-		// Two-finger pinch zoom in embeds: temporarily unlock camera during multi-touch
-		if (props.embedded) {
-			const tlCanvas = editor.getContainer().querySelector('.tl-canvas') as HTMLElement | null;
-			console.log('[drawing pan/zoom] embed: setting up touch listeners, tlCanvas found:', !!tlCanvas);
-			if (tlCanvas) {
-				const onTouchStart = (e: TouchEvent) => {
-					console.log('[drawing pan/zoom] embed touchstart, touches:', e.touches.length);
-					if (e.touches.length >= 2) {
-						console.log('[drawing pan/zoom] embed: 2+ fingers — unlocking camera');
-						editor.setCameraOptions({ isLocked: false });
-					}
-				};
-				const onTouchEnd = (e: TouchEvent) => {
-					console.log('[drawing pan/zoom] embed touchend/touchcancel, remaining touches:', e.touches.length);
-					if (e.touches.length < 2) {
-						console.log('[drawing pan/zoom] embed: <2 fingers — re-locking camera');
-						editor.setCameraOptions({ isLocked: true });
-					}
-				};
-				tlCanvas.addEventListener('touchstart', onTouchStart, { passive: true });
-				tlCanvas.addEventListener('touchend', onTouchEnd, { passive: true });
-				tlCanvas.addEventListener('touchcancel', onTouchEnd, { passive: true });
-				panZoomCleanupFns.push(() => {
-					tlCanvas.removeEventListener('touchstart', onTouchStart);
-					tlCanvas.removeEventListener('touchend', onTouchEnd);
-					tlCanvas.removeEventListener('touchcancel', onTouchEnd);
-				});
-			}
-		}
-
 		// tldraw content setup
 		adaptTldrawToObsidianThemeMode(editor);
 		editor.updateInstanceState({
@@ -994,6 +964,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			<FingerBlocker
 				getTlEditor={getTlEditor}
 				wrapperRef={editorWrapperRefEl}
+				enableTwoFingerGestures={!!props.embedded}
 			/>
 			
 			<PrimaryMenuBar>

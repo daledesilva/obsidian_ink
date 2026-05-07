@@ -108,7 +108,7 @@ export class BooxConnection {
 		this.inFlightConnect = null;
 	}
 
-	registerDrawingSession(entry: DrawingSessionEntry): () => void {
+	registerDrawingSession(entry: DrawingSessionEntry): { unregister: () => void; activate: () => void } {
 		this.clearIdleGraceTimer();
 		this.drawingSessions.push(entry);
 		logToVault('Boox drawing session registered. Active: ' + this.drawingSessions.length);
@@ -136,7 +136,7 @@ export class BooxConnection {
 				activeSessions: this.drawingSessions.length,
 			});
 		});
-		return () => {
+		const unregister = () => {
 			const index = this.drawingSessions.indexOf(entry);
 			if (index >= 0) this.drawingSessions.splice(index, 1);
 			logToVault('Boox drawing session unregistered. Active: ' + this.drawingSessions.length);
@@ -160,6 +160,14 @@ export class BooxConnection {
 				remaining.onReactivate?.();
 			}
 		};
+		const activate = () => {
+			const idx = this.drawingSessions.indexOf(entry);
+			if (idx >= 0 && idx < this.drawingSessions.length - 1) {
+				this.drawingSessions.splice(idx, 1);
+				this.drawingSessions.push(entry);
+			}
+		};
+		return { unregister, activate };
 	}
 
 	/** Returns true if a grace timer was active and cancelled. */

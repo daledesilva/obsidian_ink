@@ -141,7 +141,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!tlEditorSnapshot) return;
 		if (!props.plugin.settings.booxConnectionEnabled) return;
 
-		const unregister = props.plugin.booxConnection.registerDrawingSession({
+		const { unregister } = props.plugin.booxConnection.registerDrawingSession({
 			onStrokeStart: () => {
 				info(['Boox stroke-start received, cancelling pending resize debounce', {
 					isResizing: isAndroidDrawingAreaResizingRef.current,

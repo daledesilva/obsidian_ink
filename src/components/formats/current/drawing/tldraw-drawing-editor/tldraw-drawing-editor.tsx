@@ -118,10 +118,16 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	// Tracks whether the host view is currently the active leaf. False while the view is
 	// hidden (e.g. user navigated back); prevents stale adjustment sends reaching the Bridge.
 	const isViewActiveRef = useRef(true);
-	// Set when the Bridge overlay needs to be (re)created but newAndroidDrawingArea() returned
-	// early due to zero dimensions (DOM mid-transition). sendAdjustment() checks this and
-	// escalates the next call to a full new-drawing-area instead of update-drawing-area.
-	const needsNewOverlayRef = useRef(false);
+	// Minimal async boundary: ensures the synchronous close-drawing-area from the departing
+	// view is always enqueued before we send new-drawing-area. setTimeout(fn, 0) is sufficient
+	// since both active-leaf-change listeners fire in the same tick — any macrotask delay wins.
+	const setBooxOverlayActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Set when overlay creation was attempted but getBoundingClientRect() returned zero dims
+	// (DOM still laying out). The ResizeObserver callback retries once dims are non-zero.
+	const pendingNewOverlayRef = useRef<boolean>(false);
+	// Holds the activate() fn returned by registerDrawingSession. Called when this session
+	// becomes the active leaf so it moves to last in the session array and receives strokes.
+	const activateDrawingSessionRef = useRef<(() => void) | null>(null);
 	// Holds pan/zoom listener cleanup fns. Populated in handleMount; also referenced by
 	// the safety-net useEffect so cleanup is guaranteed even if tldraw's onMount return
 	// is never called (e.g. due to exceptions or future tldraw API changes).
@@ -154,7 +160,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:booxEffect', 'Snapshot present — checking booxConnectionEnabled', { booxConnectionEnabled: inkPlugin.settings.booxConnectionEnabled, embedded: !!props.embedded, file: props.drawingFile.path });
 		if (!inkPlugin.settings.booxConnectionEnabled) return;
 
-		const unregister = inkPlugin.booxConnection.registerDrawingSession({
+		const { unregister, activate } = inkPlugin.booxConnection.registerDrawingSession({
 			onStroke: (strokePoints: unknown) => {
 				const payload = strokePoints as { strokeId?: number; points?: CanvasRelativeStrokePoint[] };
 				const points = payload.points ?? (strokePoints as CanvasRelativeStrokePoint[]);
@@ -179,18 +185,26 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			},
 			onReactivate: () => {
 				if (!websocketConnectedRef.current) return;
-				// Mark that a fresh overlay is needed. newAndroidDrawingArea may return early with
-				// zero dims if the DOM is mid-transition; the rAF retry + needsNewOverlayRef
-				// together guarantee it fires once layout is complete.
-				needsNewOverlayRef.current = true;
-				newAndroidDrawingArea();
-				requestAnimationFrame(() => {
-					if (websocketConnectedRef.current) newAndroidDrawingArea();
-				});
-				const inkPlugin = getGlobals().plugin;
-				if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+				// Use setTimeout(fn, 0) as a minimal async boundary — ensures any synchronous
+				// close-drawing-area from a departing session is enqueued before we open a new one.
+				if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+				setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+					setBooxOverlayActiveTimerRef.current = null;
+					if (!websocketConnectedRef.current) return;
+					activateDrawingSessionRef.current?.();
+					const sent = newAndroidDrawingArea();
+					if (sent) {
+						pendingNewOverlayRef.current = false;
+						const inkPlugin = getGlobals().plugin;
+						if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+					} else {
+						// Dims were zero — DOM still laying out. ResizeObserver will retry.
+						pendingNewOverlayRef.current = true;
+					}
+				}, 0);
 			},
 		});
+		activateDrawingSessionRef.current = activate;
 
 		return () => {
 			agentDrawingBridgeLog('A,C', 'tldraw-drawing-editor.tsx:drawingSessionCleanup', 'Boox drawing session cleanup is closing overlay', {
@@ -200,8 +214,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				embedded: !!props.embedded,
 			});
 			websocketConnectedRef.current = false;
+			pendingNewOverlayRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+			if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+			activateDrawingSessionRef.current = null;
 			// Don't call sendCloseDrawingArea here — the unregister callback in
 			// BooxConnection handles it once the last session unregisters, so we
 			// don't accidentally close the Bridge overlay that another active session
@@ -229,12 +246,25 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		};
 	}, [tlEditorSnapshot])
 
-	// Adjust drawing area on embed resize
+	// Adjust drawing area on embed resize. Also retries pending overlay creation if dims
+	// were zero when setBooxOverlayActive(true) or onReactivate fired.
 	React.useEffect(() => {
 		if (!tlEditorSnapshot) return;
 		if (!editorWrapperRefEl.current) return;
 
 		const resizeObserver = new ResizeObserver(() => {
+			// If overlay creation is pending (dims were zero at timer-fire time), retry now.
+			if (pendingNewOverlayRef.current && isViewActiveRef.current && websocketConnectedRef.current) {
+				const sent = newAndroidDrawingArea();
+				if (sent) {
+					pendingNewOverlayRef.current = false;
+					const inkPlugin = getGlobals().plugin;
+					if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+					return; // new-drawing-area already carries position; skip the adjust send
+				}
+				// Still zero — leave flag set, next ResizeObserver tick will retry
+				return;
+			}
 			adjustAndroidDrawingArea();
 		});
 
@@ -791,18 +821,31 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				},
 				setBooxOverlayActive: (isActive: boolean) => {
 					isViewActiveRef.current = isActive;
+					// Always cancel a pending re-open timer and clear the ResizeObserver retry flag
+					// first — if we're deactivating, no open should happen; if reactivating, a
+					// fresh timer below takes over.
+					if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+					setBooxOverlayActiveTimerRef.current = null;
+					if (!isActive) pendingNewOverlayRef.current = false;
 					if (!websocketConnectedRef.current) return;
 					const inkPlugin = getGlobals().plugin;
 					if (!inkPlugin.settings.booxConnectionEnabled) return;
 					if (isActive) {
-						// Mark that a fresh overlay is needed; retry after one frame for the
-						// tab-become-visible case where DOM layout may not be settled yet.
-						needsNewOverlayRef.current = true;
-						newAndroidDrawingArea();
-						requestAnimationFrame(() => {
-							if (websocketConnectedRef.current) newAndroidDrawingArea();
-						});
-						if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+						// setTimeout(fn, 0): minimal async boundary so the synchronous
+						// close-drawing-area from the departing view is always enqueued first.
+						setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+							setBooxOverlayActiveTimerRef.current = null;
+							if (!websocketConnectedRef.current) return;
+							activateDrawingSessionRef.current?.();
+							const sent = newAndroidDrawingArea();
+							if (sent) {
+								pendingNewOverlayRef.current = false;
+								if (tlEditorRef.current) inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+							} else {
+								// Dims were zero — DOM still laying out. ResizeObserver will retry.
+								pendingNewOverlayRef.current = true;
+							}
+						}, 0);
 					} else {
 						inkPlugin.booxConnection.sendCloseDrawingArea();
 					}
@@ -1120,11 +1163,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 
-	function newAndroidDrawingArea() {
-		if(!editorWrapperRefEl.current) return;
+	/** Sends new-drawing-area to the Bridge. Returns true if the message was sent,
+	 *  false if it bailed early (zero dims or missing ref). Callers that need the
+	 *  overlay to appear should set pendingNewOverlayRef when false is returned so
+	 *  the ResizeObserver can retry once layout is complete. */
+	function newAndroidDrawingArea(): boolean {
+		if(!editorWrapperRefEl.current) return false;
 
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return;
+		if (!inkPlugin.settings.booxConnectionEnabled) return false;
 
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
@@ -1137,11 +1184,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const canvasHeight = Math.round(embedRect.height);
 
 		// Skip if the wrapper has no size — it's still laying out or already collapsing.
-		if (canvasWidth === 0 || canvasHeight === 0) return;
-
-		// Dims are valid — clear the pending-new-overlay flag so sendAdjustment won't
-		// keep escalating future updates unnecessarily.
-		needsNewOverlayRef.current = false;
+		if (canvasWidth === 0 || canvasHeight === 0) return false;
 
 		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 
@@ -1162,6 +1205,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 		});
+		return true;
 	}
 
 	function getBooxStrokeSizeCssPx(editor: Editor): number {
@@ -1205,13 +1249,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// another session is active). The Bridge is told to remove the overlay via
 		// sendCloseDrawingArea, not via a zero-size update.
 		if (canvasWidth === 0 || canvasHeight === 0) return;
-
-		// If a fresh overlay is still pending (onReactivate/setBooxOverlayActive fired but
-		// newAndroidDrawingArea returned early with zero dims), escalate to new-drawing-area.
-		if (needsNewOverlayRef.current) {
-			newAndroidDrawingArea();
-			return;
-		}
 
 		// drawCanvasDebugOverlays({ rect: { x: canvasX, y: canvasY, width: canvasWidth, height: canvasHeight } });
 

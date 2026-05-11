@@ -100,6 +100,42 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		}
 	}, [])
 
+	// Mirror the active-leaf-change behaviour from drawing-view.tsx: restore or close
+	// the Boox overlay when the user switches to/from the note containing this embed.
+	// Only has any effect while the embed is in editor mode (editorControlsRef is set).
+	React.useEffect(() => {
+		if (!props.workspaceLeafId) return;
+		const plugin = getGlobals().plugin;
+		const handler = (leaf: { id?: string } | null) => {
+			const isThisLeafActive = leaf?.id === props.workspaceLeafId;
+			const sessionCount = (plugin.booxConnection as any).getSessionCount?.() ?? '?';
+			fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					sessionId: 'd78e27',
+					runId: 'view-connect-debug',
+					hypothesisId: 'MULTI-CLOSE',
+					location: 'drawing-embed.tsx:active-leaf-change-handler',
+					message: 'active-leaf-change fired on embed',
+					data: {
+						isThisLeafActive,
+						thisLeafId: props.workspaceLeafId,
+						incomingLeafId: leaf?.id ?? null,
+						editorControlsPresent: !!editorControlsRef.current,
+						sessionCount,
+					},
+					timestamp: Date.now(),
+				}),
+			}).catch(() => { /* ingest unavailable */ });
+			editorControlsRef.current?.setBooxOverlayActive?.(isThisLeafActive);
+		};
+		plugin.app.workspace.on('active-leaf-change', handler as any);
+		return () => {
+			plugin.app.workspace.off('active-leaf-change', handler as any);
+		};
+	}, [props.workspaceLeafId])
+
 	const commonExtendedOptions = [
 		{
 			text: 'Open drawing',

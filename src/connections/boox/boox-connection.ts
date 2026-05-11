@@ -94,6 +94,10 @@ export class BooxConnection {
 
 	private readonly drawingSessions: DrawingSessionEntry[] = [];
 
+	/** Timestamp of the last sent close-drawing-area message, used to deduplicate
+	 * rapid close calls from multiple zombie sessions in the same event loop flush. */
+	private lastCloseDrawingAreaAt = 0;
+
 	/** Timer that tears down the idle WebSocket after the grace period expires. */
 	private idleGraceTimer: number | null = null;
 
@@ -587,6 +591,16 @@ export class BooxConnection {
 			});
 			return;
 		}
+		const now = Date.now();
+		if (now - this.lastCloseDrawingAreaAt < 100) {
+			agentBridgeLog('A,C', 'boox-connection.ts:sendCloseDrawingArea', 'Deduplicated close-drawing-area (sent within 100ms)', {
+				readyState: webSocketReadyStateName(this.ws),
+				sessionCount: this.drawingSessions.length,
+				msAgo: now - this.lastCloseDrawingAreaAt,
+			});
+			return;
+		}
+		this.lastCloseDrawingAreaAt = now;
 		agentBridgeLog('A,C', 'boox-connection.ts:sendCloseDrawingArea', 'Sending close-drawing-area', {
 			readyState: webSocketReadyStateName(this.ws),
 			sessionCount: this.drawingSessions.length,
@@ -601,6 +615,10 @@ export class BooxConnection {
 
 	isConnected(): boolean {
 		return this.ws?.readyState === WebSocket.OPEN;
+	}
+
+	getSessionCount(): number {
+		return this.drawingSessions.length;
 	}
 
 	sendUpdateTool(tool: 'draw' | 'eraser', strokeSizeDevicePx?: number): void {

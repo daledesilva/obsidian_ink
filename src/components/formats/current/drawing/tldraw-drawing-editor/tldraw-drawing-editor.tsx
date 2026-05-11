@@ -153,8 +153,16 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}, [])
 
 	// Boox companion app: one WebSocket per plugin session; register only while this drawing is active.
+	const booxEffectRunCountRef = React.useRef(0);
+	const prevSnapshotRefRef = React.useRef<unknown>(null);
 	React.useEffect(() => {
-		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:booxEffect', 'Boox useEffect fired', { hasSnapshot: !!tlEditorSnapshot, embedded: !!props.embedded, file: props.drawingFile.path });
+		booxEffectRunCountRef.current += 1;
+		const runCount = booxEffectRunCountRef.current;
+		const snapshotRef = tlEditorSnapshot;
+		const isNewRef = snapshotRef !== prevSnapshotRefRef.current;
+		const wasNull = prevSnapshotRefRef.current === null;
+		prevSnapshotRefRef.current = snapshotRef;
+		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:booxEffect', 'Boox useEffect fired', { hasSnapshot: !!tlEditorSnapshot, isNewObjectRef: isNewRef, wasNullBefore: wasNull, runCount, embedded: !!props.embedded, file: props.drawingFile.path });
 		if (!tlEditorSnapshot) return;
 		const inkPlugin = getGlobals().plugin;
 		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:booxEffect', 'Snapshot present — checking booxConnectionEnabled', { booxConnectionEnabled: inkPlugin.settings.booxConnectionEnabled, embedded: !!props.embedded, file: props.drawingFile.path });
@@ -210,6 +218,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			agentDrawingBridgeLog('A,C', 'tldraw-drawing-editor.tsx:drawingSessionCleanup', 'Boox drawing session cleanup is closing overlay', {
 				wasWebsocketConnectedRef: websocketConnectedRef.current,
 				isBooxConnected: inkPlugin.booxConnection.isConnected(),
+				booxEffectRunCount: booxEffectRunCountRef.current,
 				file: props.drawingFile.path,
 				embedded: !!props.embedded,
 			});
@@ -310,11 +319,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// If Boox is already connected (session registered before tldraw mounted),
 		// lock tldraw input now since onSocketOpen fired before tlEditorRef was set.
+		// Also activate this session so it becomes last in drawingSessions — this ensures
+		// strokes are routed here rather than to a zombie session that registered after us
+		// but whose tldraw editor has already unmounted.
 		const inkPlugin = getGlobals().plugin;
 		const isAlreadyConnected = inkPlugin.settings.booxConnectionEnabled && inkPlugin.booxConnection.isConnected();
 		agentDrawingBridgeLog('CONN', 'tldraw-drawing-editor.tsx:handleMount', 'Checking if Boox already connected at mount time', { booxConnectionEnabled: inkPlugin.settings.booxConnectionEnabled, isConnected: inkPlugin.booxConnection.isConnected(), willLockInput: isAlreadyConnected, embedded: !!props.embedded });
 		if (isAlreadyConnected) {
 			lockTldrawInput(editor);
+			activateDrawingSessionRef.current?.();
 		}
 
 		// Pan/zoom event listener cleanup functions
@@ -821,6 +834,14 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				},
 				setBooxOverlayActive: (isActive: boolean) => {
 					isViewActiveRef.current = isActive;
+					const inkPlugin2 = getGlobals().plugin;
+					agentDrawingBridgeLog('A,C', 'tldraw-drawing-editor.tsx:setBooxOverlayActive', 'setBooxOverlayActive called', {
+						isActive,
+						websocketConnectedRef: websocketConnectedRef.current,
+						activeSessions: inkPlugin2.booxConnection.getSessionCount?.(),
+						embedded: !!props.embedded,
+						file: props.drawingFile.path,
+					});
 					// Always cancel a pending re-open timer and clear the ResizeObserver retry flag
 					// first — if we're deactivating, no open should happen; if reactivating, a
 					// fresh timer below takes over.
@@ -1097,6 +1118,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						if (isBooxConnected) {
 							websocketConnectedRef.current = true;
 							if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
+							activateDrawingSessionRef.current?.();
 							newAndroidDrawingArea();
 							if (tlEditorRef.current) {
 								inkPlugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current))

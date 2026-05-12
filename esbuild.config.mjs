@@ -14,6 +14,7 @@ const INK_DEBUG_ENV_KEYS = [
 	'INK_DEBUG_CURSOR_INGEST_URL',
 	'INK_DEBUG_LAN_IPV4',
 	'INK_DEBUG_INGEST_PATH',
+	'INK_DEBUG_INGEST_SESSION_ID',
 ];
 
 /**
@@ -128,6 +129,7 @@ loadMissingInkDebugVarsFromEnvFile();
 const inkDebugCursorIngestUrl = resolveInkDebugCursorIngestUrl();
 const inkDebugLanIpv4 = process.env.INK_DEBUG_LAN_IPV4?.trim() ?? '';
 const inkDebugIngestPath = process.env.INK_DEBUG_INGEST_PATH?.trim() ?? '';
+const inkDebugIngestSessionId = process.env.INK_DEBUG_INGEST_SESSION_ID?.trim() ?? '';
 
 esbuild.build({
 	banner: {
@@ -190,6 +192,7 @@ esbuild.build({
 		'process.env.INK_DEBUG_CURSOR_INGEST_URL': JSON.stringify(inkDebugCursorIngestUrl),
 		'process.env.INK_DEBUG_LAN_IPV4': JSON.stringify(inkDebugLanIpv4),
 		'process.env.INK_DEBUG_INGEST_PATH': JSON.stringify(inkDebugIngestPath),
+		'process.env.INK_DEBUG_INGEST_SESSION_ID': JSON.stringify(inkDebugIngestSessionId),
 	}
 }).catch(() => process.exit(1));
 

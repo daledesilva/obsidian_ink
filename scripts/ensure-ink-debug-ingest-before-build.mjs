@@ -7,6 +7,7 @@
  * - `INK_DEBUG_CURSOR_INGEST_URL` — desktop / `adb reverse` default (`http://127.0.0.1:7662/ingest/…`).
  * - `INK_DEBUG_INGEST_PATH` — path only (`/ingest/…`); on Obsidian **mobile**, combined with LAN at runtime.
  * - `INK_DEBUG_LAN_IPV4` — build host’s LAN IPv4 (auto-discovered for Boox over Wi‑Fi).
+ * - `INK_DEBUG_INGEST_SESSION_ID` — NDJSON session slug (see `deriveIngestSessionId` in `ink-debug-ingest-env-lib.mjs`).
  *
  * Discovery order for path / loopback URL (see `deriveIngestEnvBundle` in `ink-debug-ingest-env-lib.mjs`):
  * 1. Shell `INK_DEBUG_CURSOR_INGEST_URL`
@@ -25,7 +26,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
 	applyIngestBundleToEnv,
+	applyIngestSessionIdToEnv,
 	deriveIngestEnvBundle,
+	deriveIngestSessionId,
 	pruneStaleCursorDebugLogs,
 } from './ink-debug-ingest-env-lib.mjs';
 
@@ -39,10 +42,12 @@ if (process.env.INK_DEBUG_SKIP_AUTO_INGEST === '1') {
 }
 
 const bundle = deriveIngestEnvBundle({ repoRoot, pluginRoot });
+const session = deriveIngestSessionId(repoRoot);
 applyIngestBundleToEnv(envPath, bundle);
+applyIngestSessionIdToEnv(envPath, session.sessionId);
 const pruned = pruneStaleCursorDebugLogs(repoRoot);
 console.log(
-	`[ink-debug-ingest] updated .env (source: ${bundle.source}); loopback URL + INK_DEBUG_INGEST_PATH + INK_DEBUG_LAN_IPV4`,
+	`[ink-debug-ingest] updated .env (ingest: ${bundle.source}; session: ${session.source}); URL + path + LAN + INK_DEBUG_INGEST_SESSION_ID`,
 );
 if (pruned.removed > 0) {
 	console.log(`[ink-debug-ingest] pruned ${pruned.removed} stale .cursor/debug-*.log (kept ${pruned.kept})`);

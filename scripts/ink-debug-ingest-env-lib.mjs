@@ -1,6 +1,6 @@
 /**
  * Shared helpers for Ink debug ingest → obsidian_ink/.env
- * (keep DEFAULT_INGEST_PORT and DEFAULT_SESSION_SLUG in sync with main.ts configureNetworkIngest).
+ * (keep DEFAULT_INGEST_PORT and DEFAULT_SESSION_SLUG in sync with `main.ts` fallback for `INK_DEBUG_INGEST_SESSION_ID`).
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,6 +9,8 @@ import { resolve } from 'node:path';
 export const KEY = 'INK_DEBUG_CURSOR_INGEST_URL';
 export const KEY_INGEST_PATH = 'INK_DEBUG_INGEST_PATH';
 export const KEY_LAN_IPV4 = 'INK_DEBUG_LAN_IPV4';
+/** NDJSON `sessionId` / `X-Debug-Session-Id` (Cursor names `.cursor/debug-<slug>.log` from this, not from `/ingest/<uuid>`). */
+export const KEY_INGEST_SESSION_ID = 'INK_DEBUG_INGEST_SESSION_ID';
 
 /** Must match `configureNetworkIngest(7662, …)` in main.ts. */
 export const DEFAULT_INGEST_PORT = 7662;
@@ -41,12 +43,19 @@ export function upsertEnvKey(envFilePath, key, value) {
 		return line;
 	});
 	if (!found) {
-		if (out.length && out[out.length - 1] !== '') {
+		const hasInkDebugKeyAlready = out.some((line) => /^INK_DEBUG_[A-Z0-9_]+=/.test(line.trim()));
+		if (!hasInkDebugKeyAlready) {
+			if (out.length && out[out.length - 1] !== '') {
+				out.push('');
+			}
+			out.push('# HTTP ingest (universal-dev-logging / esbuild). See eink-bridge/docs/implementations/debug-logging.md');
+		} else if (out.length && out[out.length - 1] !== '') {
 			out.push('');
 		}
-		out.push('# HTTP ingest (universal-dev-logging / esbuild). See eink-bridge/docs/implementations/debug-logging.md');
 		out.push(newLine);
-		out.push('');
+		if (!hasInkDebugKeyAlready) {
+			out.push('');
+		}
 	}
 	fs.writeFileSync(envFilePath, out.join('\n'), 'utf8');
 }
@@ -55,6 +64,40 @@ export function applyIngestBundleToEnv(envFilePath, bundle) {
 	upsertEnvKey(envFilePath, KEY, bundle.desktopLoopbackUrl);
 	upsertEnvKey(envFilePath, KEY_INGEST_PATH, bundle.ingestPath);
 	upsertEnvKey(envFilePath, KEY_LAN_IPV4, bundle.lanIpv4);
+}
+
+/** Slug for NDJSON session (alphanumeric + `_` `-`; must stay filesystem-safe for `.cursor/debug-<slug>.log`). */
+export function isValidIngestSessionSlug(value) {
+	return typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(value);
+}
+
+/**
+ * Resolves the ingest **session slug** (not the `/ingest/<uuid>` path — that still comes from the URL bundle).
+ * Discovery: shell `INK_DEBUG_INGEST_SESSION_ID` → `.cursor/cursor-debug-session-id` → `DEFAULT_SESSION_SLUG`.
+ */
+export function deriveIngestSessionId(repoRoot) {
+	const shell = process.env.INK_DEBUG_INGEST_SESSION_ID?.trim();
+	if (shell && isValidIngestSessionSlug(shell)) {
+		return { sessionId: shell, source: 'shell:INK_DEBUG_INGEST_SESSION_ID' };
+	}
+	const sessionFile = resolve(repoRoot, '.cursor', 'cursor-debug-session-id');
+	if (fs.existsSync(sessionFile)) {
+		const raw = fs.readFileSync(sessionFile, 'utf8');
+		for (const part of raw.split(/\r?\n/)) {
+			const t = part.trim();
+			if (!t || t.startsWith('#')) {
+				continue;
+			}
+			if (isValidIngestSessionSlug(t)) {
+				return { sessionId: t, source: 'file:.cursor/cursor-debug-session-id' };
+			}
+		}
+	}
+	return { sessionId: DEFAULT_SESSION_SLUG, source: 'default(main.ts session slug)' };
+}
+
+export function applyIngestSessionIdToEnv(envFilePath, sessionId) {
+	upsertEnvKey(envFilePath, KEY_INGEST_SESSION_ID, sessionId);
 }
 
 export function readExistingEnvIngestUrl(pluginRoot) {

@@ -40,11 +40,13 @@ import { configureNetworkIngest, getInkDebugIngestDiagnostics, postAgentDebugIng
 ////////
 ////////
 
-/** NDJSON HTTP ingest: `INK_DEBUG_CURSOR_INGEST_URL` (+ path + LAN IPv4) from `obsidian_ink/.env` at build time (see `esbuild.config.mjs`, `ensure-ink-debug-ingest-before-build.mjs`). Mobile uses LAN+path for Wi‑Fi; desktop uses loopback. Boox + USB: `adb reverse tcp:7662 tcp:7662`. Optional `localStorage` `ink-debug-ingest-url` overrides. */
+/** NDJSON HTTP ingest: `INK_DEBUG_CURSOR_INGEST_URL` (+ path + LAN + `INK_DEBUG_INGEST_SESSION_ID`) from `obsidian_ink/.env` at build time (see `esbuild.config.mjs`, `ensure-ink-debug-ingest-before-build.mjs`). Mobile uses LAN+path for Wi‑Fi; desktop uses loopback. Boox + USB: `adb reverse tcp:7662 tcp:7662`. Optional `localStorage` `ink-debug-ingest-url` overrides. */
 const inkDebugCursorIngestUrl = process.env.INK_DEBUG_CURSOR_INGEST_URL?.trim();
+const inkDebugIngestSessionId =
+	process.env.INK_DEBUG_INGEST_SESSION_ID?.trim() || '1aedc3';
 configureNetworkIngest(
 	7662,
-	'1aedc3',
+	inkDebugIngestSessionId,
 	'boox-vertical-y',
 	inkDebugCursorIngestUrl ? { ingestUrl: inkDebugCursorIngestUrl } : undefined,
 );

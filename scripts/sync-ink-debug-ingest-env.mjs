@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { applyIngestBundleToEnv, bundleFromManualFullUrl, firstHttpLine } from './ink-debug-ingest-env-lib.mjs';
+import { applyIngestBundleToEnv, applyIngestSessionIdToEnv, bundleFromManualFullUrl, deriveIngestSessionId, firstHttpLine } from './ink-debug-ingest-env-lib.mjs';
 
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(pluginRoot, '..');
@@ -91,8 +91,12 @@ async function main() {
 		process.exit(1);
 	}
 	applyIngestBundleToEnv(envPath, bundle);
+	const session = deriveIngestSessionId(repoRoot);
+	applyIngestSessionIdToEnv(envPath, session.sessionId);
 	console.log(`Updated ${envPath}`);
-	console.log('INK_DEBUG_CURSOR_INGEST_URL, INK_DEBUG_INGEST_PATH, INK_DEBUG_LAN_IPV4 (values not printed)');
+	console.log(
+		'INK_DEBUG_CURSOR_INGEST_URL, INK_DEBUG_INGEST_PATH, INK_DEBUG_LAN_IPV4, INK_DEBUG_INGEST_SESSION_ID (values not printed)',
+	);
 }
 
 main().catch((err) => {

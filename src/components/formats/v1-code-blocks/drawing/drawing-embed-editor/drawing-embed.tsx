@@ -8,7 +8,7 @@ import { openInkFile } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
-import { verbose } from "src/logic/utils/log-to-console";
+import { verbose } from "src/logic/utils/universal-dev-logging";
 import { TFile } from "obsidian";
 import { DrawingEmbedPreviewWrapper_v1 } from "../drawing-embed-preview/drawing-embed-preview";
 import classNames from "classnames";

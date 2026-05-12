@@ -18,7 +18,7 @@ import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { useAtomValue } from 'jotai';
-import { configureNetworkIngest, info, verbose } from 'src/logic/utils/log-to-console';
+import { info, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
@@ -55,10 +55,6 @@ interface TldrawStrokePoint {
 	y: number,
 	z?: number,
 }
-
-const AGENT_DEBUG_RUN_ID = 'invisible-strokes-v1';
-const AGENT_DEBUG_SESSION_ID = 'd78e27';
-configureNetworkIngest(7662, AGENT_DEBUG_SESSION_ID, AGENT_DEBUG_RUN_ID);
 
 interface TldrawWritingEditorProps {
 	onResize?: (invitingBounds: Box, tightBounds: Box) => void,

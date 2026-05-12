@@ -9,7 +9,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
-import { verbose } from "src/logic/utils/log-to-console";
+import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";

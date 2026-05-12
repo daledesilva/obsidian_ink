@@ -27,7 +27,7 @@ import {
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
 import { getMarkdownViewForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { verbose } from 'src/logic/utils/universal-dev-logging';
 
 function formatStackForLog(snapshot: readonly UnifiedUndoEntry[]): string {
 	return '[' + snapshot.map(e => {

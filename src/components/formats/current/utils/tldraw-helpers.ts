@@ -3,7 +3,7 @@ import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from
 import { useRef } from 'react';
 import InkPlugin from "src/main";
 import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-limit-notice";
-import { info, verbose } from "../../../../logic/utils/log-to-console";
+import { info, verbose } from "../../../../logic/utils/universal-dev-logging";
 import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
 import { getGlobals } from "src/stores/global-store";

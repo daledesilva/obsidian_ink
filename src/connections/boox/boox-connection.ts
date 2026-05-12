@@ -1,11 +1,8 @@
 import { Platform } from 'obsidian';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { postAgentDebugIngest, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 
 const INK_LOG_PREFIX = '[Ink]';
-const AGENT_DEBUG_RUN_ID = 'invisible-strokes-v1';
-const AGENT_DEBUG_ENDPOINT = 'http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a';
-const AGENT_DEBUG_SESSION_ID = 'd78e27';
 
 /** Port for eInk Bridge on loopback. */
 export const INK_BRIDGE_WEBSOCKET_PORT = 8080;
@@ -26,18 +23,9 @@ function agentBridgeLog(
 	message: string,
 	data: Record<string, unknown>,
 ): void {
-	const payload = {
-		sessionId: AGENT_DEBUG_SESSION_ID,
-		runId: AGENT_DEBUG_RUN_ID,
-		hypothesisId,
-		location,
-		message,
-		data,
-		timestamp: Date.now(),
-	};
 	console.log('[InkBridgeDebug]', message, data);
 	// #region agent log
-	fetch(AGENT_DEBUG_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': AGENT_DEBUG_SESSION_ID }, body: JSON.stringify(payload) }).catch(() => {});
+	postAgentDebugIngest({ hypothesisId, location, message, data });
 	// #endregion
 }
 
@@ -380,10 +368,30 @@ export class BooxConnection {
 		if (action !== 'new-stroke') {
 			return;
 		}
-		const last = this.drawingSessions[this.drawingSessions.length - 1];
-		if (last) {
+		const strokePayload = (parsed as { data?: unknown }).data;
+		if (strokePayload && typeof strokePayload === 'object' && strokePayload !== null) {
+			const sp = strokePayload as Record<string, unknown>;
+			const pts = Array.isArray(sp.points) ? sp.points : [];
+			const firstPt = pts[0] as Record<string, number> | undefined;
+			const lastPt =
+				pts.length > 0 ? (pts[pts.length - 1] as Record<string, number>) : undefined;
+			agentBridgeLog('H-plugin-ws-new-stroke', 'boox-connection.ts:dispatchStrokeMessage', 'Received new-stroke before routing to session', {
+				strokeId: sp.strokeId,
+				tool: sp.tool,
+				canvasWidth: sp.canvasWidth,
+				canvasHeight: sp.canvasHeight,
+				pointCount: pts.length,
+				firstX: firstPt?.x,
+				firstY: firstPt?.y,
+				lastX: lastPt?.x,
+				lastY: lastPt?.y,
+				sessionCount: this.drawingSessions.length,
+			});
+		}
+		const lastSession = this.drawingSessions[this.drawingSessions.length - 1];
+		if (lastSession) {
 			try {
-				last.onStroke((parsed as { data: unknown }).data);
+				lastSession.onStroke((parsed as { data: unknown }).data);
 			} catch (error) {
 				verbose(['BooxConnection: onStroke error', error]);
 			}

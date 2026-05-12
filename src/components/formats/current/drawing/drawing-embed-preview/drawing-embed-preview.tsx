@@ -6,7 +6,7 @@ import SVG from 'react-inlinesvg';
 import { TFile } from 'obsidian';
 import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { getGlobals } from 'src/stores/global-store';
 const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
 

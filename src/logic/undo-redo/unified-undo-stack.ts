@@ -4,7 +4,7 @@
  * @see docs/undo-redo-implementation.md
  */
 
-import { verbose } from 'src/logic/utils/log-to-console';
+import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { getGlobals } from 'src/stores/global-store';
 import { getEditor } from 'src/logic/undo-redo/ink-editor-registry';
 import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';

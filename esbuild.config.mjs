@@ -8,6 +8,77 @@ import svg from 'esbuild-plugin-svg';
 
 // import renamePlugin from "./rename-plugin";
 import fs from 'fs';
+import { resolve } from 'node:path';
+
+const INK_DEBUG_ENV_KEYS = [
+	'INK_DEBUG_CURSOR_INGEST_URL',
+	'INK_DEBUG_LAN_IPV4',
+	'INK_DEBUG_INGEST_PATH',
+];
+
+/**
+ * Load Ink debug ingest keys from obsidian_ink/.env when not already set in the shell.
+ * Shell export wins (CI / one-off overrides).
+ */
+function loadMissingInkDebugVarsFromEnvFile() {
+	const envFilePath = resolve(process.cwd(), '.env');
+	if (!fs.existsSync(envFilePath)) {
+		return;
+	}
+	const fromFile = {};
+	try {
+		for (const rawLine of fs.readFileSync(envFilePath, 'utf8').split(/\n/)) {
+			const line = rawLine.trim();
+			if (!line || line.startsWith('#')) {
+				continue;
+			}
+			const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.+)$/);
+			if (!match || !INK_DEBUG_ENV_KEYS.includes(match[1])) {
+				continue;
+			}
+			const key = match[1];
+			let value = match[2].trim();
+			if (
+				(value.startsWith('"') && value.endsWith('"')) ||
+				(value.startsWith("'") && value.endsWith("'"))
+			) {
+				value = value.slice(1, -1);
+			}
+			fromFile[key] = value;
+		}
+	} catch {
+		return;
+	}
+	for (const key of INK_DEBUG_ENV_KEYS) {
+		if (!process.env[key]?.trim() && fromFile[key]?.trim()) {
+			process.env[key] = fromFile[key].trim();
+		}
+	}
+}
+
+function resolveInkDebugCursorIngestUrl() {
+	loadMissingInkDebugVarsFromEnvFile();
+	const fromEnv = process.env.INK_DEBUG_CURSOR_INGEST_URL?.trim();
+	if (fromEnv) {
+		return fromEnv;
+	}
+	try {
+		const cursorFile = resolve(process.cwd(), '..', '.cursor', 'cursor-debug-ingest-url');
+		if (fs.existsSync(cursorFile)) {
+			const raw = fs.readFileSync(cursorFile, 'utf8').trim();
+			const firstLine = raw
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.find((line) => line.length > 0 && !line.startsWith('#'));
+			if (firstLine?.startsWith('http')) {
+				return firstLine;
+			}
+		}
+	} catch {
+		/* ignore */
+	}
+	return '';
+}
 
 const renamePlugin = () => ({
 	name: 'rename-plugin',
@@ -53,6 +124,10 @@ const buildMode = process.argv[2];
 const prod = buildMode === 'production';
 const watch = buildMode === undefined;
 const emulateMobile = process.env.INK_EMULATE_MOBILE === 'true';
+loadMissingInkDebugVarsFromEnvFile();
+const inkDebugCursorIngestUrl = resolveInkDebugCursorIngestUrl();
+const inkDebugLanIpv4 = process.env.INK_DEBUG_LAN_IPV4?.trim() ?? '';
+const inkDebugIngestPath = process.env.INK_DEBUG_INGEST_PATH?.trim() ?? '';
 
 esbuild.build({
 	banner: {
@@ -112,6 +187,9 @@ esbuild.build({
 	define: {
 		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
 		'process.env.INK_EMULATE_MOBILE': JSON.stringify(emulateMobile ? 'true' : 'false'),
+		'process.env.INK_DEBUG_CURSOR_INGEST_URL': JSON.stringify(inkDebugCursorIngestUrl),
+		'process.env.INK_DEBUG_LAN_IPV4': JSON.stringify(inkDebugLanIpv4),
+		'process.env.INK_DEBUG_INGEST_PATH': JSON.stringify(inkDebugIngestPath),
 	}
 }).catch(() => process.exit(1));
 

@@ -17,7 +17,7 @@ import { WritingLinesUtil_v1 } from '../writing-shapes/writing-lines';
 import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1 } from '../writing-embed-editor/writing-embed';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 
 ///////

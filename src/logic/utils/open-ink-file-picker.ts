@@ -4,7 +4,7 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { SvgFilePickerModal } from "src/components/dom-components/modals/svg-picker-modal/svg-picker-modal";
 import { fetchRecentFilePaths, recordRecentFileSelection } from "src/logic/utils/storage";
 import { findNotesContainingFileEmbed } from "src/logic/utils/convert-file-embeds";
-import { verbose } from "src/logic/utils/log-to-console";
+import { verbose } from "src/logic/utils/universal-dev-logging";
 
 ////////
 ////////

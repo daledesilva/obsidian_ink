@@ -1,5 +1,5 @@
 import InkPlugin from "src/main";
-import { debug, error } from "./log-to-console";
+import { debug, error } from "./universal-dev-logging";
 
 ///////////////////////
 ///////////////////////

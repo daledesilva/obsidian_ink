@@ -3,7 +3,7 @@ import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { getLineHeightFromEditor } from 'src/components/formats/current/utils/tldraw-helpers';
-import { info } from 'src/logic/utils/log-to-console';
+import { info } from 'src/logic/utils/universal-dev-logging';
 
 //////////
 //////////

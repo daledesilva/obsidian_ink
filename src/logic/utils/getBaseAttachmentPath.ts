@@ -1,6 +1,6 @@
 import InkPlugin from "src/main";
 import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
-import { warn } from "./log-to-console";
+import { warn } from "./universal-dev-logging";
 
 /////////////
 /////////////

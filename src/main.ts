@@ -35,9 +35,19 @@ import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteS
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { configureNetworkIngest, getInkDebugIngestDiagnostics, postAgentDebugIngest } from 'src/logic/utils/universal-dev-logging';
 
 ////////
 ////////
+
+/** NDJSON HTTP ingest: `INK_DEBUG_CURSOR_INGEST_URL` (+ path + LAN IPv4) from `obsidian_ink/.env` at build time (see `esbuild.config.mjs`, `ensure-ink-debug-ingest-before-build.mjs`). Mobile uses LAN+path for Wi‑Fi; desktop uses loopback. Boox + USB: `adb reverse tcp:7662 tcp:7662`. Optional `localStorage` `ink-debug-ingest-url` overrides. */
+const inkDebugCursorIngestUrl = process.env.INK_DEBUG_CURSOR_INGEST_URL?.trim();
+configureNetworkIngest(
+	7662,
+	'1aedc3',
+	'boox-vertical-y',
+	inkDebugCursorIngestUrl ? { ingestUrl: inkDebugCursorIngestUrl } : undefined,
+);
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
@@ -62,6 +72,27 @@ export default class InkPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		const ingestDiag = getInkDebugIngestDiagnostics();
+		let httpPathForLog: string | null = null;
+		try {
+			httpPathForLog = ingestDiag.httpIngestUrl ? new URL(ingestDiag.httpIngestUrl).pathname : null;
+		} catch {
+			httpPathForLog = '(invalid URL)';
+		}
+		postAgentDebugIngest({
+			hypothesisId: 'H-plugin-ingest-boot',
+			location: 'main.ts:onload',
+			message: 'Ink loaded — HTTP ingest diagnostics',
+			data: {
+				hasHttpIngestUrl: !!ingestDiag.httpIngestUrl,
+				httpIngestPath: httpPathForLog,
+				sessionId: ingestDiag.sessionId,
+				runId: ingestDiag.runId,
+				isMobileApp: Platform.isMobileApp,
+			},
+			runId: ingestDiag.runId ?? 'boox-vertical-y',
+		});
 
 		this.booxConnection = new BooxConnection(() => ({
 			booxConnectionEnabled: this.settings.booxConnectionEnabled,

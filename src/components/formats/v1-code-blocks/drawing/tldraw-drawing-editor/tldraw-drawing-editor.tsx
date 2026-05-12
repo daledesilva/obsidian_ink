@@ -16,7 +16,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState_v1, editorActiveAtom, embedStateAtom } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
-import { verbose } from 'src/logic/utils/log-to-console';
+import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 
 ///////

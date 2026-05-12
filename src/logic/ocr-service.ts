@@ -1,4 +1,4 @@
-import { verbose } from "src/logic/utils/log-to-console";
+import { verbose } from "src/logic/utils/universal-dev-logging";
 
 ///////////////////
 ///////////////////

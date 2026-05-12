@@ -6,7 +6,7 @@ import InkPlugin from "src/main";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
-import { verbose } from "src/logic/utils/log-to-console";
+import { verbose } from "src/logic/utils/universal-dev-logging";
 import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper_v1 } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";

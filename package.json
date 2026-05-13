@@ -21,7 +21,8 @@
 		"internal-release": "sh ./scripts/internal-release.sh",
 		"beta-release": "sh ./scripts/beta-release.sh",
 		"public-release": "sh ./scripts/public-release.sh",
-		"download-test-plugins": "bash scripts/download-test-plugins.sh"
+		"download-test-plugins": "bash scripts/download-test-plugins.sh",
+		"capture:android-webview-console": "node scripts/capture-obsidian-android-webview-console.mjs --session-ts $(date +%Y%m%d-%H%M%S)"
 	},
 	"keywords": [],
 	"author": "",

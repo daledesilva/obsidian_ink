@@ -2,6 +2,8 @@
 
 > The Boox companion app counterpart (protocol messages, overlay positioning, `new-stroke` format) lives in `eink-bridge/docs/implementations/obsidian-ink-embed-integration.md`.
 
+For **USB debugging, remote DevTools, and logs on real hardware**, see [Debugging on device](debugging-on-device.md) (plugin) and [Debugging eInk Bridge on device](../../eink-bridge/docs/debugging-on-device.md) (native app).
+
 ## Why it exists
 
 Boox eInk devices expose a raw stylus API that is inaccessible from a WebView. The Obsidian Ink plugin cannot capture stylus input directly; instead it connects over loopback WebSocket to the **Boox companion app** running as a native Android service on the same device. The companion app captures pen input, renders EPD ink, and streams completed strokes back to the plugin.

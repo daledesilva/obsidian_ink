@@ -54,6 +54,193 @@ function agentDrawingBridgeLog(
 	// #endregion
 }
 
+/** NDJSON-friendly rect for misalignment audits (no DOM objects). */
+function domRectToLite(r: DOMRect) {
+	return {
+		x: Math.round(r.x * 1000) / 1000,
+		y: Math.round(r.y * 1000) / 1000,
+		w: Math.round(r.width * 1000) / 1000,
+		h: Math.round(r.height * 1000) / 1000,
+		top: Math.round(r.top * 1000) / 1000,
+		left: Math.round(r.left * 1000) / 1000,
+	};
+}
+
+function collectParentChainRects(startEl: Element | null, maxDepth: number) {
+	const rows: Array<{
+		depth: number;
+		tag: string;
+		id?: string;
+		cls?: string;
+		rect: ReturnType<typeof domRectToLite>;
+		transformSnippet?: string;
+	}> = [];
+	let el: Element | null = startEl;
+	for (let d = 0; el && d < maxDepth; d++) {
+		const r = el.getBoundingClientRect();
+		const he = el as HTMLElement;
+		const clsRaw = typeof he.className === 'string' ? he.className : '';
+		let transformSnippet: string | undefined;
+		try {
+			const t = typeof window !== 'undefined' ? window.getComputedStyle(he).transform : '';
+			if (t && t !== 'none') {
+				transformSnippet = t.length > 100 ? `${t.slice(0, 100)}…` : t;
+			}
+		} catch {
+			transformSnippet = '(unreadable)';
+		}
+		rows.push({
+			depth: d,
+			tag: el.tagName,
+			...(el.id ? { id: el.id.slice(0, 80) } : {}),
+			...(clsRaw ? { cls: clsRaw.slice(0, 120) } : {}),
+			rect: domRectToLite(r),
+			...(transformSnippet ? { transformSnippet } : {}),
+		});
+		el = el.parentElement;
+	}
+	return rows;
+}
+
+function summarizeDocumentLayoutForBridgeAudit(): Record<string, unknown> {
+	const de = document.documentElement;
+	const body = document.body;
+	const vv = typeof visualViewport !== 'undefined' && visualViewport ? visualViewport : null;
+	return {
+		deClient: de ? { w: de.clientWidth, h: de.clientHeight } : null,
+		deScroll: de ? { w: de.scrollWidth, h: de.scrollHeight } : null,
+		deOffset: de ? { w: de.offsetWidth, h: de.offsetHeight } : null,
+		bodyClient: body ? { w: body.clientWidth, h: body.clientHeight } : null,
+		bodyScroll: body ? { w: body.scrollWidth, h: body.scrollHeight } : null,
+		windowScroll: { x: window.scrollX, y: window.scrollY },
+		vvRect:
+			vv != null
+				? {
+						x: vv.pageLeft,
+						y: vv.pageTop,
+						w: vv.width,
+						h: vv.height,
+						scale: vv.scale,
+						offsetTop: vv.offsetTop,
+						offsetLeft: vv.offsetLeft,
+					}
+				: null,
+	};
+}
+
+function buildDrawingMisalignmentRectAudit(data: {
+	embedded: boolean;
+	editor: Editor;
+	wrapperEl: HTMLElement;
+	surfaceRect: DOMRect;
+	rawSurfaceRect: DOMRect;
+	clampDetail: {
+		innerW: number;
+		innerH: number;
+		visibleTop: number;
+		visibleBottom: number;
+		visibleLeft: number;
+		visibleRight: number;
+	};
+	booxMeta?: { strokeId?: number; canvasWidth?: number; canvasHeight?: number };
+}): Record<string, unknown> {
+	const { editor, wrapperEl, surfaceRect, rawSurfaceRect, clampDetail, embedded, booxMeta } = data;
+	const tlContainer = editor.getContainer();
+	const vv =
+		typeof visualViewport !== 'undefined' && visualViewport
+			? {
+					w: visualViewport.width,
+					h: visualViewport.height,
+					scale: visualViewport.scale,
+					offsetTop: visualViewport.offsetTop,
+					offsetLeft: visualViewport.offsetLeft,
+				}
+			: null;
+	const sb = editor.getInstanceState().screenBounds;
+	const vpScreen = editor.getViewportScreenBounds();
+	const vpb = editor.getViewportPageBounds();
+	const rawL = domRectToLite(rawSurfaceRect);
+	const surfL = domRectToLite(surfaceRect);
+
+	return {
+		hypothesisTargets: [
+			'H-parent-chain',
+			'H-window-vs-surface',
+			'H-meta-vs-surface',
+			'H-screenBounds-vs-dom',
+			'H-raw-vs-clamp',
+			'H-vv-vs-inner',
+		],
+		embedded,
+		strokeId: booxMeta?.strokeId,
+		booxMetaCanvas: { w: booxMeta?.canvasWidth, h: booxMeta?.canvasHeight },
+		metaVsClampedSurface: {
+			dw:
+				booxMeta?.canvasWidth != null && booxMeta.canvasWidth > 0
+					? Math.round((booxMeta.canvasWidth - surfaceRect.width) * 1000) / 1000
+					: null,
+			dh:
+				booxMeta?.canvasHeight != null && booxMeta.canvasHeight > 0
+					? Math.round((booxMeta.canvasHeight - surfaceRect.height) * 1000) / 1000
+					: null,
+		},
+		rawVsClampedSurface: {
+			raw: rawL,
+			clamped: surfL,
+			delta: {
+				x: Math.round((surfL.x - rawL.x) * 1000) / 1000,
+				y: Math.round((surfL.y - rawL.y) * 1000) / 1000,
+				w: Math.round((surfL.w - rawL.w) * 1000) / 1000,
+				h: Math.round((surfL.h - rawL.h) * 1000) / 1000,
+			},
+		},
+		clampDetail,
+		vvVsInner: vv
+			? {
+					innerMinusVvW: window.innerWidth - vv.w,
+					innerMinusVvH: window.innerHeight - vv.h,
+				}
+			: null,
+		documentLayout: summarizeDocumentLayoutForBridgeAudit(),
+		dpr: window.devicePixelRatio,
+		windowInner: { w: window.innerWidth, h: window.innerHeight },
+		windowOuter: { w: window.outerWidth, h: window.outerHeight },
+		screen: {
+			w: window.screen?.width,
+			h: window.screen?.height,
+			availW: window.screen?.availWidth,
+			availH: window.screen?.availHeight,
+		},
+		docElRect: document.documentElement
+			? domRectToLite(document.documentElement.getBoundingClientRect())
+			: null,
+		bodyRect: document.body ? domRectToLite(document.body.getBoundingClientRect()) : null,
+		visualViewport: vv,
+		surfaceRect: surfL,
+		rawSurfaceRect: rawL,
+		wrapperRect: domRectToLite(wrapperEl.getBoundingClientRect()),
+		tlContainerRect: domRectToLite(tlContainer.getBoundingClientRect()),
+		tlScreenBounds: { x: sb.x, y: sb.y, w: sb.w, h: sb.h },
+		screenBoundsVsSurface: {
+			dx: Math.round((sb.x - surfaceRect.x) * 1000) / 1000,
+			dy: Math.round((sb.y - surfaceRect.y) * 1000) / 1000,
+			dw: Math.round((sb.w - surfaceRect.width) * 1000) / 1000,
+			dh: Math.round((sb.h - surfaceRect.height) * 1000) / 1000,
+		},
+		tlViewportScreenBounds: { x: vpScreen.x, y: vpScreen.y, w: vpScreen.w, h: vpScreen.h },
+		tlViewportPageBounds: vpb
+			? { x: vpb.x, y: vpb.y, w: vpb.w, h: vpb.h, minX: vpb.minX, minY: vpb.minY, maxX: vpb.maxX, maxY: vpb.maxY }
+			: null,
+		tlCamera: editor.getCamera(),
+		parentsFromTlContainer: collectParentChainRects(tlContainer, 28),
+		parentsFromWrapper: collectParentChainRects(wrapperEl, 28),
+		workspaceModRoot: collectParentChainRects(
+			document.querySelector('.mod-root') ?? document.querySelector('.workspace'),
+			14,
+		),
+	};
+}
+
 ///////
 ///////
 
@@ -1256,24 +1443,44 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 	}
 
+	type BooxSurfaceClampDetail = {
+		innerW: number;
+		innerH: number;
+		visibleTop: number;
+		visibleBottom: number;
+		visibleLeft: number;
+		visibleRight: number;
+	};
+
 	/** Match writing editor: clip to `window.innerWidth` / `innerHeight` so Bridge sees only visible CSS pixels. */
-	function clampDrawingSurfaceRectToVisibleViewport(surfaceRect: DOMRect): DOMRect {
+	function computeClampDrawingSurfaceOverlay(surfaceRect: DOMRect): {
+		clamped: DOMRect;
+		detail: BooxSurfaceClampDetail;
+	} {
+		const innerW = window.innerWidth;
+		const innerH = window.innerHeight;
 		const visibleTop = Math.max(0, surfaceRect.y);
-		const visibleBottom = Math.min(window.innerHeight, surfaceRect.y + surfaceRect.height);
+		const visibleBottom = Math.min(innerH, surfaceRect.y + surfaceRect.height);
 		const visibleLeft = Math.max(0, surfaceRect.x);
-		const visibleRight = Math.min(window.innerWidth, surfaceRect.x + surfaceRect.width);
+		const visibleRight = Math.min(innerW, surfaceRect.x + surfaceRect.width);
 		const width = Math.round(Math.max(0, visibleRight - visibleLeft));
 		const height = Math.round(Math.max(0, visibleBottom - visibleTop));
-		return new DOMRect(Math.round(visibleLeft), Math.round(visibleTop), width, height);
+		return {
+			clamped: new DOMRect(Math.round(visibleLeft), Math.round(visibleTop), width, height),
+			detail: { innerW, innerH, visibleTop, visibleBottom, visibleLeft, visibleRight },
+		};
+	}
+
+	function clampDrawingSurfaceRectToVisibleViewport(surfaceRect: DOMRect): DOMRect {
+		return computeClampDrawingSurfaceOverlay(surfaceRect).clamped;
 	}
 
 	/**
-	 * Client rect for eInk Bridge overlay + stroke→screen mapping. Embeds use the full
-	 * editor wrapper (matches embed layout). Dedicated view uses the tldraw container rect so
-	 * it matches updateViewportScreenBounds / screenToPage. Clamped to the visible viewport
-	 * (same as writing) so Obsidian/Boox chrome does not desync overlay vs WebView coordinates.
+	 * Raw DOM rect (wrapper vs tldraw container) plus viewport clamp used for Bridge + mapping.
 	 */
-	function getBooxClientAreaRect(): DOMRect | null {
+	function getBooxDrawingSurfaceRects():
+		| { raw: DOMRect; clamped: DOMRect | null; clampDetail: BooxSurfaceClampDetail }
+		| null {
 		const wrapper = editorWrapperRefEl.current;
 		if (!wrapper) return null;
 		let raw: DOMRect;
@@ -1288,11 +1495,22 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				raw = cr.width > 1 && cr.height > 1 ? cr : wrapper.getBoundingClientRect();
 			}
 		}
-		const clamped = clampDrawingSurfaceRectToVisibleViewport(raw);
+		const { clamped, detail } = computeClampDrawingSurfaceOverlay(raw);
 		if (clamped.width <= 0 || clamped.height <= 0) {
-			return null;
+			return { raw, clamped: null, clampDetail: detail };
 		}
-		return clamped;
+		return { raw, clamped, clampDetail: detail };
+	}
+
+	/**
+	 * Client rect for eInk Bridge overlay + stroke→screen mapping. Embeds use the full
+	 * editor wrapper (matches embed layout). Dedicated view uses the tldraw container rect so
+	 * it matches updateViewportScreenBounds / screenToPage. Clamped to the visible viewport
+	 * (same as writing) so Obsidian/Boox chrome does not desync overlay vs WebView coordinates.
+	 */
+	function getBooxClientAreaRect(): DOMRect | null {
+		const triple = getBooxDrawingSurfaceRects();
+		return triple?.clamped ?? null;
 	}
 
 	function buildBooxDrawingAreaPayload():
@@ -1344,6 +1562,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						offsetLeft: visualViewport.offsetLeft,
 					}
 				: null;
+		const surfaceTriple = getBooxDrawingSurfaceRects();
 		agentDrawingBridgeLog('B,C', 'tldraw-drawing-editor.tsx:newAndroidDrawingArea', 'Computed Android drawing area for new overlay', {
 			x: payload.x,
 			y: payload.y,
@@ -1356,6 +1575,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			innerW: window.innerWidth,
 			innerH: window.innerHeight,
 			visualViewport: vv,
+			rawSurface: surfaceTriple ? domRectToLite(surfaceTriple.raw) : null,
+			clampedSurface: surfaceTriple?.clamped ? domRectToLite(surfaceTriple.clamped) : null,
+			clampDetail: surfaceTriple?.clampDetail ?? null,
+			documentLayout: summarizeDocumentLayoutForBridgeAudit(),
 		});
 		inkPlugin.booxConnection.sendNewDrawingArea(payload);
 		return true;
@@ -1402,6 +1625,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						offsetLeft: visualViewport.offsetLeft,
 					}
 				: null;
+		const surfaceTripleAdj = getBooxDrawingSurfaceRects();
 		agentDrawingBridgeLog('B,C', 'tldraw-drawing-editor.tsx:sendAdjustment', 'Computed Android drawing area update', {
 			x: payload.x,
 			y: payload.y,
@@ -1414,6 +1638,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			innerW: window.innerWidth,
 			innerH: window.innerHeight,
 			visualViewport: vv,
+			rawSurface: surfaceTripleAdj ? domRectToLite(surfaceTripleAdj.raw) : null,
+			clampedSurface: surfaceTripleAdj?.clamped ? domRectToLite(surfaceTripleAdj.clamped) : null,
+			clampDetail: surfaceTripleAdj?.clampDetail ?? null,
+			documentLayout: summarizeDocumentLayoutForBridgeAudit(),
 		});
 		inkPlugin.booxConnection.sendUpdateDrawingArea(payload);
 	}
@@ -1481,8 +1709,39 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// `getViewportPageBounds()` can lag if screenBounds are stale — sync before mapping.
 		syncDrawingViewportScreenBoundsFromContainer(editor);
 		const tlBounds = editor.getViewportPageBounds();
-		const surfaceRect = getBooxClientAreaRect();
-		if (!surfaceRect) return false;
+		const surfaceTriple = getBooxDrawingSurfaceRects();
+		if (!surfaceTriple || !surfaceTriple.clamped) return false;
+		const surfaceRect = surfaceTriple.clamped;
+		const rectAuditAtStroke = buildDrawingMisalignmentRectAudit({
+			embedded: !!props.embedded,
+			editor,
+			wrapperEl: editorWrapperRefEl.current,
+			surfaceRect,
+			rawSurfaceRect: surfaceTriple.raw,
+			clampDetail: surfaceTriple.clampDetail,
+			booxMeta: booxStrokeMeta,
+		});
+		// #region agent log
+		agentDrawingBridgeLog(
+			'H-rect-audit',
+			'tldraw-drawing-editor.tsx:createStrokeFromBoox',
+			'Rect hierarchy audit at Boox stroke map time',
+			rectAuditAtStroke,
+		);
+		void fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8d4cc0' },
+			body: JSON.stringify({
+				sessionId: '8d4cc0',
+				runId: AGENT_DEBUG_RUN_ID,
+				hypothesisId: 'H-rect-audit-cursor-mirror',
+				location: 'tldraw-drawing-editor.tsx:createStrokeFromBoox',
+				message: 'Rect audit mirror (per stroke)',
+				data: rectAuditAtStroke,
+				timestamp: Date.now(),
+			}),
+		}).catch(() => {});
+		// #endregion
 		const wrapperRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const tlContainer = editor.getContainer();
 		const containerRect = tlContainer?.getBoundingClientRect();

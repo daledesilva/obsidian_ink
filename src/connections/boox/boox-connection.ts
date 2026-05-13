@@ -1,5 +1,5 @@
 import { Platform } from 'obsidian';
-import { postAgentDebugIngest, verbose } from 'src/logic/utils/universal-dev-logging';
+import { inkDebugLog, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 
 const INK_LOG_PREFIX = '[Ink]';
@@ -24,9 +24,7 @@ function agentBridgeLog(
 	data: Record<string, unknown>,
 ): void {
 	console.log('[InkBridgeDebug]', message, data);
-	// #region agent log
-	postAgentDebugIngest({ hypothesisId, location, message, data });
-	// #endregion
+	inkDebugLog({ hypothesisId, location, message, data });
 }
 
 function webSocketReadyStateName(ws: WebSocket | null): string {

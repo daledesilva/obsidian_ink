@@ -15,7 +15,7 @@ import classNames from 'classnames';
 import { useAtomValue } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
-import { debug, info, postAgentDebugIngest, verbose, warn } from 'src/logic/utils/universal-dev-logging';
+import { debug, info, inkDebugLog, verbose, warn } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getGlobals } from 'src/stores/global-store';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
@@ -49,9 +49,7 @@ function agentDrawingBridgeLog(
 	data: Record<string, unknown>,
 ): void {
 	console.log('[InkBridgeDebug]', message, data);
-	// #region agent log
-	postAgentDebugIngest({ hypothesisId, location, message, data, runId: AGENT_DEBUG_RUN_ID });
-	// #endregion
+	inkDebugLog({ hypothesisId, location, message, data, runId: AGENT_DEBUG_RUN_ID });
 }
 
 /** NDJSON-friendly rect for misalignment audits (no DOM objects). */
@@ -1705,8 +1703,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		if(!tlEditorRef.current) return false;
 
 		const editor = tlEditorRef.current;
-		// Runtime evidence (ingest-logs.ndjson): dedicated `new-drawing-area` used 813×965 while
-		// `getViewportPageBounds()` can lag if screenBounds are stale — sync before mapping.
+		// Dedicated `new-drawing-area` used 813×965 while `getViewportPageBounds()` can lag if
+		// screenBounds are stale — sync before mapping.
 		syncDrawingViewportScreenBoundsFromContainer(editor);
 		const tlBounds = editor.getViewportPageBounds();
 		const surfaceTriple = getBooxDrawingSurfaceRects();
@@ -1721,27 +1719,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			clampDetail: surfaceTriple.clampDetail,
 			booxMeta: booxStrokeMeta,
 		});
-		// #region agent log
 		agentDrawingBridgeLog(
 			'H-rect-audit',
 			'tldraw-drawing-editor.tsx:createStrokeFromBoox',
 			'Rect hierarchy audit at Boox stroke map time',
 			rectAuditAtStroke,
 		);
-		void fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '8d4cc0' },
-			body: JSON.stringify({
-				sessionId: '8d4cc0',
-				runId: AGENT_DEBUG_RUN_ID,
-				hypothesisId: 'H-rect-audit-cursor-mirror',
-				location: 'tldraw-drawing-editor.tsx:createStrokeFromBoox',
-				message: 'Rect audit mirror (per stroke)',
-				data: rectAuditAtStroke,
-				timestamp: Date.now(),
-			}),
-		}).catch(() => {});
-		// #endregion
 		const wrapperRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const tlContainer = editor.getContainer();
 		const containerRect = tlContainer?.getBoundingClientRect();
@@ -1913,15 +1896,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				: null,
 		};
 		debug(['Boox stroke mapped (screenToPage-after-sync)', fullStrokeDebug]);
-		// #region agent log
-		postAgentDebugIngest({
+		inkDebugLog({
 			hypothesisId: 'H-plugin-stroke-map-full',
 			location: 'tldraw-drawing-editor.tsx:createStrokeFromBoox',
 			message: 'Boox stroke canvas→screen→page (screenToPage-after-sync; linear tlBounds ref in data)',
 			data: fullStrokeDebug,
 			runId: AGENT_DEBUG_RUN_ID,
 		});
-		// #endregion
 
 		// FOR DEBUGGING ONLY
 		// drawCanvasDebugOverlays({ strokePoints: canvasRelativeStrokePoints });

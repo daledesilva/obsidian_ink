@@ -5,7 +5,7 @@ import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
-import { postAgentDebugIngest, verbose } from "src/logic/utils/universal-dev-logging";
+import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
@@ -109,7 +109,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		const handler = (leaf: { id?: string } | null) => {
 			const isThisLeafActive = leaf?.id === props.workspaceLeafId;
 			const sessionCount = (plugin.booxConnection as any).getSessionCount?.() ?? '?';
-			postAgentDebugIngest({
+			inkDebugLog({
 				hypothesisId: 'MULTI-CLOSE',
 				location: 'drawing-embed.tsx:active-leaf-change-handler',
 				message: 'active-leaf-change fired on embed',

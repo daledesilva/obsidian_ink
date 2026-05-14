@@ -404,6 +404,18 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		if (editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
+		// Dedicated tab edits the same file while this embed could still be "unlocked" in
+		// memory. Leaving edit mode unmounts the embed editor so a later lock cannot
+		// completeSave stale canvas state over the dedicated view (see vault.modify sequence).
+		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
+		editorControlsRef.current = undefined;
 		await openInkFileInView(props.embeddedFile, 'inkDrawing');
 	}
 

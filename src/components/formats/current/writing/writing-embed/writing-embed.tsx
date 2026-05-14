@@ -265,6 +265,15 @@ export function WritingEmbed (props: {
 		if (editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
+		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
+		}
+		editorControlsRef.current = undefined;
 		await openInkFileInView(props.writingFileRef, 'inkWriting');
 	}
 

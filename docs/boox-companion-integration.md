@@ -2,7 +2,7 @@
 
 > The Boox companion app counterpart (protocol messages, overlay positioning, `new-stroke` format) lives in `eink-bridge/docs/implementations/obsidian-ink-embed-integration.md`.
 
-For **USB debugging, remote DevTools, and logs on real hardware**, see [Debugging on device](debugging-on-device.md) (plugin) and [Debugging eInk Bridge on device](../../eink-bridge/docs/debugging-on-device.md) (native app).
+For **USB debugging, remote DevTools, and logs on real hardware**, see [Debugging on device](debugging-on-device.md) (plugin) and [Debugging eInk Bridge on device](../../eink-bridge/docs/debugging-on-device.md) (native app). For **keeping the companion app running** (battery, boot, recovery notifications), see [Keeping eInk Bridge reliable](../../eink-bridge/docs/keeping-bridge-reliable.md).
 
 ## Why it exists
 

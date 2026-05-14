@@ -36,12 +36,6 @@ function webSocketReadyStateName(ws: WebSocket | null): string {
 	return `unknown:${ws.readyState}`;
 }
 
-/**
- * How long the WebSocket stays alive after the last drawing session unregisters.
- * Covers a lock → unlock cycle so the existing connection is reused.
- */
-const IDLE_GRACE_PERIOD_MS = 5_000;
-
 export interface BooxConnectionSettings {
 	booxConnectionEnabled: boolean;
 }
@@ -67,9 +61,11 @@ function isValidInkBridgePongData(data: unknown): boolean {
 }
 
 /**
- * WebSocket is only open while at least one drawing editor is active (unlocked).
- * When the last drawing locks or unmounts, the socket stays open for a grace period
- * so that a quick unlock reuses the existing connection without re-probing.
+ * WebSocket stays open for the lifetime of this BooxConnection instance while Boox
+ * integration is enabled. Locking an embed sends `close-drawing-area` (Bridge tears
+ * down the overlay) but we keep the socket open so Bridge keeps an active client and
+ * its foreground service is less likely to be stopped by the OS before the user
+ * unlocks again. The socket is torn down from `dispose()` and `onSettingsChanged()`.
  */
 export class BooxConnection {
 	private ws: WebSocket | null = null;
@@ -84,13 +80,9 @@ export class BooxConnection {
 	 * rapid close calls from multiple zombie sessions in the same event loop flush. */
 	private lastCloseDrawingAreaAt = 0;
 
-	/** Timer that tears down the idle WebSocket after the grace period expires. */
-	private idleGraceTimer: number | null = null;
-
 	constructor(private readonly getSettings: () => BooxConnectionSettings) {}
 
 	onSettingsChanged(): void {
-		this.clearIdleGraceTimer();
 		this.intentionalClose = true;
 		this.teardownWebSocket();
 		this.intentionalClose = false;
@@ -99,7 +91,6 @@ export class BooxConnection {
 	}
 
 	registerDrawingSession(entry: DrawingSessionEntry): { unregister: () => void; activate: () => void } {
-		this.clearIdleGraceTimer();
 		this.drawingSessions.push(entry);
 		logToVault('Boox drawing session registered. Active: ' + this.drawingSessions.length);
 		agentBridgeLog('CONN', 'boox-connection.ts:registerDrawingSession', 'Drawing session registered', {
@@ -111,7 +102,7 @@ export class BooxConnection {
 			hasInFlightConnect: !!this.inFlightConnect,
 		});
 		void this.ensureConnected().then(() => {
-			// If the socket was already open (reused during the grace period),
+			// If the socket was already open (e.g. user locked then unlocked without a full reconnect),
 			// onSocketOpen won't have fired via probePort, so notify this session now.
 			if (this.ws?.readyState === WebSocket.OPEN && this.drawingSessions.includes(entry)) {
 				try {
@@ -134,14 +125,12 @@ export class BooxConnection {
 				activeSessions: this.drawingSessions.length,
 				wsState: webSocketReadyStateName(this.ws),
 				currentUrl: this.currentUrl,
-				willStartGracePeriod: this.drawingSessions.length === 0,
 			});
 			if (this.drawingSessions.length === 0) {
 				// Only close the Bridge overlay when the last session unregisters.
 				// If other sessions are still active (e.g. a view opening while an embed
 				// is still closing), their overlay must not be killed.
 				this.sendCloseDrawingArea();
-				this.startIdleGracePeriod();
 			} else {
 				// Another session is still active. Tell it to re-announce its drawing
 				// area so the Bridge overlay moves to its bounds (e.g. back to the embed
@@ -158,39 +147,6 @@ export class BooxConnection {
 			}
 		};
 		return { unregister, activate };
-	}
-
-	/** Returns true if a grace timer was active and cancelled. */
-	private clearIdleGraceTimer(): boolean {
-		if (this.idleGraceTimer !== null) {
-			window.clearTimeout(this.idleGraceTimer);
-			this.idleGraceTimer = null;
-			return true;
-		}
-		return false;
-	}
-
-	/** Starts a timer that tears down the WebSocket after the grace period. */
-	private startIdleGracePeriod(): void {
-		this.clearIdleGraceTimer();
-		agentBridgeLog('CONN', 'boox-connection.ts:startIdleGracePeriod', 'Starting idle grace period', {
-			gracePeriodMs: IDLE_GRACE_PERIOD_MS,
-			wsState: webSocketReadyStateName(this.ws),
-			currentUrl: this.currentUrl,
-		});
-		this.idleGraceTimer = window.setTimeout(() => {
-			this.idleGraceTimer = null;
-			if (this.drawingSessions.length > 0) return;
-			agentBridgeLog('CONN', 'boox-connection.ts:startIdleGracePeriod', 'Grace period expired, tearing down idle WebSocket', {
-				wsState: webSocketReadyStateName(this.ws),
-				currentUrl: this.currentUrl,
-			});
-			this.intentionalClose = true;
-			this.teardownWebSocket();
-			this.intentionalClose = false;
-			this.currentUrl = null;
-			this.inFlightConnect = null;
-		}, IDLE_GRACE_PERIOD_MS);
 	}
 
 	async ensureConnected(): Promise<void> {
@@ -299,7 +255,7 @@ export class BooxConnection {
 		if (Platform.isMobileApp || Platform.isMobile) {
 			console.log(
 				INK_LOG_PREFIX,
-				'Boox tip: Keep eInk Bridge running (foreground service). Obsidian Ink connects on this tablet over loopback only.',
+				'Boox tip: Start or restore eInk Bridge on this tablet so its foreground service and loopback WebSocket are up; Obsidian Ink only connects over ws://127.0.0.1.',
 			);
 		}
 		throw new Error('WebSocket connection failed');
@@ -678,7 +634,6 @@ export class BooxConnection {
 
 	dispose(): void {
 		this.disposed = true;
-		this.clearIdleGraceTimer();
 		this.drawingSessions.length = 0;
 		this.intentionalClose = true;
 		this.teardownWebSocket();

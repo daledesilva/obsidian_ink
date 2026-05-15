@@ -410,8 +410,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					let deltaY = e.deltaY;
 					if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) deltaY *= 16;
 					if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) deltaY *= 600;
-					const camera = editor.getCamera();
-					editor.setCamera({ x: camera.x, y: camera.y - deltaY, z: camera.z });
+					applyDedicatedWritingVerticalScroll(editor, deltaY);
 				};
 				wrapperEl.addEventListener('wheel', onWheelScroll, { capture: true, passive: false });
 				removeWheelListener = () => wrapperEl.removeEventListener('wheel', onWheelScroll, { capture: true });
@@ -921,7 +920,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				// Prevent autoFocussing so it can be handled in the handleMount / wrapper focus.
 				autoFocus = {false}
 			/>
-			<FingerBlocker getTlEditor={getTlEditor} wrapperRef={editorWrapperRefEl} />
+			<FingerBlocker
+				getTlEditor={getTlEditor}
+				wrapperRef={editorWrapperRefEl}
+				onVerticalTouchPan={
+					props.embedded
+						? undefined
+						: (deltaY) => {
+							const editor = tlEditorRef.current;
+							if (editor) applyDedicatedWritingVerticalScroll(editor, deltaY);
+						}
+				}
+			/>
 
 			<PrimaryMenuBar>
 				<WritingMenu
@@ -1313,6 +1323,20 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
     }
 
 };
+
+/**
+ * Moves the dedicated writing view camera vertically.
+ * deltaScreenPx is in viewport pixels; camera y is page-space, so divide by zoom for 1:1 finger tracking
+ * (same as drawing pan: setCamera y += dy / cz).
+ */
+function applyDedicatedWritingVerticalScroll(editor: Editor, deltaScreenPx: number) {
+	const camera = editor.getCamera();
+	editor.setCamera({
+		x: camera.x,
+		y: camera.y - deltaScreenPx / camera.z,
+		z: camera.z,
+	});
+}
 
 // (helpers removed; handled by FingerBlocker)
 

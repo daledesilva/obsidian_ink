@@ -21,9 +21,14 @@ type FingerBlockerProps = {
 	 * Use in embedded drawing editors where the camera is normally locked.
 	 */
 	enableTwoFingerGestures?: boolean;
+	/**
+	 * When set (dedicated writing view), single- and two-finger vertical touch pans invoke
+	 * this callback instead of native .cm-scroller scroll or pinch-zoom.
+	 */
+	onVerticalTouchPan?: (deltaY: number) => void;
 };
 
-export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures }: FingerBlockerProps) {
+export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures, onVerticalTouchPan }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
 	const pointerDownRef = React.useRef<boolean>(false);
 	const recentPenInputRef = React.useRef<boolean>(false);
@@ -54,6 +59,14 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 	// Captures the camera's isLocked state before a two-finger gesture unlocks it, so it
 	// can be restored when the gesture ends (preserves free camera in dedicated views).
 	const prevCameraLockedRef = React.useRef(false);
+
+	// Dedicated writing view: vertical touch pan (single- or two-finger), distinct from pinch-zoom.
+	const twoFingerVerticalPanActiveRef = React.useRef(false);
+	const prevVerticalPanMidpointRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+	const onVerticalTouchPanRef = React.useRef(onVerticalTouchPan);
+	React.useEffect(() => {
+		onVerticalTouchPanRef.current = onVerticalTouchPan;
+	}, [onVerticalTouchPan]);
 
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
@@ -197,8 +210,24 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 					pressure: e.pressure,
 				});
 				const touchCount = activeTouchPointerDataRef.current.size;
+				const verticalTouchPan = onVerticalTouchPanRef.current;
 
-				if (touchCount >= 2 && enableTwoFingerGestures && !twoFingerModeActiveRef.current) {
+				if (verticalTouchPan) {
+					// preventDefault alone is not enough — Obsidian command-palette swipe still fires.
+					e.preventDefault();
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+					element.style.touchAction = 'none';
+
+					if (touchCount >= 2 && !twoFingerVerticalPanActiveRef.current) {
+						twoFingerVerticalPanActiveRef.current = true;
+						const [pa, pb] = [...activeTouchPointerDataRef.current.values()];
+						prevVerticalPanMidpointRef.current = {
+							x: (pa.clientX + pb.clientX) / 2,
+							y: (pa.clientY + pb.clientY) / 2,
+						};
+					}
+				} else if (touchCount >= 2 && enableTwoFingerGestures && !twoFingerModeActiveRef.current) {
 					// Switch from single-finger scroll mode to two-finger gesture mode.
 					// Prevent the browser from handling this as a scroll or system gesture.
 					e.preventDefault();
@@ -248,9 +277,48 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 						scroller.scrollTo(lockedScrollPosRef.current.x, lockedScrollPosRef.current.y);
 					}
 				}
+			} else if (e.pointerType === 'touch' && twoFingerVerticalPanActiveRef.current) {
+				const existing = activeTouchPointerDataRef.current.get(e.pointerId);
+				if (!existing) return;
+				activeTouchPointerDataRef.current.set(e.pointerId, {
+					...existing,
+					clientX: e.clientX,
+					clientY: e.clientY,
+					screenX: e.screenX,
+					screenY: e.screenY,
+				});
+
+				if (activeTouchPointerDataRef.current.size < 2) return;
+
+				const [p0, p1] = [...activeTouchPointerDataRef.current.values()];
+				const currentMidpoint = {
+					x: (p0.clientX + p1.clientX) / 2,
+					y: (p0.clientY + p1.clientY) / 2,
+				};
+				const prevMidpoint = prevVerticalPanMidpointRef.current;
+				const deltaX = currentMidpoint.x - prevMidpoint.x;
+				const deltaY = currentMidpoint.y - prevMidpoint.y;
+
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+
+				if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+					// Negate so finger-up scrolls down (matches embed .cm-scroller semantics, not wheel sign).
+					onVerticalTouchPanRef.current?.(-deltaY);
+				}
+				prevVerticalPanMidpointRef.current = currentMidpoint;
+			} else if (e.pointerType === 'touch' && onVerticalTouchPanRef.current && !twoFingerVerticalPanActiveRef.current) {
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+				recentPenInputRef.current = false;
+				if (e.movementY !== 0) {
+					// Negate so finger-up scrolls down (matches embed .cm-scroller semantics, not wheel sign).
+					onVerticalTouchPanRef.current(-e.movementY);
+				}
 			} else if (e.pointerType === 'touch' && recentPenInputRef.current) {
-				// Logic to manually scroll if needed
-				// ie. If it was the first finger touch since a pen stroke, it was unlocked too late, so scroll manually.
+				// Embed: first finger touch after pen — scroll was unlocked too late, so scroll manually.
 				const scroller = getScroller();
 				if (scroller) {
 					scroller.scrollTo({
@@ -310,10 +378,8 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		};
 
 		const handlePointerUp = (e: PointerEvent) => {
-			// Reset touch-action
-			element.style.touchAction = '';
-			
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
+				element.style.touchAction = '';
 				unlockScroll();
 				
 				e.preventDefault();
@@ -331,6 +397,17 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			} else if (e.pointerType === 'touch') {
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				recentPenInputRef.current = false;
+
+				if (onVerticalTouchPanRef.current) {
+					if (twoFingerVerticalPanActiveRef.current && activeTouchPointerDataRef.current.size < 2) {
+						twoFingerVerticalPanActiveRef.current = false;
+					}
+					if (activeTouchPointerDataRef.current.size === 0) {
+						element.style.touchAction = '';
+					} else {
+						element.style.touchAction = 'none';
+					}
+				}
 				// Camera re-locking when the gesture ends is handled by the touchend listener
 				// below, since tldraw may have captured these pointer IDs (preventing
 				// pointerup from reliably reaching FingerBlocker for captured pointers).
@@ -353,6 +430,12 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				}
 			} else if (e.pointerType === 'touch') {
 				activeTouchPointerDataRef.current.delete(e.pointerId);
+				if (onVerticalTouchPanRef.current) {
+					twoFingerVerticalPanActiveRef.current = false;
+					if (activeTouchPointerDataRef.current.size === 0) {
+						element.style.touchAction = '';
+					}
+				}
 			}
 		}
 
@@ -365,10 +448,17 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
-			if (isPenDownRef.current || twoFingerModeActiveRef.current) {
+			const isDedicatedVerticalPan =
+				twoFingerVerticalPanActiveRef.current ||
+				(onVerticalTouchPanRef.current && activeTouchPointerDataRef.current.size > 0);
+
+			if (isPenDownRef.current || twoFingerModeActiveRef.current || isDedicatedVerticalPan) {
 				e.preventDefault();
-				e.stopPropagation();
-				e.stopImmediatePropagation();
+				// stopPropagation required or Obsidian swipe gestures (e.g. command menu) still fire.
+				if (isPenDownRef.current || twoFingerModeActiveRef.current || isDedicatedVerticalPan) {
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+				}
 			}
 		};
 
@@ -389,13 +479,24 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		// so this fires reliably even when tldraw has captured the touch pointer IDs via
 		// our synthetic pointerdowns in the two-finger activation path above.
 		const handleTouchEnd = (e: TouchEvent) => {
-			if (!enableTwoFingerGestures) return;
-
 			// Keep activeTouchPointerDataRef in sync (Touch Events use .identifier which
 			// corresponds to pointerId on all major browsers for touch input)
 			Array.from(e.changedTouches).forEach((touch) => {
 				activeTouchPointerDataRef.current.delete(touch.identifier);
 			});
+
+			if (onVerticalTouchPanRef.current) {
+				if (twoFingerVerticalPanActiveRef.current && e.touches.length < 2) {
+					twoFingerVerticalPanActiveRef.current = false;
+				}
+				if (e.touches.length === 0) {
+					element.style.touchAction = '';
+					activeTouchPointerDataRef.current.clear();
+				}
+				return;
+			}
+
+			if (!enableTwoFingerGestures) return;
 
 			if (twoFingerModeActiveRef.current && e.touches.length < 2) {
 				// Restore the camera lock state that was captured when the gesture started,
@@ -431,7 +532,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			element.removeEventListener('touchend', handleTouchEnd, { capture: true });
 			element.removeEventListener('touchcancel', handleTouchEnd, { capture: true });
 		};
-	}, []);
+	}, [enableTwoFingerGestures, onVerticalTouchPan]);
 
 	// Add scroll restoration listener to the scroller itself
 	React.useEffect(() => {

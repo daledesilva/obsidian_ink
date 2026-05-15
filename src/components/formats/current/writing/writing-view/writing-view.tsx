@@ -84,6 +84,8 @@ export class WritingView extends TextFileView {
         resize?: Function,
     } = {}
     hostEl: HTMLElement | null;
+    /** Prevents active-leaf-change from being registered more than once per view instance. */
+    private leafChangeListenerRegistered = false;
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
         super(leaf);
@@ -159,6 +161,19 @@ export class WritingView extends TextFileView {
                 ]}
 			/>
         );
+
+		// Close the Boox overlay when navigating away from this leaf; restore when returning.
+		// Guard: setViewData can run multiple times — register at most once per view instance.
+		if (!this.leafChangeListenerRegistered) {
+			this.leafChangeListenerRegistered = true;
+			this.registerEvent(
+				this.plugin.app.workspace.on('active-leaf-change', (leaf) => {
+					const isThisLeafActive = leaf === this.leaf;
+					const isThisViewStillInLeaf = this.leaf?.view?.getViewType?.() === WRITING_VIEW_TYPE;
+					this.editorControls?.setBooxOverlayActive?.(isThisLeafActive && isThisViewStillInLeaf);
+				}),
+			);
+		}
     }
 
     saveFile = (inkFileData: InkFileData) => {

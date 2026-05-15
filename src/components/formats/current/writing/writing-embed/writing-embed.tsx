@@ -9,7 +9,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
-import { verbose } from "src/logic/utils/universal-dev-logging";
+import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
@@ -18,6 +18,7 @@ import { atom, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 import type { Box } from "@tldraw/tldraw";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
+import { getGlobals } from "src/stores/global-store";
 
 ///////
 ///////
@@ -43,6 +44,8 @@ export type WritingEditorControls = {
 	save: Function,
 	saveAndHalt: Function,
 	eraseAll: () => Promise<void>,
+	/** When the host leaf is inactive, closes the Boox overlay and suppresses adjustment sends. */
+	setBooxOverlayActive?: (isActive: boolean) => void,
 }
 
 export function WritingEmbed (props: {
@@ -90,6 +93,34 @@ export function WritingEmbed (props: {
 			},200);
 		}
 	}, [])
+
+	// Mirror drawing-embed: close or restore the Boox overlay when switching workspace leaves.
+	React.useEffect(() => {
+		if (!props.workspaceLeafId) return;
+		const plugin = getGlobals().plugin;
+		const handler = (leaf: { id?: string } | null) => {
+			const isThisLeafActive = leaf?.id === props.workspaceLeafId;
+			const sessionCount = (plugin.booxConnection as { getSessionCount?: () => number }).getSessionCount?.() ?? '?';
+			inkDebugLog({
+				hypothesisId: 'MULTI-CLOSE',
+				location: 'writing-embed.tsx:active-leaf-change-handler',
+				message: 'active-leaf-change fired on writing embed',
+				runId: 'view-connect-debug',
+				data: {
+					isThisLeafActive,
+					thisLeafId: props.workspaceLeafId,
+					incomingLeafId: leaf?.id ?? null,
+					editorControlsPresent: !!editorControlsRef.current,
+					sessionCount,
+				},
+			});
+			editorControlsRef.current?.setBooxOverlayActive?.(isThisLeafActive);
+		};
+		plugin.app.workspace.on('active-leaf-change', handler as (leaf: unknown) => void);
+		return () => {
+			plugin.app.workspace.off('active-leaf-change', handler as (leaf: unknown) => void);
+		};
+	}, [props.workspaceLeafId])
 
 	// Whenever switching between readonly and edit mode
 	// React.useEffect( () => {

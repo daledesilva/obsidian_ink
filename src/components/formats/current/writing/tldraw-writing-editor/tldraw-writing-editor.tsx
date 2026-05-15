@@ -115,6 +115,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
 	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
 	const websocketConnectedRef = useRef(false);
+	/** False while the host leaf is inactive — suppresses Bridge updates from hidden surfaces. */
+	const isViewActiveRef = useRef(true);
+	const setBooxOverlayActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pendingNewOverlayRef = useRef(false);
+	const activateWritingSessionRef = useRef<(() => void) | null>(null);
+	const panZoomCleanupFnsRef = useRef<Array<() => void>>([]);
 	const [booxConnected, setBooxConnected] = React.useState(false);
 	const pendingBooxStrokeCompletionsRef = useRef(0);
 	const isAndroidDrawingAreaResizingRef = useRef(false);
@@ -137,7 +143,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!tlEditorSnapshot) return;
 		if (!props.plugin.settings.booxConnectionEnabled) return;
 
-		const { unregister } = props.plugin.booxConnection.registerDrawingSession({
+		const { unregister, activate } = props.plugin.booxConnection.registerDrawingSession({
 			onStrokeStart: () => {
 				info(['Boox stroke-start received, cancelling pending resize debounce', {
 					isResizing: isAndroidDrawingAreaResizingRef.current,
@@ -193,13 +199,39 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				setBooxConnected(true);
 				if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
 				logToVault('Connected writing editor to Boox companion app: ' + props.writingFile.path);
-				newAndroidDrawingArea();
-				if (tlEditorRef.current) props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+				const sent = newAndroidDrawingArea();
+				if (sent) {
+					pendingNewOverlayRef.current = false;
+					if (tlEditorRef.current) {
+						props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+					}
+				} else {
+					pendingNewOverlayRef.current = true;
+				}
+			},
+			onReactivate: () => {
+				if (!websocketConnectedRef.current) return;
+				if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+				setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+					setBooxOverlayActiveTimerRef.current = null;
+					if (!websocketConnectedRef.current) return;
+					activateWritingSessionRef.current?.();
+					const sent = newAndroidDrawingArea();
+					if (sent) {
+						pendingNewOverlayRef.current = false;
+						if (tlEditorRef.current) {
+							props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+						}
+					} else {
+						pendingNewOverlayRef.current = true;
+					}
+				}, 0);
 			},
 		});
+		activateWritingSessionRef.current = activate;
 
 		return () => {
-			info(['Boox writing session cleanup is closing overlay', {
+			info(['Boox writing session cleanup (unregister only; close via BooxConnection)', {
 				wasWebsocketConnectedRef: websocketConnectedRef.current,
 				isBooxConnected: props.plugin.booxConnection.isConnected(),
 				file: props.writingFile.path,
@@ -207,9 +239,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			}]);
 			websocketConnectedRef.current = false;
 			setBooxConnected(false);
+			pendingNewOverlayRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-			props.plugin.booxConnection.sendCloseDrawingArea();
+			if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+			setBooxOverlayActiveTimerRef.current = null;
+			activateWritingSessionRef.current = null;
 			unregister();
 		};
 	}, [tlEditorSnapshot])
@@ -222,6 +257,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!scrollEl) return;
 
 		const handleScroll = () => {
+			if (!isViewActiveRef.current) return;
 			adjustAndroidDrawingAreaThrottled();
 		};
 
@@ -237,6 +273,24 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!editorWrapperRefEl.current) return;
 
 		const resizeObserver = new ResizeObserver(() => {
+			const editor = tlEditorRef.current;
+			if (editor) {
+				const cr = editor.getContainer().getBoundingClientRect();
+				editor.updateViewportScreenBounds(
+					new Box(cr.left, cr.top, Math.max(cr.width, 1), Math.max(cr.height, 1)),
+				);
+			}
+			if (pendingNewOverlayRef.current && isViewActiveRef.current && websocketConnectedRef.current) {
+				const sent = newAndroidDrawingArea();
+				if (sent) {
+					pendingNewOverlayRef.current = false;
+					if (tlEditorRef.current) {
+						props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+					}
+					return;
+				}
+				return;
+			}
 			sendAdjustmentImmediate();
 		});
 
@@ -246,6 +300,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			resizeObserver.disconnect();
 		};
 	}, [tlEditorSnapshot])
+
+	React.useEffect(() => {
+		return () => {
+			panZoomCleanupFnsRef.current.forEach((fn) => fn());
+			panZoomCleanupFnsRef.current = [];
+		};
+	}, []);
 
 	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')
@@ -379,6 +440,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			});
 		}
 
+		const mountCleanupFns: Array<() => void> = [];
+		if (disconnectResizeObserver) mountCleanupFns.push(disconnectResizeObserver);
+		if (cancelCameraSettleRaf) mountCleanupFns.push(cancelCameraSettleRaf);
+		if (removeWheelListener) mountCleanupFns.push(removeWheelListener);
+		if (removeBeforeChangeHandler) mountCleanupFns.push(removeBeforeChangeHandler);
+		panZoomCleanupFnsRef.current = mountCleanupFns;
+
 		// Unified undo stack: when embedded, sync Obsidian and tldraw history on each user change (per leaf)
 		if (props.embedded && props.embedId && leafId && editorWrapperRefEl.current) {
 			const obsidianDepth = getObsidianUndoDepthForLeaf(props.plugin, leafId);
@@ -452,10 +520,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
-			cancelCameraSettleRaf?.();
-			disconnectResizeObserver?.();
-			removeWheelListener?.();
-			removeBeforeChangeHandler?.();
+			panZoomCleanupFnsRef.current.forEach((fn) => fn());
+			panZoomCleanupFnsRef.current = [];
 			if (props.embedded && props.embedId) {
 				unregisterInkEditor(props.embedId);
 			}
@@ -466,7 +532,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		if(props.saveControlsReference) {
 			props.saveControlsReference({
-				// save: () => completeSave(editor),
+				save: () => completeSave(editor),
 				saveAndHalt: async (): Promise<void> => {
 					await completeSave(editor);
 					unmountActions();	// Clean up immediately so nothing else occurs between this completeSave and a future unmount
@@ -484,7 +550,33 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					const cameraY = camera.y;
 					initWritingCamera(editor);
 					editor.setCamera({x: camera.x, y: cameraY})
-				}
+				},
+				setBooxOverlayActive: (isActive: boolean) => {
+					isViewActiveRef.current = isActive;
+					if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+					setBooxOverlayActiveTimerRef.current = null;
+					if (!isActive) pendingNewOverlayRef.current = false;
+					if (!websocketConnectedRef.current) return;
+					if (!props.plugin.settings.booxConnectionEnabled) return;
+					if (isActive) {
+						setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+							setBooxOverlayActiveTimerRef.current = null;
+							if (!websocketConnectedRef.current) return;
+							activateWritingSessionRef.current?.();
+							const sent = newAndroidDrawingArea();
+							if (sent) {
+								pendingNewOverlayRef.current = false;
+								if (tlEditorRef.current) {
+									props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+								}
+							} else {
+								pendingNewOverlayRef.current = true;
+							}
+						}, 0);
+					} else {
+						props.plugin.booxConnection.sendCloseDrawingArea();
+					}
+				},
 			})
 		}
 		
@@ -850,6 +942,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						if (isNonDrawTool && websocketConnectedRef.current) {
 							websocketConnectedRef.current = false;
 							setBooxConnected(false);
+							pendingNewOverlayRef.current = false;
 							if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 							if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 							info(['Non-draw writing tool selected; closing Android drawing area', {
@@ -869,9 +962,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 								websocketConnectedRef.current = true;
 								setBooxConnected(true);
 								if (tlEditorRef.current) lockTldrawInput(tlEditorRef.current);
-								newAndroidDrawingArea();
-								if (tlEditorRef.current) {
-									props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+								activateWritingSessionRef.current?.();
+								const sent = newAndroidDrawingArea();
+								if (sent) {
+									pendingNewOverlayRef.current = false;
+									if (tlEditorRef.current) {
+										props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(tlEditorRef.current));
+									}
+								} else {
+									pendingNewOverlayRef.current = true;
 								}
 							} else {
 								void props.plugin.booxConnection.ensureConnected().catch((error) => {
@@ -948,16 +1047,16 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		};
 	}
 
-	function newAndroidDrawingArea() {
+	function newAndroidDrawingArea(): boolean {
 		if(!editorWrapperRefEl.current) {
 			info(['Skipped writing overlay because wrapper is missing', {
 				file: props.writingFile.path,
 				hasTlEditor: !!tlEditorRef.current,
 			}]);
-			return;
+			return false;
 		}
 
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!props.plugin.settings.booxConnectionEnabled) return false;
 
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
@@ -968,6 +1067,15 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const canvasY = visible.y;
 		const canvasWidth = visible.width;
 		const canvasHeight = visible.height;
+
+		if (canvasWidth <= 0 || canvasHeight <= 0) {
+			info(['Skipped writing new-drawing-area — zero canvas dimensions', {
+				canvasWidth,
+				canvasHeight,
+				file: props.writingFile.path,
+			}]);
+			return false;
+		}
 
 		info(['Computed Android drawing area for writing overlay', {
 			x: canvasX,
@@ -987,6 +1095,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 		});
+		return true;
 	}
 
 	function getBooxStrokeSizeCssPx(editor: Editor): number {
@@ -1000,6 +1109,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	/** Throttled variant — use for scroll events that fire rapidly and benefit from coalescing. */
 	function adjustAndroidDrawingAreaThrottled() {
+		if (!isViewActiveRef.current) return;
 		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
 
 		adjustThrottleRef.current = setTimeout(() => {
@@ -1023,6 +1133,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	function sendAdjustment(immediate: boolean) {
 		if(!editorWrapperRefEl.current) return;
 		if (!websocketConnectedRef.current) return;
+		if (!isViewActiveRef.current) return;
 		if (!props.plugin.settings.booxConnectionEnabled) return;
 
 		const windowWidth = window.innerWidth;

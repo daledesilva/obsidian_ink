@@ -872,6 +872,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_writing-editor",
+				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
 			])}
 			style={{

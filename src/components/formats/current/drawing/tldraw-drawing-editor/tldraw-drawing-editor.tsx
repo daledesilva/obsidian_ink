@@ -1233,6 +1233,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_drawing-editor",
+				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
 			])}
 			style = {{

@@ -15,6 +15,11 @@
     pointer-events: none;
 }
 
+// Dedicated writing/drawing views: clear Obsidian leaf status bar
+.ddc_ink_dedicated-editor .ink_secondary-menu-bar {
+    bottom: 2.5em;
+}
+
 // If inside an embed block
 .cm-embed-block .ink_secondary-menu-bar {
     padding: 8px var(--file-margins);

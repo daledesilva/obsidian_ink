@@ -80,18 +80,18 @@ export const ModifyMenu = React.forwardRef<HTMLDivElement, ModifyMenuProps>((pro
                 className='ink_modify-menu'
             >
                 <TooltipButton
-                    tooltip='Undo'
-                    onClick={undo}
-                    disabled={!canUndo}
-                >
-                    <UndoIcon/>
-                </TooltipButton>
-                <TooltipButton
                     tooltip='Redo'
                     onClick={redo}
                     disabled={!canRedo}
                 >
                     <RedoIcon/>
+                </TooltipButton>
+                <TooltipButton
+                    tooltip='Undo'
+                    onClick={undo}
+                    disabled={!canUndo}
+                >
+                    <UndoIcon/>
                 </TooltipButton>
             </div>
         </div>

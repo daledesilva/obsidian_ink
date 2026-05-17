@@ -1,8 +1,9 @@
 
 .ink_modify-menu {
     display: flex;
-    flex-direction: row;
-    gap: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
 
     button {
         width: 2.5em;

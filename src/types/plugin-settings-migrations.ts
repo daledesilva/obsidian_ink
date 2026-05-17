@@ -1,8 +1,7 @@
 ////////
 ////////
 
-import * as semver from 'semver';
-import { PluginSettings_0_4_0, DEFAULT_PLUGIN_SETTINGS_0_4_0 } from './plugin-settings_0_4_0';
+import { PluginSettings_0_4_0 } from './plugin-settings_0_4_0';
 import { PluginSettings_0_5_0, DEFAULT_PLUGIN_SETTINGS_0_5_0 } from './plugin-settings_0_5_0';
 import { PluginSettings } from './types-map';
 
@@ -15,10 +14,18 @@ export function migrateOutdatedSettings(raw: Record<string, unknown>): PluginSet
 	if (!raw.settingsVersion) {
 		updatedSettings = migrate_0_4_0_to_0_5_0(raw as unknown as PluginSettings_0_4_0);
 	}
-	// Add future migrations here as the plugin evolves, e.g.:
-	// if (semver.lt(updatedSettings.settingsVersion as string, '0.6.0')) {
-	//     updatedSettings = migrate_0_5_0_to_0_6_0(updatedSettings as unknown as PluginSettings_0_5_0);
-	// }
+
+	const settings = updatedSettings as PluginSettings;
+
+	// Additive field on 0.5.0 — default for vaults saved before dominantHand existed
+	if (settings.dominantHand === undefined) {
+		settings.dominantHand = DEFAULT_PLUGIN_SETTINGS_0_5_0.dominantHand;
+	}
+
+	// Undo mistaken 0.6.0 settingsVersion bump from an earlier build
+	if (settings.settingsVersion === '0.6.0') {
+		settings.settingsVersion = DEFAULT_PLUGIN_SETTINGS_0_5_0.settingsVersion;
+	}
 
 	const settingsWereMigrated = JSON.stringify(updatedSettings) !== JSON.stringify(raw);
 	if (settingsWereMigrated) {
@@ -27,7 +34,7 @@ export function migrateOutdatedSettings(raw: Record<string, unknown>): PluginSet
 		console.log('New settings:', JSON.parse(JSON.stringify(updatedSettings)));
 	}
 
-	return updatedSettings as unknown as PluginSettings;
+	return settings;
 }
 
 ///////////
@@ -60,6 +67,7 @@ export function migrate_0_4_0_to_0_5_0(oldSettings: PluginSettings_0_4_0): Plugi
 		gettingStartedExpanded: DEFAULT_PLUGIN_SETTINGS_0_5_0.gettingStartedExpanded,
 		writingBufferLines: DEFAULT_PLUGIN_SETTINGS_0_5_0.writingBufferLines,
 		debugLoggingEnabled: DEFAULT_PLUGIN_SETTINGS_0_5_0.debugLoggingEnabled,
+		dominantHand: DEFAULT_PLUGIN_SETTINGS_0_5_0.dominantHand,
 		booxConnectionEnabled,
 
 		// Always overwrite settingsVersion last

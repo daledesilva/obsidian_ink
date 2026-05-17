@@ -1,0 +1,33 @@
+.ink_dominant-hand_left {
+	.ink_menu-bar_floating {
+		justify-content: flex-end;
+	}
+
+	.ink_expand-lines-button {
+		right: auto;
+		left: 8px;
+	}
+
+	.cm-embed-block .ink_expand-lines-button {
+		left: var(--file-margins);
+	}
+
+	.ddc_ink_resize-handle {
+		right: auto;
+		left: 0;
+		translate: -25% 50%;
+
+		&:hover {
+			cursor: nesw-resize;
+		}
+	}
+
+	&.ddc_ink_drawing-editor .ink_tool-menu {
+		left: 0;
+		transform: translate(0, -50%);
+	}
+
+	.cm-embed-block &.ddc_ink_drawing-editor .ink_tool-menu {
+		left: var(--file-margins);
+	}
+}

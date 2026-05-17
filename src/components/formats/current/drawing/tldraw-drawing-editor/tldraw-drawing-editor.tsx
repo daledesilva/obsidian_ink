@@ -28,6 +28,7 @@ import { getRegisteredEmbedCountForLeaf, register as registerInkEditor, unregist
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
+import { useDominantHand } from 'src/stores/dominant-hand-store';
 
 /** Boox stroke payload in canvas-relative coordinates */
 interface CanvasRelativeStrokePoint {
@@ -281,7 +282,8 @@ const tlOptions: Partial<TldrawOptions> = {
 }
 
 export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
-	
+
+	const dominantHand = useDominantHand();
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -1230,7 +1232,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		<div
 			ref = {editorWrapperRefEl}
 			className = {classNames([
-				"ddc_ink_drawing-editor"
+				"ddc_ink_drawing-editor",
+				dominantHand === 'left' && 'ink_dominant-hand_left',
 			])}
 			style = {{
 				height: '100%',

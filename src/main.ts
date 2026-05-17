@@ -35,6 +35,7 @@ import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteS
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { setDominantHand } from 'src/stores/dominant-hand-store';
 
 ////////
 ////////
@@ -172,6 +173,7 @@ export default class InkPlugin extends Plugin {
 			this.settings = migrateOutdatedSettings(loaded);
 			await this.saveSettings();
 		}
+		setDominantHand(this.settings.dominantHand);
 	}
 
 	async saveSettings() {
@@ -180,6 +182,7 @@ export default class InkPlugin extends Plugin {
 
 	async resetSettings() {
 		this.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+		setDominantHand(this.settings.dominantHand);
 		this.saveSettings();
 		new Notice('Ink plugin settings reset');
 	}

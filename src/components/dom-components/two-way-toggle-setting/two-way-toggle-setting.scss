@@ -1,0 +1,77 @@
+.ddc_ink_two-way-toggle-setting {
+	flex-wrap: wrap;
+
+	.setting-item-info {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.setting-item-control {
+		display: flex;
+		flex: 0 0 auto;
+		flex-wrap: nowrap;
+		justify-content: flex-end;
+		max-width: 100%;
+		margin-inline-start: auto;
+	}
+
+	.ddc_ink_two-way-toggle-track {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: 0;
+		max-width: 100%;
+	}
+
+	.ddc_ink_two-way-toggle-option {
+		flex: 0 0 auto;
+		width: auto;
+		height: var(--input-height);
+		min-height: var(--input-height);
+		margin: 0;
+		padding-inline: var(--size-4-4);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: none;
+
+		& + & {
+			margin-inline-start: -1px;
+		}
+
+		&--start {
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+		}
+
+		&--end {
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+		}
+
+		&--active {
+			background-color: var(--interactive-accent);
+			color: var(--text-on-accent);
+			border-color: var(--text-normal);
+			font-weight: var(--font-medium);
+			position: relative;
+			z-index: 1;
+		}
+	}
+
+	// Control on its own row: full-width track, equal button widths, still horizontal
+	@container (min-width: 20rem) {
+		.setting-item-control {
+			justify-content: stretch;
+		}
+
+		.ddc_ink_two-way-toggle-track {
+			width: 100%;
+		}
+
+		.ddc_ink_two-way-toggle-option {
+			flex: 1 1 0;
+			width: 50%;
+			min-width: 0;
+		}
+	}
+}

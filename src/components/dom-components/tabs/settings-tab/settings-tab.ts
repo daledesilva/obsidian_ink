@@ -7,6 +7,8 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { showWelcomeTips } from 'src/components/dom-components/welcome-notice';
 import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-accordion-setting';
+import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggle-setting/two-way-toggle-setting';
+import { setDominantHand } from 'src/stores/dominant-hand-store';
 
 /////////
 /////////
@@ -212,6 +214,17 @@ function insertHighLevelSettings(
 				await plugin.saveSettings();
 				plugin.booxConnection.onSettingsChanged();
 			});
+		});
+
+	new TwoWayToggleSetting(containerEl)
+		.setName('Dominant hand')
+		.setDesc('Which side undo/redo and extend controls appear on while editing.')
+		.setOptions('Right', 'Left')
+		.setValue(plugin.settings.dominantHand)
+		.onChange(async (value) => {
+			plugin.settings.dominantHand = value;
+			setDominantHand(value);
+			await plugin.saveSettings();
 		});
 
 }

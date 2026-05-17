@@ -28,6 +28,7 @@ import { getRegisteredEmbedCountForLeaf, register as registerInkEditor, unregist
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
+import { useDominantHand } from 'src/stores/dominant-hand-store';
 
 ///////
 ///////
@@ -104,6 +105,7 @@ const stableComponents = {
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
+	const dominantHand = useDominantHand();
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const resizePostProcessTimeoutRef = useRef<NodeJS.Timeout>();
 	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
@@ -870,6 +872,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_writing-editor",
+				dominantHand === 'left' && 'ink_dominant-hand_left',
 			])}
 			style={{
 				height: '100%',

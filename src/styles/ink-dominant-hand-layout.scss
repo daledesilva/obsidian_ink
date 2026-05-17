@@ -26,6 +26,10 @@
 		}
 	}
 
+	.cm-embed-block &.ddc_ink_drawing-editor .ddc_ink_resize-handle {
+		left: var(--file-margins);
+	}
+
 	&.ddc_ink_drawing-editor .ink_tool-menu {
 		left: 0;
 		transform: translate(0, -50%);

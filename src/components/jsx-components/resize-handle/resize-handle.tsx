@@ -1,9 +1,9 @@
-import { useAtomValue } from 'jotai';
 import './resize-handle.scss';
-import classNames from "classnames";
-import * as React from "react";
-import { SelectIcon } from 'src/graphics/icons/select-icon';
+import classNames from 'classnames';
+import * as React from 'react';
 import { ResizeDiagonalIcon } from 'src/graphics/icons/resize-diagonal-icon';
+import { DominantHand } from 'src/types/plugin-settings_0_5_0';
+import { useDominantHand } from 'src/stores/dominant-hand-store';
 
 //////////
 //////////
@@ -14,14 +14,20 @@ interface ResizeHandleProps {
 	onResizeEnd?: () => void;
 }
 
+function getHorzResizeDiff(movementX: number, dominantHand: DominantHand): number {
+	const sign = dominantHand === 'left' ? -1 : 1;
+	return movementX * 2 * sign;
+}
+
 export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
+	const dominantHand = useDominantHand();
 	const lastPointerXPosition = React.useRef<number>();
 	const lastPointerYPosition = React.useRef<number>();
 
 	return <button
 		className={classNames([
 			'ddc_ink_resize-handle',
-			'ddc_ink_vertical',
+			dominantHand === 'left' && 'ddc_ink_resize-handle--left',
 		])}
 		onPointerDown={startResizing}
 	>
@@ -32,20 +38,18 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 	//////////
 	function startResizing(e: React.MouseEvent<HTMLElement>) {
 		props.onResizeStart?.();
-		document.addEventListener("mousemove", handleMouseResizing);
-		document.addEventListener("mouseup", stopResizing);
+		document.addEventListener('mousemove', handleMouseResizing);
+		document.addEventListener('mouseup', stopResizing);
 
-		// document.addEventListener("touchstart", handleTouchResizing, { passive: false });
-		document.addEventListener("touchmove", handleTouchResizing, { passive: false });
-		document.addEventListener("touchend", stopResizing);
+		document.addEventListener('touchmove', handleTouchResizing, { passive: false });
+		document.addEventListener('touchend', stopResizing);
 	}
 	function stopResizing(e: Event) {
-		document.removeEventListener("mousemove", handleMouseResizing);
-		document.removeEventListener("mouseup", stopResizing);
+		document.removeEventListener('mousemove', handleMouseResizing);
+		document.removeEventListener('mouseup', stopResizing);
 
-		// document.removeEventListener("touchstart", handleMouseResizing);
-		document.removeEventListener("touchmove", handleTouchResizing);
-		document.removeEventListener("touchend", stopResizing);
+		document.removeEventListener('touchmove', handleTouchResizing);
+		document.removeEventListener('touchend', stopResizing);
 
 		delete lastPointerXPosition.current;
 		delete lastPointerYPosition.current;
@@ -53,25 +57,22 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 		props.onResizeEnd?.();
 	}
 	function handleMouseResizing(e: MouseEvent) {
-		let horzDiff = e.movementX;
-		horzDiff *= 2; // Multiply by 2 to compensate for image alignment to centre.
-		let vertDiff = e.movementY;
+		const horzDiff = getHorzResizeDiff(e.movementX, dominantHand);
+		const vertDiff = e.movementY;
 		props.resizeEmbed(horzDiff, vertDiff);
 	}
 	function handleTouchResizing(e: TouchEvent) {
-		// Prevent page scrolling while dragging
 		e.preventDefault();
-
-		// Since no scrolling occurs, obsidian gestures will kick in. This prevents them.
 		e.stopPropagation();
 
-		// Make sure there's exactly one finger
 		const touchPointer = e.changedTouches.item(0);
-		if(!touchPointer || e.changedTouches.length!==1) return;
+		if (!touchPointer || e.changedTouches.length !== 1) return;
 
-		if(lastPointerXPosition.current && lastPointerYPosition.current) {
-			let horzDiff = touchPointer.pageX - lastPointerXPosition.current;
-			horzDiff *= 2; // Multiply by 2 to compensate for image alignment to centre.
+		if (lastPointerXPosition.current != null && lastPointerYPosition.current != null) {
+			const horzDiff = getHorzResizeDiff(
+				touchPointer.pageX - lastPointerXPosition.current,
+				dominantHand,
+			);
 			const vertDiff = touchPointer.pageY - lastPointerYPosition.current;
 			props.resizeEmbed(horzDiff, vertDiff);
 		}

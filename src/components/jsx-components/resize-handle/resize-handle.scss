@@ -30,6 +30,10 @@
     }
 }
 
+.ddc_ink_resize-handle--left svg {
+    transform: scaleX(-1);
+}
+
 
 // Animation
 .ddc_ink_resize-handle {

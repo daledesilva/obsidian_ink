@@ -1379,15 +1379,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
 			</SecondaryMenuBar>
-		</div>
 
-		{props.resizeEmbed && (
-			<ResizeHandle
-				resizeEmbed={resizeEmbed}
-				onResizeStart={props.onResizeStart}
-				onResizeEnd={props.onResizeEnd}
-			/>
-		)}
+			{props.resizeEmbed && (
+				<ResizeHandle
+					resizeEmbed={resizeEmbed}
+					onResizeStart={props.onResizeStart}
+					onResizeEnd={props.onResizeEnd}
+				/>
+			)}
+		</div>
 	</>;
 
 	// Helpers

@@ -47,7 +47,8 @@ export class MySettingsTab extends PluginSettingTab {
 			(show) => { show ? drawingSectionEl.classList.add('ddc_ink_expanded') : drawingSectionEl.classList.remove('ddc_ink_expanded'); },
 		);
 
-		insertMigrateSection(containerEl, this.plugin);
+		// Turn this on when v0.5 is out of beta
+		// insertMigrateSection(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
 		writingSectionEl = insertWritingSettings(containerEl, this.plugin);
@@ -130,17 +131,17 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		});
 }
 
-function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
-	new Setting(containerEl)
-		.setClass('ddc_ink_setting')
-		.setName('Migrate From Previous Versions')
-		.setDesc('Convert old Ink embed formats to the newer SVG format.')
-		.addButton((button) => {
-			button.setCta();
-			button.setButtonText('Update Ink files…');
-			button.onClick(() => plugin.openMigrationModal());
-		});
-}
+// function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
+// 	new Setting(containerEl)
+// 		.setClass('ddc_ink_setting')
+// 		.setName('Migrate From Previous Versions')
+// 		.setDesc('Convert old Ink embed formats to the newer SVG format.')
+// 		.addButton((button) => {
+// 			button.setCta();
+// 			button.setButtonText('Update Ink files…');
+// 			button.onClick(() => plugin.openMigrationModal());
+// 		});
+// }
 
 function insertPluginDevelopmentSection(containerEl: HTMLElement) {
 	const wrapperEl = containerEl.createDiv('ddc_ink_section');

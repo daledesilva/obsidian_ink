@@ -292,12 +292,12 @@ export class WritingEmbedWidget extends WidgetType {
                 let updated = currentText;
                 
                 // Replace aspectRatio if present, otherwise add it
-                if (/aspectRatio=[^&\)]+/.test(updated)) {
-                    updated = updated.replace(/(aspectRatio=)([^&\)]+)/, `$1${aspectRatio}`);
+                if (/aspectRatio=[^&)]+/.test(updated)) {
+                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${aspectRatio}`);
                 } else {
                     // Add aspectRatio to the URL parameters
                     // Find the [Edit Writing](...) section and add parameter
-                    updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^\)]*)?(\))/, (match, p1, p2, p3) => {
+                    updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^)]*)?(\))/, (match, p1, p2, p3) => {
                         if (p2) {
                             // Already has parameters
                             return `${p1}${p2}&aspectRatio=${aspectRatio}${p3}`;

@@ -778,7 +778,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				cmScroller.style.overflow = 'auto';
 				// scrollbarColor is set transparent by FingerBlocker; restore after same
 				// delay it uses so the transition matches.
-				setTimeout(() => {
+				window.setTimeout(() => {
 					cmScroller.style.scrollbarColor = 'auto';
 				}, 200);
 			};

@@ -303,11 +303,11 @@ export class DrawingEmbedWidget extends WidgetType {
                 const currentText = view.state.doc.sliceString(from, to);
                 let updated = currentText;
                 // Replace if present
-                if (/width=[^&\)]+/.test(updated)) {
-                    updated = updated.replace(/(width=)([^&\)]+)/, `$1${newEmbedSettings.embedDisplay.width}`);
+                if (/width=[^&)]+/.test(updated)) {
+                    updated = updated.replace(/(width=)([^&)]+)/, `$1${newEmbedSettings.embedDisplay.width}`);
                 }
-                if (/aspectRatio=[^&\)]+/.test(updated)) {
-                    updated = updated.replace(/(aspectRatio=)([^&\)]+)/, `$1${newEmbedSettings.embedDisplay.aspectRatio}`);
+                if (/aspectRatio=[^&)]+/.test(updated)) {
+                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${newEmbedSettings.embedDisplay.aspectRatio}`);
                 }
                 if (updated !== currentText) {
                     const tr = view.state.update({

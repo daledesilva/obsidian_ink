@@ -116,7 +116,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				// Visual styling
 				// Delayed in code to prevent flashing
 				activeScrollerRef.current.style.overflow = 'auto';
-				setTimeout(() => {
+				window.setTimeout(() => {
 					if (activeScrollerRef.current) {
 						activeScrollerRef.current.style.scrollbarColor = 'auto';
 					}
@@ -132,7 +132,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			// Delayed in code to prevent flashing
 			if (scroller) {
 				scroller.style.overflow = 'auto';
-				setTimeout(() => {
+				window.setTimeout(() => {
 					scroller.style.scrollbarColor = 'auto';
 				}, 200);
 			}

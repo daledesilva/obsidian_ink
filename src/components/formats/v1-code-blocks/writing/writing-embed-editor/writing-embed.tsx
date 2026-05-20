@@ -35,8 +35,9 @@ export const editorActiveAtom_v1 = atom<boolean>((get) => {
 ///////
 
 export type WritingEditorControls_v1 = {
-	save: Function,
-	saveAndHalt: Function,
+	save?: () => void | Promise<void>,
+	saveAndHalt: () => Promise<void>,
+	resize?: () => void,
 }
 
 export function WritingEmbed_v1 (props: {
@@ -44,7 +45,7 @@ export function WritingEmbed_v1 (props: {
 	writingFileRef: TFile,
 	pageData: InkFileData_v1,
 	save: (pageData: InkFileData_v1) => void,
-	remove: Function,
+	remove: () => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
@@ -61,7 +62,7 @@ export function WritingEmbed_v1 (props: {
 		//console.log('EMBED mounted')
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-			setTimeout( () => {
+			window.setTimeout( () => {
 				switchToEditMode();
 			},200);	// TODO: Why is there a delay?
 		}
@@ -125,11 +126,7 @@ export function WritingEmbed_v1 (props: {
 					plugin = {props.plugin}
 					onResize = {(height: number) => resizeContainer(height)}
 					writingFile = {props.writingFileRef}
-					onClick = {async (event) => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						// setPageData( await refreshPageData(props.plugin, props.fileRef) );
-						switchToEditMode();
-					}}
+					onClick = {() => switchToEditMode()}
 				/>
 
 				<TldrawWritingEditorWrapper_v1
@@ -139,7 +136,7 @@ export function WritingEmbed_v1 (props: {
 					save = {props.save}
 					embedded
 					saveControlsReference = {registerEditorControls}
-					closeEditor = {saveAndSwitchToPreviewMode}
+					closeEditor = {() => void saveAndSwitchToPreviewMode()}
 					extendedMenu = {commonExtendedOptions}
 				/>
 
@@ -158,7 +155,7 @@ export function WritingEmbed_v1 (props: {
 	function resizeContainer(height: number) {
 		if(!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
-		setTimeout( () => {
+		window.setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize
 			if(!resizeContainerElRef.current) return;
 			resizeContainerElRef.current.classList.add('ddc_ink_smooth-transition');

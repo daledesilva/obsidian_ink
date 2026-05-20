@@ -17,5 +17,5 @@ export async function getInkFileFromPreview(previewFilepath: string): Promise<TF
 	const inkFile = v.getAbstractFileByPath(inkFilepath);
 	if(!inkFile) return null; // TODO: Handle this non-silently
 
-	return inkFile as TFile;
+	return inkFile instanceof TFile ? inkFile : null;
 }

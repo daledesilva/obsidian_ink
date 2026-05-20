@@ -9,9 +9,9 @@ import { fetchWriteFileTranscript } from "src/logic/ocr-service";
 
 export const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
 	if(needsTranscriptUpdate(pageData)) {
-		fetchWriteFileTranscript()
+		void fetchWriteFileTranscript()
 			.then((transcript) => {
-				saveWriteFileTranscript(plugin, fileRef, transcript)
+				void saveWriteFileTranscript(plugin, fileRef, transcript);
 			})
 	}
 }

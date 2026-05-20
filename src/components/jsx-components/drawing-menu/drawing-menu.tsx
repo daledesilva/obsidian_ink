@@ -53,7 +53,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 				popEmbedUndoAndPushToRedo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
-				setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
+				window.setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
 			}
 		} else {
 			silentlyChangeStore(editor, () => editor.undo());
@@ -73,7 +73,7 @@ export const DrawingMenu = React.forwardRef<HTMLDivElement, DrawingMenuProps>((p
 				popEmbedRedoAndPushToUndo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
-				setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+				window.setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
 			}
 		} else {
 			silentlyChangeStore(editor, () => editor.redo());

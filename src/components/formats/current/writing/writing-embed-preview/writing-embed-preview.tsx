@@ -9,7 +9,7 @@ import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 import { TFile } from 'obsidian';
 import { getGlobals } from 'src/stores/global-store';
-const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
+import emptyWritingSvg from 'src/defaults/empty-writing-embed.svg';
 
 //////////
 //////////
@@ -17,7 +17,7 @@ const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
 interface WritingEmbedPreviewProps {
     embedId?: string,
     plugin: InkPlugin,
-    onResize: Function,
+    onResize: (height: number) => void,
     writingFile: TFile,
     onClick: React.MouseEventHandler,
 }
@@ -119,7 +119,7 @@ const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
 
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
-        setTimeout(() => {}, 100);
+        window.setTimeout(() => {}, 100);
     }
 
     async function fetchFileData() {

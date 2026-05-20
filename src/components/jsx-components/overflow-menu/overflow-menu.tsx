@@ -1,4 +1,4 @@
-import { Menu, Notice } from "obsidian";
+import { Menu, MenuItem } from "obsidian";
 import "./overflow-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
@@ -8,7 +8,7 @@ import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 
 interface MenuItemOption {
     text: string;
-    action: Function;
+    action: () => void;
     warning?: boolean;
 }
 
@@ -16,7 +16,7 @@ interface MenuSeparator {
     separator: true;
 }
 
-type MenuOption = MenuItemOption | MenuSeparator;
+export type MenuOption = MenuItemOption | MenuSeparator;
 
 function isSeparator(option: MenuOption): option is MenuSeparator {
     return 'separator' in option && option.separator === true;
@@ -45,11 +45,16 @@ export const OverflowMenu: React.FC<{
                             menu.addSeparator();
                             return;
                         }
-                        menu.addItem((item) => {
+                        menu.addItem((item: MenuItem) => {
                             item
                                 .setTitle(option.text)
-                                .onClick(() => { option.action(); });
-                            if (option.warning) (item as any).dom.addClass('mod-warning');
+                                .onClick(() => { void option.action(); });
+                            if (option.warning) {
+                                const domMaybe = (
+                                    item as MenuItem & { dom?: Element }
+                                ).dom;
+                                domMaybe?.addClass('mod-warning');
+                            }
                         });
                     });
                     menu.onHide(() => {

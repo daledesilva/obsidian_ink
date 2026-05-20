@@ -39,17 +39,17 @@ export const editorActiveAtom = atom<boolean>((get) => {
 ///////
 
 export type DrawingEditorControls_v1 = {
-	save: Function,
-	saveAndHalt: Function,
+	save: () => void | Promise<void>,
+	saveAndHalt: () => Promise<void>,
 }
 
 export function DrawingEmbed_v1 (props: {
 	plugin: InkPlugin,
 	drawingFileRef: TFile,
 	pageData: InkFileData_v1,
-	saveSrcFile: (pageData: InkFileData_v1) => {},
+	saveSrcFile: (pageData: InkFileData_v1) => void,
 	setEmbedProps: (width: number, height: number) => void,
-	remove: Function,
+	remove: () => void,
 	width?: number,
 	aspectRatio?: number,
 }) {
@@ -69,7 +69,7 @@ export function DrawingEmbed_v1 (props: {
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-			setTimeout( () => {
+			window.setTimeout( () => {
 				switchToEditMode();
 			},200);
 		}
@@ -97,7 +97,7 @@ export function DrawingEmbed_v1 (props: {
 		{
 			text: 'Open drawing',
 			action: async () => {
-				openInkFile(props.drawingFileRef)
+				await openInkFile(props.drawingFileRef)
 			}
 		},
 		{
@@ -140,10 +140,7 @@ export function DrawingEmbed_v1 (props: {
 					plugin = {props.plugin}
 					onReady = {() => {}}
 					drawingFile = {props.drawingFileRef}
-					onClick = { async () => {
-						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
-						switchToEditMode();
-					}}
+					onClick = {() => switchToEditMode()}
 				/>
 			
 				<TldrawDrawingEditorWrapper_v1
@@ -154,7 +151,7 @@ export function DrawingEmbed_v1 (props: {
 					extendedMenu = {commonExtendedOptions}
 					embedded
 					saveControlsReference = {registerEditorControls}
-					closeEditor = {saveAndSwitchToPreviewMode}
+					closeEditor = {() => void saveAndSwitchToPreviewMode()}
 					resizeEmbed = {resizeEmbed}
 				/>
 

@@ -1,8 +1,7 @@
 import { TLEditorSnapshot } from '@tldraw/tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { InkFileData } from '../types/file-data';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const emptyDrawingSvgStr: string = require('src/defaults/empty-drawing-embed.svg');
+import emptyDrawingSvgStr from 'src/defaults/empty-drawing-embed.svg';
 
 ////////
 ////////

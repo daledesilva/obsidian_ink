@@ -1,6 +1,18 @@
 import * as React from 'react';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
+import './finger-blocker.scss';
+
+const INK_CM_SCROLLER_SCROLL_PINNED_CLASS = 'ink-cm-scroller--scroll-pinned';
+const INK_FINGER_BLOCKER_TOUCH_NONE_CLASS = 'ink-finger-blocker--touch-none';
+const INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS = 'ink-finger-blocker--touch-pan-xy';
+
+function setFingerBlockerTouchMode(blockerElement: HTMLElement, mode: 'none' | 'pan-xy' | 'default') {
+	blockerElement.classList.remove(INK_FINGER_BLOCKER_TOUCH_NONE_CLASS, INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS);
+	if (mode === 'none') blockerElement.classList.add(INK_FINGER_BLOCKER_TOUCH_NONE_CLASS);
+	else if (mode === 'pan-xy') blockerElement.classList.add(INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS);
+}
+
 // Constants
 const POLL_INTERVAL_MS = 100;
 const MAX_POLL_RETRIES = 200; // Maximum ~20 seconds (200 * 100ms)
@@ -79,12 +91,12 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 
 	const getCanvas = (): HTMLElement | null => {
 		const wrapper = getWrapper();
-		return wrapper ? (wrapper.querySelector('.tl-canvas') as HTMLElement | null) : null;
+		return wrapper ? (wrapper.querySelector('.tl-canvas')) : null;
 	};
 
 	const getScroller = (): HTMLElement | null => {
 		const wrapper = getWrapper();
-		return wrapper ? (wrapper.closest('.cm-scroller') as HTMLElement | null) : null;
+		return wrapper ? (wrapper.closest('.cm-scroller')) : null;
 	};
 
 	const lockScroll = () => {
@@ -93,10 +105,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			// Ref-based state tracking for scroll restoration
 			activeScrollerRef.current = scroller;
 			lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
-			
-			// Visual styling
-			scroller.style.overflow = 'hidden';
-			scroller.style.scrollbarColor = 'transparent transparent';
+			scroller.classList.add(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
 		}
 	};
 
@@ -105,6 +114,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			isPenDownRef.current = false;
 			if (activeScrollerRef.current) {
 				// Visual styling
+				// Delayed in code to prevent flashing
 				activeScrollerRef.current.style.overflow = 'auto';
 				setTimeout(() => {
 					if (activeScrollerRef.current) {
@@ -119,6 +129,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		} else {
 			// Fallback: if not locked via refs, still handle visual styling
 			const scroller = getScroller();
+			// Delayed in code to prevent flashing
 			if (scroller) {
 				scroller.style.overflow = 'auto';
 				setTimeout(() => {
@@ -160,7 +171,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				}
 
 				// Dynamically prevent touch gestures for Pen (keep this as backup)
-				element.style.touchAction = 'none';
+				setFingerBlockerTouchMode(element, 'none');
 
 				// Aggressively stop browser handling (scrolling/selection)
 				e.preventDefault();
@@ -217,7 +228,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 					e.preventDefault();
 					e.stopPropagation();
 					e.stopImmediatePropagation();
-					element.style.touchAction = 'none';
+					setFingerBlockerTouchMode(element, 'none');
 
 					if (touchCount >= 2 && !twoFingerVerticalPanActiveRef.current) {
 						twoFingerVerticalPanActiveRef.current = true;
@@ -232,7 +243,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 					// Prevent the browser from handling this as a scroll or system gesture.
 					e.preventDefault();
 					e.stopPropagation();
-					element.style.touchAction = 'none';
+					setFingerBlockerTouchMode(element, 'none');
 					twoFingerModeActiveRef.current = true;
 
 					// Capture the camera's current lock state so it can be restored when
@@ -257,7 +268,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 					}
 				} else if (!twoFingerModeActiveRef.current) {
 					// Single finger: let the browser handle scrolling
-					element.style.touchAction = 'pan-x pan-y';
+					setFingerBlockerTouchMode(element, 'pan-xy');
 				}
 			}
 		};
@@ -379,7 +390,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 
 		const handlePointerUp = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
-				element.style.touchAction = '';
+				setFingerBlockerTouchMode(element, 'default');
 				unlockScroll();
 				
 				e.preventDefault();
@@ -403,9 +414,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 						twoFingerVerticalPanActiveRef.current = false;
 					}
 					if (activeTouchPointerDataRef.current.size === 0) {
-						element.style.touchAction = '';
+						setFingerBlockerTouchMode(element, 'default');
 					} else {
-						element.style.touchAction = 'none';
+						setFingerBlockerTouchMode(element, 'none');
 					}
 				}
 				// Camera re-locking when the gesture ends is handled by the touchend listener
@@ -415,7 +426,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		};
 
 		const handlePointerCancel = (e: PointerEvent) => {
-			element.style.touchAction = '';
+			setFingerBlockerTouchMode(element, 'default');
 
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				unlockScroll();
@@ -433,7 +444,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				if (onVerticalTouchPanRef.current) {
 					twoFingerVerticalPanActiveRef.current = false;
 					if (activeTouchPointerDataRef.current.size === 0) {
-						element.style.touchAction = '';
+						setFingerBlockerTouchMode(element, 'default');
 					}
 				}
 			}
@@ -469,7 +480,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		// indefinitely, blocking all scroll attempts even after the gesture ends.
 		const handleLostPointerCapture = () => {
 			if (isPenDownRef.current) {
-				console.log('[FingerBlocker] lostpointercapture — unlocking scroll');
+				console.debug('[FingerBlocker] lostpointercapture — unlocking scroll');
 				unlockScroll();
 			}
 		};
@@ -490,7 +501,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 					twoFingerVerticalPanActiveRef.current = false;
 				}
 				if (e.touches.length === 0) {
-					element.style.touchAction = '';
+					setFingerBlockerTouchMode(element, 'default');
 					activeTouchPointerDataRef.current.clear();
 				}
 				return;
@@ -505,7 +516,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				twoFingerModeActiveRef.current = false;
 			}
 			if (e.touches.length === 0) {
-				element.style.touchAction = '';
+				setFingerBlockerTouchMode(element, 'default');
 				activeTouchPointerDataRef.current.clear();
 			}
 		};
@@ -660,11 +671,11 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		getTlEditor: () => Editor | undefined,
 		onEditorReady: (editor: Editor) => void
 	): (() => void) => {
-		let pollInterval: NodeJS.Timeout | null = null;
+		let pollInterval: number | null = null;
 		let setupComplete = false;
 		let retryCount = 0;
 
-		pollInterval = setInterval(() => {
+		pollInterval = window.setInterval(() => {
 			if (setupComplete) return;
 
 			const editor = getTlEditor();
@@ -673,7 +684,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				onEditorReady(editor);
 
 				if (pollInterval) {
-					clearInterval(pollInterval);
+					window.clearInterval(pollInterval);
 					pollInterval = null;
 				}
 			}
@@ -682,7 +693,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			if (retryCount >= MAX_POLL_RETRIES) {
 				// Stop polling after max retries to avoid infinite polling
 				if (pollInterval) {
-					clearInterval(pollInterval);
+					window.clearInterval(pollInterval);
 					pollInterval = null;
 				}
 			}
@@ -690,7 +701,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 
 		return () => {
 			if (pollInterval) {
-				clearInterval(pollInterval);
+				window.clearInterval(pollInterval);
 			}
 		};
 	};

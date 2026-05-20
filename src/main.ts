@@ -1,5 +1,5 @@
 import './ddc-library/settings-styles.scss';
-import { Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
+import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
@@ -91,9 +91,17 @@ export default class InkPlugin extends Plugin {
 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
-		const emulateMobileRequested = process.env.INK_EMULATE_MOBILE === 'true';
+		type InkWindowWithOptionalProcessEnv = Window & {
+			process?: { env?: Record<string, string | undefined> };
+		};
+		const inkProcessEnv = (window as InkWindowWithOptionalProcessEnv).process?.env;
+		const emulateMobileRequested = inkProcessEnv?.INK_EMULATE_MOBILE === 'true';
 		const mobileEmulationReloadGuardKey = '__inkMobileEmulationReloadInProgress';
-		const appWithMobileEmulation = this.app as any;
+		type AppWithOptionalMobileEmulation = App & {
+			emulateMobile?: (enabled: boolean) => void;
+			isMobile?: boolean;
+		};
+		const appWithMobileEmulation = this.app as AppWithOptionalMobileEmulation;
 		const canEmulateMobile = typeof appWithMobileEmulation.emulateMobile === 'function';
 		const alreadyInMobileMode = !!(Platform.isMobile || Platform.isMobileApp || appWithMobileEmulation.isMobile);
 		const mobileEmulationReloadInProgress = window.localStorage.getItem(mobileEmulationReloadGuardKey) === 'true';
@@ -101,7 +109,10 @@ export default class InkPlugin extends Plugin {
 		if (emulateMobileRequested && canEmulateMobile && !alreadyInMobileMode && !mobileEmulationReloadInProgress) {
 			// emulateMobile(true) can reload the app; guard to avoid repeatedly requesting emulation on each reload.
 			window.localStorage.setItem(mobileEmulationReloadGuardKey, 'true');
-			appWithMobileEmulation.emulateMobile(true);
+			const runEmulateMobile = appWithMobileEmulation.emulateMobile;
+			if (typeof runEmulateMobile === 'function') {
+				runEmulateMobile(true);
+			}
 			return;
 		}
 
@@ -181,9 +192,9 @@ export default class InkPlugin extends Plugin {
 	}
 
 	async resetSettings() {
-		this.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+		this.settings = structuredClone(DEFAULT_SETTINGS);
 		setDominantHand(this.settings.dominantHand);
-		this.saveSettings();
+		await this.saveSettings();
 		new Notice('Ink plugin settings reset');
 	}
 }
@@ -212,13 +223,13 @@ function implementWritingEmbedCommands_v1(plugin: InkPlugin) {
 	// Legacy
 	plugin.addCommand({
 		id: 'create-handwritten-section-v1',
-		name: 'New handwriting section (Legacy)',
+		name: 'New handwriting section (legacy)',
 		icon: 'signature',
 		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file-v1',
-		name: 'Existing handwriting section (Legacy)',
+		name: 'Existing handwriting section (legacy)',
 		icon: 'folder-pen',
 		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
 	});
@@ -248,13 +259,13 @@ function implementDrawingEmbedCommands_v1(plugin: InkPlugin) {
 	// Legacy
 	plugin.addCommand({
 		id: 'create-drawing-section-v1',
-		name: 'New drawing (Legacy)',
+		name: 'New drawing (legacy)',
 		icon: 'shapes',
 		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
 	});
 	plugin.addCommand({
 		id: 'embed-drawing-file-v1',
-		name: 'Existing drawing (Legacy)',
+		name: 'Existing drawing (legacy)',
 		icon: 'folder-dot',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
 	});

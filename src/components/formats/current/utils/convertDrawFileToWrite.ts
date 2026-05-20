@@ -6,6 +6,17 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { buildFileStr } from "./buildFileStr";
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 
+function inferTldrawPageId(store: InkFileData['tldraw']['document']['store']): string {
+	for (const value of Object.values(store)) {
+		if (typeof value !== 'object' || value === null) continue;
+		const record = value as unknown as Record<string, unknown>;
+		if (record.typeName === 'page' && typeof record.id === 'string') {
+			return record.id;
+		}
+	}
+	return 'page:page';
+}
+
 ////////
 ////////
 
@@ -17,9 +28,7 @@ import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
 export function convertDrawDataToWrite(data: InkFileData): InkFileData {
 	const store = data.tldraw.document.store;
 
-	// Find the page ID from the store (entry with typeName === 'page')
-	const pageEntry = Object.values(store).find((entry: any) => entry.typeName === 'page') as any;
-	const pageId = pageEntry?.id ?? 'page:page';
+	const pageId = inferTldrawPageId(store);
 
 	const writingContainerShape = {
 		x: 0,

@@ -25,14 +25,14 @@ export const ModifyMenu = React.forwardRef<HTMLDivElement, ModifyMenuProps>((pro
         let removeUserActionListener: () => void;
         
         const mountDelayMs = 100;
-        setTimeout( () => {
+        window.setTimeout( () => {
             const tlEditor = props.getTlEditor();
             if(!tlEditor) return;
 
-            let timeout: NodeJS.Timeout;
+            let timeout: number | undefined;
             removeUserActionListener = tlEditor.store.listen((entry) => {
-                clearTimeout(timeout);
-                timeout = setTimeout( () => { // TODO: Create a debounce helper
+                window.clearTimeout(timeout);
+                timeout = window.setTimeout( () => { // TODO: Create a debounce helper
                     setCanUndo( tlEditor.getCanUndo() );
                     setCanRedo( tlEditor.getCanRedo() );
                 }, 100);

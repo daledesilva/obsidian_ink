@@ -1,7 +1,8 @@
-import { TextFileView, WorkspaceLeaf } from "obsidian";
+import { FileView, TFile, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import InkPlugin from "src/main";
+import "./writing-view.scss";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
 import { buildFileStr } from "../../utils/buildFileStr";
@@ -26,7 +27,7 @@ export function registerWritingView (plugin: InkPlugin) {
     );
 
     // Helper function to check and add edit button for writing files
-    async function checkAndAddEditButton(leaf: any, file: any) {
+    async function checkAndAddEditButton(leaf: WorkspaceLeaf, file: TFile) {
         if (!file || file.extension !== 'svg') return;
         if (!leaf) return;
         
@@ -57,9 +58,10 @@ export function registerWritingView (plugin: InkPlugin) {
     // Add edit button to SVG views that contain ink writing data
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
-            const activeLeaf = plugin.app.workspace.activeLeaf;
-            if (activeLeaf) {
-                await checkAndAddEditButton(activeLeaf, file);
+            if (!file) return;
+            const targetLeaf = plugin.app.workspace.getMostRecentLeaf();
+            if (targetLeaf) {
+                await checkAndAddEditButton(targetLeaf, file);
             }
         })
     );
@@ -67,8 +69,9 @@ export function registerWritingView (plugin: InkPlugin) {
     // Also check when a leaf becomes active (e.g., when navigating back)
     plugin.registerEvent(
         plugin.app.workspace.on('active-leaf-change', async (leaf) => {
-            const view = leaf?.view as any;
-            if (view?.file) {
+            if (!leaf) return;
+            const view = leaf.view;
+            if (view instanceof FileView && view.file) {
                 await checkAndAddEditButton(leaf, view.file);
             }
         })
@@ -81,7 +84,7 @@ export class WritingView extends TextFileView {
     inkFileData: InkFileData;
     editorControls: WritingEditorControls | null = null;
     tldrawControls: {
-        resize?: Function,
+        resize?: () => void,
     } = {}
     hostEl: HTMLElement | null;
     /** Prevents active-leaf-change from being registered more than once per view instance. */
@@ -119,7 +122,6 @@ export class WritingView extends TextFileView {
         // Create a dedicated host for React to avoid conflicts with Obsidian lifecycle
         const host = viewContent.ownerDocument.createElement('div');
         host.className = 'ink-writing-view-host';
-        host.style.height = '100%';
         viewContent.appendChild(host);
         this.hostEl = host;
 
@@ -139,7 +141,7 @@ export class WritingView extends TextFileView {
                             if (!this.file) return;
                             new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
                                 onConversionComplete: (finalFile) => {
-                                    if (finalFile) openInkFileInView(finalFile, 'inkDrawing');
+                                    if (finalFile) void openInkFileInView(finalFile, 'inkDrawing');
                                 },
                             }).open();
                         }
@@ -154,7 +156,7 @@ export class WritingView extends TextFileView {
                                 title: 'Erase all strokes?',
                                 message: 'This will remove all strokes from the canvas.',
                                 confirmLabel: 'Erase all',
-                                confirmAction: () => this.editorControls?.eraseAll?.(),
+                                confirmAction: () => { void this.editorControls?.eraseAll?.(); },
                             }).open();
                         },
                     },
@@ -178,14 +180,14 @@ export class WritingView extends TextFileView {
 
     saveFile = (inkFileData: InkFileData) => {
         this.inkFileData = inkFileData;
-        this.save(false);   // Obsidian will call getViewData during this method
+        void this.save(false);   // Obsidian will call getViewData during this method
     }
 
     // Register editor controls for saving before unmount
     registerEditorControls = (controls: WritingEditorControls) => {
         this.editorControls = controls;
         // Also store resize for backward compatibility
-        this.tldrawControls.resize = (controls as any).resize;
+        this.tldrawControls.resize = controls.resize;
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
@@ -201,10 +203,14 @@ export class WritingView extends TextFileView {
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data over new files)
         try {
             if(this.root) this.root.unmount();
-        } catch (_) {}
+        } catch {
+            // Root may already be unmounted.
+        }
         this.root = null;
         if(this.hostEl && this.hostEl.isConnected) {
-            try { this.hostEl.remove(); } catch (_) {}
+            try { this.hostEl.remove(); } catch {
+                // Host may already be detached.
+            }
         }
         this.hostEl = null;
     }

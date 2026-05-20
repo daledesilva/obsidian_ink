@@ -11,5 +11,5 @@ import { DEFAULT_PLUGIN_SETTINGS_0_5_0, PluginSettings_0_5_0 } from './plugin-se
 ///////////////
 ///////////////
 
-export interface PluginSettings extends PluginSettings_0_5_0 {}
+export type PluginSettings = PluginSettings_0_5_0;
 export const DEFAULT_SETTINGS = DEFAULT_PLUGIN_SETTINGS_0_5_0;

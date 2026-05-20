@@ -7,7 +7,7 @@ import { DRAWING_VIEW_TYPE } from "src/components/formats/current/drawing/drawin
 ////////////////////////////////
 
 export async function openInkFile(fileRef: TFile) {
-    openInActiveView(fileRef);
+    await openInActiveView(fileRef);
 }
 
 export async function openInActiveView(fileRef: TFile) {
@@ -60,7 +60,7 @@ export async function openInkFileInView(
 export function restoreSidebarsAfterInkView() {
 	const plugin = getGlobals().plugin;
 	const { workspace } = plugin.app;
-	setTimeout(() => {
+	window.setTimeout(() => {
 		const remainingInkLeaves = [
 			...workspace.getLeavesOfType(DRAWING_VIEW_TYPE),
 			...workspace.getLeavesOfType(WRITING_VIEW_TYPE),

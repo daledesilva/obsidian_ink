@@ -11,7 +11,7 @@ import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
-import { TFile } from "obsidian";
+import { TFile, WorkspaceLeaf } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
@@ -19,6 +19,7 @@ import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings"
 import type { Box } from "@tldraw/tldraw";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { getGlobals } from "src/stores/global-store";
+import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 
 ///////
 ///////
@@ -41,9 +42,11 @@ export const anyWritingEmbedInEditModeAtom = atom<boolean>((get) => {
 ///////
 
 export type WritingEditorControls = {
-	save: Function,
-	saveAndHalt: Function,
+	save: () => void | Promise<void>,
+	saveAndHalt: () => Promise<void>,
 	eraseAll: () => Promise<void>,
+	/** Dedicated view: resets camera after viewport resize (stored on controls by WritingView). */
+	resize?: () => void,
 	/** When the host leaf is inactive, closes the Boox overlay and suppresses adjustment sends. */
 	setBooxOverlayActive?: (isActive: boolean) => void,
 }
@@ -58,13 +61,13 @@ export function WritingEmbed (props: {
     pageData?: InkFileData,
 	embedSettings?: EmbedSettings,
     save: (pageData: InkFileData) => void,
-	remove: Function,
+	remove: () => void,
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
 	sourceMdFile?: TFile,
 	isPendingPaste?: boolean,
 	resolveAsReference?: () => void,
-	resolveAsDuplicate?: () => Promise<void>,
+	resolveAsDuplicate?: () => void | Promise<void>,
 	locateFile?: () => void,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
@@ -88,8 +91,8 @@ export function WritingEmbed (props: {
 	// On first mount
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately() && props.embedId) {
-			setTimeout( () => {
-				switchToEditMode();
+			window.setTimeout( () => {
+				void switchToEditMode();
 			},200);
 		}
 	}, [])
@@ -98,9 +101,10 @@ export function WritingEmbed (props: {
 	React.useEffect(() => {
 		if (!props.workspaceLeafId) return;
 		const plugin = getGlobals().plugin;
-		const handler = (leaf: { id?: string } | null) => {
+		const booxConnectionTyped = plugin.booxConnection as { getSessionCount?: () => number } | undefined;
+		const handler = (leaf: WorkspaceLeaf | null) => {
 			const isThisLeafActive = leaf?.id === props.workspaceLeafId;
-			const sessionCount = (plugin.booxConnection as { getSessionCount?: () => number }).getSessionCount?.() ?? '?';
+			const sessionCount = booxConnectionTyped?.getSessionCount?.() ?? '?';
 			inkDebugLog({
 				hypothesisId: 'MULTI-CLOSE',
 				location: 'writing-embed.tsx:active-leaf-change-handler',
@@ -116,9 +120,9 @@ export function WritingEmbed (props: {
 			});
 			editorControlsRef.current?.setBooxOverlayActive?.(isThisLeafActive);
 		};
-		plugin.app.workspace.on('active-leaf-change', handler as (leaf: unknown) => void);
+		plugin.app.workspace.on('active-leaf-change', handler);
 		return () => {
-			plugin.app.workspace.off('active-leaf-change', handler as (leaf: unknown) => void);
+			plugin.app.workspace.off('active-leaf-change', handler);
 		};
 	}, [props.workspaceLeafId])
 
@@ -137,8 +141,8 @@ export function WritingEmbed (props: {
 	const commonExtendedOptions = [
 		{
 			text: 'Open writing',
-			action: async () => {
-				await openInDedicatedView();
+			action: () => {
+				void openInDedicatedView();
 			}
 		},
 		{ separator: true },
@@ -162,7 +166,7 @@ export function WritingEmbed (props: {
 					title: 'Erase all strokes?',
 					message: 'This will remove all strokes from the canvas.',
 					confirmLabel: 'Erase all',
-					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
+					confirmAction: () => void editorControlsRef.current?.eraseAll?.(),
 				}).open();
 			},
 		},
@@ -183,7 +187,7 @@ export function WritingEmbed (props: {
 				);
 			},
 		},
-	]
+	] as MenuOption[]
 
 	////////////
 
@@ -232,7 +236,7 @@ export function WritingEmbed (props: {
 						</button>
 						<button
 							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-							onClick={() => props.resolveAsDuplicate?.()}
+							onClick={() => void props.resolveAsDuplicate?.()}
 						>
 							Make duplicate
 						</button>
@@ -259,9 +263,7 @@ export function WritingEmbed (props: {
 						plugin = {props.plugin}
 						onResize = {(height: number) => applySizingWhilePreviewing(height)}
 						writingFile = {props.writingFileRef}
-						onClick = {props.isPendingPaste ? async () => {} : async (event) => {
-							switchToEditMode();
-						}}
+						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 					/>
 
 					<TldrawWritingEditorWrapper
@@ -273,9 +275,9 @@ export function WritingEmbed (props: {
 						save = {props.save}
 						embedded
 						saveControlsReference = {registerEditorControls}
-						closeEditor = {saveAndSwitchToPreviewMode}
+						closeEditor = {() => void saveAndSwitchToPreviewMode()}
 						extendedMenu = {commonExtendedOptions}
-						onOpenInDedicatedView = {openInDedicatedView}
+						onOpenInDedicatedView = {() => void openInDedicatedView()}
 					/>
 
 				</div>
@@ -341,7 +343,7 @@ export function WritingEmbed (props: {
 		const heightChanged = previousHeightRef.current === null || Math.abs(height - previousHeightRef.current) > 1;
 		if(heightChanged) props.onRequestMeasure?.();
 		previousHeightRef.current = height;
-		setTimeout( () => {
+		window.setTimeout( () => {
 			// Applies after slight delay so it doesn't affect the first resize
 			if(!resizeContainerElRef.current) return;
 			if(props.plugin.settings.booxConnectionEnabled) return;

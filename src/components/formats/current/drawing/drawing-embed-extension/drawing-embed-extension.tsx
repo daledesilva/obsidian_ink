@@ -47,13 +47,13 @@ export class DrawingEmbedWidget extends WidgetType {
     id: string;
     mdFile: TFile;
     embeddedFile: TFile | null;
-    embedSettings: any;
+    embedSettings: EmbedSettings;
     partialEmbedFilepath: string;
     isPendingPaste: boolean;
     isHighlighted: boolean = false;
     // mounted = false;
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: {}, partialEmbedFilepath: string, isPendingPaste: boolean) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
@@ -89,16 +89,22 @@ export class DrawingEmbedWidget extends WidgetType {
                     embedId={this.id}
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
-                    saveSrcFile={this.save}
+                    saveSrcFile={(pageData: InkFileData) => void this.save(pageData)}
                     remove={() => { this.removeEmbed(view); }}
-                    setEmbedProps={(width, aspectRatio) => this.setEmbedProps(view, width, aspectRatio)}
+                    setEmbedProps={(width, aspectRatio) => {
+                        void this.setEmbedProps(view, width, aspectRatio);
+                    }}
                     onRequestMeasure={() => this.requestMeasure(view)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                     sourceMdFile={this.mdFile}
                     isPendingPaste={this.isPendingPaste}
                     resolveAsReference={() => this.resolveAsReference(view)}
-                    resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
-                    locateFile={() => this.locateFile(view)}
+                    resolveAsDuplicate={() => {
+                        void this.resolveAsDuplicate(view);
+                    }}
+                    locateFile={() => {
+                        void this.locateFile(view);
+                    }}
                 />
             </JotaiProvider>
         );
@@ -128,7 +134,7 @@ export class DrawingEmbedWidget extends WidgetType {
         
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const widgetStart = it.from;
                 const widgetEnd = it.to;
@@ -188,7 +194,7 @@ export class DrawingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const from = it.from;
                 const to = it.to;
@@ -217,7 +223,7 @@ export class DrawingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 // Replace the entire widget range with a fresh embed pointing to the duplicate
                 const newEmbedStr = buildDrawingEmbed(duplicatedFile.path);
@@ -241,7 +247,7 @@ export class DrawingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const from = it.from;
                 const to = it.to;
@@ -267,7 +273,7 @@ export class DrawingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
                 view.dispatch(tr);
@@ -288,7 +294,7 @@ export class DrawingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 // Keep instance settings in sync
                 this.embedSettings = newEmbedSettings;
@@ -317,6 +323,14 @@ export class DrawingEmbedWidget extends WidgetType {
     }
 }
 
+function drawingEmbedWidgetFromDecoration(deco: Decoration): DrawingEmbedWidget | undefined {
+    const specUnknown: unknown = deco.spec;
+    if (!specUnknown || typeof specUnknown !== 'object' || !('widget' in specUnknown)) {
+        return undefined;
+    }
+    const widgetCandidate: unknown = Reflect.get(specUnknown, 'widget');
+    return widgetCandidate instanceof DrawingEmbedWidget ? widgetCandidate : undefined;
+}
 
 // Define a StateField to monitor the state of all decorations on the page
 const embedStateField: StateField<DecorationSet> = StateField.define<DecorationSet>({
@@ -348,7 +362,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
         // Check for refresh effect and extract viewportFrom if present
         const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
         const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value as number | void;
+        const viewportFrom = refreshEffect?.value;
 
         if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
             return prevEmbeds;
@@ -376,7 +390,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
             ? { from: viewportFrom, enter: iterateCallback }
             : { enter: iterateCallback };
 
-        function iterateCallback(syntaxNodeRef: any): boolean | void {
+        function iterateCallback(syntaxNodeRef: SyntaxNodeRef): boolean | void {
             const mdFile = activeView?.file;
             if (!mdFile) return true; // continue traversal
 
@@ -470,7 +484,7 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
     
     const it = decorations.iter();
     while (it.value) {
-        const widget = it.value.spec?.widget as DrawingEmbedWidget | undefined;
+        const widget = drawingEmbedWidgetFromDecoration(it.value);
         if (widget) {
             const widgetStart = it.from;
             const widgetEnd = it.to;
@@ -500,7 +514,7 @@ function updateWidgetHighlights(transaction: Transaction, decorations: Decoratio
         let matchedWidget: DrawingEmbedWidget | undefined;
         
         while (decorationsIter.value) {
-            const widget = decorationsIter.value.spec?.widget as DrawingEmbedWidget | undefined;
+            const widget = drawingEmbedWidgetFromDecoration(decorationsIter.value);
             if (widget) {
                 // Try to match this DOM element with the widget by checking if it's the same element
                 // We'll use a data attribute approach for better matching
@@ -552,7 +566,7 @@ interface embedLinkInfoNew {
     startPosition: number,
     endPosition: number,
     embeddedFile: TFile | null,
-    embedSettings: any,
+    embedSettings: EmbedSettings,
     partialEmbedFilepath: string,
     isPendingPaste: boolean,
 }

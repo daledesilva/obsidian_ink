@@ -16,7 +16,7 @@ import {
 ////////
 
 interface EmbedCtrls_v1 {
-	removeEmbed: Function,
+	removeEmbed: () => void,
 }
 
 ////////
@@ -57,11 +57,17 @@ class WritingEmbedWidget_v1 extends MarkdownRenderChild {
 		this.embedCtrls = embedCtrls;
 	}
 
-	async onload() {
+	onload(): void {
+		void this.mountWritingEmbedWidget();
+	}
+
+	// REVIEW: Risky AI change. Monitor this.
+	private async mountWritingEmbedWidget() {
 		const v = this.plugin.app.vault;
-		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
-		
-		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
+		const abstractFile = v.getAbstractFileByPath(this.embedData.filepath);
+		this.fileRef = abstractFile instanceof TFile ? abstractFile : null;
+
+		if (!this.fileRef) {
 			this.el.createEl('p').textContent = 'Ink writing file not found: ' + this.embedData.filepath;
 			return;
 		}
@@ -76,7 +82,7 @@ class WritingEmbedWidget_v1 extends MarkdownRenderChild {
 					plugin = {this.plugin}
 					writingFileRef = {this.fileRef}
 					pageData = {pageData}
-					save = {this.save}
+					save = {(embeddedPageData) => void this.save(embeddedPageData)}
 					remove = {this.embedCtrls.removeEmbed}
 				/>
 			</JotaiProvider>
@@ -85,7 +91,7 @@ class WritingEmbedWidget_v1 extends MarkdownRenderChild {
 		applyCommonAncestorStyling(this.el)
 	}
 
-	async onunload() {
+	onunload() {
 		this.root?.unmount();
 	}
 

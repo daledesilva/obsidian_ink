@@ -29,9 +29,9 @@ export function migrateOutdatedSettings(raw: Record<string, unknown>): PluginSet
 
 	const settingsWereMigrated = JSON.stringify(updatedSettings) !== JSON.stringify(raw);
 	if (settingsWereMigrated) {
-		console.log('Ink: Migrated outdated plugin settings');
-		console.log('Old settings:', JSON.parse(JSON.stringify(raw)));
-		console.log('New settings:', JSON.parse(JSON.stringify(updatedSettings)));
+		console.debug('Ink: Migrated outdated plugin settings');
+		console.debug('Old settings:', JSON.parse(JSON.stringify(raw)));
+		console.debug('New settings:', JSON.parse(JSON.stringify(updatedSettings)));
 	}
 
 	return settings;
@@ -74,5 +74,5 @@ export function migrate_0_4_0_to_0_5_0(oldSettings: PluginSettings_0_4_0): Plugi
 		settingsVersion: DEFAULT_PLUGIN_SETTINGS_0_5_0.settingsVersion,
 	};
 
-	return JSON.parse(JSON.stringify(newSettings));
+	return JSON.parse(JSON.stringify(newSettings)) as PluginSettings_0_5_0;
 }

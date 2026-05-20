@@ -60,12 +60,13 @@ function getDedicatedUndoRedoIntent(event: KeyboardEvent): 'undo' | 'redo' | nul
 }
 
 function isActiveLeafDedicatedInk(plugin: InkPlugin): boolean {
-	const viewType = plugin.app.workspace.activeLeaf?.view?.getViewType?.();
+	const leaf = plugin.app.workspace.getMostRecentLeaf();
+	const viewType = leaf?.view?.getViewType?.();
 	return viewType === WRITING_VIEW_TYPE || viewType === DRAWING_VIEW_TYPE;
 }
 
 function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
-	const leafId = plugin.app.workspace.activeLeaf?.id;
+	const leafId = plugin.app.workspace.getMostRecentLeaf()?.id;
 	if (!leafId) return;
 
 	const isDedicatedLeaf = isActiveLeafDedicatedInk(plugin);
@@ -131,7 +132,7 @@ export function executeUnifiedRedo(plugin: InkPlugin, leafId: string, activeEmbe
 		executeRedo(plugin, leafId, entry, activeEmbedId);
 	} finally {
 		const pluginRef = plugin;
-		setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+		window.setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
 	}
 	pushUndo(leafId, entry);
 	logToVault('Unified redo executed. Entry: ' + entry.type);

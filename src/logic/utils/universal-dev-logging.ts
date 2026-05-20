@@ -27,52 +27,78 @@ export function inkDebugLog(entry: {
 	runId?: string;
 }): void {
 	try {
-		console.log('[InkDebug]', JSON.stringify({ ...entry, timestamp: Date.now() }));
+		console.debug('[InkDebug]', JSON.stringify({ ...entry, timestamp: Date.now() }));
 	} catch {
 		/* ignore */
 	}
 }
 
-export function info(_data: any|any[], _options: LogOptions = {}) {
+function stringifyForLogFragment(value: unknown): string {
+	if (typeof value === 'string') return value;
+	if (typeof value === 'number' || typeof value === 'boolean') {
+		return `${value}`;
+	}
+	if (typeof value === 'bigint') {
+		return `${value.toString()}n`;
+	}
+	if (typeof value === 'symbol') {
+		const description = value.description;
+		return description !== undefined ? `Symbol(${description})` : 'Symbol()';
+	}
+	if (typeof value === 'function') {
+		const nameProp = Reflect.get(value, 'name');
+		const functionName = typeof nameProp === 'string' ? nameProp : '';
+		return functionName.length > 0 ? `[Function: ${functionName}]` : '[Function: anonymous]';
+	}
+	if (value === undefined) return 'undefined';
+	if (value === null) return 'null';
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return '[unavailable]';
+	}
+}
+
+export function info(_data: unknown, _options: LogOptions = {}) {
 	print(chalk.blue.bold('Ink info:'), _data, _options);
 }
-export function warn(_data: any|any[], _options: LogOptions = {}) {
+export function warn(_data: unknown, _options: LogOptions = {}) {
 	print(chalk.yellow.bold('Ink warn:'), _data, _options);
 }
-export function error(_data: any|any[], _options: LogOptions = {}) {
+export function error(_data: unknown, _options: LogOptions = {}) {
 	print(chalk.red.bold('Ink error:'), _data, _options);
 }
-export function debug(_data: any|any[], _options: LogOptions = {}) {
+export function debug(_data: unknown, _options: LogOptions = {}) {
 	print(chalk.green.bold('Ink debug:'), _data, _options);
 }
-export function http(_data: any|any[], _options: LogOptions = {}) {
+export function http(_data: unknown, _options: LogOptions = {}) {
 	print(chalk.magenta.bold('Ink http:'), _data, _options);
 }
-export function verbose(_data: any|any[], _options: LogOptions = {}) {
+export function verbose(_data: unknown, _options: LogOptions = {}) {
 	print(chalk.cyan.bold('Ink verbose:'), _data, _options);
 }
 
-function print(_label: string, _data: any|any[], _options: LogOptions = {}) {
-	if(_data instanceof Array) {
+function print(_label: string, _data: unknown, _options: LogOptions = {}) {
+	if (Array.isArray(_data)) {
 		printArray(_label, _data, _options);
-	} else if(_data instanceof Object) {
+	} else if (_data !== null && typeof _data === 'object') {
 		printTimestampAndLabel(_label);
 		printObj(_data, _options);
 		printEmptyLine();
 	} else {
-		printStr(`${getTimestampAndLabel(_label)} ${_data}`);
+		printStr(`${getTimestampAndLabel(_label)} ${stringifyForLogFragment(_data)}`);
 	}
 }
 
-function printArray(_label: string, _data: any[], _options: LogOptions = {}) {
+function printArray(_label: string, _data: unknown[], _options: LogOptions = {}) {
 	let accString = '';
 
-	if(_data[0] instanceof Object) {
+	if (_data.length > 0 && _data[0] !== null && typeof _data[0] === 'object') {
 		printTimestampAndLabel(_label);
 	}
 	for(let i=0; i<_data.length; i++) {
 
-		if(_data[i] instanceof Object) {
+		if(_data[i] !== null && typeof _data[i] === 'object') {
 			if(accString.length) {
 				printStr(accString);
 				accString = '';
@@ -81,12 +107,12 @@ function printArray(_label: string, _data: any[], _options: LogOptions = {}) {
 
 		} else {
 			if(i===0) {
-				accString = `${getTimestampAndLabel(_label)} ${_data[i]}`;
+				accString = `${getTimestampAndLabel(_label)} ${stringifyForLogFragment(_data[i])}`;
 			} else {
 				if(accString.length) {
-					accString = `${accString} ${_data[i]}`;
+					accString = `${accString} ${stringifyForLogFragment(_data[i])}`;
 				} else {
-					accString = `${_label} ${_data[i]}`;
+					accString = `${_label} ${stringifyForLogFragment(_data[i])}`;
 				}
 			}
 
@@ -95,18 +121,18 @@ function printArray(_label: string, _data: any[], _options: LogOptions = {}) {
 			}
 		}
 	}
-	if(_data[_data.length-1] instanceof Object) {
+	if(_data[_data.length-1] !== null && typeof _data[_data.length - 1] === 'object') {
 		printEmptyLine();
 	}
 
 }
 
 function printStr(_str: string) {
-	console.log(`${_str}`);
+	console.debug(`${_str}`);
 }
 
-function printObj(_data: any, _options: LogOptions) {
-	let data: any;
+function printObj(_data: unknown, _options: LogOptions) {
+	let data: unknown;
 	if(_options.freeze) {
 		data = JSON.parse(JSON.stringify(_data));
 	} else {
@@ -115,15 +141,15 @@ function printObj(_data: any, _options: LogOptions) {
 	if(_options.stringify) {
 		data = JSON.stringify(data, null, 2);
 	}
-	console.log(data);
+	console.debug(data);
 }
 
 function printTimestampAndLabel(_label: string) {
-	console.log(getTimestampAndLabel(_label));
+	console.debug(getTimestampAndLabel(_label));
 }
 
 function printEmptyLine() {
-	console.log('');
+	console.debug('');
 }
 
 function getTimestampAndLabel(_label: string): string {

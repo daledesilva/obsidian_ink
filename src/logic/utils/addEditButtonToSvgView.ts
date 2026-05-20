@@ -1,4 +1,4 @@
-import { TFile, WorkspaceLeaf } from "obsidian";
+import { FileView, TFile, WorkspaceLeaf } from "obsidian";
 import InkPlugin from "src/main";
 import "./svg-edit-button.scss";
 
@@ -12,12 +12,12 @@ export function addEditButtonToSvgView(
     viewType: string
 ) {
     // Wait for the SVG view to be rendered
-    setTimeout(() => {
+    window.setTimeout(() => {
         const view = leaf.view;
         if (!view) return;
 
         // Find the view container
-        const containerEl = (view as any).containerEl;
+        const containerEl = view.containerEl;
         if (!containerEl) return;
 
         // Check if button already exists
@@ -31,7 +31,7 @@ export function addEditButtonToSvgView(
         // Ensure the container has relative positioning for absolute button positioning
         const computedStyle = window.getComputedStyle(viewContent);
         if (computedStyle.position === 'static') {
-            (viewContent as HTMLElement).style.position = 'relative';
+            viewContent.classList.add('ddc_ink_svg-view-content--anchor');
         }
         
         // Create the button container
@@ -49,11 +49,11 @@ export function addEditButtonToSvgView(
         editButton.title = `Edit ${isDrawing ? 'drawing' : 'writing'} in custom view`;
         
         // Handle button click
-        editButton.addEventListener('click', async (e) => {
+        editButton.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
             
-            await leaf.setViewState({
+            void leaf.setViewState({
                 type: viewType,
                 state: { file: file.path },
                 active: true,
@@ -75,8 +75,8 @@ export function addEditButtonToSvgView(
         plugin.registerEvent(
             plugin.app.workspace.on('file-open', () => {
                 // Clean up when a different file is opened
-                const currentView = leaf.view as any;
-                if (currentView?.file !== file) {
+                const currentView = leaf.view;
+                if (currentView instanceof FileView && currentView.file !== file) {
                     cleanup();
                 }
             })

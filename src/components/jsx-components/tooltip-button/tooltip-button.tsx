@@ -30,17 +30,17 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 	children,
 }) => {
 	const [tooltipVisible, setTooltipVisible] = React.useState(false);
-	const holdTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+	const holdTimerRef = React.useRef<number | null>(null);
 
 	React.useEffect(() => {
 		return () => {
-			if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+			if (holdTimerRef.current) window.clearTimeout(holdTimerRef.current);
 		};
 	}, []);
 
 	function startHoldTimer() {
-		if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-		holdTimerRef.current = setTimeout(() => {
+		if (holdTimerRef.current) window.clearTimeout(holdTimerRef.current);
+		holdTimerRef.current = window.setTimeout(() => {
 			setTooltipVisible(true);
 		}, 1000);
 	}
@@ -51,7 +51,7 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 
 	function dismissTooltip() {
 		if (holdTimerRef.current) {
-			clearTimeout(holdTimerRef.current);
+			window.clearTimeout(holdTimerRef.current);
 			holdTimerRef.current = null;
 		}
 		setTooltipVisible(false);

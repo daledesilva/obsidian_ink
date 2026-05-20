@@ -7,14 +7,14 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { WritingEmbedState_v1, embedStateAtom_v1, previewActiveAtom } from '../writing-embed-editor/writing-embed';
 import { TFile } from 'obsidian';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
-const emptyWritingSvg = require('src/defaults/empty-writing-embed.svg');
+import emptyWritingSvg from 'src/defaults/empty-writing-embed.svg';
 
 //////////
 //////////
 
 interface WritingEmbedPreviewProps_v1 {
     plugin: InkPlugin,
-    onResize: Function,
+    onResize: (height: number) => void,
     writingFile: TFile,
     onClick: React.MouseEventHandler,
 }
@@ -40,7 +40,7 @@ const WritingEmbedPreview_v1: React.FC<WritingEmbedPreviewProps_v1> = (props) =>
 
     React.useEffect(() => {
         //console.log('PREVIEW mounted');
-        fetchFileData();
+        void fetchFileData();
         return () => {
             //console.log('PREVIEW unmounting');
         }
@@ -101,7 +101,7 @@ const WritingEmbedPreview_v1: React.FC<WritingEmbedPreviewProps_v1> = (props) =>
     function onLoad() {
         recalcHeight();
         // Slight delay on transition because otherwise a flicker is sometimes seen
-        setTimeout(() => {
+        window.setTimeout(() => {
             //console.log('--------------- SET EMBED STATE TO preview')
             setEmbedState(WritingEmbedState_v1.preview);
         }, 100);

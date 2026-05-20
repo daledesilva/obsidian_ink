@@ -106,7 +106,7 @@ export class FileConversionModal extends Modal {
 		this.remainingCountEl = this.createStat(statsEl, '0', 'remaining').countEl;
 		this.convertedCountEl = this.createStat(statsEl, '0', 'found').countEl;
 
-		this.runScan();
+		void this.runScan();
 	}
 
 	private async runScan() {
@@ -217,7 +217,7 @@ export class FileConversionModal extends Modal {
 		this.remainingCountEl = this.createStat(statsEl, String(this.affectedNotes.length), 'remaining').countEl;
 		this.failedCountEl = this.createStat(statsEl, '0', 'failed').countEl;
 
-		this.runConversion();
+		void this.runConversion();
 	}
 
 	private async runConversion() {
@@ -276,7 +276,7 @@ export class FileConversionModal extends Modal {
 			randomBtn.addEventListener('click', () => {
 				const shuffled = [...result.updatedNotePaths].sort(() => Math.random() - 0.5);
 				for (const path of shuffled.slice(0, 10)) {
-					this.plugin.app.workspace.openLinkText(path, '', true);
+					void this.plugin.app.workspace.openLinkText(path, '', true);
 				}
 			});
 		}
@@ -287,7 +287,7 @@ export class FileConversionModal extends Modal {
 			});
 			openAllBtn.addEventListener('click', () => {
 				for (const path of result.updatedNotePaths) {
-					this.plugin.app.workspace.openLinkText(path, '', true);
+					void this.plugin.app.workspace.openLinkText(path, '', true);
 				}
 			});
 		}

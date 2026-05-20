@@ -1,5 +1,5 @@
 import './tldraw-writing-editor.scss';
-import { Box, DefaultSizeStyle, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Box, DefaultSizeStyle, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo, TLShape, TLShapeId } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, bypassReadonly, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, lockTldrawInput, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, resizeWritingTemplate, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, unlockTldrawInput, updateWritingStoreIfNeeded, useStash } from "src/components/formats/current/utils/tldraw-helpers";
 import { WritingContainerUtil } from "../shapes/writing-container"
@@ -12,9 +12,10 @@ import { buildWritingFileData } from 'src/components/formats/current/utils/build
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
+import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import classNames from 'classnames';
-import { WritingLinesUtil } from '../shapes/writing-lines';
-import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
+import { WritingLinesUtil, type WritingLines } from '../shapes/writing-lines';
+import { embedsInEditModeAtom, type WritingEditorControls } from '../writing-embed/writing-embed';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { useAtomValue } from 'jotai';
@@ -57,6 +58,19 @@ interface TldrawStrokePoint {
 	z?: number,
 }
 
+function isInkWritingLinesEditorShape(shape: TLShape | null | undefined): shape is WritingLines {
+	return shape != null && shape.type === 'writing-lines';
+}
+
+function inkSuiteWritingLinesHeightFromShape(shape: TLShape | null | undefined): number | undefined {
+	if (!isInkWritingLinesEditorShape(shape)) return undefined;
+	return shape.props.h;
+}
+
+function inkSuiteHtmlElementOrNull(node: Element | null): HTMLElement | null {
+	return node instanceof HTMLElement ? node : null;
+}
+
 interface TldrawWritingEditorProps {
 	onResize?: (invitingBounds: Box, tightBounds: Box) => void,
 	plugin: InkPlugin,
@@ -65,14 +79,14 @@ interface TldrawWritingEditorProps {
 	embedId?: string,
 	writingFile: TFile,
     save: (inkFileData: InkFileData) => void,
-	extendedMenu?: any[],
+	extendedMenu?: MenuOption[],
 
 	// For embeds
 	embedded?: boolean,
 	resizeEmbedContainer?: (pxHeight: number) => void,
-	closeEditor?: Function,
-	saveControlsReference?: Function,
-	onOpenInDedicatedView?: Function,
+	closeEditor?: () => void,
+	saveControlsReference?: (controls: WritingEditorControls) => void,
+	onOpenInDedicatedView?: () => void,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -107,19 +121,19 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const dominantHand = useDominantHand();
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
-	const resizePostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const resizePostProcessTimeoutRef = useRef<number>();
+	const shortDelayPostProcessTimeoutRef = useRef<number>();
+	const longDelayPostProcessTimeoutRef = useRef<number>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const curHeightRef = useRef<number | null>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
-	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
+	const adjustThrottleRef = useRef<number | null>(null);
 	const websocketConnectedRef = useRef(false);
 	/** False while the host leaf is inactive — suppresses Bridge updates from hidden surfaces. */
 	const isViewActiveRef = useRef(true);
-	const setBooxOverlayActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const setBooxOverlayActiveTimerRef = useRef<number | null>(null);
 	const pendingNewOverlayRef = useRef(false);
 	const activateWritingSessionRef = useRef<(() => void) | null>(null);
 	const panZoomCleanupFnsRef = useRef<Array<() => void>>([]);
@@ -133,7 +147,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
 		logToVault('Writing editor mounted: ' + props.writingFile.path + (props.embedded ? ' [embed]' : ' [dedicated]'));
-		fetchFileData();
+		void fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
 			logToVault('Writing editor unmounted: ' + props.writingFile.path);
@@ -213,8 +227,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			},
 			onReactivate: () => {
 				if (!websocketConnectedRef.current) return;
-				if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
-				setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+				if (setBooxOverlayActiveTimerRef.current) window.clearTimeout(setBooxOverlayActiveTimerRef.current);
+				setBooxOverlayActiveTimerRef.current = window.setTimeout(() => {
 					setBooxOverlayActiveTimerRef.current = null;
 					if (!websocketConnectedRef.current) return;
 					activateWritingSessionRef.current?.();
@@ -243,8 +257,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			setBooxConnected(false);
 			pendingNewOverlayRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
-			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-			if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+			if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
+			if (setBooxOverlayActiveTimerRef.current) window.clearTimeout(setBooxOverlayActiveTimerRef.current);
 			setBooxOverlayActiveTimerRef.current = null;
 			activateWritingSessionRef.current = null;
 			unregister();
@@ -336,7 +350,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 
 		if(editorWrapperRefEl.current) {
-			editorWrapperRefEl.current.style.opacity = '1';
+			editorWrapperRefEl.current.classList.remove('ddc_ink_editor-wrapper--loading');
 			// Dedicated view: keep key events on the wrapper (tabIndex + keydown capture).
 			// Embeds: avoid stealing focus from Obsidian / CodeMirror.
 			if (!props.embedded) {
@@ -554,13 +568,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				},
 				setBooxOverlayActive: (isActive: boolean) => {
 					isViewActiveRef.current = isActive;
-					if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+					if (setBooxOverlayActiveTimerRef.current) window.clearTimeout(setBooxOverlayActiveTimerRef.current);
 					setBooxOverlayActiveTimerRef.current = null;
 					if (!isActive) pendingNewOverlayRef.current = false;
 					if (!websocketConnectedRef.current) return;
 					if (!props.plugin.settings.booxConnectionEnabled) return;
 					if (isActive) {
-						setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+						setBooxOverlayActiveTimerRef.current = window.setTimeout(() => {
 							setBooxOverlayActiveTimerRef.current = null;
 							if (!websocketConnectedRef.current) return;
 							activateWritingSessionRef.current?.();
@@ -596,7 +610,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!tightBounds) return;
 
 		// --- H1/H2/H4 diagnostic: snapshot state BEFORE resize ---
-		const writingLinesShapeBefore = editor.getShape('shape:writing-lines' as any);
+		const writingLinesShapeBefore = editor.getShape('shape:writing-lines' as TLShapeId);
 		const viewportPageBoundsBefore = editor.getViewportPageBounds();
 		const viewportScreenBoundsBefore = editor.getViewportScreenBounds();
 		const containerBefore = editor.getContainer().getBoundingClientRect();
@@ -605,12 +619,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		info(['Guide lines diagnostic BEFORE resize', {
 			curTlDrawHeight,
 			prevHeightRef: curHeightRef.current,
-			writingLinesH: (writingLinesShapeBefore as any)?.props?.h,
+			writingLinesH: inkSuiteWritingLinesHeightFromShape(writingLinesShapeBefore),
 			linesGeomH: linesGeomBefore?.bounds.h,
 			vpPageX: viewportPageBoundsBefore.x, vpPageY: viewportPageBoundsBefore.y, vpPageW: viewportPageBoundsBefore.w, vpPageH: viewportPageBoundsBefore.h,
 			vpScreenX: viewportScreenBoundsBefore.x, vpScreenY: viewportScreenBoundsBefore.y, vpScreenW: viewportScreenBoundsBefore.w, vpScreenH: viewportScreenBoundsBefore.h,
 			containerW: containerBefore.width, containerH: containerBefore.height,
-			isCulled: culledBefore.has('shape:writing-lines' as any),
+			isCulled: culledBefore.has('shape:writing-lines' as TLShapeId),
 			culledCount: culledBefore.size,
 			cameraX: editor.getCamera().x, cameraY: editor.getCamera().y, cameraZ: editor.getCamera().z,
 			zoom: editor.getZoomLevel(),
@@ -638,22 +652,24 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		);
 
 		// --- H1/H2/H4 diagnostic: snapshot state AFTER resize ---
-		const writingLinesShapeAfter = editor.getShape('shape:writing-lines' as any);
+		const writingLinesShapeAfter = editor.getShape('shape:writing-lines' as TLShapeId);
 		const viewportPageBoundsAfter = editor.getViewportPageBounds();
 		const viewportScreenBoundsAfter = editor.getViewportScreenBounds();
 		const containerAfter = editor.getContainer().getBoundingClientRect();
 		const culledAfter = editor.getCulledShapes();
 		const linesGeomAfter = writingLinesShapeAfter ? editor.getShapeGeometry(writingLinesShapeAfter) : null;
 		const linesMaskedPageBoundsAfter = writingLinesShapeAfter ? editor.getShapeMaskedPageBounds(writingLinesShapeAfter.id) : null;
-		const shapeEl = editor.getContainer().querySelector('[data-shape-type="writing-lines"]') as HTMLElement | null;
+		const shapeEl = inkSuiteHtmlElementOrNull(
+			editor.getContainer().querySelector('[data-shape-type="writing-lines"]')
+		);
 		info(['Guide lines diagnostic AFTER resize', {
-			writingLinesH: (writingLinesShapeAfter as any)?.props?.h,
+			writingLinesH: inkSuiteWritingLinesHeightFromShape(writingLinesShapeAfter),
 			linesGeomH: linesGeomAfter?.bounds.h,
 			linesMaskedH: linesMaskedPageBoundsAfter?.h,
 			vpPageX: viewportPageBoundsAfter.x, vpPageY: viewportPageBoundsAfter.y, vpPageW: viewportPageBoundsAfter.w, vpPageH: viewportPageBoundsAfter.h,
 			vpScreenW: viewportScreenBoundsAfter.w, vpScreenH: viewportScreenBoundsAfter.h,
 			containerW: containerAfter.width, containerH: containerAfter.height,
-			isCulled: culledAfter.has('shape:writing-lines' as any),
+			isCulled: culledAfter.has('shape:writing-lines' as TLShapeId),
 			culledCount: culledAfter.size,
 			cameraX: editor.getCamera().x, cameraY: editor.getCamera().y, cameraZ: editor.getCamera().z,
 			domWidth: shapeEl?.style.width,
@@ -666,17 +682,19 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}]);
 
 		// Schedule a delayed re-check to see if tldraw catches up
-		setTimeout(() => {
-			const linesShapeDelayed = editor.getShape('shape:writing-lines' as any);
+		window.setTimeout(() => {
+			const linesShapeDelayed = editor.getShape('shape:writing-lines' as TLShapeId);
 			const vpDelayed = editor.getViewportPageBounds();
 			const culledDelayed = editor.getCulledShapes();
 			const containerDelayed = editor.getContainer().getBoundingClientRect();
-			const shapeElDelayed = editor.getContainer().querySelector('[data-shape-type="writing-lines"]') as HTMLElement | null;
+			const shapeElDelayed = inkSuiteHtmlElementOrNull(
+				editor.getContainer().querySelector('[data-shape-type="writing-lines"]')
+			);
 			info(['Guide lines 500ms delayed check', {
-				writingLinesH: (linesShapeDelayed as any)?.props?.h,
+				writingLinesH: inkSuiteWritingLinesHeightFromShape(linesShapeDelayed),
 				vpPageW: vpDelayed.w, vpPageH: vpDelayed.h,
 				containerW: containerDelayed.width, containerH: containerDelayed.height,
-				isCulled: culledDelayed.has('shape:writing-lines' as any),
+				isCulled: culledDelayed.has('shape:writing-lines' as TLShapeId),
 				domHeight: shapeElDelayed?.style.height,
 				domDisplay: shapeElDelayed?.style.display,
 				domSvgLen: shapeElDelayed?.querySelector('svg')?.innerHTML?.length,
@@ -700,7 +718,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const debouncedInputResizePostProcess = (editor: Editor) => {
 		resetResizePostProcessTimer();
-		resizePostProcessTimeoutRef.current = setTimeout(
+		resizePostProcessTimeoutRef.current = window.setTimeout(
 			() => {
 				resizePostProcessTimeoutRef.current = undefined;
 				instantInputPostProcess(editor);
@@ -751,9 +769,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
 		
-		shortDelayPostProcessTimeoutRef.current = setTimeout(
+		shortDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				incrementalSave(editor);
+				void incrementalSave(editor);
 			},
 			WRITE_SHORT_DELAY_MS
 		)
@@ -764,9 +782,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const longDelayInputPostProcess = (editor: Editor) => {
 		resetLongPostProcessTimer();
 		
-		longDelayPostProcessTimeoutRef.current = setTimeout(
+		longDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				completeSave(editor);
+				void completeSave(editor);
 			},
 			WRITE_LONG_DELAY_MS
 		)
@@ -774,14 +792,14 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	};
 
 	const resetShortPostProcessTimer = () => {
-		clearTimeout(shortDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(shortDelayPostProcessTimeoutRef.current);
 	}
 	const resetResizePostProcessTimer = () => {
-		clearTimeout(resizePostProcessTimeoutRef.current);
+		window.clearTimeout(resizePostProcessTimeoutRef.current);
 		resizePostProcessTimeoutRef.current = undefined;
 	}
 	const resetLongPostProcessTimer = () => {
-		clearTimeout(longDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(longDelayPostProcessTimeoutRef.current);
 	}
 	const resetInputPostProcessTimers = () => {
 		resetResizePostProcessTimer();
@@ -872,13 +890,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_writing-editor",
+				"ddc_ink_editor-wrapper--loading",
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
 			])}
 			style={{
 				height: '100%',
 				position: 'relative',
-				opacity: 0, // So it's invisible while it loads
 			}}
 			tabIndex={props.embedded ? undefined : 0}
 			onKeyDownCapture={(e) => {
@@ -957,7 +975,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							websocketConnectedRef.current = false;
 							setBooxConnected(false);
 							pendingNewOverlayRef.current = false;
-							if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+							if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
 							if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 							info(['Non-draw writing tool selected; closing Android drawing area', {
 								activatedTool,
@@ -1008,7 +1026,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
-						onLockClick = { async () => {
+						onLockClick = {() => {
 							// Force a final onResize emission so preview aspect ratio is fresh at lock time.
 							// This avoids using a stale tightBounds ratio when content changed within the buffer zone.
 							const editor = tlEditorRef.current;
@@ -1124,9 +1142,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	/** Throttled variant — use for scroll events that fire rapidly and benefit from coalescing. */
 	function adjustAndroidDrawingAreaThrottled() {
 		if (!isViewActiveRef.current) return;
-		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
 
-		adjustThrottleRef.current = setTimeout(() => {
+		adjustThrottleRef.current = window.setTimeout(() => {
 			adjustThrottleRef.current = null;
 			sendAdjustment(false);
 		}, 200);
@@ -1136,12 +1154,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	 *  Uses a 50ms micro-debounce to collapse rapid duplicate sends (e.g. when a resize triggers
 	 *  store changes that trigger another resize check, both producing the same dimensions). */
 	function sendAdjustmentImmediate() {
-		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-		adjustThrottleRef.current = setTimeout(() => {
+		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
+		adjustThrottleRef.current = window.setTimeout(() => {
 			adjustThrottleRef.current = null;
 			info(['Sending IMMEDIATE update-drawing-area (micro-debounced)', {}]);
 			sendAdjustment(true);
-		}, 50) as unknown as ReturnType<typeof setTimeout>;
+		}, 50);
 	}
 
 	function sendAdjustment(immediate: boolean) {
@@ -1268,8 +1286,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		createTldrawStroke(tldrawStrokePoints);
 		info(['Boox stroke creation completed', {
 			strokeId: (strokePayload as BooxStrokePayload).strokeId,
-			shapeCountAfter: tlEditorRef.current!.getCurrentPageShapeIds().size,
-			isReadonlyAfter: tlEditorRef.current!.getInstanceState().isReadonly,
+			shapeCountAfter: tlEditorRef.current.getCurrentPageShapeIds().size, // REVIEW: Risky automated change. Monitor this.
+			isReadonlyAfter: tlEditorRef.current.getInstanceState().isReadonly, // REVIEW: Risky automated change. Monitor this.
 			pendingCompletions: pendingBooxStrokeCompletionsRef.current,
 		}]);
 		return true;
@@ -1301,7 +1319,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
         if(svg) {
             const svgSettings = extractInkJsonFromSvg(svg);
             if(svgSettings && svgSettings.tldraw) {
-                const snapshot = prepareWritingSnapshot(svgSettings.tldraw as TLEditorSnapshot);
+                const snapshot = prepareWritingSnapshot(svgSettings.tldraw);
 
                 // Inject per-file lineHeight into tldraw document meta so shape utils can read
                 // it from the editor at runtime. Old files without the attribute fall back to

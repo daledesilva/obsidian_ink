@@ -39,7 +39,7 @@ export class MigrationModal extends Modal {
 	}
 
 	onOpen() {
-		this.titleEl.setText('Migrate Legacy Ink Embeds');
+		this.titleEl.setText('Migrate legacy ink embeds');
 		this.contentEl.addClass('ddc_ink_migration-modal');
 		this.renderScanPhase();
 	}
@@ -65,7 +65,7 @@ export class MigrationModal extends Modal {
 		this.convertedCountEl = this.createStat(statsEl, '0', 'found').countEl;
 
 		// Start scanning asynchronously
-		this.runScan();
+		void this.runScan();
 	}
 
 	private async runScan() {
@@ -177,7 +177,7 @@ export class MigrationModal extends Modal {
 		this.logEl = contentEl.createDiv({ cls: 'ddc_ink_migration-log' });
 		this.logEl.hide();
 
-		this.runMigration();
+		void this.runMigration();
 	}
 
 	private async runMigration() {
@@ -238,7 +238,7 @@ export class MigrationModal extends Modal {
 				randomBtn.addEventListener('click', () => {
 					const shuffled = [...result.updatedNotePaths].sort(() => Math.random() - 0.5);
 					for (const path of shuffled.slice(0, 10)) {
-						this.plugin.app.workspace.openLinkText(path, '', true);
+						void this.plugin.app.workspace.openLinkText(path, '', true);
 					}
 				});
 			}
@@ -246,7 +246,7 @@ export class MigrationModal extends Modal {
 			const openAllBtn = buttonsEl.createEl('button', { text: `Open all ${result.updatedNotePaths.length} notes` });
 			openAllBtn.addEventListener('click', () => {
 				for (const path of result.updatedNotePaths) {
-					this.plugin.app.workspace.openLinkText(path, '', true);
+					void this.plugin.app.workspace.openLinkText(path, '', true);
 				}
 			});
 		}

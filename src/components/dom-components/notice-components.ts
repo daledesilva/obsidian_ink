@@ -13,7 +13,6 @@ export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number
 export function launchPersistentNotice(noticeBody: DocumentFragment) {
     const notice = new Notice(noticeBody, 0);
     notice.noticeEl.classList.add('ddc_ink_notice');
-    notice.noticeEl.style.pointerEvents = "none";
     return notice;
 }
 
@@ -48,14 +47,12 @@ export function createNoticeCtaBar(
         primaryBtnEl = ctaBarEl.createEl('button');
         primaryBtnEl.setText(props.primaryLabel);
         primaryBtnEl.classList.add('ddc_ink_primary-btn')
-        primaryBtnEl.style.pointerEvents = "all";
     }
 
     if(props.tertiaryLabel) {
         tertiaryBtnEl = ctaBarEl.createEl('button');
         tertiaryBtnEl.setText(props.tertiaryLabel);
         tertiaryBtnEl.classList.add('ddc_ink_tertiary-btn')
-        tertiaryBtnEl.style.pointerEvents = "all";
     }
 
     return {

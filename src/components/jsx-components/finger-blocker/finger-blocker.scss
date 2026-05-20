@@ -1,0 +1,18 @@
+/////////
+/////////
+
+/**
+ * Applied to `.cm-scroller` while pen scroll-lock is active (matches prior overflow: hidden behaviour).
+ */
+.ink-cm-scroller--scroll-pinned {
+	overflow: hidden;
+	scrollbar-color: transparent transparent;
+}
+
+.ink-finger-blocker--touch-none {
+	touch-action: none;
+}
+
+.ink-finger-blocker--touch-pan-xy {
+	touch-action: pan-x pan-y;
+}

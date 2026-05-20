@@ -41,19 +41,29 @@ function getLeafState(leafId: string): LeafUndoState {
 const PLUGIN_FLAG_KEY_REDO = '__inkProgrammaticRedoInProgress';
 const PLUGIN_FLAG_KEY_UNDO = '__inkProgrammaticUndoInProgress';
 
-export function setProgrammaticRedoInProgress(value: boolean, plugin?: any): void {
-	const target = plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })();
-	if (target) (target as any)[PLUGIN_FLAG_KEY_REDO] = value;
+type PluginWithInkUndoFlags = Record<string, unknown>;
+
+function pluginWithInkUndoFlags(plugin: unknown): PluginWithInkUndoFlags | null {
+	return plugin && typeof plugin === 'object' ? (plugin as PluginWithInkUndoFlags) : null;
 }
 
-export function setProgrammaticUndoInProgress(value: boolean, plugin?: any): void {
-	const target = plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })();
-	if (target) (target as any)[PLUGIN_FLAG_KEY_UNDO] = value;
+export function setProgrammaticRedoInProgress(value: boolean, plugin?: unknown): void {
+	const target = pluginWithInkUndoFlags(
+		plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })(),
+	);
+	if (target) target[PLUGIN_FLAG_KEY_REDO] = value;
+}
+
+export function setProgrammaticUndoInProgress(value: boolean, plugin?: unknown): void {
+	const target = pluginWithInkUndoFlags(
+		plugin ?? (() => { try { return getGlobals().plugin; } catch { return null; } })(),
+	);
+	if (target) target[PLUGIN_FLAG_KEY_UNDO] = value;
 }
 
 function isProgrammaticRedoInProgress(): boolean {
 	try {
-		const plugin = getGlobals().plugin as any;
+		const plugin = pluginWithInkUndoFlags(getGlobals().plugin);
 		return !!plugin?.[PLUGIN_FLAG_KEY_REDO];
 	} catch {
 		return false;
@@ -62,7 +72,7 @@ function isProgrammaticRedoInProgress(): boolean {
 
 function isProgrammaticUndoInProgress(): boolean {
 	try {
-		const plugin = getGlobals().plugin as any;
+		const plugin = pluginWithInkUndoFlags(getGlobals().plugin);
 		return !!plugin?.[PLUGIN_FLAG_KEY_UNDO];
 	} catch {
 		return false;

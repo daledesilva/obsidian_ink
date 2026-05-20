@@ -7,6 +7,6 @@
 import type { Editor } from '@tldraw/tldraw';
 
 export function getTldrawNumUndos(editor: Editor): number {
-	const history = (editor as any).history as { getNumUndos?: () => number } | undefined;
+	const history = (editor as unknown as { history?: { getNumUndos?: () => number } }).history;
 	return history?.getNumUndos?.() ?? 0;
 }

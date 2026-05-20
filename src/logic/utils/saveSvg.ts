@@ -10,13 +10,13 @@ export const saveSvg = async (dataUri: string, filepath: string): Promise<void> 
     const v = plugin.app.vault;
 
     try {
-        const file = v.getAbstractFileByPath(filepath) as TFile;
+        const file = v.getAbstractFileByPath(filepath);
 
-        if (file && file instanceof TFile) {
-            v.modify(file, dataUri);
+        if (file instanceof TFile) {
+            await v.modify(file, dataUri);
             logToVault('saveSvg (modify): ' + filepath);
         } else {
-            v.create(filepath, dataUri);
+            await v.create(filepath, dataUri);
             logToVault('saveSvg (create): ' + filepath);
         }
 

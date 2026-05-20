@@ -1,6 +1,5 @@
-import { TLEditorSnapshot } from '@tldraw/tldraw';
-import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
-import { DOMParser } from 'xmldom';
+import { TLDRAW_VERSION } from 'src/constants';
+import { DOMParser, XMLSerializer } from 'xmldom';
 import format from 'xml-formatter';
 import { InkFileData } from '../types/file-data';
 
@@ -47,8 +46,9 @@ export const buildFileStr = (pageData: InkFileData): string => {
 
 	svgElement.appendChild(metadataElement);
 
+	const serializedSvg = new XMLSerializer().serializeToString(svgElement);
 	// Export as formatted svg
-	return format(svgElement.toString(), {
+	return format(serializedSvg, {
 		indentation: '\t',
 		lineSeparator: '\n'
 	});

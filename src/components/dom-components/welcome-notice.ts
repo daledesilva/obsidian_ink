@@ -8,7 +8,7 @@ import InkPlugin from "src/main";
 export function showWelcomeTips_maybe(plugin: InkPlugin): boolean {
     // Bail if it's already been shown enough times
     if(plugin.settings.onboardingTips.welcomeTipRead) return false;
-    showWelcomeTips(plugin);
+    void showWelcomeTips(plugin);
     return true;
 }
 
@@ -18,8 +18,8 @@ export async function showWelcomeTips(plugin: InkPlugin) {
     tipsShowingOrDismissed = true;
 
     const noticeBody = createNoticeTemplate(1,3);
-    noticeBody.createEl('h1').setText(`Welcome to Ink`);
-    noticeBody.createEl('p').setText(`Ink is all about enabling stylus use directly in your markdown notes.`);
+    noticeBody.createEl('h1').setText(`Welcome to ink`);
+    noticeBody.createEl('p').setText(`Ink is all about enabling stylus use directly in your Markdown notes.`);
     noticeBody.createEl('p').setText(`Here's a quick rundown to help you get started...`);
     
     const {
@@ -49,8 +49,8 @@ export async function showWelcomeTips(plugin: InkPlugin) {
 function showHandwritingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
-    noticeBody.createEl('p').setText(`In any markdown note, run the following command to begin writing where your cursor is.`);
-    noticeBody.createEl('blockquote').setText(`"Ink: New handwriting section"`);
+    noticeBody.createEl('p').setText(`In any Markdown note, run the following command to begin writing where your cursor is.`);
+    noticeBody.createEl('blockquote').setText(`"ink: New handwriting section"`);
     noticeBody.createEl('p').setText(`( Cmd+P or swipe down )`);
     
     const {
@@ -75,8 +75,8 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
 function showDrawingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Drawing sections...`);
-    noticeBody.createEl('p').setText(`These can be added too and can be resized right in your markdown file.`);
-    noticeBody.createEl('blockquote').setText(`"Ink: New drawing"`);
+    noticeBody.createEl('p').setText(`These can be added too and can be resized right in your Markdown file.`);
+    noticeBody.createEl('blockquote').setText(`"ink: New drawing"`);
 
     const {
         primaryBtnEl,
@@ -103,9 +103,9 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
 
 function showiPadWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
-    noticeBody.createEl('h1').setText(`If you're using an iPad...`);
-    noticeBody.createEl('p').setText(`The 'Scribble' feature of the Apple Pencil can interfere with the ability to write in Ink embeds.`);
-    noticeBody.createEl('p').setText(`To use Ink you will need to turn off Scribble in your device settings.`);
+    noticeBody.createEl('h1').setText(`If you're using an ipad...`);
+    noticeBody.createEl('p').setText(`The 'scribble' feature of the apple pencil can interfere with the ability to write in ink embeds.`);
+    noticeBody.createEl('p').setText(`To use ink you will need to turn off scribble in your device settings.`);
 
     const {
         primaryBtnEl,
@@ -130,7 +130,7 @@ function showSyncingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Syncing with your vault...`);
     noticeBody.createEl('p').setText(`Ink files live in your vault and can sync with it to other devices.`);
-    noticeBody.createEl('p').setText(`If using Obsidian Sync, turn on "Sync all other types" in the Obsidian Sync settings.`);
+    noticeBody.createEl('p').setText(`If using Obsidian Sync, turn on "sync all other types" in the Obsidian Sync settings.`);
 
     const {
         primaryBtnEl,
@@ -186,7 +186,7 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
             tipsShowingOrDismissed = false;
             plugin.settings.onboardingTips.welcomeTipRead = true;
             plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
-            plugin.saveSettings();
+            void plugin.saveSettings();
         });
     }
     

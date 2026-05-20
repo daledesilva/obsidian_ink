@@ -1,4 +1,4 @@
-import { createSlice, configureStore } from '@reduxjs/toolkit';
+import { createSlice, configureStore, PayloadAction } from '@reduxjs/toolkit';
 
 ///////
 ///////
@@ -7,14 +7,16 @@ export interface GlobalSessionState {
     activeEmbedId: null | string;
 }
 
+const initialGlobalSessionState: GlobalSessionState = {
+    activeEmbedId: null,
+};
+
 const globalSessionSlice = createSlice({
     name: 'global-session',
-    initialState: {
-        activeEmbedId: null
-    },
+    initialState: initialGlobalSessionState,
     reducers: {
-        setActiveEmbedId: (state, data) => {
-            state.activeEmbedId = data.payload;
+        setActiveEmbedId: (state, action: PayloadAction<string | null>) => {
+            state.activeEmbedId = action.payload;
         },
     }
 })

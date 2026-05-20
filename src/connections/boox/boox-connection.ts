@@ -23,7 +23,7 @@ function agentBridgeLog(
 	message: string,
 	data: Record<string, unknown>,
 ): void {
-	console.log('[InkBridgeDebug]', message, data);
+	console.debug('[InkBridgeDebug]', message, data);
 	inkDebugLog({ hypothesisId, location, message, data });
 }
 
@@ -250,10 +250,10 @@ export class BooxConnection {
 		agentBridgeLog('CONN', 'boox-connection.ts:probePort', 'Probe failed', {
 			activeSessions: this.drawingSessions.length,
 		});
-		console.log(INK_LOG_PREFIX, MSG_BOOX_COMPANION_NOT_FOUND);
+		console.debug(INK_LOG_PREFIX, MSG_BOOX_COMPANION_NOT_FOUND);
 		logToVault('Boox companion not found on port ' + INK_BRIDGE_WEBSOCKET_PORT);
 		if (Platform.isMobileApp || Platform.isMobile) {
-			console.log(
+			console.debug(
 				INK_LOG_PREFIX,
 				'Boox tip: Start or restore eInk Bridge on this tablet so its foreground service and loopback WebSocket are up; Obsidian Ink only connects over ws://127.0.0.1.',
 			);
@@ -301,7 +301,7 @@ export class BooxConnection {
 			const last = this.drawingSessions[this.drawingSessions.length - 1];
 			if (last) {
 				try {
-					last.onStrokeStart?.((parsed as { data: unknown }).data);
+					last.onStrokeStart?.((parsed).data);
 				} catch (error) {
 					verbose(['BooxConnection: onStrokeStart error', error]);
 				}
@@ -312,7 +312,7 @@ export class BooxConnection {
 			const last = this.drawingSessions[this.drawingSessions.length - 1];
 			if (last) {
 				try {
-					last.onDrawingAreaReady?.((parsed as { data: unknown }).data);
+					last.onDrawingAreaReady?.((parsed).data);
 				} catch (error) {
 					verbose(['BooxConnection: onDrawingAreaReady error', error]);
 				}
@@ -345,7 +345,7 @@ export class BooxConnection {
 		const lastSession = this.drawingSessions[this.drawingSessions.length - 1];
 		if (lastSession) {
 			try {
-				lastSession.onStroke((parsed as { data: unknown }).data);
+				lastSession.onStroke((parsed).data);
 			} catch (error) {
 				verbose(['BooxConnection: onStroke error', error]);
 			}

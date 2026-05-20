@@ -15,7 +15,7 @@ export const insertExistingWritingFile_v1 = (plugin: InkPlugin, editor: Editor) 
 }
 
 export class SelectHandwritingFileModal_v1 extends FuzzySuggestModal<TFile> {
-    onSubmit: Function;
+    onSubmit: (filepath: string) => void;
 
     constructor(app: App, onSubmit: (filepath: string) => void) {
         super(app);

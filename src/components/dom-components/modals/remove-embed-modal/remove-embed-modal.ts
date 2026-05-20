@@ -74,7 +74,7 @@ export class RemoveEmbedModal extends Modal {
 		this.remainingCountEl = this.createStat(statsEl, '0', 'remaining').countEl;
 		this.foundCountEl = this.createStat(statsEl, '0', 'found').countEl;
 
-		this.runScan();
+		void this.runScan();
 	}
 
 	private async runScan() {

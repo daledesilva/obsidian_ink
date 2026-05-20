@@ -53,7 +53,7 @@ export const WritingMenu = (props: WritingMenuProps) => {
 				popEmbedUndoAndPushToRedo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
-				setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
+				window.setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
 			}
 		} else {
 			silentlyChangeStore(tlEditor, () => tlEditor.undo());
@@ -74,7 +74,7 @@ export const WritingMenu = (props: WritingMenuProps) => {
 				popEmbedRedoAndPushToUndo(leafId, embedId);
 			} finally {
 				const pluginRef = plugin;
-				setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+				window.setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
 			}
 		} else {
 			silentlyChangeStore(tlEditor, () => tlEditor.redo());

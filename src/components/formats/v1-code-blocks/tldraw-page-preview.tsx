@@ -1,8 +1,16 @@
-import { Editor, Tldraw } from "@tldraw/tldraw";
+import { Editor, Tldraw, type TLEditorSnapshot, type TLStoreSnapshot } from "@tldraw/tldraw";
 import * as React from "react";
 
 ///////
 ///////
+
+function parseInkTldrawPreviewSnapshot(raw: string): TLEditorSnapshot | TLStoreSnapshot {
+	const parsed: unknown = JSON.parse(raw);
+	if (!parsed || typeof parsed !== 'object') {
+		throw new Error('Invalid tldraw snapshot JSON');
+	}
+	return parsed as TLEditorSnapshot | TLStoreSnapshot;
+}
 
 export function TldrawPagePreview (props: {sourceJson: string}) {
 	// const assetUrls = getAssetUrlsByMetaUrl();
@@ -27,7 +35,7 @@ export function TldrawPagePreview (props: {sourceJson: string}) {
 			}}
 		>
 			<Tldraw
-				snapshot = {JSON.parse(props.sourceJson)}
+				snapshot = {parseInkTldrawPreviewSnapshot(props.sourceJson)}
 				hideUi = {true}
 				onMount = {handleMount}
 				// assetUrls = {assetUrls}

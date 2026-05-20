@@ -4,6 +4,7 @@ import { Root, createRoot } from "react-dom/client";
 import { WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
 import { TldrawWritingEditor_v1 } from "src/components/formats/v1-code-blocks/writing/tldraw-writing-editor/tldraw-writing-editor";
+import type { WritingEditorControls_v1 } from "src/components/formats/v1-code-blocks/writing/writing-embed-editor/writing-embed";
 import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
 import { buildWritingFileData_v1 } from "../../utils/build-file-data";
 import { InkFileData_v1 } from "../../types/file-data";
@@ -28,7 +29,7 @@ export class WritingView_v1 extends TextFileView {
     plugin: InkPlugin;
     pageData: InkFileData_v1;
     tldrawControls: {
-        resize?: Function,
+        resize?: () => void,
     } = {}
 
     constructor(leaf: WorkspaceLeaf, plugin: InkPlugin) {
@@ -63,7 +64,7 @@ export class WritingView_v1 extends TextFileView {
                 plugin = {this.plugin}
                 writingFile = {this.file}
                 save = {this.saveFile}
-                saveControlsReference = {(controls: any) => {
+                saveControlsReference = {(controls: WritingEditorControls_v1) => {
                     this.tldrawControls.resize = controls.resize;
                 }}
 			/>
@@ -72,7 +73,7 @@ export class WritingView_v1 extends TextFileView {
 
     saveFile = (pageData: InkFileData_v1) => {
         this.pageData = pageData;
-        this.save(false);   // Obsidian will call getViewData during this method
+        void this.save(false);   // Obsidian will call getViewData during this method
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)

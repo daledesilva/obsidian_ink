@@ -12,7 +12,7 @@ import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
-import { TFile } from "obsidian";
+import { TFile, WorkspaceLeaf } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
@@ -20,6 +20,7 @@ import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 
 ///////
@@ -44,8 +45,8 @@ export const anyDrawingEmbedInEditModeAtom_v2 = atom<boolean>((get) => {
 ///////
 
 export type DrawingEditorControls = {
-	save: Function,
-	saveAndHalt: Function,
+	save: () => void | Promise<void>,
+	saveAndHalt: () => Promise<void>,
 	eraseAll: () => Promise<void>,
 	/** Notify the editor that the host view is becoming active or inactive.
 	 *  When inactive, the Boox overlay is closed and adjustment sends are suppressed.
@@ -60,15 +61,15 @@ interface DrawingEmbed_Props {
 	embedId?: string,
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
-	saveSrcFile: (pageData: InkFileData) => {},
-    remove: Function,
+	saveSrcFile: (pageData: InkFileData) => void,
+    remove: () => void,
     setEmbedProps?: (width: number, aspectRatio: number) => void,
     onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
 	sourceMdFile?: TFile,
 	isPendingPaste?: boolean,
 	resolveAsReference?: () => void,
-	resolveAsDuplicate?: () => Promise<void>,
+	resolveAsDuplicate?: () => void | Promise<void>,
 	locateFile?: () => void,
 }
 
@@ -87,8 +88,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	// On first mount
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately() && props.embedId) {
-			setTimeout( () => {
-				switchToEditMode();
+			window.setTimeout( () => {
+				void switchToEditMode();
 			},200);
 		}
 		
@@ -106,9 +107,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	React.useEffect(() => {
 		if (!props.workspaceLeafId) return;
 		const plugin = getGlobals().plugin;
-		const handler = (leaf: { id?: string } | null) => {
+		const booxConnectionTyped = plugin.booxConnection as { getSessionCount?: () => number } | undefined;
+		const handler = (leaf: WorkspaceLeaf | null) => {
 			const isThisLeafActive = leaf?.id === props.workspaceLeafId;
-			const sessionCount = (plugin.booxConnection as any).getSessionCount?.() ?? '?';
+			const sessionCount = booxConnectionTyped?.getSessionCount?.() ?? '?';
 			inkDebugLog({
 				hypothesisId: 'MULTI-CLOSE',
 				location: 'drawing-embed.tsx:active-leaf-change-handler',
@@ -124,9 +126,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			});
 			editorControlsRef.current?.setBooxOverlayActive?.(isThisLeafActive);
 		};
-		plugin.app.workspace.on('active-leaf-change', handler as any);
+		plugin.app.workspace.on('active-leaf-change', handler);
 		return () => {
-			plugin.app.workspace.off('active-leaf-change', handler as any);
+			plugin.app.workspace.off('active-leaf-change', handler);
 		};
 	}, [props.workspaceLeafId])
 
@@ -158,7 +160,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					title: 'Erase all strokes?',
 					message: 'This will remove all strokes from the canvas.',
 					confirmLabel: 'Erase all',
-					confirmAction: () => editorControlsRef.current?.eraseAll?.(),
+					confirmAction: () => void editorControlsRef.current?.eraseAll?.(),
 				}).open();
 			},
 		},
@@ -179,7 +181,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				);
 			},
 		},
-	].filter(Boolean)
+	].filter(Boolean) as MenuOption[]
 
 	////////////
 
@@ -228,7 +230,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						</button>
 						<button
 							className='ddc_ink_pending-banner__btn ddc_ink_pending-banner__btn--primary'
-							onClick={() => props.resolveAsDuplicate?.()}
+							onClick={() => void props.resolveAsDuplicate?.()}
 						>
 							Make duplicate
 						</button>
@@ -250,31 +252,29 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					}}
 				>
 				
-	                <DrawingEmbedPreviewWrapper
-						embedId = {props.embedId}
-						embeddedFile = {props.embeddedFile}
-						embedSettings = {props.embedSettings}
-						onReady = {() => {}}
-						onClick = {props.isPendingPaste ? async () => {} : async () => {
-							switchToEditMode();
-						}}
-					/>
-				
-	                <TldrawDrawingEditorWrapper
-						embedId = {props.embedId}
-						workspaceLeafId = {props.workspaceLeafId}
-						onReady = {() => {}}
-						drawingFile = {props.embeddedFile}
-						save = {props.saveSrcFile}
-						extendedMenu = {commonExtendedOptions}
-						embedded
-						saveControlsReference = {registerEditorControls}
-						closeEditor = {saveAndSwitchToPreviewMode}
-						resizeEmbed = {resizeEmbed}
-						onResizeStart = {onResizeStart}
-						onResizeEnd = {onResizeEnd}
-						applyEmbedDimensions = {applyEmbedDimensions}
-					onOpenInDedicatedView = {openInDedicatedView}
+				<DrawingEmbedPreviewWrapper
+					embedId = {props.embedId}
+					embeddedFile = {props.embeddedFile}
+					embedSettings = {props.embedSettings}
+					onReady = {() => {}}
+					onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+				/>
+			
+				<TldrawDrawingEditorWrapper
+					embedId = {props.embedId}
+					workspaceLeafId = {props.workspaceLeafId}
+					onReady = {() => {}}
+					drawingFile = {props.embeddedFile}
+					save = {props.saveSrcFile}
+					extendedMenu = {commonExtendedOptions}
+					embedded
+					saveControlsReference = {registerEditorControls}
+					closeEditor = {() => void saveAndSwitchToPreviewMode()}
+					resizeEmbed = {resizeEmbed}
+					onResizeStart = {onResizeStart}
+					onResizeEnd = {onResizeEnd}
+					applyEmbedDimensions = {applyEmbedDimensions}
+					onOpenInDedicatedView = {() => void openInDedicatedView()}
 				/>
 
 			</div>

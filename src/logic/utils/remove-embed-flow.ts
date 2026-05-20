@@ -20,18 +20,20 @@ export function openRemoveEmbedFlow(
 	const modal = new RemoveEmbedModal(plugin, embeddedFile, embedType, {
 		sourceMdFile,
 		onRemoveEmbedOnly: removeEmbedOnlyFn,
-		onRemoveEmbedAndFile: async () => {
-			try {
-				await removeAllEmbedsOfFileFromNote(
-					plugin.app.vault,
-					sourceMdFile,
-					embeddedFile.path,
-					embedType,
-				);
-				await plugin.app.vault.delete(embeddedFile);
-			} catch (err) {
-				new Notice('Failed to remove and delete file: ' + String(err));
-			}
+		onRemoveEmbedAndFile: () => {
+			void (async (): Promise<void> => {
+				try {
+					await removeAllEmbedsOfFileFromNote(
+						plugin.app.vault,
+						sourceMdFile,
+						embeddedFile.path,
+						embedType,
+					);
+					await plugin.app.vault.delete(embeddedFile);
+				} catch (err) {
+					new Notice('Failed to remove and delete file: ' + String(err));
+				}
+			})();
 		},
 	});
 	modal.open();

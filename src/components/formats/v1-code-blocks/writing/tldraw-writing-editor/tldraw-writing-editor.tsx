@@ -12,9 +12,10 @@ import { buildWritingFileData_v1 } from 'src/components/formats/v1-code-blocks/u
 import { TFile } from 'obsidian';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
+import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import classNames from 'classnames';
 import { WritingLinesUtil_v1 } from '../writing-shapes/writing-lines';
-import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1 } from '../writing-embed-editor/writing-embed';
+import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1, type WritingEditorControls_v1 } from '../writing-embed-editor/writing-embed';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
@@ -24,17 +25,17 @@ import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/fing
 ///////
 
 interface TldrawWritingEditorProps_v1 {
-	onResize?: Function,
+	onResize?: (height: number) => void,
 	plugin: InkPlugin,
 	writingFile: TFile,
 	save: (inkFileData: InkFileData_v1) => void,
-	extendedMenu?: any[],
+	extendedMenu?: MenuOption[],
 
 	// For embeds
 	embedded?: boolean,
 	resizeEmbedContainer?: (pxHeight: number) => void,
-	closeEditor?: Function,
-	saveControlsReference?: Function,
+	closeEditor?: () => void,
+	saveControlsReference?: (controls: WritingEditorControls_v1) => void,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -58,8 +59,8 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom_v1);
-	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const shortDelayPostProcessTimeoutRef = useRef<number>();
+	const longDelayPostProcessTimeoutRef = useRef<number>();
 	const tlEditorRef = useRef<Editor>();
 	const tlEditorWrapperElRef = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
@@ -70,7 +71,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	// On mount
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
-		fetchFileData();
+		void fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
 		}
@@ -98,7 +99,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 
 		if(tlEditorWrapperElRef.current) {
 			// Makes the editor visible inly after it's fully mounted
-			tlEditorWrapperElRef.current.style.opacity = '1';
+			tlEditorWrapperElRef.current.classList.remove('ddc_ink_editor-wrapper--loading');
 		}
 
 		updateWritingStoreIfNeeded(tlEditor);
@@ -225,9 +226,9 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
 		
-		shortDelayPostProcessTimeoutRef.current = setTimeout(
+		shortDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				incrementalSave(editor);
+				void incrementalSave(editor);
 			},
 			WRITE_SHORT_DELAY_MS
 		)
@@ -238,9 +239,9 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	const longDelayInputPostProcess = (editor: Editor) => {
 		resetLongPostProcessTimer();
 		
-		longDelayPostProcessTimeoutRef.current = setTimeout(
+		longDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				completeSave(editor);
+				void completeSave(editor);
 			},
 			WRITE_LONG_DELAY_MS
 		)
@@ -248,10 +249,10 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	};
 
 	const resetShortPostProcessTimer = () => {
-		clearTimeout(shortDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(shortDelayPostProcessTimeoutRef.current);
 	}
 	const resetLongPostProcessTimer = () => {
-		clearTimeout(longDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(longDelayPostProcessTimeoutRef.current);
 	}
 	const resetInputPostProcessTimers = () => {
 		resetShortPostProcessTimer();
@@ -314,11 +315,11 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 			ref = {tlEditorWrapperElRef}
 			className = {classNames([
 				"ddc_ink_writing-editor",
+				"ddc_ink_editor-wrapper--loading",
 			])}
 			style={{
 				height: '100%',
 				position: 'relative',
-				opacity: 0, // So it's invisible while it loads
 			}}
 		>
 			<TldrawEditor
@@ -345,10 +346,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
                 />
 				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
-						onLockClick = { async () => {
-							// REVIEW: Save immediately? incase it hasn't been saved yet
-							if(props.closeEditor) props.closeEditor();
-						}}
+						onLockClick = {() => void props.closeEditor?.()}
 						menuOptions = {props.extendedMenu}
 					/>
 				)}
@@ -364,7 +362,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.writingFile)
         if(inkFileData.tldraw) {
-            const snapshot = prepareWritingSnapshot(inkFileData.tldraw as TLEditorSnapshot);
+            const snapshot = prepareWritingSnapshot(inkFileData.tldraw);
             setTlEditorSnapshot(snapshot);
         }
     }

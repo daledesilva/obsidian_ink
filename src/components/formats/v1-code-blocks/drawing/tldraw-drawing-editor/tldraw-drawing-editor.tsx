@@ -11,9 +11,10 @@ import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
+import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import classNames from 'classnames';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { DrawingEmbedState_v1, editorActiveAtom, embedStateAtom } from '../drawing-embed-editor/drawing-embed';
+import { DrawingEmbedState_v1, editorActiveAtom, embedStateAtom, type DrawingEditorControls_v1 } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
@@ -23,17 +24,17 @@ import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/fing
 ///////
 
 interface TldrawDrawingEditorProps_v1 {
-    onReady?: Function,
+    onReady?: () => void,
 	plugin: InkPlugin,
 	drawingFile: TFile,
 	save: (pageData: InkFileData_v1) => void,
-	extendedMenu?: any[]
+	extendedMenu?: MenuOption[]
 
 	// For embeds
 	embedded?: boolean,
 	resizeEmbed?: (pxWidthDiff: number, pxHeightDiff: number) => void,
-	closeEditor?: Function,
-	saveControlsReference?: Function,
+	closeEditor?: () => void,
+	saveControlsReference?: (controls: DrawingEditorControls_v1) => void,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -57,15 +58,15 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const setEmbedState = useSetAtom(embedStateAtom);
-	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const shortDelayPostProcessTimeoutRef = useRef<number>();
+	const longDelayPostProcessTimeoutRef = useRef<number>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	
 	// On mount
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
-		fetchFileData();
+		void fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
 		}
@@ -106,7 +107,7 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 
 		// Make visible once prepared
 		if(editorWrapperRefEl.current) {
-			editorWrapperRefEl.current.style.opacity = '1';
+			editorWrapperRefEl.current.classList.remove('ddc_ink_editor-wrapper--loading');
 		}
 
 		// Runs on any USER caused change to the store, (Anything wrapped in silently change method doesn't call this).
@@ -181,7 +182,7 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
     async function fetchFileData() {
         const inkFileData = await getInkFileData(props.drawingFile)
         if(inkFileData.tldraw) {
-            const snapshot = prepareDrawingSnapshot(inkFileData.tldraw as TLEditorSnapshot);
+            const snapshot = prepareDrawingSnapshot(inkFileData.tldraw);
             setTlEditorSnapshot(snapshot);
         }
     }
@@ -205,9 +206,9 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
 
-		shortDelayPostProcessTimeoutRef.current = setTimeout(
+		shortDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				incrementalSave(editor);
+				void incrementalSave(editor);
 			},
 			DRAW_SHORT_DELAY_MS
 		)
@@ -218,9 +219,9 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 	const longDelayInputPostProcess = (editor: Editor) => {
 		resetLongPostProcessTimer();
 
-		longDelayPostProcessTimeoutRef.current = setTimeout(
+		longDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				completeSave(editor);
+				void completeSave(editor);
 			},
 			DRAW_LONG_DELAY_MS
 		)
@@ -228,10 +229,10 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 	};
 
 	const resetShortPostProcessTimer = () => {
-		clearTimeout(shortDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(shortDelayPostProcessTimeoutRef.current);
 	}
 	const resetLongPostProcessTimer = () => {
-		clearTimeout(longDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(longDelayPostProcessTimeoutRef.current);
 	}
 	const resetInputPostProcessTimers = () => {
 		resetShortPostProcessTimer();
@@ -301,12 +302,12 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 		<div
 			ref = {editorWrapperRefEl}
 			className = {classNames([
-				"ddc_ink_drawing-editor"
+				"ddc_ink_drawing-editor",
+				"ddc_ink_editor-wrapper--loading",
 			])}
 			style = {{
 				height: '100%',
 				position: 'relative',
-				opacity: 0, // So it's invisible while it loads
 			}}
 		>
 			<TldrawEditor
@@ -337,10 +338,7 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 				/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
-						onLockClick = { async () => {
-							// TODO: Save immediately incase it hasn't been saved yet?
-							if(props.closeEditor) props.closeEditor();
-						}}
+						onLockClick = {() => void props.closeEditor?.()}
 						menuOptions = {customExtendedMenu}
 					/>
 				)}

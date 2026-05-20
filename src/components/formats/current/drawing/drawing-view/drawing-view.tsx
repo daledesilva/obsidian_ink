@@ -1,7 +1,8 @@
-import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { TextFileView, TFile, WorkspaceLeaf, FileView } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_V1_EXT } from "src/constants";
+import "./drawing-view.scss";
 import InkPlugin from "src/main";
 import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
 import { 
@@ -16,13 +17,14 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
+import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 
 ////////
 ////////
 
 export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 
-function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
+function getExtendedOptions(plugin: InkPlugin, fileRef: TFile): MenuOption[] {
     return [
         { separator: true },
         {
@@ -31,12 +33,12 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile) {
                 if (!fileRef) return;
                 new FileConversionModal(plugin, fileRef, 'inkWriting', {
                     onConversionComplete: (finalFile) => {
-                        if (finalFile) openInkFileInView(finalFile, 'inkWriting');
+                        if (finalFile) void openInkFileInView(finalFile, 'inkWriting');
                     },
                 }).open();
             }
         },
-    ]
+    ] as MenuOption[];
 }
 
 ////////
@@ -48,9 +50,8 @@ export function registerDrawingView (plugin: InkPlugin) {
     );
 
     // Helper function to check and add edit button for drawing files
-    async function checkAndAddEditButton(leaf: any, file: any) {
+    async function checkAndAddEditButton(leaf: WorkspaceLeaf, file: TFile) {
         if (!file || file.extension !== 'svg') return;
-        if (!leaf) return;
         
         const currentViewType = leaf.view?.getViewType?.();
         // Skip if already in our custom view
@@ -79,9 +80,10 @@ export function registerDrawingView (plugin: InkPlugin) {
     // Add edit button to SVG views that contain ink drawing data
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
-            const activeLeaf = plugin.app.workspace.activeLeaf;
-            if (activeLeaf) {
-                await checkAndAddEditButton(activeLeaf, file);
+            if (!file) return;
+            const targetLeaf = plugin.app.workspace.getMostRecentLeaf();
+            if (targetLeaf) {
+                await checkAndAddEditButton(targetLeaf, file);
             }
         })
     );
@@ -89,8 +91,9 @@ export function registerDrawingView (plugin: InkPlugin) {
     // Also check when a leaf becomes active (e.g., when navigating back)
     plugin.registerEvent(
         plugin.app.workspace.on('active-leaf-change', async (leaf) => {
-            const view = leaf?.view as any;
-            if (view?.file) {
+            if (!leaf) return;
+            const view = leaf.view;
+            if (view instanceof FileView && view.file) {
                 await checkAndAddEditButton(leaf, view.file);
             }
         })
@@ -138,7 +141,6 @@ export class DrawingView extends TextFileView {
         // Create a dedicated host for React to avoid conflicts with Obsidian lifecycle
         const host = viewContent.ownerDocument.createElement('div');
         host.className = 'ink-drawing-view-host';
-        host.style.height = '100%';
         viewContent.appendChild(host);
         this.hostEl = host;
 
@@ -162,11 +164,11 @@ export class DrawingView extends TextFileView {
                                     title: 'Erase all strokes?',
                                     message: 'This will remove all strokes from the canvas.',
                                     confirmLabel: 'Erase all',
-                                    confirmAction: () => this.editorControls?.eraseAll?.(),
+                                    confirmAction: () => void this.editorControls?.eraseAll?.(),
                                 }).open();
                             },
                         },
-                    ]}
+                    ] as MenuOption[]}
                     saveControlsReference = {this.registerEditorControls}
                 />
             </JotaiProvider>
@@ -194,7 +196,7 @@ export class DrawingView extends TextFileView {
 
     saveFile = (inkFileData: InkFileData) => {
         this.inkFileData = inkFileData;
-        this.save(false);   // Obsidian will call getViewData during this method
+        void this.save(false);   // Obsidian will call getViewData during this method
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
@@ -210,10 +212,14 @@ export class DrawingView extends TextFileView {
         // NOTE: Unmounting forces the store listeners in the React app to stop (Without that, old files can save data into new ones)
         try {
             if(this.root) this.root.unmount();
-        } catch (_) {}
+        } catch (_error) {
+			void _error;
+        }
         this.root = null;
         if(this.hostEl && this.hostEl.isConnected) {
-            try { this.hostEl.remove(); } catch (_) {}
+            try { this.hostEl.remove(); } catch (_error) {
+				void _error;
+			}
         }
         this.hostEl = null;
     }

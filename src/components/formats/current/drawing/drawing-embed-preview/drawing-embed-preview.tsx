@@ -8,7 +8,7 @@ import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { getGlobals } from 'src/stores/global-store';
-const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
+import emptyDrawingSvg from 'src/defaults/empty-drawing-embed.svg';
 
 //////////
 //////////
@@ -16,8 +16,8 @@ const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
 interface DrawingEmbedPreviewProps {
     embedId?: string,
     embeddedFile: TFile | null,
-    embedSettings: any,
-    onReady: Function,
+    embedSettings: unknown,
+    onReady: () => void,
 	onClick: React.MouseEventHandler,
 }
 
@@ -105,7 +105,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
 
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
-        setTimeout(() => {
+        window.setTimeout(() => {
             props.onReady();
         }, 100);
     }

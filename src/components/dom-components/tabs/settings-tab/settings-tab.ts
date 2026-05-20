@@ -30,7 +30,6 @@ export class MySettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 		
-		containerEl.createEl('h1').setText('Ink');
 		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
 		
 		containerEl.createEl('hr');
@@ -43,8 +42,14 @@ export class MySettingsTab extends PluginSettingTab {
 		let drawingSectionEl!: HTMLElement;
 
 		insertHighLevelSettings(containerEl, this.plugin,
-			(show) => { show ? writingSectionEl.classList.add('ddc_ink_expanded') : writingSectionEl.classList.remove('ddc_ink_expanded'); },
-			(show) => { show ? drawingSectionEl.classList.add('ddc_ink_expanded') : drawingSectionEl.classList.remove('ddc_ink_expanded'); },
+			(show) => {
+				if (show) writingSectionEl.classList.add('ddc_ink_expanded');
+				else writingSectionEl.classList.remove('ddc_ink_expanded');
+			},
+			(show) => {
+				if (show) drawingSectionEl.classList.add('ddc_ink_expanded');
+				else drawingSectionEl.classList.remove('ddc_ink_expanded');
+			},
 		);
 
 		// Turn this on when v0.5 is out of beta
@@ -67,9 +72,10 @@ export class MySettingsTab extends PluginSettingTab {
 						title: 'Please confirm',
 						message: 'Revert to default settings for Ink plugin?',
 						confirmLabel: 'Reset settings',
-						confirmAction: async () => {
-							await this.plugin.resetSettings();
-							this.display();
+						confirmAction: () => {
+							void this.plugin.resetSettings().then(() => {
+								this.display();
+							});
 						}
 					}).open();
 				})
@@ -96,17 +102,17 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		.setClass('ddc_ink_controls-header')
 		.setClass('ddc_ink_controls-header--clickable')
 		.setName('Getting started')
-		.setDesc('Tips for using Ink, Compatibility with other processes, and migrating from older versions.');
+		.setDesc('Tips for using Ink, compatibility with other processes, and migrating from older versions.');
 
 	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
 	arrowEl.setText('›');
 	if (isExpanded) arrowEl.classList.add('ddc_ink_expanded');
 
-	headerSetting.settingEl.addEventListener('click', async () => {
+	headerSetting.settingEl.addEventListener('click', () => {
 		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
 		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
 		plugin.settings.gettingStartedExpanded = expanded;
-		await plugin.saveSettings();
+		void plugin.saveSettings();
 	});
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
@@ -115,11 +121,11 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	const tipsSectionEl = contentEl.createDiv('ddc_ink_tips-section');
 	const tipsGridEl = tipsSectionEl.createDiv('ddc_ink_tips-grid');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian Settings" / "Core Plugins" or install and set up the community plugin "Slash Commander".`);
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pen Scribble');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "Sync all other types" in the Obsidian sync settings.`);
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "sync all other types" in the Obsidian Sync settings.`);
 
 	// Rewatch button
 	new Setting(contentEl)
@@ -207,7 +213,7 @@ function insertHighLevelSettings(
 	new Setting(containerEl)
 		.setClass('ddc_ink_setting')
 		.setName('Enable Boox companion app')
-		.setDesc('This enables connection to the Boox Companion app for passing through smoother pen strokes. This is currently only available for a closed group of testers.')
+		.setDesc('This enables connection to the Boox companion app for passing through smoother pen strokes. This is currently only available for a closed group of testers.')
 		.addToggle((toggle) => {
 			toggle.setValue(plugin.settings.booxConnectionEnabled);
 			toggle.onChange(async (value: boolean) => {
@@ -347,11 +353,11 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 				.addText((textItem) => {
 					textItem.setValue(plugin.settings.writingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
-					textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-						saveWritingFolder(textItem.getValue());
+					textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
+						void saveWritingFolder(textItem.getValue());
 					})
-					textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') saveWritingFolder(textItem.getValue());
+					textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
+						if(ev.key === 'Enter') void saveWritingFolder(textItem.getValue());
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -362,11 +368,11 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 				.addText((textItem) => {
 					textItem.setValue(plugin.settings.drawingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
-					textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-						saveDrawingFolder(textItem.getValue());
+					textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
+						void saveDrawingFolder(textItem.getValue());
 					})
-					textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') saveDrawingFolder(textItem.getValue());
+					textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
+						if(ev.key === 'Enter') void saveDrawingFolder(textItem.getValue());
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -382,7 +388,7 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Drawing')
-		.setDesc(`While editing a Markdown file, run the action 'Insert new hand drawn section' to embed a drawing canvas.`);
+		.setDesc(`While editing a Markdown file, run the action 'insert new hand drawn section' to embed a drawing canvas.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
@@ -497,17 +503,17 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			lineHeightTextComponent = textItem;
 			const currentValue = plugin.settings.writingLineHeight ?? DEFAULT_SETTINGS.writingLineHeight;
 			textItem.setValue(currentValue.toString());
-			textItem.inputEl.style.width = '4em';
-			textItem.inputEl.addEventListener('blur', async () => {
+			textItem.inputEl.classList.add('ddc_ink_line-height-input');
+			textItem.inputEl.addEventListener('blur', () => {
 				const parsed = parseInt(textItem.getValue());
 				const valueToApply = !isNaN(parsed) ? parsed : DEFAULT_SETTINGS.writingLineHeight;
-				await applyWritingLineHeight(valueToApply);
+				void applyWritingLineHeight(valueToApply);
 			});
-			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
+			textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
 				if (ev.key === 'Enter') {
 					const parsed = parseInt(textItem.getValue());
 					const valueToApply = !isNaN(parsed) ? parsed : DEFAULT_SETTINGS.writingLineHeight;
-					await applyWritingLineHeight(valueToApply);
+					void applyWritingLineHeight(valueToApply);
 				}
 			});
 		});
@@ -520,11 +526,11 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 		.addText((textItem) => {
 			textItem.setValue(plugin.settings.writingBufferLines.toString());
 			textItem.setPlaceholder(DEFAULT_SETTINGS.writingBufferLines.toString());
-			textItem.inputEl.addEventListener('blur', async () => {
-				saveWritingBufferLines(textItem.getValue());
+			textItem.inputEl.addEventListener('blur', () => {
+				void saveWritingBufferLines(textItem.getValue());
 			});
-			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-				if (ev.key === 'Enter') saveWritingBufferLines(textItem.getValue());
+			textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
+				if (ev.key === 'Enter') void saveWritingBufferLines(textItem.getValue());
 			});
 		});
 
@@ -537,11 +543,11 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 			textItem.setValue(plugin.settings.writingStrokeLimit.toString());
 			textItem.setPlaceholder(DEFAULT_SETTINGS.writingStrokeLimit.toString());
 			// TODO: Combine the blur and the enter into one abstracted and reusable function
-			textItem.inputEl.addEventListener('blur', async (ev: FocusEvent) => {
-				saveWritingStrokeLimit(textItem.getValue())
+			textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
+				void saveWritingStrokeLimit(textItem.getValue())
 			})
-			textItem.inputEl.addEventListener('keypress', async (ev: KeyboardEvent) => {
-				if(ev.key === 'Enter') saveWritingStrokeLimit(textItem.getValue())
+			textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
+				if(ev.key === 'Enter') void saveWritingStrokeLimit(textItem.getValue())
 			})
 		});
 	insertWritingLimitations(contentEl);
@@ -563,7 +569,7 @@ function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 	const headerSetting = new Setting(controlsEl)
 		.setClass('ddc_ink_controls-header')
 		.setClass('ddc_ink_controls-header--clickable')
-		.setName('This plugin is in Beta')
+		.setName('This plugin is in beta')
 		.setDesc('Always back up your files. Expand for details.');
 
 	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');

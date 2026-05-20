@@ -7,6 +7,13 @@ import { info, verbose } from "../../../../logic/utils/universal-dev-logging";
 import { WritingContainer_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container";
 import { WritingLines_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-lines";
 
+function narrowStoreRecordToShape(record: unknown): TLUnknownShape {
+	if (typeof record !== "object" || record === null) {
+		throw new Error("Ink: store update expected a shape record");
+	}
+	return record as TLUnknownShape;
+}
+
 //////////
 //////////
 
@@ -232,11 +239,10 @@ export function removeExtensionAndDotFromFilepath(filepath: string) {
 
 export function isEmptyWritingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	let isEmpty = true;
-	for (const record of Object.values(tlStoreSnapshot)) {
+	for (const record of Object.values(tlStoreSnapshot.store)) {
 		// Store should only contain document, page, and handwriting container shape
 		if (record.typeName === 'shape') {
-			const shapeRecord = record as TLShape;
-			if (shapeRecord.type !== 'writing-container') {
+			if (record.type !== 'writing-container') {
 				isEmpty = false;
 			}
 		}
@@ -246,7 +252,7 @@ export function isEmptyWritingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 
 export function isEmptyDrawingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	let isEmpty = true;
-	for (const record of Object.values(tlStoreSnapshot)) {
+	for (const record of Object.values(tlStoreSnapshot.store)) {
 		// Store should only contain document and page
 		if (record.typeName === 'shape') {
 			isEmpty = false;
@@ -299,8 +305,8 @@ export const useStash = (plugin: InkPlugin) => {
 			const record = completeShapes[i];
 			if (record.type !== 'draw') return;
 
-			staleShapeIds.push(record.id as TLShapeId);
-			staleShapes.push(record as TLShape);
+			staleShapeIds.push(record.id);
+			staleShapes.push(record);
 		}
 
 		stash.current.push(...staleShapes);
@@ -311,8 +317,8 @@ export const useStash = (plugin: InkPlugin) => {
 		try {
 			// REVIEW: This often throws an error on ipad. I'm not sure why.
 			if(staleShapeIds.length >= 5) showStrokeLimitTips_maybe(plugin);
-		} catch(error) {
-			verbose('Error from stashing stale content (when calling showStrokeLimitTips_maybe)', error);
+		} catch (caught: unknown) {
+			verbose(['Error from stashing stale content (when calling showStrokeLimitTips_maybe)', caught]);
 		}
 
 	};
@@ -500,22 +506,30 @@ export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEd
  * // TODO: This desperately needs unit testing as it can delete elements from the users file
  */
 export function deleteObsoleteWritingTemplateShapes(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
-	const updatedSnapshot = JSON.parse(JSON.stringify(TLEditorSnapshot));
-	
-	let obsoleteShapeIds: TLShapeId[] = [
+	type LegacyTLEditorSnapshot = TLEditorSnapshot & {
+		store?: TLStoreSnapshot["store"];
+	};
+
+	const updatedSnapshot: TLEditorSnapshot = JSON.parse(
+		JSON.stringify(TLEditorSnapshot),
+	) as TLEditorSnapshot;
+
+	const obsoleteShapeIds: TLShapeId[] = [
 		'shape:primary_container' as TLShapeId,	// From before version 0.1.192
 		'shape:handwriting_lines' as TLShapeId,	// From while testing
 	];
 
-	let updatedStore = TLEditorSnapshot?.document?.store;
-	if(!updatedStore) {
+	let updatedStore: TLStoreSnapshot["store"] | undefined = updatedSnapshot.document?.store;
+	if (!updatedStore) {
 		// Old format (Will update on save);
-		// @ts-ignore
-		updatedStore = TLEditorSnapshot.store;
+		updatedStore = (TLEditorSnapshot as LegacyTLEditorSnapshot).store;
 	}
-	
+	if (!updatedStore) {
+		return updatedSnapshot;
+	}
+
 	const filteredStore = Object.entries(updatedStore).filter(
-		([key, tlRecord]) => {
+		([_key, tlRecord]) => {
 			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);
 			if (isObsoleteObj) {
 				info(['Removing old ink elements to update file:', tlRecord])
@@ -524,7 +538,11 @@ export function deleteObsoleteWritingTemplateShapes(TLEditorSnapshot: TLEditorSn
 			return true
 		}
 	);
-	updatedStore = Object.fromEntries(filteredStore);
+	const newStore = Object.fromEntries(filteredStore) as TLStoreSnapshot["store"];
+	updatedSnapshot.document = {
+		...updatedSnapshot.document,
+		store: newStore,
+	};
 
 	return updatedSnapshot;
 }
@@ -565,7 +583,7 @@ export function unlockShape(editor: Editor, shape: TLUnknownShape) {
 
 	// NOTE: Unlocking directly in the store instead.
 	editor.store.update(shape.id, (record: TLUnknownShape) => {
-		const newRecord = JSON.parse(JSON.stringify(record));
+		const newRecord = JSON.parse(JSON.stringify(record)) as TLUnknownShape;
 		newRecord.isLocked = false;
 		return newRecord;
 	})
@@ -585,7 +603,7 @@ export function lockShape(editor: Editor, shape: TLUnknownShape) {
 
 	// NOTE: Locking directly in the store instead.
 	editor.store.update(shape.id, (record: TLUnknownShape) => {
-		const newRecord = JSON.parse(JSON.stringify(record));
+		const newRecord = JSON.parse(JSON.stringify(record)) as TLUnknownShape;
 		newRecord.isLocked = true;
 		return newRecord;
 	})

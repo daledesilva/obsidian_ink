@@ -20,8 +20,8 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, filePath: stri
                 await plugin.app.vault.createFolder(cascadePath);
                 debug(`Created path: ${cascadePath}`);
             }
-        } catch (e) {
-            error(`Couldn't create attachment folder for ${cascadePath}`, e);
+        } catch (e: unknown) {
+            error(`Couldn't create attachment folder for ${cascadePath}: ${e instanceof Error ? e.message : String(e)}`);
         }
 
         prevPath.push(folderName);

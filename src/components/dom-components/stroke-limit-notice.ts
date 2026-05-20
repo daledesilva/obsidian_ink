@@ -1,6 +1,5 @@
 import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
-import { clearTimeout } from 'timers';
 
 ///////////
 ///////////
@@ -11,13 +10,13 @@ export function showStrokeLimitTips_maybe(plugin: InkPlugin) {
     showStrokeLimitTips_debounced(plugin);
 }
 
-const tips_timeouts:  NodeJS.Timeout[] = [];
+const tips_timeouts: number[] = [];
 let tipsShowingOrDismissed: boolean = false;
 function showStrokeLimitTips_debounced(plugin: InkPlugin) {
     while(tips_timeouts.length > 0) {
-        clearTimeout(tips_timeouts.pop());
+        window.clearTimeout(tips_timeouts.pop());
     }
-    const newTimeout = setTimeout( () => {
+    const newTimeout = window.setTimeout( () => {
         showStrokeLimitTips(plugin)
     }, 5000);
     tips_timeouts.push(newTimeout);
@@ -75,7 +74,7 @@ function showFullStrokeLimitTip(plugin: InkPlugin) {
             notice.hide();
             tipsShowingOrDismissed = false;
             plugin.settings.onboardingTips.strokeLimitTipRead = true;
-            plugin.saveSettings();
+            void plugin.saveSettings();
         });
     }
     

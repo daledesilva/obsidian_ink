@@ -18,7 +18,7 @@ import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
-import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
+import { EmbedSettings } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
@@ -72,7 +72,9 @@ export class WritingEmbedWidget extends WidgetType {
                     writingFileRef={this.embeddedFile}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                     embedSettings={this.embedSettings}
-                    save={this.save}
+                    save={(pageData) => {
+                        void this.save(pageData);
+                    }}
                     remove={() => {
                         this.removeEmbed(view);
                     }}
@@ -81,8 +83,12 @@ export class WritingEmbedWidget extends WidgetType {
                     sourceMdFile={this.mdFile}
                     isPendingPaste={this.isPendingPaste}
                     resolveAsReference={() => this.resolveAsReference(view)}
-                    resolveAsDuplicate={() => this.resolveAsDuplicate(view)}
-                    locateFile={() => this.locateFile(view)}
+                    resolveAsDuplicate={() => {
+                        void this.resolveAsDuplicate(view);
+                    }}
+                    locateFile={() => {
+                        void this.locateFile(view);
+                    }}
                 />
             </JotaiProvider>
         );
@@ -127,7 +133,7 @@ export class WritingEmbedWidget extends WidgetType {
         
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const widgetStart = it.from;
                 const widgetEnd = it.to;
@@ -178,7 +184,7 @@ export class WritingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
                 view.dispatch(tr);
@@ -193,7 +199,7 @@ export class WritingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const from = it.from;
                 const to = it.to;
@@ -222,7 +228,7 @@ export class WritingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 // Replace the entire widget range with a fresh embed pointing to the duplicate
                 const newEmbedStr = buildWritingEmbed(duplicatedFile.path);
@@ -246,7 +252,7 @@ export class WritingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const from = it.from;
                 const to = it.to;
@@ -278,7 +284,7 @@ export class WritingEmbedWidget extends WidgetType {
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
-            const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
                 const from = it.from;
                 const to = it.to;
@@ -316,6 +322,15 @@ export class WritingEmbedWidget extends WidgetType {
     }
 }
 
+function writingEmbedWidgetFromDecoration(deco: Decoration): WritingEmbedWidget | undefined {
+    const specUnknown: unknown = deco.spec;
+    if (!specUnknown || typeof specUnknown !== 'object' || !('widget' in specUnknown)) {
+        return undefined;
+    }
+    const widgetCandidate: unknown = Reflect.get(specUnknown, 'widget');
+    return widgetCandidate instanceof WritingEmbedWidget ? widgetCandidate : undefined;
+}
+
 // State field to manage decorations
 const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<DecorationSet>({
     create(): DecorationSet {
@@ -343,7 +358,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         // Check for refresh effect and extract viewportFrom if present
         const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
         const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value as number | void;
+        const viewportFrom = refreshEffect?.value;
 
         if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
             return prevEmbeds;
@@ -371,7 +386,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
             ? { from: viewportFrom, enter: iterateCallback }
             : { enter: iterateCallback };
 
-        function iterateCallback(syntaxNodeRef: any): boolean | void {
+        function iterateCallback(syntaxNodeRef: SyntaxNodeRef): boolean | void {
             const mdFile = activeView?.file;
             if (!mdFile) return true;
 
@@ -454,7 +469,7 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
     
     const it = decorations.iter();
     while (it.value) {
-        const widget = it.value.spec?.widget as WritingEmbedWidget | undefined;
+        const widget = writingEmbedWidgetFromDecoration(it.value);
         if (widget) {
             const widgetStart = it.from;
             const widgetEnd = it.to;
@@ -484,7 +499,7 @@ function updateWidgetHighlightsWriting(transaction: Transaction, decorations: De
         let matchedWidget: WritingEmbedWidget | undefined;
         
         while (decorationsIter.value) {
-            const widget = decorationsIter.value.spec?.widget as WritingEmbedWidget | undefined;
+            const widget = writingEmbedWidgetFromDecoration(decorationsIter.value);
             if (widget) {
                 // Try to match this DOM element with the widget by checking if it's the same element
                 // We'll use a data attribute approach for better matching

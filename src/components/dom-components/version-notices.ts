@@ -29,15 +29,15 @@ function showChanges(plugin: InkPlugin) {
     noticeBody.createEl('h1').setText(`Changes in Ink v0.4.0`);
     const listEl = noticeBody.createEl('ul');
     listEl.createEl('li').setText(`Scrolling is now possible while embeds are unlocked.`);
-    listEl.createEl('li').setText(`All writing and drawing files are now saved as SVGs. This means they'll work even if Ink is uninstalled and even outside of Obsidian.`);
-    listEl.createEl('li').setText(`Reading mode is now fixed (Though the styling is still a work in progress).`);
-    listEl.createEl('li').setText(`If you edit an Ink file, any embed of the file will update automatically.`);
+    listEl.createEl('li').setText(`All writing and drawing files are now saved as svgs. This means they'll work even if ink is uninstalled and even outside of Obsidian.`);
+    listEl.createEl('li').setText(`Reading mode is now fixed (though the styling is still a work in progress).`);
+    listEl.createEl('li').setText(`If you edit an ink file, any embed of the file will update automatically.`);
     listEl.createEl('li').setText(`Long pages with multiple embeds should now work much more fluidly.`);
     listEl.createEl('li').setText(`Inserting existing embeds will now give you a visual preview of the files.`);
     
     noticeBody.createEl('h2').setText(`Broken`);
     const listEl2 = noticeBody.createEl('ul');
-    listEl2.createEl('li').setText(`Drawing with your finger is no longer support for now (To allow for scrolling).`);
+    listEl2.createEl('li').setText(`Drawing with your finger is no longer support for now (to allow for scrolling).`);
     
     const link = noticeBody.createEl('a');
     link.setAttribute('href', 'https://youtu.be/2arL1jh8ihA')
@@ -57,7 +57,7 @@ function showChanges(plugin: InkPlugin) {
         tertiaryBtnEl.addEventListener('click', () => {
             notice.hide();
             plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
-            plugin.saveSettings();
+            void plugin.saveSettings();
         });
     }
     

@@ -20,7 +20,7 @@ export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile,
     const v = plugin.app.vault;
 
     // console.log('saving transcript to', fileRef.path);
-    const pageDataStr = await v.read(fileRef as TFile);
+    const pageDataStr = await v.read(fileRef);
     const pageData = JSON.parse(pageDataStr) as InkFileData_v1;
 
     // TODO: Add in a date of the transcript

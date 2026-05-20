@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "strictNullChecks": true,
     "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
     "lib": [
       "DOM", "dom.iterable",
       "ES5",

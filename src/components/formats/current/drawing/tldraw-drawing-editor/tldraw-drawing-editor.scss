@@ -46,3 +46,41 @@
     //     stroke-width: 2px;
     // }
 }
+
+/////////
+// Embed pan/zoom cursor hints (classes toggled on `.tl-container`)
+
+.tl-container {
+    &.ink-tldraw-pan-cursor--grab {
+        cursor: grab;
+    }
+
+    &.ink-tldraw-pan-cursor--grabbing {
+        cursor: grabbing;
+    }
+
+    &.ink-tldraw-pan-cursor--ns-resize {
+        cursor: ns-resize;
+    }
+}
+
+.ddc_ink_drawing-editor.ddc_ink_editor-wrapper--loading {
+    opacity: 0;
+}
+
+.ink-debug-drawing-area-overlay {
+    position: fixed;
+    box-shadow: inset 0 0 0 5px rgba(255, 0, 0, 0.2);
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.ink-debug-stroke-dot {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background-color: red;
+    pointer-events: none;
+    z-index: 9999;
+}

@@ -84,7 +84,7 @@ export class DrawingView_v1 extends TextFileView {
 
     saveFile = (pageData: InkFileData_v1) => {
         this.pageData = pageData;
-        this.save(false);   // Obsidian will call getViewData during this method
+        void this.save(false);   // Obsidian will call getViewData during this method
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)

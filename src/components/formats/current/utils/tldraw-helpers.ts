@@ -8,6 +8,13 @@ import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
 import { getGlobals } from "src/stores/global-store";
 
+function narrowStoreRecordToShape(record: unknown): TLUnknownShape {
+	if (typeof record !== "object" || record === null) {
+		throw new Error("Ink: store update expected a shape record");
+	}
+	return record as TLUnknownShape;
+}
+
 //////////
 //////////
 
@@ -189,9 +196,9 @@ export function startCameraSettleRaf(
 			stableFrames++;
 		}
 		if (stableFrames >= SETTLE_FRAMES_NEEDED && totalFrames >= MIN_FRAMES_BEFORE_SETTLE) return;
-		rafHandle = requestAnimationFrame(checkAndReposition);
+		rafHandle = window.requestAnimationFrame(checkAndReposition);
 	};
-	rafHandle = requestAnimationFrame(checkAndReposition);
+	rafHandle = window.requestAnimationFrame(checkAndReposition);
 	return () => cancelAnimationFrame(rafHandle);
 }
 
@@ -223,9 +230,9 @@ export function startCameraResizeObserver(
 			} else {
 				stableFrames++;
 			}
-			if (stableFrames < STABLE_FRAMES_NEEDED) rafHandle = requestAnimationFrame(tick);
+			if (stableFrames < STABLE_FRAMES_NEEDED) rafHandle = window.requestAnimationFrame(tick);
 		};
-		rafHandle = requestAnimationFrame(tick);
+		rafHandle = window.requestAnimationFrame(tick);
 	};
 
 	const observer = new ResizeObserver(() => {
@@ -335,11 +342,10 @@ export function removeExtensionAndDotFromFilepath(filepath: string) {
 
 export function isEmptyWritingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	let isEmpty = true;
-	for (const record of Object.values(tlStoreSnapshot)) {
+	for (const record of Object.values(tlStoreSnapshot.store)) {
 		// Store should only contain document, page, and handwriting container shape
 		if (record.typeName === 'shape') {
-			const shapeRecord = record as TLShape;
-			if (shapeRecord.type !== 'writing-container') {
+			if (record.type !== 'writing-container') {
 				isEmpty = false;
 			}
 		}
@@ -349,7 +355,7 @@ export function isEmptyWritingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 
 export function isEmptyDrawingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	let isEmpty = true;
-	for (const record of Object.values(tlStoreSnapshot)) {
+	for (const record of Object.values(tlStoreSnapshot.store)) {
 		// Store should only contain document and page
 		if (record.typeName === 'shape') {
 			isEmpty = false;
@@ -402,8 +408,8 @@ export const useStash = (plugin: InkPlugin) => {
 			const record = completeShapes[i];
 			if (record.type !== 'draw') return;
 
-			staleShapeIds.push(record.id as TLShapeId);
-			staleShapes.push(record as TLShape);
+			staleShapeIds.push(record.id);
+			staleShapes.push(record);
 		}
 
 		stash.current.push(...staleShapes);
@@ -414,8 +420,8 @@ export const useStash = (plugin: InkPlugin) => {
 		try {
 			// REVIEW: This often throws an error on ipad. I'm not sure why.
 			if(staleShapeIds.length >= 5) showStrokeLimitTips_maybe(plugin);
-		} catch(error) {
-			verbose('Error from stashing stale content (when calling showStrokeLimitTips_maybe)', error);
+		} catch (caught: unknown) {
+			verbose(['Error from stashing stale content (when calling showStrokeLimitTips_maybe)', caught]);
 		}
 
 	};
@@ -450,11 +456,14 @@ export const hideWritingContainer = (editor: Editor) => {
 		unlockShape(editor, writingContainerShape);
 		// editor.updateShape() is silently ignored when isReadonly is true,
 		// so update the store directly instead.
-		editor.store.update(writingContainerShape.id, (record: any) => ({
-			...record,
-			props: { ...record.props, h: 0 },
-			meta: { ...record.meta, savedH: savedH },
-		}));
+		editor.store.update(writingContainerShape.id, (record: TLUnknownShape) => {
+			const prev = narrowStoreRecordToShape(record);
+			return {
+				...prev,
+				props: { ...prev.props, h: 0 },
+				meta: { ...prev.meta, savedH: savedH },
+			};
+		});
 		lockShape(editor, writingContainerShape);
 	});
 }
@@ -469,11 +478,14 @@ export const hideWritingLines = (editor: Editor) => {
 		unlockShape(editor, writingLinesShape);
 		// editor.updateShape() is silently ignored when isReadonly is true,
 		// so update the store directly instead.
-		editor.store.update(writingLinesShape.id, (record: any) => ({
-			...record,
-			props: { ...record.props, h: 0 },
-			meta: { ...record.meta, savedH: savedH },
-		}));
+		editor.store.update(writingLinesShape.id, (record: TLUnknownShape) => {
+			const prev = narrowStoreRecordToShape(record);
+			return {
+				...prev,
+				props: { ...prev.props, h: 0 },
+				meta: { ...prev.meta, savedH: savedH },
+			};
+		});
 		lockShape(editor, writingLinesShape);
 	});
 }
@@ -488,9 +500,14 @@ export const unhideWritingContainer = (editor: Editor) => {
 		unlockShape(editor, writingContainerShape);
 		// editor.updateShape() is silently ignored when isReadonly is true,
 		// so update the store directly instead.
-		editor.store.update(writingContainerShape.id, (record: any) => {
-			const { savedH: _, ...restMeta } = record.meta;
-			return { ...record, props: { ...record.props, h: h }, meta: restMeta };
+		editor.store.update(writingContainerShape.id, (record: TLUnknownShape) => {
+			const prev = narrowStoreRecordToShape(record);
+			const metaBase =
+				prev.meta && typeof prev.meta === "object" && !Array.isArray(prev.meta)
+					? { ...(prev.meta as Record<string, unknown>) }
+					: {};
+			const { savedH: _discardSavedHeight, ...restMeta } = metaBase;
+			return { ...prev, props: { ...prev.props, h: h }, meta: restMeta } as TLUnknownShape;
 		});
 		lockShape(editor, writingContainerShape);
 	});
@@ -506,9 +523,14 @@ export const unhideWritingLines = (editor: Editor) => {
 		unlockShape(editor, writingLinesShape);
 		// editor.updateShape() is silently ignored when isReadonly is true,
 		// so update the store directly instead.
-		editor.store.update(writingLinesShape.id, (record: any) => {
-			const { savedH: _, ...restMeta } = record.meta;
-			return { ...record, props: { ...record.props, h: h }, meta: restMeta };
+		editor.store.update(writingLinesShape.id, (record: TLUnknownShape) => {
+			const prev = narrowStoreRecordToShape(record);
+			const metaBase =
+				prev.meta && typeof prev.meta === "object" && !Array.isArray(prev.meta)
+					? { ...(prev.meta as Record<string, unknown>) }
+					: {};
+			const { savedH: _discardSavedHeight, ...restMeta } = metaBase;
+			return { ...prev, props: { ...prev.props, h: h }, meta: restMeta } as TLUnknownShape;
 		});
 		lockShape(editor, writingLinesShape);
 	});
@@ -615,22 +637,30 @@ export function prepareDrawingSnapshot(tlEditorSnapshot: TLEditorSnapshot): TLEd
  * // TODO: This desperately needs unit testing as it can delete elements from the users file
  */
 export function deleteObsoleteWritingTemplateShapes(TLEditorSnapshot: TLEditorSnapshot): TLEditorSnapshot {
-	const updatedSnapshot = JSON.parse(JSON.stringify(TLEditorSnapshot));
-	
-	let obsoleteShapeIds: TLShapeId[] = [
+	type LegacyTLEditorSnapshot = TLEditorSnapshot & {
+		store?: TLStoreSnapshot["store"];
+	};
+
+	const updatedSnapshot: TLEditorSnapshot = JSON.parse(
+		JSON.stringify(TLEditorSnapshot),
+	) as TLEditorSnapshot;
+
+	const obsoleteShapeIds: TLShapeId[] = [
 		'shape:primary_container' as TLShapeId,	// From before version 0.1.192
 		'shape:handwriting_lines' as TLShapeId,	// From while testing
 	];
 
-	let updatedStore = TLEditorSnapshot?.document?.store;
-	if(!updatedStore) {
+	let updatedStore: TLStoreSnapshot["store"] | undefined = updatedSnapshot.document?.store;
+	if (!updatedStore) {
 		// Old format (Will update on save);
-		// @ts-ignore
-		updatedStore = TLEditorSnapshot.store;
+		updatedStore = (TLEditorSnapshot as LegacyTLEditorSnapshot).store;
 	}
-	
+	if (!updatedStore) {
+		return updatedSnapshot;
+	}
+
 	const filteredStore = Object.entries(updatedStore).filter(
-		([key, tlRecord]) => {
+		([_key, tlRecord]) => {
 			const isObsoleteObj = obsoleteShapeIds.some((obsId) => tlRecord.id === obsId);
 			if (isObsoleteObj) {
 				info(['Removing old ink elements to update file:', tlRecord])
@@ -639,7 +669,11 @@ export function deleteObsoleteWritingTemplateShapes(TLEditorSnapshot: TLEditorSn
 			return true
 		}
 	);
-	updatedStore = Object.fromEntries(filteredStore);
+	const newStore = Object.fromEntries(filteredStore) as TLStoreSnapshot["store"];
+	updatedSnapshot.document = {
+		...updatedSnapshot.document,
+		store: newStore,
+	};
 
 	return updatedSnapshot;
 }
@@ -680,7 +714,7 @@ export function unlockShape(editor: Editor, shape: TLUnknownShape) {
 
 	// NOTE: Unlocking directly in the store instead.
 	editor.store.update(shape.id, (record: TLUnknownShape) => {
-		const newRecord = JSON.parse(JSON.stringify(record));
+		const newRecord = JSON.parse(JSON.stringify(record)) as TLUnknownShape;
 		newRecord.isLocked = false;
 		return newRecord;
 	})
@@ -700,7 +734,7 @@ export function lockShape(editor: Editor, shape: TLUnknownShape) {
 
 	// NOTE: Locking directly in the store instead.
 	editor.store.update(shape.id, (record: TLUnknownShape) => {
-		const newRecord = JSON.parse(JSON.stringify(record));
+		const newRecord = JSON.parse(JSON.stringify(record)) as TLUnknownShape;
 		newRecord.isLocked = true;
 		return newRecord;
 	})
@@ -729,7 +763,7 @@ interface svgObj {
 };
 
 export async function getWritingSvg(editor: Editor, curHeight?: number | null): Promise<svgObj | undefined> {
-	console.log('[ink] getWritingSvg');
+	console.debug('[ink] getWritingSvg');
 	let svgObj: undefined | svgObj;
 	resizeWritingTemplateTightly(editor);
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
@@ -815,7 +849,21 @@ export function simplifyWritingLines(editor: Editor, entry: HistoryEntry<TLRecor
  */
 export function getLineHeightFromEditor(editor: Editor): number {
 	const documentRecord = editor.store.get('document:document' as TLShapeId);
-	const storedLineHeight = (documentRecord as any)?.meta?.writingLineHeight;
+	// REVIEW: Risky automated changes below. Monitor this.
+	if (!documentRecord) {
+		return WRITING_LINE_HEIGHT;
+	}
+	const meta = (documentRecord as { meta?: unknown }).meta;
+	if (meta == null || typeof meta !== 'object' || Array.isArray(meta)) {
+		return WRITING_LINE_HEIGHT;
+	}
+	if (!('writingLineHeight' in meta)) {
+		return WRITING_LINE_HEIGHT;
+	}
+	const storedLineHeight =
+		"writingLineHeight" in meta
+			? (meta as Record<string, unknown>).writingLineHeight
+			: undefined;
 	const isValidLineHeight = typeof storedLineHeight === 'number' && storedLineHeight > 0;
 	if (isValidLineHeight) return storedLineHeight;
 	return WRITING_LINE_HEIGHT;
@@ -851,7 +899,7 @@ export function getInvitingWritingBounds(editor: Editor): Box | null {
 	if (!contentBounds) return null;
 	const lineHeight = getLineHeightFromEditor(editor);
 	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightInvitingly(contentBounds.h, plugin.settings.writingBufferLines, lineHeight));
-	console.log('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
+	console.debug('[ink] getInvitingWritingBounds invitingWritingBounds', newContentBounds);
 	return newContentBounds;
 }
 
@@ -862,7 +910,7 @@ export function getTightWritingBounds(editor: Editor): Box | null {
 	if (!contentBounds) return null;
 	const lineHeight = getLineHeightFromEditor(editor);
 	const newContentBounds = new Box(contentBounds.x, contentBounds.y, contentBounds.w, cropWritingStrokeHeightTightly(contentBounds.h, lineHeight));
-	console.log('[ink] getTightWritingBounds tightWritingBounds', newContentBounds);
+	console.debug('[ink] getTightWritingBounds tightWritingBounds', newContentBounds);
 	return newContentBounds;
 }
 
@@ -884,14 +932,20 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 
 		// editor.updateShape() is silently ignored when isReadonly is true,
 		// so update the store directly instead.
-		editor.store.update(writingContainerShape.id, (record: any) => ({
-			...record,
-			props: { ...record.props, h: contentBounds.h },
-		}));
-		editor.store.update(writingLinesShape.id, (record: any) => ({
-			...record,
-			props: { ...record.props, h: contentBounds.h },
-		}));
+		editor.store.update(writingContainerShape.id, (record: TLUnknownShape) => {
+			const prev = narrowStoreRecordToShape(record);
+			return {
+				...prev,
+				props: { ...prev.props, h: contentBounds.h },
+			};
+		});
+		editor.store.update(writingLinesShape.id, (record: TLUnknownShape) => {
+			const prev = narrowStoreRecordToShape(record);
+			return {
+				...prev,
+				props: { ...prev.props, h: contentBounds.h },
+			};
+		});
 
 		lockShape(editor, writingContainerShape);
 		lockShape(editor, writingLinesShape);
@@ -918,7 +972,7 @@ export function resizeWritingTemplate(editor: Editor, contentBounds: Box) {
 export const resizeWritingTemplateInvitingly = (
 	editor: Editor,
 ): number | null => {
-	console.log('[ink] resizeWritingTemplateInvitingly');
+	console.debug('[ink] resizeWritingTemplateInvitingly');
 	const contentBounds = getInvitingWritingBounds(editor);
 	if (!contentBounds) return null;
 	resizeWritingTemplate(editor, contentBounds);
@@ -956,7 +1010,7 @@ export const resizeWritingTemplateInvitinglyIfNecessary = (
 	editor: Editor,
 	curHeight: number | null
 ): number | null => {
-	console.log('[ink] resizeWritingTemplateInvitinglyIfNecessary');
+	console.debug('[ink] resizeWritingTemplateInvitinglyIfNecessary');
 	const contentBounds = getInvitingWritingBounds(editor);
 	if (!contentBounds) {
 		info('NO contentBounds, returning null');
@@ -991,7 +1045,7 @@ export const resizeWritingTemplateInvitinglyIfNecessary = (
  */
 export const resizeWritingTemplateTightly = (editor: Editor) => {
 	verbose('resizeWritingTemplateTightly')
-	console.log('[ink] resizeWritingTemplateTightly');
+	console.debug('[ink] resizeWritingTemplateTightly');
 	const contentBounds = getTightWritingBounds(editor);
 	if (!contentBounds) return;
 	resizeWritingTemplate(editor, contentBounds);
@@ -1009,9 +1063,10 @@ export function extendWritingTemplateToFillViewport(editor: Editor, topReservedP
 	// Include 10 extra line heights so lines cover the full scrollable area past the viewport
 	const availablePageHeight = (viewportHeight - topReservedPx) / zoom + 10 * lineHeight;
 
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines | undefined;
-	if (!writingLinesShape) return null;
-	if (writingLinesShape.props.h >= availablePageHeight) return null;
+	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId);
+	if (!writingLinesShape || writingLinesShape.type !== 'writing-lines') return null;
+	const writingLinesHeight = (writingLinesShape as WritingLines).props.h;
+	if (writingLinesHeight >= availablePageHeight) return null;
 
 	resizeWritingTemplate(editor, new Box(0, 0, WRITING_PAGE_WIDTH, availablePageHeight));
 	return availablePageHeight;
@@ -1041,8 +1096,9 @@ export function resizeWritingTemplateForDedicatedView(editor: Editor): number | 
 
 	const targetHeight = Math.max(minFromViewport, minFromContent);
 
-	const writingLinesShape = editor.getShape('shape:writing-lines' as TLShapeId) as WritingLines | undefined;
-	if (!writingLinesShape) return null;
+	const writingLinesRaw = editor.getShape('shape:writing-lines' as TLShapeId);
+	if (!writingLinesRaw || writingLinesRaw.type !== 'writing-lines') return null;
+	const writingLinesShape = writingLinesRaw as WritingLines;
 	// Never shrink
 	if (writingLinesShape.props.h >= targetHeight) return writingLinesShape.props.h;
 

@@ -7,14 +7,14 @@ import { TFile } from 'obsidian';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { DrawingEmbedState_v1, embedStateAtom, previewActiveAtom } from '../drawing-embed-editor/drawing-embed';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
-const emptyDrawingSvg = require('src/defaults/empty-drawing-embed.svg');
+import emptyDrawingSvg from 'src/defaults/empty-drawing-embed.svg';
 
 //////////
 //////////
 
 interface DrawingEmbedPreviewProps_v1 {
     plugin: InkPlugin,
-    onReady: Function,
+    onReady: () => void,
     drawingFile: TFile,
 	onClick: React.MouseEventHandler,
 }
@@ -40,7 +40,7 @@ export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (pr
 
     React.useEffect(() => {
         //console.log('PREVIEW mounted');
-        fetchFileData();
+        void fetchFileData();
         return () => {
             //console.log('PREVIEW unmounting');
         }
@@ -103,7 +103,7 @@ export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (pr
 
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
-        setTimeout(() => {
+        window.setTimeout(() => {
             //console.log('--------------- SET EMBED STATE TO preview')
             setEmbedState(DrawingEmbedState_v1.preview);
             props.onReady();

@@ -5,10 +5,8 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
 import { buildWritingEmbed, buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const emptyWritingSvgStr: string = require('src/defaults/empty-writing-embed.svg');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const emptyDrawingSvgStr: string = require('src/defaults/empty-drawing-embed.svg');
+import emptyDrawingSvgStr from "src/defaults/empty-drawing-embed.svg";
+import emptyWritingSvgStr from "src/defaults/empty-writing-embed.svg";
 
 ////////
 ////////
@@ -53,9 +51,13 @@ export function findLegacyEmbedBlocks(markdownContent: string): LegacyEmbedBlock
 			: 'drawing';
 
 		try {
-			const data = JSON.parse(jsonContent);
-			if (typeof data.filepath === 'string' && data.filepath.length > 0) {
-				results.push({ fullMatch, embedType, filepath: data.filepath });
+			const parsed: unknown = JSON.parse(jsonContent);
+			if (typeof parsed === 'object' && parsed !== null) {
+				const embedRecord = parsed as Record<string, unknown>;
+				const filepathValue = embedRecord['filepath'];
+				if (typeof filepathValue === 'string' && filepathValue.length > 0) {
+					results.push({ fullMatch, embedType, filepath: filepathValue });
+				}
 			}
 		} catch (_) {
 			// Malformed JSON – skip
@@ -235,9 +237,10 @@ export async function executeMigration(
 			await vault.create(entry.newSvgPath, svgStr);
 			await vault.delete(entry.legacyFile);
 			result.convertedFiles++;
-		} catch (err: any) {
-			logToVault('Migration file error: ' + entry.legacyFile.path + ' – ' + (err?.message ?? String(err)));
-			result.failed.push(entry.legacyFile.path + ': ' + (err?.message ?? String(err)));
+		} catch (err: unknown) {
+			const errMessage = err instanceof Error ? err.message : String(err);
+			logToVault('Migration file error: ' + entry.legacyFile.path + ' – ' + errMessage);
+			result.failed.push(entry.legacyFile.path + ': ' + errMessage);
 		}
 
 		done++;
@@ -262,8 +265,9 @@ export async function executeMigration(
 		await vault.modify(note, content);
 		result.updatedNotes++;
 		result.updatedNotePaths.push(note.path);
-		} catch (err: any) {
-			result.failed.push(note.path + ': ' + (err?.message ?? String(err)));
+		} catch (err: unknown) {
+			const errMessage = err instanceof Error ? err.message : String(err);
+			result.failed.push(note.path + ': ' + errMessage);
 		}
 
 		done++;

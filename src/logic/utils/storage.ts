@@ -3,15 +3,18 @@ import { PLUGIN_KEY } from "src/constants";
 /////////
 /////////
 
+/** Uses Obsidian popout-compatible host window; avoids the restricted `localStorage` global identifier. */
+const vaultKeyedStorage = (): Storage => window.activeWindow.localStorage;
+
 export const saveLocally = (key: string, value: string | boolean) => {
     if(typeof value === 'boolean') {
         value = value.toString();
     }
-    localStorage.setItem(`${PLUGIN_KEY}_${key}`, value);
+    vaultKeyedStorage().setItem(`${PLUGIN_KEY}_${key}`, value);
 }
 
 export const fetchLocally = (key: string) => {
-    let value: null | string | boolean = localStorage.getItem(`${PLUGIN_KEY}_${key}`);
+    let value: null | string | boolean = vaultKeyedStorage().getItem(`${PLUGIN_KEY}_${key}`);
     if(value === null) return null;
     if(value === 'true') value = true;
     if(value === 'false') value = false;
@@ -19,7 +22,7 @@ export const fetchLocally = (key: string) => {
 }
 
 export const deleteLocally = (key: string) => {
-    localStorage.removeItem(`${PLUGIN_KEY}_${key}`);
+    vaultKeyedStorage().removeItem(`${PLUGIN_KEY}_${key}`);
 }
 
 export const activateNextEmbed = () => {
@@ -41,9 +44,9 @@ export const fetchRecentFilePaths = (fileType: 'inkWriting' | 'inkDrawing'): str
     const raw = fetchLocally(key);
     if (typeof raw !== 'string') return [];
     try {
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed.filter((item): item is string => typeof item === 'string').slice(0, RECENT_PATHS_MAX_LENGTH);
+        const parsedUnknown: unknown = JSON.parse(raw);
+        if (!Array.isArray(parsedUnknown)) return [];
+        return parsedUnknown.filter((item): item is string => typeof item === 'string').slice(0, RECENT_PATHS_MAX_LENGTH);
     } catch {
         return [];
     }

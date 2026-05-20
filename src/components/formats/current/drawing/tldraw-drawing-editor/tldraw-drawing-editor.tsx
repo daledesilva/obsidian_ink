@@ -11,6 +11,7 @@ import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import DrawingMenu from 'src/components/jsx-components/drawing-menu/drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
+import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import classNames from 'classnames';
 import { useAtomValue } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
@@ -21,7 +22,7 @@ import { getGlobals } from 'src/stores/global-store';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
-import { embedsInEditModeAtom_v2 } from '../drawing-embed/drawing-embed';
+import { embedsInEditModeAtom_v2, type DrawingEditorControls } from '../drawing-embed/drawing-embed';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { syncUnifiedUndoHistory, initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { getRegisteredEmbedCountForLeaf, register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
@@ -29,6 +30,26 @@ import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/lo
 import { getObsidianUndoDepthForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { getTldrawNumUndos } from 'src/logic/undo-redo/tldraw-undo-depth';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
+
+const TLDRAW_PAN_CURSOR_CLASS_NAMES = [
+	'ink-tldraw-pan-cursor--grab',
+	'ink-tldraw-pan-cursor--grabbing',
+	'ink-tldraw-pan-cursor--ns-resize',
+] as const;
+
+function clearTldrawEmbedPanCursorClasses(tlContainer: HTMLElement) {
+	tlContainer.classList.remove(...TLDRAW_PAN_CURSOR_CLASS_NAMES);
+}
+
+function setTldrawEmbedPanCursor(
+	tlContainer: HTMLElement,
+	cursor: 'grab' | 'grabbing' | 'ns-resize' | null,
+) {
+	clearTldrawEmbedPanCursorClasses(tlContainer);
+	if (cursor === 'grab') tlContainer.classList.add('ink-tldraw-pan-cursor--grab');
+	else if (cursor === 'grabbing') tlContainer.classList.add('ink-tldraw-pan-cursor--grabbing');
+	else if (cursor === 'ns-resize') tlContainer.classList.add('ink-tldraw-pan-cursor--ns-resize');
+}
 
 /** Boox stroke payload in canvas-relative coordinates */
 interface CanvasRelativeStrokePoint {
@@ -49,7 +70,7 @@ function agentDrawingBridgeLog(
 	message: string,
 	data: Record<string, unknown>,
 ): void {
-	console.log('[InkBridgeDebug]', message, data);
+	console.debug('[InkBridgeDebug]', message, data);
 	inkDebugLog({ hypothesisId, location, message, data, runId: AGENT_DEBUG_RUN_ID });
 }
 
@@ -244,13 +265,13 @@ function buildDrawingMisalignmentRectAudit(data: {
 ///////
 
 interface TldrawDrawingEditor_Props {
-    onReady?: Function,
+    onReady?: () => void,
 	/** Owning workspace leaf; empty string if unresolved (embed unified undo skipped). */
 	workspaceLeafId: string,
 	embedId?: string,
 	drawingFile: TFile,
 	save: (pageData: InkFileData) => void,
-	extendedMenu?: any[]
+	extendedMenu?: MenuOption[]
 
 	// For embeds
 	embedded?: boolean,
@@ -258,9 +279,9 @@ interface TldrawDrawingEditor_Props {
 	onResizeStart?: () => void,
 	onResizeEnd?: () => void,
 	applyEmbedDimensions?: (width: number, aspectRatio: number) => void,
-	closeEditor?: Function,
-	saveControlsReference?: Function,
-	onOpenInDedicatedView?: Function,
+	closeEditor?: () => void,
+	saveControlsReference?: (controls: DrawingEditorControls) => void,
+	onOpenInDedicatedView?: () => void,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -285,11 +306,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const dominantHand = useDominantHand();
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
-	const shortDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
-	const longDelayPostProcessTimeoutRef = useRef<NodeJS.Timeout>();
+	const shortDelayPostProcessTimeoutRef = useRef<number>();
+	const longDelayPostProcessTimeoutRef = useRef<number>();
 	const tlEditorRef = useRef<Editor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
-	const adjustThrottleRef = useRef<NodeJS.Timeout | null>(null);
+	const adjustThrottleRef = useRef<number | null>(null);
 	const websocketConnectedRef = useRef(false);
 	// Tracks whether the host view is currently the active leaf. False while the view is
 	// hidden (e.g. user navigated back); prevents stale adjustment sends reaching the Bridge.
@@ -297,7 +318,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	// Minimal async boundary: ensures the synchronous close-drawing-area from the departing
 	// view is always enqueued before we send new-drawing-area. setTimeout(fn, 0) is sufficient
 	// since both active-leaf-change listeners fire in the same tick — any macrotask delay wins.
-	const setBooxOverlayActiveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const setBooxOverlayActiveTimerRef = useRef<number | null>(null);
 	// Set when overlay creation was attempted but getBoundingClientRect() returned zero dims
 	// (DOM still laying out). The ResizeObserver callback retries once dims are non-zero.
 	const pendingNewOverlayRef = useRef<boolean>(false);
@@ -320,7 +341,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	React.useEffect( ()=> {
 		verbose('EDITOR mounted');
 		logToVault('Drawing editor mounted: ' + props.drawingFile.path + (props.embedded ? ' [embed]' : ' [dedicated]'));
-		fetchFileData();
+		void fetchFileData();
 		return () => {
 			verbose('EDITOR unmounting');
 			logToVault('Drawing editor unmounted: ' + props.drawingFile.path);
@@ -376,8 +397,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				if (!websocketConnectedRef.current) return;
 				// Use setTimeout(fn, 0) as a minimal async boundary — ensures any synchronous
 				// close-drawing-area from a departing session is enqueued before we open a new one.
-				if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
-				setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+				if (setBooxOverlayActiveTimerRef.current) window.clearTimeout(setBooxOverlayActiveTimerRef.current);
+				setBooxOverlayActiveTimerRef.current = window.setTimeout(() => {
 					setBooxOverlayActiveTimerRef.current = null;
 					if (!websocketConnectedRef.current) return;
 					activateDrawingSessionRef.current?.();
@@ -406,8 +427,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			websocketConnectedRef.current = false;
 			pendingNewOverlayRef.current = false;
 			if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
-			if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
-			if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+			if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
+			if (setBooxOverlayActiveTimerRef.current) window.clearTimeout(setBooxOverlayActiveTimerRef.current);
 			activateDrawingSessionRef.current = null;
 			// Don't call sendCloseDrawingArea here — the unregister callback in
 			// BooxConnection handles it once the last session unregisters, so we
@@ -521,7 +542,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		// Dedicated view: WebSocket often opens before tldraw mounts, so the first
 		// new-drawing-area used the wrapper rect. Push an update using `.tl-canvas` now.
 		if (isAlreadyConnected && !props.embedded && inkPlugin.settings.booxConnectionEnabled && websocketConnectedRef.current) {
-			requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				if (!websocketConnectedRef.current) return;
 				const ink = getGlobals().plugin;
 				if (!ink.settings.booxConnectionEnabled) return;
@@ -561,11 +582,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						const newZ = Math.max(zoomSteps[0], Math.min(zoomSteps[zoomSteps.length - 1], cz * factor));
 						// tldraw transform: viewportX = (pageX + cx) * cz
 						// To keep viewport point (sx, sy) fixed: newCx = cx + sx * (1/newZ - 1/cz)
-						console.log('[drawing pan/zoom] Mod+wheel zoom', { direction: e.deltaY < 0 ? 'in' : 'out', newZ });
+						console.debug('[drawing pan/zoom] Mod+wheel zoom', { direction: e.deltaY < 0 ? 'in' : 'out', newZ });
 						editor.setCamera({ x: cx + sx * (1 / newZ - 1 / cz), y: cy + sy * (1 / newZ - 1 / cz), z: newZ }, { animation: { duration: 0 } });
 					} else {
 						// Plain wheel: prevent page scroll, let tldraw handle panning naturally.
-						console.log('[drawing pan/zoom] plain wheel — preventing page scroll, tldraw pans', { deltaX: e.deltaX, deltaY: e.deltaY });
+						console.debug('[drawing pan/zoom] plain wheel — preventing page scroll, tldraw pans', { deltaX: e.deltaX, deltaY: e.deltaY });
 						e.preventDefault();
 					}
 				};
@@ -605,33 +626,33 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const spaceKeyDownHandler = (e: KeyboardEvent) => {
 				if (e.key !== ' ' || e.metaKey || e.ctrlKey || e.repeat) return;
 				if (!isPointerOverEditor.current) {
-					console.log('[drawing pan/zoom] Space pressed but cursor not over editor — ignoring');
+					console.debug('[drawing pan/zoom] Space pressed but cursor not over editor — ignoring');
 					return;
 				}
 				isSpaceHeld.current = true;
-				tlContainer.style.cursor = 'grab';
+				setTldrawEmbedPanCursor(tlContainer, 'grab');
 				e.preventDefault();
-				console.log('[drawing pan/zoom] Space held — ready to pan');
+				console.debug('[drawing pan/zoom] Space held — ready to pan');
 			};
 			const spaceKeyUpHandler = (e: KeyboardEvent) => {
 				if (e.key !== ' ') return;
 				isSpaceHeld.current = false;
 				if (panPointerId === null) {
-					tlContainer.style.cursor = '';
+					setTldrawEmbedPanCursor(tlContainer, null);
 				}
 				// Don't clear panPointerId here — let pointerup handle cleanup so we always
 				// stopPropagation the paired pointerup even if Space is released before mouse.
-				console.log('[drawing pan/zoom] Space released');
+				console.debug('[drawing pan/zoom] Space released');
 			};
 			const spacePointerDownHandler = (e: PointerEvent) => {
 				if (!isSpaceHeld.current || e.button !== 0) return;
 				panPointerId = e.pointerId;
 				lastSpacePanPoint.current = { x: e.clientX, y: e.clientY };
 				tlContainer.setPointerCapture(e.pointerId);
-				tlContainer.style.cursor = 'grabbing';
+				setTldrawEmbedPanCursor(tlContainer, 'grabbing');
 				e.preventDefault();
 				e.stopPropagation(); // prevent tldraw from starting a draw stroke
-				console.log('[drawing pan/zoom] Space+pointer down — pan started at', { x: e.clientX, y: e.clientY });
+				console.debug('[drawing pan/zoom] Space+pointer down — pan started at', { x: e.clientX, y: e.clientY });
 			};
 			const spacePointerMoveHandler = (e: PointerEvent) => {
 				if (e.pointerId !== panPointerId) return;
@@ -648,10 +669,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const spacePointerUpHandler = (e: PointerEvent) => {
 				if (e.pointerId !== panPointerId) return;
 				panPointerId = null;
-				tlContainer.style.cursor = isSpaceHeld.current ? 'grab' : '';
+				setTldrawEmbedPanCursor(tlContainer, isSpaceHeld.current ? 'grab' : null);
 				e.preventDefault();
 				e.stopPropagation(); // must match — tldraw never saw the pointerdown, so it must not see the pointerup
-				console.log('[drawing pan/zoom] Space+pointer up — pan ended');
+				console.debug('[drawing pan/zoom] Space+pointer up — pan ended');
 			};
 
 			document.addEventListener('keydown', spaceKeyDownHandler, true);
@@ -681,10 +702,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				dragZoomStartPoint = { x: e.clientX, y: e.clientY };
 				dragZoomLastPoint = { x: e.clientX, y: e.clientY };
 				tlContainer.setPointerCapture(e.pointerId);
-				tlContainer.style.cursor = 'ns-resize';
+				setTldrawEmbedPanCursor(tlContainer, 'ns-resize');
 				e.preventDefault();
 				e.stopPropagation();
-				console.log('[drawing pan/zoom] Right-drag zoom started at', { x: e.clientX, y: e.clientY });
+				console.debug('[drawing pan/zoom] Right-drag zoom started at', { x: e.clientX, y: e.clientY });
 			};
 			const dragZoomPointerMoveHandler = (e: PointerEvent) => {
 				if (e.pointerId !== dragZoomPointerId) return;
@@ -713,10 +734,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const dragZoomPointerUpHandler = (e: PointerEvent) => {
 				if (e.pointerId !== dragZoomPointerId) return;
 				dragZoomPointerId = null;
-				tlContainer.style.cursor = isSpaceHeld.current ? 'grab' : '';
+				setTldrawEmbedPanCursor(tlContainer, isSpaceHeld.current ? 'grab' : null);
 				e.preventDefault();
 				e.stopPropagation();
-				console.log('[drawing pan/zoom] Right-drag zoom ended');
+				console.debug('[drawing pan/zoom] Right-drag zoom ended');
 			};
 			// Suppress the context menu only if the pointer actually moved (drag, not tap)
 			const contextMenuSuppressHandler = (e: MouseEvent) => {
@@ -753,6 +774,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const cmScroller = wrapperEl?.closest<HTMLElement>('.cm-scroller') ?? null;
 			const restoreEmbedScroll = () => {
 				if (!cmScroller) return;
+				// cmScroller.classList.remove('ink-cm-scroller--scroll-pinned'); // REVIEW: Automated change that doesn't respect delay separation.
 				cmScroller.style.overflow = 'auto';
 				// scrollbarColor is set transparent by FingerBlocker; restore after same
 				// delay it uses so the transition matches.
@@ -760,7 +782,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					cmScroller.style.scrollbarColor = 'auto';
 				}, 200);
 			};
-			let wheelScrollRestoreTimer: ReturnType<typeof setTimeout> | null = null;
+			let wheelScrollRestoreTimer: number | null = null;
 
 			const embedZoomAroundPoint = (sx: number, sy: number, newZ: number) => {
 				const { x: cx, y: cy, z: cz } = editor.getCamera();
@@ -787,13 +809,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					const { z: cz } = editor.getCamera();
 					const factor = e.deltaY < 0 ? (1 + EMBED_WHEEL_ZOOM_FACTOR) : (1 / (1 + EMBED_WHEEL_ZOOM_FACTOR));
 					const newZ = embedClampedZoom(cz, factor);
-					console.log('[drawing pan/zoom] embed: mod+wheel zoom', { direction: e.deltaY < 0 ? 'in' : 'out', newZ });
+					console.debug('[drawing pan/zoom] embed: mod+wheel zoom', { direction: e.deltaY < 0 ? 'in' : 'out', newZ });
 					editor.setCameraOptions({ isLocked: false });
 					embedZoomAroundPoint(sx, sy, newZ);
 					editor.setCameraOptions({ isLocked: true });
 					// Restore scroll after a brief idle — wheel events have no end event.
-					if (wheelScrollRestoreTimer !== null) clearTimeout(wheelScrollRestoreTimer);
-					wheelScrollRestoreTimer = setTimeout(() => {
+					if (wheelScrollRestoreTimer !== null) window.clearTimeout(wheelScrollRestoreTimer);
+					wheelScrollRestoreTimer = window.setTimeout(() => {
 						wheelScrollRestoreTimer = null;
 						restoreEmbedScroll();
 					}, 150);
@@ -811,10 +833,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				midPanPointerId = e.pointerId;
 				lastMidPanPoint = { x: e.clientX, y: e.clientY };
 				tlContainer.setPointerCapture(e.pointerId);
-				tlContainer.style.cursor = 'grabbing';
+				setTldrawEmbedPanCursor(tlContainer, 'grabbing');
 				e.preventDefault();
 				e.stopPropagation();
-				console.log('[drawing pan/zoom] embed: mid-button pan started');
+				console.debug('[drawing pan/zoom] embed: mid-button pan started');
 			};
 			const midPanPointerMoveHandler = (e: PointerEvent) => {
 				if (e.pointerId !== midPanPointerId) return;
@@ -831,11 +853,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const midPanPointerUpHandler = (e: PointerEvent) => {
 				if (e.pointerId !== midPanPointerId) return;
 				midPanPointerId = null;
-				tlContainer.style.cursor = '';
+				setTldrawEmbedPanCursor(tlContainer, null);
 				restoreEmbedScroll();
 				e.preventDefault();
 				e.stopPropagation();
-				console.log('[drawing pan/zoom] embed: mid-button pan ended');
+				console.debug('[drawing pan/zoom] embed: mid-button pan ended');
 			};
 			tlContainer.addEventListener('pointerdown', midPanPointerDownHandler, true);
 			tlContainer.addEventListener('pointermove', midPanPointerMoveHandler, true);
@@ -857,10 +879,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				embedDragZoomStartPoint = { x: e.clientX, y: e.clientY };
 				embedDragZoomLastPoint = { x: e.clientX, y: e.clientY };
 				tlContainer.setPointerCapture(e.pointerId);
-				tlContainer.style.cursor = 'ns-resize';
+				setTldrawEmbedPanCursor(tlContainer, 'ns-resize');
 				e.preventDefault();
 				e.stopPropagation();
-				console.log('[drawing pan/zoom] embed: right-drag zoom started');
+				console.debug('[drawing pan/zoom] embed: right-drag zoom started');
 			};
 			const embedDragZoomPointerMoveHandler = (e: PointerEvent) => {
 				if (e.pointerId !== embedDragZoomPointerId) return;
@@ -884,11 +906,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const embedDragZoomPointerUpHandler = (e: PointerEvent) => {
 				if (e.pointerId !== embedDragZoomPointerId) return;
 				embedDragZoomPointerId = null;
-				tlContainer.style.cursor = '';
+				setTldrawEmbedPanCursor(tlContainer, null);
 				restoreEmbedScroll();
 				e.preventDefault();
 				e.stopPropagation();
-				console.log('[drawing pan/zoom] embed: right-drag zoom ended');
+				console.debug('[drawing pan/zoom] embed: right-drag zoom ended');
 			};
 			const embedContextMenuSuppressHandler = (e: MouseEvent) => {
 				if (embedDragZoomStartPoint.x !== e.clientX || embedDragZoomStartPoint.y !== e.clientY) {
@@ -958,13 +980,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// Make visible once prepared
 		if(editorWrapperRefEl.current) {
-			editorWrapperRefEl.current.style.opacity = '1';
+			editorWrapperRefEl.current.classList.remove('ddc_ink_editor-wrapper--loading');
 			// Dedicated view: keep key events on the wrapper (tabIndex + keydown capture).
 			// Embeds: avoid stealing focus from Obsidian / CodeMirror.
 			if (!props.embedded) {
 				// Focus the tldraw container so tldraw's own key handlers (e.g. space-to-pan) fire.
 				// Our onKeyDownCapture on the wrapper still fires in capture phase for undo/redo.
-				console.log('[drawing pan/zoom] dedicated: focusing tldraw container on mount');
+				console.debug('[drawing pan/zoom] dedicated: focusing tldraw container on mount');
 				editor.getContainer().focus({ preventScroll: true });
 			}
 		}
@@ -1058,7 +1080,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					// Always cancel a pending re-open timer and clear the ResizeObserver retry flag
 					// first — if we're deactivating, no open should happen; if reactivating, a
 					// fresh timer below takes over.
-					if (setBooxOverlayActiveTimerRef.current) clearTimeout(setBooxOverlayActiveTimerRef.current);
+					if (setBooxOverlayActiveTimerRef.current) window.clearTimeout(setBooxOverlayActiveTimerRef.current);
 					setBooxOverlayActiveTimerRef.current = null;
 					if (!isActive) pendingNewOverlayRef.current = false;
 					if (!websocketConnectedRef.current) return;
@@ -1067,7 +1089,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					if (isActive) {
 						// setTimeout(fn, 0): minimal async boundary so the synchronous
 						// close-drawing-area from the departing view is always enqueued first.
-						setBooxOverlayActiveTimerRef.current = setTimeout(() => {
+						setBooxOverlayActiveTimerRef.current = window.setTimeout(() => {
 							setBooxOverlayActiveTimerRef.current = null;
 							if (!websocketConnectedRef.current) return;
 							activateDrawingSessionRef.current?.();
@@ -1138,9 +1160,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const smallDelayInputPostProcess = (editor: Editor) => {
 		resetShortPostProcessTimer();
 
-		shortDelayPostProcessTimeoutRef.current = setTimeout(
+		shortDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				incrementalSave(editor);
+				void incrementalSave(editor);
 			},
 			DRAW_SHORT_DELAY_MS
 		)
@@ -1151,9 +1173,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const longDelayInputPostProcess = (editor: Editor) => {
 		resetLongPostProcessTimer();
 
-		longDelayPostProcessTimeoutRef.current = setTimeout(
+		longDelayPostProcessTimeoutRef.current = window.setTimeout(
 			() => {
-				completeSave(editor);
+				void completeSave(editor);
 			},
 			DRAW_LONG_DELAY_MS
 		)
@@ -1161,10 +1183,10 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	};
 
 	const resetShortPostProcessTimer = () => {
-		clearTimeout(shortDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(shortDelayPostProcessTimeoutRef.current);
 	}
 	const resetLongPostProcessTimer = () => {
-		clearTimeout(longDelayPostProcessTimeoutRef.current);
+		window.clearTimeout(longDelayPostProcessTimeoutRef.current);
 	}
 	const resetInputPostProcessTimers = () => {
 		resetShortPostProcessTimer();
@@ -1233,13 +1255,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			ref = {editorWrapperRefEl}
 			className = {classNames([
 				"ddc_ink_drawing-editor",
+				"ddc_ink_editor-wrapper--loading",
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
 			])}
 			style = {{
 				height: '100%',
 				position: 'relative',
-				opacity: 0, // So it's invisible while it loads
 			}}
 			tabIndex={props.embedded ? undefined : 0}
 			onKeyDownCapture={(e) => {
@@ -1270,7 +1292,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			onPointerDown={() => {
 				if (props.embedded) return;
 				// Focus the tldraw container (not the wrapper) so tldraw's own key handlers fire.
-				console.log('[drawing pan/zoom] dedicated: onPointerDown — re-focusing tldraw container');
+				console.debug('[drawing pan/zoom] dedicated: onPointerDown — re-focusing tldraw container');
 				tlEditorRef.current?.getContainer().focus({ preventScroll: true });
 			}}
 		>
@@ -1315,7 +1337,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					});
 					if (isNonDrawTool && websocketConnectedRef.current) {
 						websocketConnectedRef.current = false;
-						if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+						if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
 						if (tlEditorRef.current) unlockTldrawInput(tlEditorRef.current);
 						agentDrawingBridgeLog('A,C', 'tldraw-drawing-editor.tsx:onActivateTool', 'Non-draw tool selected; closing Android drawing area', {
 							activatedTool,
@@ -1360,10 +1382,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedDrawingMenu
-						onLockClick = { async () => {
-							// TODO: Save immediately incase it hasn't been saved yet?
-							if(props.closeEditor) props.closeEditor();
-						}}
+						onLockClick = {() => void props.closeEditor?.()}
 						onExpandClick = {props.onOpenInDedicatedView}
 						menuOptions = {customExtendedMenu}
 					/>
@@ -1598,9 +1617,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 	function adjustAndroidDrawingArea() {
-		if (adjustThrottleRef.current) clearTimeout(adjustThrottleRef.current);
+		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
 
-		adjustThrottleRef.current = setTimeout(() => {
+		adjustThrottleRef.current = window.setTimeout(() => {
 			adjustThrottleRef.current = null;
 			sendAdjustment();
 		}, 200);
@@ -1650,7 +1669,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function removeCanvasDebugOverlays() {
 		document.getElementById('debug-drawing-area-overlay')?.remove();
-		editorWrapperRefEl.current?.querySelectorAll('.debug-stroke-dot').forEach(el => el.remove());
+		editorWrapperRefEl.current?.querySelectorAll('.ink-debug-stroke-dot').forEach(el => el.remove());
 	}
 
 	function drawCanvasDebugOverlays(options: {
@@ -1662,34 +1681,27 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			document.getElementById('debug-drawing-area-overlay')?.remove();
 			const overlay = document.createElement('div');
 			overlay.id = 'debug-drawing-area-overlay';
-			overlay.className = 'debug-rectangle';
-			overlay.style.position = 'fixed';
-			overlay.style.boxShadow = 'inset 0 0 0 5px rgba(255,0,0,0.2)';
-			overlay.style.pointerEvents = 'none';
-			overlay.style.zIndex = '9999';
-			overlay.style.left = options.rect.x + 'px';
-			overlay.style.top = options.rect.y + 'px';
-			overlay.style.width = options.rect.width + 'px';
-			overlay.style.height = options.rect.height + 'px';
+			overlay.className = 'ink-debug-drawing-area-overlay';
+			overlay.setCssProps({
+				left: `${options.rect.x}px`,
+				top: `${options.rect.y}px`,
+				width: `${options.rect.width}px`,
+				height: `${options.rect.height}px`,
+			});
 			document.body.appendChild(overlay);
 		}
 
 		// Stroke point dot overlays
 		if (options.strokePoints && editorWrapperRefEl.current) {
-			editorWrapperRefEl.current.querySelectorAll('.debug-stroke-dot').forEach(el => el.remove());
+			editorWrapperRefEl.current.querySelectorAll('.ink-debug-stroke-dot').forEach(el => el.remove());
 			options.strokePoints.forEach((strokePoint) => {
 				if (!editorWrapperRefEl.current) return;
 				const dot = document.createElement('div');
-				dot.className = 'debug-stroke-dot';
-				dot.style.position = 'absolute';
-				dot.style.left = strokePoint.x + 'px';
-				dot.style.top = strokePoint.y + 'px';
-				dot.style.width = '2px';
-				dot.style.height = '2px';
-				dot.style.borderRadius = '50%';
-				dot.style.backgroundColor = 'red';
-				dot.style.pointerEvents = 'none';
-				dot.style.zIndex = '9999';
+				dot.className = 'ink-debug-stroke-dot';
+				dot.setCssProps({
+					left: `${strokePoint.x}px`,
+					top: `${strokePoint.y}px`,
+				});
 				editorWrapperRefEl.current.appendChild(dot);
 			});
 		}

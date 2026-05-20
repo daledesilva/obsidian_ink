@@ -1,4 +1,4 @@
-const manifest = require('../manifest.json');
+import manifest from '../manifest.json';
 
 ////////
 ////////

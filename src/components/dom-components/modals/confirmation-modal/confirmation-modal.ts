@@ -8,18 +8,18 @@ export class ConfirmationModal extends Modal {
 	title: string = 'Confirmation';
 	message: string = 'Are you sure?';
 	cancelLabel: string = 'Cancel';
-	cancelAction: Function = () => {};	// REVIEW: Is this the best way to set a default nothing action on this parameter?
+	cancelAction: () => void = () => {};	// REVIEW: Is this the best way to set a default nothing action on this parameter?
 	confirmLabel: string = 'Yes';
-	confirmAction: Function;
+	confirmAction: () => void;
 
 	constructor(options: {
 		plugin: MyPlugin,
 		title?: string,
 		message?: string,
 		cancelLabel?: string,
-		cancelAction?: Function,
+		cancelAction?: () => void,
 		confirmLabel?: string,
-		confirmAction: Function,
+		confirmAction: () => void,
 	}) {
 		super(options.plugin.app);
 		this.title = options.title || this.title;

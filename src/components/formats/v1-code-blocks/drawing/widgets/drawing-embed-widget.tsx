@@ -17,7 +17,7 @@ import {
 ////////
 
 interface EmbedCtrls_v1 {
-	removeEmbed: Function,
+	removeEmbed: () => void,
 }
 
 ////////
@@ -79,7 +79,7 @@ class DrawingEmbedWidget_v1 extends MarkdownRenderChild {
 	embedCtrls: EmbedCtrls_v1;
 	root: Root;
 	fileRef: TFile | null;
-	updateEmbed: Function;
+	updateEmbed: (embedData: DrawingEmbedData_v1) => void;
 
 	constructor(
 		el: HTMLElement,
@@ -96,11 +96,17 @@ class DrawingEmbedWidget_v1 extends MarkdownRenderChild {
 		this.updateEmbed = updateEmbed;
 	}
 
-	async onload() {
+	onload(): void {
+		void this.mountDrawingEmbed();
+	}
+
+	// REVIEW: Risky AI change. Monitor this.
+	private async mountDrawingEmbed() {
 		const v = this.plugin.app.vault;
-		this.fileRef = v.getAbstractFileByPath(this.embedData.filepath) as TFile;
-		
-		if( !this.fileRef || !(this.fileRef instanceof TFile) ) {
+		const abstractFile = v.getAbstractFileByPath(this.embedData.filepath);
+		this.fileRef = abstractFile instanceof TFile ? abstractFile : null;
+
+		if (!this.fileRef) {
 			this.el.createEl('p').textContent = 'Ink drawing file not found.';
 			return;
 		}
@@ -115,8 +121,8 @@ class DrawingEmbedWidget_v1 extends MarkdownRenderChild {
 					plugin = {this.plugin}
 					drawingFileRef = {this.fileRef}
 					pageData = {pageData}
-					saveSrcFile = {this.save}
-					setEmbedProps = {this.setEmbedProps}
+					saveSrcFile = {(embeddedPageData) => void this.save(embeddedPageData)}
+					setEmbedProps = {(width, aspectRatio) => void this.setEmbedProps(width, aspectRatio)}
 					remove = {this.embedCtrls.removeEmbed}
 					width = {this.embedData.width}
 					aspectRatio = {this.embedData.aspectRatio}
@@ -127,7 +133,7 @@ class DrawingEmbedWidget_v1 extends MarkdownRenderChild {
 		applyCommonAncestorStyling(this.el)
 	}
 
-	async onunload() {
+	onunload() {
 		this.root?.unmount();
 	}
 

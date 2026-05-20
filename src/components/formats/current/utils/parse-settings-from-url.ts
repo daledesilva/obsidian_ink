@@ -3,7 +3,7 @@ import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings'
 export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: string; embedSettings: EmbedSettings; isPendingPaste: boolean; } {
 
     let infoUrl = urlAndEmbedSettings;
-    let embedSettings: EmbedSettings = JSON.parse(JSON.stringify(DEFAULT_EMBED_SETTINGS));
+    let embedSettings: EmbedSettings = structuredClone(DEFAULT_EMBED_SETTINGS);
     let isPendingPaste = false;
 
     const questionMarkIndex = urlAndEmbedSettings.indexOf('?');

@@ -451,7 +451,7 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
-		.setDesc(`While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.`);
+		.setDesc(`While editing a markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 

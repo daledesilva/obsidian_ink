@@ -1,15 +1,17 @@
 /**
- * Registry mapping embedId to tldraw Editor instances and owning WorkspaceLeaf.id.
+ * Registry mapping embedId to ink editor instances (tldraw or ink-canvas) and owning WorkspaceLeaf.id.
  * @see docs/undo-redo-implementation.md
  */
 
 import type { Editor } from '@tldraw/tldraw';
+import type { InkCanvasEditor } from 'src/ink-canvas/types';
 import { clearEmbedBaseline, purgeEmbedEntriesFromStacks } from './unified-undo-stack';
 
+export type AnyInkEditor = Editor | InkCanvasEditor;
 export type ApplyResizeFn = (width: number, aspectRatio: number) => void;
 
 interface RegistryEntry {
-	editor: Editor;
+	editor: AnyInkEditor;
 	containerEl: HTMLElement;
 	workspaceLeafId: string;
 	applyResize?: ApplyResizeFn;
@@ -30,7 +32,7 @@ function firstEmbedIdInLeaf(workspaceLeafId: string): string | null {
 
 export function register(
 	embedId: string,
-	editor: Editor,
+	editor: AnyInkEditor,
 	containerEl: HTMLElement,
 	workspaceLeafId: string,
 	applyResize?: ApplyResizeFn,
@@ -63,7 +65,7 @@ export function unregister(embedId: string): void {
 	}
 }
 
-export function getEditor(embedId: string): Editor | undefined {
+export function getEditor(embedId: string): AnyInkEditor | undefined {
 	return registry.get(embedId)?.editor;
 }
 

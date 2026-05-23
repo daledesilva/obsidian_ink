@@ -15,6 +15,7 @@ import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { InkCanvasDrawingEditor } from "../ink-canvas-drawing-editor/ink-canvas-drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
@@ -145,32 +146,62 @@ export class DrawingView extends TextFileView {
         this.hostEl = host;
 
         this.root = createRoot(host);
+
+		const useInkCanvas = this.inkFileData?.meta?.format === 'ink-canvas' || true; // Default to ink-canvas for all drawings
+
+		const editorElement = useInkCanvas
+			? <InkCanvasDrawingEditor
+					onReady = {() => {}}
+					workspaceLeafId = {this.leaf.id}
+					drawingFile = {this.file}
+					save = {this.saveFile}
+					extendedMenu = {[
+						...getExtendedOptions(this.plugin, this.file),
+						{ separator: true },
+						{
+							text: 'Erase all',
+							warning: true,
+							action: () => {
+								new ConfirmationModal({
+									plugin: this.plugin,
+									title: 'Erase all strokes?',
+									message: 'This will remove all strokes from the canvas.',
+									confirmLabel: 'Erase all',
+									confirmAction: () => void this.editorControls?.eraseAll?.(),
+								}).open();
+							},
+						},
+					] as MenuOption[]}
+					saveControlsReference = {this.registerEditorControls}
+				/>
+			: <TldrawDrawingEditor
+					onReady = {() => {}}
+					workspaceLeafId = {this.leaf.id}
+					drawingFile = {this.file}
+					save = {this.saveFile}
+					extendedMenu = {[
+						...getExtendedOptions(this.plugin, this.file),
+						{ separator: true },
+						{
+							text: 'Erase all',
+							warning: true,
+							action: () => {
+								new ConfirmationModal({
+									plugin: this.plugin,
+									title: 'Erase all strokes?',
+									message: 'This will remove all strokes from the canvas.',
+									confirmLabel: 'Erase all',
+									confirmAction: () => void this.editorControls?.eraseAll?.(),
+								}).open();
+							},
+						},
+					] as MenuOption[]}
+					saveControlsReference = {this.registerEditorControls}
+				/>;
+
 		this.root.render(
             <JotaiProvider>
-                <TldrawDrawingEditor
-                    onReady = {() => {}}
-                    workspaceLeafId = {this.leaf.id}
-                    drawingFile = {this.file}
-                    save = {this.saveFile}
-                    extendedMenu = {[
-                        ...getExtendedOptions(this.plugin, this.file),
-                        { separator: true },
-                        {
-                            text: 'Erase all',
-                            warning: true,
-                            action: () => {
-                                new ConfirmationModal({
-                                    plugin: this.plugin,
-                                    title: 'Erase all strokes?',
-                                    message: 'This will remove all strokes from the canvas.',
-                                    confirmLabel: 'Erase all',
-                                    confirmAction: () => void this.editorControls?.eraseAll?.(),
-                                }).open();
-                            },
-                        },
-                    ] as MenuOption[]}
-                    saveControlsReference = {this.registerEditorControls}
-                />
+                {editorElement}
             </JotaiProvider>
         );
 

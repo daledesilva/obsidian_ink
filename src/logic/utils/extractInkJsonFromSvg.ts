@@ -1,16 +1,20 @@
 import { DOMParser } from 'xmldom';
 import { TLEditorSnapshot } from '@tldraw/tldraw';
 import { InkFileData } from '../../components/formats/current/types/file-data';
+import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 
 /////////////////////
 /////////////////////
 
 /**
- * Extracts JSON content from a <tldraw> XML element within SVG metadata.
- * Falls back to legacy <inkdrawing> element for backward compatibility.
- * Also reads an optional <filetype> sibling and merges into meta.fileType if present.
+ * Extracts JSON content from SVG metadata.
+ * Supports two metadata formats:
+ * - `<ink-canvas version="1">` — new ink-canvas format (sets `meta.format = 'ink-canvas'`)
+ * - `<tldraw version="...">` — legacy tldraw format (sets `meta.format = 'tldraw'`)
+ *
+ * Also reads `<ink file-type="...">` for the file type discriminator.
  * @param svgString - The SVG string containing the metadata element
- * @returns The parsed JSON object or null if not found/invalid
+ * @returns The parsed InkFileData or null if not found/invalid
  */
 export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
     try {
@@ -32,73 +36,125 @@ export function extractInkJsonFromSvg(svgString: string): InkFileData | null {
             return null;
         }
         
-        // Look for tldraw element within metadata
         const metadataElement = metadataElements[0];
 
-        // Gate on filetype being 'inkDrawing' or 'inkWriting' before parsing tldraw
-        // Prefer <ink fileType="..."> attribute; fall back to <filetype> element if present
-        const inkElements = metadataElement.getElementsByTagName('ink');
-        let fileTypeText: string | undefined;
-        if (inkElements.length > 0) {
-            fileTypeText = inkElements[0].getAttribute('file-type') || undefined;
-        }
-        if (!fileTypeText) {
-            console.warn('No filetype found in metadata');
-            return null;
-        }
-        if (fileTypeText !== 'inkDrawing' && fileTypeText !== 'inkWriting') {
-            console.warn('Unsupported or missing filetype in metadata');
-            return null;
+        // Try ink-canvas format first (new format)
+        const inkCanvasElements = metadataElement.getElementsByTagName('ink-canvas');
+        if (inkCanvasElements.length > 0) {
+            return extractInkCanvasFormat(metadataElement, inkCanvasElements[0], svgString);
         }
 
-        const tldrawElements = metadataElement.getElementsByTagName('tldraw');
-        
-        // Ensure tldraw exists
-        const hasTldraw = tldrawElements.length > 0;
-        if (!hasTldraw) {
-            console.warn('No tldraw element found in metadata');
-            return null;
-        }
-        
-        // Get the content of the tldraw element
-        const settingsElement = tldrawElements[0];
-        const jsonText = settingsElement.textContent?.trim();
-        
-        if (!jsonText) {
-            console.warn('No JSON content found in metadata settings element');
-            return null;
-        }
-        
-        // Parse the JSON content (tldraw snapshot only)
-        const tldrawSnapshot = JSON.parse(jsonText) as TLEditorSnapshot;
-
-        // Also read pluginVersion from <ink>
-        const pluginVersionAttr = inkElements.length > 0 ? (inkElements[0].getAttribute('plugin-version') || undefined) : undefined;
-
-        // Read tldraw version from <tldraw version="...">
-        const tldrawVersionAttr = settingsElement.getAttribute('version') || undefined;
-
-        // Read per-file writingLineHeight (absent on old files — intentionally left undefined).
-        // Guard against NaN from parseInt so corrupted attribute values don't propagate.
-        const writingLineHeightAttr = inkElements.length > 0 ? inkElements[0].getAttribute('writing-line-height') : null;
-        const writingLineHeightParsed = writingLineHeightAttr ? parseInt(writingLineHeightAttr, 10) : undefined;
-        const writingLineHeight = writingLineHeightParsed !== undefined && !isNaN(writingLineHeightParsed) ? writingLineHeightParsed : undefined;
-
-        // Construct InkFileData result
-        const inkFileData: InkFileData = {
-            meta: {
-                pluginVersion: pluginVersionAttr || '',
-                tldrawVersion: tldrawVersionAttr || '',
-                fileType: fileTypeText,
-                writingLineHeight,
-            },
-            tldraw: tldrawSnapshot,
-        } as InkFileData;
-
-        return inkFileData;
+        // Fall back to tldraw format (legacy)
+        return extractTldrawFormat(metadataElement, svgString);
         
     } catch (error) {
-        console.error('Error extracting tldraw metadata JSON:', error);
+        console.error('Error extracting ink metadata JSON:', error);
         return null;
     }
+}
+
+
+// Format-specific extractors
+/////////////////////
+
+function extractInkCanvasFormat(
+    metadataElement: Element,
+    inkCanvasElement: Element,
+    svgString: string,
+): InkFileData | null {
+    const jsonText = inkCanvasElement.textContent?.trim();
+    if (!jsonText) {
+        console.warn('No JSON content in <ink-canvas> element');
+        return null;
+    }
+
+    const inkCanvasSnapshot = JSON.parse(jsonText) as InkCanvasSnapshot;
+
+    // Read file type from <ink> element (required for all ink files)
+    const inkElements = metadataElement.getElementsByTagName('ink');
+    let fileTypeText: string | undefined;
+    if (inkElements.length > 0) {
+        fileTypeText = inkElements[0].getAttribute('file-type') || undefined;
+    }
+    // ink-canvas format is only used for drawings
+    if (!fileTypeText) fileTypeText = 'inkDrawing';
+
+    const pluginVersionAttr = inkElements.length > 0
+        ? (inkElements[0].getAttribute('plugin-version') || '')
+        : '';
+
+    return {
+        meta: {
+            pluginVersion: pluginVersionAttr,
+            tldrawVersion: '',
+            fileType: fileTypeText as 'inkDrawing' | 'inkWriting',
+            format: 'ink-canvas',
+        },
+        tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas format
+        inkCanvas: inkCanvasSnapshot,
+        svgString,
+    };
+}
+
+function extractTldrawFormat(
+    metadataElement: Element,
+    svgString: string,
+): InkFileData | null {
+    // Gate on filetype being 'inkDrawing' or 'inkWriting' before parsing tldraw
+    const inkElements = metadataElement.getElementsByTagName('ink');
+    let fileTypeText: string | undefined;
+    if (inkElements.length > 0) {
+        fileTypeText = inkElements[0].getAttribute('file-type') || undefined;
+    }
+    if (!fileTypeText) {
+        console.warn('No filetype found in metadata');
+        return null;
+    }
+    if (fileTypeText !== 'inkDrawing' && fileTypeText !== 'inkWriting') {
+        console.warn('Unsupported or missing filetype in metadata');
+        return null;
+    }
+
+    const tldrawElements = metadataElement.getElementsByTagName('tldraw');
+    if (tldrawElements.length === 0) {
+        console.warn('No tldraw element found in metadata');
+        return null;
+    }
+    
+    const settingsElement = tldrawElements[0];
+    const jsonText = settingsElement.textContent?.trim();
+    
+    if (!jsonText) {
+        console.warn('No JSON content found in metadata settings element');
+        return null;
+    }
+    
+    const tldrawSnapshot = JSON.parse(jsonText) as TLEditorSnapshot;
+    const pluginVersionAttr = inkElements.length > 0
+        ? (inkElements[0].getAttribute('plugin-version') || undefined)
+        : undefined;
+    const tldrawVersionAttr = settingsElement.getAttribute('version') || undefined;
+
+    // Read per-file writingLineHeight
+    const writingLineHeightAttr = inkElements.length > 0
+        ? inkElements[0].getAttribute('writing-line-height')
+        : null;
+    const writingLineHeightParsed = writingLineHeightAttr
+        ? parseInt(writingLineHeightAttr, 10)
+        : undefined;
+    const writingLineHeight = writingLineHeightParsed !== undefined && !isNaN(writingLineHeightParsed)
+        ? writingLineHeightParsed
+        : undefined;
+
+    return {
+        meta: {
+            pluginVersion: pluginVersionAttr || '',
+            tldrawVersion: tldrawVersionAttr || '',
+            fileType: fileTypeText,
+            writingLineHeight,
+            format: 'tldraw',
+        },
+        tldraw: tldrawSnapshot,
+        svgString,
+    };
 }

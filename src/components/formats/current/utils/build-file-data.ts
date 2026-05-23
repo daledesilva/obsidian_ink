@@ -1,10 +1,28 @@
 import { TLEditorSnapshot } from '@tldraw/tldraw';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { InkFileData } from '../types/file-data';
+import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 import emptyDrawingSvgStr from 'src/defaults/empty-drawing-embed.svg';
 
 ////////
 ////////
+
+export const buildInkCanvasDrawingFileData = (props: {
+  inkCanvasSnapshot: InkCanvasSnapshot,
+  svgString: string,
+}): InkFileData => {
+  return {
+    meta: {
+      pluginVersion: PLUGIN_VERSION,
+      tldrawVersion: '',
+      fileType: 'inkDrawing',
+      format: 'ink-canvas',
+    },
+    tldraw: {} as TLEditorSnapshot,
+    inkCanvas: props.inkCanvasSnapshot,
+    svgString: props.svgString,
+  };
+}
 
 export const buildDrawingFileData = (props: {
   tlEditorSnapshot: TLEditorSnapshot,

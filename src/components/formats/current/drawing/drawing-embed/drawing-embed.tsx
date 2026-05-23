@@ -20,11 +20,15 @@ import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { InkCanvasDrawingEditorWrapper } from "../ink-canvas-drawing-editor/ink-canvas-drawing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
+import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 
 ///////
 ///////
+
+type DrawingFormat = 'tldraw' | 'ink-canvas' | 'unknown';
 
 // Per-embed edit state: multiple drawing embeds can be in edit mode at once (both unlocked).
 // embedStateAtom_v2 retained for keyboard-handler "any embed in edit mode" check.
@@ -82,8 +86,31 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 	const resizeStartWidthRef = useRef<number>(0);
 	const resizeStartAspectRatioRef = useRef<number>(0);
+	const [drawingFormat, setDrawingFormat] = React.useState<DrawingFormat>('unknown');
 
 	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
+
+	// Detect file format on mount
+	React.useEffect(() => {
+		if (!props.embeddedFile) return;
+		void detectFormat(props.embeddedFile);
+	}, [props.embeddedFile?.path]);
+
+	async function detectFormat(file: TFile) {
+		try {
+			const svgString = await file.vault.read(file);
+			if (!svgString) { setDrawingFormat('tldraw'); return; }
+			const inkFileData = extractInkJsonFromSvg(svgString);
+			if (!inkFileData) { setDrawingFormat('tldraw'); return; }
+			if (inkFileData.meta.format === 'ink-canvas') {
+				setDrawingFormat('ink-canvas');
+			} else {
+				setDrawingFormat('ink-canvas'); // Migrate tldraw drawings to ink-canvas
+			}
+		} catch {
+			setDrawingFormat('tldraw');
+		}
+	}
 
 	// On first mount
 	React.useEffect( () => {
@@ -259,23 +286,44 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					onReady = {() => {}}
 					onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 				/>
-			
-				<TldrawDrawingEditorWrapper
-					embedId = {props.embedId}
-					workspaceLeafId = {props.workspaceLeafId}
-					onReady = {() => {}}
-					drawingFile = {props.embeddedFile}
-					save = {props.saveSrcFile}
-					extendedMenu = {commonExtendedOptions}
-					embedded
-					saveControlsReference = {registerEditorControls}
-					closeEditor = {() => void saveAndSwitchToPreviewMode()}
-					resizeEmbed = {resizeEmbed}
-					onResizeStart = {onResizeStart}
-					onResizeEnd = {onResizeEnd}
-					applyEmbedDimensions = {applyEmbedDimensions}
-					onOpenInDedicatedView = {() => void openInDedicatedView()}
-				/>
+
+				{drawingFormat === 'ink-canvas' && (
+					<InkCanvasDrawingEditorWrapper
+						embedId = {props.embedId}
+						workspaceLeafId = {props.workspaceLeafId}
+						onReady = {() => {}}
+						drawingFile = {props.embeddedFile}
+						save = {props.saveSrcFile}
+						extendedMenu = {commonExtendedOptions}
+						embedded
+						saveControlsReference = {registerEditorControls}
+						closeEditor = {() => void saveAndSwitchToPreviewMode()}
+						resizeEmbed = {resizeEmbed}
+						onResizeStart = {onResizeStart}
+						onResizeEnd = {onResizeEnd}
+						applyEmbedDimensions = {applyEmbedDimensions}
+						onOpenInDedicatedView = {() => void openInDedicatedView()}
+					/>
+				)}
+
+				{drawingFormat === 'tldraw' && (
+					<TldrawDrawingEditorWrapper
+						embedId = {props.embedId}
+						workspaceLeafId = {props.workspaceLeafId}
+						onReady = {() => {}}
+						drawingFile = {props.embeddedFile}
+						save = {props.saveSrcFile}
+						extendedMenu = {commonExtendedOptions}
+						embedded
+						saveControlsReference = {registerEditorControls}
+						closeEditor = {() => void saveAndSwitchToPreviewMode()}
+						resizeEmbed = {resizeEmbed}
+						onResizeStart = {onResizeStart}
+						onResizeEnd = {onResizeEnd}
+						applyEmbedDimensions = {applyEmbedDimensions}
+						onOpenInDedicatedView = {() => void openInDedicatedView()}
+					/>
+				)}
 
 			</div>
 		)}

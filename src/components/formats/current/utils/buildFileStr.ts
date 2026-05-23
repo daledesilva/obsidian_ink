@@ -9,6 +9,59 @@ import { InkFileData } from '../types/file-data';
 
 // V2 format: SVG file with JSON metadata embedded
 export const buildFileStr = (pageData: InkFileData): string => {
+    const isInkCanvas = pageData.meta.format === 'ink-canvas';
+    if (isInkCanvas) return buildInkCanvasFileStr(pageData);
+    return buildTldrawFileStr(pageData);
+}
+
+
+// ink-canvas format
+//////////////////////////
+
+function buildInkCanvasFileStr(pageData: InkFileData): string {
+    // For ink-canvas files, the svgString already contains the full SVG with
+    // <ink-canvas> metadata (produced by svg-export.ts). We just need to ensure
+    // the <ink> meta element is present with plugin-version and file-type.
+    let fileStr = pageData.svgString || '<svg></svg>';
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(fileStr, 'image/svg+xml');
+    const svgElement = doc.documentElement;
+
+    // Remove existing metadata to rebuild cleanly
+    const existingMetadata = svgElement.getElementsByTagName('metadata');
+    while (existingMetadata.length > 0) {
+        existingMetadata[0].parentNode?.removeChild(existingMetadata[0]);
+    }
+
+    const metadataElement = doc.createElement('metadata');
+
+    // <ink> meta
+    const inkMetaElement = doc.createElement('ink');
+    inkMetaElement.setAttribute('plugin-version', String(pageData.meta.pluginVersion));
+    inkMetaElement.setAttribute('file-type', pageData.meta.fileType);
+    metadataElement.appendChild(inkMetaElement);
+
+    // <ink-canvas version="1"> JSON </ink-canvas>
+    const inkCanvasElement = doc.createElement('ink-canvas');
+    inkCanvasElement.setAttribute('version', '1');
+    inkCanvasElement.textContent = JSON.stringify(pageData.inkCanvas, null, 2);
+    metadataElement.appendChild(inkCanvasElement);
+
+    svgElement.appendChild(metadataElement);
+
+    const serializedSvg = new XMLSerializer().serializeToString(svgElement);
+    return format(serializedSvg, {
+        indentation: '\t',
+        lineSeparator: '\n'
+    });
+}
+
+
+// tldraw format (legacy)
+//////////////////////////
+
+function buildTldrawFileStr(pageData: InkFileData): string {
     // Prefer svgString for v2; fall back to previewUri for backward compatibility
     let fileStr = pageData.svgString || '<svg></svg>';
 

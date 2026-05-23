@@ -83,6 +83,7 @@
 		"esbuild-sass-plugin": "^2.4.4",
 		"jotai": "^2.9.3",
 		"nanoid": "^5.0.7",
+		"perfect-freehand": "^1.2.3",
 		"react": "^18.2.0",
 		"react-dom": "^18.2.0",
 		"react-inlinesvg": "^4.1.3",

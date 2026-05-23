@@ -2,6 +2,8 @@ import "./writing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
+import { InkCanvasWritingEditorWrapper } from "../ink-canvas-writing-editor/ink-canvas-writing-editor";
+import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
@@ -9,7 +11,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
-import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
+import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile, WorkspaceLeaf } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
@@ -75,19 +77,41 @@ export function WritingEmbed (props: {
 	const editorControlsRef = useRef<WritingEditorControls>();
 	const embedAspectRatioRef = useRef<number>(props.embedSettings?.embedDisplay?.aspectRatio || DEFAULT_EMBED_SETTINGS.embedDisplay.aspectRatio);
 	const previousHeightRef = useRef<number | null>(null);
+	const defaultInitialWidth = 700;
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
 	// const [embedId] = useState<string>(nanoid());
 	// const activeEmbedId = useSelector((state: GlobalSessionState) => state.activeEmbedId);
 	// const dispatch = useDispatch();
 
 	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom);
+	type WritingFormat = 'tldraw' | 'ink-canvas' | 'unknown';
+	const [writingFormat, setWritingFormat] = React.useState<WritingFormat>('unknown');
 
-	// Calculate initial height from aspectRatio for JSX styles
-	// Use a default width (700px) that matches typical CodeMirror content width
-	// The actual width will be determined by the container, and resize callbacks will update height
-	const defaultInitialWidth = 700;
-	const initialHeight = defaultInitialWidth / embedAspectRatioRef.current;
-	
+	React.useLayoutEffect(() => {
+		const resizeContainer = resizeContainerElRef.current;
+		if (!resizeContainer) return;
+		const aspectRatio = props.embedSettings?.embedDisplay?.aspectRatio
+			|| DEFAULT_EMBED_SETTINGS.embedDisplay.aspectRatio;
+		embedAspectRatioRef.current = aspectRatio;
+		previousHeightRef.current = null;
+		resizeContainer.classList.remove('ddc_ink_smooth-transition');
+		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
+		resizeContainer.style.height = containerWidth / aspectRatio + 'px';
+	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio]);
+
+	React.useEffect(() => {
+		if (!props.writingFileRef) return;
+		setWritingFormat('unknown');
+		props.plugin.app.vault.read(props.writingFileRef).then(svg => {
+			const data = extractInkJsonFromSvg(svg);
+			if (!data) {
+				setWritingFormat('unknown');
+				return;
+			}
+			setWritingFormat(data.meta.format === 'ink-canvas' ? 'ink-canvas' : 'tldraw');
+		}).catch(() => setWritingFormat('unknown'));
+	}, [props.writingFileRef]);
+
 	// On first mount
 	React.useEffect( () => {
 		if(embedShouldActivateImmediately() && props.embedId) {
@@ -101,23 +125,8 @@ export function WritingEmbed (props: {
 	React.useEffect(() => {
 		if (!props.workspaceLeafId) return;
 		const plugin = getGlobals().plugin;
-		const booxConnectionTyped = plugin.booxConnection as { getSessionCount?: () => number } | undefined;
 		const handler = (leaf: WorkspaceLeaf | null) => {
 			const isThisLeafActive = leaf?.id === props.workspaceLeafId;
-			const sessionCount = booxConnectionTyped?.getSessionCount?.() ?? '?';
-			inkDebugLog({
-				hypothesisId: 'MULTI-CLOSE',
-				location: 'writing-embed.tsx:active-leaf-change-handler',
-				message: 'active-leaf-change fired on writing embed',
-				runId: 'view-connect-debug',
-				data: {
-					isThisLeafActive,
-					thisLeafId: props.workspaceLeafId,
-					incomingLeafId: leaf?.id ?? null,
-					editorControlsPresent: !!editorControlsRef.current,
-					sessionCount,
-				},
-			});
 			editorControlsRef.current?.setBooxOverlayActive?.(isThisLeafActive);
 		};
 		plugin.app.workspace.on('active-leaf-change', handler);
@@ -252,10 +261,6 @@ export function WritingEmbed (props: {
 						props.plugin.settings.booxConnectionEnabled && 'ddc_ink_resize-container--boox',
 					])}
 					ref = {resizeContainerElRef}
-					style = {{
-						width: '100%',
-						height: initialHeight + 'px',
-					}}
 				>
 				
 					<WritingEmbedPreviewWrapper
@@ -266,19 +271,36 @@ export function WritingEmbed (props: {
 						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 					/>
 
-					<TldrawWritingEditorWrapper
-						plugin = {props.plugin} // TODO: Try and remove this
-						workspaceLeafId = {props.workspaceLeafId}
-						embedId = {props.embedId}
-						onResize = {(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
-						writingFile = {props.writingFileRef}
-						save = {props.save}
-						embedded
-						saveControlsReference = {registerEditorControls}
-						closeEditor = {() => void saveAndSwitchToPreviewMode()}
-						extendedMenu = {commonExtendedOptions}
-						onOpenInDedicatedView = {() => void openInDedicatedView()}
-					/>
+					{writingFormat === 'ink-canvas' && props.writingFileRef && (
+						<InkCanvasWritingEditorWrapper
+							plugin={props.plugin}
+							workspaceLeafId={props.workspaceLeafId}
+							embedId={props.embedId}
+							onResize={(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
+							writingFile={props.writingFileRef}
+							save={props.save}
+							embedded
+							saveControlsReference={registerEditorControls}
+							closeEditor={() => void saveAndSwitchToPreviewMode()}
+							extendedMenu={commonExtendedOptions}
+							onOpenInDedicatedView={() => void openInDedicatedView()}
+						/>
+					)}
+					{writingFormat === 'tldraw' && props.writingFileRef && (
+						<TldrawWritingEditorWrapper
+							plugin={props.plugin}
+							workspaceLeafId={props.workspaceLeafId}
+							embedId={props.embedId}
+							onResize={(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
+							writingFile={props.writingFileRef}
+							save={props.save}
+							embedded
+							saveControlsReference={registerEditorControls}
+							closeEditor={() => void saveAndSwitchToPreviewMode()}
+							extendedMenu={commonExtendedOptions}
+							onOpenInDedicatedView={() => void openInDedicatedView()}
+						/>
+					)}
 
 				</div>
 			)}
@@ -338,17 +360,17 @@ export function WritingEmbed (props: {
 	}
 
 	function applyEmbedHeight(height: number) {
-		if(!resizeContainerElRef.current) return;
+		if (!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
-		const heightChanged = previousHeightRef.current === null || Math.abs(height - previousHeightRef.current) > 1;
-		if(heightChanged) props.onRequestMeasure?.();
+		const heightChanged = previousHeightRef.current === null
+			|| Math.abs(height - previousHeightRef.current) > 1;
+		if (heightChanged) props.onRequestMeasure?.();
 		previousHeightRef.current = height;
-		window.setTimeout( () => {
+		window.setTimeout(() => {
 			// Applies after slight delay so it doesn't affect the first resize
-			if(!resizeContainerElRef.current) return;
-			if(props.plugin.settings.booxConnectionEnabled) return;
+			if (!resizeContainerElRef.current) return;
 			resizeContainerElRef.current.classList.add('ddc_ink_smooth-transition');
-		}, 100)
+		}, 100);
 	}
 
 	async function switchToEditMode() {

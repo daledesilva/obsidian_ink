@@ -1,6 +1,7 @@
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
-import type { InkStroke, CameraState, InkCanvasSnapshot } from './types';
+import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT } from 'src/constants';
+import type { InkStroke, InkCanvasSnapshot } from './types';
 import { toStrokeOptions } from './types';
 
 ///////////////////////////
@@ -46,6 +47,50 @@ export function renderStrokesToSvg(
 	}
 
 	return buildSvgString(pathsMarkup, viewBox, snapshotJson);
+}
+
+/**
+ * Render writing strokes into a fixed-width SVG with horizontal guide lines.
+ * Used for inkWriting file storage and embed preview.
+ */
+export function renderWritingStrokesToSvg(
+	strokes: InkStroke[],
+	snapshot: InkCanvasSnapshot,
+	pageWidth: number,
+	padding: number = 0,
+): string {
+	const lineHeight = snapshot.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	let height = WRITING_MIN_PAGE_HEIGHT;
+	if (strokes.length > 0) {
+		const bounds = computeStrokesBounds(strokes);
+		const numFilledLines = Math.ceil((bounds.maxY + padding) / lineHeight);
+		height = Math.max((numFilledLines + 0.5) * lineHeight, WRITING_MIN_PAGE_HEIGHT);
+	}
+
+	const margin = pageWidth * 0.05;
+	let guideMarkup = '';
+	const lineCount = Math.floor(height / lineHeight);
+	for (let i = 1; i <= lineCount; i++) {
+		const y = i * lineHeight;
+		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="currentColor" stroke-opacity="0.15" />\n`;
+	}
+
+	let pathsMarkup = '';
+	for (const stroke of strokes) {
+		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
+		const d = getSvgPathFromStroke(outlinePoints);
+		const tx = stroke.offset.x;
+		const ty = stroke.offset.y;
+		const hasOffset = tx !== 0 || ty !== 0;
+		if (hasOffset) {
+			pathsMarkup += `<g transform="translate(${tx},${ty})"><path d="${d}" fill="${stroke.style.color}" /></g>\n`;
+		} else {
+			pathsMarkup += `<path d="${d}" fill="${stroke.style.color}" />\n`;
+		}
+	}
+
+	const viewBox = `0 0 ${pageWidth} ${height}`;
+	return buildSvgString(guideMarkup + pathsMarkup, viewBox, snapshot);
 }
 
 

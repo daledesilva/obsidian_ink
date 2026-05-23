@@ -107,6 +107,23 @@ export function fitBoundsToViewport(
  * Compute a camera that zooms to a specific level based on drag distance.
  * Used for right-drag-to-zoom gesture.
  */
+/**
+ * Clamp writing-mode camera Y for dedicated view scrolling.
+ * Top: page Y=0 must not scroll above viewport top (cameraYMax, typically menubar offset).
+ * Bottom: viewport bottom may reach at most scrollContentBottomPageY in page space
+ * (one viewport below last stroke when scrollContentBottomPageY = stroke max Y).
+ */
+export function clampWritingCameraY(
+	cameraY: number,
+	zoom: number,
+	viewportHeightPx: number,
+	scrollContentBottomPageY: number,
+	cameraYMax: number,
+): number {
+	const yMin = -scrollContentBottomPageY;
+	return Math.min(cameraYMax, Math.max(cameraY, yMin));
+}
+
 export function zoomByDragDelta(
 	camera: CameraState,
 	anchorScreenX: number,

@@ -1072,6 +1072,24 @@ export function extendWritingTemplateToFillViewport(editor: Editor, topReservedP
 	return availablePageHeight;
 }
 
+/**
+ * Pure helper for ink-canvas dedicated writing view page height.
+ * Mirrors resizeWritingTemplateForDedicatedView without a tldraw Editor.
+ *
+ * @param invitingContentHeight Inviting page height from stroke content (e.g. getInvitingWritingBounds().h).
+ */
+export function computeDedicatedWritingPageHeight(
+	cameraY: number,
+	viewportHeightPx: number,
+	zoom: number,
+	invitingContentHeight: number,
+	lineHeight: number = WRITING_LINE_HEIGHT,
+): number {
+	const pageBottomVisible = (viewportHeightPx - cameraY) / zoom;
+	const minFromViewport = pageBottomVisible + 10 * lineHeight;
+	return Math.max(minFromViewport, invitingContentHeight);
+}
+
 /***
  * Resize the writing template for the dedicated (non-embed) writing view.
  * Unlike the embed-oriented helpers, this:
@@ -1086,15 +1104,15 @@ export function resizeWritingTemplateForDedicatedView(editor: Editor): number | 
 	const zoom = editor.getZoomLevel();
 	const lineHeight = getLineHeightFromEditor(editor);
 
-	// Viewport bottom in page coordinates — correctly accounts for current scroll position
-	const pageBottomVisible = (viewportHeight - camera.y) / zoom;
-	const minFromViewport = pageBottomVisible + 10 * lineHeight;
-
-	// Content-based minimum: strokes + user-configured buffer lines
 	const contentBounds = getInvitingWritingBounds(editor);
-	const minFromContent = contentBounds ? contentBounds.h : 0;
-
-	const targetHeight = Math.max(minFromViewport, minFromContent);
+	const invitingContentHeight = contentBounds ? contentBounds.h : WRITING_MIN_PAGE_HEIGHT;
+	const targetHeight = computeDedicatedWritingPageHeight(
+		camera.y,
+		viewportHeight,
+		zoom,
+		invitingContentHeight,
+		lineHeight,
+	);
 
 	const writingLinesRaw = editor.getShape('shape:writing-lines' as TLShapeId);
 	if (!writingLinesRaw || writingLinesRaw.type !== 'writing-lines') return null;

@@ -42,6 +42,8 @@ export interface InkCanvasSnapshot {
 	 *  so the canvas auto-fits to strokes on every open until a deliberate camera position exists. */
 	camera?: CameraState;
 	gridEnabled: boolean;
+	/** Present only on inkWriting files. Height in px of each ruled line. */
+	writingLineHeight?: number;
 }
 
 /** Camera position and zoom level. */
@@ -123,4 +125,11 @@ export interface InkCanvasEditor {
 	// DOM access
 	getContainerElement(): HTMLElement | null;
 	getSvgElement(): SVGSVGElement | null;
+
+	/** Writing mode only: returns the current computed page height in page units.
+	 *  In draw mode this returns 0. */
+	getPageHeight(): number;
+
+	/** Writing mode only: sets page height (e.g. manual expand-lines). No-op in draw mode. */
+	setWritingPageHeight(height: number): void;
 }

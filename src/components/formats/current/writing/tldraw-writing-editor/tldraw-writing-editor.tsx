@@ -1126,6 +1126,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			canvasHeight: canvasHeight,
 			appWidth: windowWidth,
 			appHeight: windowHeight,
+			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
 		return true;
 	}
@@ -1207,7 +1208,27 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			appWidth: windowWidth,
 			appHeight: windowHeight,
 			immediate,
+			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
+	}
+
+	function getMenuExcludeRects(wrapperEl: HTMLDivElement): Array<{ x: number; y: number; width: number; height: number }> {
+		const rects: Array<{ x: number; y: number; width: number; height: number }> = [];
+		const menuBarEl = wrapperEl.querySelector('.ink_primary-menu-bar');
+		if (menuBarEl) {
+			const rect = menuBarEl.getBoundingClientRect();
+			if (rect.width > 0 && rect.height > 0) {
+				rects.push({ x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) });
+			}
+		}
+		const secondaryBarEl = wrapperEl.querySelector('.ink_secondary-menu-bar');
+		if (secondaryBarEl) {
+			const rect = secondaryBarEl.getBoundingClientRect();
+			if (rect.width > 0 && rect.height > 0) {
+				rects.push({ x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) });
+			}
+		}
+		return rects;
 	}
 
 	function flushQueuedBooxStrokesAfterResize() {

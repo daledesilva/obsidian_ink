@@ -480,6 +480,7 @@ export class BooxConnection {
 		canvasHeight: number;
 		appWidth: number;
 		appHeight: number;
+		excludeRects?: Array<{ x: number; y: number; width: number; height: number }>;
 	}): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
 			agentBridgeLog('A', 'boox-connection.ts:sendNewDrawingArea', 'Dropped new-drawing-area because socket is not open', {
@@ -499,7 +500,15 @@ export class BooxConnection {
 		this.ws.send(
 			JSON.stringify({
 				action: 'new-drawing-area',
-				data: dimensions,
+				data: {
+					x: dimensions.x,
+					y: dimensions.y,
+					canvasWidth: dimensions.canvasWidth,
+					canvasHeight: dimensions.canvasHeight,
+					appWidth: dimensions.appWidth,
+					appHeight: dimensions.appHeight,
+					excludeRects: dimensions.excludeRects ?? [],
+				},
 			}),
 		);
 	}
@@ -512,6 +521,7 @@ export class BooxConnection {
 		appWidth: number;
 		appHeight: number;
 		immediate?: boolean;
+		excludeRects?: Array<{ x: number; y: number; width: number; height: number }>;
 	}): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
 			agentBridgeLog('A', 'boox-connection.ts:sendUpdateDrawingArea', 'Dropped update-drawing-area because socket is not open', {
@@ -539,6 +549,7 @@ export class BooxConnection {
 					appWidth: dimensions.appWidth,
 					appHeight: dimensions.appHeight,
 					immediate: dimensions.immediate ?? false,
+					excludeRects: dimensions.excludeRects ?? [],
 				},
 			}),
 		);

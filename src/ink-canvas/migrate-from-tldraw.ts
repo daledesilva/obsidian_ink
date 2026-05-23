@@ -1,3 +1,4 @@
+import { WRITING_LINE_HEIGHT } from 'src/constants';
 import type { InkCanvasSnapshot, InkPoint, InkStroke, InkStrokeStyle } from './types';
 import { DEFAULT_STROKE_STYLE } from './types';
 
@@ -117,6 +118,56 @@ export function migrateFromTldraw(tldrawSnapshot: { store?: Record<string, Tldra
 		if (stroke) snapshot.strokes.push(stroke);
 	}
 
+	return snapshot;
+}
+
+/**
+ * Migrate a tldraw writing TLEditorSnapshot into an InkCanvasSnapshot.
+ *
+ * Reads all draw shapes, ignores writing-container and writing-lines shapes.
+ * Reads writingLineHeight from document meta if present.
+ *
+ * Known limitation — stash gap: the tldraw writing editor used a stash system to
+ * hide old strokes above writingStrokeLimit from the tldraw store. At the last save,
+ * stashed strokes were not written to the file. If a file was saved while strokes
+ * were in the stash, those early strokes are permanently missing from the SVG and
+ * the tldraw JSON — they cannot be recovered by migration.
+ */
+export function migrateWritingFromTldraw(
+	tldrawSnapshot: { store?: Record<string, unknown> },
+	fallbackLineHeight: number = WRITING_LINE_HEIGHT,
+): InkCanvasSnapshot {
+	const snapshot: InkCanvasSnapshot = {
+		version: 1,
+		strokes: [],
+		gridEnabled: false,
+		writingLineHeight: fallbackLineHeight,
+	};
+
+	if (!tldrawSnapshot.store) return snapshot;
+
+	const store = tldrawSnapshot.store;
+
+	let writingLineHeight = fallbackLineHeight;
+	const documentRecord = store['document:document'];
+	if (documentRecord) {
+		const meta = (documentRecord as { meta?: Record<string, unknown> }).meta;
+		if (meta && typeof meta.writingLineHeight === 'number' && meta.writingLineHeight > 0) {
+			writingLineHeight = meta.writingLineHeight;
+		}
+	}
+
+	for (const key of Object.keys(store)) {
+		const record = store[key] as TldrawStoreRecord;
+		const isDrawShape = record.typeName === 'shape' && record.type === 'draw';
+		if (!isDrawShape) continue;
+
+		const drawRecord = record as unknown as TldrawDrawRecord;
+		const stroke = convertDrawShape(drawRecord);
+		if (stroke) snapshot.strokes.push(stroke);
+	}
+
+	snapshot.writingLineHeight = writingLineHeight;
 	return snapshot;
 }
 

@@ -3,8 +3,10 @@ import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
-import { panByScreenDelta, zoomAtPoint, clampZoom, fitBoundsToViewport, screenToPage as screenToPageFn } from './camera';
+import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, screenToPage as screenToPageFn } from './camera';
 import { computeStrokesBounds } from './svg-export';
+import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
+import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
 import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
@@ -25,13 +27,40 @@ export interface InkSvgCanvasProps {
 	/** When true, space+drag pan is disabled. Use for embeds where the page scroll
 	 *  should not be stolen by canvas pan gestures triggered by the Space key. */
 	isEmbedded?: boolean;
+	/** When true, applies writing-specific camera and gesture constraints. */
+	writingMode?: boolean;
+	/** Required when writingMode is true. Page width in page units (= WRITING_PAGE_WIDTH). */
+	pageWidth?: number;
+	/** Empty lines below content when growing page height (writing mode). Defaults to 3. */
+	writingBufferLines?: number;
+	/** Called when inviting page height should be recomputed (writing mode only). */
+	onPageHeightChange?: (candidateHeightPx: number) => void;
+	/** Dedicated writing view: vertical touch pan callback (screen pixels). */
+	onDedicatedVerticalTouchPan?: (deltaY: number) => void;
 }
 
 export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
+	const writingMode = props.writingMode ?? false;
+	const pageWidth = props.pageWidth ?? WRITING_PAGE_WIDTH;
+	const writingBufferLines = props.writingBufferLines ?? 3;
+	const writingLineHeight = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
+
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
 	const liveStrokeRef = useRef<SVGPathElement>(null);
 	const cameraGroupRef = useRef<SVGGElement>(null);
+
+	function computeInitialPageHeight(): number {
+		const strokes = props.initialSnapshot?.strokes ?? [];
+		const contentHeight = strokes.length > 0
+			? computeStrokesBounds(strokes).maxY
+			: 0;
+		return cropWritingStrokeHeightInvitingly(contentHeight, writingBufferLines, writingLineHeight);
+	}
+
+	const pageHeightRef = useRef(computeInitialPageHeight());
+	const [pageHeightState, setPageHeightState] = useState(() => pageHeightRef.current);
+	pageHeightRef.current = pageHeightState;
 
 	const storeRef = useRef<StrokeStore>(null!);
 	// Populate the store synchronously before the first render so strokes are visible
@@ -60,11 +89,54 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	strokeStyleRef.current = strokeStyle;
 	const selectedIdsRef = useRef(selectedIds);
 	selectedIdsRef.current = selectedIds;
+	const onDedicatedVerticalTouchPanRef = useRef(props.onDedicatedVerticalTouchPan);
+	onDedicatedVerticalTouchPanRef.current = props.onDedicatedVerticalTouchPan;
+
+	const getScrollContentBottomPageY = useCallback((): number => {
+		const strokes = storeRef.current.getAll();
+		if (strokes.length === 0) return WRITING_MIN_PAGE_HEIGHT;
+		return Math.max(computeStrokesBounds(strokes).maxY, WRITING_MIN_PAGE_HEIGHT);
+	}, []);
+
+	const clampWritingY = useCallback((y: number, zoom: number): number => {
+		const container = containerRef.current;
+		if (!container) return y;
+		const cameraYMax = props.isEmbedded ? 0 : MENUBAR_HEIGHT_PX;
+		return clampWritingCameraY(
+			y,
+			zoom,
+			container.clientHeight,
+			getScrollContentBottomPageY(),
+			cameraYMax,
+		);
+	}, [getScrollContentBottomPageY, props.isEmbedded]);
+
+	const resetWritingCamera = useCallback((preserveY = false) => {
+		const container = containerRef.current;
+		if (!container) return;
+		const zoom = container.clientWidth / pageWidth;
+		let prevY: number;
+		if (preserveY) {
+			prevY = cameraRef.current.y;
+		} else if (props.isEmbedded) {
+			prevY = 0;
+		} else {
+			prevY = MENUBAR_HEIGHT_PX;
+		}
+		setCameraState({ x: 0, y: prevY, zoom });
+	}, [pageWidth, props.isEmbedded]);
 
 	// Always fit camera to strokes on mount — camera is never persisted so the
 	// view is always correct regardless of which context opens the canvas.
 	// Deferred one frame so the container has real layout dimensions.
 	useEffect(() => {
+		if (writingMode) {
+			const frameId = requestAnimationFrame(() => {
+				resetWritingCamera(false);
+			});
+			return () => cancelAnimationFrame(frameId);
+		}
+
 		const strokes = props.initialSnapshot?.strokes;
 		const hasStrokes = (strokes?.length ?? 0) > 0;
 		if (!hasStrokes) return;
@@ -92,12 +164,43 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const unsubStore = storeRef.current.subscribe(() => {
 			forceRender(n => n + 1);
 			props.onChange?.();
+
+			if (writingMode) {
+				const allStrokes = storeRef.current.getAll();
+				const lh = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
+				const contentHeight = allStrokes.length > 0
+					? computeStrokesBounds(allStrokes).maxY
+					: 0;
+				const candidateHeight = cropWritingStrokeHeightInvitingly(
+					contentHeight,
+					writingBufferLines,
+					lh,
+				);
+				props.onPageHeightChange?.(candidateHeight);
+			}
 		});
 		const unsubUndo = undoManagerRef.current.subscribe(() => {
 			forceRender(n => n + 1);
 		});
 		return () => { unsubStore(); unsubUndo(); };
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// Writing mode: re-fit zoom when container width changes (not height — embed resize animates height)
+	useEffect(() => {
+		if (!writingMode) return;
+		const container = containerRef.current;
+		if (!container) return;
+
+		let lastWidth = container.clientWidth;
+		const resizeObserver = new ResizeObserver(() => {
+			const width = container.clientWidth;
+			if (props.isEmbedded && width === lastWidth) return;
+			lastWidth = width;
+			resetWritingCamera(!props.isEmbedded);
+		});
+		resizeObserver.observe(container);
+		return () => resizeObserver.disconnect();
+	}, [writingMode, props.isEmbedded, resetWritingCamera]);
 
 	// Build the editor interface and expose it
 	useEffect(() => {
@@ -139,6 +242,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				version: 1,
 				strokes: storeRef.current.getAll(),
 				gridEnabled,
+				...(writingMode ? { writingLineHeight } : {}),
 			}),
 
 			eraseAll: () => {
@@ -159,6 +263,15 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 			getContainerElement: () => containerRef.current,
 			getSvgElement: () => svgRef.current,
+
+			getPageHeight: () => (writingMode ? pageHeightRef.current : 0),
+
+			setWritingPageHeight: (height: number) => {
+				if (!writingMode) return;
+				if (height === pageHeightRef.current) return;
+				pageHeightRef.current = height;
+				setPageHeightState(height);
+			},
 		};
 
 		props.onEditorReady(editor);
@@ -223,9 +336,10 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		// Single-finger and other touch inputs are ignored here — let page scroll win.
 		if (e.pointerType === 'touch') return;
 
-		// Space + left-click → pan
+		// Space + left-click → pan (disabled in embedded writing — note scrolls instead)
 		const isSpacePanGesture = isSpaceHeldRef.current && e.button === 0;
 		if (isSpacePanGesture) {
+			if (writingMode && props.isEmbedded) return;
 			isPanning.current = true;
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
 			(e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -233,8 +347,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		// Middle-click → pan
+		// Middle-click → pan (disabled in embedded writing)
 		if (e.button === 1) {
+			if (writingMode && props.isEmbedded) return;
 			e.preventDefault(); // Prevent autoscroll cursor
 			isPanning.current = true;
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
@@ -243,8 +358,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		// Right-click → drag-to-zoom
+		// Right-click → drag-to-zoom (disabled in writing mode)
 		if (e.button === 2) {
+			if (writingMode) return;
 			isRightDraggingRef.current = true;
 			rightDragStartYRef.current = e.clientY;
 			rightDragInitialCameraRef.current = { ...cameraRef.current };
@@ -269,15 +385,25 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		if (e.pointerType === 'touch') return;
 
 		if (isPanning.current && lastPanPoint.current) {
-			const dx = e.clientX - lastPanPoint.current.x;
-			const dy = e.clientY - lastPanPoint.current.y;
-			lastPanPoint.current = { x: e.clientX, y: e.clientY };
-			setCameraState(prev => panByScreenDelta(prev, dx, dy));
+			if (writingMode && !props.isEmbedded) {
+				const dy = e.clientY - lastPanPoint.current.y;
+				lastPanPoint.current = { x: e.clientX, y: e.clientY };
+				setCameraState(prev => ({
+					...prev,
+					y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
+				}));
+			} else {
+				const dx = e.clientX - lastPanPoint.current.x;
+				const dy = e.clientY - lastPanPoint.current.y;
+				lastPanPoint.current = { x: e.clientX, y: e.clientY };
+				setCameraState(prev => panByScreenDelta(prev, dx, dy));
+			}
 			return;
 		}
 
 		// Right-drag zoom
 		if (isRightDraggingRef.current) {
+			if (writingMode) return;
 			const deltaY = rightDragStartYRef.current - e.clientY;
 			const hasMoved = Math.abs(deltaY) > 2;
 			if (hasMoved) rightDragMovedRef.current = true;
@@ -368,6 +494,21 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		if (!svg) return;
 
 		const handleWheelNative = (e: WheelEvent) => {
+			// Embedded writing: pass wheel through to the markdown note scroller
+			if (writingMode && props.isEmbedded) {
+				return;
+			}
+			if (writingMode && !props.isEmbedded) {
+				if (e.ctrlKey || e.metaKey) return;
+				e.preventDefault();
+				const delta = e.deltaY * (e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1);
+				setCameraState(prev => ({
+					...prev,
+					y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
+				}));
+				return;
+			}
+
 			const isZoomModifier = e.ctrlKey || e.metaKey;
 			if (isZoomModifier) {
 				e.preventDefault();
@@ -411,6 +552,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		const handleTouchStart = (e: TouchEvent) => {
 			if (e.touches.length !== 2) return;
+			// Embedded writing: let the note handle two-finger scroll
+			if (writingMode && props.isEmbedded) return;
 			e.preventDefault();
 			isGestureActive = true;
 			const t0 = e.touches[0];
@@ -429,22 +572,35 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const newDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
 			const dx = newMid.x - prevMid.x;
 			const dy = newMid.y - prevMid.y;
-			const ratio = prevDist > 0 ? newDist / prevDist : 1;
-			// Pan delta (dx/dy) is already relative — it's a difference of two client coords.
-			// The zoom anchor must be container-relative; zoomAtPoint expects this, not absolute client coords.
-			const containerRect = container.getBoundingClientRect();
-			const anchorX = newMid.x - containerRect.left;
-			const anchorY = newMid.y - containerRect.top;
-			setCameraState(prev => {
-				const afterPan = panByScreenDelta(prev, dx, dy);
-				const newZoom = clampZoom(afterPan.zoom * ratio);
-				const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
-				return {
-					x: afterPan.x + anchorX * zoomDelta,
-					y: afterPan.y + anchorY * zoomDelta,
-					zoom: newZoom,
-				};
-			});
+
+			if (writingMode && !props.isEmbedded) {
+				const dedicatedPan = onDedicatedVerticalTouchPanRef.current;
+				if (dedicatedPan) {
+					dedicatedPan(dy);
+				} else {
+					setCameraState(prev => ({
+						...prev,
+						y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
+					}));
+				}
+			} else if (!writingMode) {
+				const ratio = prevDist > 0 ? newDist / prevDist : 1;
+				// Pan delta (dx/dy) is already relative — it's a difference of two client coords.
+				// The zoom anchor must be container-relative; zoomAtPoint expects this, not absolute client coords.
+				const containerRect = container.getBoundingClientRect();
+				const anchorX = newMid.x - containerRect.left;
+				const anchorY = newMid.y - containerRect.top;
+				setCameraState(prev => {
+					const afterPan = panByScreenDelta(prev, dx, dy);
+					const newZoom = clampZoom(afterPan.zoom * ratio);
+					const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
+					return {
+						x: afterPan.x + anchorX * zoomDelta,
+						y: afterPan.y + anchorY * zoomDelta,
+						zoom: newZoom,
+					};
+				});
+			}
 			prevMid = newMid;
 			prevDist = newDist;
 		};
@@ -528,6 +684,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			>
 				{/* Camera group — all content is transformed by the camera */}
 				<g ref={cameraGroupRef} transform={cameraTransform}>
+					{writingMode && (() => {
+						const lh = writingLineHeight;
+						const pw = pageWidth;
+						const margin = pw * 0.05;
+						const lineCount = Math.floor(pageHeightState / lh);
+						return Array.from({ length: lineCount }, (_, i) => (
+							<line
+								key={i}
+								x1={margin}
+								y1={(i + 1) * lh}
+								x2={pw - margin}
+								y2={(i + 1) * lh}
+								stroke="currentColor"
+								strokeOpacity={0.15}
+								strokeWidth={1 / camera.zoom}
+							/>
+						));
+					})()}
 					{/* Committed strokes */}
 					{strokes.map(stroke => (
 						<StrokePath

@@ -5,6 +5,8 @@ import InkPlugin from "src/main";
 import "./writing-view.scss";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
+import { InkCanvasWritingEditor } from "../ink-canvas-writing-editor/ink-canvas-writing-editor";
+import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
@@ -126,43 +128,31 @@ export class WritingView extends TextFileView {
         this.hostEl = host;
 
         this.root = createRoot(host);
-        this.root.render(
-            <TldrawWritingEditor
-                plugin = {this.plugin}
-                workspaceLeafId = {this.leaf.id}
-                writingFile = {this.file}
-                save = {this.saveFile}
-                saveControlsReference = {this.registerEditorControls}
-                extendedMenu = {[
-                    { separator: true },
-                    {
-                        text: 'Convert to Drawing',
-                        action: () => {
-                            if (!this.file) return;
-                            new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
-                                onConversionComplete: (finalFile) => {
-                                    if (finalFile) void openInkFileInView(finalFile, 'inkDrawing');
-                                },
-                            }).open();
-                        }
-                    },
-                    { separator: true },
-                    {
-                        text: 'Erase all',
-                        warning: true,
-                        action: () => {
-                            new ConfirmationModal({
-                                plugin: this.plugin,
-                                title: 'Erase all strokes?',
-                                message: 'This will remove all strokes from the canvas.',
-                                confirmLabel: 'Erase all',
-                                confirmAction: () => { void this.editorControls?.eraseAll?.(); },
-                            }).open();
-                        },
-                    },
-                ]}
-			/>
-        );
+        const useInkCanvas = inkFileData?.meta.format === 'ink-canvas';
+
+        if (useInkCanvas) {
+            this.root.render(
+                <InkCanvasWritingEditor
+                    plugin={this.plugin}
+                    workspaceLeafId={this.leaf.id}
+                    writingFile={this.file}
+                    save={this.saveFile}
+                    saveControlsReference={this.registerEditorControls}
+                    extendedMenu={this.buildExtendedMenu()}
+                />
+            );
+        } else {
+            this.root.render(
+                <TldrawWritingEditor
+                    plugin={this.plugin}
+                    workspaceLeafId={this.leaf.id}
+                    writingFile={this.file}
+                    save={this.saveFile}
+                    saveControlsReference={this.registerEditorControls}
+                    extendedMenu={this.buildExtendedMenu()}
+                />
+            );
+        }
 
 		// Close the Boox overlay when navigating away from this leaf; restore when returning.
 		// Guard: setViewData can run multiple times — register at most once per view instance.
@@ -176,6 +166,37 @@ export class WritingView extends TextFileView {
 				}),
 			);
 		}
+    }
+
+    private buildExtendedMenu(): MenuOption[] {
+        return [
+            { separator: true },
+            {
+                text: 'Convert to Drawing',
+                action: () => {
+                    if (!this.file) return;
+                    new FileConversionModal(this.plugin, this.file, 'inkDrawing', {
+                        onConversionComplete: (finalFile) => {
+                            if (finalFile) void openInkFileInView(finalFile, 'inkDrawing');
+                        },
+                    }).open();
+                },
+            },
+            { separator: true },
+            {
+                text: 'Erase all',
+                warning: true,
+                action: () => {
+                    new ConfirmationModal({
+                        plugin: this.plugin,
+                        title: 'Erase all strokes?',
+                        message: 'This will remove all strokes from the canvas.',
+                        confirmLabel: 'Erase all',
+                        confirmAction: () => { void this.editorControls?.eraseAll?.(); },
+                    }).open();
+                },
+            },
+        ] as MenuOption[];
     }
 
     saveFile = (inkFileData: InkFileData) => {

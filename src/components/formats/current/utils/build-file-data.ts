@@ -24,6 +24,23 @@ export const buildInkCanvasDrawingFileData = (props: {
   };
 }
 
+export const buildInkCanvasWritingFileData = (props: {
+  inkCanvasSnapshot: InkCanvasSnapshot,
+  svgString: string,
+}): InkFileData => {
+  return {
+    meta: {
+      pluginVersion: PLUGIN_VERSION,
+      tldrawVersion: '',
+      fileType: 'inkWriting',
+      format: 'ink-canvas',
+    },
+    tldraw: {} as TLEditorSnapshot,
+    inkCanvas: props.inkCanvasSnapshot,
+    svgString: props.svgString,
+  };
+}
+
 export const buildDrawingFileData = (props: {
   tlEditorSnapshot: TLEditorSnapshot,
   svgString?: string,

@@ -703,32 +703,49 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const cameraTransform = `scale(${camera.zoom}) translate(${camera.x}, ${camera.y})`;
 
+	// FingerBlocker must sit outside overflow:hidden so iOS can chain finger scroll to .cm-scroller
+	// (matches release_0.5: blocker was a sibling of tldraw, not inside the clipped canvas).
+	const canvasWrapperRef = useRef<HTMLDivElement>(null);
+
 	return (
 		<div
-			ref={containerRef}
-			className="ink-svg-canvas-container"
+			ref={canvasWrapperRef}
+			className="ink-svg-canvas-wrapper"
 			style={{
 				width: '100%',
 				height: '100%',
-				overflow: 'hidden',
-				touchAction: 'auto',
 				position: 'relative',
-				cursor: cursorStyle,
 			}}
-			onMouseEnter={() => { isPointerOverCanvasRef.current = true; }}
-			onMouseLeave={() => { isPointerOverCanvasRef.current = false; }}
 		>
 			{props.blockObsidianPenGestures && (
 				<FingerBlocker
-					wrapperRef={containerRef}
-					writingMode={writingMode}
-					isEmbedded={props.isEmbedded}
+					wrapperRef={canvasWrapperRef}
+					enableTwoFingerGestures={!writingMode && !!props.isEmbedded}
+					onVerticalTouchPan={
+						writingMode && !props.isEmbedded
+							? props.onDedicatedVerticalTouchPan
+							: undefined
+					}
 					forwardPenToCanvas={!props.isBooxInputLocked}
 					onDrawingEmbedTwoFingerGesture={
 						!writingMode && props.isEmbedded ? handleDrawingEmbedTwoFingerGesture : undefined
 					}
 				/>
 			)}
+			<div
+				ref={containerRef}
+				className="ink-svg-canvas-container"
+				style={{
+					width: '100%',
+					height: '100%',
+					overflow: 'hidden',
+					touchAction: 'auto',
+					position: 'relative',
+					cursor: cursorStyle,
+				}}
+				onMouseEnter={() => { isPointerOverCanvasRef.current = true; }}
+				onMouseLeave={() => { isPointerOverCanvasRef.current = false; }}
+			>
 			<svg
 				ref={svgRef}
 				className="ink-svg-canvas"
@@ -775,6 +792,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					/>
 				</g>
 			</svg>
+			</div>
 		</div>
 	);
 }

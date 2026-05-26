@@ -42,6 +42,8 @@ export interface InkSvgCanvasProps {
 	isBooxInputLocked?: boolean;
 	/** When true, pen input pins the note scroller and blocks Obsidian swipe/scroll (embeds and Boox). */
 	blockObsidianPenGestures?: boolean;
+	/** After embed scroll / two-finger pan: reposition the Boox overlay (embedded + Boox only). */
+	onBooxEmbedGeometryChange?: () => void;
 }
 
 export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
@@ -729,6 +731,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					forwardPenToCanvas={!props.isBooxInputLocked}
 					onDrawingEmbedTwoFingerGesture={
 						!writingMode && props.isEmbedded ? handleDrawingEmbedTwoFingerGesture : undefined
+					}
+					onEmbedTwoFingerGestureEnd={
+						!writingMode && props.isEmbedded ? props.onBooxEmbedGeometryChange : undefined
 					}
 				/>
 			)}

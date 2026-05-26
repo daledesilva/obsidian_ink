@@ -83,6 +83,8 @@ export type FingerBlockerProps = {
 		anchorY: number;
 		distanceRatio: number;
 	}) => void;
+	/** Fired when a two-finger embed gesture ends (reposition Boox overlay). */
+	onEmbedTwoFingerGestureEnd?: () => void;
 };
 
 export function FingerBlocker({
@@ -92,6 +94,7 @@ export function FingerBlocker({
 	onVerticalTouchPan,
 	forwardPenToCanvas = true,
 	onDrawingEmbedTwoFingerGesture,
+	onEmbedTwoFingerGestureEnd,
 }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
 	const pointerDownRef = React.useRef<boolean>(false);
@@ -129,12 +132,16 @@ export function FingerBlocker({
 	const prevVerticalPanMidpointRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 	const onVerticalTouchPanRef = React.useRef(onVerticalTouchPan);
 	const onDrawingEmbedTwoFingerGestureRef = React.useRef(onDrawingEmbedTwoFingerGesture);
+	const onEmbedTwoFingerGestureEndRef = React.useRef(onEmbedTwoFingerGestureEnd);
 	React.useEffect(() => {
 		onVerticalTouchPanRef.current = onVerticalTouchPan;
 	}, [onVerticalTouchPan]);
 	React.useEffect(() => {
 		onDrawingEmbedTwoFingerGestureRef.current = onDrawingEmbedTwoFingerGesture;
 	}, [onDrawingEmbedTwoFingerGesture]);
+	React.useEffect(() => {
+		onEmbedTwoFingerGestureEndRef.current = onEmbedTwoFingerGestureEnd;
+	}, [onEmbedTwoFingerGestureEnd]);
 
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
@@ -553,8 +560,6 @@ export function FingerBlocker({
 		// indefinitely, blocking all scroll attempts even after the gesture ends.
 		const handleLostPointerCapture = () => {
 			if (!isPenDownRef.current) return;
-			// Ink SVG takes capture on pointerdown; unlock happens in endInkPenSession on pointerup.
-			if (isInkSvgPenTarget(getPenForwardTarget()) && forwardPenToCanvas) return;
 			unlockScroll();
 		};
 
@@ -587,6 +592,9 @@ export function FingerBlocker({
 					getTlEditor?.()?.setCameraOptions({ isLocked: prevCameraLockedRef.current });
 				}
 				twoFingerModeActiveRef.current = false;
+				if (onDrawingEmbedTwoFingerGestureRef.current) {
+					onEmbedTwoFingerGestureEndRef.current?.();
+				}
 			}
 			if (e.touches.length === 0) {
 				setFingerBlockerTouchMode(element, 'default');
@@ -610,7 +618,9 @@ export function FingerBlocker({
 		// release_0.5 unlocks via tldraw tool wraps; ink-svg-canvas needs end listeners on the SVG.
 		const inkSvg = getPenForwardTarget();
 		const inkPenEndOpts: AddEventListenerOptions = { capture: true };
-		if (isInkSvgPenTarget(inkSvg) && forwardPenToCanvas) {
+		// Always listen on ink-svg-canvas: Boox sets forwardPenToCanvas=false but pen capture
+		// on the SVG still requires unlockScroll when pointerup arrives there.
+		if (isInkSvgPenTarget(inkSvg)) {
 			inkSvg.addEventListener('pointerup', endInkPenSession, inkPenEndOpts);
 			inkSvg.addEventListener('pointercancel', endInkPenSession, inkPenEndOpts);
 		}

@@ -26,6 +26,7 @@ import { InkCanvasModifyMenu } from 'src/tldraw/modify-menu/ink-canvas-modify-me
 import { ExpandLinesButton } from 'src/tldraw/expand-lines-button/expand-lines-button';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom, type WritingEditorControls } from '../writing-embed/writing-embed';
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
@@ -215,10 +216,25 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		const onScroll = () => {
 			if (!isViewActiveRef.current) return;
-			sendAdjustmentImmediate();
+			restoreEmbedCmScrollerScroll(editorWrapperRefEl.current);
+			adjustAndroidDrawingAreaThrottled();
 		};
 		scrollEl.addEventListener('scroll', onScroll, { passive: true });
-		return () => scrollEl.removeEventListener('scroll', onScroll);
+
+		const visualViewport = typeof window !== 'undefined' ? window.visualViewport : null;
+		const onVisualViewportChange = () => {
+			if (!isViewActiveRef.current) return;
+			restoreEmbedCmScrollerScroll(editorWrapperRefEl.current);
+			adjustAndroidDrawingAreaThrottled();
+		};
+		visualViewport?.addEventListener('scroll', onVisualViewportChange);
+		visualViewport?.addEventListener('resize', onVisualViewportChange);
+
+		return () => {
+			scrollEl.removeEventListener('scroll', onScroll);
+			visualViewport?.removeEventListener('scroll', onVisualViewportChange);
+			visualViewport?.removeEventListener('resize', onVisualViewportChange);
+		};
 	}, [initialSnapshot]);
 
 	React.useEffect(() => {
@@ -643,6 +659,38 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		return true;
 	}
 
+	function repositionBooxOverlayAfterEmbedGeometryChange() {
+		restoreEmbedCmScrollerScroll(editorWrapperRefEl.current);
+		if (!websocketConnectedRef.current || !isViewActiveRef.current) return;
+		if (!props.plugin.settings.booxConnectionEnabled) return;
+
+		if (props.embedded) {
+			activateWritingSessionRef.current?.();
+			const sent = newAndroidDrawingArea();
+			if (sent) {
+				pendingNewOverlayRef.current = false;
+				const editor = editorRef.current;
+				if (editor) {
+					props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(editor));
+				}
+			} else {
+				pendingNewOverlayRef.current = true;
+			}
+			return;
+		}
+		sendAdjustment(false);
+	}
+
+	/** Throttled — scroll events (matches release_0.5 / Bridge docs). */
+	function adjustAndroidDrawingAreaThrottled() {
+		if (!isViewActiveRef.current) return;
+		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
+		adjustThrottleRef.current = window.setTimeout(() => {
+			adjustThrottleRef.current = null;
+			repositionBooxOverlayAfterEmbedGeometryChange();
+		}, 200);
+	}
+
 	function sendAdjustmentImmediate() {
 		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
 		adjustThrottleRef.current = window.setTimeout(() => {
@@ -682,6 +730,43 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const style = editor.getStrokeStyle();
 		const zoom = editor.getCamera().zoom;
 		return style.size * zoom * BOOX_STROKE_SIZE_SCALE;
+	}
+
+	function handleBooxActivateTool(activatedTool: 'draw' | 'erase' | 'select') {
+		if (!props.plugin.settings.booxConnectionEnabled) return;
+
+		const isNonDrawTool = activatedTool === 'erase' || activatedTool === 'select';
+		const isBooxConnected = props.plugin.booxConnection.isConnected();
+
+		if (isNonDrawTool && websocketConnectedRef.current) {
+			websocketConnectedRef.current = false;
+			setBooxConnected(false);
+			setIsBooxInputLocked(false);
+			pendingNewOverlayRef.current = false;
+			if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
+			props.plugin.booxConnection.sendCloseDrawingArea();
+		} else if (activatedTool === 'draw' && !websocketConnectedRef.current) {
+			if (isBooxConnected) {
+				websocketConnectedRef.current = true;
+				setBooxConnected(true);
+				setIsBooxInputLocked(true);
+				activateWritingSessionRef.current?.();
+				const sent = newAndroidDrawingArea();
+				if (sent) {
+					pendingNewOverlayRef.current = false;
+					const editor = editorRef.current;
+					if (editor) {
+						props.plugin.booxConnection.sendUpdateTool('draw', getBooxStrokeSizeCssPx(editor));
+					}
+				} else {
+					pendingNewOverlayRef.current = true;
+				}
+			} else {
+				void props.plugin.booxConnection.ensureConnected().catch((error) => {
+					verbose(['BooxConnection: reconnect from writing draw tool failed', error]);
+				});
+			}
+		}
 	}
 
 	function createStrokeFromBoox(strokePayload: BooxStrokePayload | BooxCanvasPoint[]): boolean {
@@ -792,12 +877,18 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}
 				blockObsidianPenGestures={props.embedded || isBooxInputLocked}
+				onBooxEmbedGeometryChange={
+					props.embedded && isBooxInputLocked
+						? repositionBooxOverlayAfterEmbedGeometryChange
+						: undefined
+				}
 			/>
 
 			<PrimaryMenuBar>
 				<InkCanvasDrawingMenu
 					getEditor={getEditor}
 					onStoreChange={handleStoreChange}
+					onActivateTool={handleBooxActivateTool}
 					embedId={props.embedded && props.embedId ? props.embedId : undefined}
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? props.plugin : undefined}

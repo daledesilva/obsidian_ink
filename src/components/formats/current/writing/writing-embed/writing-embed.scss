@@ -10,6 +10,8 @@
 }
 
 // Boox: disable transition on the editor canvas only (stroke latency). Embed container height may still animate.
+.ddc_ink_resize-container.ddc_ink_resize-container--boox,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox.ddc_ink_smooth-transition,
 .ddc_ink_resize-container.ddc_ink_resize-container--boox .ddc_ink_writing-editor {
     transition: none !important;
 }

@@ -1,6 +1,7 @@
 @use '../../tldraw-defaults.scss';
 @use '../../../../../styles/ink-dominant-hand-layout.scss';
 
+
 .ddc_ink_drawing-editor {
 	width: 100%;
 	height: 100%;
@@ -11,3 +12,84 @@
 		height: 100%;
 	}
 }
+
+// .ddc_ink_drawing-editor {
+//     transition: height 0.5s ease;
+    
+//     .tl-container {
+//         // tldraw seems to put a black background when the container is focussed. This negates that
+//         outline: none !important;
+
+//         .tl-canvas {
+//             background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    
+//             overflow: hidden;
+            
+//             .tl-background {
+//                 background: none;
+//             }
+    
+//         }
+//     }
+// }
+
+
+// // Auto adapts to themes
+// ////////////////////////
+
+// .ddc_ink_drawing-editor {
+
+//     // outline thickened but not coloured
+//     outline: solid 8px var(--color-base-10);
+//     border-radius: 20px;
+
+//     // Left side coloured
+//     // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
+//     // border-radius: 5px 20px 20px 5px;
+
+//     background-color: var(--color-base-05);
+
+//     // Writing lines
+//     // line {
+//     //     stroke: var(--color-base-50);
+//     //     stroke-width: 2px;
+//     // }
+// }
+
+// /////////
+// // Embed pan/zoom cursor hints (classes toggled on `.tl-container`)
+
+// .tl-container {
+//     &.ink-tldraw-pan-cursor--grab {
+//         cursor: grab;
+//     }
+
+//     &.ink-tldraw-pan-cursor--grabbing {
+//         cursor: grabbing;
+//     }
+
+//     &.ink-tldraw-pan-cursor--ns-resize {
+//         cursor: ns-resize;
+//     }
+// }
+
+// .ddc_ink_drawing-editor.ddc_ink_editor-wrapper--loading {
+//     opacity: 0;
+// }
+
+// .ink-debug-drawing-area-overlay {
+//     position: fixed;
+//     box-shadow: inset 0 0 0 5px rgba(255, 0, 0, 0.2);
+//     pointer-events: none;
+//     z-index: 9999;
+// }
+
+// .ink-debug-stroke-dot {
+//     position: absolute;
+//     width: 2px;
+//     height: 2px;
+//     border-radius: 50%;
+//     background-color: red;
+//     pointer-events: none;
+//     z-index: 9999;
+// }

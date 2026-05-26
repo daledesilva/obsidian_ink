@@ -114,6 +114,19 @@ BRAT is another community plugin that allows you to install a Beta version. New 
 - To force an update, run BRAT's Obsidian commnd `Choose a single plugin to update` and choose Ink.
 </details>
 
+## 🛠️ Development
+
+Contributor setup, tests, and local QA vault workflows are in [docs/development.md](docs/development.md).
+
+To build and push the plugin to a USB-connected Boox tablet:
+
+```bash
+cd obsidian_ink
+npm run build:boox
+```
+
+See [Debugging on device](docs/debugging-on-device.md) for USB log capture and WebView DevTools.
+
 ## 🏛️ License
 >Please note that while this repository is public and can be browsed and modified for your personal use, it is not open source. It is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 

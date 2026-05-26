@@ -133,6 +133,49 @@ npm run open-qa-verbose-mobile
 
 These scripts set `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
 
+#### Deploy to a Boox device (USB)
+
+When testing on a physical Boox (or any Android device running Obsidian), you can build and push `dist/` straight into vault plugin folders over USB with `adb`. The script does **not** overwrite `data.json` (plugin settings are preserved).
+
+**Prerequisites**
+
+- Android platform-tools (`adb`) on your development machine
+- Tablet: USB debugging enabled, device unlocked, RSA prompt accepted
+- `adb devices` shows exactly one device in the `device` state
+
+**Scripts** (run from `obsidian_ink/`)
+
+| Script | Command | Purpose |
+|--------|---------|---------|
+| `build:boox` | `npm run build` then push | Production build and deploy to configured vault paths |
+| `push:boox` | `bash scripts/push-plugin-to-boox.sh` | Push existing `dist/` only |
+| | `npm run push:boox -- --skip-build` | Same as `push:boox` when you already built |
+
+```bash
+npm run build:boox
+```
+
+After a successful push, reload Ink on the tablet (toggle the plugin under **Settings → Community plugins**, or restart Obsidian).
+
+**Default vault paths**
+
+Unless overridden, artifacts are pushed to:
+
+- `/storage/emulated/0/Documents/Testing/.obsidian/plugins/ink`
+- `/storage/emulated/0/Android/data/md.obsidian/files/Imagination and Inquiry/.obsidian/plugins/ink`
+
+**Custom vaults**
+
+Set colon-separated remote plugin directories:
+
+```bash
+INK_BOOX_PLUGIN_DIRS="/storage/emulated/0/Documents/MyVault/.obsidian/plugins/ink" npm run build:boox
+```
+
+Implementation: `scripts/push-plugin-to-boox.sh` (`--help` for options).
+
+For USB debugging, log capture, and Chrome remote DevTools, see [Debugging on device (Boox / Android)](debugging-on-device.md). For eInk Bridge + Ink together, see repo-root `scripts/boox-debug-bootstrap.sh` and [Boox companion app integration](boox-companion-integration.md).
+
 #### Writing new tests
 
 General guidelines:

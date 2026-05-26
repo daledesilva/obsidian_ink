@@ -57,6 +57,16 @@ Optional second stream (noisy, not a full substitute for DevTools): some `consol
 
 ## Technical details
 
+### Quick deploy (plugin build → tablet)
+
+From `obsidian_ink/`, with the Boox connected over USB:
+
+```bash
+npm run build:boox
+```
+
+This runs a production build and pushes `main.js`, `manifest.json`, and `styles.css` into configured vault plugin folders via `adb` (see [Development — Deploy to a Boox device](development.md#deploy-to-a-boox-device-usb)). Reload Ink in Obsidian after pushing.
+
 ### Prerequisites (Android)
 
 1. On the tablet: **Settings → Developer options → USB debugging** enabled.

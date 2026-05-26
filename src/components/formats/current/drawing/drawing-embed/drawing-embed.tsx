@@ -20,7 +20,6 @@ import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
 import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
-import { InkCanvasDrawingEditorWrapper } from "../ink-canvas-drawing-editor/ink-canvas-drawing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
@@ -287,26 +286,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 				/>
 
-				{drawingFormat === 'ink-canvas' && (
-					<InkCanvasDrawingEditorWrapper
-						embedId = {props.embedId}
-						workspaceLeafId = {props.workspaceLeafId}
-						onReady = {() => {}}
-						drawingFile = {props.embeddedFile}
-						save = {props.saveSrcFile}
-						extendedMenu = {commonExtendedOptions}
-						embedded
-						saveControlsReference = {registerEditorControls}
-						closeEditor = {() => void saveAndSwitchToPreviewMode()}
-						resizeEmbed = {resizeEmbed}
-						onResizeStart = {onResizeStart}
-						onResizeEnd = {onResizeEnd}
-						applyEmbedDimensions = {applyEmbedDimensions}
-						onOpenInDedicatedView = {() => void openInDedicatedView()}
-					/>
-				)}
-
-				{drawingFormat === 'tldraw' && (
+				{(drawingFormat === 'ink-canvas' || drawingFormat === 'tldraw') && (
 					<TldrawDrawingEditorWrapper
 						embedId = {props.embedId}
 						workspaceLeafId = {props.workspaceLeafId}

@@ -2,7 +2,7 @@ import "./writing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
-import { InkCanvasWritingEditorWrapper } from "../ink-canvas-writing-editor/ink-canvas-writing-editor";
+import { TldrawWritingEditorWrapper as TldrawWritingEditorWrapperLegacy } from "../tldraw-writing-editor-legacy/tldraw-writing-editor";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
@@ -272,7 +272,7 @@ export function WritingEmbed (props: {
 					/>
 
 					{writingFormat === 'ink-canvas' && props.writingFileRef && (
-						<InkCanvasWritingEditorWrapper
+						<TldrawWritingEditorWrapper
 							plugin={props.plugin}
 							workspaceLeafId={props.workspaceLeafId}
 							embedId={props.embedId}
@@ -287,7 +287,7 @@ export function WritingEmbed (props: {
 						/>
 					)}
 					{writingFormat === 'tldraw' && props.writingFileRef && (
-						<TldrawWritingEditorWrapper
+						<TldrawWritingEditorWrapperLegacy
 							plugin={props.plugin}
 							workspaceLeafId={props.workspaceLeafId}
 							embedId={props.embedId}

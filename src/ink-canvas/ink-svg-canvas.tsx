@@ -11,6 +11,7 @@ import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './comma
 import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
 import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
+import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
@@ -37,6 +38,10 @@ export interface InkSvgCanvasProps {
 	onPageHeightChange?: (candidateHeightPx: number) => void;
 	/** Dedicated writing view: vertical touch pan callback (screen pixels). */
 	onDedicatedVerticalTouchPan?: (deltaY: number) => void;
+	/** When true, ignore local draw/erase/select pointer input (Boox WebSocket creates strokes). */
+	isBooxInputLocked?: boolean;
+	/** When true, pen input pins the note scroller and blocks Obsidian swipe/scroll (embeds and Boox). */
+	blockObsidianPenGestures?: boolean;
 }
 
 export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
@@ -330,6 +335,16 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const isSpaceHeldRef = useRef(false);
 	const isPointerOverCanvasRef = useRef(false);
 	const [cursorStyle, setCursorStyle] = useState<React.CSSProperties['cursor']>(undefined);
+	const isBooxInputLockedRef = useRef(props.isBooxInputLocked ?? false);
+	isBooxInputLockedRef.current = props.isBooxInputLocked ?? false;
+
+	// Discard any in-progress local stroke when Boox takes over input (matches tldraw lockTldrawInput).
+	useEffect(() => {
+		if (!props.isBooxInputLocked) return;
+		drawToolPointerCancel({} as PointerEvent, drawCtx);
+		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
+		selectToolPointerCancel({} as PointerEvent, selectCtx);
+	}, [props.isBooxInputLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
 		// Touch input: two-finger gestures are handled by the native touch listener.
@@ -374,9 +389,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (toolRef.current === 'draw') drawToolPointerDown(e.nativeEvent, drawCtx);
-		if (toolRef.current === 'erase') eraseToolPointerDown(e.nativeEvent, eraseCtx);
-		if (toolRef.current === 'select') selectToolPointerDown(e.nativeEvent, selectCtx);
+		if (!isBooxInputLockedRef.current) {
+			if (toolRef.current === 'draw') drawToolPointerDown(e.nativeEvent, drawCtx);
+			if (toolRef.current === 'erase') eraseToolPointerDown(e.nativeEvent, eraseCtx);
+			if (toolRef.current === 'select') selectToolPointerDown(e.nativeEvent, selectCtx);
+		}
 
 		(e.target as HTMLElement).setPointerCapture(e.pointerId);
 	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -420,9 +437,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (toolRef.current === 'draw') drawToolPointerMove(e.nativeEvent, drawCtx);
-		if (toolRef.current === 'erase') eraseToolPointerMove(e.nativeEvent, eraseCtx);
-		if (toolRef.current === 'select') selectToolPointerMove(e.nativeEvent, selectCtx);
+		if (!isBooxInputLockedRef.current) {
+			if (toolRef.current === 'draw') drawToolPointerMove(e.nativeEvent, drawCtx);
+			if (toolRef.current === 'erase') eraseToolPointerMove(e.nativeEvent, eraseCtx);
+			if (toolRef.current === 'select') selectToolPointerMove(e.nativeEvent, selectCtx);
+		}
 	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
@@ -441,9 +460,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (toolRef.current === 'draw') drawToolPointerUp(e.nativeEvent, drawCtx);
-		if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
-		if (toolRef.current === 'select') selectToolPointerUp(e.nativeEvent, selectCtx);
+		if (!isBooxInputLockedRef.current) {
+			if (toolRef.current === 'draw') drawToolPointerUp(e.nativeEvent, drawCtx);
+			if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
+			if (toolRef.current === 'select') selectToolPointerUp(e.nativeEvent, selectCtx);
+		}
 	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
@@ -462,10 +483,29 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (toolRef.current === 'draw') drawToolPointerCancel(e.nativeEvent, drawCtx);
-		if (toolRef.current === 'erase') eraseToolPointerCancel(e.nativeEvent, eraseCtx);
-		if (toolRef.current === 'select') selectToolPointerCancel(e.nativeEvent, selectCtx);
+		if (!isBooxInputLockedRef.current) {
+			if (toolRef.current === 'draw') drawToolPointerCancel(e.nativeEvent, drawCtx);
+			if (toolRef.current === 'erase') eraseToolPointerCancel(e.nativeEvent, eraseCtx);
+			if (toolRef.current === 'select') selectToolPointerCancel(e.nativeEvent, selectCtx);
+		}
 	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	const handleDrawingEmbedTwoFingerGesture = useCallback(
+		(params: { deltaX: number; deltaY: number; anchorX: number; anchorY: number; distanceRatio: number }) => {
+			const { deltaX, deltaY, anchorX, anchorY, distanceRatio } = params;
+			setCameraState(prev => {
+				const afterPan = panByScreenDelta(prev, deltaX, deltaY);
+				const newZoom = clampZoom(afterPan.zoom * distanceRatio);
+				const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
+				return {
+					x: afterPan.x + anchorX * zoomDelta,
+					y: afterPan.y + anchorY * zoomDelta,
+					zoom: newZoom,
+				};
+			});
+		},
+		[],
+	);
 
 	// Context-menu suppression
 	// A native capture-phase listener fires before Obsidian's bubble-phase document-level
@@ -543,6 +583,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	///////////////////////////
 
 	useEffect(() => {
+		// Embedded / Boox: two-finger drawing gestures are handled by FingerBlocker.
+		if (props.blockObsidianPenGestures) return;
+
 		const container = containerRef.current;
 		if (!container) return;
 
@@ -575,12 +618,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 			if (writingMode && !props.isEmbedded) {
 				const dedicatedPan = onDedicatedVerticalTouchPanRef.current;
+				// Negate so finger-up scrolls down (matches FingerBlocker / wheel handler sign).
+				const scrollDeltaY = -dy;
 				if (dedicatedPan) {
-					dedicatedPan(dy);
+					dedicatedPan(scrollDeltaY);
 				} else {
 					setCameraState(prev => ({
 						...prev,
-						y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
+						y: clampWritingY(prev.y - dy / prev.zoom, prev.zoom),
 					}));
 				}
 			} else if (!writingMode) {
@@ -673,6 +718,17 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			onMouseEnter={() => { isPointerOverCanvasRef.current = true; }}
 			onMouseLeave={() => { isPointerOverCanvasRef.current = false; }}
 		>
+			{props.blockObsidianPenGestures && (
+				<FingerBlocker
+					wrapperRef={containerRef}
+					writingMode={writingMode}
+					isEmbedded={props.isEmbedded}
+					forwardPenToCanvas={!props.isBooxInputLocked}
+					onDrawingEmbedTwoFingerGesture={
+						!writingMode && props.isEmbedded ? handleDrawingEmbedTwoFingerGesture : undefined
+					}
+				/>
+			)}
 			<svg
 				ref={svgRef}
 				className="ink-svg-canvas"

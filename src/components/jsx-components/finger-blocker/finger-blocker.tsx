@@ -555,7 +555,6 @@ export function FingerBlocker({
 			if (!isPenDownRef.current) return;
 			// Ink SVG takes capture on pointerdown; unlock happens in endInkPenSession on pointerup.
 			if (isInkSvgPenTarget(getPenForwardTarget()) && forwardPenToCanvas) return;
-			console.debug('[FingerBlocker] lostpointercapture — unlocking scroll');
 			unlockScroll();
 		};
 

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
+import { getPointerSamples } from 'src/ink-canvas/utils/pointer-samples';
 import './finger-blocker.scss';
 
 const INK_CM_SCROLLER_SCROLL_PINNED_CLASS = 'ink-cm-scroller--scroll-pinned';
@@ -33,28 +34,58 @@ interface ToolWithPointerHandlers {
 	onPointerMove?: ((e: TLPointerEventInfo) => void) | undefined;
 }
 
-function forwardPointerEvent(target: EventTarget, type: string, source: PointerEvent): void {
+/**
+ * Re-dispatch a pointer to the canvas under the overlay.
+ *
+ * **Plans 1 & 4 (approach A):** For `pointermove`, the caller may expand browser coalesced
+ * samples into several synthetics (`sample` from {@link getPointerSamples}, `coalescingParent`
+ * = the captured `pointermove`). Synthetic events do not expose `getCoalescedEvents()`, so the
+ * ink draw tool must treat each dispatch as one logical sample (it still calls
+ * {@link getPointerSamples}, which returns `[e]` for synthetics — no double expansion).
+ */
+function forwardPointerEvent(
+	target: EventTarget,
+	type: string,
+	sample: PointerEvent,
+	coalescingParent?: PointerEvent,
+): void {
+	const meta = coalescingParent ?? sample;
+	const isCoalescedSample = coalescingParent !== undefined;
+
+	const pressure = isCoalescedSample
+		? sample.pressure > 0
+			? sample.pressure
+			: coalescingParent.pressure > 0
+				? coalescingParent.pressure
+				: 0.5
+		: sample.pressure;
+
+	const width =
+		isCoalescedSample && sample.width <= 0 ? coalescingParent.width : sample.width;
+	const height =
+		isCoalescedSample && sample.height <= 0 ? coalescingParent.height : sample.height;
+
 	target.dispatchEvent(
 		new PointerEvent(type, {
-			pointerId: source.pointerId,
-			pointerType: source.pointerType,
-			clientX: source.clientX,
-			clientY: source.clientY,
+			pointerId: meta.pointerId,
+			pointerType: meta.pointerType,
+			clientX: sample.clientX,
+			clientY: sample.clientY,
 			bubbles: true,
 			cancelable: true,
 			view: window,
-			detail: source.detail,
-			screenX: source.screenX,
-			screenY: source.screenY,
-			ctrlKey: source.ctrlKey,
-			shiftKey: source.shiftKey,
-			altKey: source.altKey,
-			metaKey: source.metaKey,
-			button: source.button,
-			buttons: source.buttons,
-			pressure: source.pressure,
-			width: source.width,
-			height: source.height,
+			detail: meta.detail,
+			screenX: sample.screenX,
+			screenY: sample.screenY,
+			ctrlKey: meta.ctrlKey,
+			shiftKey: meta.shiftKey,
+			altKey: meta.altKey,
+			metaKey: meta.metaKey,
+			button: meta.button,
+			buttons: meta.buttons,
+			pressure,
+			width,
+			height,
 		}),
 	);
 }
@@ -347,7 +378,15 @@ export function FingerBlocker({
 
 				const penTarget = getPenForwardTarget();
 				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
-					forwardPointerEvent(penTarget, 'pointermove', e);
+					const moveSamples = getPointerSamples(e);
+					for (const sample of moveSamples) {
+						// Same reference as the captured move: preserve original pressure/width semantics.
+						if (sample === e) {
+							forwardPointerEvent(penTarget, 'pointermove', sample);
+						} else {
+							forwardPointerEvent(penTarget, 'pointermove', sample, e);
+						}
+					}
 				}
 			} else if (e.pointerType === 'touch' && twoFingerVerticalPanActiveRef.current) {
 				const existing = activeTouchPointerDataRef.current.get(e.pointerId);

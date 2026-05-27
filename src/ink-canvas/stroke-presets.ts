@@ -23,6 +23,11 @@ export const MOUSE_NUMERIC_STROKE_PARTIAL: Pick<
 	simulatePressure: true,
 };
 
+/** Multiply editor stroke width when using mouse treat-as (simulated stroke reads narrower than pen). */
+// 1.6 matches optically to mouse in pen setting, but not necessarily pen in pen setting.
+// TODO: We should let pen as pen be 1, but mouse as pen should be 1.6 
+export const OPTICAL_MOUSE_TO_PEN_RATIO = 1;
+
 /**
  * Builds a full stroke style for persistence: merges pen/mouse numeric preset with
  * user-chosen size and colour from the editor toolbar.
@@ -33,9 +38,11 @@ export function buildInkStrokeStyleForTreatAs(
 ): InkStrokeStyle {
 	const numeric =
 		treatAs === 'pen' ? PEN_NUMERIC_STROKE_PARTIAL : MOUSE_NUMERIC_STROKE_PARTIAL;
+	const size = treatAs === 'mouse' ? base.size * OPTICAL_MOUSE_TO_PEN_RATIO : base.size;
 	return {
 		...base,
 		...numeric,
+		size,
 		inputKind: treatAs,
 	};
 }

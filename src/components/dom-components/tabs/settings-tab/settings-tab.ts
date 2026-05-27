@@ -11,6 +11,7 @@ import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggl
 import { setDominantHand } from 'src/stores/dominant-hand-store';
 import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import { getStrokeInputTreatAs, setStrokeInputTreatAs } from 'src/logic/device-settings/device-settings';
+import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 
 /////////
 /////////
@@ -225,10 +226,10 @@ function insertHighLevelSettings(
 			});
 		});
 
-	new TwoWayToggleSetting(containerEl)
+	new TwoWayToggleSetting<DominantHand>(containerEl)
 		.setName('Dominant hand')
 		.setDesc('Which side undo/redo and extend controls appear on while editing.')
-		.setOptions('Right', 'Left')
+		.setOptionPair('right', 'Right', 'left', 'Left')
 		.setValue(plugin.settings.dominantHand)
 		.onChange(async (value) => {
 			plugin.settings.dominantHand = value;
@@ -394,18 +395,13 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setName('Treat input as')
-		.setDesc('This device only — not stored in plugin settings or synced with the vault. Pen: pressure and pen-style stroke rendering. Mouse: simulated pressure taper. Change if hardware is mis-detected.')
-		.addDropdown((dropdown) => {
-			dropdown
-				.addOption('pen', 'Pen')
-				.addOption('mouse', 'Mouse')
-				.setValue(getStrokeInputTreatAs('inkDrawing'))
-				.onChange((value) => {
-					setStrokeInputTreatAs('inkDrawing', value as StrokeInputTreatAs);
-				});
+	new TwoWayToggleSetting<StrokeInputTreatAs>(contentEl)
+		.setName('Smoothing and pressure')
+		.setDesc('Pull pressure and smoothing from supported pens (Pen), or simulator pressure and apply a slightly higher smoothing for a more organic feel (Mouse).')
+		.setOptionPair('pen', 'Pen', 'mouse', 'Mouse')
+		.setValue(getStrokeInputTreatAs('inkDrawing'))
+		.onChange((value) => {
+			setStrokeInputTreatAs('inkDrawing', value);
 		});
 
 	new Setting(contentEl)
@@ -471,18 +467,13 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setName('Treat input as')
-		.setDesc('This device only — not stored in plugin settings or synced with the vault. Pen: pressure and pen-style stroke rendering. Mouse: simulated pressure taper. Change if hardware is mis-detected.')
-		.addDropdown((dropdown) => {
-			dropdown
-				.addOption('pen', 'Pen')
-				.addOption('mouse', 'Mouse')
-				.setValue(getStrokeInputTreatAs('inkWriting'))
-				.onChange((value) => {
-					setStrokeInputTreatAs('inkWriting', value as StrokeInputTreatAs);
-				});
+	new TwoWayToggleSetting<StrokeInputTreatAs>(contentEl)
+		.setName('Smoothing and pressure')
+		.setDesc('Pull pressure and smoothing from supported pens (Pen), or simulator pressure and apply a slightly higher smoothing for a more organic feel (Mouse).')
+		.setOptionPair('pen', 'Pen', 'mouse', 'Mouse')
+		.setValue(getStrokeInputTreatAs('inkWriting'))
+		.onChange((value) => {
+			setStrokeInputTreatAs('inkWriting', value);
 		});
 
 	new Setting(contentEl)

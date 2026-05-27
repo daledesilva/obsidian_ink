@@ -34,9 +34,6 @@ interface ActiveStroke {
 
 let activeStroke: ActiveStroke | null = null;
 
-/** Skip near-duplicate page points (coalesced tail vs main event, float noise). */
-const MIN_POINT_DISTANCE_SQ = 1e-8;
-
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
 	const isPen = e.pointerType === 'pen';
 	const camera = ctx.getCamera();
@@ -66,14 +63,14 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 
 export function drawToolPointerMove(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
-	appendDrawSamplesFromPointerEvent(e, ctx);
+	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: false });
 }
 
 export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
 
 	// Final segment: coalesced samples on `pointerup` can include the true lift position.
-	appendDrawSamplesFromPointerEvent(e, ctx);
+	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: true });
 
 	const stroke: InkStroke = {
 		id: activeStroke.id,
@@ -108,28 +105,64 @@ export function isDrawToolActive(): boolean {
 // Helpers
 ///////////////////////////
 
-function appendDrawSamplesFromPointerEvent(e: PointerEvent, ctx: DrawToolContext): void {
+function appendDrawSamplesFromPointerEvent(
+	e: PointerEvent,
+	ctx: DrawToolContext,
+	options: { forceCommitFinalPoint: boolean },
+): void {
 	if (!activeStroke) return;
 
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
 	const samples = getPointerSamples(e);
 	const isPen = e.pointerType === 'pen';
+	const mergeThresholdPage = 1 / camera.zoom;
 
-	for (const sample of samples) {
+	const lastSampleIdx = samples.length - 1;
+	for (let i = 0; i < samples.length; i++) {
+		const sample = samples[i];
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
 		let pressure = sample.pressure;
 		if (!isPen && pressure === 0) pressure = 0.5;
+		const nextPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 
-		const last = activeStroke.points[activeStroke.points.length - 1];
-		const dx = pagePoint.x - last[0];
-		const dy = pagePoint.y - last[1];
-		if (dx * dx + dy * dy < MIN_POINT_DISTANCE_SQ) continue;
-
-		activeStroke.points.push([pagePoint.x, pagePoint.y, pressure]);
+		const isLastSample = i === lastSampleIdx;
+		if (options.forceCommitFinalPoint && isLastSample) {
+			setOrAppendLastPoint(activeStroke.points, nextPoint);
+		} else {
+			appendOrMergePoint(activeStroke.points, nextPoint, mergeThresholdPage);
+		}
 	}
 
 	updateLiveStrokePath(ctx);
+}
+
+function appendOrMergePoint(points: InkPoint[], next: InkPoint, mergeThresholdPage: number): void {
+	if (points.length === 0) {
+		points.push(next);
+		return;
+	}
+
+	const last = points[points.length - 1];
+	const dx = next[0] - last[0];
+	const dy = next[1] - last[1];
+	if (dx * dx + dy * dy < mergeThresholdPage * mergeThresholdPage) {
+		// Preserve the higher pressure when merging; avoids thin “gaps” on quick pen strokes.
+		points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
+	} else {
+		points.push(next);
+	}
+}
+
+function setOrAppendLastPoint(points: InkPoint[], next: InkPoint): void {
+	if (points.length === 0) {
+		points.push(next);
+		return;
+	}
+
+	// Do not grow the point list on pointerup; just ensure the stroke terminates at the lift position.
+	const last = points[points.length - 1];
+	points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
 }
 
 /** Imperatively update the live stroke <path> element (no React re-render). */

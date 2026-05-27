@@ -261,3 +261,9 @@ No other files need to change. The `PluginSettings` type used everywhere will au
 **The migration saves back to disk immediately** (`await this.saveSettings()` in `loadSettings`). This means the first launch after a migration writes the upgraded shape. Subsequent launches will see the new `settingsVersion` and skip all migration steps — the chain is idempotent.
 
 **Do not skip version numbers in the chain.** A user upgrading from 0.4.0 directly to 0.7.0 must pass through 0.5.0 and 0.6.0 migrations in order. Each step assumes the input matches its specific input type — skipping steps would pass the wrong shape.
+
+---
+
+## Related documentation
+
+- [Plugin memory and persistence](plugin-memory-and-persistence.md) — how `data.json` relates to vault files, `localStorage`, and in-memory state (and what not to put in plugin settings).

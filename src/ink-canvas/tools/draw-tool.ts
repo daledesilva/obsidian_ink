@@ -9,6 +9,11 @@ import type { CameraState, InkPoint, InkStroke, InkStrokeStyle } from '../types'
 import { toStrokeOptions } from '../types';
 import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
 import { getInkStrokeOutline } from '../freehand/get-ink-stroke-outline';
+import {
+	normalizePointerPenPressureForCapture,
+	PEN_HOVER_PRESSURE_EPSILON,
+	PEN_PRESSURE_SMOOTHING_ALPHA,
+} from '../constants/pen-input';
 
 ///////////////////////////
 ///////////////////////////
@@ -34,9 +39,17 @@ interface ActiveStroke {
 	id: string;
 	points: InkPoint[];
 	style: InkStrokeStyle;
+	/** Page-space length along the stroke path (for early-stroke pressure floor). */
+	strokePathLength: number;
+	/** Last EMA output for pen pressure; do not smooth across strokes. */
+	lastSmoothedPenPressure: number;
 }
 
 let activeStroke: ActiveStroke | null = null;
+
+function isHardwarePen(e: PointerEvent): boolean {
+	return e.pointerType === 'pen';
+}
 
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
 	const treatAs = ctx.getStrokeInputTreatAs();
@@ -47,6 +60,9 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 
 	let pressure = e.pressure;
 	if (!treatAsPen && pressure === 0) pressure = 0.5;
+	if (isHardwarePen(e)) {
+		pressure = normalizePointerPenPressureForCapture(e.pressure, 0, ctx.getStrokeStyle().size);
+	}
 
 	const baseStyle = ctx.getStrokeStyle();
 	const style = buildInkStrokeStyleForTreatAs(baseStyle, treatAs);
@@ -55,6 +71,8 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 		id: generateStrokeId(),
 		points: [[pagePoint.x, pagePoint.y, pressure]],
 		style: { ...style },
+		strokePathLength: 0,
+		lastSmoothedPenPressure: pressure,
 	};
 
 	updateLiveStrokePath(ctx);
@@ -117,27 +135,68 @@ function appendDrawSamplesFromPointerEvent(
 	const samples = getPointerSamples(e);
 	const treatAsPen = ctx.getStrokeInputTreatAs() === 'pen';
 	const mergeThresholdPage = 1 / camera.zoom;
+	const hardwarePen = isHardwarePen(e);
+	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;
 
 	const lastSampleIdx = samples.length - 1;
 	for (let i = 0; i < samples.length; i++) {
 		const sample = samples[i];
+		const sampleIsPen = sample.pointerType === 'pen' || hardwarePen;
+
+		if (
+			sampleIsPen
+			&& !options.forceCommitFinalPoint
+			&& sample.pressure <= PEN_HOVER_PRESSURE_EPSILON
+		) {
+			continue;
+		}
+
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
+
 		let pressure = sample.pressure;
 		if (!treatAsPen && pressure === 0) pressure = 0.5;
+
+		if (sampleIsPen) {
+			pressure = normalizePointerPenPressureForCapture(
+				sample.pressure,
+				activeStroke.strokePathLength,
+				activeStroke.style.size,
+			);
+			const last = activeStroke.points[activeStroke.points.length - 1];
+			const dx = pagePoint.x - last[0];
+			const dy = pagePoint.y - last[1];
+			const willMerge =
+				dx * dx + dy * dy < mergeThresholdPage * mergeThresholdPage
+				&& activeStroke.points.length > 0
+				&& !(options.forceCommitFinalPoint && i === lastSampleIdx);
+
+			if (willMerge) {
+				pressure = Math.max(last[2], pressure);
+				activeStroke.lastSmoothedPenPressure = pressure;
+			} else if (alpha > 0) {
+				const prevSmoothed = activeStroke.lastSmoothedPenPressure;
+				pressure = prevSmoothed + (pressure - prevSmoothed) * alpha;
+				activeStroke.lastSmoothedPenPressure = pressure;
+			} else {
+				activeStroke.lastSmoothedPenPressure = pressure;
+			}
+		}
+
 		const nextPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 
 		const isLastSample = i === lastSampleIdx;
 		if (options.forceCommitFinalPoint && isLastSample) {
-			setOrAppendLastPoint(activeStroke.points, nextPoint);
+			setOrAppendLastPoint(activeStroke, nextPoint);
 		} else {
-			appendOrMergePoint(activeStroke.points, nextPoint, mergeThresholdPage);
+			appendOrMergePoint(activeStroke, nextPoint, mergeThresholdPage);
 		}
 	}
 
 	updateLiveStrokePath(ctx);
 }
 
-function appendOrMergePoint(points: InkPoint[], next: InkPoint, mergeThresholdPage: number): void {
+function appendOrMergePoint(stroke: ActiveStroke, next: InkPoint, mergeThresholdPage: number): void {
+	const points = stroke.points;
 	if (points.length === 0) {
 		points.push(next);
 		return;
@@ -146,15 +205,19 @@ function appendOrMergePoint(points: InkPoint[], next: InkPoint, mergeThresholdPa
 	const last = points[points.length - 1];
 	const dx = next[0] - last[0];
 	const dy = next[1] - last[1];
+	const dist = Math.hypot(dx, dy);
 	if (dx * dx + dy * dy < mergeThresholdPage * mergeThresholdPage) {
 		// Preserve the higher pressure when merging; avoids thin “gaps” on quick pen strokes.
 		points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
+		stroke.strokePathLength += dist;
 	} else {
 		points.push(next);
+		stroke.strokePathLength += dist;
 	}
 }
 
-function setOrAppendLastPoint(points: InkPoint[], next: InkPoint): void {
+function setOrAppendLastPoint(stroke: ActiveStroke, next: InkPoint): void {
+	const points = stroke.points;
 	if (points.length === 0) {
 		points.push(next);
 		return;
@@ -162,7 +225,11 @@ function setOrAppendLastPoint(points: InkPoint[], next: InkPoint): void {
 
 	// Do not grow the point list on pointerup; just ensure the stroke terminates at the lift position.
 	const last = points[points.length - 1];
+	const dx = next[0] - last[0];
+	const dy = next[1] - last[1];
+	const dist = Math.hypot(dx, dy);
 	points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
+	stroke.strokePathLength += dist;
 }
 
 /** Imperatively update the live stroke <path> element (no React re-render). */

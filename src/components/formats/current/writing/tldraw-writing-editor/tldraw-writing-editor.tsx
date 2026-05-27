@@ -45,6 +45,7 @@ import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
+import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 
 ///////////////////////////
@@ -805,7 +806,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const inkPoints: InkPoint[] = canvasRelativePoints.map(pt => [
 			sourcePageBounds.x + pt.x * xScaleCoeff,
 			sourcePageBounds.y + pt.y * yScaleCoeff,
-			pt.pressure,
+			normalizeBooxPenPressureForCapture(pt.pressure),
 		] as InkPoint);
 
 		const stroke: InkStroke = {

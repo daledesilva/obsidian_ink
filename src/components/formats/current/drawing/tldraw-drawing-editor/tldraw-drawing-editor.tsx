@@ -30,6 +30,7 @@ import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
+import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import type { TLEditorSnapshot } from '@tldraw/tldraw';
 
@@ -632,7 +633,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			const sx = surfaceRect.left + (pt.x / sourceCanvasWidth) * surfaceRect.width;
 			const sy = surfaceRect.top + (pt.y / sourceCanvasHeight) * surfaceRect.height;
 			const page = editor.screenToPage(sx, sy);
-			return [page.x, page.y, pt.pressure] as InkPoint;
+			return [page.x, page.y, normalizeBooxPenPressureForCapture(pt.pressure)] as InkPoint;
 		});
 
 		const strokeId = `boox-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

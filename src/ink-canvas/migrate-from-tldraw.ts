@@ -212,5 +212,6 @@ function mapTldrawStyle(props: TldrawDrawRecord['props']): InkStrokeStyle {
 		size: effectiveSize,
 		simulatePressure,
 		color,
+		inputKind: props.isPen ? 'pen' : 'mouse',
 	};
 }

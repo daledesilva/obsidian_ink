@@ -1,4 +1,5 @@
 import type { StrokeOptions } from 'perfect-freehand';
+import { identityStrokePressureEasing, inkStrokeUsesPenEasing, penStrokePressureEasing } from './stroke-easing';
 
 ///////////////////////////
 ///////////////////////////
@@ -18,6 +19,11 @@ export interface InkStrokeStyle {
 	streamline: number;
 	/** When true, velocity simulates pressure (mouse input). When false, real pressure is used. */
 	simulatePressure: boolean;
+	/**
+	 * How the stroke was authored for preset/easing (JSON-safe).
+	 * Omitted on legacy strokes; easing falls back to `simulatePressure === false` ⇒ pen curve.
+	 */
+	inputKind?: 'pen' | 'mouse';
 	/** Fill colour (CSS). */
 	color: string;
 }
@@ -65,12 +71,14 @@ export const DEFAULT_STROKE_STYLE: InkStrokeStyle = {
 
 /** Convert an InkStrokeStyle to perfect-freehand StrokeOptions. */
 export function toStrokeOptions(style: InkStrokeStyle): StrokeOptions {
+	const easing = inkStrokeUsesPenEasing(style) ? penStrokePressureEasing : identityStrokePressureEasing;
 	return {
 		size: style.size,
 		thinning: style.thinning,
 		smoothing: style.smoothing,
 		streamline: style.streamline,
 		simulatePressure: style.simulatePressure,
+		easing,
 		last: true,
 		start: { cap: true, taper: 0 },
 		end: { cap: true, taper: 0 },

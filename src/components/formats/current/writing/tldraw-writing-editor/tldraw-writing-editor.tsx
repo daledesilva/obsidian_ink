@@ -45,6 +45,7 @@ import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
+import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 
 ///////////////////////////
 ///////////////////////////
@@ -811,7 +812,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			id: crypto.randomUUID(),
 			points: inkPoints,
 			style: {
-				...editor.getStrokeStyle(),
+				...buildInkStrokeStyleForTreatAs(editor.getStrokeStyle(), 'pen'),
 				simulatePressure: false,
 			},
 			offset: { x: 0, y: 0 },

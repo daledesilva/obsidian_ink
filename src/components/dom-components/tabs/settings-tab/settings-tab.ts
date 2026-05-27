@@ -9,6 +9,8 @@ import { showWelcomeTips } from 'src/components/dom-components/welcome-notice';
 import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-accordion-setting';
 import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggle-setting/two-way-toggle-setting';
 import { setDominantHand } from 'src/stores/dominant-hand-store';
+import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
+import { getStrokeInputTreatAs, setStrokeInputTreatAs } from 'src/logic/device-settings/device-settings';
 
 /////////
 /////////
@@ -394,6 +396,20 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
+		.setName('Treat input as')
+		.setDesc('This device only — not stored in plugin settings or synced with the vault. Pen: pressure and pen-style stroke rendering. Mouse: simulated pressure taper. Change if hardware is mis-detected.')
+		.addDropdown((dropdown) => {
+			dropdown
+				.addOption('pen', 'Pen')
+				.addOption('mouse', 'Mouse')
+				.setValue(getStrokeInputTreatAs('inkDrawing'))
+				.onChange((value) => {
+					setStrokeInputTreatAs('inkDrawing', value as StrokeInputTreatAs);
+				});
+		});
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
 		.setName('Show frame around drawing when not editing')
 
 		.addToggle((toggle) => {
@@ -454,6 +470,20 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 		.setDesc(`While editing a markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Treat input as')
+		.setDesc('This device only — not stored in plugin settings or synced with the vault. Pen: pressure and pen-style stroke rendering. Mouse: simulated pressure taper. Change if hardware is mis-detected.')
+		.addDropdown((dropdown) => {
+			dropdown
+				.addOption('pen', 'Pen')
+				.addOption('mouse', 'Mouse')
+				.setValue(getStrokeInputTreatAs('inkWriting'))
+				.onChange((value) => {
+					setStrokeInputTreatAs('inkWriting', value as StrokeInputTreatAs);
+				});
+		});
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')

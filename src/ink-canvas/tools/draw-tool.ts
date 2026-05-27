@@ -5,8 +5,10 @@ import { screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
 import type { StrokeStore } from '../stroke-store';
 import type { UndoManager } from '../undo-manager';
+import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import type { CameraState, InkPoint, InkStroke, InkStrokeStyle } from '../types';
 import { toStrokeOptions } from '../types';
+import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
 
 ///////////////////////////
 ///////////////////////////
@@ -22,6 +24,8 @@ export interface DrawToolContext {
 	getCamera: () => CameraState;
 	getContainerRect: () => DOMRect;
 	getStrokeStyle: () => InkStrokeStyle;
+	/** Device-local “Treat input as” for pen vs mouse presets and pressure handling. */
+	getStrokeInputTreatAs: () => StrokeInputTreatAs;
 	getLiveStrokePath: () => SVGPathElement | null;
 	onStrokeComplete?: () => void;
 }
@@ -35,22 +39,17 @@ interface ActiveStroke {
 let activeStroke: ActiveStroke | null = null;
 
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
-	const isPen = e.pointerType === 'pen';
+	const treatAs = ctx.getStrokeInputTreatAs();
+	const treatAsPen = treatAs === 'pen';
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
 	const pagePoint = screenToPage(camera, containerRect, e.clientX, e.clientY);
 
 	let pressure = e.pressure;
-	if (!isPen && pressure === 0) pressure = 0.5;
+	if (!treatAsPen && pressure === 0) pressure = 0.5;
 
-	const style = ctx.getStrokeStyle();
-	if (isPen) {
-		// Use real pressure for pen/stylus
-		style.simulatePressure = false;
-	} else {
-		// Simulate pressure for mouse
-		style.simulatePressure = true;
-	}
+	const baseStyle = ctx.getStrokeStyle();
+	const style = buildInkStrokeStyleForTreatAs(baseStyle, treatAs);
 
 	activeStroke = {
 		id: generateStrokeId(),
@@ -115,7 +114,7 @@ function appendDrawSamplesFromPointerEvent(
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
 	const samples = getPointerSamples(e);
-	const isPen = e.pointerType === 'pen';
+	const treatAsPen = ctx.getStrokeInputTreatAs() === 'pen';
 	const mergeThresholdPage = 1 / camera.zoom;
 
 	const lastSampleIdx = samples.length - 1;
@@ -123,7 +122,7 @@ function appendDrawSamplesFromPointerEvent(
 		const sample = samples[i];
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
 		let pressure = sample.pressure;
-		if (!isPen && pressure === 0) pressure = 0.5;
+		if (!treatAsPen && pressure === 0) pressure = 0.5;
 		const nextPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 
 		const isLastSample = i === lastSampleIdx;

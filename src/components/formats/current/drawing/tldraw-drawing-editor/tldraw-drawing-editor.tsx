@@ -30,6 +30,7 @@ import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
+import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import type { TLEditorSnapshot } from '@tldraw/tldraw';
 
 ///////////////////////////
@@ -639,8 +640,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			id: strokeId,
 			points: inkPoints,
 			style: {
-				...editor.getStrokeStyle(),
-				simulatePressure: false, // Boox provides real pressure
+				...buildInkStrokeStyleForTreatAs(editor.getStrokeStyle(), 'pen'),
+				simulatePressure: false,
 			},
 			offset: { x: 0, y: 0 },
 		};

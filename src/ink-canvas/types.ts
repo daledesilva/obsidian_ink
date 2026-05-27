@@ -31,6 +31,15 @@ export interface InkStrokeStyle {
 /** A completed stroke stored in the stroke store. */
 export interface InkStroke {
 	id: string;
+	/**
+	 * Where this stroke’s points originated.
+	 *
+	 * - `local`: captured by this plugin from pointer events (subject to stroke smoothing pipeline).
+	 * - `boox`: ingested from eInk Bridge (kept as a more direct representation of raw pen input).
+	 *
+	 * Omitted on legacy strokes; treated as `local`.
+	 */
+	authoringSource?: 'local' | 'boox';
 	/** Raw captured input points. */
 	points: InkPoint[];
 	/** Visual style at the time the stroke was drawn. */

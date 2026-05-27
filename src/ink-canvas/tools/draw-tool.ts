@@ -1,4 +1,3 @@
-import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
 import { screenToPage } from '../camera';
@@ -9,6 +8,7 @@ import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settin
 import type { CameraState, InkPoint, InkStroke, InkStrokeStyle } from '../types';
 import { toStrokeOptions } from '../types';
 import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
+import { getInkStrokeOutline } from '../freehand/get-ink-stroke-outline';
 
 ///////////////////////////
 ///////////////////////////
@@ -73,6 +73,7 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 
 	const stroke: InkStroke = {
 		id: activeStroke.id,
+		authoringSource: 'local',
 		points: activeStroke.points,
 		style: activeStroke.style,
 		offset: { x: 0, y: 0 },
@@ -170,7 +171,7 @@ function updateLiveStrokePath(ctx: DrawToolContext): void {
 	const livePath = ctx.getLiveStrokePath();
 	if (!livePath) return;
 
-	const outlinePoints = getStroke(activeStroke.points, {
+	const outlinePoints = getInkStrokeOutline(activeStroke.points, {
 		...toStrokeOptions(activeStroke.style),
 		last: false, // stroke still in progress
 	});

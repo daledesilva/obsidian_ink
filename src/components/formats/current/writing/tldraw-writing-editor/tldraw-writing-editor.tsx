@@ -810,6 +810,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		const stroke: InkStroke = {
 			id: crypto.randomUUID(),
+			authoringSource: 'boox',
 			points: inkPoints,
 			style: {
 				...buildInkStrokeStyleForTreatAs(editor.getStrokeStyle(), 'pen'),

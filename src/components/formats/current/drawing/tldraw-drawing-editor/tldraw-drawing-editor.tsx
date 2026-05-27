@@ -638,6 +638,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const strokeId = `boox-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 		const stroke: InkStroke = {
 			id: strokeId,
+			authoringSource: 'boox',
 			points: inkPoints,
 			style: {
 				...buildInkStrokeStyleForTreatAs(editor.getStrokeStyle(), 'pen'),

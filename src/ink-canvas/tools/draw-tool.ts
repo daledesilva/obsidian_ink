@@ -1,5 +1,6 @@
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
+import { getPointerSamples } from '../utils/pointer-samples';
 import { screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
 import type { StrokeStore } from '../stroke-store';
@@ -33,6 +34,9 @@ interface ActiveStroke {
 
 let activeStroke: ActiveStroke | null = null;
 
+/** Skip near-duplicate page points (coalesced tail vs main event, float noise). */
+const MIN_POINT_DISTANCE_SQ = 1e-8;
+
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
 	const isPen = e.pointerType === 'pen';
 	const camera = ctx.getCamera();
@@ -62,23 +66,14 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 
 export function drawToolPointerMove(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
-
-	const camera = ctx.getCamera();
-	const containerRect = ctx.getContainerRect();
-	const pagePoint = screenToPage(camera, containerRect, e.clientX, e.clientY);
-
-	let pressure = e.pressure;
-	const isPen = e.pointerType === 'pen';
-	if (!isPen && pressure === 0) pressure = 0.5;
-
-	activeStroke.points.push([pagePoint.x, pagePoint.y, pressure]);
-
-	// Imperative DOM update — no React re-render during drawing
-	updateLiveStrokePath(ctx);
+	appendDrawSamplesFromPointerEvent(e, ctx);
 }
 
-export function drawToolPointerUp(_e: PointerEvent, ctx: DrawToolContext): void {
+export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
+
+	// Final segment: coalesced samples on `pointerup` can include the true lift position.
+	appendDrawSamplesFromPointerEvent(e, ctx);
 
 	const stroke: InkStroke = {
 		id: activeStroke.id,
@@ -112,6 +107,30 @@ export function isDrawToolActive(): boolean {
 
 // Helpers
 ///////////////////////////
+
+function appendDrawSamplesFromPointerEvent(e: PointerEvent, ctx: DrawToolContext): void {
+	if (!activeStroke) return;
+
+	const camera = ctx.getCamera();
+	const containerRect = ctx.getContainerRect();
+	const samples = getPointerSamples(e);
+	const isPen = e.pointerType === 'pen';
+
+	for (const sample of samples) {
+		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
+		let pressure = sample.pressure;
+		if (!isPen && pressure === 0) pressure = 0.5;
+
+		const last = activeStroke.points[activeStroke.points.length - 1];
+		const dx = pagePoint.x - last[0];
+		const dy = pagePoint.y - last[1];
+		if (dx * dx + dy * dy < MIN_POINT_DISTANCE_SQ) continue;
+
+		activeStroke.points.push([pagePoint.x, pagePoint.y, pressure]);
+	}
+
+	updateLiveStrokePath(ctx);
+}
 
 /** Imperatively update the live stroke <path> element (no React re-render). */
 function updateLiveStrokePath(ctx: DrawToolContext): void {

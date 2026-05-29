@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo } from "@tldraw/tldraw";
+import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TLEventInfo, DefaultColorStyle, DefaultSizeStyle } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures, silentlyChangeStore } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import * as React from "react";
 import { TFile } from 'obsidian';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
@@ -93,7 +93,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		editor.updateInstanceState({
 			isGridMode: true,
 		})
-		
+		editor.setStyleForNextShapes(DefaultColorStyle, 'white');
+		editor.setStyleForNextShapes(DefaultSizeStyle, 'm');
+
 		// view setup
 		initDrawingCamera(editor);
 		if (props.embedded) {
@@ -101,6 +103,41 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				isLocked: true,
 			})
 		}
+
+		// Ctrl+scroll zoom — capture phase so we intercept before tldraw and Obsidian
+		const tlContainer = editor.getContainer();
+		const handleWheel = (e: WheelEvent) => {
+			if (!e.ctrlKey) return;
+			e.preventDefault();
+			e.stopPropagation();
+			const camera = editor.getCamera();
+			const factor = e.deltaY > 0 ? 0.92 : 1.08;
+			const newZ = Math.min(Math.max(camera.z * factor, 0.05), 10);
+			// Temporarily unlock, zoom, re-lock so tldraw state stays consistent
+			editor.setCameraOptions({ isLocked: false });
+			editor.setCamera({ ...camera, z: newZ });
+			if (props.embedded) editor.setCameraOptions({ isLocked: true });
+		};
+		tlContainer.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+
+		// Ctrl+Z / Ctrl+Y — listen on document in capture phase to beat Obsidian's handler,
+		// but only act when the active element is inside the tldraw container.
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (!e.ctrlKey) return;
+			if (!tlContainer.contains(document.activeElement)) return;
+			if (e.key === 'z' && !e.shiftKey) {
+				e.preventDefault();
+				e.stopPropagation();
+				silentlyChangeStore(editor, () => editor.undo());
+				queueOrRunStorePostProcesses(editor);
+			} else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+				e.preventDefault();
+				e.stopPropagation();
+				silentlyChangeStore(editor, () => editor.redo());
+				queueOrRunStorePostProcesses(editor);
+			}
+		};
+		document.addEventListener('keydown', handleKeyDown, { capture: true });
 
 
 		// Make visible once prepared
@@ -155,6 +192,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
+			tlContainer.removeEventListener('wheel', handleWheel, { capture: true } as any);
+			document.removeEventListener('keydown', handleKeyDown, { capture: true });
 		}
 
 		if(props.saveControlsReference) {

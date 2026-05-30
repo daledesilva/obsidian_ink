@@ -1,6 +1,13 @@
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
+import {
+	acceptedTipStateFromLivePreview,
+	advanceAcceptedTipState,
+	FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP,
+	minPageDistanceFromAcceptedTip,
+	shouldAcceptStrokePageSample,
+} from '../utils/stroke-sample-gate';
 import { pageDistanceForScreenPixels, screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
 import type { StrokeStore } from '../stroke-store';
@@ -12,6 +19,7 @@ import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
 import {
 	normalizePointerPenPressureForCapture,
 	PEN_HOVER_PRESSURE_EPSILON,
+	PEN_PRESSURE_SLEW_PER_SIZE,
 	PEN_PRESSURE_SMOOTHING_ALPHA,
 } from '../constants/pen-input';
 
@@ -91,7 +99,7 @@ export function drawToolPointerMove(e: PointerEvent, ctx: DrawToolContext): void
 export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
 
-	// Final segment: coalesced samples on `pointerup` can include the true lift position.
+	// Final segment on `pointerup` can include the true lift position.
 	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: true });
 
 	activeStroke.style = buildInkStrokeStyleForTreatAs(
@@ -148,6 +156,8 @@ function appendDrawSamplesFromPointerEvent(
 	const mergeThresholdPage = 1 / camera.zoom;
 	const hardwarePen = isHardwarePen(e);
 	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;
+	const minSamplePageFromTip = minPageDistanceFromAcceptedTip(camera);
+	const acceptedTip = acceptedTipStateFromLivePreview(activeStroke.livePreviewPoints);
 
 	const lastSampleIdx = samples.length - 1;
 	for (let i = 0; i < samples.length; i++) {
@@ -163,6 +173,21 @@ function appendDrawSamplesFromPointerEvent(
 		}
 
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
+		const isLastSample = i === lastSampleIdx;
+		const bypassSampleGate = options.forceCommitFinalPoint && isLastSample;
+
+		if (
+			FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP
+			&& !bypassSampleGate
+			&& !shouldAcceptStrokePageSample(
+				pagePoint,
+				acceptedTip.tip,
+				acceptedTip.prev,
+				minSamplePageFromTip,
+			)
+		) {
+			continue;
+		}
 
 		let pressure = sample.pressure;
 		if (!treatAsPen && pressure === 0) pressure = 0.5;
@@ -176,6 +201,7 @@ function appendDrawSamplesFromPointerEvent(
 			const last = activeStroke.points[activeStroke.points.length - 1];
 			const dx = pagePoint.x - last[0];
 			const dy = pagePoint.y - last[1];
+			const segmentPageDistance = Math.hypot(dx, dy);
 			const willMerge =
 				dx * dx + dy * dy < mergeThresholdPage * mergeThresholdPage
 				&& activeStroke.points.length > 0
@@ -184,18 +210,24 @@ function appendDrawSamplesFromPointerEvent(
 			if (willMerge) {
 				pressure = Math.max(last[2], pressure);
 				activeStroke.lastSmoothedPenPressure = pressure;
-			} else if (alpha > 0) {
-				const prevSmoothed = activeStroke.lastSmoothedPenPressure;
-				pressure = prevSmoothed + (pressure - prevSmoothed) * alpha;
-				activeStroke.lastSmoothedPenPressure = pressure;
 			} else {
+				const prevSmoothed = activeStroke.lastSmoothedPenPressure;
+				// Soft per-sample EMA (preserves existing slow-stroke feel / jitter rejection).
+				const eased = alpha > 0
+					? prevSmoothed + (pressure - prevSmoothed) * alpha
+					: pressure;
+				// Hard per-distance radius slew limit: bound how much stored pressure (→ brush
+				// radius) may change per unit page travel. Prevents the outline from pinching into
+				// a self-intersecting ("xor-fill") bowtie across sparse fast samples, while leaving
+				// slow strokes faithful (they reach full pressure over more distance / more samples).
+				const maxPressureDelta = penPressureSlewLimit(segmentPageDistance, activeStroke.style.size);
+				pressure = clampNumber(eased, prevSmoothed - maxPressureDelta, prevSmoothed + maxPressureDelta);
 				activeStroke.lastSmoothedPenPressure = pressure;
 			}
 		}
 
 		const nextPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 
-		const isLastSample = i === lastSampleIdx;
 		if (options.forceCommitFinalPoint && isLastSample) {
 			setOrAppendLastPoint(activeStroke, nextPoint);
 			setLivePreviewTip(activeStroke.livePreviewPoints, nextPoint);
@@ -207,6 +239,10 @@ function appendDrawSamplesFromPointerEvent(
 				pageDistanceForScreenPixels(camera, 0.25),
 			);
 		}
+
+		if (FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP && !bypassSampleGate) {
+			advanceAcceptedTipState(acceptedTip, pagePoint);
+		}
 	}
 
 	updateLiveStrokePath(ctx);
@@ -214,6 +250,19 @@ function appendDrawSamplesFromPointerEvent(
 
 function copyInkPoint(p: InkPoint): InkPoint {
 	return [p[0], p[1], p[2]];
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Max allowed stored-pressure change for a segment of `segmentPageDistance`, given the brush size.
+ * See {@link PEN_PRESSURE_SLEW_PER_SIZE}. Distances are page-space, so this is zoom-consistent.
+ */
+function penPressureSlewLimit(segmentPageDistance: number, strokeSizePage: number): number {
+	if (strokeSizePage <= 0) return 1;
+	return PEN_PRESSURE_SLEW_PER_SIZE * (segmentPageDistance / strokeSizePage);
 }
 
 function setLivePreviewTip(points: InkPoint[], next: InkPoint): void {

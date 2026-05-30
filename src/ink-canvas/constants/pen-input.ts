@@ -18,6 +18,18 @@ export const PEN_MIN_START_PRESSURE = 0.15;
  */
 export const PEN_PRESSURE_SMOOTHING_ALPHA = 0.4;
 
+/**
+ * Max change in stored pressure (→ brush radius) per brush-size of page-space travel.
+ *
+ * This is a per-distance slew limit on the radius — not per-sample and not speed-based — so it is
+ * frame-rate / sample-rate independent. Slow strokes still reach full pressure because they cover
+ * the distance over many samples; sparse fast samples can't make the radius jump and pinch the
+ * outline into a self-intersecting ("xor-fill") bowtie. Lower = smoother/safer radius; higher =
+ * allows more abrupt weight changes. Tune on-device: lower if xor-fill artifacts persist on fast
+ * strokes, raise if deliberate pressure changes feel damped.
+ */
+export const PEN_PRESSURE_SLEW_PER_SIZE = 0.3;
+
 /** Ignore pen `pointermove` samples at or below this pressure (hover / lift jitter). */
 export const PEN_HOVER_PRESSURE_EPSILON = 0.01;
 

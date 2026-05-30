@@ -4,8 +4,16 @@
  * {@link PointerEvent.getCoalescedEvents} exposes those intermediates.
  *
  * Falls back to `[e]` when coalescing is unavailable or returns nothing (synthetic events, older WebKit).
+ *
+ * Sample acceptance (min distance from accepted tip, backward reject) is handled in
+ * {@link ./stroke-sample-gate.ts} for every candidate, coalesced or not.
  */
+
+/** When false, only the dispatched event is used — one sample per `pointermove`. */
+export const USE_COALESCED_POINTER_SAMPLES = false;
+
 export function getPointerSamples(e: PointerEvent): PointerEvent[] {
+	if (!USE_COALESCED_POINTER_SAMPLES) return [e];
 	if (typeof e.getCoalescedEvents !== 'function') return [e];
 	const coalesced = e.getCoalescedEvents();
 	if (!coalesced?.length) return [e];

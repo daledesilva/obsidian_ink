@@ -99,3 +99,4 @@ Commit-time **streamline**, **smoothing**, and **mergeNearDuplicatePoints** are 
 - **Reload the plugin** after changing `draw-tool` or `ink-svg-canvas`; the live path is updated imperatively and will not reflect code changes until Obsidian reloads the plugin build.
 - **WYSIWYG** between live and committed is not guaranteed unless product code commits the same trail and outline options used for preview.
 - **Capture zoom** — see [ink-canvas-zoom-scaled-strokes.md](ink-canvas-zoom-scaled-strokes.md).
+- **Pointer samples** — coalesced expansion in `pointer-samples.ts` is **off** (`USE_COALESCED_POINTER_SAMPLES = false`). Every candidate is gated in `stroke-sample-gate.ts` (min distance from **accepted** `livePreviewPoints` tip at 10 screen px / zoom; backward-step reject) via `FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP` — applies to coalesced and single events alike.

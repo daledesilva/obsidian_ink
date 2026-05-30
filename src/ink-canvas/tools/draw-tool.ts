@@ -68,7 +68,7 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 	}
 
 	const baseStyle = ctx.getStrokeStyle();
-	const style = buildInkStrokeStyleForTreatAs(baseStyle, treatAs);
+	const style = buildInkStrokeStyleForTreatAs(baseStyle, treatAs, camera.zoom);
 
 	const firstPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 	activeStroke = {
@@ -93,6 +93,12 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 
 	// Final segment: coalesced samples on `pointerup` can include the true lift position.
 	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: true });
+
+	activeStroke.style = buildInkStrokeStyleForTreatAs(
+		ctx.getStrokeStyle(),
+		ctx.getStrokeInputTreatAs(),
+		ctx.getCamera().zoom,
+	);
 
 	const stroke: InkStroke = {
 		id: activeStroke.id,

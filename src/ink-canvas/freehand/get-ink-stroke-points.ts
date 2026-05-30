@@ -1,5 +1,9 @@
-import type { StrokeOptions, Vec2 } from 'perfect-freehand';
-import type { InkPoint } from '../types';
+import type { Vec2 } from 'perfect-freehand';
+import type { InkPoint, InkStrokeOutlineOptions } from '../types';
+import {
+	INK_STROKE_ZOOM_REFERENCE,
+	nearDuplicateMergeThresholdSq,
+} from '../stroke-zoom-scale';
 import type { InkFreehandPoint, InkStrokePoint } from './types';
 
 const DEFAULT_PRESSURE = 0.5;
@@ -81,9 +85,13 @@ function ensureAtLeastTwoPoints(points: InkFreehandPoint[]): InkFreehandPoint[] 
 	return [p, [p[0] + 1, p[1] + 1, p[2]]];
 }
 
-function mergeNearDuplicatePoints(points: InkFreehandPoint[], size: number): InkFreehandPoint[] {
+function mergeNearDuplicatePoints(
+	points: InkFreehandPoint[],
+	size: number,
+	captureZoom: number,
+): InkFreehandPoint[] {
 	if (points.length <= 1) return points;
-	const threshold = (size / 3) ** 2;
+	const threshold = nearDuplicateMergeThresholdSq(size, captureZoom);
 	const out: InkFreehandPoint[] = [points[0]];
 	for (let i = 1; i < points.length; i++) {
 		const prev = out[out.length - 1];
@@ -99,7 +107,7 @@ function mergeNearDuplicatePoints(points: InkFreehandPoint[], size: number): Ink
 	return out;
 }
 
-function trimLowPressureEndpoints(points: InkFreehandPoint[], options: StrokeOptions): InkFreehandPoint[] {
+function trimLowPressureEndpoints(points: InkFreehandPoint[], options: InkStrokeOutlineOptions): InkFreehandPoint[] {
 	if (points.length === 0) return points;
 	if (options.simulatePressure) return points;
 
@@ -120,10 +128,11 @@ function trimLowPressureEndpoints(points: InkFreehandPoint[], options: StrokeOpt
  * Enhanced preprocessing stage for perfect-freehand outlines.
  * Returns StrokePoints compatible with `getStrokeOutlinePoints`.
  */
-export function getInkStrokePoints(points: InkPoint[], options: StrokeOptions = {}): InkStrokePoint[] {
+export function getInkStrokePoints(points: InkPoint[], options: InkStrokeOutlineOptions = {}): InkStrokePoint[] {
 	const size = options.size ?? 16;
 	const streamline = options.streamline ?? 0.5;
 	const last = options.last ?? false;
+	const captureZoom = options.captureZoom ?? INK_STROKE_ZOOM_REFERENCE;
 
 	if (points.length === 0 || size <= 0) return [];
 
@@ -131,7 +140,7 @@ export function getInkStrokePoints(points: InkPoint[], options: StrokeOptions = 
 	inkPoints = insertTwoPointInbetweens(inkPoints);
 	inkPoints = ensureAtLeastTwoPoints(inkPoints);
 
-	inkPoints = mergeNearDuplicatePoints(inkPoints, size);
+	inkPoints = mergeNearDuplicatePoints(inkPoints, size, captureZoom);
 	inkPoints = trimLowPressureEndpoints(inkPoints, options);
 	inkPoints = ensureAtLeastTwoPoints(inkPoints);
 

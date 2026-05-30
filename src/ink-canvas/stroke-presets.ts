@@ -1,5 +1,10 @@
 import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import type { InkStrokeStyle } from './types';
+import {
+	clampCaptureZoom,
+	INK_STROKE_ZOOM_REFERENCE,
+	numericForCaptureZoom,
+} from './stroke-zoom-scale';
 
 /** Numeric perfect-freehand-style fields for pen hardware (Plan 3). */
 export const PEN_NUMERIC_STROKE_PARTIAL: Pick<
@@ -35,14 +40,19 @@ export const OPTICAL_MOUSE_TO_PEN_RATIO = 1;
 export function buildInkStrokeStyleForTreatAs(
 	base: InkStrokeStyle,
 	treatAs: StrokeInputTreatAs,
+	captureZoom: number = INK_STROKE_ZOOM_REFERENCE,
 ): InkStrokeStyle {
 	const numeric =
 		treatAs === 'pen' ? PEN_NUMERIC_STROKE_PARTIAL : MOUSE_NUMERIC_STROKE_PARTIAL;
 	const size = treatAs === 'mouse' ? base.size * OPTICAL_MOUSE_TO_PEN_RATIO : base.size;
+	const zoom = clampCaptureZoom(captureZoom);
 	return {
 		...base,
 		...numeric,
 		size,
+		streamline: numericForCaptureZoom(numeric.streamline, zoom),
+		smoothing: numericForCaptureZoom(numeric.smoothing, zoom),
 		inputKind: treatAs,
+		captureZoom: zoom,
 	};
 }

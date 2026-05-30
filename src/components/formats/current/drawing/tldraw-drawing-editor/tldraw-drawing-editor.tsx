@@ -642,7 +642,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			authoringSource: 'boox',
 			points: inkPoints,
 			style: {
-				...buildInkStrokeStyleForTreatAs(editor.getStrokeStyle(), 'pen'),
+				...buildInkStrokeStyleForTreatAs(editor.getStrokeStyle(), 'pen', editor.getCamera().zoom),
 				simulatePressure: false,
 			},
 			offset: { x: 0, y: 0 },

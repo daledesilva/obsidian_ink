@@ -1,5 +1,6 @@
 import type { StrokeOptions } from 'perfect-freehand';
 import { identityStrokePressureEasing, inkStrokeUsesPenEasing, penStrokePressureEasing } from './stroke-easing';
+import { INK_STROKE_ZOOM_REFERENCE } from './stroke-zoom-scale';
 
 ///////////////////////////
 ///////////////////////////
@@ -26,7 +27,17 @@ export interface InkStrokeStyle {
 	inputKind?: 'pen' | 'mouse';
 	/** Fill colour (CSS). */
 	color: string;
+	/**
+	 * Camera zoom when the stroke was captured (reference {@link INK_STROKE_ZOOM_REFERENCE}).
+	 * Drives mergeNearDuplicate scaling on re-render; streamline/smoothing are stored already scaled.
+	 */
+	captureZoom?: number;
 }
+
+/** perfect-freehand options plus ink-canvas outline preprocessing fields. */
+export type InkStrokeOutlineOptions = StrokeOptions & {
+	captureZoom?: number;
+};
 
 /** A completed stroke stored in the stroke store. */
 export interface InkStroke {
@@ -79,7 +90,7 @@ export const DEFAULT_STROKE_STYLE: InkStrokeStyle = {
 };
 
 /** Convert an InkStrokeStyle to perfect-freehand StrokeOptions. */
-export function toStrokeOptions(style: InkStrokeStyle): StrokeOptions {
+export function toStrokeOptions(style: InkStrokeStyle): InkStrokeOutlineOptions {
 	const easing = inkStrokeUsesPenEasing(style) ? penStrokePressureEasing : identityStrokePressureEasing;
 	return {
 		size: style.size,
@@ -91,6 +102,7 @@ export function toStrokeOptions(style: InkStrokeStyle): StrokeOptions {
 		last: true,
 		start: { cap: true, taper: 0 },
 		end: { cap: true, taper: 0 },
+		captureZoom: style.captureZoom ?? INK_STROKE_ZOOM_REFERENCE,
 	};
 }
 

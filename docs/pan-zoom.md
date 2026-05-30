@@ -18,6 +18,8 @@ $$\text{newCx} = c_x + s_x \left(\frac{1}{\text{newZ}} - \frac{1}{c_z}\right)$$
 
 Pan deltas are in screen-pixel space. Camera `x`/`y` are in page-space, so deltas must be divided by the current zoom level `c_z` to keep pan speed consistent regardless of zoom.
 
+Stroke commit smoothing and duplicate-point merging are also adjusted for capture zoom so they stay consistent in screen space; see [ink-canvas-zoom-scaled-strokes.md](ink-canvas-zoom-scaled-strokes.md).
+
 ### Dedicated view vs. embed
 
 | Context | Camera default | Page scroll concern |

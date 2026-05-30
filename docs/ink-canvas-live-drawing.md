@@ -88,6 +88,8 @@ Boox / eInk Bridge strokes may bypass parts of this path when ingested over the 
 
 Legacy v1 drawing embeds use tldraw’s canvas directly and do not use this live-path pipeline.
 
+Commit-time **streamline**, **smoothing**, and **mergeNearDuplicatePoints** are scaled by **capture zoom** (reference 1×) so smoothing stays consistent on screen when zoomed in. See [ink-canvas-zoom-scaled-strokes.md](ink-canvas-zoom-scaled-strokes.md).
+
 ---
 
 ## Technical Gotchas
@@ -96,3 +98,4 @@ Legacy v1 drawing embeds use tldraw’s canvas directly and do not use this live
 - **`points` and `livePreviewPoints` must not share the same array references** for the first vertex; merge logic updates `points` in place.
 - **Reload the plugin** after changing `draw-tool` or `ink-svg-canvas`; the live path is updated imperatively and will not reflect code changes until Obsidian reloads the plugin build.
 - **WYSIWYG** between live and committed is not guaranteed unless product code commits the same trail and outline options used for preview.
+- **Capture zoom** — see [ink-canvas-zoom-scaled-strokes.md](ink-canvas-zoom-scaled-strokes.md).

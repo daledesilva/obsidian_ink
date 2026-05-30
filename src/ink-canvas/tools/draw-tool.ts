@@ -1,13 +1,6 @@
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
-import {
-	acceptedTipStateFromLivePreview,
-	advanceAcceptedTipState,
-	FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP,
-	minPageDistanceFromAcceptedTip,
-	shouldAcceptStrokePageSample,
-} from '../utils/stroke-sample-gate';
 import { pageDistanceForScreenPixels, screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
 import type { StrokeStore } from '../stroke-store';
@@ -156,8 +149,6 @@ function appendDrawSamplesFromPointerEvent(
 	const mergeThresholdPage = 1 / camera.zoom;
 	const hardwarePen = isHardwarePen(e);
 	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;
-	const minSamplePageFromTip = minPageDistanceFromAcceptedTip(camera);
-	const acceptedTip = acceptedTipStateFromLivePreview(activeStroke.livePreviewPoints);
 
 	const lastSampleIdx = samples.length - 1;
 	for (let i = 0; i < samples.length; i++) {
@@ -174,20 +165,6 @@ function appendDrawSamplesFromPointerEvent(
 
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
 		const isLastSample = i === lastSampleIdx;
-		const bypassSampleGate = options.forceCommitFinalPoint && isLastSample;
-
-		if (
-			FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP
-			&& !bypassSampleGate
-			&& !shouldAcceptStrokePageSample(
-				pagePoint,
-				acceptedTip.tip,
-				acceptedTip.prev,
-				minSamplePageFromTip,
-			)
-		) {
-			continue;
-		}
 
 		let pressure = sample.pressure;
 		if (!treatAsPen && pressure === 0) pressure = 0.5;
@@ -238,10 +215,6 @@ function appendDrawSamplesFromPointerEvent(
 				nextPoint,
 				pageDistanceForScreenPixels(camera, 0.25),
 			);
-		}
-
-		if (FILTER_STROKE_SAMPLES_BY_ACCEPTED_TIP && !bypassSampleGate) {
-			advanceAcceptedTipState(acceptedTip, pagePoint);
 		}
 	}
 

@@ -4,12 +4,15 @@
  * {@link PointerEvent.getCoalescedEvents} exposes those intermediates.
  *
  * Falls back to `[e]` when coalescing is unavailable or returns nothing (synthetic events, older WebKit).
- *
- * Sample acceptance (min distance from accepted tip, backward reject) is handled in
- * {@link ./stroke-sample-gate.ts} for every candidate, coalesced or not.
  */
 
-/** When false, only the dispatched event is used — one sample per `pointermove`. */
+/**
+ * When false (current default), only the dispatched event is used — one sample per `pointermove`.
+ * iPad QA originally tied raw coalesced expansion to ragged outlines; the underlying artifact was
+ * later root-caused as a radius-slew / outline self-intersection issue and fixed via
+ * {@link PEN_PRESSURE_SLEW_PER_SIZE}. Coalesced can be re-enabled and re-QA'd now that radius
+ * change is bounded per distance (denser samples just mean gentler radius steps).
+ */
 export const USE_COALESCED_POINTER_SAMPLES = false;
 
 export function getPointerSamples(e: PointerEvent): PointerEvent[] {

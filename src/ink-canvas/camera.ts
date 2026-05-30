@@ -73,6 +73,11 @@ export function screenToPage(
 	};
 }
 
+/** Page-space distance equivalent to `screenPixels` at the current zoom. */
+export function pageDistanceForScreenPixels(camera: CameraState, screenPixels: number): number {
+	return screenPixels / camera.zoom;
+}
+
 /**
  * Compute a camera that fits a bounding box (in page-space) into a viewport,
  * centred with optional padding.

@@ -1,6 +1,7 @@
+import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
-import { screenToPage } from '../camera';
+import { pageDistanceForScreenPixels, screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
 import type { StrokeStore } from '../stroke-store';
 import type { UndoManager } from '../undo-manager';
@@ -8,7 +9,6 @@ import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settin
 import type { CameraState, InkPoint, InkStroke, InkStrokeStyle } from '../types';
 import { toStrokeOptions } from '../types';
 import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
-import { getInkStrokeOutline } from '../freehand/get-ink-stroke-outline';
 import {
 	normalizePointerPenPressureForCapture,
 	PEN_HOVER_PRESSURE_EPSILON,
@@ -37,7 +37,10 @@ export interface DrawToolContext {
 
 interface ActiveStroke {
 	id: string;
+	/** Merged storage path (Plan 2) — persisted on pointer up. */
 	points: InkPoint[];
+	/** Full sample path for live SVG only — append-only, tracks the pen. */
+	livePreviewPoints: InkPoint[];
 	style: InkStrokeStyle;
 	/** Page-space length along the stroke path (for early-stroke pressure floor). */
 	strokePathLength: number;
@@ -67,9 +70,11 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 	const baseStyle = ctx.getStrokeStyle();
 	const style = buildInkStrokeStyleForTreatAs(baseStyle, treatAs);
 
+	const firstPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 	activeStroke = {
 		id: generateStrokeId(),
-		points: [[pagePoint.x, pagePoint.y, pressure]],
+		points: [copyInkPoint(firstPoint)],
+		livePreviewPoints: [copyInkPoint(firstPoint)],
 		style: { ...style },
 		strokePathLength: 0,
 		lastSmoothedPenPressure: pressure,
@@ -187,12 +192,53 @@ function appendDrawSamplesFromPointerEvent(
 		const isLastSample = i === lastSampleIdx;
 		if (options.forceCommitFinalPoint && isLastSample) {
 			setOrAppendLastPoint(activeStroke, nextPoint);
+			setLivePreviewTip(activeStroke.livePreviewPoints, nextPoint);
 		} else {
 			appendOrMergePoint(activeStroke, nextPoint, mergeThresholdPage);
+			appendLivePreviewPoint(
+				activeStroke.livePreviewPoints,
+				nextPoint,
+				pageDistanceForScreenPixels(camera, 0.25),
+			);
 		}
 	}
 
 	updateLiveStrokePath(ctx);
+}
+
+function copyInkPoint(p: InkPoint): InkPoint {
+	return [p[0], p[1], p[2]];
+}
+
+function setLivePreviewTip(points: InkPoint[], next: InkPoint): void {
+	if (points.length === 0) {
+		points.push(copyInkPoint(next));
+		return;
+	}
+	const last = points[points.length - 1];
+	points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
+}
+
+/** Append-only trail for live preview (no merge — avoids long chords while drawing). */
+function appendLivePreviewPoint(
+	points: InkPoint[],
+	next: InkPoint,
+	minPageDistance: number,
+): void {
+	if (points.length === 0) {
+		points.push(copyInkPoint(next));
+		return;
+	}
+
+	const last = points[points.length - 1];
+	const dx = next[0] - last[0];
+	const dy = next[1] - last[1];
+	const minDistSq = minPageDistance * minPageDistance;
+	if (dx * dx + dy * dy < minDistSq) {
+		points[points.length - 1] = [last[0], last[1], Math.max(last[2], next[2])];
+		return;
+	}
+	points.push(copyInkPoint(next));
 }
 
 function appendOrMergePoint(stroke: ActiveStroke, next: InkPoint, mergeThresholdPage: number): void {
@@ -238,9 +284,13 @@ function updateLiveStrokePath(ctx: DrawToolContext): void {
 	const livePath = ctx.getLiveStrokePath();
 	if (!livePath) return;
 
-	const outlinePoints = getInkStrokeOutline(activeStroke.points, {
+	// Same outline pipeline as committed strokes (`ink-svg-canvas` / export), not
+	// `getInkStrokePoints` — that path skips interior samples until runningLength >= size,
+	// which draws a straight chord to the tip while the pen moves slowly.
+	const outlinePoints = getStroke(activeStroke.livePreviewPoints, {
 		...toStrokeOptions(activeStroke.style),
-		last: false, // stroke still in progress
+		streamline: 0,
+		last: true,
 	});
 	const pathData = getSvgPathFromStroke(outlinePoints);
 	livePath.setAttribute('d', pathData);

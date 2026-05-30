@@ -6,14 +6,19 @@ import {
 	numericForCaptureZoom,
 } from './stroke-zoom-scale';
 
-/** Pen @ 1× — zoom-out target 0.2 at 0.1× (half of mouse step). */
+/**
+ * Pen @ 1× — `streamline: 0` to match the live preview (which forces `streamline: 0`), so committed
+ * pen strokes are as faithful as the in-progress trail. `smoothing` stays `0.1` (live uses the same).
+ * Note: at zoom-**out**, `streamline` still lerps toward the shared zoom-out target
+ * (`STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET.pen`), so commit > 0 there while live stays 0 — see docs.
+ */
 export const PEN_NUMERIC_STROKE_PARTIAL: Pick<
 	InkStrokeStyle,
 	'thinning' | 'smoothing' | 'streamline' | 'simulatePressure'
 > = {
 	thinning: 0.6,
 	smoothing: 0.1,
-	streamline: 0.1,
+	streamline: 0,
 	simulatePressure: false,
 };
 

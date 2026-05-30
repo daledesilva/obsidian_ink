@@ -40,9 +40,8 @@ flowchart TD
 flowchart LR
   raw["raw sample pressure"] --> ema["soft EMA (jitter)"]
   ema --> slew["per-distance radius slew limit"]
-  slew --> stored["stored pressure on points + livePreviewPoints"]
-  stored --> live["live getStroke"]
-  stored --> commit["commit getInkStrokeOutline"]
+  slew --> stored["stored pressure on points"]
+  stored --> render["getStroke(points, toStrokeOptions) — live AND commit"]
 ```
 
 ---
@@ -56,15 +55,15 @@ The brush radius may change by at most a bounded amount **per brush-size of page
 - Constant: `PEN_PRESSURE_SLEW_PER_SIZE` in `src/ink-canvas/constants/pen-input.ts`.
 - Applied in `appendDrawSamplesFromPointerEvent` (`src/ink-canvas/tools/draw-tool.ts`) via `penPressureSlewLimit(segmentPageDistance, size)`.
 - It is a limit in **space**, not per-sample or per-time, so it is frame-rate / sample-rate independent. Slow strokes still reach full pressure (they cover the distance over more samples); sparse fast samples can't make the radius jump and pinch the outline.
-- Applied to the **stored** pressure shared by `points` and `livePreviewPoints`, so live and committed are fixed in one place.
-- The faithful presets are **kept**: pen `streamline`/`smoothing` `0.1`, `thinning` `0.6` (`src/ink-canvas/stroke-presets.ts`).
+- Applied to the **stored** pressure on `points` — the single array both layers render — so live and committed are fixed in one place.
+- The faithful presets are **kept**: pen `streamline` `0` / `smoothing` `0.1`, `thinning` `0.6` (`src/ink-canvas/stroke-presets.ts`).
 
 ### Current settings
 
 | Setting | Value | Note |
 |---------|-------|------|
 | `PEN_PRESSURE_SLEW_PER_SIZE` | `0.3` | Tunable; lower if bowtie holes appear on fast strokes, raise if deliberate pressure changes feel damped |
-| Pen `streamline` / `smoothing` (1×) | `0.1` | Faithful |
+| Pen `streamline` / `smoothing` (1×) | `0` / `0.1` | Faithful; `streamline: 0` matches the live preview |
 | Pen `thinning` | `0.6` | Full pressure expressiveness |
 | `USE_COALESCED_POINTER_SAMPLES` | `false` | See rejected approaches |
 
@@ -97,5 +96,5 @@ The brush radius may change by at most a bounded amount **per brush-size of page
 
 ## Open / future work
 
-- **Speed-adaptive streamline** — per-segment streamline driven by segment distance (reuse the `metricForCaptureZoom` curve pattern in `stroke-zoom-scale.ts`), applied in `getInkStrokePoints`. This is the prerequisite for re-enabling coalesced.
-- **Live ↔ commit parity** — live preview uses `getStroke` with `streamline: 0`; committed uses `getInkStrokeOutline` (`streamline` ~`0.1`). They can differ slightly on fast strokes ("a bit of a disconnect").
+- **Speed-adaptive streamline** — per-segment streamline driven by segment distance (reuse the `metricForCaptureZoom` curve pattern in `stroke-zoom-scale.ts`). The old `getInkStrokePoints` preprocessor that would have hosted this has been removed (see below), so this would now go into the shared capture/outline path used by both live and commit. This is the prerequisite for re-enabling coalesced.
+- **Live ↔ commit parity — DONE.** Live and committed now render the same `points` through the same `getStroke(points, toStrokeOptions(style))` call, so they are byte-identical. The custom `getInkStrokeOutline`/`getInkStrokePoints` preprocessor (and its `mergeNearDuplicatePoints`/`trim`/`smoothPressure` steps) was removed; pen `streamline` is `0` for both layers. See [ink-canvas-live-drawing.md](ink-canvas-live-drawing.md).

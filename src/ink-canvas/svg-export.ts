@@ -3,8 +3,6 @@ import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT } from 'src/constants';
 import type { InkStroke, InkCanvasSnapshot } from './types';
 import { toStrokeOptions } from './types';
-import { getInkStrokeOutline } from './freehand/get-ink-stroke-outline';
-
 ///////////////////////////
 ///////////////////////////
 
@@ -32,10 +30,7 @@ export function renderStrokesToSvg(
 
 	let pathsMarkup = '';
 	for (const stroke of strokes) {
-		const outlinePoints =
-			stroke.authoringSource === 'boox'
-				? getStroke(stroke.points, toStrokeOptions(stroke.style))
-				: getInkStrokeOutline(stroke.points, toStrokeOptions(stroke.style));
+		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
 		const d = getSvgPathFromStroke(outlinePoints);
 		const tx = stroke.offset.x;
 		const ty = stroke.offset.y;
@@ -81,10 +76,7 @@ export function renderWritingStrokesToSvg(
 
 	let pathsMarkup = '';
 	for (const stroke of strokes) {
-		const outlinePoints =
-			stroke.authoringSource === 'boox'
-				? getStroke(stroke.points, toStrokeOptions(stroke.style))
-				: getInkStrokeOutline(stroke.points, toStrokeOptions(stroke.style));
+		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
 		const d = getSvgPathFromStroke(outlinePoints);
 		const tx = stroke.offset.x;
 		const ty = stroke.offset.y;
@@ -150,10 +142,7 @@ export function computeStrokesBounds(strokes: InkStroke[]): StrokeBounds {
 
 	for (const stroke of strokes) {
 		// Compute the outline to get the true rendered bounds
-		const outlinePoints =
-			stroke.authoringSource === 'boox'
-				? getStroke(stroke.points, toStrokeOptions(stroke.style))
-				: getInkStrokeOutline(stroke.points, toStrokeOptions(stroke.style));
+		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
 
 		for (const [px, py] of outlinePoints) {
 			const x = px + stroke.offset.x;

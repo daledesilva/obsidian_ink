@@ -7,10 +7,12 @@ import {
 } from './stroke-zoom-scale';
 
 /**
- * Pen @ 1× — `streamline: 0` to match the live preview (which forces `streamline: 0`), so committed
- * pen strokes are as faithful as the in-progress trail. `smoothing` stays `0.1` (live uses the same).
- * Note: at zoom-**out**, `streamline` still lerps toward the shared zoom-out target
- * (`STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET.pen`), so commit > 0 there while live stays 0 — see docs.
+ * Pen @ 1× — `streamline: 0` for a faithful, pen-following stroke. Live preview and the committed
+ * stroke render the same `points` through the same `getStroke(points, toStrokeOptions(style))` call,
+ * so this value applies to both equally (WYSIWYG) — see `ink-canvas-live-drawing.md`.
+ * At zoom-**out**, `streamline` lerps toward the zoom-out target
+ * (`STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET.pen`) for both layers together, since the scaled value lives
+ * on `style`.
  */
 export const PEN_NUMERIC_STROKE_PARTIAL: Pick<
 	InkStrokeStyle,

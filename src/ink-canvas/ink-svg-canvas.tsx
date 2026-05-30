@@ -19,8 +19,6 @@ import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvas
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
-import { getInkStrokeOutline } from './freehand/get-ink-stroke-outline';
-
 ///////////////////////////
 ///////////////////////////
 
@@ -822,12 +820,9 @@ interface StrokePathProps {
 
 function StrokePath(props: StrokePathProps): React.JSX.Element {
 	const { stroke, isSelected } = props;
-	// Boox strokes intentionally bypass preprocessing: their point stream is already
-	// a direct representation of the pen input captured by eInk Bridge.
-	const outlinePoints =
-		stroke.authoringSource === 'boox'
-			? getStroke(stroke.points, toStrokeOptions(stroke.style))
-			: getInkStrokeOutline(stroke.points, toStrokeOptions(stroke.style));
+	// All strokes render through perfect-freehand's `getStroke` directly — the same call the
+	// live preview makes (see `draw-tool.ts`), so committed strokes match what was drawn.
+	const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
 	const d = getSvgPathFromStroke(outlinePoints);
 
 	const hasOffset = stroke.offset.x !== 0 || stroke.offset.y !== 0;

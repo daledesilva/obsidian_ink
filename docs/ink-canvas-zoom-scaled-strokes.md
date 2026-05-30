@@ -4,9 +4,11 @@
 
 Stroke capture and outline generation run in **page space** (canvas coordinates inside the SVG `<g>` transform). Users judge strokes in **screen space** (pixels on the display). When the camera is zoomed in, the same on-screen pen motion produces **denser page-space samples** and the same numeric `streamline` / `smoothing` values cut corners more aggressively than at 1× zoom — committed strokes can look “smoothed beyond recognition” right after lift even though live preview looked correct.
 
-Presets in `stroke-presets.ts` (pen `streamline: 0.5`, mouse `0.65`, etc.) were tuned at **reference zoom 1**. Zoom scaling adjusts commit-time smoothing and duplicate-point merging so behaviour stays roughly **consistent in screen space** across zoom levels.
+Presets in `stroke-presets.ts` (pen `streamline: 0`/`smoothing: 0.1`, mouse smoother) are tuned at **reference zoom 1**. Zoom scaling adjusts the `streamline`/`smoothing` numbers **baked onto the stroke style at capture** so behaviour stays roughly **consistent in screen space** across zoom levels.
 
-Related: [ink-canvas-live-drawing.md](ink-canvas-live-drawing.md) (live vs committed pipelines). Plan context: `plans/stroke-smoothing/` (merge threshold already used `1 / camera.zoom` for capture; this doc covers commit-time scaling).
+> **Single pipeline:** live preview and the committed stroke render the same `points` through the same `getStroke(points, toStrokeOptions(style))` call (see [ink-canvas-live-drawing.md](ink-canvas-live-drawing.md)). Because the zoom-scaled `streamline`/`smoothing` live on `style`, they apply **identically** to both layers — there is no separate commit-only smoothing or duplicate-point merge step anymore.
+
+Related: [ink-canvas-live-drawing.md](ink-canvas-live-drawing.md) (single render pipeline). Plan context: `plans/stroke-smoothing/` (capture merge threshold uses `1 / camera.zoom`).
 
 ---
 
@@ -28,30 +30,23 @@ All scaling uses **`INK_STROKE_ZOOM_REFERENCE = 1`** (`src/ink-canvas/stroke-zoo
 
 | Mechanism | Scaled with capture zoom? | When applied |
 |-----------|---------------------------|--------------|
-| **Live preview** (`getStroke`, `streamline: 0`) | No | While pen is down |
-| **`streamline` / `smoothing` on saved `stroke.style`** | Yes — baked at capture | Pointer down/up → persisted on stroke |
-| **`mergeNearDuplicatePoints`** in `getInkStrokePoints` | Yes — via `captureZoom` on outline options | Commit outline + re-render/export |
+| **`streamline` / `smoothing` on saved `stroke.style`** | Yes — baked at capture | Pointer down/up → persisted on stroke, used by both live preview and commit |
 | **Capture merge** (`appendOrMergePoint`, `1 / zoom` page threshold) | Yes — uses **current** camera each move | While capturing into `points` |
 
-Live preview intentionally does **not** use these scalers; only **committed** local strokes do.
+Because the scaled values live on `style` and both layers call `getStroke(points, toStrokeOptions(style))`, the scaling applies equally to live and committed — they cannot diverge.
 
 ```mermaid
 flowchart TD
   subgraph capture [At stroke capture]
     Z[camera.zoom at down/up]
     Z --> Style[buildInkStrokeStyleForTreatAs]
-    Style --> Baked["style.streamline, style.smoothing, style.captureZoom"]
+    Style --> Baked["style.streamline, style.smoothing (scaled)"]
     Z --> MergeCap["points merge threshold 1/zoom page"]
   end
-  subgraph commit [On commit / re-render]
+  subgraph render [Live preview AND commit / re-render / export]
     Baked --> PF[perfect-freehand options]
-    Baked --> Dup[mergeNearDuplicatePoints radius]
-    Points[stroke.points] --> Outline[getInkStrokeOutline]
+    Points[points] --> Outline["getStroke(points, toStrokeOptions(style))"]
     PF --> Outline
-    Dup --> Outline
-  end
-  subgraph live [While drawing]
-    LivePts[livePreviewPoints] --> LiveStroke["getStroke streamline 0"]
   end
 ```
 
@@ -80,21 +75,21 @@ sequenceDiagram
   Draw->>Draw: AddStrokeCommand(points, style)
 ```
 
-`captureZoom` is stored on the stroke so **re-open, export, and zooming the canvas later** still use the zoom at which the stroke was drawn — not the current view zoom.
+Because the scaled `streamline`/`smoothing` are **baked onto `style` at capture**, re-opening, exporting, or zooming the canvas later does not re-scale the stroke — its shape is fixed at the zoom it was drawn at.
 
-### Outline pipeline on commit
+> **`captureZoom` is now vestigial for rendering.** It is still stored on `style` (and passed through `toStrokeOptions`) for historical/diagnostic reasons, but nothing in the render path reads it anymore — the only former consumer (`mergeNearDuplicatePoints` in the deleted `getInkStrokePoints`) is gone. Scaling happens once, at capture, when the scaled numbers are written onto `style`.
+
+### Outline pipeline (live, commit, and export)
 
 ```mermaid
 flowchart LR
-  P[stroke.points] --> GIP[getInkStrokePoints]
-  Opt[toStrokeOptions style] --> GIP
-  GIP --> Merge[mergeNearDuplicatePoints]
-  GIP --> Stream[streamline lerp]
-  GIP --> Out[getStrokeOutlinePoints]
-  Out --> SVG[StrokePath d attribute]
+  P[points] --> GS["getStroke"]
+  Opt["toStrokeOptions(style) — scaled streamline/smoothing"] --> GS
+  GS --> Out[outline points]
+  Out --> SVG[path d attribute]
 ```
 
-`toStrokeOptions` passes `captureZoom` into `InkStrokeOutlineOptions` for duplicate merging only; `streamline` and `smoothing` are already the scaled numbers on `style`.
+`streamline` and `smoothing` are already the scaled numbers on `style`; `getStroke` consumes them directly.
 
 ---
 
@@ -114,26 +109,14 @@ $$\text{lerpT}(z) = \frac{1/z - 1}{1/z_\text{min} - 1}$$
 
 Then `clamp` to `[0, 1]` for streamline/smoothing. **Never use `P/z` when `z < 1`** (that would push values above 1).
 
-| Input | `P` @ 1× (`stroke-presets.ts`) | `T_out` @ 0.1× (`STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET`) |
-|--------|-------------------------------|------------------------------------------------------|
-| Pen | 0.10 / 0.10 | 0.20 |
-| Mouse | 0.20 / 0.20 | 0.40 |
+| Input | `P` @ 1× streamline / smoothing (`stroke-presets.ts`) | `T_out` @ 0.1× (`STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET`) |
+|--------|-------------------------------------------------------|------------------------------------------------------|
+| Pen | 0 / 0.10 | 0.20 |
+| Mouse | smoothed / smoothed | 0.40 |
 
-`P` is the **real** 1× tuning. Mouse uses +0.2 on zoom-out; pen uses the same curve at half magnitude.
-
-| Zoom | Pen | Mouse |
-|------|-----|-------|
-| 0.1× | 0.20 | 0.40 |
-| 0.5× | ~0.11 | ~0.22 |
-| 1× | 0.10 | 0.20 |
-| 2× | 0.05 | 0.10 |
-| 5× | 0.02 | 0.04 |
+Pen `streamline` is **0** at 1× for a faithful, pen-following stroke (matching the live preview by construction). On **zoom-in** it stays ~0 (`0 × zoomRef/z = 0`); on **zoom-out** it lerps toward `T_out` so far-zoomed strokes don't get jagged. `smoothing` follows the same curve from its own `P`.
 
 `thinning`, brush `size`, and colour are **not** zoom-scaled.
-
-### mergeNearDuplicatePoints
-
-Same curve with `P = size/3` at 1× and `T_out = (size/3) × (zoomRef/zoomMin)` at 0.1× (wider merge in page space when zoomed out). Threshold is distance squared.
 
 ### Capture-time point merge (draw-tool)
 
@@ -148,9 +131,8 @@ $$\text{mergeThresholdPage} = \frac{1}{\text{camera.zoom}}$$
 | Responsibility | File |
 |----------------|------|
 | Scale helpers, `INK_STROKE_ZOOM_REFERENCE` | `src/ink-canvas/stroke-zoom-scale.ts` |
-| Apply to presets + set `captureZoom` | `src/ink-canvas/stroke-presets.ts` |
-| Read `captureZoom` in outline options | `src/ink-canvas/types.ts` (`InkStrokeStyle`, `toStrokeOptions`) |
-| Duplicate merge uses threshold | `src/ink-canvas/freehand/get-ink-stroke-points.ts` |
+| Apply scaled streamline/smoothing to presets + set `captureZoom` | `src/ink-canvas/stroke-presets.ts` |
+| Stroke style + `toStrokeOptions` (carries vestigial `captureZoom`) | `src/ink-canvas/types.ts` (`InkStrokeStyle`, `toStrokeOptions`) |
 | Pass zoom at down/up | `src/ink-canvas/tools/draw-tool.ts` |
 | Boox ingest style | `tldraw-drawing-editor.tsx`, `tldraw-writing-editor.tsx` |
 
@@ -158,10 +140,9 @@ $$\text{mergeThresholdPage} = \frac{1}{\text{camera.zoom}}$$
 
 ## Technical Gotchas
 
-- **Legacy strokes** without `captureZoom` default to **1** in `toStrokeOptions` — behaviour matches pre-scaling commits.
-- **Do not scale at render time from current camera** — stroke shape would change when the user zooms the editor after drawing. Values are fixed at **capture** zoom.
-- **Live vs commit** — zoom scaling does not affect live preview; a small difference on lift can remain if commit still uses `getInkStrokeOutline` vs live `getStroke` with `streamline: 0`.
+- **Legacy strokes** without `captureZoom` default to **1** in `toStrokeOptions` — harmless now that nothing in the render path reads `captureZoom`.
+- **Do not scale at render time from current camera** — stroke shape would change when the user zooms the editor after drawing. Scaled values are baked onto `style` at **capture** zoom.
+- **Live vs commit** — they cannot differ from zoom scaling: both render `getStroke(points, toStrokeOptions(style))` and the scaled values live on `style`.
 - **Mid-stroke zoom** — style is rebuilt on **pointer up** with final `camera.zoom`; zoom changes during a stroke are rare but use lift-time zoom for stored scalars.
-- **Boox strokes** (`authoringSource: 'boox'`) render with `getStroke` and skip `getInkStrokePoints`; `captureZoom` may still be stored on style for consistency but duplicate-merge scaling does not apply to that path.
+- **Boox strokes** (`authoringSource: 'boox'`) render through the same `getStroke` call as every other stroke; there is no longer a separate local-vs-boox outline branch.
 - **Tuning** — change pen/mouse presets at reference zoom 1; adjust `INK_STROKE_ZOOM_REFERENCE` or the formula in `stroke-zoom-scale.ts` only if the global curve needs changing, not per-device in this layer.
-- **Zoomed out still feels soft** — check pen `T_out` (0.4) vs live vs commit pipeline; mouse stays at 0.65 for `z ≤ 1` when reference presets match `T_out`.

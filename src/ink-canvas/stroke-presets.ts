@@ -6,25 +6,25 @@ import {
 	numericForCaptureZoom,
 } from './stroke-zoom-scale';
 
-/** Numeric perfect-freehand-style fields for pen hardware (Plan 3). */
+/** Pen @ 1× — zoom-out target 0.2 at 0.1× (half of mouse step). */
 export const PEN_NUMERIC_STROKE_PARTIAL: Pick<
 	InkStrokeStyle,
 	'thinning' | 'smoothing' | 'streamline' | 'simulatePressure'
 > = {
-	thinning: 0.62,
-	smoothing: 0.62,
-	streamline: 0.65,
+	thinning: 0.6,
+	smoothing: 0.1,
+	streamline: 0.1,
 	simulatePressure: false,
 };
 
-/** Numeric preset for mouse / velocity-simulated pressure (Plan 3). */
+/** Mouse @ 1× — zoom-out target 0.4 at 0.1× (+0.2 vs reference). */
 export const MOUSE_NUMERIC_STROKE_PARTIAL: Pick<
 	InkStrokeStyle,
 	'thinning' | 'smoothing' | 'streamline' | 'simulatePressure'
 > = {
-	thinning: 0.5,
-	smoothing: 0.5,
-	streamline: 0.5,
+	thinning: 0.6,
+	smoothing: 0.4,
+	streamline: 0.4,
 	simulatePressure: true,
 };
 
@@ -50,8 +50,8 @@ export function buildInkStrokeStyleForTreatAs(
 		...base,
 		...numeric,
 		size,
-		streamline: numericForCaptureZoom(numeric.streamline, zoom),
-		smoothing: numericForCaptureZoom(numeric.smoothing, zoom),
+		streamline: numericForCaptureZoom(numeric.streamline, zoom, treatAs),
+		smoothing: numericForCaptureZoom(numeric.smoothing, zoom, treatAs),
 		inputKind: treatAs,
 		captureZoom: zoom,
 	};

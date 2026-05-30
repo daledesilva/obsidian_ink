@@ -8,10 +8,13 @@
 
 /**
  * When false (current default), only the dispatched event is used — one sample per `pointermove`.
- * iPad QA originally tied raw coalesced expansion to ragged outlines; the underlying artifact was
- * later root-caused as a radius-slew / outline self-intersection issue and fixed via
- * {@link PEN_PRESSURE_SLEW_PER_SIZE}. Coalesced can be re-enabled and re-QA'd now that radius
- * change is bounded per distance (denser samples just mean gentler radius steps).
+ *
+ * History: the pressure→radius bowtie artifact was root-caused and fixed via
+ * {@link PEN_PRESSURE_SLEW_PER_SIZE}, so coalesced was re-enabled for QA. But QA showed coalesced
+ * exposes raw digitizer **positional** jitter (sideways path noise, not pressure and not pure
+ * backward steps) that the faithful low-`streamline` outline traces into self-intersecting
+ * ("xor-fill") notches. That can only be absorbed by positional smoothing (e.g. speed-adaptive
+ * streamline). Until that exists, coalesced stays **off**. Re-enable only alongside that work.
  */
 export const USE_COALESCED_POINTER_SAMPLES = false;
 

@@ -79,7 +79,13 @@ function hitTestEraserAtClientPoint(
 	const svg = ctx.getSvgElement();
 	if (!svg) return;
 
-	const samplePoints = getEraserClientSamplePoints(clientX, clientY, lastClientPoint);
+	const cameraZoom = ctx.getCamera().zoom;
+	const samplePoints = getEraserClientSamplePoints(
+		clientX,
+		clientY,
+		lastClientPoint,
+		cameraZoom,
+	);
 	for (const sample of samplePoints) {
 		const strokeId = getStrokeIdAtClientPoint(svg, sample.x, sample.y);
 		if (!strokeId) continue;

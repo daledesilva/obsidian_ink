@@ -1,4 +1,8 @@
 import { clampZoom } from './camera';
+import {
+	ERASER_HIT_RADIUS_REFERENCE,
+	ERASER_SWEEP_SAMPLE_SPACING_REFERENCE,
+} from './constants/erase-tool';
 import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 
 /** Zoom level presets were tuned at this camera zoom. */
@@ -79,4 +83,28 @@ export function nearDuplicateMergeThresholdSq(
 ): number {
 	const distance = nearDuplicateMergeDistancePage(size, captureZoom, zoomRef);
 	return distance * distance;
+}
+
+/**
+ * Screen-space metric that stays visually constant across camera zoom (same curve as
+ * page-space `metricForCaptureZoom`, multiplied by `z` for client-pixel hit testing).
+ */
+export function screenConstantMetricForCameraZoom(
+	referenceValue: number,
+	cameraZoom: number,
+	zoomRef: number = INK_STROKE_ZOOM_REFERENCE,
+): number {
+	const z = clampCaptureZoom(cameraZoom);
+	const zoomOutTarget = referenceValue * (zoomRef / INK_STROKE_ZOOM_MIN);
+	return metricForCaptureZoom(referenceValue, zoomOutTarget, z, zoomRef) * z;
+}
+
+/** Eraser hit radius in screen pixels for the current camera zoom. */
+export function eraserHitRadiusScreenPx(cameraZoom: number): number {
+	return screenConstantMetricForCameraZoom(ERASER_HIT_RADIUS_REFERENCE, cameraZoom);
+}
+
+/** Eraser sweep spacing in screen pixels for the current camera zoom. */
+export function eraserSweepSpacingScreenPx(cameraZoom: number): number {
+	return screenConstantMetricForCameraZoom(ERASER_SWEEP_SAMPLE_SPACING_REFERENCE, cameraZoom);
 }

@@ -1,13 +1,14 @@
 /**
- * Ink canvas eraser hit-testing tuning (screen-space CSS pixels).
- * {@link ERASER_HIT_RADIUS_SCREEN_PX} is aligned with eInk Bridge raw eraser width (~20px).
+ * Ink canvas eraser hit-testing tuning at reference zoom 1×.
+ * Actual screen pixels are computed via {@link eraserHitRadiusScreenPx} /
+ * {@link eraserSweepSpacingScreenPx} in `stroke-zoom-scale.ts`.
  */
 
-/** Radius around the pointer tested for stroke hits (center + ring samples). */
-export const ERASER_HIT_RADIUS_SCREEN_PX = 20;
+/** Hit radius at 1× zoom (center + ring samples); scaled for camera zoom. */
+export const ERASER_HIT_RADIUS_REFERENCE = 15;
 
-/** Number of points on the ring at {@link ERASER_HIT_RADIUS_SCREEN_PX}. */
+/** Number of points on the ring at the scaled hit radius. */
 export const ERASER_RING_SAMPLE_COUNT = 8;
 
-/** Spacing between sweep samples along the pointer path (fast-drag gap fill). */
-export const ERASER_SWEEP_SAMPLE_SPACING_PX = 8;
+/** Sweep sample spacing at 1× zoom along the drag path; scaled for camera zoom. */
+export const ERASER_SWEEP_SAMPLE_SPACING_REFERENCE = 8;

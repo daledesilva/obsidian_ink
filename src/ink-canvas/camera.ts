@@ -109,9 +109,20 @@ export function fitBoundsToViewport(
 }
 
 /**
- * Compute a camera that zooms to a specific level based on drag distance.
- * Used for right-drag-to-zoom gesture.
+ * Signed pixel delta for right-drag zoom from horizontal and vertical drag combined.
+ * Up and right zoom in (positive); down and left zoom out (negative).
  */
+export function getRightDragZoomDelta(
+	startX: number,
+	startY: number,
+	clientX: number,
+	clientY: number,
+): number {
+	const deltaY = startY - clientY;
+	const deltaX = clientX - startX;
+	return deltaX + deltaY;
+}
+
 /**
  * Clamp writing-mode camera Y for dedicated view scrolling.
  * Top: page Y=0 must not scroll above viewport top (cameraYMax, typically menubar offset).

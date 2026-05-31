@@ -3,7 +3,7 @@ import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
-import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, screenToPage as screenToPageFn } from './camera';
+import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { computeStrokesBounds } from './svg-export';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -335,7 +335,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	// Right-drag zoom (Phase B)
 	const isRightDraggingRef = useRef(false);
-	const rightDragStartYRef = useRef(0);
+	const rightDragStartPointRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 	const rightDragInitialCameraRef = useRef<CameraState>({ x: 0, y: 0, zoom: 1 });
 	const rightDragFocalScreenRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 	const rightDragMovedRef = useRef(false);
@@ -386,7 +386,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		if (e.button === 2) {
 			if (writingMode) return;
 			isRightDraggingRef.current = true;
-			rightDragStartYRef.current = e.clientY;
+			rightDragStartPointRef.current = { x: e.clientX, y: e.clientY };
 			rightDragInitialCameraRef.current = { ...cameraRef.current };
 			// Store container-relative focal point — zoomAtPoint expects these, not absolute client coords.
 			const containerRect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
@@ -430,10 +430,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		// Right-drag zoom
 		if (isRightDraggingRef.current) {
 			if (writingMode) return;
-			const deltaY = rightDragStartYRef.current - e.clientY;
-			const hasMoved = Math.abs(deltaY) > 2;
+			const startPoint = rightDragStartPointRef.current;
+			const dragZoomDelta = getRightDragZoomDelta(startPoint.x, startPoint.y, e.clientX, e.clientY);
+			const hasMoved = Math.abs(dragZoomDelta) > 2;
 			if (hasMoved) rightDragMovedRef.current = true;
-			const factor = Math.exp(deltaY * 0.005);
+			const factor = Math.exp(dragZoomDelta * 0.005);
 			const initialCam = rightDragInitialCameraRef.current;
 			const newZoom = clampZoom(initialCam.zoom * factor);
 			const focal = rightDragFocalScreenRef.current;

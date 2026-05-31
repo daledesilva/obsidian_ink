@@ -164,6 +164,8 @@ export function FingerBlocker({
 	const onVerticalTouchPanRef = React.useRef(onVerticalTouchPan);
 	const onDrawingEmbedTwoFingerGestureRef = React.useRef(onDrawingEmbedTwoFingerGesture);
 	const onEmbedTwoFingerGestureEndRef = React.useRef(onEmbedTwoFingerGestureEnd);
+	/** Middle/right embed pan/zoom pointers forwarded to ink-svg-canvas (capture may fail on synthetics). */
+	const embedPanZoomPointerIdsRef = React.useRef<Set<number>>(new Set());
 	React.useEffect(() => {
 		onVerticalTouchPanRef.current = onVerticalTouchPan;
 	}, [onVerticalTouchPan]);
@@ -245,6 +247,11 @@ export function FingerBlocker({
 		const element = blockerRef.current;
 		if (!element) return;
 
+		const isEmbedDrawingInkCanvas = () => !!onDrawingEmbedTwoFingerGestureRef.current;
+
+		const isEmbedPanZoomMouseButton = (e: PointerEvent) =>
+			e.pointerType === 'mouse' && (e.button === 1 || e.button === 2);
+
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				// Let browser back/forward mouse buttons (3 & 4) pass through so
@@ -281,6 +288,10 @@ export function FingerBlocker({
 
 				const penTarget = getPenForwardTarget();
 				if (penTarget && forwardPenToCanvas && isDrawingInput) {
+					forwardPointerEvent(penTarget, 'pointerdown', e);
+				}
+				if (penTarget && isEmbedDrawingInkCanvas() && isEmbedPanZoomMouseButton(e)) {
+					embedPanZoomPointerIdsRef.current.add(e.pointerId);
 					forwardPointerEvent(penTarget, 'pointerdown', e);
 				}
 				if (isDrawingInput) {
@@ -387,6 +398,8 @@ export function FingerBlocker({
 							forwardPointerEvent(penTarget, 'pointermove', sample, e);
 						}
 					}
+				} else if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointermove', e);
 				}
 			} else if (e.pointerType === 'touch' && twoFingerVerticalPanActiveRef.current) {
 				const existing = activeTouchPointerDataRef.current.get(e.pointerId);
@@ -501,6 +514,10 @@ export function FingerBlocker({
 				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
 					forwardPointerEvent(penTarget, 'pointerup', e);
 				}
+				if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointerup', e);
+					embedPanZoomPointerIdsRef.current.delete(e.pointerId);
+				}
 
 				setFingerBlockerTouchMode(element, 'default');
 				unlockScroll();
@@ -548,6 +565,10 @@ export function FingerBlocker({
 				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
 					forwardPointerEvent(penTarget, 'pointercancel', e);
 				}
+				if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointercancel', e);
+					embedPanZoomPointerIdsRef.current.delete(e.pointerId);
+				}
 				unlockScroll();
 
 				const target = e.target as HTMLElement;
@@ -574,7 +595,37 @@ export function FingerBlocker({
 				e.preventDefault();
 				e.stopPropagation();
 				e.stopImmediatePropagation();
+				return;
 			}
+			if (isEmbedDrawingInkCanvas() && (e.ctrlKey || e.metaKey)) {
+				const penTarget = getPenForwardTarget();
+				if (penTarget) {
+					penTarget.dispatchEvent(new WheelEvent('wheel', {
+						deltaX: e.deltaX,
+						deltaY: e.deltaY,
+						deltaZ: e.deltaZ,
+						deltaMode: e.deltaMode,
+						clientX: e.clientX,
+						clientY: e.clientY,
+						screenX: e.screenX,
+						screenY: e.screenY,
+						ctrlKey: e.ctrlKey,
+						metaKey: e.metaKey,
+						shiftKey: e.shiftKey,
+						altKey: e.altKey,
+						bubbles: true,
+						cancelable: true,
+					}));
+					// preventDefault only — never stopPropagation (breaks OS scroll on macOS).
+					e.preventDefault();
+				}
+			}
+		};
+
+		const suppressEmbedContextMenu = (e: MouseEvent) => {
+			if (!isEmbedDrawingInkCanvas()) return;
+			e.preventDefault();
+			e.stopPropagation();
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
@@ -649,6 +700,7 @@ export function FingerBlocker({
 		element.addEventListener('pointercancel', handlePointerCancel, { passive: false, capture: true });
 		element.addEventListener('lostpointercapture', handleLostPointerCapture);
 		element.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+		element.addEventListener('contextmenu', suppressEmbedContextMenu, { capture: true });
 		element.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
 		element.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
 		element.addEventListener('touchcancel', handleTouchEnd, { passive: true, capture: true });
@@ -666,6 +718,7 @@ export function FingerBlocker({
 
 		return () => {
 			isPenDownRef.current = false;
+			embedPanZoomPointerIdsRef.current.clear();
 			unlockScroll();
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
@@ -673,6 +726,7 @@ export function FingerBlocker({
 			element.removeEventListener('pointercancel', handlePointerCancel, { capture: true });
 			element.removeEventListener('lostpointercapture', handleLostPointerCapture);
 			element.removeEventListener('wheel', handleWheel, { capture: true });
+			element.removeEventListener('contextmenu', suppressEmbedContextMenu, { capture: true });
 			element.removeEventListener('touchmove', handleTouchMove, { capture: true });
 			element.removeEventListener('touchend', handleTouchEnd, { capture: true });
 			element.removeEventListener('touchcancel', handleTouchEnd, { capture: true });

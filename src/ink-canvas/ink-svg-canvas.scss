@@ -1,0 +1,19 @@
+// Pending-erase preview for strokes hit by the eraser (see erase-tool.ts).
+// Duration matches INK_STROKE_PENDING_ERASE_ANIMATION_MS in constants/erase-tool.ts.
+
+@keyframes ink-stroke-pending-erase {
+	from {
+		filter: blur(0);
+		opacity: 1;
+	}
+
+	to {
+		filter: blur(50px);
+		opacity: 0.3;
+	}
+}
+
+.ink-svg-canvas [data-stroke-group].ink-stroke--pending-erase {
+	/* Ease-in-out cubic: starts and ends slowly, faster in the middle */
+	animation: ink-stroke-pending-erase 0.5s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
+}

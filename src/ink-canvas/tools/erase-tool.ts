@@ -1,4 +1,8 @@
 import { RemoveStrokesCommand } from '../commands';
+import {
+	INK_STROKE_PENDING_ERASE_ANIMATION_MS,
+	INK_STROKE_PENDING_ERASE_CLASS,
+} from '../constants/erase-tool';
 import type { StrokeStore } from '../stroke-store';
 import type { UndoManager } from '../undo-manager';
 import type { CameraState } from '../types';
@@ -20,11 +24,17 @@ export interface EraseToolContext {
 
 let erasing = false;
 let touchedStrokeIds: Set<string> = new Set();
+/** When each touched stroke was marked (ms since epoch) for preview animation timing. */
+let strokeMarkedAtMs = new Map<string, number>();
 let lastEraseClientPoint: ClientPoint | null = null;
+let pendingEraseRemovalTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingRemovalStrokeIds: string[] | null = null;
 
 export function eraseToolPointerDown(e: PointerEvent, ctx: EraseToolContext): void {
+	flushPendingEraseRemoval(ctx);
 	erasing = true;
 	touchedStrokeIds = new Set();
+	strokeMarkedAtMs = new Map();
 	lastEraseClientPoint = null;
 	hitTestEraserAtClientPoint(e.clientX, e.clientY, null, ctx);
 	lastEraseClientPoint = { x: e.clientX, y: e.clientY };
@@ -41,20 +51,25 @@ export function eraseToolPointerUp(_e: PointerEvent, ctx: EraseToolContext): voi
 	erasing = false;
 	lastEraseClientPoint = null;
 
-	if (touchedStrokeIds.size > 0) {
-		const ids = Array.from(touchedStrokeIds);
-		const command = new RemoveStrokesCommand(ctx.store, ids);
-		ctx.undoManager.execute(command);
-		ctx.onErase?.();
-	}
-
+	const ids = Array.from(touchedStrokeIds);
 	touchedStrokeIds = new Set();
+
+	if (ids.length > 0) {
+		scheduleEraseRemoval(ctx, ids);
+	}
+	strokeMarkedAtMs = new Map();
 }
 
-export function eraseToolPointerCancel(_e: PointerEvent, _ctx: EraseToolContext): void {
+export function eraseToolPointerCancel(_e: PointerEvent, ctx: EraseToolContext): void {
+	clearPendingEraseRemovalTimeout();
+	const svg = ctx.getSvgElement();
+	if (svg && touchedStrokeIds.size > 0) {
+		clearPendingErasePreview(svg, touchedStrokeIds);
+	}
 	erasing = false;
 	lastEraseClientPoint = null;
 	touchedStrokeIds = new Set();
+	strokeMarkedAtMs = new Map();
 }
 
 export function isEraseToolActive(): boolean {
@@ -93,12 +108,62 @@ function hitTestEraserAtClientPoint(
 	}
 }
 
+function getStrokeGroupElement(svg: SVGSVGElement, strokeId: string): SVGGElement | null {
+	return svg.querySelector<SVGGElement>(
+		`[data-stroke-group][data-stroke-id="${CSS.escape(strokeId)}"]`,
+	);
+}
+
 function markStrokeForErase(svg: SVGSVGElement, strokeId: string): void {
 	if (touchedStrokeIds.has(strokeId)) return;
 
-	const strokeElement = svg.querySelector<SVGElement>(`[data-stroke-id="${CSS.escape(strokeId)}"]`);
-	if (!strokeElement) return;
+	const strokeGroup = getStrokeGroupElement(svg, strokeId);
+	if (!strokeGroup) return;
 
 	touchedStrokeIds.add(strokeId);
-	strokeElement.style.opacity = '0.3';
+	strokeMarkedAtMs.set(strokeId, Date.now());
+	strokeGroup.classList.add(INK_STROKE_PENDING_ERASE_CLASS);
+}
+
+function clearPendingErasePreview(svg: SVGSVGElement, strokeIds: Iterable<string>): void {
+	for (const strokeId of strokeIds) {
+		const strokeGroup = getStrokeGroupElement(svg, strokeId);
+		strokeGroup?.classList.remove(INK_STROKE_PENDING_ERASE_CLASS);
+	}
+}
+
+function clearPendingEraseRemovalTimeout(): void {
+	if (pendingEraseRemovalTimeout === null) return;
+	clearTimeout(pendingEraseRemovalTimeout);
+	pendingEraseRemovalTimeout = null;
+}
+
+function flushPendingEraseRemoval(ctx: EraseToolContext): void {
+	clearPendingEraseRemovalTimeout();
+	const strokeIds = pendingRemovalStrokeIds;
+	pendingRemovalStrokeIds = null;
+	if (!strokeIds?.length) return;
+	const command = new RemoveStrokesCommand(ctx.store, strokeIds);
+	ctx.undoManager.execute(command);
+	ctx.onErase?.();
+}
+
+/** Wait until the last-marked stroke has had a full preview animation, then remove all. */
+function scheduleEraseRemoval(ctx: EraseToolContext, strokeIds: string[]): void {
+	clearPendingEraseRemovalTimeout();
+	pendingRemovalStrokeIds = strokeIds;
+	const now = Date.now();
+	let maxElapsedMs = 0;
+	for (const strokeId of strokeIds) {
+		const markedAt = strokeMarkedAtMs.get(strokeId) ?? now;
+		maxElapsedMs = Math.max(maxElapsedMs, now - markedAt);
+	}
+	const remainingMs = Math.max(0, INK_STROKE_PENDING_ERASE_ANIMATION_MS - maxElapsedMs);
+	pendingEraseRemovalTimeout = setTimeout(() => {
+		pendingEraseRemovalTimeout = null;
+		pendingRemovalStrokeIds = null;
+		const command = new RemoveStrokesCommand(ctx.store, strokeIds);
+		ctx.undoManager.execute(command);
+		ctx.onErase?.();
+	}, remainingMs);
 }

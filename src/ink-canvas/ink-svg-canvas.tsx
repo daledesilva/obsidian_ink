@@ -1,3 +1,4 @@
+import './ink-svg-canvas.scss';
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';

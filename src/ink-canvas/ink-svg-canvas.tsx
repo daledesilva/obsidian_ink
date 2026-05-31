@@ -579,7 +579,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const svgRect = svg.getBoundingClientRect();
 				const anchorX = e.clientX - svgRect.left;
 				const anchorY = e.clientY - svgRect.top;
-				const direction: 1 | -1 = e.deltaY < 0 ? 1 : -1;
+				const direction: 1 | -1 = e.deltaY < 0 ? -1 : 1;
 				setCameraState(prev => zoomAtPoint(prev, anchorX, anchorY, direction));
 				return;
 			}

@@ -31,6 +31,7 @@
     line {
         stroke: var(--color-base-50);
         stroke-width: 2px;
+        stroke-opacity: 0.5;
     }
     
     &:not(.ddc_ink_visible-lines) {

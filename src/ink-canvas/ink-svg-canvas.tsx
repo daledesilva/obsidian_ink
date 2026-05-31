@@ -809,7 +809,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 								x2={pw - margin}
 								y2={(i + 1) * lh}
 								stroke="currentColor"
-								strokeOpacity={0.15}
+								strokeOpacity={0.5}
 								strokeWidth={1 / camera.zoom}
 							/>
 						));

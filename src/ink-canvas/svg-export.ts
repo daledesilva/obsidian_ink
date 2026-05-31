@@ -71,7 +71,7 @@ export function renderWritingStrokesToSvg(
 	const lineCount = Math.floor(height / lineHeight);
 	for (let i = 1; i <= lineCount; i++) {
 		const y = i * lineHeight;
-		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="currentColor" stroke-opacity="0.15" />\n`;
+		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="currentColor" stroke-opacity="0.5" />\n`;
 	}
 
 	let pathsMarkup = '';

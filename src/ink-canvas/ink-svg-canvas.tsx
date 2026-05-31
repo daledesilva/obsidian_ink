@@ -151,9 +151,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		setCameraState({ x: 0, y: prevY, zoom });
 	}, [pageWidth, props.isEmbedded]);
 
-	// Always fit camera to strokes on mount — camera is never persisted so the
-	// view is always correct regardless of which context opens the canvas.
-	// Deferred one frame so the container has real layout dimensions.
+	// Camera is never persisted — fit on mount. Deferred one frame for real layout size.
 	useEffect(() => {
 		if (writingMode) {
 			const frameId = requestAnimationFrame(() => {
@@ -164,7 +162,15 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		const strokes = props.initialSnapshot?.strokes;
 		const hasStrokes = (strokes?.length ?? 0) > 0;
-		if (!hasStrokes) return;
+		if (!hasStrokes) {
+			const frameId = requestAnimationFrame(() => {
+				const container = containerRef.current;
+				if (!container) return;
+				const zoom = container.clientWidth / pageWidth;
+				setCameraState(prev => ({ ...prev, zoom }));
+			});
+			return () => cancelAnimationFrame(frameId);
+		}
 
 		const frameId = requestAnimationFrame(() => {
 			const container = containerRef.current;

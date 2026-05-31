@@ -57,6 +57,10 @@ export interface InkStroke {
 	style: InkStrokeStyle;
 	/** Translation applied after creation (e.g. via the select-and-move tool). */
 	offset: { x: number; y: number };
+	/** Epoch ms when the stroke began. Omitted on legacy strokes. */
+	startedAt?: number;
+	/** Epoch ms when the stroke ended. Omitted on legacy strokes. */
+	finishedAt?: number;
 }
 
 /** Serialisable snapshot of the entire canvas state. */

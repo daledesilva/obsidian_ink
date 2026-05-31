@@ -47,6 +47,7 @@ import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
+import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
 
 ///////////////////////////
 ///////////////////////////
@@ -818,6 +819,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				simulatePressure: false,
 			},
 			offset: { x: 0, y: 0 },
+			...inkStrokeTimestampsFromBooxPoints(canvasRelativePoints),
 		};
 
 		editor.addStroke(stroke);

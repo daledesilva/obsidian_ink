@@ -45,6 +45,8 @@ interface ActiveStroke {
 	 */
 	points: InkPoint[];
 	style: InkStrokeStyle;
+	/** Epoch ms when pointer down started this stroke. */
+	startedAt: number;
 	/** Page-space length along the stroke path (for early-stroke pressure floor). */
 	strokePathLength: number;
 	/** Last EMA output for pen pressure; do not smooth across strokes. */
@@ -78,6 +80,7 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 		id: generateStrokeId(),
 		points: [copyInkPoint(firstPoint)],
 		style: { ...style },
+		startedAt: Date.now(),
 		strokePathLength: 0,
 		lastSmoothedPenPressure: pressure,
 	};
@@ -108,6 +111,8 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 		points: activeStroke.points,
 		style: activeStroke.style,
 		offset: { x: 0, y: 0 },
+		startedAt: activeStroke.startedAt,
+		finishedAt: Date.now(),
 	};
 
 	const command = new AddStrokeCommand(ctx.store, stroke);

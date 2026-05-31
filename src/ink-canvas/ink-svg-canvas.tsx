@@ -19,6 +19,7 @@ import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvas
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
+import { InkAdaptiveGrid } from './ink-adaptive-grid';
 ///////////////////////////
 ///////////////////////////
 
@@ -89,13 +90,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const [tool, setTool] = useState<InkTool>('draw');
 	const [strokeStyle, setStrokeStyle] = useState<InkStrokeStyle>({ ...DEFAULT_STROKE_STYLE });
 	const [camera, setCameraState] = useState<CameraState>({ x: 0, y: 0, zoom: 1 });
-	const [gridEnabled, setGridEnabled] = useState(props.initialSnapshot?.gridEnabled ?? false);
+	const [gridEnabled, setGridEnabledState] = useState(props.initialSnapshot?.gridEnabled ?? false);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [, forceRender] = useState(0);
 
 	// Refs that stay in sync with state so tool callbacks see current values
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
+	const gridEnabledRef = useRef(gridEnabled);
+	gridEnabledRef.current = gridEnabled;
+	const onChangeRef = useRef(props.onChange);
+	onChangeRef.current = props.onChange;
+	const setGridEnabledHandlerRef = useRef<(enabled: boolean) => void>(() => {});
+	setGridEnabledHandlerRef.current = (enabled: boolean) => {
+		gridEnabledRef.current = enabled;
+		setGridEnabledState(enabled);
+		forceRender(n => n + 1);
+		onChangeRef.current?.();
+	};
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
 	const strokeStyleRef = useRef(strokeStyle);
@@ -239,8 +251,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				setCameraState(prev => ({ ...prev, ...partial }));
 			},
 
-			isGridEnabled: () => gridEnabled,
-			setGridEnabled: (enabled: boolean) => setGridEnabled(enabled),
+			isGridEnabled: () => gridEnabledRef.current,
+			setGridEnabled: (enabled: boolean) => setGridEnabledHandlerRef.current(enabled),
 
 			getSelectedStrokeIds: () => new Set(selectedIdsRef.current),
 			deleteSelectedStrokes: () => {
@@ -254,7 +266,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			getSnapshot: (): InkCanvasSnapshot => ({
 				version: 1,
 				strokes: storeRef.current.getAll(),
-				gridEnabled,
+				gridEnabled: gridEnabledRef.current,
 				...(writingMode ? { writingLineHeight } : {}),
 			}),
 
@@ -768,6 +780,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				onPointerUp={handlePointerUp}
 				onPointerCancel={handlePointerCancel}
 			>
+				{!writingMode && gridEnabled && (
+					<InkAdaptiveGrid
+						x={camera.x}
+						y={camera.y}
+						z={camera.zoom}
+					/>
+				)}
 				{/* Camera group — all content is transformed by the camera */}
 				<g ref={cameraGroupRef} transform={cameraTransform}>
 					{writingMode && (() => {

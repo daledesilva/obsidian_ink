@@ -74,6 +74,17 @@ interface TldrawStoreRecord {
 	[key: string]: unknown;
 }
 
+interface TldrawSnapshotForMigration {
+	store?: Record<string, TldrawStoreRecord>;
+	session?: { isGridMode?: boolean };
+}
+
+function readGridEnabledFromTldrawSession(
+	tldrawSnapshot: TldrawSnapshotForMigration,
+): boolean {
+	return tldrawSnapshot.session?.isGridMode === true;
+}
+
 /**
  * Migrate a tldraw `TLEditorSnapshot` store into an `InkCanvasSnapshot`.
  *
@@ -83,12 +94,12 @@ interface TldrawStoreRecord {
  * @param tldrawSnapshot The raw TLEditorSnapshot object (with `store` property containing records).
  * @returns An InkCanvasSnapshot ready for use with the ink-canvas engine.
  */
-export function migrateFromTldraw(tldrawSnapshot: { store?: Record<string, TldrawStoreRecord> }): InkCanvasSnapshot {
+export function migrateFromTldraw(tldrawSnapshot: TldrawSnapshotForMigration): InkCanvasSnapshot {
 	const snapshot: InkCanvasSnapshot = {
 		version: 1,
 		strokes: [],
 		camera: { x: 0, y: 0, zoom: 1 },
-		gridEnabled: false,
+		gridEnabled: readGridEnabledFromTldrawSession(tldrawSnapshot),
 	};
 
 	if (!tldrawSnapshot.store) return snapshot;

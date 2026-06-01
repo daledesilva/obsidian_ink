@@ -21,9 +21,6 @@ export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: st
         }, {} as Record<string, string>);
 
         // Apply parsed values to embedSettings with proper type conversion
-        if (urlParams.version) {
-            embedSettings.version = urlParams.version;
-        }
         if (urlParams.width) {
             embedSettings.embedDisplay.width = parseFloat(urlParams.width);
         }

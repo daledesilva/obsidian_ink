@@ -26,7 +26,7 @@ describe('build-embeds', () => {
       expect(url.searchParams.get('type')).toBe('inkDrawing');
 
       const s = DEFAULT_EMBED_SETTINGS;
-      expect(url.searchParams.get('version')).toBe(String(s.version));
+      expect(url.searchParams.get('version')).toBeNull();
       expect(url.searchParams.get('width')).toBe(String(s.embedDisplay.width));
       expect(url.searchParams.get('aspectRatio')).toBe(formatEmbedAspectRatio(s.embedDisplay.aspectRatio));
       expect(url.searchParams.get('viewBoxX')).toBe(String(s.viewBox.x));
@@ -65,7 +65,7 @@ describe('build-embeds', () => {
   });
 
   describe('buildWritingEmbed', () => {
-    test('builds image embed and edit link with version param', () => {
+    test('builds image embed and edit link without version param', () => {
       const filepath = 'Ink/Writing/test.svg';
       const out = buildWritingEmbed(filepath);
 
@@ -79,7 +79,7 @@ describe('build-embeds', () => {
       const expectedOrigin = new URL(INK_EMBED_BASE_URL).origin;
       expect(url.origin).toBe(expectedOrigin);
       expect(url.searchParams.get('type')).toBe('inkWriting');
-      expect(url.searchParams.get('version')).toBe(String(DEFAULT_EMBED_SETTINGS.version));
+      expect(url.searchParams.get('version')).toBeNull();
     });
 
     test('appends pendingPaste=true when option is set', () => {

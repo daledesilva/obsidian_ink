@@ -1,7 +1,6 @@
-import { EMBED_SETTINGS_VERSION, WRITING_PAGE_WIDTH } from 'src/constants';
+import { WRITING_PAGE_WIDTH } from 'src/constants';
 
 export interface EmbedSettings {
-    version: string,
     embedDisplay: {
         width: number,
         aspectRatio: number,
@@ -16,7 +15,6 @@ export interface EmbedSettings {
 }
 
 export const DEFAULT_EMBED_SETTINGS: EmbedSettings = {
-    version: EMBED_SETTINGS_VERSION,
     embedDisplay: {
         width: 500,
         aspectRatio: 16/9,

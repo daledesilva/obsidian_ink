@@ -5,8 +5,19 @@ import manifest from '../manifest.json';
 
 export const PLUGIN_VERSION = manifest.version;
 export const TLDRAW_VERSION = '2.4.3';
-/** Semver version stored in current-format embed URL params (`version=…`). */
-export const EMBED_SETTINGS_VERSION = '1.0.1';
+/**
+ * Semver version written to `<ink-canvas version="…">` in SVG metadata.
+ *
+ * Describes the **functionality and structure** of the ink-canvas format — a custom
+ * ink file payload used by this plugin (not the tldraw library version).
+ *
+ * - **Major** — breaking format changes (loaders may reject or require migration).
+ * - **Minor** — non-breaking format changes (older readers can still load the file).
+ * - **Patch** — tweaks, bug fixes, and development iterations (same compatibility band).
+ *
+ * @see obsidian_ink/docs/file-format-and-conversion.md — “Ink-canvas format version”
+ */
+export const INK_CANVAS_FORMAT_VERSION = '0.5.0';
 // Base URL used when creating v2 embed links
 export const INK_EMBED_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 export const LOCAL_STORAGE_PREFIX = 'ddc_ink_';

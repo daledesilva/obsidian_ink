@@ -127,14 +127,14 @@ describe('findLegacyEmbedBlocks', () => {
 	});
 
 	test('does not match current format v2 embeds', () => {
-		const markdown = '\n ![InkWriting](<Ink/Writing/note.svg>) [Edit Writing](https://youtu.be/2arL1jh8ihA?type=inkWriting&version=1.0.1)\n';
+		const markdown = '\n ![InkWriting](<Ink/Writing/note.svg>) [Edit Writing](https://youtu.be/2arL1jh8ihA?type=inkWriting)\n';
 		const results = findLegacyEmbedBlocks(markdown);
 		expect(results).toHaveLength(0);
 	});
 
 	test('mixed legacy and current embeds - only finds legacy', () => {
 		const legacyJson = JSON.stringify({ versionAtEmbed: '1.0.0', filepath: 'Ink/Writing/legacy.writing' });
-		const currentEmbed = '\n ![InkWriting](<Ink/Writing/current.svg>) [Edit Writing](https://youtu.be/2arL1jh8ihA?type=inkWriting&version=1.0.1)\n';
+		const currentEmbed = '\n ![InkWriting](<Ink/Writing/current.svg>) [Edit Writing](https://youtu.be/2arL1jh8ihA?type=inkWriting)\n';
 		const markdown = wrapInCodeBlock(WRITE_KEY, legacyJson) + '\n' + currentEmbed;
 		const results = findLegacyEmbedBlocks(markdown);
 		expect(results).toHaveLength(1);
@@ -392,7 +392,7 @@ describe('replaceLegacyBlockInMarkdown', () => {
 		const block = wrapInCodeBlock(WRITE_KEY, json);
 		const markdown = 'Before\n' + block + '\nAfter';
 		const [found] = findLegacyEmbedBlocks(markdown);
-		const newEmbed = '![InkWriting](<Ink/Writing/note.svg>) [Edit Writing](https://youtu.be/2arL1jh8ihA?type=inkWriting&version=1.0.1)';
+		const newEmbed = '![InkWriting](<Ink/Writing/note.svg>) [Edit Writing](https://youtu.be/2arL1jh8ihA?type=inkWriting)';
 		const result = replaceLegacyBlockInMarkdown(markdown, found, newEmbed);
 		expect(result).not.toContain('```' + WRITE_KEY);
 		expect(result).toContain('![InkWriting]');

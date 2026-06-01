@@ -9,7 +9,7 @@ import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 /**
  * Extracts JSON content from SVG metadata.
  * Supports two metadata formats:
- * - `<ink-canvas version="1">` — ink-canvas engine (`inkCanvas` snapshot)
+ * - `<ink-canvas version="…">` — ink-canvas engine (`inkCanvas` snapshot)
  * - `<tldraw version="...">` — tldraw engine (`tldraw` snapshot)
  *
  * Also reads `<ink file-type="...">` for the file type discriminator.

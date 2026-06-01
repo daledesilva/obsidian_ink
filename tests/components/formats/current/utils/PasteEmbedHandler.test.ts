@@ -1,7 +1,7 @@
 import { injectPendingPasteIntoEmbeds } from 'src/components/formats/current/utils/paste-embed-handler';
 
-const WRITING_EMBED = ' ![InkWriting](<Notes/my-writing.svg>) [Edit Writing](https://youtu.be/abc?type=inkWriting&version=1.0.1)';
-const DRAWING_EMBED = ' ![InkDrawing](<Ink/Drawing/my-drawing.svg>) [Edit Drawing](https://youtu.be/abc?type=inkDrawing&version=1.0.1&width=500&aspectRatio=1.78)';
+const WRITING_EMBED = ' ![InkWriting](<Notes/my-writing.svg>) [Edit Writing](https://youtu.be/abc?type=inkWriting)';
+const DRAWING_EMBED = ' ![InkDrawing](<Ink/Drawing/my-drawing.svg>) [Edit Drawing](https://youtu.be/abc?type=inkDrawing&width=500&aspectRatio=1.78)';
 
 describe('injectPendingPasteIntoEmbeds', () => {
   test('injects &pendingPaste=true into a single writing embed', () => {
@@ -51,7 +51,7 @@ describe('injectPendingPasteIntoEmbeds', () => {
   });
 
   test('does not double-inject pendingPaste when already present', () => {
-    const alreadyPending = ` ![InkWriting](<Notes/my-writing.svg>) [Edit Writing](https://youtu.be/abc?type=inkWriting&version=1.0.1&pendingPaste=true)`;
+    const alreadyPending = ` ![InkWriting](<Notes/my-writing.svg>) [Edit Writing](https://youtu.be/abc?type=inkWriting&pendingPaste=true)`;
     const result = injectPendingPasteIntoEmbeds(alreadyPending) as string;
     expect(result).not.toBeNull();
     const matches = result.match(/pendingPaste=true/g);

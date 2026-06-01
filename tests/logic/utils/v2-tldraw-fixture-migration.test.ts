@@ -12,7 +12,7 @@ import {
 	type TldrawSnapshotForMigration,
 } from 'src/ink-canvas/migrate-from-tldraw';
 import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
-import { WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
+import { INK_CANVAS_FORMAT_VERSION, WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 
 const FIXTURES_DIR = path.join(__dirname, '../../../qa-test-vault/fixtures');
@@ -46,7 +46,7 @@ describe('v2 tldraw fixture migration', () => {
 				svgString,
 			});
 			const out = buildFileStr({ ...upgraded, svgString });
-			expect(out).toContain('<ink-canvas version="1">');
+			expect(out).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
 
 			const parsed = extractInkJsonFromSvg(out);
 			expect(parsed).not.toBeNull();
@@ -88,7 +88,7 @@ describe('v2 tldraw fixture migration', () => {
 				svgString,
 			});
 			const out = buildFileStr({ ...upgraded, svgString });
-			expect(out).toContain('<ink-canvas version="1">');
+			expect(out).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
 
 			const parsed = extractInkJsonFromSvg(out);
 			expect(parsed).not.toBeNull();

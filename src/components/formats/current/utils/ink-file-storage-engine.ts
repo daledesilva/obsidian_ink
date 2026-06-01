@@ -5,7 +5,7 @@ export type InkFileStorageEngine = 'tldraw' | 'ink-canvas';
 
 /**
  * Which engine serialized this file. Inferred from payload, not a separate meta flag:
- * ink-canvas files include an `inkCanvas` snapshot (from `<ink-canvas version="1">`).
+ * ink-canvas files include an `inkCanvas` snapshot (from `<ink-canvas version="…">`).
  */
 export function getInkFileStorageEngine(fileData: InkFileData): InkFileStorageEngine {
 	return fileData.inkCanvas != null ? 'ink-canvas' : 'tldraw';

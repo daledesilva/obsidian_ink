@@ -1,4 +1,4 @@
-import { TLDRAW_VERSION } from 'src/constants';
+import { INK_CANVAS_FORMAT_VERSION, TLDRAW_VERSION } from 'src/constants';
 import { DOMParser, XMLSerializer } from 'xmldom';
 import format from 'xml-formatter';
 import { InkFileData } from '../types/file-data';
@@ -42,9 +42,9 @@ function buildInkCanvasFileStr(pageData: InkFileData): string {
     inkMetaElement.setAttribute('file-type', pageData.meta.fileType);
     metadataElement.appendChild(inkMetaElement);
 
-    // <ink-canvas version="1"> JSON </ink-canvas>
+    // <ink-canvas version="0.5.0"> JSON </ink-canvas>
     const inkCanvasElement = doc.createElement('ink-canvas');
-    inkCanvasElement.setAttribute('version', '1');
+    inkCanvasElement.setAttribute('version', INK_CANVAS_FORMAT_VERSION);
     inkCanvasElement.textContent = JSON.stringify(pageData.inkCanvas, null, 2);
     metadataElement.appendChild(inkCanvasElement);
 

@@ -15,7 +15,7 @@ function makeInkCanvasDrawingSvg(strokes: object[]): string {
 	return `<svg xmlns="http://www.w3.org/2000/svg">
 		<metadata>
 			<ink plugin-version="${PLUGIN_VERSION}" file-type="inkDrawing"/>
-			<ink-canvas version="1">${inkCanvasJson}</ink-canvas>
+			<ink-canvas version="0.5.0">${inkCanvasJson}</ink-canvas>
 		</metadata>
 	</svg>`;
 }

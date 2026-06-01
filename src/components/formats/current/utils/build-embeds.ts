@@ -21,7 +21,6 @@ export const buildDrawingEmbed = (
 			? buildNewDrawingEmbedSettings()
 			: DEFAULT_EMBED_SETTINGS);
 	const params = new URLSearchParams({
-		version: String(s.version),
 		width: String(s.embedDisplay.width),
 		aspectRatio: formatEmbedAspectRatio(s.embedDisplay.aspectRatio),
 		viewBoxX: String(s.viewBox.x),
@@ -40,14 +39,13 @@ export const buildDrawingEmbed = (
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 writing extension detects
 
 export const buildWritingEmbed = (filepath: string, options?: { pendingPaste?: boolean }): string => {
-	const s = DEFAULT_EMBED_SETTINGS;
-	const params = new URLSearchParams({
-		version: String(s.version),
-	});
+	const params = new URLSearchParams();
 	if (options?.pendingPaste) params.append('pendingPaste', 'true');
 
-	// Full URL with type=InkWriting
-	const url = `${INK_EMBED_BASE_URL}?type=inkWriting&${params.toString()}`;
+	const query = params.toString();
+	const url = query
+		? `${INK_EMBED_BASE_URL}?type=inkWriting&${query}`
+		: `${INK_EMBED_BASE_URL}?type=inkWriting`;
 	// Leading space before '!' and newline after are important for the CM6 detector
 	const line = ` ![InkWriting](<${filepath}>) [Edit Writing](${url})`;
 	return `\n${line}\n`;

@@ -15,7 +15,6 @@ describe('parseSettingsFromUrl', () => {
   test('parses all known params with correct types', () => {
     const input = [
       'https://example.com/foo?',
-      'version=2.0.0',
       'width=640',
       'aspectRatio=1.5',
       'viewBoxX=10',
@@ -30,7 +29,6 @@ describe('parseSettingsFromUrl', () => {
 
     const expected = {
       ...DEFAULT_EMBED_SETTINGS,
-      version: '2.0.0',
       embedDisplay: {
         ...DEFAULT_EMBED_SETTINGS.embedDisplay,
         width: 640,
@@ -48,13 +46,8 @@ describe('parseSettingsFromUrl', () => {
     expect(embedSettings).toEqual(expected);
   });
 
-  test('accepts legacy integer version param', () => {
-    const { embedSettings } = parseSettingsFromUrl('https://example.com/foo?version=1');
-    expect(embedSettings.version).toBe('1');
-  });
-
-  test('ignores unknown params and preserves defaults for unspecified fields', () => {
-    const input = 'https://example.com/bar?width=250&unknown=foo';
+  test('ignores unknown params (including legacy version) and preserves defaults for unspecified fields', () => {
+    const input = 'https://example.com/bar?width=250&version=2.0.0&unknown=foo';
     const { infoUrl, embedSettings } = parseSettingsFromUrl(input);
 
     expect(infoUrl).toBe('https://example.com/bar');
@@ -72,17 +65,17 @@ describe('parseSettingsFromUrl', () => {
 
   describe('isPendingPaste', () => {
     test('is false when pendingPaste param is absent', () => {
-      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1.0.1');
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting');
       expect(isPendingPaste).toBe(false);
     });
 
     test('is true when pendingPaste=true is present', () => {
-      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1.0.1&pendingPaste=true');
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&pendingPaste=true');
       expect(isPendingPaste).toBe(true);
     });
 
     test('is false when pendingPaste=false is present', () => {
-      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1.0.1&pendingPaste=false');
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&pendingPaste=false');
       expect(isPendingPaste).toBe(false);
     });
   });

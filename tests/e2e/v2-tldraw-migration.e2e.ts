@@ -65,7 +65,7 @@ async function readInkSvgFromVault(vaultPath: string): Promise<string> {
 }
 
 function expectUpgradedToInkCanvas(svg: string) {
-	expect(svg).toContain("<ink-canvas version=\"1\">");
+	expect(svg).toContain("<ink-canvas version=\"0.5.0\">");
 	expect(svg).not.toContain("<tldraw version=\"2.1.0\">");
 }
 

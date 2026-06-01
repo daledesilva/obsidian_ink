@@ -1,6 +1,6 @@
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
-import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT } from 'src/constants';
+import { INK_CANVAS_FORMAT_VERSION, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT } from 'src/constants';
 import type { InkStroke, InkCanvasSnapshot } from './types';
 import { toStrokeOptions } from './types';
 ///////////////////////////
@@ -106,7 +106,7 @@ function buildSvgString(
 	return [
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">`,
 		`<metadata>`,
-		`<ink-canvas version="1">${escapeXml(metadataJson)}</ink-canvas>`,
+		`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">${escapeXml(metadataJson)}</ink-canvas>`,
 		`</metadata>`,
 		pathsMarkup,
 		`</svg>`,

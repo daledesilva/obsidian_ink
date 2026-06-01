@@ -4,10 +4,8 @@ import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
-import { insertNewWritingFile_v1 } from './commands/insert-new-writing-file-v1';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
 import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
-import { insertNewDrawingFile_v1 } from './commands/insert-new-drawing-file-v1';
 import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
 import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
 import { registerDrawingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/drawing-embed-widget';
@@ -20,8 +18,6 @@ import { drawingEmbedExtension, registerDrawingEmbed } from './components/format
 import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
 import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
-import { insertExistingWritingFile_v1 } from './commands/insert-existing-writing-file-v1';
-import { insertExistingDrawingFile_v1 } from './commands/insert-existing-drawing-file-v1';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
@@ -218,24 +214,6 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 	});
 }
 
-function implementWritingEmbedCommands_v1(plugin: InkPlugin) {
-
-	// Legacy
-	plugin.addCommand({
-		id: 'create-handwritten-section-v1',
-		name: 'New handwriting section (legacy)',
-		icon: 'signature',
-		editorCallback: (editor: Editor) => insertNewWritingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'embed-writing-file-v1',
-		name: 'Existing handwriting section (legacy)',
-		icon: 'folder-pen',
-		editorCallback: (editor: Editor) => insertExistingWritingFile_v1(plugin, editor)
-	});
-
-}
-
 function implementDrawingEmbedCommands(plugin: InkPlugin) {
 
 	// Current
@@ -250,24 +228,6 @@ function implementDrawingEmbedCommands(plugin: InkPlugin) {
 		name: 'Existing drawing',
 		icon: 'folder-dot',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
-	});
-
-}
-
-function implementDrawingEmbedCommands_v1(plugin: InkPlugin) {
-	
-	// Legacy
-	plugin.addCommand({
-		id: 'create-drawing-section-v1',
-		name: 'New drawing (legacy)',
-		icon: 'shapes',
-		editorCallback: (editor: Editor) => insertNewDrawingFile_v1(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'embed-drawing-file-v1',
-		name: 'Existing drawing (legacy)',
-		icon: 'folder-dot',
-		editorCallback: (editor: Editor) => insertExistingDrawingFile_v1(plugin, editor)
 	});
 
 }

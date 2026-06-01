@@ -3,6 +3,7 @@ import * as React from "react";
 import { useRef } from "react";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
+import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
@@ -108,11 +109,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			if (!svgString) { setDrawingFormat('tldraw'); return; }
 			const inkFileData = extractInkJsonFromSvg(svgString);
 			if (!inkFileData) { setDrawingFormat('tldraw'); return; }
-			if (inkFileData.meta.format === 'ink-canvas') {
-				setDrawingFormat('ink-canvas');
-			} else {
-				setDrawingFormat('ink-canvas'); // Migrate tldraw drawings to ink-canvas
-			}
+			// Editor is always ink-canvas; tldraw files migrate on load.
+			setDrawingFormat(isInkCanvasFile(inkFileData) ? 'ink-canvas' : 'tldraw');
 		} catch {
 			setDrawingFormat('tldraw');
 		}

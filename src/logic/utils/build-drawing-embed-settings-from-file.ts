@@ -1,5 +1,6 @@
 import type { TFile } from 'obsidian';
 import type InkPlugin from 'src/main';
+import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { computeStrokesBounds } from 'src/ink-canvas/svg-export';
@@ -21,7 +22,7 @@ function getStrokesFromInkFile(svgString: string): InkStroke[] {
 	const inkFileData = extractInkJsonFromSvg(svgString);
 	if (!inkFileData) return [];
 
-	if (inkFileData.meta.format === 'ink-canvas' && inkFileData.inkCanvas) {
+	if (isInkCanvasFile(inkFileData) && inkFileData.inkCanvas) {
 		return inkFileData.inkCanvas.strokes ?? [];
 	}
 

@@ -74,9 +74,22 @@ interface TldrawStoreRecord {
 	[key: string]: unknown;
 }
 
-interface TldrawSnapshotForMigration {
-	store?: Record<string, TldrawStoreRecord>;
+/** Raw tldraw snapshot as stored in SVG metadata (v2.1+ uses `document.store`). */
+export interface TldrawSnapshotForMigration {
+	store?: Record<string, unknown>;
+	document?: { store?: Record<string, unknown> };
 	session?: { isGridMode?: boolean };
+}
+
+/** v2.1+ snapshots nest the store under `document`; older captures may use top-level `store`. */
+function getTldrawStoreForMigration(
+	tldrawSnapshot: TldrawSnapshotForMigration,
+): Record<string, TldrawStoreRecord> | undefined {
+	const topLevel = tldrawSnapshot.store;
+	if (topLevel) return topLevel as Record<string, TldrawStoreRecord>;
+	const nested = tldrawSnapshot.document?.store;
+	if (nested) return nested as Record<string, TldrawStoreRecord>;
+	return undefined;
 }
 
 function readGridEnabledFromTldrawSession(
@@ -102,9 +115,8 @@ export function migrateFromTldraw(tldrawSnapshot: TldrawSnapshotForMigration): I
 		gridEnabled: readGridEnabledFromTldrawSession(tldrawSnapshot),
 	};
 
-	if (!tldrawSnapshot.store) return snapshot;
-
-	const store = tldrawSnapshot.store;
+	const store = getTldrawStoreForMigration(tldrawSnapshot);
+	if (!store) return snapshot;
 
 	for (const key of Object.keys(store)) {
 		const record = store[key];
@@ -145,7 +157,7 @@ export function migrateFromTldraw(tldrawSnapshot: TldrawSnapshotForMigration): I
  * the tldraw JSON — they cannot be recovered by migration.
  */
 export function migrateWritingFromTldraw(
-	tldrawSnapshot: { store?: Record<string, unknown> },
+	tldrawSnapshot: TldrawSnapshotForMigration,
 	fallbackLineHeight: number = WRITING_LINE_HEIGHT,
 ): InkCanvasSnapshot {
 	const snapshot: InkCanvasSnapshot = {
@@ -155,9 +167,8 @@ export function migrateWritingFromTldraw(
 		writingLineHeight: fallbackLineHeight,
 	};
 
-	if (!tldrawSnapshot.store) return snapshot;
-
-	const store = tldrawSnapshot.store;
+	const store = getTldrawStoreForMigration(tldrawSnapshot);
+	if (!store) return snapshot;
 
 	let writingLineHeight = fallbackLineHeight;
 	const documentRecord = store['document:document'];

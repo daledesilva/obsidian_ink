@@ -6,6 +6,7 @@ import { useAtomValue } from 'jotai';
 import classNames from 'classnames';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildInkCanvasDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
+import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
 import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS, PLUGIN_VERSION } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
@@ -25,7 +26,7 @@ import { register as registerInkEditor, unregister as unregisterInkEditor } from
 import { initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
-import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
+import { migrateFromTldraw, type TldrawSnapshotForMigration } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
@@ -398,13 +399,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 
 		// If this is already an ink-canvas file, use its snapshot directly
-		if (inkFileData.meta.format === 'ink-canvas' && inkFileData.inkCanvas) {
+		if (isInkCanvasFile(inkFileData) && inkFileData.inkCanvas) {
 			setInitialSnapshot(inkFileData.inkCanvas);
 			return;
 		}
 
 		// Otherwise migrate from tldraw format
-		const migrated = migrateFromTldraw(inkFileData.tldraw as unknown as { store?: Record<string, any> });
+		const migrated = migrateFromTldraw(inkFileData.tldraw as unknown as TldrawSnapshotForMigration);
 		setInitialSnapshot(migrated);
 	}
 

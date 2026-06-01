@@ -8,6 +8,7 @@ import classNames from 'classnames';
 import InkPlugin from 'src/main';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildInkCanvasWritingFileData } from 'src/components/formats/current/utils/build-file-data';
+import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
 import {
 	WRITE_SHORT_DELAY_MS,
 	WRITE_LONG_DELAY_MS,
@@ -35,7 +36,7 @@ import { register as registerInkEditor, unregister as unregisterInkEditor } from
 import { initialize } from 'src/logic/undo-redo/unified-undo-stack';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderWritingStrokesToSvg, computeStrokesBounds } from 'src/ink-canvas/svg-export';
-import { migrateWritingFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
+import { migrateWritingFromTldraw, type TldrawSnapshotForMigration } from 'src/ink-canvas/migrate-from-tldraw';
 import {
 	computeDedicatedWritingPageHeight,
 	cropWritingStrokeHeightInvitingly,
@@ -623,12 +624,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!data) return;
 
 		let snapshot: InkCanvasSnapshot;
-		if (data.meta.format === 'ink-canvas' && data.inkCanvas) {
+		if (isInkCanvasFile(data) && data.inkCanvas) {
 			snapshot = data.inkCanvas;
 		} else {
 			const fallbackLineHeight = data.meta.writingLineHeight ?? WRITING_LINE_HEIGHT;
 			snapshot = migrateWritingFromTldraw(
-				data.tldraw as unknown as { store?: Record<string, unknown> },
+				data.tldraw as unknown as TldrawSnapshotForMigration,
 				fallbackLineHeight,
 			);
 		}

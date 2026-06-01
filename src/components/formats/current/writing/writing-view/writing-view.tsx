@@ -5,7 +5,6 @@ import InkPlugin from "src/main";
 import "./writing-view.scss";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
-import { TldrawWritingEditor as TldrawWritingEditorLegacy } from "../tldraw-writing-editor-legacy/tldraw-writing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
@@ -128,31 +127,17 @@ export class WritingView extends TextFileView {
         this.hostEl = host;
 
         this.root = createRoot(host);
-        const useInkCanvas = inkFileData?.meta.format === 'ink-canvas';
 
-        if (useInkCanvas) {
-            this.root.render(
-                <TldrawWritingEditor
-                    plugin={this.plugin}
-                    workspaceLeafId={this.leaf.id}
-                    writingFile={this.file}
-                    save={this.saveFile}
-                    saveControlsReference={this.registerEditorControls}
-                    extendedMenu={this.buildExtendedMenu()}
-                />
-            );
-        } else {
-            this.root.render(
-                <TldrawWritingEditorLegacy
-                    plugin={this.plugin}
-                    workspaceLeafId={this.leaf.id}
-                    writingFile={this.file}
-                    save={this.saveFile}
-                    saveControlsReference={this.registerEditorControls}
-                    extendedMenu={this.buildExtendedMenu()}
-                />
-            );
-        }
+        this.root.render(
+            <TldrawWritingEditor
+                plugin={this.plugin}
+                workspaceLeafId={this.leaf.id}
+                writingFile={this.file}
+                save={this.saveFile}
+                saveControlsReference={this.registerEditorControls}
+                extendedMenu={this.buildExtendedMenu()}
+            />
+        );
 
 		// Close the Boox overlay when navigating away from this leaf; restore when returning.
 		// Guard: setViewData can run multiple times — register at most once per view instance.

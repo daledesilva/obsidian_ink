@@ -2,10 +2,10 @@ import "./writing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
 import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
-import { TldrawWritingEditorWrapper as TldrawWritingEditorWrapperLegacy } from "../tldraw-writing-editor-legacy/tldraw-writing-editor";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
+import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
@@ -108,7 +108,8 @@ export function WritingEmbed (props: {
 				setWritingFormat('unknown');
 				return;
 			}
-			setWritingFormat(data.meta.format === 'ink-canvas' ? 'ink-canvas' : 'tldraw');
+			const engine = isInkCanvasFile(data) ? 'ink-canvas' : 'tldraw';
+			setWritingFormat(engine);
 		}).catch(() => setWritingFormat('unknown'));
 	}, [props.writingFileRef]);
 
@@ -271,23 +272,8 @@ export function WritingEmbed (props: {
 						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 					/>
 
-					{writingFormat === 'ink-canvas' && props.writingFileRef && (
+					{(writingFormat === 'ink-canvas' || writingFormat === 'tldraw') && props.writingFileRef && (
 						<TldrawWritingEditorWrapper
-							plugin={props.plugin}
-							workspaceLeafId={props.workspaceLeafId}
-							embedId={props.embedId}
-							onResize={(invitingBounds, tightBounds) => applySizingWhileEditing(invitingBounds, tightBounds)}
-							writingFile={props.writingFileRef}
-							save={props.save}
-							embedded
-							saveControlsReference={registerEditorControls}
-							closeEditor={() => void saveAndSwitchToPreviewMode()}
-							extendedMenu={commonExtendedOptions}
-							onOpenInDedicatedView={() => void openInDedicatedView()}
-						/>
-					)}
-					{writingFormat === 'tldraw' && props.writingFileRef && (
-						<TldrawWritingEditorWrapperLegacy
 							plugin={props.plugin}
 							workspaceLeafId={props.workspaceLeafId}
 							embedId={props.embedId}

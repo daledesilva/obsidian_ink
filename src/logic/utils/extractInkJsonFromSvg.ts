@@ -9,8 +9,8 @@ import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 /**
  * Extracts JSON content from SVG metadata.
  * Supports two metadata formats:
- * - `<ink-canvas version="1">` — new ink-canvas format (sets `meta.format = 'ink-canvas'`)
- * - `<tldraw version="...">` — legacy tldraw format (sets `meta.format = 'tldraw'`)
+ * - `<ink-canvas version="1">` — ink-canvas engine (`inkCanvas` snapshot)
+ * - `<tldraw version="...">` — tldraw engine (`tldraw` snapshot)
  *
  * Also reads `<ink file-type="...">` for the file type discriminator.
  * @param svgString - The SVG string containing the metadata element
@@ -88,9 +88,8 @@ function extractInkCanvasFormat(
             pluginVersion: pluginVersionAttr,
             tldrawVersion: '',
             fileType: fileTypeText as 'inkDrawing' | 'inkWriting',
-            format: 'ink-canvas',
         },
-        tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas format
+        tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas files
         inkCanvas: inkCanvasSnapshot,
         svgString,
     };
@@ -152,7 +151,6 @@ function extractTldrawFormat(
             tldrawVersion: tldrawVersionAttr || '',
             fileType: fileTypeText,
             writingLineHeight,
-            format: 'tldraw',
         },
         tldraw: tldrawSnapshot,
         svgString,

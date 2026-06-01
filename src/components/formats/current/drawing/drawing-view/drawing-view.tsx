@@ -1,10 +1,8 @@
 import { TextFileView, TFile, WorkspaceLeaf, FileView } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
-import { DRAW_FILE_V1_EXT } from "src/constants";
 import "./drawing-view.scss";
 import InkPlugin from "src/main";
-import { TldrawDrawingEditor_v1 } from "src/components/formats/v1-code-blocks/drawing/tldraw-drawing-editor/tldraw-drawing-editor";
 import { 
 	Provider as JotaiProvider
 } from "jotai";

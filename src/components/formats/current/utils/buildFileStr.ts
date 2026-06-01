@@ -2,6 +2,7 @@ import { TLDRAW_VERSION } from 'src/constants';
 import { DOMParser, XMLSerializer } from 'xmldom';
 import format from 'xml-formatter';
 import { InkFileData } from '../types/file-data';
+import { isInkCanvasFile } from './ink-file-storage-engine';
 
 //////////////////////////
 //////////////////////////
@@ -9,8 +10,7 @@ import { InkFileData } from '../types/file-data';
 
 // V2 format: SVG file with JSON metadata embedded
 export const buildFileStr = (pageData: InkFileData): string => {
-    const isInkCanvas = pageData.meta.format === 'ink-canvas';
-    if (isInkCanvas) return buildInkCanvasFileStr(pageData);
+    if (isInkCanvasFile(pageData)) return buildInkCanvasFileStr(pageData);
     return buildTldrawFileStr(pageData);
 }
 

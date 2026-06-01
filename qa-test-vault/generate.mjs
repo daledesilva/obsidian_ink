@@ -479,11 +479,13 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **13 – Migration Test**: Legacy v1 code block embeds for migration testing
 - **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
 - **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
+- **16 – V2 Tldraw Migration**: Real v2 \`<tldraw>\` SVGs; preview, edit, upgrade to ink-canvas on save
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
   generateConversionModalTestAssets();
   generateCopyPastePathsTestAssets();
+  generateV2TldrawMigrationAssets();
 
   ensureDir('.obsidian');
   // Enable community plugins needed for column layout e2e tests.
@@ -664,6 +666,78 @@ ${buildDrawingEmbed('Ink/Drawing/modal-test-drawing.svg')}
   writeFile('14 - Conversion Modal/Second Note With Writing.md', `# Second Note With Writing
 
 ${buildWritingEmbed('Ink/Writing/modal-test-writing.svg')}
+`);
+}
+
+// ─── Section 16: V2 Tldraw Migration (real captures) ───────────────────────────
+
+const V2_TLDRAW_DRAWING_FIXTURE = 'v2-tldraw-drawing-tasks-priority.svg';
+const V2_TLDRAW_WRITING_FIXTURE = 'v2-tldraw-writing-llm-text.svg';
+
+function generateV2TldrawMigrationAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '_test-fixtures'));
+
+  const drawingSrc = path.join(FIXTURES, V2_TLDRAW_DRAWING_FIXTURE);
+  const writingSrc = path.join(FIXTURES, V2_TLDRAW_WRITING_FIXTURE);
+  const drawingVault = path.join(VAULT_ROOT, 'Ink/Drawing', V2_TLDRAW_DRAWING_FIXTURE);
+  const writingVault = path.join(VAULT_ROOT, 'Ink/Writing', V2_TLDRAW_WRITING_FIXTURE);
+  const drawingPristineVault = path.join(VAULT_ROOT, '_test-fixtures', V2_TLDRAW_DRAWING_FIXTURE);
+  const writingPristineVault = path.join(VAULT_ROOT, '_test-fixtures', V2_TLDRAW_WRITING_FIXTURE);
+
+  fs.copyFileSync(drawingSrc, drawingVault);
+  fs.copyFileSync(writingSrc, writingVault);
+  fs.copyFileSync(drawingSrc, drawingPristineVault);
+  fs.copyFileSync(writingSrc, writingPristineVault);
+
+  const editChecklist = `
+## Edit and upgrade checklist
+
+1. Unlock the embed below.
+2. Add a small stroke (pen).
+3. Lock/save the embed.
+4. Open the linked SVG file in Obsidian (or use "Open in dedicated view").
+5. Confirm \`<ink-canvas version="1">\` in metadata (upgrade from \`<tldraw>\`).
+6. Confirm preview still shows the original content.
+`;
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Drawing - Preview Only.md', `# V2 Tldraw Drawing — Preview Only
+
+Locked preview of a real v2 tldraw drawing file (tasks + priority list).
+
+${buildDrawingEmbed(`Ink/Drawing/${V2_TLDRAW_DRAWING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Writing - Preview Only.md', `# V2 Tldraw Writing — Preview Only
+
+Locked preview of a real v2 tldraw writing file (LLM instruction paragraph).
+
+${buildWritingEmbed(`Ink/Writing/${V2_TLDRAW_WRITING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Drawing - Edit and Upgrade.md', `# V2 Tldraw Drawing — Edit and Upgrade
+${editChecklist}
+${buildDrawingEmbed(`Ink/Drawing/${V2_TLDRAW_DRAWING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Writing - Edit and Upgrade.md', `# V2 Tldraw Writing — Edit and Upgrade
+${editChecklist}
+${buildWritingEmbed(`Ink/Writing/${V2_TLDRAW_WRITING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/README.md', `# V2 Tldraw Migration
+
+Real captured v2 SVG files with \`<tldraw version="2.1.0">\` metadata (not ink-canvas).
+
+| Note | Purpose |
+|------|---------|
+| V2 Tldraw Drawing - Preview Only | Preview only |
+| V2 Tldraw Writing - Preview Only | Preview only |
+| V2 Tldraw Drawing - Edit and Upgrade | Unlock → edit → save → verify ink-canvas on disk |
+| V2 Tldraw Writing - Edit and Upgrade | Same for writing |
+
+E2e resets ink files from \`_test-fixtures/\` copies before upgrade tests.
 `);
 }
 

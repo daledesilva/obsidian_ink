@@ -113,15 +113,17 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		if (isPenDownRef.current) {
 			isPenDownRef.current = false;
 			if (activeScrollerRef.current) {
-				// Visual styling
-				// Delayed in code to prevent flashing
+				// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
+				// Delayed scrollbar restore in code to prevent flashing.
+				// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 				activeScrollerRef.current.style.overflow = 'auto';
 				window.setTimeout(() => {
 					if (activeScrollerRef.current) {
+						// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 						activeScrollerRef.current.style.scrollbarColor = 'auto';
 					}
 				}, 200);
-				
+
 				// Clear refs
 				activeScrollerRef.current = null;
 			}
@@ -129,10 +131,12 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		} else {
 			// Fallback: if not locked via refs, still handle visual styling
 			const scroller = getScroller();
-			// Delayed in code to prevent flashing
 			if (scroller) {
+				// Functional scroll-lock teardown (not theme styling); delayed scrollbar to prevent flashing.
+				// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 				scroller.style.overflow = 'auto';
 				window.setTimeout(() => {
+					// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 					scroller.style.scrollbarColor = 'auto';
 				}, 200);
 			}

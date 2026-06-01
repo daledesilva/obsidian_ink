@@ -251,8 +251,11 @@ export function FingerBlocker({
 
 	const clearScrollerPin = (scroller: HTMLElement) => {
 		scroller.classList.remove(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
+		// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
+		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 		scroller.style.overflow = 'auto';
 		window.setTimeout(() => {
+			// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 			scroller.style.scrollbarColor = 'auto';
 		}, 200);
 	};
@@ -575,7 +578,7 @@ export function FingerBlocker({
 						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
 						if (frameDeltaY !== 0) {
 							verticalPanConsumedRef.current = true;
-							onVerticalTouchPanRef.current!(-frameDeltaY);
+							onVerticalTouchPanRef.current(-frameDeltaY);
 						}
 					}
 					return;

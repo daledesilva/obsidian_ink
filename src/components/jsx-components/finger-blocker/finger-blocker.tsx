@@ -116,6 +116,8 @@ export type FingerBlockerProps = {
 	}) => void;
 	/** Fired when a two-finger embed gesture ends (reposition Boox overlay). */
 	onEmbedTwoFingerGestureEnd?: () => void;
+	/** When true, middle-click (button 1) is forwarded to ink-svg-canvas for temporary erase. */
+	enableMiddleButtonTemporaryErase?: boolean;
 };
 
 export function FingerBlocker({
@@ -126,6 +128,7 @@ export function FingerBlocker({
 	forwardPenToCanvas = true,
 	onDrawingEmbedTwoFingerGesture,
 	onEmbedTwoFingerGestureEnd,
+	enableMiddleButtonTemporaryErase = false,
 }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
 	const pointerDownRef = React.useRef<boolean>(false);
@@ -164,8 +167,12 @@ export function FingerBlocker({
 	const onVerticalTouchPanRef = React.useRef(onVerticalTouchPan);
 	const onDrawingEmbedTwoFingerGestureRef = React.useRef(onDrawingEmbedTwoFingerGesture);
 	const onEmbedTwoFingerGestureEndRef = React.useRef(onEmbedTwoFingerGestureEnd);
-	/** Middle/right embed pan/zoom pointers forwarded to ink-svg-canvas (capture may fail on synthetics). */
+	/** Right-click embed pan/zoom pointers forwarded to ink-svg-canvas (capture may fail on synthetics). */
 	const embedPanZoomPointerIdsRef = React.useRef<Set<number>>(new Set());
+	/** Middle-click temporary-erase pointers forwarded to ink-svg-canvas. */
+	const middleButtonErasePointerIdsRef = React.useRef<Set<number>>(new Set());
+	const enableMiddleButtonTemporaryEraseRef = React.useRef(enableMiddleButtonTemporaryErase);
+	enableMiddleButtonTemporaryEraseRef.current = enableMiddleButtonTemporaryErase;
 	React.useEffect(() => {
 		onVerticalTouchPanRef.current = onVerticalTouchPan;
 	}, [onVerticalTouchPan]);
@@ -250,7 +257,10 @@ export function FingerBlocker({
 		const isEmbedDrawingInkCanvas = () => !!onDrawingEmbedTwoFingerGestureRef.current;
 
 		const isEmbedPanZoomMouseButton = (e: PointerEvent) =>
-			e.pointerType === 'mouse' && (e.button === 1 || e.button === 2);
+			e.pointerType === 'mouse' && e.button === 2;
+
+		const isMiddleButtonTemporaryEraseMouseButton = (e: PointerEvent) =>
+			e.pointerType === 'mouse' && e.button === 1;
 
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
@@ -259,8 +269,7 @@ export function FingerBlocker({
 				if (e.pointerType === 'mouse' && (e.button === 3 || e.button === 4)) return;
 
 				// Only lock scroll for left-click (button 0) and pen input.
-				// Middle (button 1) and right (button 2) mouse events are used exclusively
-				// by embed pan/zoom gestures in tldraw-drawing-editor, which call
+				// Middle (button 1) temporary erase and right (button 2) embed pan/zoom call
 				// tlContainer.setPointerCapture() — transferring native capture away from
 				// this element. Because setPointerCapture() on a synthetic forwarded event
 				// doesn't reliably fire lostpointercapture on this element in Electron/Chromium,
@@ -292,6 +301,14 @@ export function FingerBlocker({
 				}
 				if (penTarget && isEmbedDrawingInkCanvas() && isEmbedPanZoomMouseButton(e)) {
 					embedPanZoomPointerIdsRef.current.add(e.pointerId);
+					forwardPointerEvent(penTarget, 'pointerdown', e);
+				}
+				if (
+					penTarget
+					&& enableMiddleButtonTemporaryEraseRef.current
+					&& isMiddleButtonTemporaryEraseMouseButton(e)
+				) {
+					middleButtonErasePointerIdsRef.current.add(e.pointerId);
 					forwardPointerEvent(penTarget, 'pointerdown', e);
 				}
 				if (isDrawingInput) {
@@ -399,6 +416,8 @@ export function FingerBlocker({
 						}
 					}
 				} else if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointermove', e);
+				} else if (penTarget && middleButtonErasePointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointermove', e);
 				}
 			} else if (e.pointerType === 'touch' && twoFingerVerticalPanActiveRef.current) {
@@ -518,6 +537,10 @@ export function FingerBlocker({
 					forwardPointerEvent(penTarget, 'pointerup', e);
 					embedPanZoomPointerIdsRef.current.delete(e.pointerId);
 				}
+				if (penTarget && middleButtonErasePointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointerup', e);
+					middleButtonErasePointerIdsRef.current.delete(e.pointerId);
+				}
 
 				setFingerBlockerTouchMode(element, 'default');
 				unlockScroll();
@@ -568,6 +591,10 @@ export function FingerBlocker({
 				if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointercancel', e);
 					embedPanZoomPointerIdsRef.current.delete(e.pointerId);
+				}
+				if (penTarget && middleButtonErasePointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointercancel', e);
+					middleButtonErasePointerIdsRef.current.delete(e.pointerId);
 				}
 				unlockScroll();
 
@@ -719,6 +746,7 @@ export function FingerBlocker({
 		return () => {
 			isPenDownRef.current = false;
 			embedPanZoomPointerIdsRef.current.clear();
+			middleButtonErasePointerIdsRef.current.clear();
 			unlockScroll();
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });

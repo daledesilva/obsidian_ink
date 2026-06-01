@@ -128,6 +128,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	};
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
+	const toolChangeListenersRef = useRef(new Set<(t: InkTool) => void>());
+	const applyToolChange = useCallback((nextTool: InkTool) => {
+		setTool(nextTool);
+		toolChangeListenersRef.current.forEach((listener) => listener(nextTool));
+	}, []);
 	const strokeStyleRef = useRef(strokeStyle);
 	strokeStyleRef.current = strokeStyle;
 	const selectedIdsRef = useRef(selectedIds);
@@ -364,8 +369,15 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			canRedo: () => undoManagerRef.current.canRedo(),
 			getUndoCount: () => undoManagerRef.current.getUndoCount(),
 
-			setTool: (t: InkTool) => setTool(t),
+			setTool: (t: InkTool) => applyToolChange(t),
 			getCurrentTool: () => toolRef.current,
+			subscribeToolChange: (listener: (tool: InkTool) => void) => {
+				toolChangeListenersRef.current.add(listener);
+				listener(toolRef.current);
+				return () => {
+					toolChangeListenersRef.current.delete(listener);
+				};
+			},
 
 			getStrokeStyle: () => ({ ...strokeStyleRef.current }),
 			setStrokeStyle: (partial: Partial<InkStrokeStyle>) => {
@@ -489,6 +501,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Space+drag pan (Phase C)
 	const isSpaceHeldRef = useRef(false);
 	const isPointerOverCanvasRef = useRef(false);
+	/** Middle-mouse drag: temporarily switches tool to erase, then restores. */
+	const isMiddleButtonEraseActiveRef = useRef(false);
+	const middleButtonToolBeforeEraseRef = useRef<InkTool | null>(null);
 	const [cursorStyle, setCursorStyle] = useState<React.CSSProperties['cursor']>(undefined);
 	const isBooxInputLockedRef = useRef(props.isBooxInputLocked ?? false);
 	isBooxInputLockedRef.current = props.isBooxInputLocked ?? false;
@@ -496,6 +511,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Discard any in-progress local stroke when Boox takes over input (matches tldraw lockTldrawInput).
 	useEffect(() => {
 		if (!props.isBooxInputLocked) return;
+		if (isMiddleButtonEraseActiveRef.current) {
+			const previousTool = middleButtonToolBeforeEraseRef.current;
+			if (previousTool) applyToolChange(previousTool);
+			middleButtonToolBeforeEraseRef.current = null;
+			isMiddleButtonEraseActiveRef.current = false;
+		}
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 		selectToolPointerCancel({} as PointerEvent, selectCtx);
@@ -544,6 +565,20 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
 			(e.target as HTMLElement).setPointerCapture(e.pointerId);
 			setCursorStyle('grabbing');
+			return;
+		}
+
+		// Middle-click: temporary eraser (all embeds and dedicated views).
+		if (e.pointerType === 'mouse' && e.button === 1) {
+			e.preventDefault();
+			e.nativeEvent.stopPropagation();
+			if (!isBooxInputLockedRef.current) {
+				isMiddleButtonEraseActiveRef.current = true;
+				middleButtonToolBeforeEraseRef.current = toolRef.current;
+				applyToolChange('erase');
+				eraseToolPointerDown(e.nativeEvent, eraseCtx);
+			}
+			(e.target as HTMLElement).setPointerCapture(e.pointerId);
 			return;
 		}
 
@@ -606,6 +641,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
+		if (isMiddleButtonEraseActiveRef.current) {
+			if (!isBooxInputLockedRef.current) {
+				eraseToolPointerMove(e.nativeEvent, eraseCtx);
+			}
+			return;
+		}
+
 		if (!isBooxInputLockedRef.current) {
 			if (toolRef.current === 'draw') drawToolPointerMove(e.nativeEvent, drawCtx);
 			if (toolRef.current === 'erase') eraseToolPointerMove(e.nativeEvent, eraseCtx);
@@ -629,6 +671,17 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
+		if (isMiddleButtonEraseActiveRef.current) {
+			isMiddleButtonEraseActiveRef.current = false;
+			if (!isBooxInputLockedRef.current) {
+				eraseToolPointerUp(e.nativeEvent, eraseCtx);
+				const previousTool = middleButtonToolBeforeEraseRef.current;
+				if (previousTool) applyToolChange(previousTool);
+			}
+			middleButtonToolBeforeEraseRef.current = null;
+			return;
+		}
+
 		if (!isBooxInputLockedRef.current) {
 			if (toolRef.current === 'draw') drawToolPointerUp(e.nativeEvent, drawCtx);
 			if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
@@ -649,6 +702,17 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		if (isRightDraggingRef.current) {
 			isRightDraggingRef.current = false;
+			return;
+		}
+
+		if (isMiddleButtonEraseActiveRef.current) {
+			isMiddleButtonEraseActiveRef.current = false;
+			if (!isBooxInputLockedRef.current) {
+				eraseToolPointerCancel(e.nativeEvent, eraseCtx);
+				const previousTool = middleButtonToolBeforeEraseRef.current;
+				if (previousTool) applyToolChange(previousTool);
+			}
+			middleButtonToolBeforeEraseRef.current = null;
 			return;
 		}
 
@@ -906,6 +970,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				<FingerBlocker
 					wrapperRef={canvasWrapperRef}
 					enableTwoFingerGestures={!writingMode && !!props.isEmbedded}
+					enableMiddleButtonTemporaryErase
 					onVerticalTouchPan={
 						writingMode && !props.isEmbedded
 							? props.onDedicatedVerticalTouchPan

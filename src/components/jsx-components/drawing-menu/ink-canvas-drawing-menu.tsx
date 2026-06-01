@@ -24,6 +24,12 @@ export enum tool {
 	eraser = 'eraser',
 }
 
+function inkToolToMenuTool(inkTool: InkTool): tool {
+	if (inkTool === 'select') return tool.select;
+	if (inkTool === 'erase') return tool.eraser;
+	return tool.draw;
+}
+
 interface InkCanvasDrawingMenuProps {
 	getEditor: () => InkCanvasEditor | undefined;
 	onStoreChange: () => void;
@@ -37,6 +43,35 @@ interface InkCanvasDrawingMenuProps {
 export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDrawingMenuProps>((props, ref) => {
 
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
+
+	// Sync toolbar highlight when the canvas changes tool (e.g. middle-mouse temporary erase).
+	React.useEffect(() => {
+		let unsubscribe: (() => void) | undefined;
+		let pollId: number | undefined;
+
+		const trySubscribe = (): boolean => {
+			const editor = props.getEditor();
+			if (!editor?.subscribeToolChange) return false;
+			unsubscribe = editor.subscribeToolChange((inkTool) => {
+				setCurTool(inkToolToMenuTool(inkTool));
+			});
+			return true;
+		};
+
+		if (!trySubscribe()) {
+			pollId = window.setInterval(() => {
+				if (trySubscribe() && pollId !== undefined) {
+					window.clearInterval(pollId);
+					pollId = undefined;
+				}
+			}, 100);
+		}
+
+		return () => {
+			if (pollId !== undefined) window.clearInterval(pollId);
+			unsubscribe?.();
+		};
+	}, [props.getEditor]);
 
 	///////////
 

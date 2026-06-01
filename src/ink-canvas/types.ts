@@ -128,6 +128,8 @@ export interface InkCanvasEditor {
 	// Tools
 	setTool(tool: InkTool): void;
 	getCurrentTool(): InkTool;
+	/** Notified when the active tool changes (toolbar clicks, middle-mouse temporary erase, etc.). */
+	subscribeToolChange(listener: (tool: InkTool) => void): () => void;
 
 	// Stroke style
 	getStrokeStyle(): InkStrokeStyle;

@@ -1,4 +1,5 @@
 import { WRITING_LINE_HEIGHT } from 'src/constants';
+import { buildInkStrokeStyleForTreatAs } from './stroke-presets';
 import type { InkCanvasSnapshot, InkPoint, InkStroke, InkStrokeStyle } from './types';
 import { DEFAULT_STROKE_STYLE } from './types';
 
@@ -16,26 +17,6 @@ const TLDRAW_SIZE_TO_PX: Record<string, number> = {
 	m: 3.5,
 	l: 5,
 	xl: 10,
-};
-
-/**
- * tldraw's default light theme color palette (solid fill values).
- * Draw shapes use the `solid` key of the color theme.
- */
-const TLDRAW_COLOR_MAP: Record<string, string> = {
-	'black':        '#1d1d1d',
-	'grey':         '#9fa8b2',
-	'light-violet': '#e085f4',
-	'violet':       '#ae3ec9',
-	'blue':         '#4465e9',
-	'light-blue':   '#4ba1f1',
-	'yellow':       '#f1ac4b',
-	'orange':       '#e16919',
-	'green':        '#099268',
-	'light-green':  '#4cb05e',
-	'light-red':    '#f87777',
-	'red':          '#e03131',
-	'white':        '#FFFFFF',
 };
 
 /**
@@ -102,7 +83,7 @@ function readGridEnabledFromTldrawSession(
  * Migrate a tldraw `TLEditorSnapshot` store into an `InkCanvasSnapshot`.
  *
  * Walks all store records, finds `type === 'draw'` shapes, and converts them
- * to `InkStroke` objects. Also reads the camera record.
+ * to `InkStroke` objects. Does not persist camera (editor auto-fits on open).
  *
  * @param tldrawSnapshot The raw TLEditorSnapshot object (with `store` property containing records).
  * @returns An InkCanvasSnapshot ready for use with the ink-canvas engine.
@@ -111,33 +92,20 @@ export function migrateFromTldraw(tldrawSnapshot: TldrawSnapshotForMigration): I
 	const snapshot: InkCanvasSnapshot = {
 		version: 1,
 		strokes: [],
-		camera: { x: 0, y: 0, zoom: 1 },
 		gridEnabled: readGridEnabledFromTldrawSession(tldrawSnapshot),
 	};
 
 	const store = getTldrawStoreForMigration(tldrawSnapshot);
 	if (!store) return snapshot;
 
+	const captureZoom = readCameraZoomFromStore(store);
 	for (const key of Object.keys(store)) {
 		const record = store[key];
-
-		// Extract camera
-		if (record.typeName === 'camera') {
-			const cam = record as unknown as TldrawCameraRecord;
-			snapshot.camera = {
-				x: cam.x,
-				y: cam.y,
-				zoom: cam.z ?? 1,
-			};
-			continue;
-		}
-
-		// Extract draw shapes
 		const isDrawShape = record.typeName === 'shape' && record.type === 'draw';
 		if (!isDrawShape) continue;
 
 		const drawRecord = record as unknown as TldrawDrawRecord;
-		const stroke = convertDrawShape(drawRecord);
+		const stroke = convertDrawShape(drawRecord, captureZoom);
 		if (stroke) snapshot.strokes.push(stroke);
 	}
 
@@ -179,13 +147,15 @@ export function migrateWritingFromTldraw(
 		}
 	}
 
+	const captureZoom = readCameraZoomFromStore(store);
+
 	for (const key of Object.keys(store)) {
 		const record = store[key] as TldrawStoreRecord;
 		const isDrawShape = record.typeName === 'shape' && record.type === 'draw';
 		if (!isDrawShape) continue;
 
 		const drawRecord = record as unknown as TldrawDrawRecord;
-		const stroke = convertDrawShape(drawRecord);
+		const stroke = convertDrawShape(drawRecord, captureZoom);
 		if (stroke) snapshot.strokes.push(stroke);
 	}
 
@@ -197,7 +167,17 @@ export function migrateWritingFromTldraw(
 // Conversion helpers
 ///////////////////////////
 
-function convertDrawShape(shape: TldrawDrawRecord): InkStroke | null {
+function readCameraZoomFromStore(store: Record<string, TldrawStoreRecord>): number {
+	for (const key of Object.keys(store)) {
+		const record = store[key];
+		if (record.typeName !== 'camera') continue;
+		const cam = record as unknown as TldrawCameraRecord;
+		return cam.z ?? 1;
+	}
+	return 1;
+}
+
+function convertDrawShape(shape: TldrawDrawRecord, captureZoom: number): InkStroke | null {
 	const allPoints: InkPoint[] = [];
 
 	for (const segment of shape.props.segments) {
@@ -209,7 +189,7 @@ function convertDrawShape(shape: TldrawDrawRecord): InkStroke | null {
 
 	if (allPoints.length === 0) return null;
 
-	const style = mapTldrawStyle(shape.props);
+	const style = mapTldrawStyle(shape.props, captureZoom);
 
 	return {
 		id: shape.id,
@@ -220,20 +200,21 @@ function convertDrawShape(shape: TldrawDrawRecord): InkStroke | null {
 	};
 }
 
-function mapTldrawStyle(props: TldrawDrawRecord['props']): InkStrokeStyle {
+function mapTldrawStyle(
+	props: TldrawDrawRecord['props'],
+	captureZoom: number,
+): InkStrokeStyle {
 	const basePx = TLDRAW_SIZE_TO_PX[props.size] ?? TLDRAW_SIZE_TO_PX['m'];
 	// tldraw's draw shape renderer uses `1 + size * 1.5` as the effective
 	// perfect-freehand size. We replicate that here.
 	const effectiveSize = 1 + basePx * 1.5;
+	const treatAs = props.isPen ? 'pen' : 'mouse';
 
-	const color = TLDRAW_COLOR_MAP[props.color] ?? TLDRAW_COLOR_MAP['black'];
-	const simulatePressure = !props.isPen;
-
-	return {
+	const base: InkStrokeStyle = {
 		...DEFAULT_STROKE_STYLE,
 		size: effectiveSize,
-		simulatePressure,
-		color,
-		inputKind: props.isPen ? 'pen' : 'mouse',
+		color: 'currentColor',
 	};
+
+	return buildInkStrokeStyleForTreatAs(base, treatAs, captureZoom);
 }

@@ -57,6 +57,19 @@ function buildEmbedSettingsWithFittedViewBox(strokes: InkStroke[]): EmbedSetting
 	};
 }
 
+/** Embed settings with viewBox fitted to stroke bounds, or null when strokes cannot be fitted. */
+export function buildDrawingEmbedSettingsFromStrokes(strokes: InkStroke[]): EmbedSettings | null {
+	if (strokes.length === 0) return null;
+
+	const bounds = computeStrokesBounds(strokes);
+	if (!Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)
+		|| bounds.width <= 0 || bounds.height <= 0) {
+		return null;
+	}
+
+	return buildEmbedSettingsWithFittedViewBox(strokes);
+}
+
 /** Embed settings with viewBox fitted to all strokes (insert-existing drawing). */
 export async function buildDrawingEmbedSettingsFromFile(
 	plugin: InkPlugin,
@@ -65,17 +78,7 @@ export async function buildDrawingEmbedSettingsFromFile(
 	try {
 		const svgString = await plugin.app.vault.read(file);
 		const strokes = getStrokesFromInkFile(svgString);
-		if (strokes.length === 0) {
-			return cloneDefaultEmbedSettings();
-		}
-
-		const bounds = computeStrokesBounds(strokes);
-		if (!Number.isFinite(bounds.width) || !Number.isFinite(bounds.height)
-			|| bounds.width <= 0 || bounds.height <= 0) {
-			return cloneDefaultEmbedSettings();
-		}
-
-		return buildEmbedSettingsWithFittedViewBox(strokes);
+		return buildDrawingEmbedSettingsFromStrokes(strokes) ?? cloneDefaultEmbedSettings();
 	} catch {
 		return cloneDefaultEmbedSettings();
 	}

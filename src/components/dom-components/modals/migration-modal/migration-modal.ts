@@ -39,7 +39,7 @@ export class MigrationModal extends Modal {
 	}
 
 	onOpen() {
-		this.titleEl.setText('Migrate legacy ink embeds');
+		this.titleEl.setText('Migrate legacy ink embeds to ink-canvas');
 		this.contentEl.addClass('ddc_ink_migration-modal');
 		this.renderScanPhase();
 	}
@@ -117,7 +117,7 @@ export class MigrationModal extends Modal {
 		contentEl.empty();
 
 		contentEl.createEl('p', {
-			text: `Found ${scan.legacyFiles.length} legacy embed file${scan.legacyFiles.length !== 1 ? 's' : ''} and ${scan.affectedNotes.length} note${scan.affectedNotes.length !== 1 ? 's' : ''} to update. Review below and confirm.`,
+			text: `Found ${scan.legacyFiles.length} legacy embed file${scan.legacyFiles.length !== 1 ? 's' : ''} and ${scan.affectedNotes.length} note${scan.affectedNotes.length !== 1 ? 's' : ''} to update. Each file will be converted to SVG with ink-canvas metadata (strokes migrated from the legacy tldraw snapshot). Strokes that were hidden by the legacy editor stash cannot be recovered. Review below and confirm.`,
 		});
 
 		// List: embeds to convert

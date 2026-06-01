@@ -1,12 +1,11 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { describe, expect, test } from '@jest/globals';
 import { TFile } from 'obsidian';
-
-// Provide valid SVG for migration-logic's convertLegacyJsonToInkFileData so buildFileStr can parse it
-jest.mock('src/defaults/empty-writing-embed.svg', () => '<svg xmlns="http://www.w3.org/2000/svg"><defs/></svg>', { virtual: true });
-jest.mock('src/defaults/empty-drawing-embed.svg', () => '<svg xmlns="http://www.w3.org/2000/svg"><defs/></svg>', { virtual: true });
 import {
 	findLegacyEmbedBlocks,
 	replaceLegacyBlockInMarkdown,
+	convertLegacyToInkCanvasFileData,
 	convertLegacyJsonToInkFileData,
 	getLegacySvgPath,
 	scanVaultForLegacyEmbeds,
@@ -16,13 +15,19 @@ import {
 } from 'src/logic/utils/migration-logic';
 import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
-import { InkFileData } from 'src/components/formats/current/types/file-data';
+import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
+import { INK_CANVAS_FORMAT_VERSION } from 'src/constants';
+import { buildDrawingEmbedSettingsFromStrokes } from 'src/logic/utils/build-drawing-embed-settings-from-file';
+import { DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
 
-// SerializedStore<TLRecord> only allows known record IDs as keys; cast when
-// tests need to access shapes by arbitrary string key.
-function store(data: InkFileData): Record<string, any> {
-	return data.tldraw.document.store as unknown as Record<string, any>;
-}
+const LEGACY_WRITING_FIXTURE = path.join(
+	__dirname,
+	'../../../../../qa-test-vault/fixtures/legacy-writing-fixture.writing',
+);
+const LEGACY_DRAWING_FIXTURE = path.join(
+	__dirname,
+	'../../../../../qa-test-vault/fixtures/legacy-drawing-fixture.drawing',
+);
 
 ////////
 ////////
@@ -299,41 +304,37 @@ describe('scanVaultForLegacyEmbeds', () => {
 
 ////////
 
-describe('convertLegacyJsonToInkFileData', () => {
-	test('converts a writing file JSON to inkWriting InkFileData', () => {
+describe('convertLegacyToInkCanvasFileData', () => {
+	test('converts a writing file JSON to inkWriting ink-canvas InkFileData', () => {
 		const json = makeV1WriteJson('Ink/Writing/note.writing');
-		const result = convertLegacyJsonToInkFileData(json, 'writing');
+		const result = convertLegacyToInkCanvasFileData(json, 'writing');
 		expect(result).not.toBeNull();
 		expect(result!.meta.fileType).toBe('inkWriting');
+		expect(result!.inkCanvas).toBeDefined();
 	});
 
-	test('converts a drawing file JSON to inkDrawing InkFileData', () => {
+	test('converts a drawing file JSON to inkDrawing ink-canvas InkFileData', () => {
 		const json = makeV1DrawJson('Ink/Drawing/sketch.drawing');
-		const result = convertLegacyJsonToInkFileData(json, 'drawing');
+		const result = convertLegacyToInkCanvasFileData(json, 'drawing');
 		expect(result).not.toBeNull();
 		expect(result!.meta.fileType).toBe('inkDrawing');
+		expect(result!.inkCanvas).toBeDefined();
 	});
 
-	test('preserves tldraw snapshot store from v1 file', () => {
-		const json = makeV1WriteJson('note.writing');
-		const result = convertLegacyJsonToInkFileData(json, 'writing');
-		expect(store(result!)['shape:writing-container']).toBeDefined();
-	});
-
-	test('sets previewIsOutdated to true', () => {
-		const json = makeV1WriteJson('note.writing');
-		const result = convertLegacyJsonToInkFileData(json, 'writing');
-		expect(result!.meta.previewIsOutdated).toBe(true);
+	test('does not set previewIsOutdated when visual SVG is produced', () => {
+		const json = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+		const result = convertLegacyToInkCanvasFileData(json, 'writing');
+		expect(result!.meta.previewIsOutdated).toBeUndefined();
 	});
 
 	test('returns null for invalid JSON', () => {
-		const result = convertLegacyJsonToInkFileData('{bad json}', 'writing');
+		const result = convertLegacyToInkCanvasFileData('{bad json}', 'writing');
 		expect(result).toBeNull();
 	});
 
 	test('returns null for JSON missing tldraw field', () => {
 		const json = JSON.stringify({ meta: { pluginVersion: '1.0.0', tldrawVersion: '2.1.0' } });
-		const result = convertLegacyJsonToInkFileData(json, 'writing');
+		const result = convertLegacyToInkCanvasFileData(json, 'writing');
 		expect(result).toBeNull();
 	});
 
@@ -341,46 +342,60 @@ describe('convertLegacyJsonToInkFileData', () => {
 		const base = JSON.parse(makeV1WriteJson('note.writing'));
 		base.meta.transcript = 'some transcript text';
 		const json = JSON.stringify(base);
-		const result = convertLegacyJsonToInkFileData(json, 'writing');
+		const result = convertLegacyToInkCanvasFileData(json, 'writing');
 		expect(result).not.toBeNull();
 		expect(result!.meta.transcript).toBe('some transcript text');
 	});
 
 	test('returns null for JSON missing meta field', () => {
 		const json = JSON.stringify({ tldraw: JSON.parse(makeV1WriteJson('x')).tldraw });
-		const result = convertLegacyJsonToInkFileData(json, 'writing');
+		const result = convertLegacyToInkCanvasFileData(json, 'writing');
 		expect(result).toBeNull();
 	});
 
-	test('output is a valid InkFileData that can be built to SVG and parsed back', () => {
+	test('legacy alias convertLegacyJsonToInkFileData matches ink-canvas converter', () => {
 		const json = makeV1WriteJson('note.writing');
-		const fileData = convertLegacyJsonToInkFileData(json, 'writing');
+		expect(convertLegacyJsonToInkFileData(json, 'writing')).toEqual(
+			convertLegacyToInkCanvasFileData(json, 'writing'),
+		);
+	});
+
+	test('real writing fixture round-trips to ink-canvas SVG on disk', () => {
+		const json = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+		const fileData = convertLegacyToInkCanvasFileData(json, 'writing');
 		expect(fileData).not.toBeNull();
-		// Override the SVG mock stub with a real SVG for the round-trip test
-		fileData!.svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs/></svg>';
 		const svgStr = buildFileStr(fileData!);
+		expect(svgStr).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
+		expect(svgStr).not.toContain('<tldraw version=');
+
 		const parsed = extractInkJsonFromSvg(svgStr);
 		expect(parsed).not.toBeNull();
+		expect(isInkCanvasFile(parsed!)).toBe(true);
 		expect(parsed!.meta.fileType).toBe('inkWriting');
+		expect(parsed!.inkCanvas!.strokes.length).toBeGreaterThan(0);
 	});
 
-	test('writing output preserves writing shapes in tldraw store', () => {
-		const json = makeV1WriteJson('note.writing');
-		const fileData = convertLegacyJsonToInkFileData(json, 'writing');
+	test('real drawing fixture round-trips to ink-canvas SVG on disk', () => {
+		const json = fs.readFileSync(LEGACY_DRAWING_FIXTURE, 'utf8');
+		const fileData = convertLegacyToInkCanvasFileData(json, 'drawing');
 		expect(fileData).not.toBeNull();
-		fileData!.svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><defs/></svg>';
+		expect(fileData!.inkCanvas!.camera).toBeUndefined();
 		const svgStr = buildFileStr(fileData!);
 		const parsed = extractInkJsonFromSvg(svgStr);
 		expect(parsed).not.toBeNull();
-		expect(store(parsed!)['shape:writing-container']).toBeDefined();
-		expect(store(parsed!)['shape:writing-lines']).toBeDefined();
+		expect(isInkCanvasFile(parsed!)).toBe(true);
+		expect(parsed!.inkCanvas!.strokes.length).toBeGreaterThan(0);
 	});
 
-	test('drawing output has no writing shapes in tldraw store', () => {
-		const json = makeV1DrawJson('sketch.drawing');
-		const fileData = convertLegacyJsonToInkFileData(json, 'drawing');
-		expect(store(fileData!)['shape:writing-container']).toBeUndefined();
-		expect(store(fileData!)['shape:writing-lines']).toBeUndefined();
+	test('real drawing fixture yields embed viewBox fitted to strokes', () => {
+		const json = fs.readFileSync(LEGACY_DRAWING_FIXTURE, 'utf8');
+		const fileData = convertLegacyToInkCanvasFileData(json, 'drawing');
+		expect(fileData).not.toBeNull();
+		const embedSettings = buildDrawingEmbedSettingsFromStrokes(fileData!.inkCanvas!.strokes);
+		expect(embedSettings).not.toBeNull();
+		expect(embedSettings!.viewBox).not.toEqual(DEFAULT_EMBED_SETTINGS.viewBox);
+		expect(embedSettings!.viewBox.x).not.toBe(0);
+		expect(embedSettings!.viewBox.y).not.toBe(0);
 	});
 });
 
@@ -480,6 +495,28 @@ describe('executeMigration', () => {
 	function legacyWriteBlock(filepath: string): string {
 		return '```handwritten-ink\n' + JSON.stringify({ versionAtEmbed: '0.3.0', filepath }) + '\n```';
 	}
+
+	test('creates SVG with ink-canvas metadata', async () => {
+		const legacyJson = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, legacyJson);
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [],
+		};
+
+		await executeMigration(vault as any, scanResult);
+
+		const createdSvg = (vault as any)._created[NEW_SVG_PATH] as string;
+		expect(createdSvg).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
+		expect(createdSvg).not.toContain('<tldraw version=');
+	});
 
 	test('updates embed strings in ALL affected notes', async () => {
 		const notePaths = ['Notes/A.md', 'Notes/B.md', 'Notes/C.md'];

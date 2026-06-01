@@ -52,6 +52,12 @@ describe('v2 tldraw fixture migration', () => {
 			expect(parsed).not.toBeNull();
 			expect(isInkCanvasFile(parsed!)).toBe(true);
 			expect(parsed!.inkCanvas?.strokes.length).toBeGreaterThan(0);
+
+			expect(out).toContain('fill="currentColor"');
+			expect(out).not.toContain('fill="#1d1d1d"');
+			for (const stroke of parsed!.inkCanvas!.strokes) {
+				expect(stroke.style.color).toBe('currentColor');
+			}
 		});
 	});
 
@@ -94,6 +100,12 @@ describe('v2 tldraw fixture migration', () => {
 			expect(parsed).not.toBeNull();
 			expect(isInkCanvasFile(parsed!)).toBe(true);
 			expect(parsed!.inkCanvas?.strokes.length).toBeGreaterThan(10);
+
+			expect(out).toContain('fill="currentColor"');
+			expect(out).not.toContain('fill="#1d1d1d"');
+			for (const stroke of parsed!.inkCanvas!.strokes) {
+				expect(stroke.style.color).toBe('currentColor');
+			}
 		});
 	});
 });

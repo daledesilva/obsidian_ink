@@ -633,8 +633,8 @@ Run the command from the command palette, then verify:
 1. \`Legacy Writing Note.md\` - legacy writing embed replaced with current format
 2. \`Legacy Drawing Note.md\` - legacy drawing embed replaced with current format
 3. \`Mixed Formats Note.md\` - only the legacy embed replaced; current format embed unchanged
-4. \`Ink/Writing/migration-test-2.writing\` is gone, \`Ink/Writing/migration-test-2.svg\` exists
-5. \`Ink/Drawing/migration-test-2.drawing\` is gone, \`Ink/Drawing/migration-test-2.svg\` exists
+4. \`Ink/Writing/migration-test-2.writing\` is gone, \`Ink/Writing/migration-test-2.svg\` exists with \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\` (not tldraw metadata)
+5. \`Ink/Drawing/migration-test-2.drawing\` is gone, \`Ink/Drawing/migration-test-2.svg\` exists with ink-canvas metadata
 `);
 }
 

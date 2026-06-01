@@ -243,7 +243,8 @@ Migration from legacy v1 code-block embeds to current-format SVG embeds is cover
 | `findLegacyEmbedBlocks` | Single/multiple embeds, v2 exclusion, malformed JSON, missing filepath. |
 | `getLegacySvgPath` | Extension replacement for `.writing`/`.drawing`, paths with dots. |
 | `scanVaultForLegacyEmbeds` | Empty vault, no legacy embeds, one/multiple legacy files, missing legacy file, `onProgress` callback, read error handling. |
-| `convertLegacyJsonToInkFileData` | Writing/drawing conversion, tldraw store preservation, `meta.transcript` preservation, invalid/missing JSON, round-trip via `buildFileStr`. |
+| `convertLegacyToInkCanvasFileData` | v1 → ink-canvas: writing/drawing, `meta.transcript`, real fixture round-trip, invalid/missing JSON. |
+| `v1-bulk-ink-canvas-migration.test.ts` | 50× conversion (25 writing + 25 drawing) from real legacy fixtures. |
 | `replaceLegacyBlockInMarkdown` | Replace block, preserve surrounding content, replace all occurrences. |
 | `executeMigration` | Updates all affected notes, skip when SVG exists, parse failure, create/delete failure, `onProgress` callback. |
 
@@ -252,7 +253,7 @@ Migration from legacy v1 code-block embeds to current-format SVG embeds is cover
 | Test | What it tests |
 |---|---|
 | Legacy writing/drawing embed renders before migration | Pre-migration state. |
-| Migration modal, scan, execute | Full migration flow (opened from settings). |
+| Migration modal, scan, execute | Full migration flow; migrated SVG contains `<ink-canvas version="0.5.0">`. |
 | Migrated writing embed renders | Post-migration writing embed displays. |
 | Migrated drawing embed renders | Post-migration drawing embed displays. |
 | Mixed format note | Only legacy embed updated; current format unchanged. |

@@ -1,12 +1,22 @@
 import { TFile, Vault } from "obsidian";
-import { PLUGIN_VERSION, TLDRAW_VERSION, WRITE_EMBED_KEY, DRAW_EMBED_KEY } from "src/constants";
+import { PLUGIN_VERSION, WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH, WRITE_EMBED_KEY, DRAW_EMBED_KEY } from "src/constants";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
+import {
+	buildInkCanvasDrawingFileData,
+	buildInkCanvasWritingFileData,
+} from "src/components/formats/current/utils/build-file-data";
 import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
 import { buildWritingEmbed, buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
-import emptyDrawingSvgStr from "src/defaults/empty-drawing-embed.svg";
-import emptyWritingSvgStr from "src/defaults/empty-writing-embed.svg";
+import { buildDrawingEmbedSettingsFromStrokes } from "src/logic/utils/build-drawing-embed-settings-from-file";
+import type { EmbedSettings } from "src/types/embed-settings";
+import {
+	migrateFromTldraw,
+	migrateWritingFromTldraw,
+	type TldrawSnapshotForMigration,
+} from "src/ink-canvas/migrate-from-tldraw";
+import { renderStrokesToSvg, renderWritingStrokesToSvg } from "src/ink-canvas/svg-export";
 
 ////////
 ////////
@@ -81,11 +91,10 @@ export function replaceLegacyBlockInMarkdown(
 }
 
 /**
- * Converts a legacy v1 JSON file string into current-format InkFileData.
+ * Converts a legacy v1 JSON file string into ink-canvas InkFileData (SVG metadata + rendered paths).
  * Returns null if the JSON cannot be parsed.
- * The SVG string will be a placeholder (previewIsOutdated is set to true).
  */
-export function convertLegacyJsonToInkFileData(
+export function convertLegacyToInkCanvasFileData(
 	legacyJson: string,
 	fileType: 'writing' | 'drawing',
 ): InkFileData | null {
@@ -98,20 +107,48 @@ export function convertLegacyJsonToInkFileData(
 
 	if (!legacyData.tldraw || !legacyData.meta) return null;
 
-	const inkFileType = fileType === 'writing' ? 'inkWriting' : 'inkDrawing';
-	const svgString = fileType === 'writing' ? emptyWritingSvgStr : emptyDrawingSvgStr;
+	const tldrawSnapshot = legacyData.tldraw as unknown as TldrawSnapshotForMigration;
 
-	return {
-		meta: {
-			pluginVersion: legacyData.meta.pluginVersion || PLUGIN_VERSION,
-			tldrawVersion: legacyData.meta.tldrawVersion || TLDRAW_VERSION,
-			fileType: inkFileType,
-			transcript: legacyData.meta.transcript,
-			previewIsOutdated: true,
-		},
-		tldraw: legacyData.tldraw,
+	if (fileType === 'writing') {
+		const inkCanvasSnapshot = migrateWritingFromTldraw(tldrawSnapshot, WRITING_LINE_HEIGHT);
+		const svgString = renderWritingStrokesToSvg(
+			inkCanvasSnapshot.strokes,
+			inkCanvasSnapshot,
+			WRITING_PAGE_WIDTH,
+		);
+		const fileData = buildInkCanvasWritingFileData({
+			inkCanvasSnapshot,
+			svgString,
+		});
+		fileData.meta.pluginVersion = PLUGIN_VERSION;
+		if (legacyData.meta.transcript) {
+			fileData.meta.transcript = legacyData.meta.transcript;
+		}
+		if (inkCanvasSnapshot.writingLineHeight != null) {
+			fileData.meta.writingLineHeight = inkCanvasSnapshot.writingLineHeight;
+		}
+		return fileData;
+	}
+
+	const inkCanvasSnapshot = migrateFromTldraw(tldrawSnapshot);
+	const svgString = renderStrokesToSvg(inkCanvasSnapshot.strokes, inkCanvasSnapshot);
+	const fileData = buildInkCanvasDrawingFileData({
+		inkCanvasSnapshot,
 		svgString,
-	};
+	});
+	fileData.meta.pluginVersion = PLUGIN_VERSION;
+	if (legacyData.meta.transcript) {
+		fileData.meta.transcript = legacyData.meta.transcript;
+	}
+	return fileData;
+}
+
+/** @deprecated Use {@link convertLegacyToInkCanvasFileData}. Kept for existing imports. */
+export function convertLegacyJsonToInkFileData(
+	legacyJson: string,
+	fileType: 'writing' | 'drawing',
+): InkFileData | null {
+	return convertLegacyToInkCanvasFileData(legacyJson, fileType);
 }
 
 /**
@@ -211,11 +248,13 @@ export async function executeMigration(
 
 	logToVault('Migration started. Files: ' + scanResult.legacyFiles.length + ', Notes: ' + scanResult.affectedNotes.length);
 
+	const drawingEmbedSettingsBySvgPath = new Map<string, EmbedSettings>();
+
 	// Step 1: Convert each legacy file to SVG
 	for (const entry of scanResult.legacyFiles) {
 		try {
 			const legacyJson = await vault.read(entry.legacyFile);
-			const inkFileData = convertLegacyJsonToInkFileData(legacyJson, entry.fileType);
+			const inkFileData = convertLegacyToInkCanvasFileData(legacyJson, entry.fileType);
 
 			if (!inkFileData) {
 				result.skipped.push(entry.legacyFile.path + ' (could not parse)');
@@ -231,6 +270,15 @@ export async function executeMigration(
 				done++;
 				onProgress?.(done, total);
 				continue;
+			}
+
+			if (entry.fileType === 'drawing' && inkFileData.inkCanvas) {
+				const embedSettings = buildDrawingEmbedSettingsFromStrokes(
+					inkFileData.inkCanvas.strokes,
+				);
+				if (embedSettings) {
+					drawingEmbedSettingsBySvgPath.set(entry.newSvgPath, embedSettings);
+				}
 			}
 
 			const svgStr = buildFileStr(inkFileData);
@@ -258,7 +306,12 @@ export async function executeMigration(
 				const newEmbed =
 					block.embedType === 'writing'
 						? buildWritingEmbed(newSvgPath)
-						: buildDrawingEmbed(newSvgPath);
+						: (() => {
+							const embedSettings = drawingEmbedSettingsBySvgPath.get(newSvgPath);
+							return embedSettings
+								? buildDrawingEmbed(newSvgPath, { embedSettings })
+								: buildDrawingEmbed(newSvgPath);
+						})();
 				content = replaceLegacyBlockInMarkdown(content, block, newEmbed);
 			}
 

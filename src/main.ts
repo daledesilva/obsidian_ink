@@ -155,6 +155,7 @@ export default class InkPlugin extends Plugin {
 		}
 
 		registerSettingsTab(this);
+		implementMigrationCommand(this);
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
@@ -230,6 +231,14 @@ function implementDrawingEmbedCommands(plugin: InkPlugin) {
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
 
+}
+
+function implementMigrationCommand(plugin: InkPlugin) {
+	plugin.addCommand({
+		id: 'migrate-legacy-embeds',
+		name: 'Migrate legacy ink embeds to ink-canvas',
+		callback: () => plugin.openMigrationModal(),
+	});
 }
 
 // function implementHandwrittenNoteAction(plugin: InkPlugin) {

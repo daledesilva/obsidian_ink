@@ -52,6 +52,35 @@ When saving ink-canvas files, the plugin writes the current `INK_CANVAS_FORMAT_V
 - Files may still show `<ink-canvas version="1">` from early ink-canvas builds; they load normally and are rewritten to the current semver on the next save.
 - Do not confuse `<ink-canvas version="…">` with embed URL query parameters — URL `version=` was removed; only the SVG metadata carries format version.
 
+## Vault migration (v1 code blocks)
+
+**Why:** Older vaults used ` ```handwritten-ink` / ` ```handdrawn-ink` code fences pointing at `.writing` / `.drawing` JSON files with a tldraw snapshot inside.
+
+The **Migrate legacy ink embeds** flow ([`migration-logic.ts`](../src/logic/utils/migration-logic.ts), [`MigrationModal`](../src/components/dom-components/modals/migration-modal/migration-modal.ts)):
+
+1. Scans markdown for legacy code blocks and collects referenced legacy files.
+2. For each legacy file, runs `convertLegacyToInkCanvasFileData`: migrate tldraw draw shapes → `InkCanvasSnapshot`, render SVG paths, write `<ink-canvas version="…">` via `buildFileStr` (not an intermediate tldraw-on-disk SVG).
+3. Replaces code blocks in notes with current `![InkWriting]` / `![InkDrawing]` embeds.
+
+```mermaid
+flowchart LR
+  V1File[".writing / .drawing JSON"]
+  Migrate["migrateFromTldraw / migrateWritingFromTldraw"]
+  Render["renderStrokesToSvg"]
+  SVG[".svg with ink-canvas metadata"]
+  Note["Markdown v2 embed"]
+
+  V1File --> Migrate --> Render --> SVG
+  Note --> Note
+  SVG --> Note
+```
+
+### Technical gotchas
+
+- Strokes that were in the legacy editor **stash** at last save are not in the v1 JSON and cannot be recovered (same limitation as before).
+- If the target `.svg` already exists, the file step is skipped but notes may still be updated.
+- Open **Settings → Ink → Update Ink files…** or run the command **Migrate legacy ink embeds to ink-canvas**.
+
 ## Drawing ↔ writing conversion
 
 Conversion between `inkDrawing` and `inkWriting` changes only the tldraw store (adds/removes `writing-container` and `writing-lines` shapes) and the `file-type` attribute. The visual SVG content must be preserved so the preview does not disappear.

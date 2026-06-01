@@ -123,6 +123,17 @@ describe("Legacy Embed Migration", function () {
 		expect(svgExists).toBe(true);
 	});
 
+	it("migrated writing SVG uses ink-canvas metadata", async function () {
+		const svgContent = await browser.executeObsidian(async ({ app }) => {
+			const file = app.vault.getAbstractFileByPath("Ink/Writing/migration-test-2.svg");
+			if (!file) return null;
+			return app.vault.read(file as any);
+		});
+		expect(svgContent).not.toBeNull();
+		expect(svgContent as string).toContain('<ink-canvas version="0.5.0">');
+		expect(svgContent as string).not.toContain('<tldraw version=');
+	});
+
 	it("legacy writing note now uses current format embed after migration", async function () {
 		await obsidianPage.openFile("13 - Migration Test/Legacy Writing Note.md");
 		await browser.pause(1000);

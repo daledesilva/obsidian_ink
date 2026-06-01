@@ -1,6 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
 import { PLUGIN_VERSION } from 'src/constants';
-import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
+import {
+	buildDrawingEmbedSettingsFromFile,
+	buildDrawingEmbedSettingsFromStrokes,
+} from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
 import { DEFAULT_STROKE_STYLE } from 'src/ink-canvas/types';
 import type InkPlugin from 'src/main';
@@ -33,6 +36,31 @@ function makePlugin(readResult: string): InkPlugin {
 function makeFile(): TFile {
 	return { path: 'Ink/Drawing/test.svg' } as TFile;
 }
+
+describe('buildDrawingEmbedSettingsFromStrokes', () => {
+	test('returns null when there are no strokes', () => {
+		expect(buildDrawingEmbedSettingsFromStrokes([])).toBeNull();
+	});
+
+	test('returns fitted viewBox when strokes are present', () => {
+		const settings = buildDrawingEmbedSettingsFromStrokes([
+			{
+				id: 's1',
+				points: [
+					[10, 10, 0.5],
+					[100, 80, 0.5],
+				],
+				style: { ...DEFAULT_STROKE_STYLE },
+				offset: { x: 0, y: 0 },
+			},
+		]);
+		expect(settings).not.toBeNull();
+		expect(settings!.viewBox.x).toBeLessThan(10);
+		expect(settings!.viewBox.y).toBeLessThan(10);
+		expect(settings!.viewBox.x + settings!.viewBox.width).toBeGreaterThan(100);
+		expect(settings!.viewBox.y + settings!.viewBox.height).toBeGreaterThan(80);
+	});
+});
 
 describe('buildDrawingEmbedSettingsFromFile', () => {
 	test('returns default settings when file has no strokes', async () => {

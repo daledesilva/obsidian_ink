@@ -169,9 +169,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	// Camera is never persisted — fit on mount. Use layout effect so initial camera applies before paint.
 	useLayoutEffect(() => {
-		// #region agent log A1
-		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'A',location:'ink-svg-canvas.tsx:useEffect(initialCamera)',message:'initial camera effect enter',data:{writingMode,hasInitialViewBox:!!props.initialViewBox,initialViewBox:props.initialViewBox??null,isEmbedded:!!props.isEmbedded},timestamp:Date.now()})}).catch(()=>{});
-		// #endregion agent log A1
 		if (writingMode) {
 			resetWritingCamera(false);
 			return;
@@ -188,9 +185,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const zoomY = vb.height > 0 ? rect.height / vb.height : 1;
 			const zoom = clampZoom(Math.min(zoomX, zoomY));
 			const next = { x: -vb.x, y: -vb.y, zoom };
-			// #region agent log A2
-			fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'A',location:'ink-svg-canvas.tsx:layoutEffect(applyInitialViewBox)',message:'apply initialViewBox camera',data:{containerRect:{w:rect.width,h:rect.height},vb,computed:{zoomX,zoomY,zoom,camera:next}},timestamp:Date.now()})}).catch(()=>{});
-			// #endregion agent log A2
 			setCameraState(next);
 			emitCameraChange(next, { source: 'init' });
 			return;

@@ -72,6 +72,7 @@ interface TldrawDrawingEditor_Props {
 	resizeEmbed?: (pxWidthDiff: number, pxHeightDiff: number) => void;
 	onResizeStart?: () => void;
 	onResizeEnd?: () => void;
+	onEmbedResizeEnd?: () => void;
 	applyEmbedDimensions?: (width: number, aspectRatio: number) => void;
 	closeEditor?: () => void;
 	saveControlsReference?: (controls: DrawingEditorControls) => void;
@@ -445,10 +446,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const dw = Math.abs(vb.width - saved.width);
 		const dh = Math.abs(vb.height - saved.height);
 		const dirty = dx > EPS || dy > EPS || dw > EPS || dh > EPS;
-		const round3 = (n: number) => Math.round(n * 1000) / 1000;
-		// #region agent log B1
-		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'post-fix',hypothesisId:'B',location:'tldraw-drawing-editor.tsx:isViewBoxDirty',message:'dirty check',data:{dirty,eps:EPS,diff:{dx,dy,dw,dh},computedViewBox:vb,savedViewBox:saved,rounded:{computed:{x:round3(vb.x),y:round3(vb.y),w:round3(vb.width),h:round3(vb.height)},saved:{x:round3(saved.x),y:round3(saved.y),w:round3(saved.width),h:round3(saved.height)}},cameraTick:'n/a'},timestamp:Date.now()})}).catch(()=>{});
-		// #endregion agent log B1
 		return dirty;
 	}
 
@@ -475,6 +472,15 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function resizeEmbed(pxWidthDiff: number, pxHeightDiff: number) {
 		if (props.resizeEmbed) props.resizeEmbed(pxWidthDiff, pxHeightDiff);
+	}
+
+	function onResizeEnd() {
+		props.onResizeEnd?.();
+		if (props.embedded) {
+			hasUserMovedCameraRef.current = true;
+			setCameraTick((n) => n + 1);
+			props.onEmbedResizeEnd?.();
+		}
 	}
 
 
@@ -726,9 +732,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				onChange={handleStoreChange}
 				onCameraChange={(camera, containerRect, meta) => {
 					if (meta.source === 'user') hasUserMovedCameraRef.current = true;
-					// #region agent log B2
-					fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'B',location:'tldraw-drawing-editor.tsx:onCameraChange',message:'camera changed',data:{camera,containerRect:{w:containerRect.width,h:containerRect.height}},timestamp:Date.now()})}).catch(()=>{});
-					// #endregion agent log B2
 					setCameraTick((n) => n + 1);
 				}}
 				initialViewBox={props.embedded ? props.embedSettings?.viewBox : undefined}
@@ -776,7 +779,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				<ResizeHandle
 					resizeEmbed={resizeEmbed}
 					onResizeStart={props.onResizeStart}
-					onResizeEnd={props.onResizeEnd}
+					onResizeEnd={onResizeEnd}
 				/>
 			)}
 		</div>

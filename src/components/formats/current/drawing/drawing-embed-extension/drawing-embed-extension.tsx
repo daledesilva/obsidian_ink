@@ -181,9 +181,6 @@ export class DrawingEmbedWidget extends WidgetType {
 	}
 
 	setEmbedProps = async (view: EditorView, width: number, aspectRatio: number) => {
-		// #region agent log C1
-		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'C',location:'drawing-embed-extension.tsx:setEmbedProps',message:'setEmbedProps called',data:{embedId:this.id,width,aspectRatio},timestamp:Date.now()})}).catch(()=>{});
-		// #endregion agent log C1
         const newEmbedSettings: EmbedSettings = {
             ...this.embedSettings,
             embedDisplay: {
@@ -202,9 +199,6 @@ export class DrawingEmbedWidget extends WidgetType {
 		view: EditorView,
 		viewBox: { x: number; y: number; width: number; height: number },
 	) => {
-		// #region agent log C2
-		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'C',location:'drawing-embed-extension.tsx:setEmbedViewBox',message:'setEmbedViewBox called',data:{embedId:this.id,viewBox},timestamp:Date.now()})}).catch(()=>{});
-		// #endregion agent log C2
 		const newEmbedSettings: EmbedSettings = {
 			...this.embedSettings,
 			embedDisplay: {
@@ -228,9 +222,6 @@ export class DrawingEmbedWidget extends WidgetType {
 			viewBox: { x: number; y: number; width: number; height: number };
 		},
 	) => {
-		// #region agent log C4
-		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'C',location:'drawing-embed-extension.tsx:setEmbedPropsAndViewBox',message:'setEmbedPropsAndViewBox called',data:{embedId:this.id,params},timestamp:Date.now()})}).catch(()=>{});
-		// #endregion agent log C4
 		const newEmbedSettings: EmbedSettings = {
 			...this.embedSettings,
 			embedDisplay: {
@@ -361,10 +352,6 @@ export class DrawingEmbedWidget extends WidgetType {
                 const to = it.to;
                 const currentText = view.state.doc.sliceString(from, to);
                 let updated = currentText;
-				// #region agent log C3
-				fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'C',location:'drawing-embed-extension.tsx:updateEmbed',message:'updateEmbed start',data:{embedId:this.id,currentTextSample:currentText.slice(0,200),newEmbedSettings},timestamp:Date.now()})}).catch(()=>{});
-				// #endregion agent log C3
-                // Replace if present
                 if (/width=[^&)]+/.test(updated)) {
                     updated = updated.replace(/(width=)([^&)]+)/, `$1${newEmbedSettings.embedDisplay.width}`);
                 }

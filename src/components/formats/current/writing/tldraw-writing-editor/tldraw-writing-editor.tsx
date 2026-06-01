@@ -17,6 +17,7 @@ import {
 	WRITING_PAGE_WIDTH,
 } from 'src/constants';
 import { clampWritingCameraY } from 'src/ink-canvas/camera';
+import { createPanMomentumController, isTrackpadWheel, type PanMomentumController } from 'src/ink-canvas/pan-momentum';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
@@ -113,6 +114,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const curHeightRef = useRef<number | null>(null);
 	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
 	const forceNextPageHeightChangeRef = useRef(false);
+	const dedicatedWritingScrollMomentumRef = useRef<PanMomentumController | null>(null);
+
+	React.useEffect(() => {
+		dedicatedWritingScrollMomentumRef.current = createPanMomentumController({ axis: 'y' });
+		return () => dedicatedWritingScrollMomentumRef.current?.cancel();
+	}, []);
 
 	React.useEffect(() => {
 		verbose('INK CANVAS WRITING EDITOR mounted');
@@ -265,6 +272,51 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		return () => resizeObserver.disconnect();
 	}, [initialSnapshot]);
 
+	function getScrollContentBottomPageY(editor: InkCanvasEditor): number {
+		const strokes = editor.getSnapshot().strokes;
+		if (strokes.length === 0) return WRITING_MIN_PAGE_HEIGHT;
+		return Math.max(computeStrokesBounds(strokes).maxY, WRITING_MIN_PAGE_HEIGHT);
+	}
+
+	function clampDedicatedWritingCamera(editor: InkCanvasEditor, cameraY: number): number {
+		const container = editor.getContainerElement();
+		const viewportHeightPx = container?.clientHeight ?? 0;
+		const zoom = editor.getCamera().zoom;
+		return clampWritingCameraY(
+			cameraY,
+			zoom,
+			viewportHeightPx,
+			getScrollContentBottomPageY(editor),
+			MENUBAR_HEIGHT_PX,
+		);
+	}
+
+	function applyDedicatedInkWritingVerticalScrollImmediate(deltaScreenPx: number): boolean {
+		const editor = editorRef.current;
+		if (!editor) return false;
+		const camera = editor.getCamera();
+		const newY = camera.y - deltaScreenPx / camera.zoom;
+		const clampedY = clampDedicatedWritingCamera(editor, newY);
+		const hitClamp = Math.abs(clampedY - camera.y) < 1e-9 && Math.abs(newY - clampedY) > 1e-9;
+		editor.setCamera({
+			x: camera.x,
+			y: clampedY,
+			zoom: camera.zoom,
+		});
+		return !hitClamp;
+	}
+
+	function releaseDedicatedWritingScrollMomentum() {
+		dedicatedWritingScrollMomentumRef.current?.release((_deltaScreenX, deltaScreenY) =>
+			applyDedicatedInkWritingVerticalScrollImmediate(deltaScreenY),
+		);
+	}
+
+	function applyDedicatedInkWritingVerticalScroll(deltaScreenPx: number) {
+		dedicatedWritingScrollMomentumRef.current?.recordScreenDelta(0, deltaScreenPx);
+		applyDedicatedInkWritingVerticalScrollImmediate(deltaScreenPx);
+	}
+
 	// Dedicated view: capture-phase wheel so Obsidian does not steal vertical scroll
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
@@ -272,16 +324,39 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const wrapperEl = editorWrapperRefEl.current;
 		if (!wrapperEl) return;
 
+		const TRACKPAD_WHEEL_IDLE_MS = 80;
+		let wheelIdleTimer: ReturnType<typeof setTimeout> | null = null;
+
+		const clearTrackpadWheelIdleTimer = () => {
+			if (wheelIdleTimer !== null) {
+				clearTimeout(wheelIdleTimer);
+				wheelIdleTimer = null;
+			}
+		};
+
 		const onWheelScroll = (e: WheelEvent) => {
 			e.preventDefault();
 			e.stopPropagation();
 			let deltaY = e.deltaY;
 			if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) deltaY *= 16;
 			if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) deltaY *= 600;
+			if (isTrackpadWheel(e)) {
+				clearTrackpadWheelIdleTimer();
+				wheelIdleTimer = setTimeout(() => {
+					wheelIdleTimer = null;
+					releaseDedicatedWritingScrollMomentum();
+				}, TRACKPAD_WHEEL_IDLE_MS);
+			} else {
+				clearTrackpadWheelIdleTimer();
+				dedicatedWritingScrollMomentumRef.current?.cancel();
+			}
 			applyDedicatedInkWritingVerticalScroll(deltaY);
 		};
 		wrapperEl.addEventListener('wheel', onWheelScroll, { capture: true, passive: false });
-		return () => wrapperEl.removeEventListener('wheel', onWheelScroll, { capture: true });
+		return () => {
+			clearTrackpadWheelIdleTimer();
+			wrapperEl.removeEventListener('wheel', onWheelScroll, { capture: true });
+		};
 	}, [initialSnapshot, props.embedded]);
 
 	function handleEditorReady(editor: InkCanvasEditor) {
@@ -506,37 +581,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		}
 		props.onResize(invitingBounds, tightBounds);
 		sendAdjustmentImmediate();
-	}
-
-	function getScrollContentBottomPageY(editor: InkCanvasEditor): number {
-		const strokes = editor.getSnapshot().strokes;
-		if (strokes.length === 0) return WRITING_MIN_PAGE_HEIGHT;
-		return Math.max(computeStrokesBounds(strokes).maxY, WRITING_MIN_PAGE_HEIGHT);
-	}
-
-	function clampDedicatedWritingCamera(editor: InkCanvasEditor, cameraY: number): number {
-		const container = editor.getContainerElement();
-		const viewportHeightPx = container?.clientHeight ?? 0;
-		const zoom = editor.getCamera().zoom;
-		return clampWritingCameraY(
-			cameraY,
-			zoom,
-			viewportHeightPx,
-			getScrollContentBottomPageY(editor),
-			MENUBAR_HEIGHT_PX,
-		);
-	}
-
-	function applyDedicatedInkWritingVerticalScroll(deltaScreenPx: number) {
-		const editor = editorRef.current;
-		if (!editor) return;
-		const camera = editor.getCamera();
-		const newY = camera.y - deltaScreenPx / camera.zoom;
-		editor.setCamera({
-			x: camera.x,
-			y: clampDedicatedWritingCamera(editor, newY),
-			zoom: camera.zoom,
-		});
 	}
 
 	function queueSaves() {
@@ -878,6 +922,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				onPageHeightChange={handlePageHeightChange}
 				onDedicatedVerticalTouchPan={
 					props.embedded ? undefined : applyDedicatedInkWritingVerticalScroll
+				}
+				onPanGestureEnd={
+					props.embedded ? undefined : releaseDedicatedWritingScrollMomentum
 				}
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}

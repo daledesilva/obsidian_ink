@@ -116,6 +116,8 @@ export type FingerBlockerProps = {
 	}) => void;
 	/** Fired when a two-finger embed gesture ends (reposition Boox overlay). */
 	onEmbedTwoFingerGestureEnd?: () => void;
+	/** Fired when a touch pan gesture fully ends (e.g. start flick momentum). */
+	onPanGestureEnd?: () => void;
 	/** When true, middle-click (button 1) is forwarded to ink-svg-canvas for temporary erase. */
 	enableMiddleButtonTemporaryErase?: boolean;
 };
@@ -128,6 +130,7 @@ export function FingerBlocker({
 	forwardPenToCanvas = true,
 	onDrawingEmbedTwoFingerGesture,
 	onEmbedTwoFingerGestureEnd,
+	onPanGestureEnd,
 	enableMiddleButtonTemporaryErase = false,
 }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
@@ -164,9 +167,11 @@ export function FingerBlocker({
 	// Dedicated writing view: vertical touch pan (single- or two-finger), distinct from pinch-zoom.
 	const twoFingerVerticalPanActiveRef = React.useRef(false);
 	const prevVerticalPanMidpointRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+	const prevSingleFingerVerticalPanClientYByPointerRef = React.useRef<Map<number, number>>(new Map());
 	const onVerticalTouchPanRef = React.useRef(onVerticalTouchPan);
 	const onDrawingEmbedTwoFingerGestureRef = React.useRef(onDrawingEmbedTwoFingerGesture);
 	const onEmbedTwoFingerGestureEndRef = React.useRef(onEmbedTwoFingerGestureEnd);
+	const onPanGestureEndRef = React.useRef(onPanGestureEnd);
 	/** Right-click embed pan/zoom pointers forwarded to ink-svg-canvas (capture may fail on synthetics). */
 	const embedPanZoomPointerIdsRef = React.useRef<Set<number>>(new Set());
 	/** Middle-click temporary-erase pointers forwarded to ink-svg-canvas. */
@@ -182,6 +187,9 @@ export function FingerBlocker({
 	React.useEffect(() => {
 		onEmbedTwoFingerGestureEndRef.current = onEmbedTwoFingerGestureEnd;
 	}, [onEmbedTwoFingerGestureEnd]);
+	React.useEffect(() => {
+		onPanGestureEndRef.current = onPanGestureEnd;
+	}, [onPanGestureEnd]);
 
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
@@ -345,6 +353,8 @@ export function FingerBlocker({
 							x: (pa.clientX + pb.clientX) / 2,
 							y: (pa.clientY + pb.clientY) / 2,
 						};
+					} else if (touchCount === 1) {
+						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
 					}
 				} else if (touchCount >= 2 && enableTwoFingerGestures && !twoFingerModeActiveRef.current) {
 					// Switch from single-finger scroll mode to two-finger gesture mode.
@@ -458,9 +468,16 @@ export function FingerBlocker({
 				e.stopPropagation();
 				e.stopImmediatePropagation();
 				recentPenInputRef.current = false;
-				if (e.movementY !== 0) {
-					// Negate so finger-up scrolls down (matches embed .cm-scroller semantics, not wheel sign).
-					onVerticalTouchPanRef.current(-e.movementY);
+				const prevClientY = prevSingleFingerVerticalPanClientYByPointerRef.current.get(e.pointerId);
+				if (prevClientY === undefined) {
+					prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
+				} else {
+					const deltaY = e.clientY - prevClientY;
+					prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
+					if (deltaY !== 0) {
+						// Negate so finger-up scrolls down (matches embed .cm-scroller semantics, not wheel sign).
+						onVerticalTouchPanRef.current(-deltaY);
+					}
 				}
 			} else if (e.pointerType === 'touch' && recentPenInputRef.current) {
 				// Embed: first finger touch after pen — scroll was unlocked too late, so scroll manually.
@@ -567,8 +584,15 @@ export function FingerBlocker({
 				}
 
 				if (onVerticalTouchPanRef.current) {
+					prevSingleFingerVerticalPanClientYByPointerRef.current.delete(e.pointerId);
 					if (twoFingerVerticalPanActiveRef.current && activeTouchPointerDataRef.current.size < 2) {
 						twoFingerVerticalPanActiveRef.current = false;
+						for (const touch of activeTouchPointerDataRef.current.values()) {
+							prevSingleFingerVerticalPanClientYByPointerRef.current.set(
+								touch.pointerId,
+								touch.clientY,
+							);
+						}
 					}
 					if (activeTouchPointerDataRef.current.size === 0) {
 						setFingerBlockerTouchMode(element, 'default');
@@ -611,6 +635,7 @@ export function FingerBlocker({
 			} else if (e.pointerType === 'touch') {
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				if (onVerticalTouchPanRef.current) {
+					prevSingleFingerVerticalPanClientYByPointerRef.current.delete(e.pointerId);
 					twoFingerVerticalPanActiveRef.current = false;
 					if (activeTouchPointerDataRef.current.size === 0) {
 						setFingerBlockerTouchMode(element, 'default');
@@ -700,6 +725,7 @@ export function FingerBlocker({
 				if (e.touches.length === 0) {
 					setFingerBlockerTouchMode(element, 'default');
 					activeTouchPointerDataRef.current.clear();
+					onPanGestureEndRef.current?.();
 				}
 				return;
 			}

@@ -5,6 +5,7 @@ import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
 import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
+import { createPanMomentumController, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
 import { computeStrokesBounds } from './svg-export';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -47,6 +48,8 @@ export interface InkSvgCanvasProps {
 	onPageHeightChange?: (candidateHeightPx: number) => void;
 	/** Dedicated writing view: vertical touch pan callback (screen pixels). */
 	onDedicatedVerticalTouchPan?: (deltaY: number) => void;
+	/** Fired when a pan/scroll gesture ends (start flick momentum in parent if needed). */
+	onPanGestureEnd?: () => void;
 	/** When true, ignore local draw/erase/select pointer input (Boox WebSocket creates strokes). */
 	isBooxInputLocked?: boolean;
 	/** When true, pen input pins the note scroller and blocks Obsidian swipe/scroll (embeds and Boox). */
@@ -140,6 +143,16 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	selectedIdsRef.current = selectedIds;
 	const onDedicatedVerticalTouchPanRef = useRef(props.onDedicatedVerticalTouchPan);
 	onDedicatedVerticalTouchPanRef.current = props.onDedicatedVerticalTouchPan;
+	const onPanGestureEndRef = useRef(props.onPanGestureEnd);
+	onPanGestureEndRef.current = props.onPanGestureEnd;
+
+	const panMomentumRef = useRef<PanMomentumController | null>(null);
+	useEffect(() => {
+		panMomentumRef.current = createPanMomentumController({
+			axis: writingMode && !props.isEmbedded ? 'y' : 'xy',
+		});
+		return () => panMomentumRef.current?.cancel();
+	}, [writingMode, props.isEmbedded]);
 
 	const getScrollContentBottomPageY = useCallback((): number => {
 		const strokes = storeRef.current.getAll();
@@ -159,6 +172,49 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			cameraYMax,
 		);
 	}, [getScrollContentBottomPageY, props.isEmbedded]);
+
+	const applyPanScreenDeltaImmediate = useCallback((deltaScreenX: number, deltaScreenY: number): boolean => {
+		if (writingMode && !props.isEmbedded) {
+			let hitClamp = false;
+			setCameraState((prev) => {
+				const newY = clampWritingY(prev.y + deltaScreenY / prev.zoom, prev.zoom);
+				if (Math.abs(newY - prev.y) < 1e-9 && Math.abs(deltaScreenY) > 1e-9) {
+					hitClamp = true;
+				}
+				const next = { ...prev, y: newY };
+				emitCameraChange(next, { source: 'user' });
+				return next;
+			});
+			return !hitClamp;
+		}
+		setCameraState((prev) => {
+			const next = panByScreenDelta(prev, deltaScreenX, deltaScreenY);
+			emitCameraChange(next, { source: 'user' });
+			return next;
+		});
+		return true;
+	}, [writingMode, props.isEmbedded, clampWritingY, emitCameraChange]);
+
+	const applyPanScreenDelta = useCallback((deltaScreenX: number, deltaScreenY: number) => {
+		panMomentumRef.current?.recordScreenDelta(deltaScreenX, deltaScreenY);
+		applyPanScreenDeltaImmediate(deltaScreenX, deltaScreenY);
+	}, [applyPanScreenDeltaImmediate]);
+
+	const releasePanMomentum = useCallback(() => {
+		const usesExternalWritingPan =
+			writingMode && !props.isEmbedded && !!onDedicatedVerticalTouchPanRef.current;
+		if (usesExternalWritingPan) {
+			onPanGestureEndRef.current?.();
+			return;
+		}
+		panMomentumRef.current?.release((deltaScreenX, deltaScreenY) =>
+			applyPanScreenDeltaImmediate(deltaScreenX, deltaScreenY),
+		);
+	}, [writingMode, props.isEmbedded, applyPanScreenDeltaImmediate]);
+
+	const cancelPanMomentum = useCallback(() => {
+		panMomentumRef.current?.cancel();
+	}, []);
 
 	const resetWritingCamera = useCallback((preserveY = false) => {
 		const container = containerRef.current;
@@ -532,6 +588,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const isSpacePanGesture = isSpaceHeldRef.current && e.button === 0;
 		if (isSpacePanGesture) {
 			if (writingMode && props.isEmbedded) return;
+			cancelPanMomentum();
 			isPanning.current = true;
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
 			(e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -562,6 +619,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 			// RMB drag → pan (embedded writing: suppress note menu only — no pan/scroll)
 			if (writingMode && props.isEmbedded) return;
+			cancelPanMomentum();
 			isPanning.current = true;
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
 			(e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -596,26 +654,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		if (e.pointerType === 'touch') return;
 
 		if (isPanning.current && lastPanPoint.current) {
-			if (writingMode && !props.isEmbedded) {
-				const dy = e.clientY - lastPanPoint.current.y;
-				lastPanPoint.current = { x: e.clientX, y: e.clientY };
-				setCameraState(prev => {
-					const next = {
-						...prev,
-						y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
-					};
-					emitCameraChange(next, { source: 'user' });
-					return next;
-				});
-			} else {
-				const dx = e.clientX - lastPanPoint.current.x;
-				const dy = e.clientY - lastPanPoint.current.y;
-				lastPanPoint.current = { x: e.clientX, y: e.clientY };
-				setCameraState(prev => {
-					const next = panByScreenDelta(prev, dx, dy);
-					emitCameraChange(next, { source: 'user' });
-					return next;
-				});
+			const dx = e.clientX - lastPanPoint.current.x;
+			const dy = e.clientY - lastPanPoint.current.y;
+			lastPanPoint.current = { x: e.clientX, y: e.clientY };
+			if (dx !== 0 || dy !== 0) {
+				applyPanScreenDelta(dx, dy);
 			}
 			return;
 		}
@@ -664,6 +707,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			lastPanPoint.current = null;
 			const nextCursor = isSpaceHeldRef.current ? 'grab' : undefined;
 			setCursorStyle(nextCursor);
+			releasePanMomentum();
 			return;
 		}
 
@@ -688,7 +732,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerUp(e.nativeEvent, selectCtx);
 		}
-	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [tool, releasePanMomentum]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch') return;
@@ -698,6 +742,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			lastPanPoint.current = null;
 			const nextCursor = isSpaceHeldRef.current ? 'grab' : undefined;
 			setCursorStyle(nextCursor);
+			releasePanMomentum();
 			return;
 		}
 
@@ -727,6 +772,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const handleDrawingEmbedTwoFingerGesture = useCallback(
 		(params: { deltaX: number; deltaY: number; anchorX: number; anchorY: number; distanceRatio: number }) => {
 			const { deltaX, deltaY, anchorX, anchorY, distanceRatio } = params;
+			if (deltaX !== 0 || deltaY !== 0) {
+				panMomentumRef.current?.recordScreenDelta(deltaX, deltaY);
+			}
 			setCameraState(prev => {
 				const afterPan = panByScreenDelta(prev, deltaX, deltaY);
 				const newZoom = clampZoom(afterPan.zoom * distanceRatio);
@@ -742,6 +790,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		},
 		[emitCameraChange],
 	);
+
+	const handleEmbedTwoFingerGestureEnd = useCallback(() => {
+		releasePanMomentum();
+		props.onBooxEmbedGeometryChange?.();
+	}, [releasePanMomentum, props.onBooxEmbedGeometryChange]);
 
 	// Context-menu suppression
 	// A native capture-phase listener fires before Obsidian's bubble-phase document-level
@@ -765,9 +818,34 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Wheel → zoom
 	///////////////////////////
 
+	const wheelIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const applyPanScreenDeltaRef = useRef(applyPanScreenDelta);
+	applyPanScreenDeltaRef.current = applyPanScreenDelta;
+	const releasePanMomentumRef = useRef(releasePanMomentum);
+	releasePanMomentumRef.current = releasePanMomentum;
+	const cancelPanMomentumRef = useRef(cancelPanMomentum);
+	cancelPanMomentumRef.current = cancelPanMomentum;
+
 	useEffect(() => {
 		const svg = svgRef.current;
 		if (!svg) return;
+
+		const TRACKPAD_WHEEL_IDLE_MS = 80;
+
+		const clearTrackpadWheelIdleTimer = () => {
+			if (wheelIdleTimerRef.current !== null) {
+				clearTimeout(wheelIdleTimerRef.current);
+				wheelIdleTimerRef.current = null;
+			}
+		};
+
+		const scheduleTrackpadWheelRelease = () => {
+			clearTrackpadWheelIdleTimer();
+			wheelIdleTimerRef.current = setTimeout(() => {
+				wheelIdleTimerRef.current = null;
+				releasePanMomentumRef.current();
+			}, TRACKPAD_WHEEL_IDLE_MS);
+		};
 
 		const handleWheelNative = (e: WheelEvent) => {
 			// Embedded writing: pass wheel through to the markdown note scroller
@@ -778,60 +856,83 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				if (e.ctrlKey || e.metaKey) return;
 				e.preventDefault();
 				const delta = e.deltaY * (e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1);
-				setCameraState(prev => {
-					const next = {
-						...prev,
-						y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
-					};
-					emitCameraChange(next, { source: 'user' });
-					return next;
-				});
+				const usesExternalWritingPan = !!onDedicatedVerticalTouchPanRef.current;
+				if (usesExternalWritingPan) {
+					if (isTrackpadWheel(e)) {
+						scheduleTrackpadWheelRelease();
+					} else {
+						clearTrackpadWheelIdleTimer();
+						cancelPanMomentumRef.current();
+					}
+					onDedicatedVerticalTouchPanRef.current?.(delta);
+					return;
+				}
+				if (isTrackpadWheel(e)) {
+					applyPanScreenDeltaRef.current(0, -delta);
+					scheduleTrackpadWheelRelease();
+				} else {
+					clearTrackpadWheelIdleTimer();
+					cancelPanMomentumRef.current();
+					setCameraState((prev) => {
+						const next = {
+							...prev,
+							y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
+						};
+						emitCameraChange(next, { source: 'user' });
+						return next;
+					});
+				}
 				return;
 			}
 
 			const isZoomModifier = e.ctrlKey || e.metaKey;
 			if (isZoomModifier) {
+				clearTrackpadWheelIdleTimer();
+				cancelPanMomentumRef.current();
 				e.preventDefault();
-				// zoomAtPoint expects container-relative coordinates, not absolute client coords.
-				// In embeds the SVG is offset from the window origin, so we must subtract the rect.
 				const svgRect = svg.getBoundingClientRect();
 				const anchorX = e.clientX - svgRect.left;
 				const anchorY = e.clientY - svgRect.top;
 				const direction: 1 | -1 = e.deltaY < 0 ? -1 : 1;
-				setCameraState(prev => {
+				setCameraState((prev) => {
 					const next = zoomAtPoint(prev, anchorX, anchorY, direction);
 					emitCameraChange(next, { source: 'user' });
 					return next;
 				});
 				return;
 			}
-			// In dedicated view, plain wheel pans the canvas (both axes, so trackpad
-			// two-finger swipes also work). In embeds the event passes through so the
-			// Obsidian page scrolls normally.
 			if (!props.isEmbedded) {
 				e.preventDefault();
-				setCameraState(prev => {
-					const next = panByScreenDelta(prev, e.deltaX, e.deltaY);
-					emitCameraChange(next, { source: 'user' });
-					return next;
-				});
+				if (isTrackpadWheel(e)) {
+					applyPanScreenDeltaRef.current(e.deltaX, e.deltaY);
+					scheduleTrackpadWheelRelease();
+				} else {
+					clearTrackpadWheelIdleTimer();
+					cancelPanMomentumRef.current();
+					setCameraState((prev) => {
+						const next = panByScreenDelta(prev, e.deltaX, e.deltaY);
+						emitCameraChange(next, { source: 'user' });
+						return next;
+					});
+				}
 			}
 		};
 
 		svg.addEventListener('wheel', handleWheelNative, { passive: false });
 		return () => {
+			clearTrackpadWheelIdleTimer();
 			svg.removeEventListener('wheel', handleWheelNative);
 		};
-	}, []);
+	}, [writingMode, props.isEmbedded, clampWritingY, emitCameraChange]);
 
 
-	// Two-finger pinch/pan (Phase A)
-	// Uses native touch events with passive:false so preventDefault can stop page scroll
-	// during a two-finger gesture without interfering with single-finger page scroll.
+	// Touch pinch/pan (Phase A)
+	// Uses native touch events with passive:false so preventDefault can stop browser scroll.
+	// Dedicated writing: single- and two-finger vertical pan. Embedded writing: note scrolls (no capture).
 	///////////////////////////
 
 	useEffect(() => {
-		// Embedded / Boox: two-finger drawing gestures are handled by FingerBlocker.
+		// Embedded / Boox: touch gestures are handled by FingerBlocker.
 		if (props.blockObsidianPenGestures) return;
 
 		const container = containerRef.current;
@@ -839,14 +940,30 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		let prevMid = { x: 0, y: 0 };
 		let prevDist = 0;
-		let isGestureActive = false;
+		let isTwoFingerGestureActive = false;
+		let isSingleTouchPanActive = false;
+		let prevSingleTouchY = 0;
+
+		const isDedicatedWriting = writingMode && !props.isEmbedded;
 
 		const handleTouchStart = (e: TouchEvent) => {
-			if (e.touches.length !== 2) return;
-			// Embedded writing: let the note handle two-finger scroll
+			// Embedded writing: let the note handle touch scroll
 			if (writingMode && props.isEmbedded) return;
+
+			if (isDedicatedWriting && e.touches.length === 1) {
+				cancelPanMomentumRef.current();
+				e.preventDefault();
+				isSingleTouchPanActive = true;
+				isTwoFingerGestureActive = false;
+				prevSingleTouchY = e.touches[0].clientY;
+				return;
+			}
+
+			if (e.touches.length !== 2) return;
+			cancelPanMomentumRef.current();
 			e.preventDefault();
-			isGestureActive = true;
+			isTwoFingerGestureActive = true;
+			isSingleTouchPanActive = false;
 			const t0 = e.touches[0];
 			const t1 = e.touches[1];
 			prevMid = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
@@ -854,7 +971,33 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
-			const isTwoFingerGesture = e.touches.length >= 2 && isGestureActive;
+			if (isDedicatedWriting && e.touches.length >= 2 && isSingleTouchPanActive) {
+				isSingleTouchPanActive = false;
+				isTwoFingerGestureActive = true;
+				const t0 = e.touches[0];
+				const t1 = e.touches[1];
+				prevMid = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
+				prevDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+			}
+
+			if (isDedicatedWriting && e.touches.length === 1 && isSingleTouchPanActive) {
+				e.preventDefault();
+				const touchY = e.touches[0].clientY;
+				const dy = touchY - prevSingleTouchY;
+				prevSingleTouchY = touchY;
+				if (dy === 0) return;
+				const dedicatedPan = onDedicatedVerticalTouchPanRef.current;
+				// Negate so finger-up scrolls down (matches FingerBlocker / wheel handler sign).
+				const scrollDeltaY = -dy;
+				if (dedicatedPan) {
+					dedicatedPan(scrollDeltaY);
+				} else {
+					applyPanScreenDeltaRef.current(0, -dy);
+				}
+				return;
+			}
+
+			const isTwoFingerGesture = e.touches.length >= 2 && isTwoFingerGestureActive;
 			if (!isTwoFingerGesture) return;
 			e.preventDefault();
 			const t0 = e.touches[0];
@@ -871,12 +1014,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				if (dedicatedPan) {
 					dedicatedPan(scrollDeltaY);
 				} else {
-					setCameraState(prev => ({
-						...prev,
-						y: clampWritingY(prev.y - dy / prev.zoom, prev.zoom),
-					}));
+					applyPanScreenDeltaRef.current(0, -dy);
 				}
 			} else if (!writingMode) {
+				if (dx !== 0 || dy !== 0) {
+					panMomentumRef.current?.recordScreenDelta(dx, dy);
+				}
 				const ratio = prevDist > 0 ? newDist / prevDist : 1;
 				// Pan delta (dx/dy) is already relative — it's a difference of two client coords.
 				// The zoom anchor must be container-relative; zoomAtPoint expects this, not absolute client coords.
@@ -901,7 +1044,27 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 
 		const handleTouchEnd = (e: TouchEvent) => {
-			if (e.touches.length < 2) isGestureActive = false;
+			const wasSingleTouchPan = isSingleTouchPanActive;
+			const wasTwoFingerGesture = isTwoFingerGestureActive;
+
+			if (e.touches.length === 0) {
+				isSingleTouchPanActive = false;
+				isTwoFingerGestureActive = false;
+				if (wasSingleTouchPan || wasTwoFingerGesture) {
+					releasePanMomentumRef.current();
+				}
+			} else if (e.touches.length < 2) {
+				if (wasTwoFingerGesture && !isDedicatedWriting) {
+					isTwoFingerGestureActive = false;
+					releasePanMomentumRef.current();
+				} else if (wasTwoFingerGesture && isDedicatedWriting) {
+					isTwoFingerGestureActive = false;
+					isSingleTouchPanActive = true;
+					prevSingleTouchY = e.touches[0].clientY;
+				} else {
+					isTwoFingerGestureActive = false;
+				}
+			}
 		};
 
 		container.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -979,8 +1142,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					onDrawingEmbedTwoFingerGesture={
 						!writingMode && props.isEmbedded ? handleDrawingEmbedTwoFingerGesture : undefined
 					}
+					onPanGestureEnd={props.onPanGestureEnd}
 					onEmbedTwoFingerGestureEnd={
-						!writingMode && props.isEmbedded ? props.onBooxEmbedGeometryChange : undefined
+						!writingMode && props.isEmbedded ? handleEmbedTwoFingerGestureEnd : undefined
 					}
 				/>
 			)}

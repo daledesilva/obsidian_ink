@@ -247,7 +247,12 @@ export class FileConversionModal extends Modal {
 			return;
 		}
 
-		this.onConversionComplete?.(this.conversionResult?.finalFile ?? null, this.toType);
+		const svgConversionFailed = this.conversionResult?.failed.some(
+			(message) => message.startsWith('SVG conversion failed'),
+		);
+		if (!svgConversionFailed) {
+			this.onConversionComplete?.(this.conversionResult?.finalFile ?? null, this.toType);
+		}
 		this.renderDonePhase();
 	}
 

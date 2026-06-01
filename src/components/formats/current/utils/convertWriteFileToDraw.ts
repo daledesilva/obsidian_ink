@@ -3,8 +3,9 @@ import { TLShapeId } from "@tldraw/tldraw";
 import InkPlugin from "src/main";
 import { InkFileData } from "../types/file-data";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { convertWriteInkCanvasDataToDraw } from "./convert-ink-canvas-between-modes";
 import { buildFileStr } from "./buildFileStr";
-import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
+import { isInkCanvasFile } from "./ink-file-storage-engine";
 
 ////////
 ////////
@@ -54,7 +55,11 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile): Pr
 	if (!data) return;
 	if (data.meta.fileType !== 'inkWriting') return;
 
-	const converted = convertWriteDataToDraw(data);
-	const newSvgStr = buildFileStr({ ...converted, svgString: svgStr });
+	const converted = isInkCanvasFile(data)
+		? convertWriteInkCanvasDataToDraw(data)
+		: convertWriteDataToDraw(data);
+	const newSvgStr = isInkCanvasFile(data)
+		? buildFileStr(converted)
+		: buildFileStr({ ...converted, svgString: svgStr });
 	await v.modify(file, newSvgStr);
 };

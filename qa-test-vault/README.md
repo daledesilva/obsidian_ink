@@ -33,7 +33,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **09 – Edge Cases**: Missing file, broken syntax, source/reading mode
 - **10 – Cross-Reference**: Transclusion, same file across notes
 - **11 – CodeMirror**: Cursor nav, split pane, undo, paste, search, print
-- **12 – File Conversion**: Writing/drawing convert via pane menu (real fixture SVGs)
+- **12 – File Conversion**: Writing/drawing convert via pane menu (tldraw + ink-canvas fixture SVGs)
 - **13 – Migration Test**: Legacy v1 code block embeds for migration testing
 - **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
 - **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename

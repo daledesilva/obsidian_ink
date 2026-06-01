@@ -475,7 +475,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **09 – Edge Cases**: Missing file, broken syntax, source/reading mode
 - **10 – Cross-Reference**: Transclusion, same file across notes
 - **11 – CodeMirror**: Cursor nav, split pane, undo, paste, search, print
-- **12 – File Conversion**: Writing/drawing convert via pane menu (real fixture SVGs)
+- **12 – File Conversion**: Writing/drawing convert via pane menu (tldraw + ink-canvas fixture SVGs)
 - **13 – Migration Test**: Legacy v1 code block embeds for migration testing
 - **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
 - **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
@@ -547,9 +547,37 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 
 // ─── Section 12: File Conversion ──────────────────────────────────────────────
 
+const INK_CANVAS_CONVERSION_SAMPLE_STROKE = {
+  id: 'stroke-convert-e2e',
+  points: [[10, 20, 0.5], [100, 20, 0.5]],
+  style: {
+    size: 8,
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    simulatePressure: true,
+    color: 'currentColor',
+  },
+  offset: { x: 0, y: 0 },
+};
+
+function buildInkCanvasConversionFixtureSvg(fileType) {
+  const snapshot = {
+    version: 1,
+    strokes: [INK_CANVAS_CONVERSION_SAMPLE_STROKE],
+    gridEnabled: fileType === 'inkDrawing',
+    ...(fileType === 'inkWriting' ? { writingLineHeight: 150 } : {}),
+  };
+  return `<svg xmlns="http://www.w3.org/2000/svg">
+\t<metadata>
+\t\t<ink plugin-version="${PLUGIN_VERSION}" file-type="${fileType}"/>
+\t\t<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">${JSON.stringify(snapshot)}</ink-canvas>
+\t</metadata>
+</svg>`;
+}
+
 function generateConversionTestAssets() {
-  // Use real captured SVGs rather than synthetically generated ones.
-  // Synthetic snapshots omit required tldraw session fields and do not render.
+  // Tldraw-on-disk fixtures (legacy engine until edited/saved).
   ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
   ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
   fs.copyFileSync(
@@ -561,13 +589,41 @@ function generateConversionTestAssets() {
     path.join(VAULT_ROOT, 'Ink/Drawing/Drawing To Convert.svg'),
   );
 
+  // Ink-canvas fixtures (current on-disk format).
+  fs.writeFileSync(
+    path.join(FIXTURES, 'ink-canvas-writing-to-convert.svg'),
+    buildInkCanvasConversionFixtureSvg('inkWriting'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(FIXTURES, 'ink-canvas-drawing-to-convert.svg'),
+    buildInkCanvasConversionFixtureSvg('inkDrawing'),
+    'utf8',
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'ink-canvas-writing-to-convert.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/Ink Canvas Writing To Convert.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'ink-canvas-drawing-to-convert.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/Ink Canvas Drawing To Convert.svg'),
+  );
+
   writeFile('12 - File Conversion/Conversion Test.md', `# File Conversion Test
 
 Use the three-dot (more-options) menu on each file tab to convert between writing and drawing formats.
 
+## Tldraw-on-disk (legacy engine)
+
 ${buildWritingEmbed('Ink/Writing/Writing To Convert.svg')}
 
 ${buildDrawingEmbed('Ink/Drawing/Drawing To Convert.svg')}
+
+## Ink-canvas (current engine)
+
+${buildWritingEmbed('Ink/Writing/Ink Canvas Writing To Convert.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/Ink Canvas Drawing To Convert.svg')}
 `);
 }
 

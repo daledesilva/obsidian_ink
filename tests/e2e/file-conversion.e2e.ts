@@ -102,6 +102,52 @@ describe("File Conversion (write <-> draw)", function () {
 		expect(fileExists).toBe(true);
 	});
 
+	it("converts ink-canvas writing SVG to drawing via pane menu", async function () {
+		const filePath = "Ink/Writing/Ink Canvas Writing To Convert.svg";
+		await obsidianPage.openFile(filePath);
+		await browser.pause(1000);
+
+		await convertFileViaModal(filePath, 'inkDrawing');
+
+		const fileMeta = await browser.executeObsidian(async ({ app }, filePath) => {
+			const file = app.vault.getAbstractFileByPath(filePath as string);
+			if (!file) return null;
+			const content = await app.vault.read(file as any);
+			const fileTypeMatch = content.match(/file-type="([^"]+)"/);
+			return {
+				fileType: fileTypeMatch ? fileTypeMatch[1] : null,
+				hasInkCanvas: content.includes('<ink-canvas'),
+				hasTldraw: content.includes('<tldraw'),
+			};
+		}, filePath);
+
+		expect(fileMeta?.fileType).toBe("inkDrawing");
+		expect(fileMeta?.hasInkCanvas).toBe(true);
+		expect(fileMeta?.hasTldraw).toBe(false);
+	});
+
+	it("converts ink-canvas drawing SVG to writing via pane menu", async function () {
+		const filePath = "Ink/Drawing/Ink Canvas Drawing To Convert.svg";
+		await obsidianPage.openFile(filePath);
+		await browser.pause(1000);
+
+		await convertFileViaModal(filePath, 'inkWriting');
+
+		const fileMeta = await browser.executeObsidian(async ({ app }, filePath) => {
+			const file = app.vault.getAbstractFileByPath(filePath as string);
+			if (!file) return null;
+			const content = await app.vault.read(file as any);
+			const fileTypeMatch = content.match(/file-type="([^"]+)"/);
+			return {
+				fileType: fileTypeMatch ? fileTypeMatch[1] : null,
+				hasWritingGuides: content.includes('stroke-opacity="0.5"'),
+			};
+		}, filePath);
+
+		expect(fileMeta?.fileType).toBe("inkWriting");
+		expect(fileMeta?.hasWritingGuides).toBe(true);
+	});
+
 	it("round-trip write -> draw -> write preserves file validity", async function () {
 		const filePath = "Ink/Drawing/Drawing To Convert.svg";
 

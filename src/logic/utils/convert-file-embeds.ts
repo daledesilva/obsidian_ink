@@ -194,6 +194,7 @@ export async function executeFileConversion(
 	const newPath = currentFile.path;
 
 	// Step 2: Convert the SVG file content
+	let svgConversionSucceeded = true;
 	try {
 		if (toType === 'inkDrawing') {
 			await convertWriteFileToDraw(plugin, currentFile);
@@ -201,10 +202,16 @@ export async function executeFileConversion(
 			await convertDrawFileToWrite(plugin, currentFile);
 		}
 	} catch (err) {
+		svgConversionSucceeded = false;
 		result.failed.push(`SVG conversion failed: ${String(err)}`);
 	}
 	done++;
 	onProgress(done, total);
+
+	if (!svgConversionSucceeded) {
+		result.finalFile = currentFile;
+		return result;
+	}
 
 	// Step 3: Update embed strings in each affected note
 	for (const note of affectedNotes) {

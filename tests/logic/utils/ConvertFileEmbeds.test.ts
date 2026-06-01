@@ -22,6 +22,7 @@ import {
 	executeFileConversion,
 } from 'src/logic/utils/convert-file-embeds';
 import { buildWritingEmbed, buildDrawingEmbed } from 'src/components/formats/current/utils/build-embeds';
+import { convertWriteFileToDraw } from 'src/components/formats/current/utils/convertWriteFileToDraw';
 
 // ─── Mock vault factory ──────────────────────────────────────────────────────
 
@@ -475,5 +476,21 @@ describe('executeFileConversion', () => {
 
 		expect(vault.modify).not.toHaveBeenCalled();
 		expect(result.updatedNotePaths).toHaveLength(0);
+	});
+
+	it('does not update embeds when SVG conversion fails', async () => {
+		const notePaths = ['Notes/A.md'];
+		const [files, notes] = makeAffectedNotes(notePaths, SVG_PATH);
+		const vault = makeVault(files);
+		const plugin = makePlugin(vault);
+		const svgFile = { path: SVG_PATH } as TFile;
+
+		(convertWriteFileToDraw as jest.Mock).mockRejectedValueOnce(new Error('ink-canvas store missing'));
+
+		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, jest.fn());
+
+		expect(vault.modify).not.toHaveBeenCalled();
+		expect(result.updatedNotePaths).toHaveLength(0);
+		expect(result.failed.some((message) => message.startsWith('SVG conversion failed'))).toBe(true);
 	});
 });

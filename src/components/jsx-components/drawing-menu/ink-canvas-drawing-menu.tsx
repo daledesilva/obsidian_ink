@@ -1,8 +1,10 @@
 import './drawing-menu.scss';
+import '../writing-menu/writing-menu.scss';
 import * as React from 'react';
 import { SelectIcon } from 'src/graphics/icons/select-icon';
 import { EraseIcon } from 'src/graphics/icons/erase-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
+import { ExpandIcon } from 'src/graphics/icons/expand-icon';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
 import {
@@ -26,6 +28,7 @@ interface InkCanvasDrawingMenuProps {
 	getEditor: () => InkCanvasEditor | undefined;
 	onStoreChange: () => void;
 	onActivateTool?: (tool: 'draw' | 'erase' | 'select') => void;
+	onExpandClick?: () => void;
 	embedId?: string;
 	workspaceLeafId?: string;
 	plugin?: import('src/main').default;
@@ -114,6 +117,16 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 				'ink_menu-bar_full',
 			])}
 		>
+			{props.onExpandClick && (
+				<div className='ink_quick-menu'>
+					<TooltipButton
+						tooltip='Open in full view'
+						onClick={() => props.onExpandClick?.()}
+					>
+						<ExpandIcon />
+					</TooltipButton>
+				</div>
+			)}
 			<div className='ink_tool-menu'>
 				<TooltipButton
 					tooltip='Select'

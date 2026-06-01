@@ -24,12 +24,6 @@
             opacity: 1; // Remove tldraw defaiult transparency because button can sit on top of text.
 
             cursor: default;
-            color: var(--text-on-accent);
-            fill: var(--text-on-accent);
-            background-color: var(--interactive-accent);
-            &:hover {
-                box-shadow: var(--input-shadow);
-            }
         }
     }
 }
@@ -97,6 +91,18 @@
         svg {
             width: 1.5em !important;
             height: 1.5em !important;
+        }
+
+        &:disabled {
+            background-color: var(--color-base-60);
+            color: var(--interactive-normal);
+            fill: var(--interactive-normal);
+
+            &:hover {
+                background-color: var(--color-base-60);
+                color: var(--interactive-normal);
+                fill: var(--interactive-normal);
+            }
         }
     }
 }

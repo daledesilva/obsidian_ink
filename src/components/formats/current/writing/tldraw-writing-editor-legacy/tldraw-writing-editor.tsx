@@ -1023,6 +1023,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					embedId = {props.embedded && props.embedId ? props.embedId : undefined}
 					workspaceLeafId = {props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin = {props.embedded && props.plugin ? props.plugin : undefined}
+					onExpandClick = {props.embedded ? props.onOpenInDedicatedView : undefined}
 				/>
 				{props.embedded && props.extendedMenu && (
 					<ExtendedWritingMenu
@@ -1036,7 +1037,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 							// REVIEW: Save immediately? incase it hasn't been saved yet
 							if(props.closeEditor) props.closeEditor();
 						}}
-						onExpandClick = {props.onOpenInDedicatedView}
 						menuOptions = {props.extendedMenu}
 					/>
 				)}

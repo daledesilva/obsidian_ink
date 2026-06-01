@@ -750,6 +750,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					getEditor={getEditor}
 					onStoreChange={handleStoreChange}
 					onActivateTool={handleBooxActivateTool}
+					onExpandClick={props.embedded ? () => props.onOpenInDedicatedView?.() : undefined}
 					embedId={props.embedId}
 					workspaceLeafId={props.workspaceLeafId}
 					plugin={getGlobals().plugin}
@@ -759,7 +760,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 						onSaveCameraClick={handleSaveCameraPosition}
 						isSaveCameraEnabled={hasUserMovedCameraRef.current && isViewBoxDirty()}
 						onLockClick={() => props.closeEditor?.()}
-						onExpandClick={() => props.onOpenInDedicatedView?.()}
 						menuOptions={customExtendedMenu}
 					/>
 				)}

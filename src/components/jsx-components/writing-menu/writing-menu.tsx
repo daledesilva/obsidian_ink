@@ -3,6 +3,7 @@ import * as React from "react";
 import { WriteIcon } from "src/graphics/icons/write-icon";
 import { EraseIcon } from "src/graphics/icons/erase-icon";
 import { SelectIcon } from "src/graphics/icons/select-icon";
+import { ExpandIcon } from "src/graphics/icons/expand-icon";
 import { Editor } from "@tldraw/tldraw";
 import classNames from "classnames";
 import { TooltipButton } from "src/components/jsx-components/tooltip-button/tooltip-button";
@@ -26,6 +27,7 @@ interface WritingMenuProps {
 	getTlEditor: () => Editor | undefined,
 	onStoreChange: (elEditor: Editor) => void,
 	onActivateTool?: (activatedTool: tool) => void,
+	onExpandClick?: () => void,
 	/** When provided, local undo/redo sync with the unified stack. */
 	embedId?: string,
 	workspaceLeafId?: string,
@@ -131,6 +133,16 @@ export const WritingMenu = (props: WritingMenuProps) => {
                     <RedoIcon/>
                 </button>
             </div> */}
+            {props.onExpandClick && (
+                <div className='ink_quick-menu'>
+                    <TooltipButton
+                        tooltip='Open in full view'
+                        onClick={() => props.onExpandClick?.()}
+                    >
+                        <ExpandIcon />
+                    </TooltipButton>
+                </div>
+            )}
             <div
                 className='ink_tool-menu'
             >

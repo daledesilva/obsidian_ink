@@ -1,5 +1,5 @@
 import './ink-svg-canvas.scss';
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
@@ -31,7 +31,7 @@ export interface InkSvgCanvasProps {
 	onEditorReady?: (editor: InkCanvasEditor) => void;
 	onChange?: () => void;
 	/** Emits whenever camera changes (pan/zoom/setCamera). */
-	onCameraChange?: (camera: CameraState, containerRect: DOMRect) => void;
+	onCameraChange?: (camera: CameraState, containerRect: DOMRect, meta: { source: 'init' | 'user' | 'api' }) => void;
 	/** If present in drawing mode, applies an explicit initial viewport instead of fit-to-strokes. */
 	initialViewBox?: { x: number; y: number; width: number; height: number };
 	/** When true, space+drag pan is disabled. Use for embeds where the page scroll
@@ -109,9 +109,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	cameraRef.current = camera;
 	const onCameraChangeRef = useRef(props.onCameraChange);
 	onCameraChangeRef.current = props.onCameraChange;
-	const emitCameraChange = useCallback((nextCamera: CameraState) => {
+	const emitCameraChange = useCallback((nextCamera: CameraState, meta: { source: 'init' | 'user' | 'api' }) => {
 		const rect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
-		onCameraChangeRef.current?.({ ...nextCamera }, rect);
+		onCameraChangeRef.current?.({ ...nextCamera }, rect, meta);
 	}, []);
 	const gridEnabledRef = useRef(gridEnabled);
 	gridEnabledRef.current = gridEnabled;
@@ -167,66 +167,63 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		setCameraState({ x: 0, y: prevY, zoom });
 	}, [pageWidth, props.isEmbedded]);
 
-	// Camera is never persisted — fit on mount. Deferred one frame for real layout size.
-	useEffect(() => {
+	// Camera is never persisted — fit on mount. Use layout effect so initial camera applies before paint.
+	useLayoutEffect(() => {
+		// #region agent log A1
+		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'A',location:'ink-svg-canvas.tsx:useEffect(initialCamera)',message:'initial camera effect enter',data:{writingMode,hasInitialViewBox:!!props.initialViewBox,initialViewBox:props.initialViewBox??null,isEmbedded:!!props.isEmbedded},timestamp:Date.now()})}).catch(()=>{});
+		// #endregion agent log A1
 		if (writingMode) {
-			const frameId = requestAnimationFrame(() => {
-				resetWritingCamera(false);
-			});
-			return () => cancelAnimationFrame(frameId);
+			resetWritingCamera(false);
+			return;
 		}
 
 		// If a viewBox is provided (embeds), honor it as the initial camera.
 		if (props.initialViewBox) {
-			const frameId = requestAnimationFrame(() => {
-				const container = containerRef.current;
-				if (!container) return;
-				const rect = container.getBoundingClientRect();
-				if (rect.width === 0 || rect.height === 0) return;
-				const vb = props.initialViewBox!;
-				const zoomX = vb.width > 0 ? rect.width / vb.width : 1;
-				const zoomY = vb.height > 0 ? rect.height / vb.height : 1;
-				const zoom = clampZoom(Math.min(zoomX, zoomY));
-				const next = { x: -vb.x, y: -vb.y, zoom };
-				setCameraState(next);
-				emitCameraChange(next);
-			});
-			return () => cancelAnimationFrame(frameId);
+			const container = containerRef.current;
+			if (!container) return;
+			const rect = container.getBoundingClientRect();
+			if (rect.width === 0 || rect.height === 0) return;
+			const vb = props.initialViewBox!;
+			const zoomX = vb.width > 0 ? rect.width / vb.width : 1;
+			const zoomY = vb.height > 0 ? rect.height / vb.height : 1;
+			const zoom = clampZoom(Math.min(zoomX, zoomY));
+			const next = { x: -vb.x, y: -vb.y, zoom };
+			// #region agent log A2
+			fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'A',location:'ink-svg-canvas.tsx:layoutEffect(applyInitialViewBox)',message:'apply initialViewBox camera',data:{containerRect:{w:rect.width,h:rect.height},vb,computed:{zoomX,zoomY,zoom,camera:next}},timestamp:Date.now()})}).catch(()=>{});
+			// #endregion agent log A2
+			setCameraState(next);
+			emitCameraChange(next, { source: 'init' });
+			return;
 		}
 
 		const strokes = props.initialSnapshot?.strokes;
 		const hasStrokes = (strokes?.length ?? 0) > 0;
 		if (!hasStrokes) {
-			const frameId = requestAnimationFrame(() => {
-				const container = containerRef.current;
-				if (!container) return;
-				const zoom = container.clientWidth / pageWidth;
-				setCameraState(prev => {
-					const next = { ...prev, zoom };
-					emitCameraChange(next);
-					return next;
-				});
-			});
-			return () => cancelAnimationFrame(frameId);
-		}
-
-		const frameId = requestAnimationFrame(() => {
 			const container = containerRef.current;
 			if (!container) return;
-			const rect = container.getBoundingClientRect();
-			if (rect.width === 0 || rect.height === 0) return;
-			const bounds = computeStrokesBounds(strokes!);
-			if (bounds.width <= 0 || bounds.height <= 0) return;
-			const fittedCamera = fitBoundsToViewport(rect.width, rect.height, {
-				x: bounds.minX,
-				y: bounds.minY,
-				width: bounds.width,
-				height: bounds.height,
+			const zoom = container.clientWidth / pageWidth;
+			setCameraState(prev => {
+				const next = { ...prev, zoom };
+				emitCameraChange(next, { source: 'init' });
+				return next;
 			});
-			setCameraState(fittedCamera);
-			emitCameraChange(fittedCamera);
+			return;
+		}
+
+		const container = containerRef.current;
+		if (!container) return;
+		const rect = container.getBoundingClientRect();
+		if (rect.width === 0 || rect.height === 0) return;
+		const bounds = computeStrokesBounds(strokes!);
+		if (bounds.width <= 0 || bounds.height <= 0) return;
+		const fittedCamera = fitBoundsToViewport(rect.width, rect.height, {
+			x: bounds.minX,
+			y: bounds.minY,
+			width: bounds.width,
+			height: bounds.height,
 		});
-		return () => cancelAnimationFrame(frameId);
+		setCameraState(fittedCamera);
+		emitCameraChange(fittedCamera, { source: 'init' });
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 	// Subscribe to store changes to re-render strokes
@@ -295,7 +292,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			setCamera: (partial: Partial<CameraState>) => {
 				setCameraState(prev => {
 					const next = { ...prev, ...partial };
-					emitCameraChange(next);
+					emitCameraChange(next, { source: 'api' });
 					return next;
 				});
 			},
@@ -487,7 +484,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						...prev,
 						y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
 					};
-					emitCameraChange(next);
+					emitCameraChange(next, { source: 'user' });
 					return next;
 				});
 			} else {
@@ -496,7 +493,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				lastPanPoint.current = { x: e.clientX, y: e.clientY };
 				setCameraState(prev => {
 					const next = panByScreenDelta(prev, dx, dy);
-					emitCameraChange(next);
+					emitCameraChange(next, { source: 'user' });
 					return next;
 				});
 			}
@@ -521,7 +518,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				zoom: newZoom,
 			};
 			setCameraState(next);
-			emitCameraChange(next);
+			emitCameraChange(next, { source: 'user' });
 			return;
 		}
 
@@ -590,7 +587,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					y: afterPan.y + anchorY * zoomDelta,
 					zoom: newZoom,
 				};
-				emitCameraChange(next);
+				emitCameraChange(next, { source: 'user' });
 				return next;
 			});
 		},
@@ -637,7 +634,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						...prev,
 						y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
 					};
-					emitCameraChange(next);
+					emitCameraChange(next, { source: 'user' });
 					return next;
 				});
 				return;
@@ -654,7 +651,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const direction: 1 | -1 = e.deltaY < 0 ? -1 : 1;
 				setCameraState(prev => {
 					const next = zoomAtPoint(prev, anchorX, anchorY, direction);
-					emitCameraChange(next);
+					emitCameraChange(next, { source: 'user' });
 					return next;
 				});
 				return;
@@ -666,7 +663,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				e.preventDefault();
 				setCameraState(prev => {
 					const next = panByScreenDelta(prev, e.deltaX, e.deltaY);
-					emitCameraChange(next);
+					emitCameraChange(next, { source: 'user' });
 					return next;
 				});
 			}
@@ -741,11 +738,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					const afterPan = panByScreenDelta(prev, dx, dy);
 					const newZoom = clampZoom(afterPan.zoom * ratio);
 					const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
-					return {
+					const next = {
 						x: afterPan.x + anchorX * zoomDelta,
 						y: afterPan.y + anchorY * zoomDelta,
 						zoom: newZoom,
 					};
+					emitCameraChange(next, { source: 'user' });
+					return next;
 				});
 			}
 			prevMid = newMid;

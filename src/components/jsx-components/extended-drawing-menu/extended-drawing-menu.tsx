@@ -19,6 +19,9 @@ export const ExtendedDrawingMenu: React.FC<{
 }> = (props) => {
 
 	const showSaveCamera = props.isSaveCameraEnabled === true;
+	// #region agent log D1
+	fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'D',location:'extended-drawing-menu.tsx:render',message:'render',data:{showSaveCamera,isSaveCameraEnabled:props.isSaveCameraEnabled,hasOnSave:!!props.onSaveCameraClick,hasOnLock:!!props.onLockClick},timestamp:Date.now()})}).catch(()=>{});
+	// #endregion agent log D1
 
 	return <>
 		<div

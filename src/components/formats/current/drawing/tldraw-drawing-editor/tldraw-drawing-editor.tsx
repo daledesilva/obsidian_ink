@@ -102,6 +102,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const isViewActiveRef = useRef(true);
 	const pendingNewOverlayRef = useRef(false);
 	const [, setCameraTick] = React.useState(0);
+	const hasUserMovedCameraRef = useRef(false);
 
 	// On mount
 	React.useEffect(() => {
@@ -436,13 +437,19 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		const vb = computeCurrentViewBox();
 		if (!vb) return false;
 		const saved = props.embedSettings.viewBox;
+		// Tolerance: DOMRect sizes can be fractional, which would otherwise show the save button
+		// immediately after unlock even if the camera hasn't moved.
+		const EPS = 0.75;
+		const dx = Math.abs(vb.x - saved.x);
+		const dy = Math.abs(vb.y - saved.y);
+		const dw = Math.abs(vb.width - saved.width);
+		const dh = Math.abs(vb.height - saved.height);
+		const dirty = dx > EPS || dy > EPS || dw > EPS || dh > EPS;
 		const round3 = (n: number) => Math.round(n * 1000) / 1000;
-		return (
-			round3(vb.x) !== round3(saved.x) ||
-			round3(vb.y) !== round3(saved.y) ||
-			round3(vb.width) !== round3(saved.width) ||
-			round3(vb.height) !== round3(saved.height)
-		);
+		// #region agent log B1
+		fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'post-fix',hypothesisId:'B',location:'tldraw-drawing-editor.tsx:isViewBoxDirty',message:'dirty check',data:{dirty,eps:EPS,diff:{dx,dy,dw,dh},computedViewBox:vb,savedViewBox:saved,rounded:{computed:{x:round3(vb.x),y:round3(vb.y),w:round3(vb.width),h:round3(vb.height)},saved:{x:round3(saved.x),y:round3(saved.y),w:round3(saved.width),h:round3(saved.height)}},cameraTick:'n/a'},timestamp:Date.now()})}).catch(()=>{});
+		// #endregion agent log B1
+		return dirty;
 	}
 
 	function handleSaveCameraPosition() {
@@ -717,7 +724,13 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				initialSnapshot={initialSnapshot}
 				onEditorReady={handleEditorReady}
 				onChange={handleStoreChange}
-				onCameraChange={() => setCameraTick((n) => n + 1)}
+				onCameraChange={(camera, containerRect, meta) => {
+					if (meta.source === 'user') hasUserMovedCameraRef.current = true;
+					// #region agent log B2
+					fetch('http://127.0.0.1:7662/ingest/80d354ed-c82d-4bc7-8299-7af3de76375a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7a82c9'},body:JSON.stringify({sessionId:'7a82c9',runId:'pre-fix',hypothesisId:'B',location:'tldraw-drawing-editor.tsx:onCameraChange',message:'camera changed',data:{camera,containerRect:{w:containerRect.width,h:containerRect.height}},timestamp:Date.now()})}).catch(()=>{});
+					// #endregion agent log B2
+					setCameraTick((n) => n + 1);
+				}}
 				initialViewBox={props.embedded ? props.embedSettings?.viewBox : undefined}
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}
@@ -741,7 +754,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				{props.embedded && (
 					<ExtendedDrawingMenu
 						onSaveCameraClick={handleSaveCameraPosition}
-						isSaveCameraEnabled={isViewBoxDirty()}
+						isSaveCameraEnabled={hasUserMovedCameraRef.current && isViewBoxDirty()}
 						onLockClick={() => props.closeEditor?.()}
 						onExpandClick={() => props.onOpenInDedicatedView?.()}
 						menuOptions={customExtendedMenu}

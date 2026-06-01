@@ -68,6 +68,11 @@ interface DrawingEmbed_Props {
     remove: () => void,
     setEmbedProps?: (width: number, aspectRatio: number) => void,
 	setEmbedViewBox?: (viewBox: { x: number; y: number; width: number; height: number }) => void,
+	setEmbedPropsAndViewBox?: (params: {
+		width: number;
+		aspectRatio: number;
+		viewBox: { x: number; y: number; width: number; height: number };
+	}) => void,
     onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
 	sourceMdFile?: TFile,
@@ -297,10 +302,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						extendedMenu = {commonExtendedOptions}
 						embedSettings = {props.embedSettings}
 						onSaveCameraPosition = {(viewBox) => {
-							// Saving camera position should also persist current embed dimensions,
-							// otherwise the URL can end up with stale width/aspectRatio until lock.
-							props.setEmbedProps?.(embedWidthRef.current, embedAspectRatioRef.current);
-							props.setEmbedViewBox?.(viewBox);
+							// Single rewrite: updating width/aspectRatio first can invalidate the widget
+							// range, causing a subsequent viewBox rewrite to silently no-op.
+							props.setEmbedPropsAndViewBox?.({
+								width: embedWidthRef.current,
+								aspectRatio: embedAspectRatioRef.current,
+								viewBox,
+							});
 						}}
 						embedded
 						saveControlsReference = {registerEditorControls}

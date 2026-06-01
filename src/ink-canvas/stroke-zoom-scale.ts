@@ -3,7 +3,7 @@ import {
 	ERASER_HIT_RADIUS_REFERENCE,
 	ERASER_SWEEP_SAMPLE_SPACING_REFERENCE,
 } from './constants/erase-tool';
-import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
+import type { ResolvedStrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 
 /** Zoom level presets were tuned at this camera zoom. */
 export const INK_STROKE_ZOOM_REFERENCE = 1;
@@ -12,7 +12,7 @@ export const INK_STROKE_ZOOM_REFERENCE = 1;
 export const INK_STROKE_ZOOM_MIN = 0.1;
 
 /** Streamline / smoothing at max zoom-out (`z_min`). */
-export const STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET: Record<StrokeInputTreatAs, number> = {
+export const STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET: Record<ResolvedStrokeInputTreatAs, number> = {
 	pen: 0.2,
 	mouse: 0.65,
 };
@@ -57,7 +57,7 @@ export function metricForCaptureZoom(
 export function numericForCaptureZoom(
 	referenceValue: number,
 	captureZoom: number,
-	treatAs: StrokeInputTreatAs,
+	treatAs: ResolvedStrokeInputTreatAs,
 	zoomRef: number = INK_STROKE_ZOOM_REFERENCE,
 ): number {
 	const target = STREAMLINE_SMOOTHING_ZOOM_OUT_TARGET[treatAs];

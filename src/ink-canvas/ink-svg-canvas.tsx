@@ -14,7 +14,8 @@ import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseTo
 import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-settings-types';
-import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
+	import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
+import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
 import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
@@ -52,9 +53,9 @@ export interface InkSvgCanvasProps {
 export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const writingMode = props.writingMode ?? false;
 	const strokeInputEditorKind: StrokeInputEditorKind = writingMode ? 'inkWriting' : 'inkDrawing';
-	const strokeInputTreatAs = useStrokeInputTreatAs(strokeInputEditorKind);
-	const strokeInputTreatAsRef = useRef(strokeInputTreatAs);
-	strokeInputTreatAsRef.current = strokeInputTreatAs;
+	const resolvedStrokeInputTreatAs = useResolvedStrokeInputTreatAs(strokeInputEditorKind);
+	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
+	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
 
 	const pageWidth = props.pageWidth ?? WRITING_PAGE_WIDTH;
 	const writingBufferLines = props.writingBufferLines ?? 3;
@@ -323,8 +324,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		getCamera: () => cameraRef.current,
 		getContainerRect,
 		getStrokeStyle: () => ({ ...strokeStyleRef.current }),
-		getStrokeInputTreatAs: () => strokeInputTreatAsRef.current,
+		getResolvedStrokeInputTreatAs: () => resolvedStrokeInputTreatAsRef.current,
 		getLiveStrokePath: () => liveStrokeRef.current,
+		onStrokeInputDetected: (detected) => {
+			setLastDetectedStrokeInput(detected);
+		},
 	};
 
 	const eraseCtx: EraseToolContext = {

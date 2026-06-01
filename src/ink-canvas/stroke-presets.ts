@@ -1,4 +1,4 @@
-import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
+import type { ResolvedStrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import type { InkStrokeStyle } from './types';
 import {
 	clampCaptureZoom,
@@ -46,7 +46,7 @@ export const OPTICAL_MOUSE_TO_PEN_RATIO = 1;
  */
 export function buildInkStrokeStyleForTreatAs(
 	base: InkStrokeStyle,
-	treatAs: StrokeInputTreatAs,
+	treatAs: ResolvedStrokeInputTreatAs,
 	captureZoom: number = INK_STROKE_ZOOM_REFERENCE,
 ): InkStrokeStyle {
 	const numeric =

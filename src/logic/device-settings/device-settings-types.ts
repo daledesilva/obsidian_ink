@@ -1,11 +1,19 @@
 /** Editor surface used to scope device-local stroke input behaviour. */
 export type StrokeInputEditorKind = 'inkWriting' | 'inkDrawing';
 
-/** User override: treat pointer hardware as pen (pressure + pen PF preset) or mouse (simulated pressure + mouse preset). */
-export type StrokeInputTreatAs = 'pen' | 'mouse';
+/**
+ * User preference: auto-detect from pressure, or override as pen (pressure + pen PF preset)
+ * or mouse (simulated pressure + mouse preset).
+ */
+export type StrokeInputTreatAs = 'auto' | 'pen' | 'mouse';
+
+/** Resolved pen/mouse mode used at capture time (never `'auto'`). */
+export type ResolvedStrokeInputTreatAs = Exclude<StrokeInputTreatAs, 'auto'>;
 
 /** Versioned blob stored in `localStorage` (not synced via plugin `data.json`). */
 export interface DeviceSettingsV1 {
 	version: 1;
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;
+	/** Last detected input for this device (shared by writing and drawing). */
+	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;
 }

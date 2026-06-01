@@ -19,7 +19,7 @@ export async function showWelcomeTips(plugin: InkPlugin) {
 
     const noticeBody = createNoticeTemplate(1,3);
     noticeBody.createEl('h1').setText(`Welcome to ink`);
-    noticeBody.createEl('p').setText(`Ink is all about enabling stylus use directly in your Markdown notes.`);
+    noticeBody.createEl('p').setText(`Ink is all about enabling pen use directly in your Markdown notes.`);
     noticeBody.createEl('p').setText(`Here's a quick rundown to help you get started...`);
     
     const {

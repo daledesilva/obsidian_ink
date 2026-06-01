@@ -5,7 +5,8 @@ import { screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
 import type { StrokeStore } from '../stroke-store';
 import type { UndoManager } from '../undo-manager';
-import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
+import { detectStrokeInputFromRawPressures } from 'src/logic/device-settings/detect-stroke-input-from-pressures';
+import type { ResolvedStrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import type { CameraState, InkPoint, InkStroke, InkStrokeStyle } from '../types';
 import { toStrokeOptions } from '../types';
 import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
@@ -30,9 +31,10 @@ export interface DrawToolContext {
 	getCamera: () => CameraState;
 	getContainerRect: () => DOMRect;
 	getStrokeStyle: () => InkStrokeStyle;
-	/** Device-local “Treat input as” for pen vs mouse presets and pressure handling. */
-	getStrokeInputTreatAs: () => StrokeInputTreatAs;
+	/** Resolved pen vs mouse presets and pressure handling (never `'auto'`). */
+	getResolvedStrokeInputTreatAs: () => ResolvedStrokeInputTreatAs;
 	getLiveStrokePath: () => SVGPathElement | null;
+	onStrokeInputDetected?: (detected: ResolvedStrokeInputTreatAs) => void;
 	onStrokeComplete?: () => void;
 }
 
@@ -51,6 +53,8 @@ interface ActiveStroke {
 	strokePathLength: number;
 	/** Last EMA output for pen pressure; do not smooth across strokes. */
 	lastSmoothedPenPressure: number;
+	/** Raw pointer pressures for auto-detect (before normalization or fallback). */
+	rawPointerPressures: number[];
 }
 
 let activeStroke: ActiveStroke | null = null;
@@ -60,7 +64,7 @@ function isHardwarePen(e: PointerEvent): boolean {
 }
 
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
-	const treatAs = ctx.getStrokeInputTreatAs();
+	const treatAs = ctx.getResolvedStrokeInputTreatAs();
 	const treatAsPen = treatAs === 'pen';
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
@@ -83,6 +87,7 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 		startedAt: Date.now(),
 		strokePathLength: 0,
 		lastSmoothedPenPressure: pressure,
+		rawPointerPressures: [e.pressure],
 	};
 
 	updateLiveStrokePath(ctx);
@@ -101,9 +106,12 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 
 	activeStroke.style = buildInkStrokeStyleForTreatAs(
 		ctx.getStrokeStyle(),
-		ctx.getStrokeInputTreatAs(),
+		ctx.getResolvedStrokeInputTreatAs(),
 		ctx.getCamera().zoom,
 	);
+
+	const detected = detectStrokeInputFromRawPressures(activeStroke.rawPointerPressures);
+	ctx.onStrokeInputDetected?.(detected);
 
 	const stroke: InkStroke = {
 		id: activeStroke.id,
@@ -151,7 +159,7 @@ function appendDrawSamplesFromPointerEvent(
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
 	const samples = getPointerSamples(e);
-	const treatAsPen = ctx.getStrokeInputTreatAs() === 'pen';
+	const treatAsPen = ctx.getResolvedStrokeInputTreatAs() === 'pen';
 	const mergeThresholdPage = 1 / camera.zoom;
 	const hardwarePen = isHardwarePen(e);
 	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;
@@ -171,6 +179,14 @@ function appendDrawSamplesFromPointerEvent(
 
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
 		const isLastSample = i === lastSampleIdx;
+
+		// For mice, browsers often report `pressure=0` on the final pointerup sample.
+		// Exclude that lift sample from auto-detection so a constant-pressure mouse stroke
+		// remains classified as mouse.
+		const isPointerUpLiftSample = options.forceCommitFinalPoint && isLastSample;
+		if (!isPointerUpLiftSample) {
+			activeStroke.rawPointerPressures.push(sample.pressure);
+		}
 
 		let pressure = sample.pressure;
 		if (!treatAsPen && pressure === 0) pressure = 0.5;

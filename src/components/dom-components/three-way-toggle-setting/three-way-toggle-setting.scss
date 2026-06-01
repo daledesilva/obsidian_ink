@@ -1,0 +1,98 @@
+.ddc_ink_three-way-toggle-setting {
+	// Keep name/desc in the left column and the segmented control on the right,
+	// matching Obsidian setting rows and the two-way toggle.
+	flex-wrap: nowrap;
+	align-items: flex-start;
+
+	.setting-item-info {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.setting-item-description {
+		p + p {
+			margin-block-start: var(--size-4-2);
+		}
+
+		.ddc_ink_stroke-input-detected-value {
+			color: var(--text-accent);
+		}
+	}
+
+	.setting-item-control {
+		display: flex;
+		flex: 0 0 auto;
+		flex-shrink: 0;
+		flex-wrap: nowrap;
+		justify-content: flex-end;
+		max-width: 100%;
+		margin-inline-start: auto;
+	}
+
+	.ddc_ink_three-way-toggle-track {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: 0;
+		max-width: 100%;
+	}
+
+	.ddc_ink_three-way-toggle-option {
+		flex: 0 0 auto;
+		width: auto;
+		height: var(--input-height);
+		min-height: var(--input-height);
+		margin: 0;
+		padding-inline: var(--size-4-3);
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: none;
+
+		& + & {
+			margin-inline-start: -1px;
+		}
+
+		&--start {
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+		}
+
+		&--middle {
+			border-radius: 0;
+		}
+
+		&--end {
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+		}
+
+		&--active {
+			background-color: var(--interactive-accent);
+			color: var(--text-on-accent);
+			border-color: var(--text-normal);
+			font-weight: var(--font-medium);
+			position: relative;
+			z-index: 1;
+		}
+	}
+
+	// When the row is too narrow, allow the control to drop below and span the row.
+	@container (max-width: 28rem) {
+		flex-wrap: wrap;
+
+		.setting-item-control {
+			flex: 1 1 100%;
+			justify-content: stretch;
+			margin-inline-start: 0;
+		}
+
+		.ddc_ink_three-way-toggle-track {
+			width: 100%;
+		}
+
+		.ddc_ink_three-way-toggle-option {
+			flex: 1 1 0;
+			min-width: 0;
+		}
+	}
+}

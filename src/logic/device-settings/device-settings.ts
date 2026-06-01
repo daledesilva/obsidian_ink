@@ -1,11 +1,24 @@
 import { fetchLocally, saveLocally } from 'src/logic/utils/storage';
 import { DEFAULT_DEVICE_SETTINGS_V1, DEVICE_SETTINGS_STORAGE_KEY } from './device-settings-defaults';
-import type { DeviceSettingsV1, StrokeInputEditorKind, StrokeInputTreatAs } from './device-settings-types';
+import type {
+	DeviceSettingsV1,
+	ResolvedStrokeInputTreatAs,
+	StrokeInputEditorKind,
+	StrokeInputTreatAs,
+} from './device-settings-types';
 
 const DEVICE_SETTINGS_CHANGED_EVENT = 'ddc-ink-device-settings-changed';
 
 function isStrokeInputTreatAs(value: unknown): value is StrokeInputTreatAs {
+	return value === 'auto' || value === 'pen' || value === 'mouse';
+}
+
+function isResolvedStrokeInputTreatAs(value: unknown): value is ResolvedStrokeInputTreatAs {
 	return value === 'pen' || value === 'mouse';
+}
+
+function isLastDetectedStrokeInput(value: unknown): value is DeviceSettingsV1['lastDetectedStrokeInput'] {
+	return value === null || isResolvedStrokeInputTreatAs(value);
 }
 
 function isDeviceSettingsV1(value: unknown): value is DeviceSettingsV1 {
@@ -20,13 +33,23 @@ function isDeviceSettingsV1(value: unknown): value is DeviceSettingsV1 {
 
 function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 	const base = DEFAULT_DEVICE_SETTINGS_V1;
-	if (!isDeviceSettingsV1(partial)) return { ...base, strokeInputTreatAs: { ...base.strokeInputTreatAs } };
+	if (!isDeviceSettingsV1(partial)) {
+		return {
+			...base,
+			strokeInputTreatAs: { ...base.strokeInputTreatAs },
+			lastDetectedStrokeInput: base.lastDetectedStrokeInput,
+		};
+	}
+	const lastDetected = isLastDetectedStrokeInput(partial.lastDetectedStrokeInput)
+		? partial.lastDetectedStrokeInput
+		: base.lastDetectedStrokeInput;
 	return {
 		version: 1,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
 			inkDrawing: partial.strokeInputTreatAs.inkDrawing,
 		},
+		lastDetectedStrokeInput: lastDetected,
 	};
 }
 
@@ -61,6 +84,10 @@ export function patchDeviceSettings(partial: Partial<DeviceSettingsV1>): DeviceS
 			...current.strokeInputTreatAs,
 			...(partial.strokeInputTreatAs ?? {}),
 		},
+		lastDetectedStrokeInput:
+			partial.lastDetectedStrokeInput === undefined
+				? current.lastDetectedStrokeInput
+				: partial.lastDetectedStrokeInput,
 	};
 	writeDeviceSettings(next);
 	return next;
@@ -77,6 +104,28 @@ export function setStrokeInputTreatAs(editorKind: StrokeInputEditorKind, value: 
 			[editorKind]: value,
 		},
 	});
+}
+
+export function getLastDetectedStrokeInput(
+): ResolvedStrokeInputTreatAs | null {
+	return readDeviceSettings().lastDetectedStrokeInput;
+}
+
+export function setLastDetectedStrokeInput(
+	value: ResolvedStrokeInputTreatAs,
+): void {
+	patchDeviceSettings({
+		lastDetectedStrokeInput: value,
+	});
+}
+
+export function resolveStrokeInputTreatAs(
+	preference: StrokeInputTreatAs,
+	lastDetected: ResolvedStrokeInputTreatAs | null,
+): ResolvedStrokeInputTreatAs {
+	if (preference === 'pen') return 'pen';
+	if (preference === 'mouse') return 'mouse';
+	return lastDetected ?? 'mouse';
 }
 
 /** Same-tab updates use a custom event; `storage` covers other windows/tabs for the same vault host. */

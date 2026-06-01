@@ -8,9 +8,15 @@ import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { showWelcomeTips } from 'src/components/dom-components/welcome-notice';
 import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-accordion-setting';
 import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggle-setting/two-way-toggle-setting';
+import { ThreeWayToggleSetting } from 'src/components/dom-components/three-way-toggle-setting/three-way-toggle-setting';
 import { setDominantHand } from 'src/stores/dominant-hand-store';
-import type { StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
-import { getStrokeInputTreatAs, setStrokeInputTreatAs } from 'src/logic/device-settings/device-settings';
+import type { StrokeInputEditorKind, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
+import {
+	getLastDetectedStrokeInput,
+	getStrokeInputTreatAs,
+	setStrokeInputTreatAs,
+	subscribeDeviceSettingsChanged,
+} from 'src/logic/device-settings/device-settings';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 
 /////////
@@ -22,6 +28,7 @@ export function registerSettingsTab(plugin: InkPlugin) {
 
 export class MySettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
+	private unsubscribeDeviceSettings?: () => void;
 
 	constructor(app: App, plugin: MyPlugin) {
 		super(app, plugin);
@@ -30,6 +37,9 @@ export class MySettingsTab extends PluginSettingTab {
 
 	display(): void {
 		const {containerEl} = this;
+
+		this.unsubscribeDeviceSettings?.();
+		this.unsubscribeDeviceSettings = undefined;
 
 		containerEl.empty();
 		
@@ -59,10 +69,19 @@ export class MySettingsTab extends PluginSettingTab {
 		// insertMigrateSection(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
-		writingSectionEl = insertWritingSettings(containerEl, this.plugin);
+		const strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[] = [];
+		writingSectionEl = insertWritingSettings(containerEl, this.plugin, strokeInputToggles);
 		if (this.plugin.settings.writingEnabled) writingSectionEl.classList.add('ddc_ink_expanded');
-		drawingSectionEl = insertDrawingSettings(containerEl, this.plugin);
+		drawingSectionEl = insertDrawingSettings(containerEl, this.plugin, strokeInputToggles);
 		if (this.plugin.settings.drawingEnabled) drawingSectionEl.classList.add('ddc_ink_expanded');
+		this.unsubscribeDeviceSettings = subscribeDeviceSettingsChanged(() => {
+			if (strokeInputToggles[0]) {
+				strokeInputToggles[0].setDesc(strokeInputTreatAsSettingDesc('inkWriting'));
+			}
+			if (strokeInputToggles[1]) {
+				strokeInputToggles[1].setDesc(strokeInputTreatAsSettingDesc('inkDrawing'));
+			}
+		});
 		insertFileOrganisationSection(containerEl, this.plugin);
 
 		new Setting(containerEl)
@@ -91,6 +110,11 @@ export class MySettingsTab extends PluginSettingTab {
 		createSupportButtonSet(containerEl);
 		
 
+	}
+
+	hide(): void {
+		this.unsubscribeDeviceSettings?.();
+		this.unsubscribeDeviceSettings = undefined;
 	}
 }
 
@@ -384,7 +408,58 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 
 }
 
-function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
+function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): DocumentFragment {
+	const last = getLastDetectedStrokeInput();
+	const detectedLabel = last === 'pen' ? 'Pen' : last === 'mouse' ? 'Mouse' : 'None';
+
+	const frag = document.createDocumentFragment();
+
+	const intro = document.createElement('p');
+	intro.textContent =
+		'Automatically detect pen or mouse from pressure (Auto), use pen pressure and faithful smoothing (Pen), or simulated pressure with higher smoothing (Mouse).';
+	frag.appendChild(intro);
+
+	const detectedParagraph = document.createElement('p');
+	detectedParagraph.classList.add('ddc_ink_stroke-input-detected-paragraph');
+
+	const detectedLine = document.createElement('strong');
+	detectedLine.append('Last detected input: ');
+	const detectedValue = document.createElement('span');
+	detectedValue.className = 'ddc_ink_stroke-input-detected-value';
+	detectedValue.textContent = detectedLabel;
+	detectedLine.appendChild(detectedValue);
+	detectedParagraph.appendChild(detectedLine);
+
+	detectedParagraph.appendChild(document.createElement('br'));
+	detectedParagraph.append('If detection is incorrect, choose Pen or Mouse manually.');
+
+	frag.appendChild(detectedParagraph);
+	return frag;
+}
+
+function insertStrokeInputTreatAsSetting(
+	contentEl: HTMLElement,
+	editorKind: StrokeInputEditorKind,
+): ThreeWayToggleSetting<StrokeInputTreatAs> {
+	return new ThreeWayToggleSetting<StrokeInputTreatAs>(contentEl)
+		.setName('Smoothing and pressure')
+		.setDesc(strokeInputTreatAsSettingDesc(editorKind))
+		.setOptions([
+			{ value: 'auto', label: 'Auto' },
+			{ value: 'pen', label: 'Pen' },
+			{ value: 'mouse', label: 'Mouse' },
+		])
+		.setValue(getStrokeInputTreatAs(editorKind))
+		.onChange((value) => {
+			setStrokeInputTreatAs(editorKind, value);
+		});
+}
+
+function insertDrawingSettings(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[],
+): HTMLElement {
 	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
 	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 
@@ -395,14 +470,7 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
-	new TwoWayToggleSetting<StrokeInputTreatAs>(contentEl)
-		.setName('Smoothing and pressure')
-		.setDesc('Pull pressure and smoothing from supported pens (Pen), or simulator pressure and apply a slightly higher smoothing for a more organic feel (Mouse).')
-		.setOptionPair('pen', 'Pen', 'mouse', 'Mouse')
-		.setValue(getStrokeInputTreatAs('inkDrawing'))
-		.onChange((value) => {
-			setStrokeInputTreatAs('inkDrawing', value);
-		});
+	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkDrawing'));
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
@@ -431,7 +499,11 @@ function insertDrawingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 	return wrapperEl;
 }
 
-function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
+function insertWritingSettings(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[],
+): HTMLElement {
 
 	const saveWritingStrokeLimit = async (enteredValue: string) => {
 		const value = parseInt(enteredValue) || DEFAULT_SETTINGS.writingStrokeLimit;
@@ -463,18 +535,11 @@ function insertWritingSettings(containerEl: HTMLElement, plugin: InkPlugin): HTM
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
-		.setDesc(`While editing a markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a stylus.`);
+		.setDesc(`While editing a markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a pen.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
-	new TwoWayToggleSetting<StrokeInputTreatAs>(contentEl)
-		.setName('Smoothing and pressure')
-		.setDesc('Pull pressure and smoothing from supported pens (Pen), or simulator pressure and apply a slightly higher smoothing for a more organic feel (Mouse).')
-		.setOptionPair('pen', 'Pen', 'mouse', 'Mouse')
-		.setValue(getStrokeInputTreatAs('inkWriting'))
-		.onChange((value) => {
-			setStrokeInputTreatAs('inkWriting', value);
-		});
+	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkWriting'));
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')

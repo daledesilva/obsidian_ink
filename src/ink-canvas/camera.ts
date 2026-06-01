@@ -109,6 +109,30 @@ export function fitBoundsToViewport(
 }
 
 /**
+ * After embed resize, keep the page point that was under `anchorScreen` aligned with
+ * `targetScreen` (typically old and new geometric centers of `.ddc_ink_resize-container`).
+ * Uses screen coordinates so symmetric horizontal resize (CSS translate -50%) does not
+ * spuriously pan — embed center X is stable while canvas clientWidth still changes.
+ */
+export function adjustCameraToPreservePagePointAtScreenTargets(
+	camera: CameraState,
+	oldContainerRect: DOMRect,
+	anchorScreenX: number,
+	anchorScreenY: number,
+	newContainerRect: DOMRect,
+	targetScreenX: number,
+	targetScreenY: number,
+): CameraState {
+	const pageX = (anchorScreenX - oldContainerRect.left) / camera.zoom - camera.x;
+	const pageY = (anchorScreenY - oldContainerRect.top) / camera.zoom - camera.y;
+	return {
+		x: (targetScreenX - newContainerRect.left) / camera.zoom - pageX,
+		y: (targetScreenY - newContainerRect.top) / camera.zoom - pageY,
+		zoom: camera.zoom,
+	};
+}
+
+/**
  * Signed pixel delta for right-drag zoom from horizontal and vertical drag combined.
  * Up and right zoom in (positive); down and left zoom out (negative).
  */

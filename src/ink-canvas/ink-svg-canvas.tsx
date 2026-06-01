@@ -4,7 +4,7 @@ import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
-import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
+import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { computeStrokesBounds } from './svg-export';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -262,6 +262,56 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		resizeObserver.observe(container);
 		return () => resizeObserver.disconnect();
 	}, [writingMode, props.isEmbedded, resetWritingCamera]);
+
+	// Embedded drawing: keep page content under the embed's geometric center when resized
+	useEffect(() => {
+		if (writingMode || !props.isEmbedded) return;
+		const container = containerRef.current;
+		if (!container) return;
+
+		let lastEmbedRect: DOMRect | null = null;
+		let lastContainerRect: DOMRect | null = null;
+		const resizeObserver = new ResizeObserver(() => {
+			const containerRect = container.getBoundingClientRect();
+			if (containerRect.width <= 0 || containerRect.height <= 0) return;
+
+			const embedEl =
+				container.closest<HTMLElement>('.ddc_ink_resize-container') ?? container;
+			const embedRect = embedEl.getBoundingClientRect();
+
+			if (lastEmbedRect && lastContainerRect) {
+				const anchorScreenX = lastEmbedRect.left + lastEmbedRect.width / 2;
+				const anchorScreenY = lastEmbedRect.top + lastEmbedRect.height / 2;
+				const targetScreenX = embedRect.left + embedRect.width / 2;
+				const targetScreenY = embedRect.top + embedRect.height / 2;
+				const sizeChanged =
+					embedRect.width !== lastEmbedRect.width ||
+					embedRect.height !== lastEmbedRect.height;
+
+				if (sizeChanged) {
+					const prevContainerRect = lastContainerRect;
+					setCameraState((prev) => {
+						const next = adjustCameraToPreservePagePointAtScreenTargets(
+							prev,
+							prevContainerRect,
+							anchorScreenX,
+							anchorScreenY,
+							containerRect,
+							targetScreenX,
+							targetScreenY,
+						);
+						if (next.x === prev.x && next.y === prev.y) return prev;
+						emitCameraChange(next, { source: 'api' });
+						return next;
+					});
+				}
+			}
+			lastEmbedRect = embedRect;
+			lastContainerRect = containerRect;
+		});
+		resizeObserver.observe(container);
+		return () => resizeObserver.disconnect();
+	}, [writingMode, props.isEmbedded, emitCameraChange]);
 
 	// Build the editor interface and expose it
 	useEffect(() => {

@@ -399,30 +399,33 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		// Middle-click → pan (disabled in embedded writing)
-		if (e.button === 1) {
+		// Right-click:
+		// - Drag → pan (disabled in embedded writing)
+		// - Mod + drag → zoom (disabled in writing mode)
+		if (e.button === 2) {
+			// Stop native propagation so Obsidian's note-level handlers don't see the right-click.
+			e.nativeEvent.stopPropagation();
+
+			const isModHeld = e.ctrlKey || e.metaKey;
+			if (isModHeld) {
+				if (writingMode) return;
+				isRightDraggingRef.current = true;
+				rightDragStartPointRef.current = { x: e.clientX, y: e.clientY };
+				rightDragInitialCameraRef.current = { ...cameraRef.current };
+				// Store container-relative focal point — zoomAtPoint expects these, not absolute client coords.
+				const containerRect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
+				rightDragFocalScreenRef.current = { x: e.clientX - containerRect.left, y: e.clientY - containerRect.top };
+				rightDragMovedRef.current = false;
+				(e.target as HTMLElement).setPointerCapture(e.pointerId);
+				return;
+			}
+
+			// RMB drag → pan
 			if (writingMode && props.isEmbedded) return;
-			e.preventDefault(); // Prevent autoscroll cursor
 			isPanning.current = true;
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
 			(e.target as HTMLElement).setPointerCapture(e.pointerId);
 			setCursorStyle('grabbing');
-			return;
-		}
-
-		// Right-click → drag-to-zoom (disabled in writing mode)
-		if (e.button === 2) {
-			if (writingMode) return;
-			isRightDraggingRef.current = true;
-			rightDragStartPointRef.current = { x: e.clientX, y: e.clientY };
-			rightDragInitialCameraRef.current = { ...cameraRef.current };
-			// Store container-relative focal point — zoomAtPoint expects these, not absolute client coords.
-			const containerRect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
-			rightDragFocalScreenRef.current = { x: e.clientX - containerRect.left, y: e.clientY - containerRect.top };
-			rightDragMovedRef.current = false;
-			// Stop native propagation so Obsidian's note-level handlers don't see the right-click.
-			e.nativeEvent.stopPropagation();
-			(e.target as HTMLElement).setPointerCapture(e.pointerId);
 			return;
 		}
 
@@ -548,7 +551,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Context-menu suppression
 	// A native capture-phase listener fires before Obsidian's bubble-phase document-level
 	// note context-menu handler. This ensures that right-clicking inside an embed never
-	// shows the markdown note context menu — right-click on the canvas is always drag-to-zoom.
+	// shows the markdown note context menu — right-click on the canvas is reserved for pan/zoom.
 	// The toolbar overflow menu provides all note-level actions the user needs.
 	///////////////////////////
 

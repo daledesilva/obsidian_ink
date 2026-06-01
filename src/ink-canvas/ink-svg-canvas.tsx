@@ -819,7 +819,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Wheel → zoom
 	///////////////////////////
 
-	const wheelIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const wheelIdleTimerRef = useRef<number | null>(null);
 	const applyPanScreenDeltaRef = useRef(applyPanScreenDelta);
 	applyPanScreenDeltaRef.current = applyPanScreenDelta;
 	const releasePanMomentumRef = useRef(releasePanMomentum);

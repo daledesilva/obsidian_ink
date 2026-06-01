@@ -27,7 +27,7 @@ let touchedStrokeIds: Set<string> = new Set();
 /** When each touched stroke was marked (ms since epoch) for preview animation timing. */
 let strokeMarkedAtMs = new Map<string, number>();
 let lastEraseClientPoint: ClientPoint | null = null;
-let pendingEraseRemovalTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingEraseRemovalTimeout: number | null = null;
 let pendingRemovalStrokeIds: string[] | null = null;
 
 export function eraseToolPointerDown(e: PointerEvent, ctx: EraseToolContext): void {

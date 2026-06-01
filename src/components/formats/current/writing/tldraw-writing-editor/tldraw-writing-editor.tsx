@@ -326,7 +326,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!wrapperEl) return;
 
 		const TRACKPAD_WHEEL_IDLE_MS = 80;
-		let wheelIdleTimer: ReturnType<typeof setTimeout> | null = null;
+		let wheelIdleTimer: number | null = null;
 
 		const clearTrackpadWheelIdleTimer = () => {
 			if (wheelIdleTimer !== null) {

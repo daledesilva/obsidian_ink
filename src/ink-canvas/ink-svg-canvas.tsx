@@ -14,7 +14,8 @@ import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseTo
 import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-settings-types';
-	import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
+import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
+import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
 import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
@@ -53,6 +54,9 @@ export interface InkSvgCanvasProps {
 export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const writingMode = props.writingMode ?? false;
 	const strokeInputEditorKind: StrokeInputEditorKind = writingMode ? 'inkWriting' : 'inkDrawing';
+	const strokeInputTreatAsPreference = useStrokeInputTreatAs(strokeInputEditorKind);
+	const strokeInputTreatAsPreferenceRef = useRef(strokeInputTreatAsPreference);
+	strokeInputTreatAsPreferenceRef.current = strokeInputTreatAsPreference;
 	const resolvedStrokeInputTreatAs = useResolvedStrokeInputTreatAs(strokeInputEditorKind);
 	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
 	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
@@ -324,6 +328,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		getCamera: () => cameraRef.current,
 		getContainerRect,
 		getStrokeStyle: () => ({ ...strokeStyleRef.current }),
+		getStrokeInputTreatAsPreference: () => strokeInputTreatAsPreferenceRef.current,
 		getResolvedStrokeInputTreatAs: () => resolvedStrokeInputTreatAsRef.current,
 		getLiveStrokePath: () => liveStrokeRef.current,
 		onStrokeInputDetected: (detected) => {

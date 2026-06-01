@@ -146,7 +146,7 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	const tipsGridEl = tipsSectionEl.createDiv('ddc_ink_tips-grid');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
-	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pen Scribble');
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pencil Scribble');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "sync all other types" in the Obsidian Sync settings.`);
@@ -401,7 +401,7 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 
 	const intro = document.createElement('p');
 	intro.textContent =
-		'Automatically detect pen or mouse from pressure (Auto), use pen pressure and faithful smoothing (Pen), or simulated pressure with higher smoothing (Mouse).';
+		'Automatically detect pen or mouse from pressure (auto), use pen pressure and faithful smoothing (pen), or simulated pressure with higher smoothing (mouse).';
 	frag.appendChild(intro);
 
 	const detectedParagraph = document.createElement('p');
@@ -514,7 +514,7 @@ function insertWritingSettings(
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
-		.setDesc(`While editing a markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a pen.`);
+		.setDesc(`While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a pen.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 

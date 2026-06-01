@@ -151,10 +151,10 @@ export function createPanMomentumController(options: PanMomentumOptions): PanMom
 					return;
 				}
 
-				rafId = requestAnimationFrame(tick);
+				rafId = window.requestAnimationFrame(tick);
 			};
 
-			rafId = requestAnimationFrame(tick);
+			rafId = window.requestAnimationFrame(tick);
 		},
 	};
 }

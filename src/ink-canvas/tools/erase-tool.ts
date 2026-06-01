@@ -134,7 +134,7 @@ function clearPendingErasePreview(svg: SVGSVGElement, strokeIds: Iterable<string
 
 function clearPendingEraseRemovalTimeout(): void {
 	if (pendingEraseRemovalTimeout === null) return;
-	clearTimeout(pendingEraseRemovalTimeout);
+	window.clearTimeout(pendingEraseRemovalTimeout);
 	pendingEraseRemovalTimeout = null;
 }
 
@@ -159,7 +159,7 @@ function scheduleEraseRemoval(ctx: EraseToolContext, strokeIds: string[]): void 
 		maxElapsedMs = Math.max(maxElapsedMs, now - markedAt);
 	}
 	const remainingMs = Math.max(0, INK_STROKE_PENDING_ERASE_ANIMATION_MS - maxElapsedMs);
-	pendingEraseRemovalTimeout = setTimeout(() => {
+	pendingEraseRemovalTimeout = window.setTimeout(() => {
 		pendingEraseRemovalTimeout = null;
 		pendingRemovalStrokeIds = null;
 		const command = new RemoveStrokesCommand(ctx.store, strokeIds);

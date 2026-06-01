@@ -150,7 +150,7 @@ export function migrateWritingFromTldraw(
 	const captureZoom = readCameraZoomFromStore(store);
 
 	for (const key of Object.keys(store)) {
-		const record = store[key] as TldrawStoreRecord;
+		const record = store[key];
 		const isDrawShape = record.typeName === 'shape' && record.type === 'draw';
 		if (!isDrawShape) continue;
 

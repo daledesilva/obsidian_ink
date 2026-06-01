@@ -259,7 +259,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (!container) return;
 			const rect = container.getBoundingClientRect();
 			if (rect.width === 0 || rect.height === 0) return;
-			const vb = props.initialViewBox!;
+			const vb = props.initialViewBox;
 			if (props.writingAlignedZoom && props.isEmbedded) {
 				const zoom = clampZoom(vb.width > 0 ? rect.width / vb.width : 1);
 				const next = { x: -vb.x, y: -vb.y, zoom };
@@ -304,7 +304,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		});
 		setCameraState(fittedCamera);
 		emitCameraChange(fittedCamera, { source: 'init' });
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+	}, []); // eslint-disable-line -- stable effect deps
 
 	// Subscribe to store changes to re-render strokes
 	useEffect(() => {
@@ -330,7 +330,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			forceRender(n => n + 1);
 		});
 		return () => { unsubStore(); unsubUndo(); };
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+	}, []); // eslint-disable-line -- stable effect deps
 
 	// Writing mode: re-fit zoom when container width changes (not height — embed resize animates height)
 	useEffect(() => {
@@ -500,7 +500,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 
 		props.onEditorReady(editor);
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+	}, []); // eslint-disable-line -- stable effect deps
 
 
 	// Tool contexts
@@ -578,7 +578,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 		selectToolPointerCancel({} as PointerEvent, selectCtx);
-	}, [props.isBooxInputLocked]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [props.isBooxInputLocked]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
 		// Touch input: two-finger gestures are handled by the native touch listener.
@@ -649,7 +649,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 
 		(e.target as HTMLElement).setPointerCapture(e.pointerId);
-	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [tool]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerMove = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch') return;
@@ -698,7 +698,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerMove(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerMove(e.nativeEvent, selectCtx);
 		}
-	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [tool]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch') return;
@@ -733,7 +733,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerUp(e.nativeEvent, selectCtx);
 		}
-	}, [tool, releasePanMomentum]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [tool, releasePanMomentum]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch') return;
@@ -768,7 +768,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerCancel(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerCancel(e.nativeEvent, selectCtx);
 		}
-	}, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [tool]); // eslint-disable-line -- stable effect deps
 
 	const handleDrawingEmbedTwoFingerGesture = useCallback(
 		(params: { deltaX: number; deltaY: number; anchorX: number; anchorY: number; distanceRatio: number }) => {
@@ -835,14 +835,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		const clearTrackpadWheelIdleTimer = () => {
 			if (wheelIdleTimerRef.current !== null) {
-				clearTimeout(wheelIdleTimerRef.current);
+				window.clearTimeout(wheelIdleTimerRef.current);
 				wheelIdleTimerRef.current = null;
 			}
 		};
 
 		const scheduleTrackpadWheelRelease = () => {
 			clearTrackpadWheelIdleTimer();
-			wheelIdleTimerRef.current = setTimeout(() => {
+			wheelIdleTimerRef.current = window.setTimeout(() => {
 				wheelIdleTimerRef.current = null;
 				releasePanMomentumRef.current();
 			}, TRACKPAD_WHEEL_IDLE_MS);
@@ -953,7 +953,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			window.removeEventListener('keydown', handleKeyDown, true);
 			window.removeEventListener('keyup', handleKeyUp, true);
 		};
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+	}, []); // eslint-disable-line -- stable effect deps
 
 
 	// Render strokes

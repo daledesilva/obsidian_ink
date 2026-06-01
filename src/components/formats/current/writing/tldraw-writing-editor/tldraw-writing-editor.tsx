@@ -330,7 +330,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		const clearTrackpadWheelIdleTimer = () => {
 			if (wheelIdleTimer !== null) {
-				clearTimeout(wheelIdleTimer);
+				window.clearTimeout(wheelIdleTimer);
 				wheelIdleTimer = null;
 			}
 		};
@@ -343,7 +343,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) deltaY *= 600;
 			if (isTrackpadWheel(e)) {
 				clearTrackpadWheelIdleTimer();
-				wheelIdleTimer = setTimeout(() => {
+				wheelIdleTimer = window.setTimeout(() => {
 					wheelIdleTimer = null;
 					releaseDedicatedWritingScrollMomentum();
 				}, TRACKPAD_WHEEL_IDLE_MS);
@@ -447,7 +447,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			return true;
 		};
 
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			if (tryApply()) return;
 			const resizeContainer = editorWrapperRefEl.current?.closest('.ddc_ink_resize-container');
 			if (!resizeContainer) return;
@@ -629,7 +629,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		} else {
 			const fallbackLineHeight = data.meta.writingLineHeight ?? WRITING_LINE_HEIGHT;
 			snapshot = migrateWritingFromTldraw(
-				data.tldraw as unknown as TldrawSnapshotForMigration,
+				data.tldraw,
 				fallbackLineHeight,
 			);
 		}

@@ -502,7 +502,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					resetInputPostProcessTimers();
 					break;
 							
-				case Activity.DrawingCompleted:
+				case Activity.DrawingCompleted: {
 					if (props.embedded && props.embedId && leafId) {
 						syncUnifiedUndoHistory(leafId, props.embedId, { maxTldrawDelta: 1 });
 					}
@@ -512,6 +512,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 						deferResize: didCompleteBooxStroke && props.plugin.settings.booxConnectionEnabled,
 					});
 					break;
+				}
 					
 				case Activity.DrawingErased:
 					if (props.embedded && props.embedId && leafId) {

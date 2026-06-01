@@ -27,7 +27,7 @@ function getStrokesFromInkFile(svgString: string): InkStroke[] {
 	}
 
 	const migrated = migrateFromTldraw(
-		inkFileData.tldraw as unknown as Parameters<typeof migrateFromTldraw>[0],
+		inkFileData.tldraw,
 	);
 	return migrated.strokes ?? [];
 }

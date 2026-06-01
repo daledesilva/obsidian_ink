@@ -405,7 +405,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		}
 
 		// Otherwise migrate from tldraw format
-		const migrated = migrateFromTldraw(inkFileData.tldraw as unknown as TldrawSnapshotForMigration);
+		const migrated = migrateFromTldraw(inkFileData.tldraw);
 		setInitialSnapshot(migrated);
 	}
 

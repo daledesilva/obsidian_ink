@@ -18,6 +18,15 @@ export default defineConfig([
 			"build/**",
 			"dist/**",
 			"coverage/**",
+			".obsidian-cache/**",
+			// Obsidian / npm metadata — not linted as TypeScript source
+			"manifest.json",
+			"manifest-beta.json",
+			"package.json",
+			"package-lock.json",
+			"tsconfig.json",
+			"tsconfig.e2e.json",
+			"versions.json",
 			// Tooling / test harness — not part of the plugin source tree
 			"babel.config.js",
 			"esbuild.config.mjs",

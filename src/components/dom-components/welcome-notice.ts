@@ -49,7 +49,7 @@ export async function showWelcomeTips(plugin: InkPlugin) {
 function showHandwritingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
-    noticeBody.createEl('p').setText(`In any markdown note, run the following command to begin writing where your cursor is.`);
+    noticeBody.createEl('p').setText(`In any Markdown note, run the following command to begin writing where your Cursor is.`);
     noticeBody.createEl('blockquote').setText(`"ink: New handwriting section"`);
     noticeBody.createEl('p').setText(`( Cmd+P or swipe down )`);
     

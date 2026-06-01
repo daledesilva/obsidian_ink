@@ -32,9 +32,6 @@ export function mountInlineSvgPreview(host: HTMLElement, svgString: string): boo
 
 	svg.setAttribute('width', '100%');
 	svg.setAttribute('height', '100%');
-	svg.style.maxWidth = '100%';
-	svg.style.maxHeight = '100%';
-	svg.style.display = 'block';
 
 	host.appendChild(host.ownerDocument.importNode(svg, true));
 	return true;

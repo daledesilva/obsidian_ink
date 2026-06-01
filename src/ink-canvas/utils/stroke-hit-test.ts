@@ -13,7 +13,7 @@ export function getStrokeIdAtClientPoint(
 
 	const elementsAtPoint = document.elementsFromPoint?.(clientX, clientY) ?? [];
 	for (const element of elementsAtPoint) {
-		if (!(element instanceof Element)) continue;
+		if (!(element.instanceOf(Element))) continue;
 		const strokeElement = element.closest('[data-stroke-id]');
 		if (!strokeElement || !svg.contains(strokeElement)) continue;
 		const strokeId = strokeElement.getAttribute('data-stroke-id');

@@ -1,6 +1,6 @@
 import { LockIcon } from "src/graphics/icons/lock-icon";
 import { ExpandIcon } from "src/graphics/icons/expand-icon";
-import { SaveCameraIcon } from "src/graphics/icons/save-camera-icon";
+import { LockFrameIcon } from "src/graphics/icons/lock-frame-icon";
 import "./extended-drawing-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
@@ -33,23 +33,23 @@ export const ExtendedDrawingMenu: React.FC<{
                 </TooltipButton>
             )}
 			{(showSaveCamera || props.onLockClick) && (
-				<div className="ddc_ink_btn-group ddc_ink_btn-group--save-camera">
-					{showSaveCamera && props.onSaveCameraClick && (
-						<TooltipButton
-							tooltip='Save camera position.'
-							className="ddc_ink_btn-group__btn ddc_ink_btn-group__btn--accent"
-							onClick={() => props.onSaveCameraClick?.()}
-						>
-							<SaveCameraIcon />
-						</TooltipButton>
-					)}
+				<div className="ddc_ink_btn-group ddc_ink_btn-group--lock">
 					{props.onLockClick && (
 						<TooltipButton
-							tooltip='Lock'
+							tooltip={showSaveCamera ? 'Abandon framing' : 'Lock'}
 							className="ddc_ink_btn-group__btn"
 							onClick={() => props.onLockClick?.()}
 						>
 							<LockIcon/>
+						</TooltipButton>
+					)}
+					{showSaveCamera && props.onSaveCameraClick && (
+						<TooltipButton
+							tooltip='Save framing'
+							className="ddc_ink_btn-group__btn ddc_ink_btn-group__btn--accent"
+							onClick={() => props.onSaveCameraClick?.()}
+						>
+							<LockFrameIcon />
 						</TooltipButton>
 					)}
 				</div>

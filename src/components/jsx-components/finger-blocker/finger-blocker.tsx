@@ -256,6 +256,8 @@ export function FingerBlocker({
 
 		const isEmbedDrawingInkCanvas = () => !!onDrawingEmbedTwoFingerGestureRef.current;
 
+		const shouldForwardEmbedRightButtonToCanvas = () => isEmbedDrawingInkCanvas();
+
 		const isEmbedPanZoomMouseButton = (e: PointerEvent) =>
 			e.pointerType === 'mouse' && e.button === 2;
 
@@ -299,7 +301,7 @@ export function FingerBlocker({
 				if (penTarget && forwardPenToCanvas && isDrawingInput) {
 					forwardPointerEvent(penTarget, 'pointerdown', e);
 				}
-				if (penTarget && isEmbedDrawingInkCanvas() && isEmbedPanZoomMouseButton(e)) {
+				if (penTarget && shouldForwardEmbedRightButtonToCanvas() && isEmbedPanZoomMouseButton(e)) {
 					embedPanZoomPointerIdsRef.current.add(e.pointerId);
 					forwardPointerEvent(penTarget, 'pointerdown', e);
 				}
@@ -415,7 +417,7 @@ export function FingerBlocker({
 							forwardPointerEvent(penTarget, 'pointermove', sample, e);
 						}
 					}
-				} else if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+				} else if (penTarget && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointermove', e);
 				} else if (penTarget && middleButtonErasePointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointermove', e);
@@ -533,7 +535,7 @@ export function FingerBlocker({
 				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
 					forwardPointerEvent(penTarget, 'pointerup', e);
 				}
-				if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+				if (penTarget && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointerup', e);
 					embedPanZoomPointerIdsRef.current.delete(e.pointerId);
 				}
@@ -588,7 +590,7 @@ export function FingerBlocker({
 				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
 					forwardPointerEvent(penTarget, 'pointercancel', e);
 				}
-				if (penTarget && isEmbedDrawingInkCanvas() && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
+				if (penTarget && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointercancel', e);
 					embedPanZoomPointerIdsRef.current.delete(e.pointerId);
 				}
@@ -649,8 +651,8 @@ export function FingerBlocker({
 			}
 		};
 
+		// Ink canvas reserves right-click for pan/zoom/erase; never show the note context menu.
 		const suppressEmbedContextMenu = (e: MouseEvent) => {
-			if (!isEmbedDrawingInkCanvas()) return;
 			e.preventDefault();
 			e.stopPropagation();
 		};

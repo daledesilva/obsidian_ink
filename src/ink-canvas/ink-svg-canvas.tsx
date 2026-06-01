@@ -71,6 +71,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const writingBufferLines = props.writingBufferLines ?? 3;
 	const writingLineHeight = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
 
+	const canvasWrapperRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
 	const liveStrokeRef = useRef<SVGPathElement>(null);
@@ -539,7 +540,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 
 		// Right-click:
-		// - Drag → pan (disabled in embedded writing)
+		// - Drag → pan (drawing embed / dedicated writing; not embedded writing)
 		// - Mod + drag → zoom (disabled in writing mode)
 		if (e.button === 2) {
 			// Stop native propagation so Obsidian's note-level handlers don't see the right-click.
@@ -559,7 +560,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				return;
 			}
 
-			// RMB drag → pan
+			// RMB drag → pan (embedded writing: suppress note menu only — no pan/scroll)
 			if (writingMode && props.isEmbedded) return;
 			isPanning.current = true;
 			lastPanPoint.current = { x: e.clientX, y: e.clientY };
@@ -954,8 +955,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	// FingerBlocker must sit outside overflow:hidden so iOS can chain finger scroll to .cm-scroller
 	// (matches release_0.5: blocker was a sibling of tldraw, not inside the clipped canvas).
-	const canvasWrapperRef = useRef<HTMLDivElement>(null);
-
 	return (
 		<div
 			ref={canvasWrapperRef}

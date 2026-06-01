@@ -16,7 +16,7 @@ import emptyDrawingSvg from 'src/defaults/empty-drawing-embed.svg';
 interface DrawingEmbedPreviewProps {
     embedId?: string,
     embeddedFile: TFile | null,
-    embedSettings: unknown,
+    embedSettings: { viewBox?: { x: number; y: number; width: number; height: number } },
     onReady: () => void,
 	onClick: React.MouseEventHandler,
 }
@@ -94,7 +94,9 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                     cacheRequests = {false}
                     key = {fileSrc}
                     onLoad = {onLoad}
-                    // viewBox = {`${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`}
+                    viewBox = {props.embedSettings?.viewBox
+						? `${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`
+						: undefined}
                 />
             </>)}
         </div>

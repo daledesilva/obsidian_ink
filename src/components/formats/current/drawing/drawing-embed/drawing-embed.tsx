@@ -67,6 +67,7 @@ interface DrawingEmbed_Props {
 	saveSrcFile: (pageData: InkFileData) => void,
     remove: () => void,
     setEmbedProps?: (width: number, aspectRatio: number) => void,
+	setEmbedViewBox?: (viewBox: { x: number; y: number; width: number; height: number }) => void,
     onRequestMeasure?: () => void,
 	partialEmbedFilepath: string,
 	sourceMdFile?: TFile,
@@ -294,6 +295,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						drawingFile = {props.embeddedFile}
 						save = {props.saveSrcFile}
 						extendedMenu = {commonExtendedOptions}
+						embedSettings = {props.embedSettings}
+						onSaveCameraPosition = {(viewBox) => {
+							// Saving camera position should also persist current embed dimensions,
+							// otherwise the URL can end up with stale width/aspectRatio until lock.
+							props.setEmbedProps?.(embedWidthRef.current, embedAspectRatioRef.current);
+							props.setEmbedViewBox?.(viewBox);
+						}}
 						embedded
 						saveControlsReference = {registerEditorControls}
 						closeEditor = {() => void saveAndSwitchToPreviewMode()}

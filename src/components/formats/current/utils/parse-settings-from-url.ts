@@ -36,10 +36,15 @@ export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: st
         if (urlParams.viewBoxY) {
             embedSettings.viewBox.y = parseFloat(urlParams.viewBoxY);
         }
-        if (urlParams.viewBoxWidth) {
+        // Prefer new param names, but keep backward compatibility.
+        if (urlParams.viewBoxW) {
+            embedSettings.viewBox.width = parseFloat(urlParams.viewBoxW);
+        } else if (urlParams.viewBoxWidth) {
             embedSettings.viewBox.width = parseFloat(urlParams.viewBoxWidth);
         }
-        if (urlParams.viewBoxHeight) {
+        if (urlParams.viewBoxH) {
+            embedSettings.viewBox.height = parseFloat(urlParams.viewBoxH);
+        } else if (urlParams.viewBoxHeight) {
             embedSettings.viewBox.height = parseFloat(urlParams.viewBoxHeight);
         }
         if (urlParams.pendingPaste === 'true') {

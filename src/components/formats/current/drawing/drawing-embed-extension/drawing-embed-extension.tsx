@@ -94,6 +94,9 @@ export class DrawingEmbedWidget extends WidgetType {
                     setEmbedProps={(width, aspectRatio) => {
                         void this.setEmbedProps(view, width, aspectRatio);
                     }}
+					setEmbedViewBox={(viewBox) => {
+						void this.setEmbedViewBox(view, viewBox);
+					}}
                     onRequestMeasure={() => this.requestMeasure(view)}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                     sourceMdFile={this.mdFile}
@@ -187,6 +190,25 @@ export class DrawingEmbedWidget extends WidgetType {
             },
         }
         this.updateEmbed(view, newEmbedSettings);
+	}
+
+	setEmbedViewBox = async (
+		view: EditorView,
+		viewBox: { x: number; y: number; width: number; height: number },
+	) => {
+		const newEmbedSettings: EmbedSettings = {
+			...this.embedSettings,
+			embedDisplay: {
+				...this.embedSettings?.embedDisplay,
+			},
+			viewBox: {
+				x: viewBox.x,
+				y: viewBox.y,
+				width: viewBox.width,
+				height: viewBox.height,
+			},
+		};
+		this.updateEmbed(view, newEmbedSettings);
 	}
 
     private resolveAsReference(view: EditorView) {
@@ -309,6 +331,31 @@ export class DrawingEmbedWidget extends WidgetType {
                 if (/aspectRatio=[^&)]+/.test(updated)) {
                     updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${formatEmbedAspectRatio(newEmbedSettings.embedDisplay.aspectRatio)}`);
                 }
+
+				// viewBox params (camera/viewport)
+				const viewBoxParams: Array<[key: string, value: number]> = [
+					['viewBoxX', newEmbedSettings.viewBox.x],
+					['viewBoxY', newEmbedSettings.viewBox.y],
+					['viewBoxW', newEmbedSettings.viewBox.width],
+					['viewBoxH', newEmbedSettings.viewBox.height],
+				];
+
+				for (const [key, value] of viewBoxParams) {
+					const valStr = (Math.round(value * 1000) / 1000).toString();
+					const re = new RegExp(`(${key}=)([^&)]+)`);
+					if (re.test(updated)) {
+						updated = updated.replace(re, `$1${valStr}`);
+						continue;
+					}
+					// Insert if missing (append into the Edit Drawing URL query string)
+					updated = updated.replace(
+						/(\[Edit Drawing\]\([^?]+)(\?[^)]*)?(\))/,
+						(_match, p1, p2, p3) => {
+							if (p2) return `${p1}${p2}&${key}=${valStr}${p3}`;
+							return `${p1}?${key}=${valStr}${p3}`;
+						},
+					);
+				}
                 if (updated !== currentText) {
                     const tr = view.state.update({
                         changes: { from, to, insert: updated },

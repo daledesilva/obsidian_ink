@@ -11,8 +11,8 @@ export const buildDrawingEmbed = (filepath: string, options?: { pendingPaste?: b
 		aspectRatio: formatEmbedAspectRatio(s.embedDisplay.aspectRatio),
 		viewBoxX: String(s.viewBox.x),
 		viewBoxY: String(s.viewBox.y),
-		viewBoxWidth: String(s.viewBox.width),
-		viewBoxHeight: String(s.viewBox.height),
+		viewBoxW: String(s.viewBox.width),
+		viewBoxH: String(s.viewBox.height),
 	});
 	if (options?.pendingPaste) params.append('pendingPaste', 'true');
 

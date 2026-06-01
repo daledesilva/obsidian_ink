@@ -40,4 +40,35 @@
             height: 1.5em !important;
         }
     }
+
+	.ddc_ink_btn-group {
+		display: inline-flex;
+		gap: 0;
+		pointer-events: auto;
+
+		.ddc_ink_btn-group__btn {
+			border-radius: 0;
+			margin: 0;
+		}
+
+		.ddc_ink_btn-group__btn:first-child {
+			border-top-left-radius: 0.8em;
+			border-bottom-left-radius: 0.8em;
+		}
+
+		.ddc_ink_btn-group__btn:last-child {
+			border-top-right-radius: 0.8em;
+			border-bottom-right-radius: 0.8em;
+		}
+
+		.ddc_ink_btn-group__btn--accent {
+			background-color: var(--interactive-accent);
+			color: var(--text-on-accent);
+		}
+
+		.ddc_ink_btn-group__btn--accent:hover {
+			background-color: var(--interactive-accent-hover, var(--interactive-accent));
+			color: var(--text-on-accent);
+		}
+	}
 }

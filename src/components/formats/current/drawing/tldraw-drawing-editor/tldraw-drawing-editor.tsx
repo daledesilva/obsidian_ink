@@ -34,6 +34,7 @@ import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
 import type { TLEditorSnapshot } from '@tldraw/tldraw';
+import type { EmbedSettings } from 'src/types/embed-settings';
 
 ///////////////////////////
 ///////////////////////////
@@ -63,6 +64,8 @@ interface TldrawDrawingEditor_Props {
 	drawingFile: TFile;
 	save: (pageData: InkFileData) => void;
 	extendedMenu?: MenuOption[];
+	embedSettings?: EmbedSettings;
+	onSaveCameraPosition?: (viewBox: { x: number; y: number; width: number; height: number }) => void;
 
 	// For embeds
 	embedded?: boolean;
@@ -98,6 +101,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const setBooxOverlayActiveTimerRef = useRef<number | null>(null);
 	const isViewActiveRef = useRef(true);
 	const pendingNewOverlayRef = useRef(false);
+	const [, setCameraTick] = React.useState(0);
 
 	// On mount
 	React.useEffect(() => {
@@ -410,6 +414,43 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		return editorRef.current;
 	}
 
+	function computeCurrentViewBox(): { x: number; y: number; width: number; height: number } | null {
+		const editor = editorRef.current;
+		if (!editor) return null;
+		const container = editor.getContainerElement();
+		if (!container) return null;
+		const rect = container.getBoundingClientRect();
+		if (rect.width <= 0 || rect.height <= 0) return null;
+		const camera = editor.getCamera();
+		return {
+			x: -camera.x,
+			y: -camera.y,
+			width: rect.width / camera.zoom,
+			height: rect.height / camera.zoom,
+		};
+	}
+
+	function isViewBoxDirty(): boolean {
+		if (!props.embedded) return false;
+		if (!props.embedSettings) return false;
+		const vb = computeCurrentViewBox();
+		if (!vb) return false;
+		const saved = props.embedSettings.viewBox;
+		const round3 = (n: number) => Math.round(n * 1000) / 1000;
+		return (
+			round3(vb.x) !== round3(saved.x) ||
+			round3(vb.y) !== round3(saved.y) ||
+			round3(vb.width) !== round3(saved.width) ||
+			round3(vb.height) !== round3(saved.height)
+		);
+	}
+
+	function handleSaveCameraPosition() {
+		const vb = computeCurrentViewBox();
+		if (!vb) return;
+		props.onSaveCameraPosition?.(vb);
+	}
+
 	const customExtendedMenu = [
 		{
 			text: 'Grid on/off',
@@ -676,6 +717,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				initialSnapshot={initialSnapshot}
 				onEditorReady={handleEditorReady}
 				onChange={handleStoreChange}
+				onCameraChange={() => setCameraTick((n) => n + 1)}
+				initialViewBox={props.embedded ? props.embedSettings?.viewBox : undefined}
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}
 				blockObsidianPenGestures={!!props.embedded || isBooxInputLocked}
@@ -697,6 +740,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				/>
 				{props.embedded && (
 					<ExtendedDrawingMenu
+						onSaveCameraClick={handleSaveCameraPosition}
+						isSaveCameraEnabled={isViewBoxDirty()}
 						onLockClick={() => props.closeEditor?.()}
 						onExpandClick={() => props.onOpenInDedicatedView?.()}
 						menuOptions={customExtendedMenu}

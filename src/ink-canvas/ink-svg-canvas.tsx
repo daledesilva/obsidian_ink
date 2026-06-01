@@ -30,6 +30,10 @@ export interface InkSvgCanvasProps {
 	initialSnapshot?: InkCanvasSnapshot;
 	onEditorReady?: (editor: InkCanvasEditor) => void;
 	onChange?: () => void;
+	/** Emits whenever camera changes (pan/zoom/setCamera). */
+	onCameraChange?: (camera: CameraState, containerRect: DOMRect) => void;
+	/** If present in drawing mode, applies an explicit initial viewport instead of fit-to-strokes. */
+	initialViewBox?: { x: number; y: number; width: number; height: number };
 	/** When true, space+drag pan is disabled. Use for embeds where the page scroll
 	 *  should not be stolen by canvas pan gestures triggered by the Space key. */
 	isEmbedded?: boolean;
@@ -103,6 +107,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Refs that stay in sync with state so tool callbacks see current values
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
+	const onCameraChangeRef = useRef(props.onCameraChange);
+	onCameraChangeRef.current = props.onCameraChange;
+	const emitCameraChange = useCallback((nextCamera: CameraState) => {
+		const rect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
+		onCameraChangeRef.current?.({ ...nextCamera }, rect);
+	}, []);
 	const gridEnabledRef = useRef(gridEnabled);
 	gridEnabledRef.current = gridEnabled;
 	const onChangeRef = useRef(props.onChange);
@@ -166,6 +176,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return () => cancelAnimationFrame(frameId);
 		}
 
+		// If a viewBox is provided (embeds), honor it as the initial camera.
+		if (props.initialViewBox) {
+			const frameId = requestAnimationFrame(() => {
+				const container = containerRef.current;
+				if (!container) return;
+				const rect = container.getBoundingClientRect();
+				if (rect.width === 0 || rect.height === 0) return;
+				const vb = props.initialViewBox!;
+				const zoomX = vb.width > 0 ? rect.width / vb.width : 1;
+				const zoomY = vb.height > 0 ? rect.height / vb.height : 1;
+				const zoom = clampZoom(Math.min(zoomX, zoomY));
+				const next = { x: -vb.x, y: -vb.y, zoom };
+				setCameraState(next);
+				emitCameraChange(next);
+			});
+			return () => cancelAnimationFrame(frameId);
+		}
+
 		const strokes = props.initialSnapshot?.strokes;
 		const hasStrokes = (strokes?.length ?? 0) > 0;
 		if (!hasStrokes) {
@@ -173,7 +201,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const container = containerRef.current;
 				if (!container) return;
 				const zoom = container.clientWidth / pageWidth;
-				setCameraState(prev => ({ ...prev, zoom }));
+				setCameraState(prev => {
+					const next = { ...prev, zoom };
+					emitCameraChange(next);
+					return next;
+				});
 			});
 			return () => cancelAnimationFrame(frameId);
 		}
@@ -192,6 +224,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				height: bounds.height,
 			});
 			setCameraState(fittedCamera);
+			emitCameraChange(fittedCamera);
 		});
 		return () => cancelAnimationFrame(frameId);
 	}, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,7 +293,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 			getCamera: () => ({ ...cameraRef.current }),
 			setCamera: (partial: Partial<CameraState>) => {
-				setCameraState(prev => ({ ...prev, ...partial }));
+				setCameraState(prev => {
+					const next = { ...prev, ...partial };
+					emitCameraChange(next);
+					return next;
+				});
 			},
 
 			isGridEnabled: () => gridEnabledRef.current,
@@ -445,15 +482,23 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (writingMode && !props.isEmbedded) {
 				const dy = e.clientY - lastPanPoint.current.y;
 				lastPanPoint.current = { x: e.clientX, y: e.clientY };
-				setCameraState(prev => ({
-					...prev,
-					y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
-				}));
+				setCameraState(prev => {
+					const next = {
+						...prev,
+						y: clampWritingY(prev.y + dy / prev.zoom, prev.zoom),
+					};
+					emitCameraChange(next);
+					return next;
+				});
 			} else {
 				const dx = e.clientX - lastPanPoint.current.x;
 				const dy = e.clientY - lastPanPoint.current.y;
 				lastPanPoint.current = { x: e.clientX, y: e.clientY };
-				setCameraState(prev => panByScreenDelta(prev, dx, dy));
+				setCameraState(prev => {
+					const next = panByScreenDelta(prev, dx, dy);
+					emitCameraChange(next);
+					return next;
+				});
 			}
 			return;
 		}
@@ -470,11 +515,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const newZoom = clampZoom(initialCam.zoom * factor);
 			const focal = rightDragFocalScreenRef.current;
 			const zoomDelta = 1 / newZoom - 1 / initialCam.zoom;
-			setCameraState({
+			const next = {
 				x: initialCam.x + focal.x * zoomDelta,
 				y: initialCam.y + focal.y * zoomDelta,
 				zoom: newZoom,
-			});
+			};
+			setCameraState(next);
+			emitCameraChange(next);
 			return;
 		}
 
@@ -538,14 +585,16 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const afterPan = panByScreenDelta(prev, deltaX, deltaY);
 				const newZoom = clampZoom(afterPan.zoom * distanceRatio);
 				const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
-				return {
+				const next = {
 					x: afterPan.x + anchorX * zoomDelta,
 					y: afterPan.y + anchorY * zoomDelta,
 					zoom: newZoom,
 				};
+				emitCameraChange(next);
+				return next;
 			});
 		},
-		[],
+		[emitCameraChange],
 	);
 
 	// Context-menu suppression
@@ -583,10 +632,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				if (e.ctrlKey || e.metaKey) return;
 				e.preventDefault();
 				const delta = e.deltaY * (e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1);
-				setCameraState(prev => ({
-					...prev,
-					y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
-				}));
+				setCameraState(prev => {
+					const next = {
+						...prev,
+						y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
+					};
+					emitCameraChange(next);
+					return next;
+				});
 				return;
 			}
 
@@ -599,7 +652,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const anchorX = e.clientX - svgRect.left;
 				const anchorY = e.clientY - svgRect.top;
 				const direction: 1 | -1 = e.deltaY < 0 ? -1 : 1;
-				setCameraState(prev => zoomAtPoint(prev, anchorX, anchorY, direction));
+				setCameraState(prev => {
+					const next = zoomAtPoint(prev, anchorX, anchorY, direction);
+					emitCameraChange(next);
+					return next;
+				});
 				return;
 			}
 			// In dedicated view, plain wheel pans the canvas (both axes, so trackpad
@@ -607,7 +664,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			// Obsidian page scrolls normally.
 			if (!props.isEmbedded) {
 				e.preventDefault();
-				setCameraState(prev => panByScreenDelta(prev, e.deltaX, e.deltaY));
+				setCameraState(prev => {
+					const next = panByScreenDelta(prev, e.deltaX, e.deltaY);
+					emitCameraChange(next);
+					return next;
+				});
 			}
 		};
 

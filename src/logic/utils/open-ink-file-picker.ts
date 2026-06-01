@@ -155,7 +155,7 @@ export async function openInkFilePicker(
     plugin: InkPlugin,
     fileType: 'inkWriting' | 'inkDrawing',
     title: string,
-    onChoose: (file: TFile) => void,
+    onChoose: (file: TFile) => void | Promise<void>,
     options?: OpenInkFilePickerOptions
 ): Promise<void> {
     const allFiles = plugin.app.vault.getFiles();
@@ -203,7 +203,7 @@ export async function openInkFilePicker(
 
     const wrappedOnChoose = (file: TFile) => {
         recordRecentFileSelection(fileType, file.path);
-        onChoose(file);
+        void Promise.resolve(onChoose(file));
     };
 
     new SvgFilePickerModal(plugin.app, {

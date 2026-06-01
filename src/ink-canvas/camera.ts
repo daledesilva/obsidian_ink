@@ -108,6 +108,21 @@ export function fitBoundsToViewport(
 	};
 }
 
+/** Inverse of the drawing editor's computeCurrentViewBox — for persisting fit in embed URL params. */
+export function embedViewBoxFromCamera(
+	camera: CameraState,
+	viewportWidth: number,
+	viewportHeight: number,
+): { x: number; y: number; width: number; height: number } {
+	const zoom = camera.zoom > 0 ? camera.zoom : MIN_ZOOM;
+	return {
+		x: -camera.x,
+		y: -camera.y,
+		width: viewportWidth / zoom,
+		height: viewportHeight / zoom,
+	};
+}
+
 /**
  * After embed resize, keep the page point that was under `anchorScreen` aligned with
  * `targetScreen` (typically old and new geometric centers of `.ddc_ink_resize-container`).

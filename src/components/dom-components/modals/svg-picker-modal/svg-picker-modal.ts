@@ -1,6 +1,10 @@
 import "./svg-picker-modal.scss";
 import { App, Modal, prepareFuzzySearch, SearchComponent, TFile } from "obsidian";
 import type { SectionedFiles } from "src/logic/utils/open-ink-file-picker";
+import {
+	embedPreviewClassForFileType,
+	mountInlineSvgPreview,
+} from "src/logic/utils/inline-svg-preview";
 
 ////////
 ////////
@@ -22,6 +26,7 @@ export class SvgFilePickerModal extends Modal {
 	fileType: "inkWriting" | "inkDrawing";
 	onChoose: (file: TFile) => void;
 	searchQuery = "";
+	private svgContentCache = new Map<string, string>();
 
 	constructor(
 		app: App,
@@ -39,6 +44,24 @@ export class SvgFilePickerModal extends Modal {
 		this.onChoose = options.onChoose;
 	}
 
+	private async loadInlinePreview(previewHost: HTMLElement, file: TFile): Promise<void> {
+		try {
+			let svgString = this.svgContentCache.get(file.path);
+			if (svgString === undefined) {
+				svgString = await this.app.vault.read(file);
+				this.svgContentCache.set(file.path, svgString);
+			}
+			if (mountInlineSvgPreview(previewHost, svgString)) return;
+		} catch {
+			// fall through to placeholder
+		}
+		previewHost.empty();
+		previewHost.createDiv({
+			cls: "ink-svg-picker-preview-placeholder",
+			text: "Preview unavailable",
+		});
+	}
+
 	private createFileCard(container: HTMLElement, file: TFile, isHorizontalRow = false): void {
 		const card = container.createDiv({
 			cls: isHorizontalRow
@@ -47,12 +70,10 @@ export class SvgFilePickerModal extends Modal {
 		});
 
 		const previewWrapper = card.createDiv({ cls: "ink-svg-picker-preview" });
-		const imgEl = previewWrapper.createEl("img");
-		const basePath = this.app.vault.getResourcePath(file);
-		const mtime = file.stat?.mtime ?? 0;
-		const separator = basePath.includes("?") ? "&" : "?";
-		imgEl.src = `${basePath}${separator}t=${mtime}`;
-		imgEl.alt = file.basename;
+		const previewHost = previewWrapper.createDiv({
+			cls: embedPreviewClassForFileType(this.fileType),
+		});
+		void this.loadInlinePreview(previewHost, file);
 
 		const label = card.createDiv({ cls: "ink-svg-picker-label" });
 		label.setText(file.basename);
@@ -183,6 +204,7 @@ export class SvgFilePickerModal extends Modal {
 	}
 
 	onClose() {
+		this.svgContentCache.clear();
 		this.contentEl.empty();
 	}
 }

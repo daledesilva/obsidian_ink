@@ -1,6 +1,6 @@
 import { buildDrawingEmbed, buildWritingEmbed } from 'src/components/formats/current/utils/build-embeds';
 import { INK_EMBED_BASE_URL } from 'src/constants';
-import { DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
+import { DEFAULT_EMBED_SETTINGS, formatEmbedAspectRatio } from 'src/types/embed-settings';
 
 describe('build-embeds', () => {
   describe('buildDrawingEmbed', () => {
@@ -22,7 +22,7 @@ describe('build-embeds', () => {
       const s = DEFAULT_EMBED_SETTINGS;
       expect(url.searchParams.get('version')).toBe(String(s.version));
       expect(url.searchParams.get('width')).toBe(String(s.embedDisplay.width));
-      expect(url.searchParams.get('aspectRatio')).toBe(String(s.embedDisplay.aspectRatio));
+      expect(url.searchParams.get('aspectRatio')).toBe(formatEmbedAspectRatio(s.embedDisplay.aspectRatio));
       expect(url.searchParams.get('viewBoxX')).toBe(String(s.viewBox.x));
       expect(url.searchParams.get('viewBoxY')).toBe(String(s.viewBox.y));
       expect(url.searchParams.get('viewBoxWidth')).toBe(String(s.viewBox.width));

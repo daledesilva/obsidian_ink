@@ -63,7 +63,7 @@ function buildWritingEmbed(filepath) {
 
 function buildDrawingEmbed(filepath, width = 500, aspectRatio = 16 / 9, vb = { x: 0, y: 0, w: 500, h: 281 }) {
   const params = new URLSearchParams({
-    type: 'inkDrawing', version: EMBED_SETTINGS_VERSION, width: String(width), aspectRatio: String(aspectRatio),
+    type: 'inkDrawing', version: EMBED_SETTINGS_VERSION, width: String(width), aspectRatio: aspectRatio.toFixed(3),
     viewBoxX: String(vb.x), viewBoxY: String(vb.y), viewBoxWidth: String(vb.w), viewBoxHeight: String(vb.h),
   });
   return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?${params})\n`;
@@ -406,7 +406,7 @@ function generateAllNotes() {
 
   // 09 Edge
   writeFile('09 - Edge Cases and Error States/Missing File Reference.md', `# Missing File\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION})`);
-  const drawingParams = new URLSearchParams({ type: 'inkDrawing', version: EMBED_SETTINGS_VERSION, width: '500', aspectRatio: String(16/9), viewBoxX: '0', viewBoxY: '0', viewBoxWidth: '500', viewBoxHeight: '281' });
+  const drawingParams = new URLSearchParams({ type: 'inkDrawing', version: EMBED_SETTINGS_VERSION, width: '500', aspectRatio: (16/9).toFixed(3), viewBoxX: '0', viewBoxY: '0', viewBoxWidth: '500', viewBoxHeight: '281' });
   writeFile('09 - Edge Cases and Error States/Missing Drawing Reference.md', `# Missing Drawing\n\n ![InkDrawing](<Ink/Drawing/nonexistent.svg>) [Edit Drawing](${INK_BASE_URL}?${drawingParams})`);
   writeFile('09 - Edge Cases and Error States/Missing File Pending Paste.md', `# Missing File Pending Paste\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION}&pendingPaste=true)`);
   writeFile('09 - Edge Cases and Error States/Broken Embed Syntax.md', `# Broken\n\n![InkWriting](<Ink/Writing/hello-world.svg>) (missing space before !)`);

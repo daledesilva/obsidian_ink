@@ -18,7 +18,7 @@ import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
-import { EmbedSettings } from 'src/types/embed-settings';
+import { EmbedSettings, formatEmbedAspectRatio } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
@@ -279,6 +279,8 @@ export class WritingEmbedWidget extends WidgetType {
         // Notify CodeMirror to re-measure
         view.requestMeasure();
         
+        const aspectRatioStr = formatEmbedAspectRatio(aspectRatio);
+
         // Find this widget's decoration range and update aspectRatio in markdown
         const decorations = view.state.field(embedStateFieldWriting, false);
         if (!decorations) return;
@@ -293,17 +295,17 @@ export class WritingEmbedWidget extends WidgetType {
                 
                 // Replace aspectRatio if present, otherwise add it
                 if (/aspectRatio=[^&)]+/.test(updated)) {
-                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${aspectRatio}`);
+                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${aspectRatioStr}`);
                 } else {
                     // Add aspectRatio to the URL parameters
                     // Find the [Edit Writing](...) section and add parameter
                     updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^)]*)?(\))/, (match, p1, p2, p3) => {
                         if (p2) {
                             // Already has parameters
-                            return `${p1}${p2}&aspectRatio=${aspectRatio}${p3}`;
+                            return `${p1}${p2}&aspectRatio=${aspectRatioStr}${p3}`;
                         } else {
                             // No parameters yet
-                            return `${p1}?aspectRatio=${aspectRatio}${p3}`;
+                            return `${p1}?aspectRatio=${aspectRatioStr}${p3}`;
                         }
                     });
                 }

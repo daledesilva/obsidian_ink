@@ -36,7 +36,7 @@ function buildWritingEmbed(filepath: string): string {
 }
 
 function buildDrawingEmbed(filepath: string): string {
-	return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?type=inkDrawing&version=1.0.1&width=500&aspectRatio=1.7777777777777777&viewBoxX=0&viewBoxY=0&viewBoxWidth=500&viewBoxHeight=281&pendingPaste=true)\n`;
+	return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?type=inkDrawing&version=1.0.1&width=500&aspectRatio=1.778&viewBoxX=0&viewBoxY=0&viewBoxWidth=500&viewBoxHeight=281&pendingPaste=true)\n`;
 }
 
 async function waitForPluginReady() {

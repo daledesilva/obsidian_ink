@@ -1,5 +1,5 @@
 import { INK_EMBED_BASE_URL } from "src/constants";
-import { DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
+import { DEFAULT_EMBED_SETTINGS, formatEmbedAspectRatio } from "src/types/embed-settings";
 
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 extension detects
 
@@ -8,7 +8,7 @@ export const buildDrawingEmbed = (filepath: string, options?: { pendingPaste?: b
 	const params = new URLSearchParams({
 		version: String(s.version),
 		width: String(s.embedDisplay.width),
-		aspectRatio: String(s.embedDisplay.aspectRatio),
+		aspectRatio: formatEmbedAspectRatio(s.embedDisplay.aspectRatio),
 		viewBoxX: String(s.viewBox.x),
 		viewBoxY: String(s.viewBox.y),
 		viewBoxWidth: String(s.viewBox.width),

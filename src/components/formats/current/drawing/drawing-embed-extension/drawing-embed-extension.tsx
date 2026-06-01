@@ -24,7 +24,7 @@ import {
 import { DrawingEmbed } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
-import { EmbedSettings } from 'src/types/embed-settings';
+import { EmbedSettings, formatEmbedAspectRatio } from 'src/types/embed-settings';
 import './drawing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
@@ -307,7 +307,7 @@ export class DrawingEmbedWidget extends WidgetType {
                     updated = updated.replace(/(width=)([^&)]+)/, `$1${newEmbedSettings.embedDisplay.width}`);
                 }
                 if (/aspectRatio=[^&)]+/.test(updated)) {
-                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${newEmbedSettings.embedDisplay.aspectRatio}`);
+                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${formatEmbedAspectRatio(newEmbedSettings.embedDisplay.aspectRatio)}`);
                 }
                 if (updated !== currentText) {
                     const tr = view.state.update({

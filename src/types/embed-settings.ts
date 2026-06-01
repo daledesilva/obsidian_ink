@@ -28,3 +28,8 @@ export const DEFAULT_EMBED_SETTINGS: EmbedSettings = {
         height: 281,
     },
 };
+
+/** Rounded string form for `aspectRatio` in embed URL params. */
+export function formatEmbedAspectRatio(aspectRatio: number): string {
+    return aspectRatio.toFixed(3);
+}

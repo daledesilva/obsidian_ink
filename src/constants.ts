@@ -22,11 +22,9 @@ export const MENUBAR_HEIGHT_PX = 100;
 
 export const WRITE_SHORT_DELAY_MS = 500;
 export const WRITE_LONG_DELAY_MS = 2000;
-export const WRITE_STROKE_LIMIT = 200;
 
 export const DRAW_SHORT_DELAY_MS = 500;
 export const DRAW_LONG_DELAY_MS = 2000;
-export const DRAW_STROKE_LIMIT = 200;
 
 export const WRITING_PAGE_WIDTH = 2000;
 export const WRITING_LINE_HEIGHT = 150;

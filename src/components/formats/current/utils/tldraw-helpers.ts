@@ -1,8 +1,6 @@
 import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, Box, TLEditorSnapshot } from "@tldraw/tldraw";
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
-import { useRef } from 'react';
 import InkPlugin from "src/main";
-import { showStrokeLimitTips_maybe } from "src/components/dom-components/stroke-limit-notice";
 import { info, verbose } from "../../../../logic/utils/universal-dev-logging";
 import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
@@ -363,78 +361,6 @@ export function isEmptyDrawingFile(tlStoreSnapshot: TLStoreSnapshot): boolean {
 	}
 	return isEmpty;
 }
-
-function getCompleteShapes(editor: Editor) {
-	const allShapes = editor.getCurrentPageShapes();
-	let completeShapes: TLShape[] = [];
-	for (let i = 0; i < allShapes.length; i++) {
-		const shape = allShapes[i];
-		if ('isComplete' in shape.props && shape.props.isComplete === true) {
-			completeShapes.push(shape);
-		}
-	}
-
-	// Order according to y position
-	completeShapes.sort((a, b) => {
-		return a.y - b.y
-	});
-
-	return completeShapes;
-}
-
-function getIncompleteShapes(editor: Editor) {
-	const allShapes = editor.getCurrentPageShapes();
-	let incompleteShapes: TLShape[] = [];
-	for (let i = 0; i < allShapes.length; i++) {
-		const shape = allShapes[i];
-		if ('isComplete' in shape.props && shape.props.isComplete === false) {
-			incompleteShapes.push(shape);
-		}
-	}
-	return incompleteShapes;
-}
-
-export const useStash = (plugin: InkPlugin) => {
-	const stash = useRef<TLShape[]>([]);
-
-	const stashStaleContent = (editor: Editor) => {
-		const completeShapes = getCompleteShapes(editor);
-
-		const staleShapeIds: TLShapeId[] = [];
-		const staleShapes: TLShape[] = [];
-
-		// TODO: Order shapes by vertical position
-		for (let i = 0; i <= completeShapes.length - plugin.settings.writingStrokeLimit; i++) {
-			const record = completeShapes[i];
-			if (record.type !== 'draw') return;
-
-			staleShapeIds.push(record.id);
-			staleShapes.push(record);
-		}
-
-		stash.current.push(...staleShapes);
-		silentlyChangeStore(editor, () => {
-			editor.store.remove(staleShapeIds);
-		});
-
-		try {
-			// REVIEW: This often throws an error on ipad. I'm not sure why.
-			if(staleShapeIds.length >= 5) showStrokeLimitTips_maybe(plugin);
-		} catch (caught: unknown) {
-			verbose(['Error from stashing stale content (when calling showStrokeLimitTips_maybe)', caught]);
-		}
-
-	};
-
-	const unstashStaleContent = (editor: Editor) => {
-		silentlyChangeStore(editor, () => {
-			editor.store.put(stash.current);
-		});
-		stash.current.length = 0;
-	};
-
-	return { stashStaleContent, unstashStaleContent };
-};
 
 export const hideWritingTemplate = (editor: Editor) => {
 	hideWritingContainer(editor);

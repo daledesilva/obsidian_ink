@@ -92,7 +92,6 @@ jest.mock('src/components/formats/current/utils/tldraw-helpers', () => ({
   resizeWritingTemplateInvitingly: () => {},
   restrictWritingCamera: () => {},
   updateWritingStoreIfNeeded: () => {},
-  useStash: () => ({ stashStaleContent: () => {}, unstashStaleContent: () => {} }),
 }));
 
 jest.mock('src/components/formats/v1-code-blocks/utils/tldraw-helpers', () => ({

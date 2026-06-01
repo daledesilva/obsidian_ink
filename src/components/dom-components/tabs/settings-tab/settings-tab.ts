@@ -505,12 +505,6 @@ function insertWritingSettings(
 	strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[],
 ): HTMLElement {
 
-	const saveWritingStrokeLimit = async (enteredValue: string) => {
-		const value = parseInt(enteredValue) || DEFAULT_SETTINGS.writingStrokeLimit;
-		plugin.settings.writingStrokeLimit = value;
-		await plugin.saveSettings();
-	}
-
 	const saveWritingBufferLines = async (enteredValue: string) => {
 		const parsed = parseInt(enteredValue);
 		const value = (!isNaN(parsed) && parsed >= 0) ? parsed : DEFAULT_SETTINGS.writingBufferLines;
@@ -620,22 +614,6 @@ function insertWritingSettings(
 			});
 		});
 
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setName('Writing stroke limit')
-		.setDesc(`Too much writing in one embed can create a lag between your physical pen movement and the line appearing on screen. The stroke limit defines the maximum pen strokes before old strokes start becoming invisible until the embed is locked. Set this to a lower number if you're experiencing lag or jagged writing.`)
-
-		.addText((textItem) => {
-			textItem.setValue(plugin.settings.writingStrokeLimit.toString());
-			textItem.setPlaceholder(DEFAULT_SETTINGS.writingStrokeLimit.toString());
-			// TODO: Combine the blur and the enter into one abstracted and reusable function
-			textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
-				void saveWritingStrokeLimit(textItem.getValue())
-			})
-			textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
-				if(ev.key === 'Enter') void saveWritingStrokeLimit(textItem.getValue())
-			})
-		});
 	insertWritingLimitations(contentEl);
 	return wrapperEl;
 }

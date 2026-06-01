@@ -59,7 +59,7 @@ function showFullStrokeLimitTip(plugin: InkPlugin) {
     noticeBody.createEl('h1').setText(`To help keep writing smooth...`);//     margin-block-start: 0.1em;
     noticeBody.createEl('p').setText(`Hiding old strokes helps keep pen latency down and the writing experience smooth.`);
     noticeBody.createEl('p').setText(`Never fear though, all your strokes still exist and will become visible again later.`);
-    noticeBody.createEl('p').setText(`You can adjust the stroke limit in the settings.`);
+    noticeBody.createEl('p').setText(`When you lock or save the embed, those strokes become visible again.`);
     
     const {
         tertiaryBtnEl

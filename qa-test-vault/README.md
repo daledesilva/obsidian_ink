@@ -38,3 +38,4 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
 - **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
 - **16 – V2 Tldraw Migration**: Real v2 `<tldraw>` SVGs; preview, edit, upgrade to ink-canvas on save
+- **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place

@@ -21,6 +21,7 @@ import { setGlobals } from './stores/global-store';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
 import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
 import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
+import { TldrawSvgMigrationModal } from './components/dom-components/modals/tldraw-svg-migration-modal/tldraw-svg-migration-modal';
 import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
 import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfFileFromNote } from './logic/utils/convert-file-embeds';
 import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
@@ -55,6 +56,10 @@ export default class InkPlugin extends Plugin {
 
 	openMigrationModal() {
 		new MigrationModal(this).open();
+	}
+
+	openTldrawSvgMigrationModal() {
+		new TldrawSvgMigrationModal(this).open();
 	}
 
 	async onload() {
@@ -238,6 +243,11 @@ function implementMigrationCommand(plugin: InkPlugin) {
 		id: 'migrate-legacy-embeds',
 		name: 'Migrate legacy ink embeds to ink-canvas',
 		callback: () => plugin.openMigrationModal(),
+	});
+	plugin.addCommand({
+		id: 'migrate-tldraw-svg-to-ink-canvas',
+		name: 'Migrate tldraw SVG files to ink-canvas (developer)',
+		callback: () => plugin.openTldrawSvgMigrationModal(),
 	});
 }
 

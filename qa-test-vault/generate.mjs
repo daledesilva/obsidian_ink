@@ -480,12 +480,14 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
 - **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
 - **16 – V2 Tldraw Migration**: Real v2 \`<tldraw>\` SVGs; preview, edit, upgrade to ink-canvas on save
+- **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
   generateConversionModalTestAssets();
   generateCopyPastePathsTestAssets();
   generateV2TldrawMigrationAssets();
+  generateTldrawBulkMigrationAssets();
 
   ensureDir('.obsidian');
   // Enable community plugins needed for column layout e2e tests.
@@ -738,6 +740,70 @@ Real captured v2 SVG files with \`<tldraw version="2.1.0">\` metadata (not ink-c
 | V2 Tldraw Writing - Edit and Upgrade | Same for writing |
 
 E2e resets ink files from \`_test-fixtures/\` copies before upgrade tests.
+`);
+}
+
+// ─── Section 17: Tldraw Bulk Migration (developer modal) ─────────────────────
+
+const BULK_TLDRAW_DRAWING_SVG = 'bulk-tldraw-drawing.svg';
+const BULK_TLDRAW_WRITING_SVG = 'bulk-tldraw-writing.svg';
+
+function generateTldrawBulkMigrationAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '_test-fixtures'));
+  ensureDir(path.join(VAULT_ROOT, '17 - Tldraw Bulk Migration'));
+
+  const drawingSrc = path.join(FIXTURES, 'v2-tldraw-drawing-tasks-priority.svg');
+  const writingSrc = path.join(FIXTURES, 'v2-tldraw-writing-llm-text.svg');
+  const drawingVault = path.join(VAULT_ROOT, 'Ink/Drawing', BULK_TLDRAW_DRAWING_SVG);
+  const writingVault = path.join(VAULT_ROOT, 'Ink/Writing', BULK_TLDRAW_WRITING_SVG);
+  const drawingPristine = path.join(VAULT_ROOT, '_test-fixtures', BULK_TLDRAW_DRAWING_SVG);
+  const writingPristine = path.join(VAULT_ROOT, '_test-fixtures', BULK_TLDRAW_WRITING_SVG);
+
+  fs.copyFileSync(drawingSrc, drawingVault);
+  fs.copyFileSync(writingSrc, writingVault);
+  fs.copyFileSync(drawingSrc, drawingPristine);
+  fs.copyFileSync(writingSrc, writingPristine);
+
+  writeFile('17 - Tldraw Bulk Migration/Bulk Drawing - Before.md', `# Bulk Drawing — Before Migration
+
+Locked preview of tldraw drawing SVG for developer bulk migration modal.
+
+${buildDrawingEmbed(`Ink/Drawing/${BULK_TLDRAW_DRAWING_SVG}`)}
+`);
+
+  writeFile('17 - Tldraw Bulk Migration/Bulk Writing - Before.md', `# Bulk Writing — Before Migration
+
+${buildWritingEmbed(`Ink/Writing/${BULK_TLDRAW_WRITING_SVG}`)}
+`);
+
+  writeFile('17 - Tldraw Bulk Migration/Bulk Drawing - Duplicate Ref.md', `# Bulk Drawing — Duplicate Reference
+
+Same drawing SVG embedded twice (viewBox update on both lines).
+
+${buildDrawingEmbed(`Ink/Drawing/${BULK_TLDRAW_DRAWING_SVG}`)}
+
+Second reference:
+
+${buildDrawingEmbed(`Ink/Drawing/${BULK_TLDRAW_DRAWING_SVG}`)}
+`);
+
+  writeFile('17 - Tldraw Bulk Migration/README.md', `# Tldraw Bulk Migration (developer modal)
+
+Bulk-convert tldraw SVG files to ink-canvas via **Settings → Developer: Migrate tldraw SVG to ink-canvas**.
+
+## Manual checklist
+
+1. Run \`node qa-test-vault/generate.mjs\` to reset vault.
+2. Open **Bulk Drawing - Before.md** — preview shows tldraw drawing.
+3. Settings → Ink → **Migrate tldraw SVGs…** (under legacy migration).
+4. Confirm lists include \`Ink/Drawing/bulk-tldraw-drawing.svg\` and notes in this folder.
+5. Click **Migrate**; wait for completion.
+6. Verify SVG contains \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\`.
+7. Unlock drawing embed — strokes framed correctly (fitted viewBox).
+
+E2e resets \`Ink/Drawing/bulk-tldraw-drawing.svg\` and \`Ink/Writing/bulk-tldraw-writing.svg\` from \`_test-fixtures/\` before each run.
 `);
 }
 

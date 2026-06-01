@@ -67,6 +67,7 @@ export class MySettingsTab extends PluginSettingTab {
 
 		// Turn this on when v0.5 is out of beta
 		insertMigrateSection(containerEl, this.plugin);
+		insertTldrawSvgMigrateSection(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
 		const strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[] = [];
@@ -173,6 +174,19 @@ function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
 			button.setCta();
 			button.setButtonText('Update Ink files…');
 			button.onClick(() => plugin.openMigrationModal());
+		});
+}
+
+function insertTldrawSvgMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Developer: Migrate tldraw SVG to ink-canvas')
+		.setDesc(
+			'Bulk-convert v2 SVG files still on <tldraw> metadata (referenced by embeds) to ink-canvas in place. Drawing embed viewBox is refit to stroke bounds.',
+		)
+		.addButton((button) => {
+			button.setButtonText('Migrate tldraw SVGs…');
+			button.onClick(() => plugin.openTldrawSvgMigrationModal());
 		});
 }
 

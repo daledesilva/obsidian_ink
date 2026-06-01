@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom';
 
+if (typeof globalThis.structuredClone === 'undefined') {
+	globalThis.structuredClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+}
+
 // Minimal mock for Obsidian types used in components
 class TFile {}
 (global as any).TFile = TFile;

@@ -2,6 +2,13 @@ import * as React from 'react';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
 import { getPointerSamples } from 'src/ink-canvas/utils/pointer-samples';
+import {
+	blockObsidianTouchEvent,
+	shouldBlockObsidianTouch,
+	TOUCH_AXIS_LOCK_THRESHOLD_PX,
+	type InkTouchGestureMode,
+	type TouchAxisLock,
+} from 'src/logic/touch-gesture-policy';
 import './finger-blocker.scss';
 
 const INK_CM_SCROLLER_SCROLL_PINNED_CLASS = 'ink-cm-scroller--scroll-pinned';
@@ -120,6 +127,13 @@ export type FingerBlockerProps = {
 	onPanGestureEnd?: () => void;
 	/** When true, middle-click (button 1) is forwarded to ink-svg-canvas for temporary erase. */
 	enableMiddleButtonTemporaryErase?: boolean;
+	/**
+	 * Ink-canvas touch routing. When omitted, legacy tldraw behavior (enableTwoFingerGestures +
+	 * onVerticalTouchPan) applies unchanged.
+	 */
+	touchGestureMode?: InkTouchGestureMode;
+	/** Called when a touch session begins that may capture pan/scroll (cancel in-flight momentum). */
+	onTouchGestureSessionStart?: () => void;
 };
 
 export function FingerBlocker({
@@ -132,6 +146,8 @@ export function FingerBlocker({
 	onEmbedTwoFingerGestureEnd,
 	onPanGestureEnd,
 	enableMiddleButtonTemporaryErase = false,
+	touchGestureMode = 'legacy',
+	onTouchGestureSessionStart,
 }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
 	const pointerDownRef = React.useRef<boolean>(false);
@@ -172,6 +188,17 @@ export function FingerBlocker({
 	const onDrawingEmbedTwoFingerGestureRef = React.useRef(onDrawingEmbedTwoFingerGesture);
 	const onEmbedTwoFingerGestureEndRef = React.useRef(onEmbedTwoFingerGestureEnd);
 	const onPanGestureEndRef = React.useRef(onPanGestureEnd);
+	const onTouchGestureSessionStartRef = React.useRef(onTouchGestureSessionStart);
+	React.useEffect(() => {
+		onTouchGestureSessionStartRef.current = onTouchGestureSessionStart;
+	}, [onTouchGestureSessionStart]);
+	const touchGestureModeRef = React.useRef(touchGestureMode);
+	touchGestureModeRef.current = touchGestureMode;
+	const touchGestureSessionActiveRef = React.useRef(false);
+	const dedicatedWritingAxisLockedRef = React.useRef<TouchAxisLock>('none');
+	const dedicatedWritingGestureStartClientRef = React.useRef<Map<number, { x: number; y: number }>>(new Map());
+	/** True when dedicated writing consumed vertical pan (for flick on gesture end). */
+	const verticalPanConsumedRef = React.useRef(false);
 	/** Right-click embed pan/zoom pointers forwarded to ink-svg-canvas (capture may fail on synthetics). */
 	const embedPanZoomPointerIdsRef = React.useRef<Set<number>>(new Set());
 	/** Middle-click temporary-erase pointers forwarded to ink-svg-canvas. */
@@ -264,7 +291,43 @@ export function FingerBlocker({
 
 		const isEmbedDrawingInkCanvas = () => !!onDrawingEmbedTwoFingerGestureRef.current;
 
+		const isDedicatedWritingVerticalMode = () =>
+			touchGestureModeRef.current === 'dedicatedWritingVertical'
+			&& !!onVerticalTouchPanRef.current;
+
+		const isInkCanvasTwoFingerMode = () =>
+			touchGestureModeRef.current === 'inkCanvasTwoFinger'
+			|| (!!enableTwoFingerGestures && touchGestureModeRef.current === 'legacy');
+
 		const shouldForwardEmbedRightButtonToCanvas = () => isEmbedDrawingInkCanvas();
+
+		const resetDedicatedWritingGestureState = () => {
+			dedicatedWritingAxisLockedRef.current = 'none';
+			dedicatedWritingGestureStartClientRef.current.clear();
+			verticalPanConsumedRef.current = false;
+		};
+
+		const beginTouchGestureSession = () => {
+			if (!touchGestureSessionActiveRef.current) {
+				onTouchGestureSessionStartRef.current?.();
+			}
+			touchGestureSessionActiveRef.current = true;
+		};
+
+		const updateDedicatedWritingAxisLock = (pointerId: number, clientX: number, clientY: number) => {
+			if (dedicatedWritingAxisLockedRef.current !== 'none') return;
+			const start = dedicatedWritingGestureStartClientRef.current.get(pointerId);
+			if (!start) return;
+			const deltaX = clientX - start.x;
+			const deltaY = clientY - start.y;
+			if (Math.hypot(deltaX, deltaY) < TOUCH_AXIS_LOCK_THRESHOLD_PX) return;
+			dedicatedWritingAxisLockedRef.current = Math.abs(deltaY) >= Math.abs(deltaX)
+				? 'vertical'
+				: 'horizontal';
+			if (dedicatedWritingAxisLockedRef.current === 'vertical') {
+				setFingerBlockerTouchMode(element, 'none');
+			}
+		};
 
 		const isEmbedPanZoomMouseButton = (e: PointerEvent) =>
 			e.pointerType === 'mouse' && e.button === 2;
@@ -338,12 +401,32 @@ export function FingerBlocker({
 				});
 				const touchCount = activeTouchPointerDataRef.current.size;
 				const verticalTouchPan = onVerticalTouchPanRef.current;
+				const dedicatedWritingVertical = isDedicatedWritingVerticalMode();
 
-				if (verticalTouchPan) {
-					// preventDefault alone is not enough — Obsidian command-palette swipe still fires.
-					e.preventDefault();
-					e.stopPropagation();
-					e.stopImmediatePropagation();
+				if (dedicatedWritingVertical) {
+					beginTouchGestureSession();
+					resetDedicatedWritingGestureState();
+					if (touchCount >= 2 && !twoFingerVerticalPanActiveRef.current) {
+						blockObsidianTouchEvent(e);
+						setFingerBlockerTouchMode(element, 'none');
+						twoFingerVerticalPanActiveRef.current = true;
+						const [pa, pb] = [...activeTouchPointerDataRef.current.values()];
+						prevVerticalPanMidpointRef.current = {
+							x: (pa.clientX + pb.clientX) / 2,
+							y: (pa.clientY + pb.clientY) / 2,
+						};
+					} else if (touchCount === 1) {
+						setFingerBlockerTouchMode(element, 'pan-xy');
+						dedicatedWritingGestureStartClientRef.current.set(e.pointerId, {
+							x: e.clientX,
+							y: e.clientY,
+						});
+						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
+					}
+				} else if (verticalTouchPan) {
+					// Legacy tldraw dedicated writing: block all touch immediately.
+					beginTouchGestureSession();
+					blockObsidianTouchEvent(e);
 					setFingerBlockerTouchMode(element, 'none');
 
 					if (touchCount >= 2 && !twoFingerVerticalPanActiveRef.current) {
@@ -356,11 +439,10 @@ export function FingerBlocker({
 					} else if (touchCount === 1) {
 						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
 					}
-				} else if (touchCount >= 2 && enableTwoFingerGestures && !twoFingerModeActiveRef.current) {
+				} else if (touchCount >= 2 && isInkCanvasTwoFingerMode() && !twoFingerModeActiveRef.current) {
+					beginTouchGestureSession();
 					// Switch from single-finger scroll mode to two-finger gesture mode.
-					// Prevent the browser from handling this as a scroll or system gesture.
-					e.preventDefault();
-					e.stopPropagation();
+					blockObsidianTouchEvent(e);
 					setFingerBlockerTouchMode(element, 'none');
 					twoFingerModeActiveRef.current = true;
 
@@ -454,20 +536,52 @@ export function FingerBlocker({
 				const deltaX = currentMidpoint.x - prevMidpoint.x;
 				const deltaY = currentMidpoint.y - prevMidpoint.y;
 
-				e.preventDefault();
-				e.stopPropagation();
-				e.stopImmediatePropagation();
+				blockObsidianTouchEvent(e);
 
 				if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+					verticalPanConsumedRef.current = true;
 					// Negate so finger-up scrolls down (matches embed .cm-scroller semantics, not wheel sign).
 					onVerticalTouchPanRef.current?.(-deltaY);
 				}
 				prevVerticalPanMidpointRef.current = currentMidpoint;
-			} else if (e.pointerType === 'touch' && onVerticalTouchPanRef.current && !twoFingerVerticalPanActiveRef.current) {
-				e.preventDefault();
-				e.stopPropagation();
-				e.stopImmediatePropagation();
+			} else if (
+				e.pointerType === 'touch'
+				&& onVerticalTouchPanRef.current
+				&& !twoFingerVerticalPanActiveRef.current
+			) {
 				recentPenInputRef.current = false;
+
+				if (isDedicatedWritingVerticalMode()) {
+					updateDedicatedWritingAxisLock(e.pointerId, e.clientX, e.clientY);
+					const axisLocked = dedicatedWritingAxisLockedRef.current;
+					const start = dedicatedWritingGestureStartClientRef.current.get(e.pointerId);
+					const deltaX = start ? e.clientX - start.x : 0;
+					const deltaY = start ? e.clientY - start.y : 0;
+					const shouldBlock = shouldBlockObsidianTouch({
+						mode: 'dedicatedWritingVertical',
+						fingerCount: 1,
+						deltaX,
+						deltaY,
+						axisLocked,
+					});
+					if (!shouldBlock) return;
+
+					blockObsidianTouchEvent(e);
+					const prevClientY = prevSingleFingerVerticalPanClientYByPointerRef.current.get(e.pointerId);
+					if (prevClientY === undefined) {
+						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
+					} else {
+						const frameDeltaY = e.clientY - prevClientY;
+						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
+						if (frameDeltaY !== 0) {
+							verticalPanConsumedRef.current = true;
+							onVerticalTouchPanRef.current!(-frameDeltaY);
+						}
+					}
+					return;
+				}
+
+				blockObsidianTouchEvent(e);
 				const prevClientY = prevSingleFingerVerticalPanClientYByPointerRef.current.get(e.pointerId);
 				if (prevClientY === undefined) {
 					prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
@@ -475,7 +589,6 @@ export function FingerBlocker({
 					const deltaY = e.clientY - prevClientY;
 					prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
 					if (deltaY !== 0) {
-						// Negate so finger-up scrolls down (matches embed .cm-scroller semantics, not wheel sign).
 						onVerticalTouchPanRef.current(-deltaY);
 					}
 				}
@@ -501,6 +614,8 @@ export function FingerBlocker({
 				});
 
 				if (activeTouchPointerDataRef.current.size < 2) return;
+
+				blockObsidianTouchEvent(e);
 
 				const [p0, p1] = [...activeTouchPointerDataRef.current.values()];
 				const inkTwoFinger = onDrawingEmbedTwoFingerGestureRef.current;
@@ -585,18 +700,24 @@ export function FingerBlocker({
 
 				if (onVerticalTouchPanRef.current) {
 					prevSingleFingerVerticalPanClientYByPointerRef.current.delete(e.pointerId);
+					dedicatedWritingGestureStartClientRef.current.delete(e.pointerId);
 					if (twoFingerVerticalPanActiveRef.current && activeTouchPointerDataRef.current.size < 2) {
 						twoFingerVerticalPanActiveRef.current = false;
+						dedicatedWritingAxisLockedRef.current = 'none';
 						for (const touch of activeTouchPointerDataRef.current.values()) {
 							prevSingleFingerVerticalPanClientYByPointerRef.current.set(
 								touch.pointerId,
 								touch.clientY,
 							);
+							dedicatedWritingGestureStartClientRef.current.set(touch.pointerId, {
+								x: touch.clientX,
+								y: touch.clientY,
+							});
 						}
 					}
 					if (activeTouchPointerDataRef.current.size === 0) {
 						setFingerBlockerTouchMode(element, 'default');
-					} else {
+					} else if (!isDedicatedWritingVerticalMode() || twoFingerVerticalPanActiveRef.current) {
 						setFingerBlockerTouchMode(element, 'none');
 					}
 				}
@@ -636,9 +757,12 @@ export function FingerBlocker({
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				if (onVerticalTouchPanRef.current) {
 					prevSingleFingerVerticalPanClientYByPointerRef.current.delete(e.pointerId);
+					dedicatedWritingGestureStartClientRef.current.delete(e.pointerId);
 					twoFingerVerticalPanActiveRef.current = false;
+					resetDedicatedWritingGestureState();
 					if (activeTouchPointerDataRef.current.size === 0) {
 						setFingerBlockerTouchMode(element, 'default');
+						touchGestureSessionActiveRef.current = false;
 					}
 				}
 			}
@@ -683,16 +807,36 @@ export function FingerBlocker({
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
-			const isDedicatedVerticalPan =
-				twoFingerVerticalPanActiveRef.current ||
-				(onVerticalTouchPanRef.current && activeTouchPointerDataRef.current.size > 0);
+			if (isPenDownRef.current || twoFingerModeActiveRef.current) {
+				blockObsidianTouchEvent(e);
+				return;
+			}
 
-			if (isPenDownRef.current || twoFingerModeActiveRef.current || isDedicatedVerticalPan) {
-				e.preventDefault();
-				// stopPropagation required or Obsidian swipe gestures (e.g. command menu) still fire.
-				if (isPenDownRef.current || twoFingerModeActiveRef.current || isDedicatedVerticalPan) {
-					e.stopPropagation();
-					e.stopImmediatePropagation();
+			if (!touchGestureSessionActiveRef.current) return;
+
+			const mode = touchGestureModeRef.current;
+			if (mode === 'embedNoteScroll') return;
+
+			if (mode === 'inkCanvasTwoFinger' && twoFingerModeActiveRef.current) {
+				blockObsidianTouchEvent(e);
+				return;
+			}
+
+			if (isDedicatedWritingVerticalMode() || (mode === 'legacy' && onVerticalTouchPanRef.current)) {
+				if (twoFingerVerticalPanActiveRef.current) {
+					blockObsidianTouchEvent(e);
+					return;
+				}
+				if (mode === 'legacy' && onVerticalTouchPanRef.current) {
+					blockObsidianTouchEvent(e);
+					return;
+				}
+				if (isDedicatedWritingVerticalMode()) {
+					const axisLocked = dedicatedWritingAxisLockedRef.current;
+					if (axisLocked === 'vertical') {
+						blockObsidianTouchEvent(e);
+					}
+					// horizontal: do not block — Obsidian receives touchmove
 				}
 			}
 		};
@@ -721,16 +865,24 @@ export function FingerBlocker({
 			if (onVerticalTouchPanRef.current) {
 				if (twoFingerVerticalPanActiveRef.current && e.touches.length < 2) {
 					twoFingerVerticalPanActiveRef.current = false;
+					dedicatedWritingAxisLockedRef.current = 'none';
 				}
 				if (e.touches.length === 0) {
 					setFingerBlockerTouchMode(element, 'default');
 					activeTouchPointerDataRef.current.clear();
-					onPanGestureEndRef.current?.();
+					touchGestureSessionActiveRef.current = false;
+					const shouldReleaseMomentum = isDedicatedWritingVerticalMode()
+						? verticalPanConsumedRef.current
+						: true;
+					if (shouldReleaseMomentum) {
+						onPanGestureEndRef.current?.();
+					}
+					resetDedicatedWritingGestureState();
 				}
 				return;
 			}
 
-			if (!enableTwoFingerGestures) return;
+			if (!isInkCanvasTwoFingerMode()) return;
 
 			if (twoFingerModeActiveRef.current && e.touches.length < 2) {
 				if (!onDrawingEmbedTwoFingerGestureRef.current) {
@@ -744,6 +896,7 @@ export function FingerBlocker({
 			if (e.touches.length === 0) {
 				setFingerBlockerTouchMode(element, 'default');
 				activeTouchPointerDataRef.current.clear();
+				touchGestureSessionActiveRef.current = false;
 				recentPenInputRef.current = false;
 			}
 		};
@@ -775,6 +928,8 @@ export function FingerBlocker({
 			isPenDownRef.current = false;
 			embedPanZoomPointerIdsRef.current.clear();
 			middleButtonErasePointerIdsRef.current.clear();
+			touchGestureSessionActiveRef.current = false;
+			resetDedicatedWritingGestureState();
 			unlockScroll();
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
@@ -791,7 +946,7 @@ export function FingerBlocker({
 				inkSvg.removeEventListener('pointercancel', endInkPenSession, inkPenEndOpts);
 			}
 		};
-	}, [forwardPenToCanvas, enableTwoFingerGestures, onVerticalTouchPan]);
+	}, [forwardPenToCanvas, enableTwoFingerGestures, onVerticalTouchPan, touchGestureMode]);
 
 	// Add scroll restoration listener to the scroller itself
 	React.useEffect(() => {

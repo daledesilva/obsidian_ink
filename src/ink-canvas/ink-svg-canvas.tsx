@@ -14,6 +14,7 @@ import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPo
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
 import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
+import { resolveInkTouchGestureMode } from 'src/logic/touch-gesture-policy';
 import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-settings-types';
 import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
@@ -926,160 +927,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [writingMode, props.isEmbedded, clampWritingY, emitCameraChange]);
 
 
-	// Touch pinch/pan (Phase A)
-	// Uses native touch events with passive:false so preventDefault can stop browser scroll.
-	// Dedicated writing: single- and two-finger vertical pan. Embedded writing: note scrolls (no capture).
-	///////////////////////////
-
-	useEffect(() => {
-		// Embedded / Boox: touch gestures are handled by FingerBlocker.
-		if (props.blockObsidianPenGestures) return;
-
-		const container = containerRef.current;
-		if (!container) return;
-
-		let prevMid = { x: 0, y: 0 };
-		let prevDist = 0;
-		let isTwoFingerGestureActive = false;
-		let isSingleTouchPanActive = false;
-		let prevSingleTouchY = 0;
-
-		const isDedicatedWriting = writingMode && !props.isEmbedded;
-
-		const handleTouchStart = (e: TouchEvent) => {
-			// Embedded writing: let the note handle touch scroll
-			if (writingMode && props.isEmbedded) return;
-
-			if (isDedicatedWriting && e.touches.length === 1) {
-				cancelPanMomentumRef.current();
-				e.preventDefault();
-				isSingleTouchPanActive = true;
-				isTwoFingerGestureActive = false;
-				prevSingleTouchY = e.touches[0].clientY;
-				return;
-			}
-
-			if (e.touches.length !== 2) return;
-			cancelPanMomentumRef.current();
-			e.preventDefault();
-			isTwoFingerGestureActive = true;
-			isSingleTouchPanActive = false;
-			const t0 = e.touches[0];
-			const t1 = e.touches[1];
-			prevMid = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
-			prevDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-		};
-
-		const handleTouchMove = (e: TouchEvent) => {
-			if (isDedicatedWriting && e.touches.length >= 2 && isSingleTouchPanActive) {
-				isSingleTouchPanActive = false;
-				isTwoFingerGestureActive = true;
-				const t0 = e.touches[0];
-				const t1 = e.touches[1];
-				prevMid = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
-				prevDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-			}
-
-			if (isDedicatedWriting && e.touches.length === 1 && isSingleTouchPanActive) {
-				e.preventDefault();
-				const touchY = e.touches[0].clientY;
-				const dy = touchY - prevSingleTouchY;
-				prevSingleTouchY = touchY;
-				if (dy === 0) return;
-				const dedicatedPan = onDedicatedVerticalTouchPanRef.current;
-				// Negate so finger-up scrolls down (matches FingerBlocker / wheel handler sign).
-				const scrollDeltaY = -dy;
-				if (dedicatedPan) {
-					dedicatedPan(scrollDeltaY);
-				} else {
-					applyPanScreenDeltaRef.current(0, -dy);
-				}
-				return;
-			}
-
-			const isTwoFingerGesture = e.touches.length >= 2 && isTwoFingerGestureActive;
-			if (!isTwoFingerGesture) return;
-			e.preventDefault();
-			const t0 = e.touches[0];
-			const t1 = e.touches[1];
-			const newMid = { x: (t0.clientX + t1.clientX) / 2, y: (t0.clientY + t1.clientY) / 2 };
-			const newDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-			const dx = newMid.x - prevMid.x;
-			const dy = newMid.y - prevMid.y;
-
-			if (writingMode && !props.isEmbedded) {
-				const dedicatedPan = onDedicatedVerticalTouchPanRef.current;
-				// Negate so finger-up scrolls down (matches FingerBlocker / wheel handler sign).
-				const scrollDeltaY = -dy;
-				if (dedicatedPan) {
-					dedicatedPan(scrollDeltaY);
-				} else {
-					applyPanScreenDeltaRef.current(0, -dy);
-				}
-			} else if (!writingMode) {
-				if (dx !== 0 || dy !== 0) {
-					panMomentumRef.current?.recordScreenDelta(dx, dy);
-				}
-				const ratio = prevDist > 0 ? newDist / prevDist : 1;
-				// Pan delta (dx/dy) is already relative — it's a difference of two client coords.
-				// The zoom anchor must be container-relative; zoomAtPoint expects this, not absolute client coords.
-				const containerRect = container.getBoundingClientRect();
-				const anchorX = newMid.x - containerRect.left;
-				const anchorY = newMid.y - containerRect.top;
-				setCameraState(prev => {
-					const afterPan = panByScreenDelta(prev, dx, dy);
-					const newZoom = clampZoom(afterPan.zoom * ratio);
-					const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
-					const next = {
-						x: afterPan.x + anchorX * zoomDelta,
-						y: afterPan.y + anchorY * zoomDelta,
-						zoom: newZoom,
-					};
-					emitCameraChange(next, { source: 'user' });
-					return next;
-				});
-			}
-			prevMid = newMid;
-			prevDist = newDist;
-		};
-
-		const handleTouchEnd = (e: TouchEvent) => {
-			const wasSingleTouchPan = isSingleTouchPanActive;
-			const wasTwoFingerGesture = isTwoFingerGestureActive;
-
-			if (e.touches.length === 0) {
-				isSingleTouchPanActive = false;
-				isTwoFingerGestureActive = false;
-				if (wasSingleTouchPan || wasTwoFingerGesture) {
-					releasePanMomentumRef.current();
-				}
-			} else if (e.touches.length < 2) {
-				if (wasTwoFingerGesture && !isDedicatedWriting) {
-					isTwoFingerGestureActive = false;
-					releasePanMomentumRef.current();
-				} else if (wasTwoFingerGesture && isDedicatedWriting) {
-					isTwoFingerGestureActive = false;
-					isSingleTouchPanActive = true;
-					prevSingleTouchY = e.touches[0].clientY;
-				} else {
-					isTwoFingerGestureActive = false;
-				}
-			}
-		};
-
-		container.addEventListener('touchstart', handleTouchStart, { passive: false });
-		container.addEventListener('touchmove', handleTouchMove, { passive: false });
-		container.addEventListener('touchend', handleTouchEnd);
-		container.addEventListener('touchcancel', handleTouchEnd);
-		return () => {
-			container.removeEventListener('touchstart', handleTouchStart);
-			container.removeEventListener('touchmove', handleTouchMove);
-			container.removeEventListener('touchend', handleTouchEnd);
-			container.removeEventListener('touchcancel', handleTouchEnd);
-		};
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-
 	// Space+drag pan (Phase C)
 	// Space key held + left-drag → pan. Only active when the pointer is over the canvas
 	// to avoid stealing Space from other Obsidian UI (text editors, search boxes, etc).
@@ -1116,6 +963,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const cameraTransform = `scale(${camera.zoom}) translate(${camera.x}, ${camera.y})`;
 
+	const inkTouchGestureMode = resolveInkTouchGestureMode({
+		writingMode,
+		isEmbedded: !!props.isEmbedded,
+		hasDedicatedVerticalTouchPan: writingMode && !props.isEmbedded && !!props.onDedicatedVerticalTouchPan,
+	});
+
 	// FingerBlocker must sit outside overflow:hidden so iOS can chain finger scroll to .cm-scroller
 	// (matches release_0.5: blocker was a sibling of tldraw, not inside the clipped canvas).
 	return (
@@ -1128,26 +981,25 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				position: 'relative',
 			}}
 		>
-			{props.blockObsidianPenGestures && (
-				<FingerBlocker
-					wrapperRef={canvasWrapperRef}
-					enableTwoFingerGestures={!writingMode && !!props.isEmbedded}
-					enableMiddleButtonTemporaryErase
-					onVerticalTouchPan={
-						writingMode && !props.isEmbedded
-							? props.onDedicatedVerticalTouchPan
-							: undefined
-					}
-					forwardPenToCanvas={!props.isBooxInputLocked}
-					onDrawingEmbedTwoFingerGesture={
-						!writingMode && props.isEmbedded ? handleDrawingEmbedTwoFingerGesture : undefined
-					}
-					onPanGestureEnd={props.onPanGestureEnd}
-					onEmbedTwoFingerGestureEnd={
-						!writingMode && props.isEmbedded ? handleEmbedTwoFingerGestureEnd : undefined
-					}
-				/>
-			)}
+			<FingerBlocker
+				wrapperRef={canvasWrapperRef}
+				touchGestureMode={inkTouchGestureMode}
+				enableMiddleButtonTemporaryErase
+				onVerticalTouchPan={
+					writingMode && !props.isEmbedded
+						? props.onDedicatedVerticalTouchPan
+						: undefined
+				}
+				forwardPenToCanvas={!props.isBooxInputLocked}
+				onDrawingEmbedTwoFingerGesture={
+					!writingMode ? handleDrawingEmbedTwoFingerGesture : undefined
+				}
+				onPanGestureEnd={props.onPanGestureEnd}
+				onEmbedTwoFingerGestureEnd={
+					!writingMode ? handleEmbedTwoFingerGestureEnd : undefined
+				}
+				onTouchGestureSessionStart={cancelPanMomentum}
+			/>
 			<div
 				ref={containerRef}
 				className="ink-svg-canvas-container"

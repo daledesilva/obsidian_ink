@@ -1,6 +1,12 @@
 import { buildDrawingEmbed, buildWritingEmbed } from 'src/components/formats/current/utils/build-embeds';
 import { INK_EMBED_BASE_URL } from 'src/constants';
-import { DEFAULT_EMBED_SETTINGS, formatEmbedAspectRatio } from 'src/types/embed-settings';
+import {
+  DEFAULT_EMBED_SETTINGS,
+  buildNewDrawingEmbedSettings,
+  formatEmbedAspectRatio,
+  isWritingAlignedDrawingEmbed,
+} from 'src/types/embed-settings';
+import { WRITING_PAGE_WIDTH } from 'src/constants';
 
 describe('build-embeds', () => {
   describe('buildDrawingEmbed', () => {
@@ -25,8 +31,17 @@ describe('build-embeds', () => {
       expect(url.searchParams.get('aspectRatio')).toBe(formatEmbedAspectRatio(s.embedDisplay.aspectRatio));
       expect(url.searchParams.get('viewBoxX')).toBe(String(s.viewBox.x));
       expect(url.searchParams.get('viewBoxY')).toBe(String(s.viewBox.y));
-      expect(url.searchParams.get('viewBoxWidth')).toBe(String(s.viewBox.width));
-      expect(url.searchParams.get('viewBoxHeight')).toBe(String(s.viewBox.height));
+      expect(url.searchParams.get('viewBoxW')).toBe(String(s.viewBox.width));
+      expect(url.searchParams.get('viewBoxH')).toBe(String(s.viewBox.height));
+    });
+
+    test('uses writing-aligned viewBox when writingAlignedViewBox is set', () => {
+      const out = buildDrawingEmbed('Ink/Drawing/new.svg', { writingAlignedViewBox: true });
+      const urlPart = out.match(/\[Edit Drawing\]\(([^)]+)\)/)?.[1] as string;
+      const url = new URL(urlPart);
+      const s = buildNewDrawingEmbedSettings();
+      expect(url.searchParams.get('viewBoxW')).toBe(String(WRITING_PAGE_WIDTH));
+      expect(url.searchParams.get('viewBoxH')).toBe(String(s.viewBox.height));
     });
 
     test('appends pendingPaste=true when option is set', () => {
@@ -39,6 +54,13 @@ describe('build-embeds', () => {
     test('does not include pendingPaste when option is not set', () => {
       const out = buildDrawingEmbed('Ink/Drawing/test.svg');
       expect(out).not.toContain('pendingPaste');
+    });
+  });
+
+  describe('isWritingAlignedDrawingEmbed', () => {
+    test('is true only when viewBox width matches writing page width', () => {
+      expect(isWritingAlignedDrawingEmbed(buildNewDrawingEmbedSettings())).toBe(true);
+      expect(isWritingAlignedDrawingEmbed(DEFAULT_EMBED_SETTINGS)).toBe(false);
     });
   });
 

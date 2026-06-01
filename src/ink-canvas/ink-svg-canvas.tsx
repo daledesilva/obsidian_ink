@@ -53,6 +53,8 @@ export interface InkSvgCanvasProps {
 	blockObsidianPenGestures?: boolean;
 	/** After embed scroll / two-finger pan: reposition the Boox overlay (embedded + Boox only). */
 	onBooxEmbedGeometryChange?: () => void;
+	/** Embedded blank drawing: zoom = containerWidth / viewBox.width (starts by matching writing scale). */
+	writingAlignedZoom?: boolean;
 }
 
 export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
@@ -167,6 +169,20 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		setCameraState({ x: 0, y: prevY, zoom });
 	}, [pageWidth, props.isEmbedded]);
 
+	const initialViewBoxRef = useRef(props.initialViewBox);
+	initialViewBoxRef.current = props.initialViewBox;
+
+	const resetWritingAlignedDrawingCamera = useCallback((preserveY = false) => {
+		const container = containerRef.current;
+		const vb = initialViewBoxRef.current;
+		if (!container || !vb || vb.width <= 0) return;
+		const zoom = clampZoom(container.clientWidth / vb.width);
+		const nextY = preserveY ? cameraRef.current.y : -vb.y;
+		const next = { x: -vb.x, y: nextY, zoom };
+		setCameraState(next);
+		emitCameraChange(next, { source: 'api' });
+	}, [emitCameraChange]);
+
 	// Camera is never persisted — fit on mount. Use layout effect so initial camera applies before paint.
 	useLayoutEffect(() => {
 		if (writingMode) {
@@ -181,6 +197,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const rect = container.getBoundingClientRect();
 			if (rect.width === 0 || rect.height === 0) return;
 			const vb = props.initialViewBox!;
+			if (props.writingAlignedZoom && props.isEmbedded) {
+				const zoom = clampZoom(vb.width > 0 ? rect.width / vb.width : 1);
+				const next = { x: -vb.x, y: -vb.y, zoom };
+				setCameraState(next);
+				emitCameraChange(next, { source: 'init' });
+				return;
+			}
 			const zoomX = vb.width > 0 ? rect.width / vb.width : 1;
 			const zoomY = vb.height > 0 ? rect.height / vb.height : 1;
 			const zoom = clampZoom(Math.min(zoomX, zoomY));
@@ -263,9 +286,26 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		return () => resizeObserver.disconnect();
 	}, [writingMode, props.isEmbedded, resetWritingCamera]);
 
+	// Embedded blank drawing: re-fit zoom when container width changes (same as writing)
+	useEffect(() => {
+		if (writingMode || !props.isEmbedded || !props.writingAlignedZoom) return;
+		const container = containerRef.current;
+		if (!container) return;
+
+		let lastWidth = container.clientWidth;
+		const resizeObserver = new ResizeObserver(() => {
+			const width = container.clientWidth;
+			if (width === lastWidth) return;
+			lastWidth = width;
+			resetWritingAlignedDrawingCamera(true);
+		});
+		resizeObserver.observe(container);
+		return () => resizeObserver.disconnect();
+	}, [writingMode, props.isEmbedded, props.writingAlignedZoom, resetWritingAlignedDrawingCamera]);
+
 	// Embedded drawing: keep page content under the embed's geometric center when resized
 	useEffect(() => {
-		if (writingMode || !props.isEmbedded) return;
+		if (writingMode || !props.isEmbedded || props.writingAlignedZoom) return;
 		const container = containerRef.current;
 		if (!container) return;
 
@@ -311,7 +351,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		});
 		resizeObserver.observe(container);
 		return () => resizeObserver.disconnect();
-	}, [writingMode, props.isEmbedded, emitCameraChange]);
+	}, [writingMode, props.isEmbedded, props.writingAlignedZoom, emitCameraChange]);
 
 	// Build the editor interface and expose it
 	useEffect(() => {

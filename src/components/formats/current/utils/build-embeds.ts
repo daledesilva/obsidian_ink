@@ -1,10 +1,15 @@
 import { INK_EMBED_BASE_URL } from "src/constants";
-import { DEFAULT_EMBED_SETTINGS, formatEmbedAspectRatio } from "src/types/embed-settings";
+import { DEFAULT_EMBED_SETTINGS, buildNewDrawingEmbedSettings, formatEmbedAspectRatio } from "src/types/embed-settings";
 
 // V2 builder: Inserts an image embed + settings link that the v2 CM6 extension detects
 
-export const buildDrawingEmbed = (filepath: string, options?: { pendingPaste?: boolean }): string => {
-	const s = DEFAULT_EMBED_SETTINGS;
+export const buildDrawingEmbed = (
+	filepath: string,
+	options?: { pendingPaste?: boolean; writingAlignedViewBox?: boolean },
+): string => {
+	const s = options?.writingAlignedViewBox
+		? buildNewDrawingEmbedSettings()
+		: DEFAULT_EMBED_SETTINGS;
 	const params = new URLSearchParams({
 		version: String(s.version),
 		width: String(s.embedDisplay.width),

@@ -11,7 +11,7 @@ export const insertNewDrawingFile = async (plugin: InkPlugin, editor: Editor) =>
     const activeFile = plugin.app.workspace.getActiveFile();
     const fileRef = await createNewDrawingFile(plugin, activeFile);
     recordRecentFileSelection("inkDrawing", fileRef.path);
-    const embedStr = buildDrawingEmbed(fileRef.path);
+    const embedStr = buildDrawingEmbed(fileRef.path, { writingAlignedViewBox: true });
 
     activateNextEmbed();
     const positionForEmbed = editor.getCursor();

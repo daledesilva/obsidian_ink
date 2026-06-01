@@ -34,7 +34,7 @@ import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
 import type { TLEditorSnapshot } from '@tldraw/tldraw';
-import type { EmbedSettings } from 'src/types/embed-settings';
+import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
 
 ///////////////////////////
 ///////////////////////////
@@ -735,6 +735,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					setCameraTick((n) => n + 1);
 				}}
 				initialViewBox={props.embedded ? props.embedSettings?.viewBox : undefined}
+				writingAlignedZoom={
+					!!props.embedded
+					&& !!props.embedSettings
+					&& isWritingAlignedDrawingEmbed(props.embedSettings)
+				}
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}
 				blockObsidianPenGestures={!!props.embedded || isBooxInputLocked}

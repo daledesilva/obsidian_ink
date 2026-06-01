@@ -23,6 +23,7 @@ const FIXTURES = path.resolve(__dirname, 'fixtures');
 const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 const PLUGIN_VERSION = '0.4.0';
 const TLDRAW_VERSION = '2.1.0';
+const EMBED_SETTINGS_VERSION = '1.0.1';
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -57,12 +58,12 @@ function makeTldrawSnapshot(store, pageId = 'page:page1') {
 
 // ---- Embed builders ----
 function buildWritingEmbed(filepath) {
-  return `\n ![InkWriting](<${filepath}>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)\n`;
+  return `\n ![InkWriting](<${filepath}>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION})\n`;
 }
 
 function buildDrawingEmbed(filepath, width = 500, aspectRatio = 16 / 9, vb = { x: 0, y: 0, w: 500, h: 281 }) {
   const params = new URLSearchParams({
-    type: 'inkDrawing', version: '1', width: String(width), aspectRatio: String(aspectRatio),
+    type: 'inkDrawing', version: EMBED_SETTINGS_VERSION, width: String(width), aspectRatio: String(aspectRatio),
     viewBoxX: String(vb.x), viewBoxY: String(vb.y), viewBoxWidth: String(vb.w), viewBoxHeight: String(vb.h),
   });
   return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?${params})\n`;
@@ -404,10 +405,10 @@ function generateAllNotes() {
   writeFile('08e - Canvas/Canvas Source for Canvas Tests.md', `# Canvas Source\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
 
   // 09 Edge
-  writeFile('09 - Edge Cases and Error States/Missing File Reference.md', `# Missing File\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)`);
-  const drawingParams = new URLSearchParams({ type: 'inkDrawing', version: '1', width: '500', aspectRatio: String(16/9), viewBoxX: '0', viewBoxY: '0', viewBoxWidth: '500', viewBoxHeight: '281' });
+  writeFile('09 - Edge Cases and Error States/Missing File Reference.md', `# Missing File\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION})`);
+  const drawingParams = new URLSearchParams({ type: 'inkDrawing', version: EMBED_SETTINGS_VERSION, width: '500', aspectRatio: String(16/9), viewBoxX: '0', viewBoxY: '0', viewBoxWidth: '500', viewBoxHeight: '281' });
   writeFile('09 - Edge Cases and Error States/Missing Drawing Reference.md', `# Missing Drawing\n\n ![InkDrawing](<Ink/Drawing/nonexistent.svg>) [Edit Drawing](${INK_BASE_URL}?${drawingParams})`);
-  writeFile('09 - Edge Cases and Error States/Missing File Pending Paste.md', `# Missing File Pending Paste\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1&pendingPaste=true)`);
+  writeFile('09 - Edge Cases and Error States/Missing File Pending Paste.md', `# Missing File Pending Paste\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION}&pendingPaste=true)`);
   writeFile('09 - Edge Cases and Error States/Broken Embed Syntax.md', `# Broken\n\n![InkWriting](<Ink/Writing/hello-world.svg>) (missing space before !)`);
   writeFile('09 - Edge Cases and Error States/Special Characters in Path.md', `# Special Chars\n\nCreate file with spaces/parens.`);
   writeFile('09 - Edge Cases and Error States/Very Long Filepath.md', `# Long Path\n\n${w('Ink/Writing/hello-world.svg')}`);
@@ -701,7 +702,7 @@ Paste embed here. Source may be from 10 - Cross-Reference/ (different depth).
 
 This embed uses a relative path. When pasted into a note in a different folder, resolution may fail.
 
- ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)
+ ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION})
 `);
 
   // Note-mode scenario — paths like noteAttachmentFolderLocation='note' (file next to note's folder)
@@ -749,7 +750,7 @@ This embed uses a relative path. When pasted into a note in a different folder, 
 
 Embed uses filename only (no path). Ambiguous if multiple same-named files exist.
 
- ![InkWriting](<copy-paste-ambig.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1)
+ ![InkWriting](<copy-paste-ambig.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=${EMBED_SETTINGS_VERSION})
 `);
 
   writeFile('15 - Copy Paste Paths/README.md', `# Copy Paste Paths

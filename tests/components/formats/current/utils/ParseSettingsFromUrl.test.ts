@@ -12,10 +12,10 @@ describe('parseSettingsFromUrl', () => {
     expect(embedSettings).toEqual(DEFAULT_EMBED_SETTINGS);
   });
 
-  test('parses all known params with correct numeric types', () => {
+  test('parses all known params with correct types', () => {
     const input = [
       'https://example.com/foo?',
-      'version=2',
+      'version=2.0.0',
       'width=640',
       'aspectRatio=1.5',
       'viewBoxX=10',
@@ -30,7 +30,7 @@ describe('parseSettingsFromUrl', () => {
 
     const expected = {
       ...DEFAULT_EMBED_SETTINGS,
-      version: 2,
+      version: '2.0.0',
       embedDisplay: {
         ...DEFAULT_EMBED_SETTINGS.embedDisplay,
         width: 640,
@@ -46,6 +46,11 @@ describe('parseSettingsFromUrl', () => {
     };
 
     expect(embedSettings).toEqual(expected);
+  });
+
+  test('accepts legacy integer version param', () => {
+    const { embedSettings } = parseSettingsFromUrl('https://example.com/foo?version=1');
+    expect(embedSettings.version).toBe('1');
   });
 
   test('ignores unknown params and preserves defaults for unspecified fields', () => {
@@ -67,17 +72,17 @@ describe('parseSettingsFromUrl', () => {
 
   describe('isPendingPaste', () => {
     test('is false when pendingPaste param is absent', () => {
-      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1');
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1.0.1');
       expect(isPendingPaste).toBe(false);
     });
 
     test('is true when pendingPaste=true is present', () => {
-      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1&pendingPaste=true');
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1.0.1&pendingPaste=true');
       expect(isPendingPaste).toBe(true);
     });
 
     test('is false when pendingPaste=false is present', () => {
-      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1&pendingPaste=false');
+      const { isPendingPaste } = parseSettingsFromUrl('https://example.com/foo?type=inkWriting&version=1.0.1&pendingPaste=false');
       expect(isPendingPaste).toBe(false);
     });
   });

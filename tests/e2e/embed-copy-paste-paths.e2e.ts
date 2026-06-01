@@ -32,11 +32,11 @@ const PATH_SCENARIOS = [
 ];
 
 function buildWritingEmbed(filepath: string): string {
-	return `\n ![InkWriting](<${filepath}>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1&pendingPaste=true)\n`;
+	return `\n ![InkWriting](<${filepath}>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1.0.1&pendingPaste=true)\n`;
 }
 
 function buildDrawingEmbed(filepath: string): string {
-	return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?type=inkDrawing&version=1&width=500&aspectRatio=1.7777777777777777&viewBoxX=0&viewBoxY=0&viewBoxWidth=500&viewBoxHeight=281&pendingPaste=true)\n`;
+	return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?type=inkDrawing&version=1.0.1&width=500&aspectRatio=1.7777777777777777&viewBoxX=0&viewBoxY=0&viewBoxWidth=500&viewBoxHeight=281&pendingPaste=true)\n`;
 }
 
 async function waitForPluginReady() {
@@ -165,7 +165,7 @@ describe("Embed Copy-Paste Paths — relative path (scenario-independent)", func
 	});
 
 	it("relative path — pasted into different folder shows not-found (path wrong in new context)", async function () {
-		const relativeEmbed = `\n ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1&pendingPaste=true)\n`;
+		const relativeEmbed = `\n ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&version=1.0.1&pendingPaste=true)\n`;
 
 		await obsidianPage.openFile("16 - Copy Paste Paths/Subfolder/Deep Target.md");
 		await browser.pause(500);

@@ -1,3 +1,4 @@
+import { PLUGIN_VERSION } from 'src/constants';
 import { fetchLocally, saveLocally } from 'src/logic/utils/storage';
 import { DEFAULT_DEVICE_SETTINGS_V1, DEVICE_SETTINGS_STORAGE_KEY } from './device-settings-defaults';
 import type {
@@ -24,7 +25,7 @@ function isLastDetectedStrokeInput(value: unknown): value is DeviceSettingsV1['l
 function isDeviceSettingsV1(value: unknown): value is DeviceSettingsV1 {
 	if (!value || typeof value !== 'object') return false;
 	const o = value as Record<string, unknown>;
-	if (o.version !== 1) return false;
+	if (typeof o.pluginVersion !== 'string') return false;
 	const treat = o.strokeInputTreatAs;
 	if (!treat || typeof treat !== 'object') return false;
 	const t = treat as Record<string, unknown>;
@@ -48,7 +49,7 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 			? partial.booxConnectionEnabled
 			: base.booxConnectionEnabled;
 	return {
-		version: 1,
+		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
@@ -58,20 +59,33 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 	};
 }
 
+function shouldPersistPluginVersion(stored: unknown): boolean {
+	if (!stored || typeof stored !== 'object') return false;
+	return (stored as Record<string, unknown>).pluginVersion !== PLUGIN_VERSION;
+}
+
 /** Read merged device settings (never throws; corrupt storage yields defaults). */
 export function readDeviceSettings(): DeviceSettingsV1 {
 	const raw = fetchLocally(DEVICE_SETTINGS_STORAGE_KEY);
 	if (typeof raw !== 'string') return mergeWithDefaults(null);
 	try {
 		const parsed: unknown = JSON.parse(raw);
-		return mergeWithDefaults(parsed);
+		const merged = mergeWithDefaults(parsed);
+		if (shouldPersistPluginVersion(parsed)) {
+			writeDeviceSettings(merged);
+		}
+		return merged;
 	} catch {
 		return mergeWithDefaults(null);
 	}
 }
 
 function writeDeviceSettings(settings: DeviceSettingsV1): void {
-	saveLocally(DEVICE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+	const toStore: DeviceSettingsV1 = {
+		...settings,
+		pluginVersion: PLUGIN_VERSION,
+	};
+	saveLocally(DEVICE_SETTINGS_STORAGE_KEY, JSON.stringify(toStore));
 	notifyDeviceSettingsChanged();
 }
 

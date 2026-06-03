@@ -74,7 +74,7 @@ sequenceDiagram
 
 - **Location:** [`src/logic/device-settings/`](../src/logic/device-settings/) (`readDeviceSettings`, `patchDeviceSettings`, `getStrokeInputTreatAs`, `setStrokeInputTreatAs`, `subscribeDeviceSettingsChanged`).
 - **Storage key:** `deviceSettings_v1` via `saveLocally` / `fetchLocally`.
-- **Fields:** `booxConnectionEnabled` (default off), `strokeInputTreatAs` per editor kind, `lastDetectedStrokeInput`.
+- **Fields:** `pluginVersion` (current Ink semver, updated on read/write), `booxConnectionEnabled` (default off), `strokeInputTreatAs` per editor kind, `lastDetectedStrokeInput`.
 - **Same-tab updates:** Writes dispatch a custom window event; readers (e.g. React hooks in the ink canvas) also listen for the native `storage` event for other tabs.
 - **UI:** “Enable Boox companion app” and “Smoothing and pressure” (pen vs mouse, separate for writing and drawing) read/write this blob, not `data.json`. Vault **Reset settings** also resets `booxConnectionEnabled` to off on this device.
 - **Migration:** On load, legacy `booxConnectionEnabled` / `einkBridgeEnabled` values in `data.json` are copied into device storage once, then removed from the vault file.

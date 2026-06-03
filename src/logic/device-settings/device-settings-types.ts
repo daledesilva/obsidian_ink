@@ -10,9 +10,10 @@ export type StrokeInputTreatAs = 'auto' | 'pen' | 'mouse';
 /** Resolved pen/mouse mode used at capture time (never `'auto'`). */
 export type ResolvedStrokeInputTreatAs = Exclude<StrokeInputTreatAs, 'auto'>;
 
-/** Versioned blob stored in `localStorage` (not synced via plugin `data.json`). */
+/** Device-local blob stored in `localStorage` (not synced via plugin `data.json`). */
 export interface DeviceSettingsV1 {
-	version: 1;
+	/** Ink plugin semver when this blob was last read or written (see `PLUGIN_VERSION`). */
+	pluginVersion: string;
 	/** Boox / eInk Bridge companion WebSocket (per device, not vault-synced). */
 	booxConnectionEnabled: boolean;
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;

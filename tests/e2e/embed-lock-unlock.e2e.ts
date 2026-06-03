@@ -22,7 +22,7 @@ async function waitForPluginReady() {
 // automated test environment — this is the same approach used by buffer-lines.e2e.ts.
 async function openEditorViaFlag(notePath: string, editorSelector: string) {
 	await browser.execute(() => {
-		localStorage.setItem("ddc_ink_activateNextEmbed", "true");
+		localStorage.setItem("AU_activateNextEmbed", "true");
 	});
 	await obsidianPage.openFile(notePath);
 	const editor = await browser.$(editorSelector);

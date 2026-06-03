@@ -20,8 +20,8 @@ export const TLDRAW_VERSION = '2.4.3';
 export const INK_CANVAS_FORMAT_VERSION = '0.5.0';
 // Base URL used when creating v2 embed links
 export const INK_EMBED_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
-export const LOCAL_STORAGE_PREFIX = 'ddc_ink_';
-export const PLUGIN_KEY = 'ddc_ink';
+export const LOCAL_STORAGE_PREFIX = 'AU_'; // TODO: we need to update this in an upcoming release.
+export const PLUGIN_KEY = 'ddc_ink'; // TODO: we need to update this in an upcoming release.
 export const ATTACHMENT_SUBFOLDER_NAME = 'Ink';
 export const WRITING_SUBFOLDER_NAME = 'Writing';
 export const DRAWING_SUBFOLDER_NAME = 'Drawing';

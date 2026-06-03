@@ -22,7 +22,7 @@ async function waitForPluginReady() {
 // flag that all embed components check on mount.
 async function openEditorViaFlag(notePath: string) {
 	await browser.execute(() => {
-		localStorage.setItem("ddc_ink_activateNextEmbed", "true");
+		localStorage.setItem("AU_activateNextEmbed", "true");
 	});
 	await obsidianPage.openFile(notePath);
 	await browser.waitUntil(

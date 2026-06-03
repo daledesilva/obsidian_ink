@@ -32,7 +32,7 @@ flowchart TD
   SyncQ -->|Yes| PluginSettings[PluginSettings plus loadData or saveData in main.ts]
   SyncQ -->|No device only| DeviceStore[storage.ts and or logic device-settings]
   PluginSettings --> DataJson[data.json in plugin folder]
-  DeviceStore --> LS[activeWindow localStorage keys prefixed ddc_ink_]
+  DeviceStore --> LS[activeWindow localStorage keys prefixed AU_]
 ```
 
 ### Plugin load: settings vs device
@@ -60,10 +60,10 @@ sequenceDiagram
 - **Shape:** Versioned `PluginSettings`; migrations run on load. See [Plugin settings versioning](plugin-settings-versioning.md).
 - **Use for:** Anything that should match the vault when the user uses Obsidian Sync (or clones the vault) **and** that should appear in the main **Settings** UI for the plugin.
 
-### 2. Device-local `localStorage` — `storage.ts` prefix `ddc_ink_`
+### 2. Device-local `localStorage` — `storage.ts` prefix `AU_`
 
 - **Implementation:** [`src/logic/utils/storage.ts`](../src/logic/utils/storage.ts) — `saveLocally`, `fetchLocally`, `deleteLocally`.
-- **Key format:** `ddc_ink_<key>` (from `PLUGIN_KEY` + suffix).
+- **Key format:** `AU_<key>` (from `LOCAL_STORAGE_PREFIX` + suffix).
 - **Examples today:**
   - One-shot embed activation: `activateNextEmbed` (boolean; consumed after read).
   - Recent picker paths: `recentDrawingFilePaths`, `recentWritingFilePaths` (JSON string arrays).
@@ -81,7 +81,7 @@ sequenceDiagram
 
 ### 4. Jotai `atomWithStorage` (still `localStorage`, separate from `storage.ts`)
 
-- **Example:** [`src/stores/device-memory-store.ts`](../src/stores/device-memory-store.ts) — `showHiddenFoldersAtom` uses `LOCAL_STORAGE_PREFIX` (`ddc_ink_`) + `show-hidden-folders`.
+- **Example:** [`src/stores/device-memory-store.ts`](../src/stores/device-memory-store.ts) — `showHiddenFoldersAtom` uses `LOCAL_STORAGE_PREFIX` (`AU_`) + `show-hidden-folders`.
 - **Use for:** Small UI toggles that should persist on the device and are convenient to bind with Jotai. Prefer **one** convention per new feature: either extend the shared **device-settings** blob for structured/versioned fields, or use `storage.ts` helpers for simple string keys — avoid scattering ad-hoc key names without documenting them here.
 
 ### 5. In-memory Jotai (not persisted)
@@ -103,7 +103,7 @@ sequenceDiagram
 ## Technical Gotchas
 
 - **`data.json` vs vault-only files:** Plugin settings sync (or not) exactly however the user’s Obsidian setup syncs the `.obsidian/plugins` folder. Do not assume every install syncs `.obsidian`; some users only sync note content.
-- **`localStorage` is not in the vault:** Keys under `ddc_ink_*` do not move with a vault export that omits local app data. Treat them as **device- or profile-local**.
+- **`localStorage` is not in the vault:** Keys under `AU_*` do not move with a vault export that omits local app data. Treat them as **device- or profile-local**.
 - **Popout windows:** Always use `storage.ts` (active window storage) for new device-local keys so behaviour matches the focused Obsidian window.
 - **Corrupt JSON in device blobs:** Device settings readers should defensively parse and fall back to defaults (see `readDeviceSettings`); new blobs should stay versioned for future migrations.
 - **Do not store functions in any persisted JSON:** Stroke easing and similar behaviour are derived from serialisable fields (e.g. `inputKind`, `simulatePressure`) at render time — see ink canvas types and stroke presets.

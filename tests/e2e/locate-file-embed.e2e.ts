@@ -6,7 +6,7 @@ const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 const NOT_FOUND_BANNER = ".ddc_ink_pending-banner--not-found";
 const SVG_PICKER_ITEM = ".ink-svg-picker-item";
 const SECTION_HEADER = ".ink-svg-picker-section-header";
-const PLUGIN_KEY = "ddc_ink";
+const LOCAL_STORAGE_PREFIX = "AU_";
 
 /** Click the Locate file button via execute (bypasses interactability checks for embed widget buttons). */
 async function clickLocateFileButton() {
@@ -31,10 +31,10 @@ async function clickFirstSvgPickerItem() {
 
 /** Clear recent file paths from localStorage so the Recent section is empty. */
 async function clearRecentFilePaths() {
-	await browser.execute((pluginKey: string) => {
-		localStorage.removeItem(`${pluginKey}_recentDrawingFilePaths`);
-		localStorage.removeItem(`${pluginKey}_recentWritingFilePaths`);
-	}, PLUGIN_KEY);
+	await browser.execute((prefix: string) => {
+		localStorage.removeItem(`${prefix}recentDrawingFilePaths`);
+		localStorage.removeItem(`${prefix}recentWritingFilePaths`);
+	}, LOCAL_STORAGE_PREFIX);
 }
 
 /** Get the text of all visible section headers in the SVG picker modal. */

@@ -231,7 +231,7 @@ async function installUndoRedoHelpers() {
 
 async function openEmbedForEdit(notePath: string, editorSelector: string) {
 	await browser.execute(() => {
-		localStorage.setItem("ddc_ink_activateNextEmbed", "true");
+		localStorage.setItem("AU_activateNextEmbed", "true");
 	});
 	await obsidianPage.openFile(notePath);
 	const editor = await browser.$(editorSelector);
@@ -497,7 +497,7 @@ async function clickLockAndWait(
 
 async function clickUnlockByIndex(embedIndex: number) {
 	await browser.execute(() => {
-		localStorage.setItem("ddc_ink_activateNextEmbed", "true");
+		localStorage.setItem("AU_activateNextEmbed", "true");
 	});
 	// Target the Nth embed container and click its preview (per-embed state: only non-edit embeds show preview)
 	await browser.execute((index: number) => {

@@ -1,4 +1,8 @@
-import { PLUGIN_KEY } from "src/constants";
+import { LOCAL_STORAGE_PREFIX } from "src/constants";
+
+function localStorageKey(suffix: string): string {
+	return `${LOCAL_STORAGE_PREFIX}${suffix}`;
+}
 
 /////////
 /////////
@@ -10,11 +14,11 @@ export const saveLocally = (key: string, value: string | boolean) => {
     if(typeof value === 'boolean') {
         value = value.toString();
     }
-    vaultKeyedStorage().setItem(`${PLUGIN_KEY}_${key}`, value);
+    vaultKeyedStorage().setItem(localStorageKey(key), value);
 }
 
 export const fetchLocally = (key: string) => {
-    let value: null | string | boolean = vaultKeyedStorage().getItem(`${PLUGIN_KEY}_${key}`);
+    let value: null | string | boolean = vaultKeyedStorage().getItem(localStorageKey(key));
     if(value === null) return null;
     if(value === 'true') value = true;
     if(value === 'false') value = false;
@@ -22,7 +26,7 @@ export const fetchLocally = (key: string) => {
 }
 
 export const deleteLocally = (key: string) => {
-    vaultKeyedStorage().removeItem(`${PLUGIN_KEY}_${key}`);
+    vaultKeyedStorage().removeItem(localStorageKey(key));
 }
 
 export const activateNextEmbed = () => {

@@ -29,10 +29,16 @@ export const deleteLocally = (key: string) => {
     vaultKeyedStorage().removeItem(localStorageKey(key));
 }
 
+/**
+ * One-shot flag for "New handwriting section" / "New drawing": the next embed widget that
+ * mounts should call switchToEditMode() instead of staying in locked preview. See
+ * docs/activate-next-embed.md.
+ */
 export const activateNextEmbed = () => {
     saveLocally('activateNextEmbed', true);
 }
 
+/** Reads and clears activateNextEmbed; returns whether the new embed should auto-unlock. */
 export const embedShouldActivateImmediately = () => {
     const result = fetchLocally('activateNextEmbed');
     deleteLocally('activateNextEmbed');

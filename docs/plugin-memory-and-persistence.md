@@ -65,7 +65,7 @@ sequenceDiagram
 - **Implementation:** [`src/logic/utils/storage.ts`](../src/logic/utils/storage.ts) — `saveLocally`, `fetchLocally`, `deleteLocally`.
 - **Key format:** `AU_<key>` (from `LOCAL_STORAGE_PREFIX` + suffix).
 - **Examples today:**
-  - One-shot embed activation: `activateNextEmbed` (boolean; consumed after read).
+  - One-shot embed activation: `activateNextEmbed` (boolean; consumed after read). See [Activate next embed](activate-next-embed.md).
   - Recent picker paths: `recentDrawingFilePaths`, `recentWritingFilePaths` (JSON string arrays).
   - Versioned device settings blob: `deviceSettings_v1` (JSON; see below).
 - **Use for:** Per-device behaviour, session helpers, or data that must **not** be tied to vault sync (e.g. “Treat input as” pen vs mouse per editor kind).
@@ -114,5 +114,6 @@ sequenceDiagram
 
 - [Plugin settings versioning](plugin-settings-versioning.md) — `data.json` shape and migrations.
 - [Copy / paste embeds](copy-paste-embeds.md) — mentions recent paths in `localStorage` for the file picker.
+- [Activate next embed](activate-next-embed.md) — one-shot auto-unlock after **New handwriting / drawing** commands.
 
 When adding a new persisted field, update this page with the **key name**, **format**, and **bucket** (settings vs device-local vs file).

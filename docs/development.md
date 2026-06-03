@@ -48,7 +48,7 @@ In `tests/setupTests.ts`:
 - `src/logic/utils/tldraw-helpers` is mocked to no-op functions (camera, snapshot, etc.).
 - `src/logic/utils/getInkFileData` returns a tiny `{ previewUri: 'data:image/png;base64,AAAA' }` by default.
 - `src/stores/global-store.getGlobals()` returns a minimal `plugin` with settings and a vault stub (used by v2 preview components).
-- `src/logic/utils/storage.embedShouldActivateImmediately()` returns `false` to keep embeds from auto-activating in tests.
+- `src/logic/utils/storage.embedShouldActivateImmediately()` returns `false` to keep embeds from auto-activating in tests. See [Activate next embed](activate-next-embed.md) for what this flag does in production.
 
 These mocks ensure tests focus on component structure/logic without pulling in heavy runtime dependencies (Obsidian, real tldraw, filesystem).
 

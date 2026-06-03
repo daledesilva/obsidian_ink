@@ -76,7 +76,7 @@ function getTldrawStoreForMigration(
 function readGridEnabledFromTldrawSession(
 	tldrawSnapshot: TldrawSnapshotForMigration,
 ): boolean {
-	return tldrawSnapshot.session?.isGridMode === true;
+	return tldrawSnapshot.session?.isGridMode !== false;
 }
 
 /**

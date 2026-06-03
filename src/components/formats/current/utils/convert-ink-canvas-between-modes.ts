@@ -1,6 +1,6 @@
 import { PLUGIN_VERSION, WRITING_PAGE_WIDTH } from 'src/constants';
 import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
-import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
+import { DEFAULT_DRAWING_GRID_ENABLED, type InkCanvasSnapshot } from 'src/ink-canvas/types';
 import { InkFileData } from '../types/file-data';
 import {
 	buildInkCanvasDrawingFileData,
@@ -39,7 +39,7 @@ export function convertWriteInkCanvasDataToDraw(data: InkFileData): InkFileData 
 		cloneInkCanvasSnapshot(data.inkCanvas);
 	const inkCanvasSnapshot: InkCanvasSnapshot = {
 		...snapshotRest,
-		gridEnabled: true,
+		gridEnabled: DEFAULT_DRAWING_GRID_ENABLED,
 	};
 
 	const svgString = renderStrokesToSvg(inkCanvasSnapshot.strokes, inkCanvasSnapshot);

@@ -19,7 +19,7 @@ import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-set
 import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
-import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
+import { toStrokeOptions, DEFAULT_STROKE_STYLE, DEFAULT_DRAWING_GRID_ENABLED } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
@@ -109,7 +109,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const [tool, setTool] = useState<InkTool>('draw');
 	const [strokeStyle, setStrokeStyle] = useState<InkStrokeStyle>({ ...DEFAULT_STROKE_STYLE });
 	const [camera, setCameraState] = useState<CameraState>({ x: 0, y: 0, zoom: 1 });
-	const [gridEnabled, setGridEnabledState] = useState(props.initialSnapshot?.gridEnabled ?? false);
+	const [gridEnabled, setGridEnabledState] = useState(
+		props.initialSnapshot?.gridEnabled ?? (writingMode ? false : DEFAULT_DRAWING_GRID_ENABLED),
+	);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [, forceRender] = useState(0);
 

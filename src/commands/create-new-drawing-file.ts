@@ -5,7 +5,7 @@ import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepa
 import { TFile } from "obsidian";
 import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
 import emptyDrawingSvgStr from "src/defaults/empty-drawing-embed.svg";
-import type { InkCanvasSnapshot } from "src/ink-canvas/types";
+import { DEFAULT_DRAWING_GRID_ENABLED, type InkCanvasSnapshot } from "src/ink-canvas/types";
 
 ////////
 ////////
@@ -15,7 +15,7 @@ export const createNewDrawingFile = async (plugin: InkPlugin, instigatingFile?: 
     const inkCanvasSnapshot: InkCanvasSnapshot = {
         version: 1,
         strokes: [],
-        gridEnabled: false,
+        gridEnabled: DEFAULT_DRAWING_GRID_ENABLED,
     };
     const pageData = buildInkCanvasDrawingFileData({
         inkCanvasSnapshot,

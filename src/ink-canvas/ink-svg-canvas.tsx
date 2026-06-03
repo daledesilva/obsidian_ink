@@ -32,6 +32,8 @@ export interface InkSvgCanvasProps {
 	initialSnapshot?: InkCanvasSnapshot;
 	onEditorReady?: (editor: InkCanvasEditor) => void;
 	onChange?: () => void;
+	/** Fired when a new undoable canvas command is executed (stroke, erase, move, etc.). */
+	onEmbedUndoStackPush?: () => void;
 	/** Emits whenever camera changes (pan/zoom/setCamera). */
 	onCameraChange?: (camera: CameraState, containerRect: DOMRect, meta: { source: 'init' | 'user' | 'api' }) => void;
 	/** If present in drawing mode, applies an explicit initial viewport instead of fit-to-strokes. */
@@ -124,6 +126,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	gridEnabledRef.current = gridEnabled;
 	const onChangeRef = useRef(props.onChange);
 	onChangeRef.current = props.onChange;
+	const onEmbedUndoStackPushRef = useRef(props.onEmbedUndoStackPush);
+	onEmbedUndoStackPushRef.current = props.onEmbedUndoStackPush;
 	const setGridEnabledHandlerRef = useRef<(enabled: boolean) => void>(() => {});
 	setGridEnabledHandlerRef.current = (enabled: boolean) => {
 		gridEnabledRef.current = enabled;
@@ -326,8 +330,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				props.onPageHeightChange?.(candidateHeight);
 			}
 		});
-		const unsubUndo = undoManagerRef.current.subscribe(() => {
+		const unsubUndo = undoManagerRef.current.subscribe((event) => {
 			forceRender(n => n + 1);
+			if (event === 'execute') {
+				onEmbedUndoStackPushRef.current?.();
+			}
 		});
 		return () => { unsubStore(); unsubUndo(); };
 	}, []); // eslint-disable-line -- stable effect deps

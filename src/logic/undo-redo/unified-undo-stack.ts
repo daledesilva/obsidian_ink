@@ -124,10 +124,12 @@ export function initialize(
 export function syncUnifiedUndoHistory(
 	leafId: string,
 	embedId: string,
-	options?: { maxTldrawDelta?: number },
+	options?: { maxTldrawDelta?: number; skipObsidian?: boolean; skipEmbed?: boolean },
 ): void {
 	const editor = getEditor(embedId);
-	if (!editor) return;
+	if (!editor) {
+		return;
+	}
 
 	const s = getLeafState(leafId);
 	const plugin = getGlobals().plugin;
@@ -135,8 +137,10 @@ export function syncUnifiedUndoHistory(
 	const tldrawUndos = getTldrawNumUndos(editor);
 
 	const prevTldrawUndos = s.prevTldrawUndosByEmbed.get(embedId) ?? 0;
-	const obsidianDelta = Math.max(0, obsidianDepth - s.prevObsidianDepth);
-	let tldrawDelta = Math.max(0, tldrawUndos - prevTldrawUndos);
+	const skipObsidian = options?.skipObsidian ?? false;
+	const skipEmbed = options?.skipEmbed ?? false;
+	const obsidianDelta = skipObsidian ? 0 : Math.max(0, obsidianDepth - s.prevObsidianDepth);
+	let tldrawDelta = skipEmbed ? 0 : Math.max(0, tldrawUndos - prevTldrawUndos);
 	if (options?.maxTldrawDelta !== undefined) {
 		tldrawDelta = Math.min(tldrawDelta, options.maxTldrawDelta);
 	}
@@ -165,6 +169,38 @@ export function syncUnifiedUndoHistory(
 		verbose(`[undo-redo] Undo stack after: ${formatStackForLog([...s.undoStack])}`);
 		s.redoStack = [];
 	}
+
+	if (!skipObsidian) {
+		s.prevObsidianDepth = obsidianDepth;
+	}
+	if (!skipEmbed) {
+		s.prevTldrawUndosByEmbed.set(embedId, tldrawUndos);
+	}
+}
+
+/** Push one canvas undo step onto the unified stack (obsidian deltas first, then embed). */
+export function pushEmbedCanvasActionToUnifiedStack(
+	leafId: string,
+	embedId: string,
+): void {
+	if (isProgrammaticRedoInProgress() || isProgrammaticUndoInProgress()) {
+		return;
+	}
+
+	const editor = getEditor(embedId);
+	if (!editor) return;
+
+	const s = getLeafState(leafId);
+	const plugin = getGlobals().plugin;
+	const obsidianDepth = getObsidianUndoDepthForLeaf(plugin, leafId);
+	const obsidianDelta = Math.max(0, obsidianDepth - s.prevObsidianDepth);
+	const tldrawUndos = getTldrawNumUndos(editor);
+
+	for (let i = 0; i < obsidianDelta; i++) {
+		s.undoStack.push({ type: 'obsidian' });
+	}
+	s.undoStack.push({ type: 'embed', embedId });
+	s.redoStack = [];
 
 	s.prevObsidianDepth = obsidianDepth;
 	s.prevTldrawUndosByEmbed.set(embedId, tldrawUndos);

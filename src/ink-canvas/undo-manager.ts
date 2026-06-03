@@ -3,7 +3,9 @@ import type { InkCommand } from './commands';
 ///////////////////////////
 ///////////////////////////
 
-export type UndoManagerListener = () => void;
+export type UndoManagerEvent = 'execute' | 'undo' | 'redo' | 'clear';
+
+export type UndoManagerListener = (event: UndoManagerEvent) => void;
 
 /**
  * Command-pattern undo/redo manager. Executes commands, tracks history, and
@@ -20,9 +22,9 @@ export class UndoManager {
 		return () => { this.listeners.delete(listener); };
 	}
 
-	private notify(): void {
+	private notify(event: UndoManagerEvent): void {
 		for (const listener of this.listeners) {
-			listener();
+			listener(event);
 		}
 	}
 
@@ -31,7 +33,7 @@ export class UndoManager {
 		command.apply();
 		this.undoStack.push(command);
 		this.redoStack = [];
-		this.notify();
+		this.notify('execute');
 	}
 
 	undo(): void {
@@ -39,7 +41,7 @@ export class UndoManager {
 		if (!command) return;
 		command.unapply();
 		this.redoStack.push(command);
-		this.notify();
+		this.notify('undo');
 	}
 
 	redo(): void {
@@ -47,7 +49,7 @@ export class UndoManager {
 		if (!command) return;
 		command.apply();
 		this.undoStack.push(command);
-		this.notify();
+		this.notify('redo');
 	}
 
 	canUndo(): boolean {
@@ -69,6 +71,6 @@ export class UndoManager {
 	clear(): void {
 		this.undoStack = [];
 		this.redoStack = [];
-		this.notify();
+		this.notify('clear');
 	}
 }

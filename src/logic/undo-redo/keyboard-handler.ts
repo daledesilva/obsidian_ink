@@ -24,8 +24,10 @@ import {
 	notifyRedoExecuted,
 	getUndoStackSnapshot,
 	setProgrammaticRedoInProgress,
+	setProgrammaticUndoInProgress,
 	type UnifiedUndoEntry,
 } from 'src/logic/undo-redo/unified-undo-stack';
+import { syncObsidianOnlyBeforeKeyboard } from 'src/logic/undo-redo/embedded-unified-undo';
 import { getMarkdownViewForLeaf } from 'src/logic/undo-redo/obsidian-undo-depth';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 
@@ -105,7 +107,7 @@ function handleKeydown(plugin: InkPlugin, event: KeyboardEvent): void {
 }
 
 export function executeUnifiedUndo(plugin: InkPlugin, leafId: string, activeEmbedId: string): void {
-	syncUnifiedUndoHistory(leafId, activeEmbedId);
+	syncObsidianOnlyBeforeKeyboard(leafId);
 
 	if (isUndoStackEmpty(leafId)) {
 		new Notice(EMPTY_UNDO_MESSAGE);
@@ -114,14 +116,20 @@ export function executeUnifiedUndo(plugin: InkPlugin, leafId: string, activeEmbe
 	const entry = popUndo(leafId);
 	if (!entry) return;
 	notifyUndoExecuted(leafId, entry);
-	executeUndo(plugin, leafId, entry, activeEmbedId);
+	setProgrammaticUndoInProgress(true, plugin);
+	try {
+		executeUndo(plugin, leafId, entry, activeEmbedId);
+	} finally {
+		const pluginRef = plugin;
+		window.setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
+	}
 	pushRedo(leafId, entry);
 	logToVault('Unified undo executed. Entry: ' + entry.type);
 	verbose(`[undo-redo] Undo executed. Undo stack after: ${formatStackForLog(getUndoStackSnapshot(leafId))}`);
 }
 
 export function executeUnifiedRedo(plugin: InkPlugin, leafId: string, activeEmbedId: string): void {
-	syncUnifiedUndoHistory(leafId, activeEmbedId);
+	syncObsidianOnlyBeforeKeyboard(leafId);
 
 	if (isRedoStackEmpty(leafId)) return;
 	const entry = popRedo(leafId);

@@ -85,6 +85,16 @@ export function getRegisteredEmbedCountForLeaf(workspaceLeafId: string): number 
 	return n;
 }
 
+export function getRegisteredEmbedIdsForLeaf(workspaceLeafId: string): string[] {
+	const embedIds: string[] = [];
+	for (const [embedId, entry] of registry) {
+		if (entry.workspaceLeafId === workspaceLeafId) {
+			embedIds.push(embedId);
+		}
+	}
+	return embedIds;
+}
+
 export function getActiveEmbedIdForLeaf(workspaceLeafId: string): string | null {
 	const id = activeEmbedIdByLeafId.get(workspaceLeafId);
 	if (id && registry.has(id)) return id;

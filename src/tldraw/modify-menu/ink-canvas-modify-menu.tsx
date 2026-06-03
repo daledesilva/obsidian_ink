@@ -5,6 +5,12 @@ import { RedoIcon } from 'src/graphics/icons/redo-icon';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
 import type { InkCanvasEditor } from 'src/ink-canvas/types';
+import {
+	setProgrammaticUndoInProgress,
+	setProgrammaticRedoInProgress,
+	popEmbedUndoAndPushToRedo,
+	popEmbedRedoAndPushToUndo,
+} from 'src/logic/undo-redo/unified-undo-stack';
 
 //////////
 //////////
@@ -12,6 +18,9 @@ import type { InkCanvasEditor } from 'src/ink-canvas/types';
 interface InkCanvasModifyMenuProps {
 	getEditor: () => InkCanvasEditor | undefined;
 	onStoreChange: () => void;
+	embedId?: string;
+	workspaceLeafId?: string;
+	plugin?: import('src/main').default;
 }
 
 export const InkCanvasModifyMenu = React.forwardRef<HTMLDivElement, InkCanvasModifyMenuProps>((props, ref) => {
@@ -37,14 +46,42 @@ export const InkCanvasModifyMenu = React.forwardRef<HTMLDivElement, InkCanvasMod
 	function undo() {
 		const editor = props.getEditor();
 		if (!editor) return;
-		editor.undo();
+		const embedId = props.embedId;
+		const leafId = props.workspaceLeafId;
+		const plugin = props.plugin;
+		if (embedId && leafId && plugin) {
+			setProgrammaticUndoInProgress(true, plugin);
+			try {
+				editor.undo();
+				popEmbedUndoAndPushToRedo(leafId, embedId);
+			} finally {
+				const pluginRef = plugin;
+				window.setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
+			}
+		} else {
+			editor.undo();
+		}
 		props.onStoreChange();
 	}
 
 	function redo() {
 		const editor = props.getEditor();
 		if (!editor) return;
-		editor.redo();
+		const embedId = props.embedId;
+		const leafId = props.workspaceLeafId;
+		const plugin = props.plugin;
+		if (embedId && leafId && plugin) {
+			setProgrammaticRedoInProgress(true, plugin);
+			try {
+				editor.redo();
+				popEmbedRedoAndPushToUndo(leafId, embedId);
+			} finally {
+				const pluginRef = plugin;
+				window.setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
+			}
+		} else {
+			editor.redo();
+		}
 		props.onStoreChange();
 	}
 

@@ -33,7 +33,10 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom, type WritingEditorControls } from '../writing-embed/writing-embed';
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
-import { initialize } from 'src/logic/undo-redo/unified-undo-stack';
+import {
+	initializeEmbeddedUnifiedUndo,
+	recordEmbedCanvasActionOnUnifiedStack,
+} from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderWritingStrokesToSvg, computeStrokesBounds } from 'src/ink-canvas/svg-export';
 import { migrateWritingFromTldraw, type TldrawSnapshotForMigration } from 'src/ink-canvas/migrate-from-tldraw';
@@ -365,13 +368,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const leafId = props.workspaceLeafId;
 
 		if (props.embedded && props.embedId && leafId) {
+			initializeEmbeddedUnifiedUndo(props.plugin, leafId, props.embedId, editor);
 			registerInkEditor(
 				props.embedId,
 				editor,
 				editor.getContainerElement()!,
 				leafId,
 			);
-			initialize(leafId, 0, editor.getUndoCount());
 		}
 		if (!props.embedded && leafId) {
 			registerDedicatedInkEditor(leafId, editor);
@@ -473,6 +476,12 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		queueSaves();
 		if (props.embedded) {
 			debouncedEmbedResizePostProcess();
+		}
+	}
+
+	function handleEmbedUndoStackPush() {
+		if (props.embedded && props.embedId && props.workspaceLeafId) {
+			recordEmbedCanvasActionOnUnifiedStack(props.workspaceLeafId, props.embedId);
 		}
 	}
 
@@ -920,6 +929,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				writingBufferLines={props.plugin.settings.writingBufferLines}
 				onEditorReady={handleEditorReady}
 				onChange={handleStoreChange}
+				onEmbedUndoStackPush={handleEmbedUndoStackPush}
 				onPageHeightChange={handlePageHeightChange}
 				onDedicatedVerticalTouchPan={
 					props.embedded ? undefined : applyDedicatedInkWritingVerticalScroll
@@ -962,6 +972,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				<InkCanvasModifyMenu
 					getEditor={getEditor}
 					onStoreChange={handleStoreChange}
+					embedId={props.embedded && props.embedId ? props.embedId : undefined}
+					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
+					plugin={props.embedded ? props.plugin : undefined}
 				/>
 				{props.embedded && booxConnected && (
 					<ExpandLinesButton onExpandLines={expandWritingLinesByOne} />

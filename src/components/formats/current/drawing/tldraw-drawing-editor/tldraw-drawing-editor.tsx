@@ -23,7 +23,10 @@ import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom_v2, type DrawingEditorControls } from '../drawing-embed/drawing-embed';
 import { registerDedicatedInkEditor, unregisterDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-registry';
 import { register as registerInkEditor, unregister as unregisterInkEditor } from 'src/logic/undo-redo/ink-editor-registry';
-import { initialize } from 'src/logic/undo-redo/unified-undo-stack';
+import {
+	initializeEmbeddedUnifiedUndo,
+	recordEmbedCanvasActionOnUnifiedStack,
+} from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
 import { migrateFromTldraw, type TldrawSnapshotForMigration } from 'src/ink-canvas/migrate-from-tldraw';
@@ -253,6 +256,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// Register with undo system
 		if (props.embedded && props.embedId && leafId) {
+			initializeEmbeddedUnifiedUndo(getGlobals().plugin, leafId, props.embedId, editor);
 			registerInkEditor(
 				props.embedId,
 				editor,
@@ -260,8 +264,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				leafId,
 				props.applyEmbedDimensions,
 			);
-			const undoCount = editor.getUndoCount();
-			initialize(leafId, 0, undoCount);
 		}
 		if (!props.embedded && leafId) {
 			registerDedicatedInkEditor(leafId, editor);
@@ -330,6 +332,12 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function handleStoreChange() {
 		queueSaves();
+	}
+
+	function handleEmbedUndoStackPush() {
+		if (props.embedded && props.embedId && props.workspaceLeafId) {
+			recordEmbedCanvasActionOnUnifiedStack(props.workspaceLeafId, props.embedId);
+		}
 	}
 
 
@@ -731,6 +739,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				initialSnapshot={initialSnapshot}
 				onEditorReady={handleEditorReady}
 				onChange={handleStoreChange}
+				onEmbedUndoStackPush={handleEmbedUndoStackPush}
 				onCameraChange={(camera, containerRect, meta) => {
 					if (meta.source === 'user') hasUserMovedCameraRef.current = true;
 					setCameraTick((n) => n + 1);
@@ -778,6 +787,9 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				<InkCanvasModifyMenu
 					getEditor={getEditor}
 					onStoreChange={handleStoreChange}
+					embedId={props.embedded && props.embedId ? props.embedId : undefined}
+					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
+					plugin={props.embedded ? getGlobals().plugin : undefined}
 				/>
 			</SecondaryMenuBar>
 

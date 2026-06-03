@@ -5,7 +5,7 @@ import { TldrawWritingEditorWrapper_v1 } from "../tldraw-writing-editor/tldraw-w
 import InkPlugin from "src/main";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
-import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
+// import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
 import { verbose } from "src/logic/utils/universal-dev-logging";
 import { TFile } from "obsidian";
 import { WritingEmbedPreviewWrapper_v1 } from "../writing-embed-preview/writing-embed-preview";
@@ -87,12 +87,12 @@ export function WritingEmbed_v1 (props: {
 		// 		openInkFile(props.plugin, props.fileRef)
 		// 	}
 		// },
-		{
-			text: 'Update embed format',
-			action: () => {
-				new MigrationModal(props.plugin).open();
-			}
-		},
+		// {
+		// 	text: 'Update embed format',
+		// 	action: () => {
+		// 		new MigrationModal(props.plugin).open();
+		// 	}
+		// },
 		{
 			text: 'Remove embed',
 			action: () => {

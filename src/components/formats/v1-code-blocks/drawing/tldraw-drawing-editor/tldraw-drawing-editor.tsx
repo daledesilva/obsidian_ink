@@ -18,6 +18,7 @@ import { DrawingEmbedState_v1, editorActiveAtom, embedStateAtom, type DrawingEdi
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
+import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { FingerBlocker } from './finger-blocker/finger-blocker';
 
 ///////
@@ -71,6 +72,11 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 			verbose('EDITOR unmounting');
 		}
 	}, [])
+
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		showLegacyInkUnlockNotice();
+	}, [tlEditorSnapshot]);
 
 	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')

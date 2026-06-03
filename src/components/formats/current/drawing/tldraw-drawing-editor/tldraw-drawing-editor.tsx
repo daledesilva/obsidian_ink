@@ -39,6 +39,7 @@ import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
 import type { TLEditorSnapshot } from '@tldraw/tldraw';
 import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
+import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 
 ///////////////////////////
 ///////////////////////////
@@ -108,6 +109,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	const pendingNewOverlayRef = useRef(false);
 	const [, setCameraTick] = React.useState(0);
 	const hasUserMovedCameraRef = useRef(false);
+	const isLegacyInkFileRef = useRef(false);
 
 	// On mount
 	React.useEffect(() => {
@@ -119,6 +121,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			logToVault('Ink canvas editor unmounted: ' + props.drawingFile.path);
 		};
 	}, []);
+
+	React.useEffect(() => {
+		if (!initialSnapshot || !isLegacyInkFileRef.current) return;
+		showLegacyInkUnlockNotice();
+	}, [initialSnapshot]);
 
 	// Safety-net: clear timers on unmount
 	React.useEffect(() => {
@@ -405,6 +412,8 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			logToVault('Drawing file has no ink JSON: ' + props.drawingFile.path);
 			return;
 		}
+
+		isLegacyInkFileRef.current = !isInkCanvasFile(inkFileData);
 
 		// If this is already an ink-canvas file, use its snapshot directly
 		if (isInkCanvasFile(inkFileData) && inkFileData.inkCanvas) {

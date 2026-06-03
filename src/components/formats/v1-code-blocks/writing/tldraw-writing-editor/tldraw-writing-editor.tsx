@@ -19,6 +19,7 @@ import { editorActiveAtom_v1, WritingEmbedState_v1, embedStateAtom_v1, type Writ
 import { useAtomValue, useSetAtom } from 'jotai';
 import { getInkFileData } from 'src/components/formats/v1-code-blocks/utils/getInkFileData';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
+import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { FingerBlocker } from './finger-blocker/finger-blocker';
 
 ///////
@@ -76,6 +77,11 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 			verbose('EDITOR unmounting');
 		}
 	}, [])
+
+	React.useEffect(() => {
+		if (!tlEditorSnapshot) return;
+		showLegacyInkUnlockNotice();
+	}, [tlEditorSnapshot]);
 
 	if(!tlEditorSnapshot) return <></>
 	verbose('EDITOR snapshot loaded')

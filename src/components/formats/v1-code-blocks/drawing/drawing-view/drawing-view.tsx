@@ -8,7 +8,7 @@ import {
 	Provider as JotaiProvider
 } from "jotai";
 import { buildFileStr_v1 } from "src/components/formats/v1-code-blocks/utils/buildFileStr";
-import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
+// import { MigrationModal } from "src/components/dom-components/modals/migration-modal/migration-modal";
 import { InkFileData_v1 } from "../../types/file-data";
 
 ////////
@@ -16,14 +16,14 @@ import { InkFileData_v1 } from "../../types/file-data";
 
 export const DRAWING_VIEW_V1_TYPE = "ink_drawing-v1-view";
 
-function getExtendedOptions(plugin: InkPlugin) {
+function getExtendedOptions(_plugin: InkPlugin) {
     return [
-        {
-            text: 'Update embed format',
-            action: () => {
-                new MigrationModal(plugin).open();
-            }
-        },
+        // {
+        //     text: 'Update embed format',
+        //     action: () => {
+        //         new MigrationModal(plugin).open();
+        //     }
+        // },
     ]
 }
 

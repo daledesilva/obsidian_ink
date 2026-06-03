@@ -46,6 +46,7 @@ import {
 	cropWritingStrokeHeightTightly,
 	shouldResizeForNewHeight,
 } from 'src/components/formats/current/utils/tldraw-helpers';
+import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
@@ -119,6 +120,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
 	const forceNextPageHeightChangeRef = useRef(false);
 	const dedicatedWritingScrollMomentumRef = useRef<PanMomentumController | null>(null);
+	const isLegacyInkFileRef = useRef(false);
 
 	React.useEffect(() => {
 		dedicatedWritingScrollMomentumRef.current = createPanMomentumController({ axis: 'y' });
@@ -134,6 +136,11 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			logToVault('Ink canvas writing editor unmounted: ' + props.writingFile.path);
 		};
 	}, []);
+
+	React.useEffect(() => {
+		if (!initialSnapshot || !isLegacyInkFileRef.current) return;
+		showLegacyInkUnlockNotice();
+	}, [initialSnapshot]);
 
 	React.useEffect(() => {
 		return () => resetTimers();
@@ -631,6 +638,8 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const svg = await props.writingFile.vault.read(props.writingFile);
 		const data = extractInkJsonFromSvg(svg);
 		if (!data) return;
+
+		isLegacyInkFileRef.current = !isInkCanvasFile(data);
 
 		let snapshot: InkCanvasSnapshot;
 		if (isInkCanvasFile(data) && data.inkCanvas) {

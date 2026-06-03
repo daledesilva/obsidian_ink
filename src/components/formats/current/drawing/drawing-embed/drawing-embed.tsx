@@ -5,6 +5,7 @@ import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
+import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
@@ -425,7 +426,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 		// When Boox is enabled, only one ink embed (writing or drawing) can be active at a time.
 		const { plugin } = getGlobals();
-		if (plugin.settings.booxConnectionEnabled) {
+		if (getBooxConnectionEnabled()) {
 			await replaceActiveInkEmbed(props.embedId, saveAndSwitchToPreviewMode);
 		}
 

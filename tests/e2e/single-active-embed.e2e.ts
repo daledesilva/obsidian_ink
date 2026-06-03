@@ -23,8 +23,7 @@ async function setBooxConnectionEnabled(enabled: boolean) {
 	await browser.executeObsidian(async ({ app }) => {
 		const plugin = (app.plugins.plugins as any)["ink"];
 		if (plugin) {
-			plugin.settings.booxConnectionEnabled = (window as any).__inkTestBooxEnabled;
-			await plugin.saveSettings();
+			plugin.setBooxConnectionEnabledForTests((window as any).__inkTestBooxEnabled);
 		}
 	});
 }

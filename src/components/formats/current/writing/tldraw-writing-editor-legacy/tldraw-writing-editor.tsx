@@ -22,6 +22,7 @@ import { FingerBlocker } from './finger-blocker/finger-blocker';
 import { useAtomValue } from 'jotai';
 import { info, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
 import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from 'src/tldraw/modify-menu/modify-menu';
 import { ExpandLinesButton } from 'src/tldraw/expand-lines-button/expand-lines-button';
@@ -158,7 +159,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	// Boox companion app: mirror the drawing editor lifecycle for writing embeds.
 	React.useEffect(() => {
 		if (!tlEditorSnapshot) return;
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const { unregister, activate } = props.plugin.booxConnection.registerDrawingSession({
 			onStrokeStart: () => {
@@ -343,7 +344,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		// If the Boox socket is already open when tldraw mounts, lock input now.
 		// The useEffect that runs on tlEditorSnapshot fires before handleMount,
 		// so its lockTldrawInput call is skipped because tlEditorRef.current is still null.
-		if (props.plugin.settings.booxConnectionEnabled && props.plugin.booxConnection.isConnected()) {
+		if (getBooxConnectionEnabled() && props.plugin.booxConnection.isConnected()) {
 			info(['handleMount: Boox already connected, locking tldraw input', {
 				isReadonlyBefore: editor.getInstanceState().isReadonly,
 			}]);
@@ -509,7 +510,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					const didCompleteBooxStroke = pendingBooxStrokeCompletionsRef.current > 0;
 					if (didCompleteBooxStroke) pendingBooxStrokeCompletionsRef.current -= 1;
 					queueOrRunStorePostProcesses(editor, {
-						deferResize: didCompleteBooxStroke && props.plugin.settings.booxConnectionEnabled,
+						deferResize: didCompleteBooxStroke && getBooxConnectionEnabled(),
 					});
 					break;
 				}
@@ -574,7 +575,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					setBooxOverlayActiveTimerRef.current = null;
 					if (!isActive) pendingNewOverlayRef.current = false;
 					if (!websocketConnectedRef.current) return;
-					if (!props.plugin.settings.booxConnectionEnabled) return;
+					if (!getBooxConnectionEnabled()) return;
 					if (isActive) {
 						setBooxOverlayActiveTimerRef.current = window.setTimeout(() => {
 							setBooxOverlayActiveTimerRef.current = null;
@@ -634,7 +635,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 		// Set queuing flag *before* the DOM height changes so any Boox strokes arriving
 		// during or after the resize are queued instead of rendered with stale coordinates.
-		if (props.plugin.settings.booxConnectionEnabled) {
+		if (getBooxConnectionEnabled()) {
 			info(['Setting resize queuing flag BEFORE DOM change', {
 				curTlDrawHeight,
 				prevHeight: curHeightRef.current,
@@ -1090,7 +1091,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			return false;
 		}
 
-		if (!props.plugin.settings.booxConnectionEnabled) return false;
+		if (!getBooxConnectionEnabled()) return false;
 
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;
@@ -1169,7 +1170,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if(!editorWrapperRefEl.current) return;
 		if (!websocketConnectedRef.current) return;
 		if (!isViewActiveRef.current) return;
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const windowWidth = window.innerWidth;
 		const windowHeight = window.innerHeight;

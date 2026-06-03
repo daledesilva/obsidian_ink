@@ -11,6 +11,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
+import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
 import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile, WorkspaceLeaf } from "obsidian";
@@ -259,7 +260,7 @@ export function WritingEmbed (props: {
 				<div
 					className = {classNames([
 						'ddc_ink_resize-container',
-						props.plugin.settings.booxConnectionEnabled && 'ddc_ink_resize-container--boox',
+						getBooxConnectionEnabled() && 'ddc_ink_resize-container--boox',
 					])}
 					ref = {resizeContainerElRef}
 				>
@@ -365,7 +366,7 @@ export function WritingEmbed (props: {
 		logToVault('Writing embed → edit: ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
 
 		// When Boox is enabled, only one ink embed (writing or drawing) can be active at a time.
-		if (props.plugin.settings.booxConnectionEnabled) {
+		if (getBooxConnectionEnabled()) {
 			await replaceActiveInkEmbed(props.embedId, saveAndSwitchToPreviewMode);
 		}
 

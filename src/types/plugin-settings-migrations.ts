@@ -41,17 +41,6 @@ export function migrateOutdatedSettings(raw: Record<string, unknown>): PluginSet
 
 export function migrate_0_4_0_to_0_5_0(oldSettings: PluginSettings_0_4_0): PluginSettings_0_5_0 {
 
-	// Some beta/internal builds between 0.4.0 and 0.5.0 saved boox settings under
-	// the old key name 'einkBridgeEnabled'. Carry that value forward if present.
-	const oldAsAny = oldSettings as unknown as Record<string, unknown>;
-	const hadEinkBridgeKey = typeof oldAsAny.einkBridgeEnabled === 'boolean';
-	let booxConnectionEnabled: boolean;
-	if (hadEinkBridgeKey) {
-		booxConnectionEnabled = oldAsAny.einkBridgeEnabled as boolean;
-	} else {
-		booxConnectionEnabled = DEFAULT_PLUGIN_SETTINGS_0_5_0.booxConnectionEnabled;
-	}
-
 	const newSettings: PluginSettings_0_5_0 = {
 
 		// Apply defaults as a safety net for any gap
@@ -68,7 +57,6 @@ export function migrate_0_4_0_to_0_5_0(oldSettings: PluginSettings_0_4_0): Plugi
 		writingBufferLines: DEFAULT_PLUGIN_SETTINGS_0_5_0.writingBufferLines,
 		debugLoggingEnabled: DEFAULT_PLUGIN_SETTINGS_0_5_0.debugLoggingEnabled,
 		dominantHand: DEFAULT_PLUGIN_SETTINGS_0_5_0.dominantHand,
-		booxConnectionEnabled,
 
 		// Always overwrite settingsVersion last
 		settingsVersion: DEFAULT_PLUGIN_SETTINGS_0_5_0.settingsVersion,

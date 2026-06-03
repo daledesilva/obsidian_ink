@@ -17,6 +17,7 @@ import { InkCanvasModifyMenu } from 'src/tldraw/modify-menu/ink-canvas-modify-me
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { getGlobals } from 'src/stores/global-store';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
@@ -138,7 +139,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const { unregister, activate } = inkPlugin.booxConnection.registerDrawingSession({
 			onStroke: (strokeData: unknown) => {
@@ -200,7 +201,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		if (!initialSnapshot) return;
 		if (!editorWrapperRefEl.current) return;
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const scrollEl = editorWrapperRefEl.current.closest('.cm-scroller');
 		if (!scrollEl) return;
@@ -302,7 +303,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 					} else if (!isActive) {
 						pendingNewOverlayRef.current = false;
 						const inkPlugin = getGlobals().plugin;
-						if (inkPlugin.settings.booxConnectionEnabled) {
+						if (getBooxConnectionEnabled()) {
 							inkPlugin.booxConnection.sendCloseDrawingArea();
 						}
 					}
@@ -312,7 +313,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 		// Socket may have opened before the canvas mounted (same as tldraw handleMount).
 		const inkPlugin = getGlobals().plugin;
-		if (inkPlugin.settings.booxConnectionEnabled && inkPlugin.booxConnection.isConnected()) {
+		if (getBooxConnectionEnabled() && inkPlugin.booxConnection.isConnected()) {
 			websocketConnectedRef.current = true;
 			setIsBooxInputLocked(true);
 			activateDrawingSessionRef.current?.();
@@ -572,7 +573,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	function newAndroidDrawingArea(): boolean {
 		if (!editorWrapperRefEl.current) return false;
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return false;
+		if (!getBooxConnectionEnabled()) return false;
 
 		const payload = buildBooxDrawingAreaPayload();
 		if (!payload) return false;
@@ -589,7 +590,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		restoreEmbedCmScrollerScroll(editorWrapperRefEl.current);
 		if (!websocketConnectedRef.current || !isViewActiveRef.current) return;
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		if (props.embedded) {
 			activateDrawingSessionRef.current?.();
@@ -630,7 +631,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 		if (!websocketConnectedRef.current) return;
 		if (!isViewActiveRef.current) return;
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const payload = buildBooxDrawingAreaPayload();
 		if (!payload) return;
@@ -650,7 +651,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	function handleBooxActivateTool(activatedTool: 'draw' | 'erase' | 'select') {
 		const inkPlugin = getGlobals().plugin;
-		if (!inkPlugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const isNonDrawTool = activatedTool === 'erase' || activatedTool === 'select';
 		const isBooxConnected = inkPlugin.booxConnection.isConnected();

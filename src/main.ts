@@ -33,6 +33,12 @@ import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { setDominantHand } from 'src/stores/dominant-hand-store';
+import {
+	getBooxConnectionEnabled,
+	migrateBooxConnectionFromVaultToDevice,
+	resetBooxConnectionToDefault,
+	setBooxConnectionEnabled,
+} from 'src/logic/device-settings/device-settings';
 
 ////////
 ////////
@@ -66,14 +72,14 @@ export default class InkPlugin extends Plugin {
 		await this.loadSettings();
 
 		this.booxConnection = new BooxConnection(() => ({
-			booxConnectionEnabled: this.settings.booxConnectionEnabled,
+			booxConnectionEnabled: getBooxConnectionEnabled(),
 		}));
 
 		setGlobals({
 			plugin: this,
 		});
 
-		logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${this.settings.booxConnectionEnabled}`);
+		logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${getBooxConnectionEnabled()}`);
 
 		addIcon('write_default', writeDefaultSvgStr);
 		addIcon('write_existing', writeExistingSvgStr);
@@ -178,14 +184,31 @@ export default class InkPlugin extends Plugin {
 
 	async loadSettings() {
 		const loaded = await this.loadData() as Record<string, unknown> | null;
+		migrateBooxConnectionFromVaultToDevice(loaded);
 		const isNewInstall = !loaded || Object.keys(loaded).length === 0;
 		if (isNewInstall) {
 			this.settings = Object.assign({}, DEFAULT_SETTINGS);
 		} else {
 			this.settings = migrateOutdatedSettings(loaded);
+			this.stripLegacyBooxFromPluginSettings();
 			await this.saveSettings();
 		}
 		setDominantHand(this.settings.dominantHand);
+	}
+
+	/** Removes vault-synced Boox keys after they have been migrated to device storage. */
+	private stripLegacyBooxFromPluginSettings(): boolean {
+		const settingsRecord = this.settings as unknown as Record<string, unknown>;
+		let changed = false;
+		if ('booxConnectionEnabled' in settingsRecord) {
+			delete settingsRecord.booxConnectionEnabled;
+			changed = true;
+		}
+		if ('einkBridgeEnabled' in settingsRecord) {
+			delete settingsRecord.einkBridgeEnabled;
+			changed = true;
+		}
+		return changed;
 	}
 
 	async saveSettings() {
@@ -195,8 +218,16 @@ export default class InkPlugin extends Plugin {
 	async resetSettings() {
 		this.settings = structuredClone(DEFAULT_SETTINGS);
 		setDominantHand(this.settings.dominantHand);
+		resetBooxConnectionToDefault();
+		this.booxConnection.onSettingsChanged();
 		await this.saveSettings();
 		new Notice('Ink plugin settings reset');
+	}
+
+	/** @internal Used by e2e tests to toggle device-local Boox connection. */
+	setBooxConnectionEnabledForTests(enabled: boolean): void {
+		setBooxConnectionEnabled(enabled);
+		this.booxConnection.onSettingsChanged();
 	}
 }
 

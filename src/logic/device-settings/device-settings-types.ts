@@ -13,6 +13,8 @@ export type ResolvedStrokeInputTreatAs = Exclude<StrokeInputTreatAs, 'auto'>;
 /** Versioned blob stored in `localStorage` (not synced via plugin `data.json`). */
 export interface DeviceSettingsV1 {
 	version: 1;
+	/** Boox / eInk Bridge companion WebSocket (per device, not vault-synced). */
+	booxConnectionEnabled: boolean;
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;
 	/** Last detected input for this device (shared by writing and drawing). */
 	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;

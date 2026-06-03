@@ -1,6 +1,6 @@
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
-import { App, ButtonComponent, PluginSettingTab, Setting, SliderComponent, TextComponent } from "obsidian";
+import { App, ButtonComponent, PluginSettingTab, Setting, SliderComponent, TextComponent, ToggleComponent } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -12,8 +12,10 @@ import { ThreeWayToggleSetting } from 'src/components/dom-components/three-way-t
 import { setDominantHand } from 'src/stores/dominant-hand-store';
 import type { StrokeInputEditorKind, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import {
+	getBooxConnectionEnabled,
 	getLastDetectedStrokeInput,
 	getStrokeInputTreatAs,
+	setBooxConnectionEnabled,
 	setStrokeInputTreatAs,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
@@ -53,6 +55,7 @@ export class MySettingsTab extends PluginSettingTab {
 		// and both refs are assigned below.
 		let writingSectionEl!: HTMLElement;
 		let drawingSectionEl!: HTMLElement;
+		let booxCompanionToggle: ToggleComponent | undefined;
 
 		insertHighLevelSettings(containerEl, this.plugin,
 			(show) => {
@@ -62,6 +65,9 @@ export class MySettingsTab extends PluginSettingTab {
 			(show) => {
 				if (show) drawingSectionEl.classList.add('ddc_ink_expanded');
 				else drawingSectionEl.classList.remove('ddc_ink_expanded');
+			},
+			(toggle) => {
+				booxCompanionToggle = toggle;
 			},
 		);
 
@@ -78,6 +84,7 @@ export class MySettingsTab extends PluginSettingTab {
 			if (strokeInputToggles[1]) {
 				strokeInputToggles[1].setDesc(strokeInputTreatAsSettingDesc('inkDrawing'));
 			}
+			booxCompanionToggle?.setValue(getBooxConnectionEnabled());
 		});
 		insertFileOrganisationSection(containerEl, this.plugin);
 
@@ -192,6 +199,7 @@ function insertHighLevelSettings(
 	plugin: InkPlugin,
 	onToggleWriting: (show: boolean) => void,
 	onToggleDrawing: (show: boolean) => void,
+	onBooxToggleReady?: (toggle: ToggleComponent) => void,
 ) {
 
 	new Setting(containerEl)
@@ -227,10 +235,10 @@ function insertHighLevelSettings(
 		.setName('Enable Boox companion app')
 		.setDesc('This enables connection to the Boox companion app for passing through smoother pen strokes. This is currently only available for a closed group of testers.')
 		.addToggle((toggle) => {
-			toggle.setValue(plugin.settings.booxConnectionEnabled);
-			toggle.onChange(async (value: boolean) => {
-				plugin.settings.booxConnectionEnabled = value;
-				await plugin.saveSettings();
+			toggle.setValue(getBooxConnectionEnabled());
+			onBooxToggleReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setBooxConnectionEnabled(value);
 				plugin.booxConnection.onSettingsChanged();
 			});
 		});

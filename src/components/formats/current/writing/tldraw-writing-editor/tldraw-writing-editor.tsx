@@ -28,6 +28,7 @@ import { InkCanvasModifyMenu } from 'src/tldraw/modify-menu/ink-canvas-modify-me
 import { ExpandLinesButton } from 'src/tldraw/expand-lines-button/expand-lines-button';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom, type WritingEditorControls } from '../writing-embed/writing-embed';
@@ -148,7 +149,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const { unregister, activate } = props.plugin.booxConnection.registerDrawingSession({
 			onStrokeStart: () => {
@@ -230,7 +231,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
 		if (!editorWrapperRefEl.current) return;
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const scrollEl = editorWrapperRefEl.current.closest('.cm-scroller');
 		if (!scrollEl) return;
@@ -416,7 +417,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			});
 		}
 
-		if (props.plugin.settings.booxConnectionEnabled && props.plugin.booxConnection.isConnected()) {
+		if (getBooxConnectionEnabled() && props.plugin.booxConnection.isConnected()) {
 			websocketConnectedRef.current = true;
 			setBooxConnected(true);
 			setIsBooxInputLocked(true);
@@ -505,7 +506,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			resizePostProcessTimeoutRef.current = undefined;
 			const editor = editorRef.current;
 			if (!editor || !props.embedded) return;
-			if (websocketConnectedRef.current && props.plugin.settings.booxConnectionEnabled) return;
+			if (websocketConnectedRef.current && getBooxConnectionEnabled()) return;
 			const invitingHeight = getInvitingHeightFromEditor(editor);
 			if (!shouldResizeForNewHeight(
 				invitingHeight,
@@ -534,7 +535,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (props.embedded) {
 			const skipAutoResize = !forceNextPageHeightChangeRef.current
 				&& websocketConnectedRef.current
-				&& props.plugin.settings.booxConnectionEnabled;
+				&& getBooxConnectionEnabled();
 			forceNextPageHeightChangeRef.current = false;
 			if (skipAutoResize) return;
 
@@ -593,7 +594,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			? cropWritingStrokeHeightTightly(computeStrokesBounds(strokes).maxY, lineHeight)
 			: WRITING_MIN_PAGE_HEIGHT;
 		const tightBounds = new Box(0, 0, pw, tightHeight);
-		if (props.plugin.settings.booxConnectionEnabled && websocketConnectedRef.current) {
+		if (getBooxConnectionEnabled() && websocketConnectedRef.current) {
 			isAndroidDrawingAreaResizingRef.current = true;
 		}
 		props.onResize(invitingBounds, tightBounds);
@@ -703,7 +704,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	function newAndroidDrawingArea(): boolean {
 		if (!editorWrapperRefEl.current) return false;
-		if (!props.plugin.settings.booxConnectionEnabled) return false;
+		if (!getBooxConnectionEnabled()) return false;
 
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const visible = clampToVisibleViewport(embedRect);
@@ -728,7 +729,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	function repositionBooxOverlayAfterEmbedGeometryChange() {
 		restoreEmbedCmScrollerScroll(editorWrapperRefEl.current);
 		if (!websocketConnectedRef.current || !isViewActiveRef.current) return;
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		if (props.embedded) {
 			activateWritingSessionRef.current?.();
@@ -769,7 +770,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!editorWrapperRefEl.current) return;
 		if (!websocketConnectedRef.current) return;
 		if (!isViewActiveRef.current) return;
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
 		const visible = clampToVisibleViewport(embedRect);
@@ -799,7 +800,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	}
 
 	function handleBooxActivateTool(activatedTool: 'draw' | 'erase' | 'select') {
-		if (!props.plugin.settings.booxConnectionEnabled) return;
+		if (!getBooxConnectionEnabled()) return;
 
 		const isNonDrawTool = activatedTool === 'erase' || activatedTool === 'select';
 		const isBooxConnected = props.plugin.booxConnection.isConnected();

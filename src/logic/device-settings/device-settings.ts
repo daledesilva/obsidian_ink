@@ -43,8 +43,13 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 	const lastDetected = isLastDetectedStrokeInput(partial.lastDetectedStrokeInput)
 		? partial.lastDetectedStrokeInput
 		: base.lastDetectedStrokeInput;
+	const booxConnectionEnabled =
+		typeof partial.booxConnectionEnabled === 'boolean'
+			? partial.booxConnectionEnabled
+			: base.booxConnectionEnabled;
 	return {
 		version: 1,
+		booxConnectionEnabled,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
 			inkDrawing: partial.strokeInputTreatAs.inkDrawing,
@@ -91,6 +96,49 @@ export function patchDeviceSettings(partial: Partial<DeviceSettingsV1>): DeviceS
 	};
 	writeDeviceSettings(next);
 	return next;
+}
+
+export function getBooxConnectionEnabled(): boolean {
+	return readDeviceSettings().booxConnectionEnabled;
+}
+
+export function setBooxConnectionEnabled(enabled: boolean): void {
+	patchDeviceSettings({ booxConnectionEnabled: enabled });
+}
+
+/** Resets Boox companion to default (off). Used by vault "Reset settings". */
+export function resetBooxConnectionToDefault(): void {
+	setBooxConnectionEnabled(DEFAULT_DEVICE_SETTINGS_V1.booxConnectionEnabled);
+}
+
+/**
+ * One-time import from vault `data.json` keys (`booxConnectionEnabled` / legacy `einkBridgeEnabled`).
+ * @returns Whether a vault value was applied to device storage.
+ */
+function deviceStorageAlreadyHasBooxField(): boolean {
+	const raw = fetchLocally(DEVICE_SETTINGS_STORAGE_KEY);
+	if (typeof raw !== 'string') return false;
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		return !!parsed && typeof parsed === 'object' && 'booxConnectionEnabled' in parsed;
+	} catch {
+		return false;
+	}
+}
+
+export function migrateBooxConnectionFromVaultToDevice(
+	vaultPluginData: Record<string, unknown> | null,
+): boolean {
+	if (!vaultPluginData || deviceStorageAlreadyHasBooxField()) return false;
+	let vaultValue: boolean | undefined;
+	if (typeof vaultPluginData.booxConnectionEnabled === 'boolean') {
+		vaultValue = vaultPluginData.booxConnectionEnabled;
+	} else if (typeof vaultPluginData.einkBridgeEnabled === 'boolean') {
+		vaultValue = vaultPluginData.einkBridgeEnabled;
+	}
+	if (vaultValue === undefined) return false;
+	setBooxConnectionEnabled(vaultValue);
+	return true;
 }
 
 export function getStrokeInputTreatAs(editorKind: StrokeInputEditorKind): StrokeInputTreatAs {

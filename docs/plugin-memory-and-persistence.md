@@ -13,8 +13,8 @@ Think in four buckets:
 | Bucket | Typical content | Travels with vault? | Travels with device/browser? |
 |--------|------------------|---------------------|------------------------------|
 | **Vault files** | Ink SVGs, markdown notes, optional debug logs | Yes (normal file sync) | Yes when the whole vault is copied |
-| **Plugin settings (`data.json`)** | Feature toggles, folders, Boox options, dominant hand, etc. | Yes — lives under the vault’s `.obsidian` tree | Yes on setups that sync `.obsidian` (e.g. Obsidian Sync) |
-| **Host `localStorage`** | Per-machine UI/session keys, device-only preferences | **No** | Stays on that browser profile / Obsidian window host |
+| **Plugin settings (`data.json`)** | Feature toggles, folders, dominant hand, debug logging, etc. | Yes — lives under the vault’s `.obsidian` tree | Yes on setups that sync `.obsidian` (e.g. Obsidian Sync) |
+| **Host `localStorage`** | Per-machine UI/session keys, device-only preferences (Boox companion, stroke input treat-as, recent picker paths) | **No** | Stays on that browser profile / Obsidian window host |
 | **In-memory only** | Open editor state, undo stacks for the session, Jotai atoms not backed by storage | No | Lost on reload |
 
 **Obsidian popouts:** several code paths use `window.activeWindow.localStorage` (not the global `localStorage` identifier) so reads and writes attach to the window that hosts the current UI, including popout windows.
@@ -74,8 +74,10 @@ sequenceDiagram
 
 - **Location:** [`src/logic/device-settings/`](../src/logic/device-settings/) (`readDeviceSettings`, `patchDeviceSettings`, `getStrokeInputTreatAs`, `setStrokeInputTreatAs`, `subscribeDeviceSettingsChanged`).
 - **Storage key:** `deviceSettings_v1` via `saveLocally` / `fetchLocally`.
+- **Fields:** `booxConnectionEnabled` (default off), `strokeInputTreatAs` per editor kind, `lastDetectedStrokeInput`.
 - **Same-tab updates:** Writes dispatch a custom window event; readers (e.g. React hooks in the ink canvas) also listen for the native `storage` event for other tabs.
-- **UI:** “Treat input as” (pen vs mouse, separate for writing and drawing) lives under **Ink → Writing** and **Ink → Drawing** in the plugin settings tab; it still reads/writes this blob, not `data.json`.
+- **UI:** “Enable Boox companion app” and “Smoothing and pressure” (pen vs mouse, separate for writing and drawing) read/write this blob, not `data.json`. Vault **Reset settings** also resets `booxConnectionEnabled` to off on this device.
+- **Migration:** On load, legacy `booxConnectionEnabled` / `einkBridgeEnabled` values in `data.json` are copied into device storage once, then removed from the vault file.
 
 ### 4. Jotai `atomWithStorage` (still `localStorage`, separate from `storage.ts`)
 

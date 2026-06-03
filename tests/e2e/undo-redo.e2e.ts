@@ -7,6 +7,7 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
+import { setActivateNextEmbedInLocalStorage } from "./helpers/ink-local-storage";
 
 ////////
 // Notes
@@ -230,9 +231,7 @@ async function installUndoRedoHelpers() {
 }
 
 async function openEmbedForEdit(notePath: string, editorSelector: string) {
-	await browser.execute(() => {
-		localStorage.setItem("AU_activateNextEmbed", "true");
-	});
+	await setActivateNextEmbedInLocalStorage();
 	await obsidianPage.openFile(notePath);
 	const editor = await browser.$(editorSelector);
 	await editor.waitForExist({ timeout: 15000 });
@@ -496,9 +495,7 @@ async function clickLockAndWait(
 }
 
 async function clickUnlockByIndex(embedIndex: number) {
-	await browser.execute(() => {
-		localStorage.setItem("AU_activateNextEmbed", "true");
-	});
+	await setActivateNextEmbedInLocalStorage();
 	// Target the Nth embed container and click its preview (per-embed state: only non-edit embeds show preview)
 	await browser.execute((index: number) => {
 		const embedContainers = document.querySelectorAll(

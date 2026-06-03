@@ -1,6 +1,7 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
+import { setActivateNextEmbedInLocalStorage } from "./helpers/ink-local-storage";
 
 const V2_DRAWING_SVG = "Ink/Drawing/v2-tldraw-drawing-tasks-priority.svg";
 const V2_WRITING_SVG = "Ink/Writing/v2-tldraw-writing-llm-text.svg";
@@ -16,9 +17,7 @@ async function waitForPluginReady() {
 }
 
 async function openEditorViaFlag(notePath: string, editorSelector: string) {
-	await browser.execute(() => {
-		localStorage.setItem("AU_activateNextEmbed", "true");
-	});
+	await setActivateNextEmbedInLocalStorage();
 	await obsidianPage.openFile(notePath);
 	const editor = await browser.$(editorSelector);
 	await editor.waitForExist({ timeout: 15000 });

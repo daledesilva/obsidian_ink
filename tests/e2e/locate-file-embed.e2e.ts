@@ -1,13 +1,12 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
+import { clearRecentFilePathsInLocalStorage } from "./helpers/ink-local-storage";
 
 const EMBED_SELECTOR = ".ddc_ink_embed-block, .ddc_ink_widget-root";
 const NOT_FOUND_BANNER = ".ddc_ink_pending-banner--not-found";
 const SVG_PICKER_ITEM = ".ink-svg-picker-item";
 const SECTION_HEADER = ".ink-svg-picker-section-header";
-const LOCAL_STORAGE_PREFIX = "AU_";
-
 /** Click the Locate file button via execute (bypasses interactability checks for embed widget buttons). */
 async function clickLocateFileButton() {
 	await browser.execute(() => {
@@ -27,14 +26,6 @@ async function clickFirstSvgPickerItem() {
 		const card = document.querySelector('.ink-svg-picker-item');
 		if (card instanceof HTMLElement) card.click();
 	});
-}
-
-/** Clear recent file paths from localStorage so the Recent section is empty. */
-async function clearRecentFilePaths() {
-	await browser.execute((prefix: string) => {
-		localStorage.removeItem(`${prefix}recentDrawingFilePaths`);
-		localStorage.removeItem(`${prefix}recentWritingFilePaths`);
-	}, LOCAL_STORAGE_PREFIX);
 }
 
 /** Get the text of all visible section headers in the SVG picker modal. */
@@ -186,7 +177,7 @@ describe("Locate File Embed", function () {
 	});
 
 	it("Recent section does not show when there are no recents", async function () {
-		await clearRecentFilePaths();
+		await clearRecentFilePathsInLocalStorage();
 		await obsidianPage.openFile("01 - Basic Embeds/Single Writing Embed.md");
 		await browser.pause(500);
 
@@ -205,7 +196,7 @@ describe("Locate File Embed", function () {
 	});
 
 	it("Recent section shows when there are recents", async function () {
-		await clearRecentFilePaths();
+		await clearRecentFilePathsInLocalStorage();
 		await obsidianPage.openFile("01 - Basic Embeds/Single Writing Embed.md");
 		await browser.pause(500);
 

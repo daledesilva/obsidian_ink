@@ -1,8 +1,13 @@
 import { LOCAL_STORAGE_PREFIX } from "src/constants";
 
-function localStorageKey(suffix: string): string {
-	return `${LOCAL_STORAGE_PREFIX}${suffix}`;
+/** Full `localStorage` key: `LOCAL_STORAGE_PREFIX` + suffix (e.g. `au_ink_activateNextEmbed`). */
+export function localStorageKey(storageSuffix: string): string {
+	return `${LOCAL_STORAGE_PREFIX}${storageSuffix}`;
 }
+
+export const ACTIVATE_NEXT_EMBED_STORAGE_SUFFIX = 'activateNextEmbed';
+export const RECENT_DRAWING_FILE_PATHS_STORAGE_SUFFIX = 'recentDrawingFilePaths';
+export const RECENT_WRITING_FILE_PATHS_STORAGE_SUFFIX = 'recentWritingFilePaths';
 
 /////////
 /////////
@@ -35,22 +40,20 @@ export const deleteLocally = (key: string) => {
  * docs/activate-next-embed.md.
  */
 export const activateNextEmbed = () => {
-    saveLocally('activateNextEmbed', true);
+    saveLocally(ACTIVATE_NEXT_EMBED_STORAGE_SUFFIX, true);
 }
 
 /** Reads and clears activateNextEmbed; returns whether the new embed should auto-unlock. */
 export const embedShouldActivateImmediately = () => {
-    const result = fetchLocally('activateNextEmbed');
-    deleteLocally('activateNextEmbed');
+    const result = fetchLocally(ACTIVATE_NEXT_EMBED_STORAGE_SUFFIX);
+    deleteLocally(ACTIVATE_NEXT_EMBED_STORAGE_SUFFIX);
     return result;
 }
 
-const RECENT_DRAWING_PATHS_KEY = 'recentDrawingFilePaths';
-const RECENT_WRITING_PATHS_KEY = 'recentWritingFilePaths';
 const RECENT_PATHS_MAX_LENGTH = 10;
 
 export const fetchRecentFilePaths = (fileType: 'inkWriting' | 'inkDrawing'): string[] => {
-    const key = fileType === 'inkDrawing' ? RECENT_DRAWING_PATHS_KEY : RECENT_WRITING_PATHS_KEY;
+    const key = fileType === 'inkDrawing' ? RECENT_DRAWING_FILE_PATHS_STORAGE_SUFFIX : RECENT_WRITING_FILE_PATHS_STORAGE_SUFFIX;
     const raw = fetchLocally(key);
     if (typeof raw !== 'string') return [];
     try {
@@ -63,7 +66,7 @@ export const fetchRecentFilePaths = (fileType: 'inkWriting' | 'inkDrawing'): str
 };
 
 export const recordRecentFileSelection = (fileType: 'inkWriting' | 'inkDrawing', filepath: string): void => {
-    const key = fileType === 'inkDrawing' ? RECENT_DRAWING_PATHS_KEY : RECENT_WRITING_PATHS_KEY;
+    const key = fileType === 'inkDrawing' ? RECENT_DRAWING_FILE_PATHS_STORAGE_SUFFIX : RECENT_WRITING_FILE_PATHS_STORAGE_SUFFIX;
     const current = fetchRecentFilePaths(fileType);
     const deduped = [filepath, ...current.filter(path => path !== filepath)];
     const trimmed = deduped.slice(0, RECENT_PATHS_MAX_LENGTH);

@@ -1,6 +1,7 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
+import { setActivateNextEmbedInLocalStorage } from "./helpers/ink-local-storage";
 
 ////////
 // Notes
@@ -21,9 +22,7 @@ async function waitForPluginReady() {
 // Opens an embed file and triggers immediate editor activation via the localStorage
 // flag that all embed components check on mount.
 async function openEditorViaFlag(notePath: string) {
-	await browser.execute(() => {
-		localStorage.setItem("AU_activateNextEmbed", "true");
-	});
+	await setActivateNextEmbedInLocalStorage();
 	await obsidianPage.openFile(notePath);
 	await browser.waitUntil(
 		() => browser.execute(() => !!document.querySelector(".tl-container")),

@@ -1,6 +1,7 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
+import { setActivateNextEmbedInLocalStorage } from "./helpers/ink-local-storage";
 
 ////////
 // Shared setup
@@ -21,9 +22,7 @@ async function waitForPluginReady() {
 // Clicking the preview directly inside a CodeMirror widget is not reliable in the
 // automated test environment — this is the same approach used by buffer-lines.e2e.ts.
 async function openEditorViaFlag(notePath: string, editorSelector: string) {
-	await browser.execute(() => {
-		localStorage.setItem("AU_activateNextEmbed", "true");
-	});
+	await setActivateNextEmbedInLocalStorage();
 	await obsidianPage.openFile(notePath);
 	const editor = await browser.$(editorSelector);
 	await editor.waitForExist({ timeout: 15000 });

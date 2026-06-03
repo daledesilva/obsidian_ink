@@ -1,6 +1,7 @@
 import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
+import { setActivateNextEmbedInLocalStorage } from "./helpers/ink-local-storage";
 
 ////////
 // Notes
@@ -172,9 +173,7 @@ async function resetShapeTracking(): Promise<void> {
 async function openWritingEditor(notePath: string) {
 	// Set the flag that WritingEmbed checks on mount so the editor activates
 	// immediately without requiring a manual click on the preview.
-	await browser.execute(() => {
-		localStorage.setItem("AU_activateNextEmbed", "true");
-	});
+	await setActivateNextEmbedInLocalStorage();
 
 	await obsidianPage.openFile(notePath);
 

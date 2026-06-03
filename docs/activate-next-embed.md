@@ -14,7 +14,7 @@ Think of it as a **one-shot, device-local signal**:
 - Read once on embed **first mount**, then **cleared** from `localStorage`.
 - Only the first embed that checks the flag consumes it.
 
-It is **not** stored in vault `data.json` and does not sync across devices. See [Plugin memory and persistence](plugin-memory-and-persistence.md) for how this fits with other `AU_*` keys.
+It is **not** stored in vault `data.json` and does not sync across devices. See [Plugin memory and persistence](plugin-memory-and-persistence.md) for how this fits with other `au_ink_*` keys.
 
 ## Flows
 
@@ -24,7 +24,7 @@ It is **not** stored in vault `data.json` and does not sync across devices. See 
 sequenceDiagram
     participant User
     participant Command as insertNewWritingFile / insertNewDrawingFile
-    participant LS as localStorage AU_activateNextEmbed
+    participant LS as localStorage au_ink_activateNextEmbed
     participant Editor as Obsidian Editor
     participant Embed as WritingEmbed / DrawingEmbed
 
@@ -50,7 +50,7 @@ sequenceDiagram
 | Item | Detail |
 |------|--------|
 | **API** | [`src/logic/utils/storage.ts`](../src/logic/utils/storage.ts) — `activateNextEmbed()`, `embedShouldActivateImmediately()` |
-| **Storage key** | `activateNextEmbed` via `saveLocally` → full key `AU_activateNextEmbed` (`LOCAL_STORAGE_PREFIX`) |
+| **Storage key** | `activateNextEmbed` via `saveLocally` → full key `au_ink_activateNextEmbed` (`LOCAL_STORAGE_PREFIX`) |
 | **Set** | [`insert-new-writing-file.ts`](../src/commands/insert-new-writing-file.ts), [`insert-new-drawing-file.ts`](../src/commands/insert-new-drawing-file.ts) |
 | **Consume** | First-mount `useEffect` in current [`writing-embed.tsx`](../src/components/formats/current/writing/writing-embed/writing-embed.tsx) and [`drawing-embed.tsx`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx) (requires `embedId`); legacy v1 embed editors check the flag without `embedId` |
 | **Delay** | `200ms` `setTimeout` before `switchToEditMode()` so layout/widget setup can settle |
@@ -58,10 +58,10 @@ sequenceDiagram
 ## Technical Gotchas
 
 - **First consumer wins:** If several embed widgets mount in the same tick, only the first `embedShouldActivateImmediately()` call sees `true`; the key is deleted immediately. Normal insert flow adds one new embed, so this is usually fine.
-- **Tests:** Jest mocks `embedShouldActivateImmediately` to return `false` ([`tests/setupTests.ts`](../tests/setupTests.ts)) so components do not auto-enter edit mode. E2E tests set `AU_activateNextEmbed` manually in `localStorage` to simulate post-insert behaviour without running the insert command.
+- **Tests:** Jest mocks `embedShouldActivateImmediately` to return `false` ([`tests/setupTests.ts`](../tests/setupTests.ts)) so components do not auto-enter edit mode. E2E tests call [`setActivateNextEmbedInLocalStorage()`](../tests/e2e/helpers/ink-local-storage.ts), which uses `localStorageKey(ACTIVATE_NEXT_EMBED_STORAGE_SUFFIX)`.
 - **Not vault data:** Clearing site data or switching Obsidian profiles resets the flag; it does not travel with the vault.
 
 ## Related documentation
 
-- [Plugin memory and persistence](plugin-memory-and-persistence.md) — `AU_*` localStorage keys
+- [Plugin memory and persistence](plugin-memory-and-persistence.md) — `au_ink_*` localStorage keys
 - [Development](development.md) — test mocking of `embedShouldActivateImmediately`

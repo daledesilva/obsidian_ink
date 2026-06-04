@@ -50,7 +50,7 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Inserting handwriting sections...`);
     noticeBody.createEl('p').setText(`In any Markdown note, run the following command to begin writing where your Cursor is.`);
-    noticeBody.createEl('blockquote').setText(`"ink: New handwriting section"`);
+    noticeBody.createEl('blockquote').setText(`"Ink: New handwriting section"`);
     noticeBody.createEl('p').setText(`( Cmd+P or swipe down )`);
     
     const {
@@ -75,8 +75,8 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
 function showDrawingWelcomeTip(plugin: InkPlugin) {
     const noticeBody = createNoticeTemplate();
     noticeBody.createEl('h1').setText(`Drawing sections...`);
-    noticeBody.createEl('p').setText(`These can be added too and can be resized right in your Markdown file.`);
-    noticeBody.createEl('blockquote').setText(`"ink: New drawing"`);
+    noticeBody.createEl('p').setText(`These can be added too and can be resized right in your Markdown file. Use the purple lock icon to save framing, or the standard lock icon to save the drawing but revert the framing.`);
+    noticeBody.createEl('blockquote').setText(`"Ink: New drawing"`);
 
     const {
         primaryBtnEl,

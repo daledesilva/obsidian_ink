@@ -1,0 +1,34 @@
+// High-contrast embed chrome when Boox Companion is enabled (e-ink visibility).
+// Applied via .ddc_ink_resize-container--boox (embedded) or .ddc_ink_boox-eink (dedicated editor).
+
+.ddc_ink_resize-container--boox,
+.ddc_ink_boox-eink {
+	// Edit embed outline (overrides v1/legacy 8px base-10 leak)
+	.ddc_ink_writing-editor,
+	.ddc_ink_drawing-editor {
+		outline-color: color-mix(in srgb, var(--text-normal) 20%, transparent);
+	}
+
+	// Writing preview
+	.ddc_ink_writing-embed-preview {
+		&.ddc_ink_visible-background {
+			border-color: var(--text-normal);
+			border-width: 2px;
+		}
+
+		line {
+			stroke: var(--text-normal);
+			stroke-opacity: 1;
+		}
+	}
+
+	// Drawing preview
+	.ddc_ink_drawing-embed-preview.ddc_ink_visible-frame {
+		border-color: var(--text-normal);
+	}
+
+	// Grid dots (editor): darker fill for e-ink; per-tier opacity stays from InkAdaptiveGrid.
+	.ink-adaptive-grid .ink-grid-dot {
+		fill: var(--text-normal);
+	}
+}

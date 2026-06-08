@@ -19,12 +19,13 @@ import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-set
 import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
+import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { toStrokeOptions, DEFAULT_STROKE_STYLE, DEFAULT_DRAWING_GRID_ENABLED } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
-import { InkAdaptiveGrid } from './ink-adaptive-grid';
+import { InkAdaptiveGrid, INK_GRID_BOOX_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
 ///////////////////////////
 ///////////////////////////
 
@@ -72,6 +73,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const resolvedStrokeInputTreatAs = useResolvedStrokeInputTreatAs(strokeInputEditorKind);
 	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
 	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
+	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 
 	const pageWidth = props.pageWidth ?? WRITING_PAGE_WIDTH;
 	const writingBufferLines = props.writingBufferLines ?? 3;
@@ -1037,6 +1039,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						x={camera.x}
 						y={camera.y}
 						z={camera.zoom}
+						zoomFadeScale={isBooxConnectionEnabled ? INK_GRID_BOOX_ZOOM_FADE_SCALE : 1}
 					/>
 				)}
 				{/* Camera group — all content is transformed by the camera */}
@@ -1046,16 +1049,18 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						const pw = pageWidth;
 						const margin = pw * 0.05;
 						const lineCount = Math.floor(pageHeightState / lh);
+						const guideLineStrokeWidth = (isBooxConnectionEnabled ? 2 : 1) / camera.zoom;
 						return Array.from({ length: lineCount }, (_, i) => (
 							<line
 								key={i}
+								className="ink-writing-guide-line"
 								x1={margin}
 								y1={(i + 1) * lh}
 								x2={pw - margin}
 								y2={(i + 1) * lh}
-								stroke="currentColor"
-								strokeOpacity={0.5}
-								strokeWidth={1 / camera.zoom}
+								stroke={isBooxConnectionEnabled ? 'var(--text-normal)' : 'currentColor'}
+								strokeOpacity={isBooxConnectionEnabled ? 1 : 0.5}
+								strokeWidth={guideLineStrokeWidth}
 							/>
 						));
 					})()}

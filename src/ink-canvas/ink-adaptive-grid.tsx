@@ -22,6 +22,12 @@ const INK_GRID_TIER_PEAK_OPACITY = [1, 0.6, 0.35, 0.25] as const;
 /** Dot radius in screen pixels — tiers 2–3 are larger for stronger visibility. */
 const INK_GRID_TIER_DOT_RADIUS = [1, 1, 1.25, 1.5] as const;
 
+/**
+ * Scales zoom fade thresholds (min/mid) on e-ink so dot opacity reaches zero at a lower
+ * zoom level — dots stay visible longer when zooming out. 0.5 = half the zoom cutoff.
+ */
+export const INK_GRID_BOOX_ZOOM_FADE_SCALE = 0.5;
+
 function modulate(
 	value: number,
 	rangeA: readonly [number, number],
@@ -45,18 +51,21 @@ function computeLayerOpacity(
 	z: number,
 	min: number,
 	mid: number,
+	zoomFadeScale = 1,
 ): number {
 	const peak = INK_GRID_TIER_PEAK_OPACITY[tierIndex] ?? 1;
+	const fadeMin = min * zoomFadeScale;
+	const fadeMid = mid * zoomFadeScale;
 
 	if (tierIndex <= 1) {
-		if (z < min) {
-			return clamp01(modulate(z, [Math.min(min, -1), min], [0, peak]));
+		if (z < fadeMin) {
+			return clamp01(modulate(z, [Math.min(fadeMin, -1), fadeMin], [0, peak]));
 		}
 		return peak;
 	}
 
-	if (z < mid) {
-		return clamp01(modulate(z, [min, mid], [0, peak]));
+	if (z < fadeMid) {
+		return clamp01(modulate(z, [fadeMin, fadeMid], [0, peak]));
 	}
 	return peak;
 }
@@ -67,6 +76,8 @@ export interface InkAdaptiveGridProps {
 	z: number;
 	gridSize?: number;
 	className?: string;
+	/** Multiplier on min/mid fade thresholds; lower = dots fade later when zooming out. */
+	zoomFadeScale?: number;
 }
 
 /**
@@ -74,7 +85,7 @@ export interface InkAdaptiveGridProps {
  * Must render as a sibling of the camera-transformed stroke group, not inside it.
  */
 export function InkAdaptiveGrid(props: InkAdaptiveGridProps): React.JSX.Element {
-	const { x, y, z, gridSize = INK_GRID_SIZE, className } = props;
+	const { x, y, z, gridSize = INK_GRID_SIZE, className, zoomFadeScale = 1 } = props;
 	const reactId = useId();
 	const patternIdPrefix = `ink_grid_${reactId.replace(/:/g, '')}`;
 
@@ -87,7 +98,7 @@ export function InkAdaptiveGrid(props: InkAdaptiveGridProps): React.JSX.Element 
 					const yOffset = 0.5 + y * z;
 					const gridXOrigin = xOffset > 0 ? xOffset % cellSize : cellSize + (xOffset % cellSize);
 					const gridYOrigin = yOffset > 0 ? yOffset % cellSize : cellSize + (yOffset % cellSize);
-					const opacity = computeLayerOpacity(tierIndex, z, min, mid);
+					const opacity = computeLayerOpacity(tierIndex, z, min, mid, zoomFadeScale);
 					const dotRadius = INK_GRID_TIER_DOT_RADIUS[tierIndex] ?? 1;
 
 					return (

@@ -29,6 +29,7 @@ import { ExpandLinesButton } from 'src/tldraw/expand-lines-button/expand-lines-b
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
+import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom, type WritingEditorControls } from '../writing-embed/writing-embed';
@@ -99,6 +100,7 @@ export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (p
 
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const dominantHand = useDominantHand();
+	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
 	const [booxConnected, setBooxConnected] = React.useState(false);
 	const resizePostProcessTimeoutRef = useRef<number>();
@@ -945,6 +947,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 				'ddc_ink_editor-wrapper--loading',
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
+				isBooxConnectionEnabled && 'ddc_ink_boox-eink',
 			])}
 			style={{ height: '100%', position: 'relative' }}
 			tabIndex={props.embedded ? undefined : 0}

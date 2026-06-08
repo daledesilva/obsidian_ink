@@ -6,6 +6,7 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
+import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
 import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
@@ -86,6 +87,7 @@ interface DrawingEmbed_Props {
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
 
+	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
@@ -273,7 +275,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			{/* Include another container so that it's height isn't affected by the padding of the outer container */}
 			{props.embeddedFile && (
 				<div
-					className = 'ddc_ink_resize-container'
+					className = {classNames([
+						'ddc_ink_resize-container',
+						isBooxConnectionEnabled && 'ddc_ink_resize-container--boox',
+					])}
 					ref = {resizeContainerElRef}
 					style = {{
 						width: embedWidthRef.current + 'px',

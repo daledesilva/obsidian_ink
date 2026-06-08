@@ -18,6 +18,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
+import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { getGlobals } from 'src/stores/global-store';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
@@ -96,6 +97,7 @@ export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditor_Props> = (
 export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 
 	const dominantHand = useDominantHand();
+	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
 	const shortDelayTimerRef = useRef<number>();
 	const longDelayTimerRef = useRef<number>();
@@ -741,6 +743,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 				'ddc_ink_editor-wrapper--loading',
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
+				isBooxConnectionEnabled && 'ddc_ink_boox-eink',
 			])}
 			style={{ height: '100%', position: 'relative' }}
 			tabIndex={props.embedded ? undefined : 0}

@@ -1,4 +1,15 @@
 @use '../../../../shared/ink-svg-preview-theme';
+@use '../../../../../styles/ink-boox-eink-chrome';
+
+// Boox: disable transition on the editor canvas only (stroke latency).
+.ddc_ink_resize-container.ddc_ink_resize-container--boox,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox .ddc_ink_drawing-editor {
+	transition: none !important;
+}
+
+.ddc_ink_drawing-embed:has(.ddc_ink_resize-container--boox) {
+	transition-property: none;
+}
 
 // Universal selector that works in both Live Preview AND Reading View
 .markdown-rendered:has(.ddc_ink_drawing-embed) {

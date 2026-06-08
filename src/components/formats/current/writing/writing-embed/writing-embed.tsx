@@ -12,6 +12,7 @@ import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
+import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
 import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile, WorkspaceLeaf } from "obsidian";
@@ -73,6 +74,7 @@ export function WritingEmbed (props: {
 	resolveAsDuplicate?: () => void | Promise<void>,
 	locateFile?: () => void,
 }) {
+	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<WritingEditorControls>();
@@ -260,7 +262,7 @@ export function WritingEmbed (props: {
 				<div
 					className = {classNames([
 						'ddc_ink_resize-container',
-						getBooxConnectionEnabled() && 'ddc_ink_resize-container--boox',
+						isBooxConnectionEnabled && 'ddc_ink_resize-container--boox',
 					])}
 					ref = {resizeContainerElRef}
 				>

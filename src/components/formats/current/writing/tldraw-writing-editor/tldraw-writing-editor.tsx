@@ -673,6 +673,35 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		};
 	}
 
+	/** Boox overlay + stroke mapping surface (matches drawing editor: container in dedicated view). */
+	function getBooxWritingSurfaceRects(): { raw: DOMRect; clamped: DOMRect | null } | null {
+		const wrapper = editorWrapperRefEl.current;
+		if (!wrapper) return null;
+		let raw: DOMRect;
+		if (props.embedded) {
+			raw = wrapper.getBoundingClientRect();
+		} else {
+			const editor = editorRef.current;
+			const container = editor?.getContainerElement();
+			if (container) {
+				const containerRect = container.getBoundingClientRect();
+				raw = containerRect.width > 1 && containerRect.height > 1
+					? containerRect
+					: wrapper.getBoundingClientRect();
+			} else {
+				raw = wrapper.getBoundingClientRect();
+			}
+		}
+		const visible = clampToVisibleViewport(raw);
+		if (visible.width <= 0 || visible.height <= 0) {
+			return { raw, clamped: null };
+		}
+		return {
+			raw,
+			clamped: new DOMRect(visible.x, visible.y, visible.width, visible.height),
+		};
+	}
+
 	function getMenuExcludeRects(wrapperEl: HTMLDivElement): Array<{ x: number; y: number; width: number; height: number }> {
 		const rects: Array<{ x: number; y: number; width: number; height: number }> = [];
 		const menuBarEl = wrapperEl.querySelector('.ink_primary-menu-bar');
@@ -706,12 +735,17 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!editorWrapperRefEl.current) return false;
 		if (!getBooxConnectionEnabled()) return false;
 
-		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		const visible = clampToVisibleViewport(embedRect);
-		if (visible.width <= 0 || visible.height <= 0) {
+		const surfaceRects = getBooxWritingSurfaceRects();
+		if (!surfaceRects?.clamped) {
 			pendingNewOverlayRef.current = true;
 			return false;
 		}
+		const visible = {
+			x: Math.round(surfaceRects.clamped.x),
+			y: Math.round(surfaceRects.clamped.y),
+			width: Math.round(surfaceRects.clamped.width),
+			height: Math.round(surfaceRects.clamped.height),
+		};
 		pendingNewOverlayRef.current = false;
 
 		props.plugin.booxConnection.sendNewDrawingArea({
@@ -772,12 +806,17 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		if (!isViewActiveRef.current) return;
 		if (!getBooxConnectionEnabled()) return;
 
-		const embedRect = editorWrapperRefEl.current.getBoundingClientRect();
-		const visible = clampToVisibleViewport(embedRect);
-		if (visible.width <= 0 || visible.height <= 0) {
+		const surfaceRects = getBooxWritingSurfaceRects();
+		if (!surfaceRects?.clamped) {
 			pendingNewOverlayRef.current = true;
 			return;
 		}
+		const visible = {
+			x: Math.round(surfaceRects.clamped.x),
+			y: Math.round(surfaceRects.clamped.y),
+			width: Math.round(surfaceRects.clamped.width),
+			height: Math.round(surfaceRects.clamped.height),
+		};
 		pendingNewOverlayRef.current = false;
 
 		props.plugin.booxConnection.sendUpdateDrawingArea({
@@ -845,34 +884,28 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const editor = editorRef.current;
 		if (!editor) return false;
 
-		const embedBounds = editorWrapperRefEl.current.getBoundingClientRect();
-		const camera = editor.getCamera();
+		const surfaceRects = getBooxWritingSurfaceRects();
+		if (!surfaceRects?.clamped) return false;
+		const surfaceRect = surfaceRects.clamped;
+
 		const sourceCanvasWidth = payload.canvasWidth && payload.canvasWidth > 0
 			? payload.canvasWidth
-			: embedBounds.width;
+			: surfaceRect.width;
 		const sourceCanvasHeight = payload.canvasHeight && payload.canvasHeight > 0
 			? payload.canvasHeight
-			: embedBounds.height;
+			: surfaceRect.height;
 		if (sourceCanvasWidth <= 0 || sourceCanvasHeight <= 0) return false;
 
-		const visibleTopOffsetPx = Math.max(0, -embedBounds.y);
-		const visibleLeftOffsetPx = Math.max(0, -embedBounds.x);
-		const pageYOffset = visibleTopOffsetPx / embedBounds.width * WRITING_PAGE_WIDTH;
-		const pageXOffset = visibleLeftOffsetPx / embedBounds.width * WRITING_PAGE_WIDTH;
-		const sourcePageBounds = {
-			x: camera.x + pageXOffset,
-			y: camera.y + pageYOffset,
-			w: WRITING_PAGE_WIDTH,
-			h: sourceCanvasHeight / sourceCanvasWidth * WRITING_PAGE_WIDTH,
-		};
-		const xScaleCoeff = sourcePageBounds.w / sourceCanvasWidth;
-		const yScaleCoeff = sourcePageBounds.h / sourceCanvasHeight;
-
-		const inkPoints: InkPoint[] = canvasRelativePoints.map(pt => [
-			sourcePageBounds.x + pt.x * xScaleCoeff,
-			sourcePageBounds.y + pt.y * yScaleCoeff,
-			normalizeBooxPenPressureForCapture(pt.pressure),
-		] as InkPoint);
+		const inkPoints: InkPoint[] = canvasRelativePoints.map(pt => {
+			const sx = surfaceRect.left + (pt.x / sourceCanvasWidth) * surfaceRect.width;
+			const sy = surfaceRect.top + (pt.y / sourceCanvasHeight) * surfaceRect.height;
+			const page = editor.screenToPage(sx, sy);
+			return [
+				page.x,
+				page.y,
+				normalizeBooxPenPressureForCapture(pt.pressure),
+			] as InkPoint;
+		});
 
 		const stroke: InkStroke = {
 			id: crypto.randomUUID(),

@@ -19,14 +19,13 @@ const L = WRITING_LINE_HEIGHT;
 //
 // These helpers are installed on window.__inkTest inside browser.execute()
 // so they can be reused across calls. The editor is located via React fiber
-// traversal — an internal API but stable for the tldraw version in use.
+// traversal — an internal API used to reach WritingEditor hook state.
 
 async function installBrowserHelpers() {
 	await browser.execute(() => {
-		// Start from .ddc_ink_writing-editor (rendered directly by TldrawWritingEditor)
-		// and traverse UP through parent fibers to find TldrawWritingEditor's hook states.
-		// This avoids traversing thousands of tldraw-internal fiber nodes.
-		function findTldrawEditor() {
+		// Start from .ddc_ink_writing-editor (rendered directly by WritingEditor)
+		// and traverse UP through parent fibers to find WritingEditor's hook states.
+		function findWritingEditor() {
 			// Try multiple candidate root elements, closest-to-component first
 			const candidates = [
 				document.querySelector(".ddc_ink_writing-editor"),
@@ -78,7 +77,7 @@ async function installBrowserHelpers() {
 			shapeIds: [],
 
 			getTemplateHeight() {
-				const editor = findTldrawEditor();
+				const editor = findWritingEditor();
 				if (!editor) return null;
 				const shape = editor.getShape("shape:writing-container");
 				return shape ? shape.props.h : null;
@@ -90,7 +89,7 @@ async function installBrowserHelpers() {
 			// updated when this function returns. Call getTemplateHeight() after a
 			// brief pause to read the post-resize height.
 			createStroke(lineNum) {
-				const editor = findTldrawEditor();
+				const editor = findWritingEditor();
 				if (!editor) return false;
 				const yPos = (lineNum - 1) * 150 + 50;
 				const shapeId =
@@ -127,7 +126,7 @@ async function installBrowserHelpers() {
 			// Deletes the last created stroke. Height is NOT returned for the same
 			// reason as createStroke — read it after a pause.
 			eraseStroke() {
-				const editor = findTldrawEditor();
+				const editor = findWritingEditor();
 				const ids = (window as any).__inkTest.shapeIds;
 				if (!editor || ids.length === 0) return false;
 				const lastId = ids.pop();

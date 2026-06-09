@@ -14,15 +14,19 @@ const mockPushRedo = jest.fn();
 const mockNotifyUndoExecuted = jest.fn();
 const mockNotifyRedoExecuted = jest.fn();
 const mockSetProgrammaticRedoInProgress = jest.fn();
+const mockSetProgrammaticUndoInProgress = jest.fn();
 const mockGetUndoStackSnapshot = jest.fn();
 const mockGetEditor = jest.fn();
 const mockGetResizeApplier = jest.fn();
 const mockGetDedicatedInkEditor = jest.fn();
+const mockGetRegisteredEmbedIdsForLeaf = jest.fn();
 
 jest.mock('src/logic/undo-redo/ink-editor-registry', () => ({
 	getActiveEmbedIdForLeaf: (leafId: string) => mockGetActiveEmbedIdForLeaf(leafId),
 	getEditor: (embedId: string) => mockGetEditor(embedId),
 	getResizeApplier: (embedId: string) => mockGetResizeApplier(embedId),
+	getRegisteredEmbedIdsForLeaf: (leafId: string) => mockGetRegisteredEmbedIdsForLeaf(leafId),
+	getRegisteredEmbedCountForLeaf: () => 0,
 }));
 
 jest.mock('src/logic/undo-redo/dedicated-ink-editor-registry', () => ({
@@ -42,6 +46,8 @@ jest.mock('src/logic/undo-redo/unified-undo-stack', () => ({
 	notifyRedoExecuted: (leafId: string, entry: any) => mockNotifyRedoExecuted(leafId, entry),
 	setProgrammaticRedoInProgress: (value: boolean, plugin?: any) =>
 		mockSetProgrammaticRedoInProgress(value, plugin),
+	setProgrammaticUndoInProgress: (value: boolean, plugin?: any) =>
+		mockSetProgrammaticUndoInProgress(value, plugin),
 	getUndoStackSnapshot: (leafId: string) => mockGetUndoStackSnapshot(leafId),
 }));
 
@@ -65,6 +71,7 @@ function createMockPlugin() {
 		app: {
 			workspace: {
 				activeLeaf: { id: LEAF_ID, view: { getViewType: () => 'markdown' } },
+				getMostRecentLeaf: jest.fn(() => ({ id: LEAF_ID, view: { getViewType: () => 'markdown' } })),
 				getActiveViewOfType: jest.fn(() => ({ editor: null })),
 			},
 		},
@@ -109,6 +116,7 @@ describe('keyboard-handler', () => {
 		jest.useFakeTimers();
 		mockGetUndoStackSnapshot.mockReturnValue([]);
 		mockGetDedicatedInkEditor.mockReturnValue(null);
+		mockGetRegisteredEmbedIdsForLeaf.mockReturnValue([EMBED_ID]);
 		plugin = createMockPlugin();
 		registerUnifiedUndoRedo(plugin as any);
 	});
@@ -158,7 +166,7 @@ describe('keyboard-handler', () => {
 
 			expect(event.preventDefault).toHaveBeenCalled();
 			expect(event.stopPropagation).toHaveBeenCalled();
-			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(LEAF_ID, EMBED_ID, undefined);
+			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(LEAF_ID, EMBED_ID, { skipEmbed: true });
 			expect(mockPopUndo).toHaveBeenCalledWith(LEAF_ID);
 			expect(mockNotifyUndoExecuted).toHaveBeenCalledWith(LEAF_ID, MOCK_ENTRY);
 			expect(MOCK_EDITOR.undo).toHaveBeenCalled();
@@ -202,7 +210,7 @@ describe('keyboard-handler', () => {
 			plugin._handlers[0](event);
 
 			expect(event.preventDefault).toHaveBeenCalled();
-			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(LEAF_ID, EMBED_ID, undefined);
+			expect(mockSyncUnifiedUndoHistory).toHaveBeenCalledWith(LEAF_ID, EMBED_ID, { skipEmbed: true });
 			expect(mockPopRedo).toHaveBeenCalledWith(LEAF_ID);
 			expect(mockNotifyRedoExecuted).toHaveBeenCalledWith(LEAF_ID, MOCK_ENTRY);
 			expect(mockSetProgrammaticRedoInProgress).toHaveBeenCalledWith(true, plugin);

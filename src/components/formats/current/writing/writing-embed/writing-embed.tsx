@@ -1,7 +1,7 @@
 import "./writing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
-import { TldrawWritingEditorWrapper } from "../tldraw-writing-editor/tldraw-writing-editor";
+import { WritingEditorWrapper } from "../writing-editor/writing-editor";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
@@ -20,7 +20,7 @@ import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-emb
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
-import type { Box } from "@tldraw/tldraw";
+import type { PageBounds } from "../writing-editor/page-bounds";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { getGlobals } from "src/stores/global-store";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
@@ -276,7 +276,7 @@ export function WritingEmbed (props: {
 					/>
 
 					{(writingFormat === 'ink-canvas' || writingFormat === 'tldraw') && props.writingFileRef && (
-						<TldrawWritingEditorWrapper
+						<WritingEditorWrapper
 							plugin={props.plugin}
 							workspaceLeafId={props.workspaceLeafId}
 							embedId={props.embedId}
@@ -329,7 +329,7 @@ export function WritingEmbed (props: {
 		// DO NOT recalculate embedAspectRatioRef here - editor is authoritative source
 	}
 
-	function applySizingWhileEditing(invitingBounds: Box, tightBounds: Box) {
+	function applySizingWhileEditing(invitingBounds: PageBounds, tightBounds: PageBounds) {
 		if(!resizeContainerElRef.current) return;
 		const containerWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 		if (!containerWidth) return;

@@ -163,7 +163,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 
 				// Only lock scroll for left-click (button 0) and pen input.
 				// Middle (button 1) and right (button 2) mouse events are used exclusively
-				// by embed pan/zoom gestures in tldraw-drawing-editor, which call
+				// by embed pan/zoom gestures in drawing-editor, which call
 				// tlContainer.setPointerCapture() — transferring native capture away from
 				// this element. Because setPointerCapture() on a synthetic forwarded event
 				// doesn't reliably fire lostpointercapture on this element in Electron/Chromium,

@@ -10,10 +10,15 @@ jest.mock('src/logic/utils/remove-embed-flow', () => ({
 const makePlugin = (overrides: Partial<any> = {}) => ({
   app: { 
     vault: { 
+      read: jest.fn().mockResolvedValue('<svg></svg>'),
       getResourcePath: jest.fn(() => 'data:image/svg+xml,%3Csvg/%3E'),
       on: jest.fn(() => jest.fn()),
       offref: jest.fn()
-    } 
+    },
+    workspace: {
+      on: jest.fn(() => () => {}),
+      off: jest.fn(),
+    },
   },
   settings: {},
   ...overrides,

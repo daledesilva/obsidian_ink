@@ -1,8 +1,7 @@
-import './tldraw-writing-editor.scss';
+import './writing-editor.scss';
 import * as React from 'react';
 import { useRef } from 'react';
 import { TFile } from 'obsidian';
-import { Box } from '@tldraw/tldraw';
 import { useAtomValue } from 'jotai';
 import classNames from 'classnames';
 import InkPlugin from 'src/main';
@@ -23,9 +22,9 @@ import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/p
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
 import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
-import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
-import { InkCanvasModifyMenu } from 'src/tldraw/modify-menu/ink-canvas-modify-menu';
-import { ExpandLinesButton } from 'src/tldraw/expand-lines-button/expand-lines-button';
+import { SecondaryMenuBar } from 'src/components/jsx-components/secondary-menu-bar/secondary-menu-bar';
+import { InkCanvasModifyMenu } from 'src/components/jsx-components/ink-canvas-modify-menu/ink-canvas-modify-menu';
+import { ExpandLinesButton } from 'src/components/jsx-components/expand-lines-button/expand-lines-button';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
@@ -41,7 +40,8 @@ import {
 } from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderWritingStrokesToSvg, computeStrokesBounds } from 'src/ink-canvas/svg-export';
-import { migrateWritingFromTldraw, type TldrawSnapshotForMigration } from 'src/ink-canvas/migrate-from-tldraw';
+import { migrateWritingFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
+import type { PageBounds } from './page-bounds';
 import {
 	computeDedicatedWritingPageHeight,
 	cropWritingStrokeHeightInvitingly,
@@ -77,8 +77,8 @@ interface BooxStrokePayload {
 	canvasHeight?: number;
 }
 
-interface TldrawWritingEditorProps {
-	onResize?: (invitingBounds: Box, tightBounds: Box) => void;
+interface WritingEditorProps {
+	onResize?: (invitingBounds: PageBounds, tightBounds: PageBounds) => void;
 	plugin: InkPlugin;
 	workspaceLeafId: string;
 	embedId?: string;
@@ -91,14 +91,14 @@ interface TldrawWritingEditorProps {
 	onOpenInDedicatedView?: () => void;
 }
 
-export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (props) => {
+export const WritingEditorWrapper: React.FC<WritingEditorProps> = (props) => {
 	const embedsInEditMode = useAtomValue(embedsInEditModeAtom);
 	const editorActive = !!props.embedId && embedsInEditMode.has(props.embedId);
-	if (editorActive) return <TldrawWritingEditor {...props} />;
+	if (editorActive) return <WritingEditor {...props} />;
 	return <></>;
 };
 
-export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
+export function WritingEditor(props: WritingEditorProps) {
 	const dominantHand = useDominantHand();
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
@@ -589,13 +589,13 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	function notifyEmbedResize(pageHeight: number) {
 		if (!props.embedded || !props.onResize) return;
 		const pw = WRITING_PAGE_WIDTH;
-		const invitingBounds = new Box(0, 0, pw, pageHeight);
+		const invitingBounds: PageBounds = { x: 0, y: 0, w: pw, h: pageHeight };
 		const strokes = editorRef.current?.getSnapshot().strokes ?? [];
 		const lineHeight = writingLineHeightRef.current;
 		const tightHeight = strokes.length > 0
 			? cropWritingStrokeHeightTightly(computeStrokesBounds(strokes).maxY, lineHeight)
 			: WRITING_MIN_PAGE_HEIGHT;
-		const tightBounds = new Box(0, 0, pw, tightHeight);
+		const tightBounds: PageBounds = { x: 0, y: 0, w: pw, h: tightHeight };
 		if (getBooxConnectionEnabled() && websocketConnectedRef.current) {
 			isAndroidDrawingAreaResizingRef.current = true;
 		}

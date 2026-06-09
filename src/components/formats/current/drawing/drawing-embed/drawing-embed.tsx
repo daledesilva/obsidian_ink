@@ -22,7 +22,7 @@ import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constan
 import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
 import { EmbedSettings } from "src/types/embed-settings";
-import { TldrawDrawingEditorWrapper } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { DrawingEditorWrapper } from "../drawing-editor/drawing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
@@ -30,7 +30,7 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 ///////
 ///////
 
-type DrawingFormat = 'tldraw' | 'ink-canvas' | 'unknown';
+type DrawingFormat = 'legacyInk' | 'ink-canvas' | 'unknown';
 
 // Per-embed edit state: multiple drawing embeds can be in edit mode at once (both unlocked).
 // embedStateAtom_v2 retained for keyboard-handler "any embed in edit mode" check.
@@ -109,13 +109,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	async function detectFormat(file: TFile) {
 		try {
 			const svgString = await file.vault.read(file);
-			if (!svgString) { setDrawingFormat('tldraw'); return; }
+			if (!svgString) { setDrawingFormat('legacyInk'); return; }
 			const inkFileData = extractInkJsonFromSvg(svgString);
-			if (!inkFileData) { setDrawingFormat('tldraw'); return; }
-			// Editor is always ink-canvas; tldraw files migrate on load.
-			setDrawingFormat(isInkCanvasFile(inkFileData) ? 'ink-canvas' : 'tldraw');
+			if (!inkFileData) { setDrawingFormat('legacyInk'); return; }
+			// Editor is always ink-canvas; legacy ink files migrate on load.
+			setDrawingFormat(isInkCanvasFile(inkFileData) ? 'ink-canvas' : 'legacyInk');
 		} catch {
-			setDrawingFormat('tldraw');
+			setDrawingFormat('legacyInk');
 		}
 	}
 
@@ -297,8 +297,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 				/>
 
-				{(drawingFormat === 'ink-canvas' || drawingFormat === 'tldraw') && (
-					<TldrawDrawingEditorWrapper
+				{(drawingFormat === 'ink-canvas' || drawingFormat === 'legacyInk') && (
+					<DrawingEditorWrapper
 						embedId = {props.embedId}
 						workspaceLeafId = {props.workspaceLeafId}
 						onReady = {() => {}}

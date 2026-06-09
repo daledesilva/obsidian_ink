@@ -12,7 +12,7 @@ import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
-import { TldrawDrawingEditor } from "../tldraw-drawing-editor/tldraw-drawing-editor";
+import { DrawingEditor } from "../drawing-editor/drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
@@ -144,7 +144,7 @@ export class DrawingView extends TextFileView {
 
         this.root = createRoot(host);
 
-		const editorElement = <TldrawDrawingEditor
+		const editorElement = <DrawingEditor
 			onReady = {() => {}}
 			workspaceLeafId = {this.leaf.id}
 			drawingFile = {this.file}

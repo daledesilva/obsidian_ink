@@ -1,4 +1,4 @@
-import './tldraw-drawing-editor.scss';
+import './drawing-editor.scss';
 import * as React from 'react';
 import { useRef } from 'react';
 import { TFile } from 'obsidian';
@@ -12,8 +12,8 @@ import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/p
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
 import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
-import { SecondaryMenuBar } from 'src/tldraw/secondary-menu-bar/secondary-menu-bar';
-import { InkCanvasModifyMenu } from 'src/tldraw/modify-menu/ink-canvas-modify-menu';
+import { SecondaryMenuBar } from 'src/components/jsx-components/secondary-menu-bar/secondary-menu-bar';
+import { InkCanvasModifyMenu } from 'src/components/jsx-components/ink-canvas-modify-menu/ink-canvas-modify-menu';
 import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize-handle';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
@@ -31,7 +31,7 @@ import {
 } from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
-import { migrateFromTldraw, type TldrawSnapshotForMigration } from 'src/ink-canvas/migrate-from-tldraw';
+import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
@@ -39,7 +39,6 @@ import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'sr
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
-import type { TLEditorSnapshot } from '@tldraw/tldraw';
 import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 
@@ -64,7 +63,7 @@ interface BooxStrokePayload {
 	canvasHeight?: number;
 }
 
-interface TldrawDrawingEditor_Props {
+interface DrawingEditorProps {
 	onReady?: () => void;
 	workspaceLeafId: string;
 	embedId?: string;
@@ -86,15 +85,15 @@ interface TldrawDrawingEditor_Props {
 	onOpenInDedicatedView?: () => void;
 }
 
-export const TldrawDrawingEditorWrapper: React.FC<TldrawDrawingEditor_Props> = (props) => {
+export const DrawingEditorWrapper: React.FC<DrawingEditorProps> = (props) => {
 	const embedsInEditMode = useAtomValue(embedsInEditModeAtom_v2);
 	const editorActive = !!props.embedId && embedsInEditMode.has(props.embedId);
 
-	if (editorActive) return <TldrawDrawingEditor {...props} />;
+	if (editorActive) return <DrawingEditor {...props} />;
 	return <></>;
 };
 
-export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
+export function DrawingEditor(props: DrawingEditorProps) {
 
 	const dominantHand = useDominantHand();
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
@@ -313,7 +312,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 			});
 		}
 
-		// Socket may have opened before the canvas mounted (same as tldraw handleMount).
+		// Socket may have opened before the canvas mounted.
 		const inkPlugin = getGlobals().plugin;
 		if (getBooxConnectionEnabled() && inkPlugin.booxConnection.isConnected()) {
 			websocketConnectedRef.current = true;
@@ -505,7 +504,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditor_Props) {
 	}
 
 
-	// Boox bridge helpers (mirrors tldraw-drawing-editor; ink container instead of tldraw)
+	// Boox bridge helpers
 	///////////////////////////
 
 	function computeClampDrawingSurfaceOverlay(surfaceRect: DOMRect): DOMRect {

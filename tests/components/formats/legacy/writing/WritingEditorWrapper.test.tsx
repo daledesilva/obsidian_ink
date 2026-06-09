@@ -1,15 +1,15 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider as JotaiProvider } from 'jotai';
-import { TldrawWritingEditorWrapper } from 'src/components/formats/current/writing/tldraw-writing-editor/tldraw-writing-editor';
+import { WritingEditorWrapper } from 'src/components/formats/current/writing/writing-editor/writing-editor';
 
-const makeTFile = (): any => ({ path: 'path/to/file', vault: { read: jest.fn().mockResolvedValue('<svg></svg>') } });
+const makeTFile = (): any => ({ path: 'path/to/file' });
 
-describe('TldrawWritingEditorWrapper', () => {
+describe('WritingEditorWrapper (legacy)', () => {
   it('mounts wrapper without crashing when editorActive is default false', () => {
     render(
       <JotaiProvider>
-        <TldrawWritingEditorWrapper
+        <WritingEditorWrapper
           plugin={{} as any}
           workspaceLeafId="test-leaf"
           embedId="test-embed"
@@ -24,5 +24,3 @@ describe('TldrawWritingEditorWrapper', () => {
     expect(true).toBe(true);
   });
 });
-
-

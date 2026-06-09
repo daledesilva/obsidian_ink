@@ -4,7 +4,7 @@ import { Root, createRoot } from "react-dom/client";
 import InkPlugin from "src/main";
 import "./writing-view.scss";
 import { InkFileData } from "src/components/formats/current/types/file-data";
-import { TldrawWritingEditor } from "../tldraw-writing-editor/tldraw-writing-editor";
+import { WritingEditor } from "../writing-editor/writing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
@@ -129,7 +129,7 @@ export class WritingView extends TextFileView {
         this.root = createRoot(host);
 
         this.root.render(
-            <TldrawWritingEditor
+            <WritingEditor
                 plugin={this.plugin}
                 workspaceLeafId={this.leaf.id}
                 writingFile={this.file}

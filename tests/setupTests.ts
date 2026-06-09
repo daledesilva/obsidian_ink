@@ -150,15 +150,25 @@ jest.mock('src/stores/global-store', () => ({
           on: jest.fn(() => jest.fn()),
           offref: jest.fn(),
         },
+        workspace: {
+          on: jest.fn(() => () => {}),
+          off: jest.fn(),
+          activeLeaf: null,
+          getMostRecentLeaf: jest.fn(() => null),
+        },
       },
     },
   }),
 }));
 
-// Avoid auto-activating embeds by default
+// Avoid auto-activating embeds by default; stub local device-settings storage reads
 jest.mock('src/logic/utils/storage', () => ({
   __esModule: true,
   embedShouldActivateImmediately: () => false,
+  fetchLocally: () => null,
+  saveLocally: () => {},
+  deleteLocally: () => {},
+  localStorageKey: (key: string) => `au_ink_${key}`,
 }));
 
 

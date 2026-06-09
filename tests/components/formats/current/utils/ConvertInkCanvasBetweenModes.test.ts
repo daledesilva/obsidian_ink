@@ -58,6 +58,34 @@ describe('convertWriteInkCanvasDataToDraw', () => {
 		expect(result.inkCanvas!.strokes[0].id).toBe('stroke-1');
 	});
 
+	test('uses gridEnabled true when passed explicitly', () => {
+		const svg = makeInkCanvasSvg('inkWriting', {
+			version: 1,
+			strokes: [SAMPLE_STROKE],
+			gridEnabled: false,
+			writingLineHeight: 120,
+		});
+		const input = parseInkCanvasFile(svg);
+
+		const result = convertWriteInkCanvasDataToDraw(input, true);
+
+		expect(result.inkCanvas!.gridEnabled).toBe(true);
+	});
+
+	test('uses gridEnabled false when passed explicitly', () => {
+		const svg = makeInkCanvasSvg('inkWriting', {
+			version: 1,
+			strokes: [SAMPLE_STROKE],
+			gridEnabled: false,
+			writingLineHeight: 120,
+		});
+		const input = parseInkCanvasFile(svg);
+
+		const result = convertWriteInkCanvasDataToDraw(input, false);
+
+		expect(result.inkCanvas!.gridEnabled).toBe(false);
+	});
+
 	test('re-renders SVG without tldraw metadata', () => {
 		const svg = makeInkCanvasSvg('inkWriting', {
 			version: 1,

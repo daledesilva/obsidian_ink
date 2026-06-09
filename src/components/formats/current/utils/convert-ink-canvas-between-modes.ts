@@ -1,6 +1,7 @@
+import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { PLUGIN_VERSION, WRITING_PAGE_WIDTH } from 'src/constants';
 import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
-import { DEFAULT_DRAWING_GRID_ENABLED, type InkCanvasSnapshot } from 'src/ink-canvas/types';
+import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 import { InkFileData } from '../types/file-data';
 import {
 	buildInkCanvasDrawingFileData,
@@ -27,7 +28,10 @@ function cloneInkCanvasSnapshot(snapshot: InkCanvasSnapshot): InkCanvasSnapshot 
  * Pure data transformation: converts an inkWriting ink-canvas InkFileData to inkDrawing.
  * Updates snapshot mode fields and re-renders the preview SVG from strokes.
  */
-export function convertWriteInkCanvasDataToDraw(data: InkFileData): InkFileData {
+export function convertWriteInkCanvasDataToDraw(
+	data: InkFileData,
+	gridEnabled: boolean = DEFAULT_SETTINGS.drawingGridEnabledByDefault,
+): InkFileData {
 	if (!isInkCanvasFile(data) || !data.inkCanvas) {
 		throw new Error('convertWriteInkCanvasDataToDraw requires an ink-canvas inkWriting file');
 	}
@@ -39,7 +43,7 @@ export function convertWriteInkCanvasDataToDraw(data: InkFileData): InkFileData 
 		cloneInkCanvasSnapshot(data.inkCanvas);
 	const inkCanvasSnapshot: InkCanvasSnapshot = {
 		...snapshotRest,
-		gridEnabled: DEFAULT_DRAWING_GRID_ENABLED,
+		gridEnabled,
 	};
 
 	const svgString = renderStrokesToSvg(inkCanvasSnapshot.strokes, inkCanvasSnapshot);

@@ -76,9 +76,6 @@ export interface InkCanvasSnapshot {
 	writingLineHeight?: number;
 }
 
-/** Default for `gridEnabled` on new inkDrawing ink-canvas files and when the field is missing in drawing mode. */
-export const DEFAULT_DRAWING_GRID_ENABLED = true;
-
 /** Camera position and zoom level. */
 export interface CameraState {
 	x: number;

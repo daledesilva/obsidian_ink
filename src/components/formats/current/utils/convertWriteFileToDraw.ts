@@ -3,6 +3,7 @@ import { TLShapeId } from "@tldraw/tldraw";
 import InkPlugin from "src/main";
 import { InkFileData } from "../types/file-data";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
 import { convertWriteInkCanvasDataToDraw } from "./convert-ink-canvas-between-modes";
 import { buildFileStr } from "./buildFileStr";
 import { isInkCanvasFile } from "./ink-file-storage-engine";
@@ -15,7 +16,10 @@ import { isInkCanvasFile } from "./ink-file-storage-engine";
  * Removes writing-container and writing-lines shapes from the tldraw store
  * and updates the fileType metadata.
  */
-export function convertWriteDataToDraw(data: InkFileData): InkFileData {
+export function convertWriteDataToDraw(
+	data: InkFileData,
+	gridEnabled: boolean = DEFAULT_SETTINGS.drawingGridEnabledByDefault,
+): InkFileData {
 	const store = data.tldraw.document.store;
 
 	const updatedStore = { ...store };
@@ -23,7 +27,7 @@ export function convertWriteDataToDraw(data: InkFileData): InkFileData {
 	delete updatedStore['shape:writing-lines' as TLShapeId];
 
 	const existingSession = data.tldraw.session ?? {};
-	const sessionWithGridOn = { ...existingSession, isGridMode: true };
+	const sessionWithGrid = { ...existingSession, isGridMode: gridEnabled };
 
 	return {
 		...data,
@@ -37,7 +41,7 @@ export function convertWriteDataToDraw(data: InkFileData): InkFileData {
 				...data.tldraw.document,
 				store: updatedStore,
 			},
-			session: sessionWithGridOn,
+			session: sessionWithGrid,
 		},
 	};
 }
@@ -55,9 +59,10 @@ export const convertWriteFileToDraw = async (plugin: InkPlugin, file: TFile): Pr
 	if (!data) return;
 	if (data.meta.fileType !== 'inkWriting') return;
 
+	const gridEnabled = plugin.settings.drawingGridEnabledByDefault ?? DEFAULT_SETTINGS.drawingGridEnabledByDefault;
 	const converted = isInkCanvasFile(data)
-		? convertWriteInkCanvasDataToDraw(data)
-		: convertWriteDataToDraw(data);
+		? convertWriteInkCanvasDataToDraw(data, gridEnabled)
+		: convertWriteDataToDraw(data, gridEnabled);
 	const newSvgStr = isInkCanvasFile(data)
 		? buildFileStr(converted)
 		: buildFileStr({ ...converted, svgString: svgStr });

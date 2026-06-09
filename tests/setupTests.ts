@@ -140,6 +140,7 @@ jest.mock('src/stores/global-store', () => ({
       settings: {
         drawingFrameWhenLocked: true,
         drawingBackgroundWhenLocked: true,
+        drawingGridEnabledByDefault: true,
         writingLinesWhenLocked: true,
         writingBackgroundWhenLocked: true,
       },

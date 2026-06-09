@@ -467,6 +467,17 @@ function insertDrawingSettings(
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
+		.setName('Show grid in new drawings')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.drawingGridEnabledByDefault);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.drawingGridEnabledByDefault = value;
+				await plugin.saveSettings();
+			});
+		});
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
 		.setName('Show frame around drawing when not editing')
 
 		.addToggle((toggle) => {

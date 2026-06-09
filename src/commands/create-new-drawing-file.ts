@@ -4,8 +4,9 @@ import { getNewTimestampedDrawingSvgFilepath } from "src/logic/utils/file-manipu
 import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
 import { TFile } from "obsidian";
 import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
+import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
 import emptyDrawingSvgStr from "src/defaults/empty-drawing-embed.svg";
-import { DEFAULT_DRAWING_GRID_ENABLED, type InkCanvasSnapshot } from "src/ink-canvas/types";
+import type { InkCanvasSnapshot } from "src/ink-canvas/types";
 
 ////////
 ////////
@@ -15,7 +16,7 @@ export const createNewDrawingFile = async (plugin: InkPlugin, instigatingFile?: 
     const inkCanvasSnapshot: InkCanvasSnapshot = {
         version: 1,
         strokes: [],
-        gridEnabled: DEFAULT_DRAWING_GRID_ENABLED,
+        gridEnabled: plugin.settings.drawingGridEnabledByDefault ?? DEFAULT_SETTINGS.drawingGridEnabledByDefault,
     };
     const pageData = buildInkCanvasDrawingFileData({
         inkCanvasSnapshot,

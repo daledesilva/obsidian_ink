@@ -86,5 +86,7 @@ Embeds are non-interactive in reading mode (no click-to-edit).
 
 ## See also
 
+- [Reading mode](reading-mode.md) — Conceptual overview (non-technical)
+- [Ink colours and theming](ink-colours-and-theming.md) — How preview colours follow the theme
 - [Ink embeds: contexts and limitations](ink-embeds-contexts-and-limitations.md)
 - [UX decisions](ux-decisions.md)

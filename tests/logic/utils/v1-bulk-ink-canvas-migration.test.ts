@@ -42,8 +42,8 @@ describe('v1 bulk migration to ink-canvas', () => {
 			expect(isInkCanvasFile(parsed!)).toBe(true);
 			expect(parsed!.inkCanvas!.strokes.length).toBeGreaterThan(0);
 
-			expect(svgStr).toContain('fill="currentColor"');
-			expect(svgStr).not.toContain('fill="#1d1d1d"');
+			expect(svgStr).toContain('fill="#000000"');
+			expect(svgStr).toContain('class="ink-type-stroke ink-color-primary"');
 			for (const stroke of parsed!.inkCanvas!.strokes) {
 				expect(stroke.style.color).toBe('currentColor');
 			}

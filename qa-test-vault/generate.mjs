@@ -131,6 +131,16 @@ function generateSvgAssets() {
     fs.copyFileSync(path.join(FIXTURES, 'drawing-fixture.svg'), path.join(VAULT_ROOT, `Ink/Drawing/${name}`));
   }
 
+  // Ink-canvas fixtures for reading-mode theme tests (baked #000000 strokes, #888888 guide lines).
+  fs.copyFileSync(
+    path.join(FIXTURES, 'reading-mode-writing.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/reading-mode-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'reading-mode-drawing.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/reading-mode-drawing.svg'),
+  );
+
   // Empty files remain synthetic: they must contain no strokes.
   // empty-writing.svg is the starting file for the buffer-lines dynamic e2e test.
   const writingLine = '<g transform="matrix(1,0,0,1,0,0)"><line x1="100" y1="150" x2="1900" y2="150"/></g><g><rect width="2000" height="225" opacity="0"/></g>';
@@ -413,7 +423,10 @@ function generateAllNotes() {
   writeFile('09 - Edge Cases and Error States/Special Characters in Path.md', `# Special Chars\n\nCreate file with spaces/parens.`);
   writeFile('09 - Edge Cases and Error States/Very Long Filepath.md', `# Long Path\n\n${w('Ink/Writing/hello-world.svg')}`);
   writeFile('09 - Edge Cases and Error States/Embed in Source Mode.md', `# Source Mode\n\nSwitch to Source. V2 should not render.\n\n${w('hello-world.svg')}`);
-  writeFile('09 - Edge Cases and Error States/Embed in Reading View.md', `# Reading View\n\n${w('hello-world.svg')}`);
+  writeFile(
+    '09 - Edge Cases and Error States/Embed in Reading View.md',
+    `# Reading View\n\nInk-canvas fixtures with baked colours — previews should inline SVG and theme via CSS.\n\n${w('reading-mode-writing.svg')}\n\n${d('reading-mode-drawing.svg', 1000, 2.5, { x: 0, y: 0, w: 1000, h: 400 })}`,
+  );
   writeFile('09 - Edge Cases and Error States/Empty Note with Embed.md', w('hello-world.svg'));
   writeFile('09 - Edge Cases and Error States/File Without Metadata.md', `# No Metadata\n\nUse plain SVG.`);
   writeFile('09 - Edge Cases and Error States/Embed in List Continuation.md', `# List Continuation\n\n- Item\n    ${w('hello-world.svg').trim()}`);

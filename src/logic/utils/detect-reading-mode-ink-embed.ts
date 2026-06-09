@@ -40,6 +40,7 @@ export function findReadingModeInkEmbedCandidates(
 
 		markerEls.forEach((embedMarkerEl) => {
 			if (embedMarkerEl.closest(`[${INK_READING_PROCESSED_ATTR}]`)) return;
+			if (isNestedObsidianEmbedImg(embedMarkerEl)) return;
 
 			const editLinkEl = findInkEditLinkForMarker(embedMarkerEl, editLinkFragment);
 			if (!editLinkEl) return;
@@ -66,7 +67,49 @@ export function findReadingModeInkEmbedCandidates(
 		});
 	}
 
-	return candidates;
+	return dedupeReadingModeCandidatesByEditLink(candidates);
+}
+
+/** Obsidian nests img inside span.internal-embed — only the outer span is the embed marker. */
+function isNestedObsidianEmbedImg(embedMarkerEl: HTMLElement): boolean {
+	if (!(embedMarkerEl instanceof HTMLImageElement)) return false;
+
+	const parentEmbedEl = embedMarkerEl.parentElement?.closest<HTMLElement>('.internal-embed[alt]');
+	return !!parentEmbedEl && parentEmbedEl !== embedMarkerEl;
+}
+
+function dedupeReadingModeCandidatesByEditLink(
+	candidates: ReadingModeInkEmbedCandidate[],
+): ReadingModeInkEmbedCandidate[] {
+	const bestByEditLink = new Map<HTMLAnchorElement, ReadingModeInkEmbedCandidate>();
+
+	for (const candidate of candidates) {
+		const existing = bestByEditLink.get(candidate.editLinkEl);
+		if (!existing || preferReadingModeEmbedMarker(candidate, existing)) {
+			bestByEditLink.set(candidate.editLinkEl, candidate);
+		}
+	}
+
+	return [...bestByEditLink.values()];
+}
+
+function preferReadingModeEmbedMarker(
+	candidate: ReadingModeInkEmbedCandidate,
+	incumbent: ReadingModeInkEmbedCandidate,
+): boolean {
+	const candidateScore = readingModeEmbedMarkerScore(candidate.embedMarkerEl);
+	const incumbentScore = readingModeEmbedMarkerScore(incumbent.embedMarkerEl);
+	return candidateScore > incumbentScore;
+}
+
+function readingModeEmbedMarkerScore(embedMarkerEl: HTMLElement): number {
+	let score = 0;
+	if (embedMarkerEl.classList.contains('internal-embed') && embedMarkerEl.tagName !== 'IMG') {
+		score += 2;
+	}
+	const srcAttr = embedMarkerEl.getAttribute('src');
+	if (srcAttr && !isObsidianResourceUrl(srcAttr)) score += 1;
+	return score;
 }
 
 /**
@@ -95,13 +138,59 @@ function findInkEmbedSearchScope(embedMarkerEl: HTMLElement): HTMLElement | null
 }
 
 function extractPartialEmbedFilepath(embedMarkerEl: HTMLElement): string | null {
-	const src = embedMarkerEl.getAttribute('src');
-	if (src) return src;
+	const srcAttr = embedMarkerEl.getAttribute('src');
+	if (srcAttr) {
+		const vaultPath = vaultRelativePathFromObsidianResource(srcAttr);
+		if (vaultPath) return vaultPath;
+		if (!isObsidianResourceUrl(srcAttr)) return srcAttr;
+	}
+
+	const parentEmbedEl = embedMarkerEl.closest<HTMLElement>('.internal-embed[alt][src]');
+	if (parentEmbedEl) {
+		const parentSrc = parentEmbedEl.getAttribute('src');
+		if (parentSrc) {
+			const vaultPath = vaultRelativePathFromObsidianResource(parentSrc);
+			if (vaultPath) return vaultPath;
+			if (!isObsidianResourceUrl(parentSrc)) return parentSrc;
+		}
+	}
 
 	if (embedMarkerEl instanceof HTMLImageElement && embedMarkerEl.src) {
-		// External/resource URLs are resolved later via metadataCache; src attr is preferred.
-		return null;
+		return vaultRelativePathFromObsidianResource(embedMarkerEl.src);
 	}
 
 	return null;
+}
+
+function isObsidianResourceUrl(url: string): boolean {
+	return url.startsWith('app://')
+		|| url.startsWith('capacitor://')
+		|| url.startsWith('obsidian://');
+}
+
+function vaultRelativePathFromObsidianResource(url: string): string | null {
+	if (!isObsidianResourceUrl(url)) return null;
+
+	const pathStart = url.indexOf('/', url.indexOf('://') + 3);
+	if (pathStart === -1) return null;
+
+	const pathWithQuery = url.slice(pathStart + 1);
+	const pathOnly = pathWithQuery.split('?')[0];
+	if (!pathOnly) return null;
+
+	let decodedPath = pathOnly;
+	try {
+		decodedPath = decodeURIComponent(pathOnly);
+	} catch {
+		decodedPath = pathOnly;
+	}
+
+	// app://…/var/folders/…/qa-test-vault-…/Ink/Writing/file.svg → Ink/Writing/file.svg
+	const inkPathMatch = decodedPath.match(/(?:^|\/)Ink\/(?:Writing|Drawing)\/.+\.svg$/i);
+	if (inkPathMatch) {
+		const inkIndex = decodedPath.search(/Ink\/(?:Writing|Drawing)\//i);
+		if (inkIndex !== -1) return decodedPath.slice(inkIndex);
+	}
+
+	return decodedPath;
 }

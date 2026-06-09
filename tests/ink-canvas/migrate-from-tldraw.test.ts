@@ -65,14 +65,15 @@ describe('migrate-from-tldraw stroke styles', () => {
 		expectMouseStrokePreset(migrated.strokes[0]);
 	});
 
-	test('exported SVG uses currentColor fill not baked dark hex', () => {
+	test('exported SVG uses baked primary stroke fill and classes', () => {
 		const legacy = JSON.parse(fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8')) as {
 			tldraw: TldrawSnapshotForMigration;
 		};
 		const migrated = migrateFromTldraw(legacy.tldraw);
 		const svgString = renderStrokesToSvg(migrated.strokes, migrated);
-		expect(svgString).toContain('fill="currentColor"');
-		expect(svgString).not.toContain('fill="#1d1d1d"');
+		expect(svgString).toContain('fill="#000000"');
+		expect(svgString).toContain('class="ink-type-stroke ink-color-primary"');
+		expect(svgString).not.toContain('fill="currentColor"');
 	});
 
 	test('pen shapes get pen numeric preset', () => {

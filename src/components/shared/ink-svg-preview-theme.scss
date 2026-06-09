@@ -1,36 +1,19 @@
-// Shared dark/light stroke colors for inlined ink SVG previews (embeds + file picker modal).
+// Shared stroke colours for inlined ink SVG previews (embeds + file picker modal).
 // SVG must be in the DOM (not img) for these rules to apply.
 
-.theme-dark {
-	.ddc_ink_writing-embed-preview {
-		path { fill: rgb(242, 242, 242); }
-	}
-
-	.ddc_ink_drawing-embed-preview {
-		path { fill: rgb(242, 242, 242); }
-
-		.ddc_ink_drawing-placeholder {
-			path { stroke: rgb(242, 242, 242) !important; }
-			rect, circle { stroke: rgb(242, 242, 242) !important; }
-		}
-
-		.frame-children {
-			rect, circle { stroke: rgb(242, 242, 242); }
-		}
-	}
+.ddc_ink_writing-embed-preview,
+.ddc_ink_drawing-embed-preview {
+	// !important beats baked fill="#000000" presentation attributes in saved SVGs.
+	path { fill: var(--text-normal) !important; }
 }
 
-.theme-light {
-	.ddc_ink_writing-embed-preview {
-		path { fill: rgb(29, 29, 29); }
+.ddc_ink_drawing-embed-preview {
+	.ddc_ink_drawing-placeholder {
+		path { stroke: var(--text-normal) !important; }
+		rect, circle { stroke: var(--text-normal) !important; }
 	}
 
-	.ddc_ink_drawing-embed-preview {
-		path { fill: rgb(29, 29, 29); }
-
-		.ddc_ink_drawing-placeholder {
-			path { stroke: rgb(29, 29, 29) !important; }
-			rect, circle { stroke: rgb(29, 29, 29) !important; }
-		}
+	.frame-children {
+		rect, circle { stroke: var(--text-normal); }
 	}
 }

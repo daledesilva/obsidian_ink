@@ -1,6 +1,12 @@
 import { getStroke } from 'perfect-freehand';
-import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
+import {
+	DEFAULT_CONTENT_COLOUR_PRIMARY_STROKE,
+	DEFAULT_CONTENT_COLOUR_WRITING_LINE,
+	INK_SVG_STROKE_PATH_CLASS,
+	INK_SVG_WRITING_LINE_CLASS,
+} from 'src/default-content-colours';
 import { INK_CANVAS_FORMAT_VERSION, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT } from 'src/constants';
+import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import type { InkStroke, InkCanvasSnapshot } from './types';
 import { toStrokeOptions } from './types';
 ///////////////////////////
@@ -32,17 +38,7 @@ export function renderStrokesToSvg(
 	for (const stroke of strokes) {
 		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
 		const d = getSvgPathFromStroke(outlinePoints);
-		const tx = stroke.offset.x;
-		const ty = stroke.offset.y;
-
-		const hasOffset = tx !== 0 || ty !== 0;
-		if (hasOffset) {
-			pathsMarkup += `<g transform="translate(${tx},${ty})">`;
-			pathsMarkup += `<path d="${d}" fill="${stroke.style.color}" />`;
-			pathsMarkup += `</g>\n`;
-		} else {
-			pathsMarkup += `<path d="${d}" fill="${stroke.style.color}" />\n`;
-		}
+		pathsMarkup += buildStrokePathMarkup(d, stroke.offset.x, stroke.offset.y);
 	}
 
 	return buildSvgString(pathsMarkup, viewBox, snapshotJson);
@@ -71,27 +67,29 @@ export function renderWritingStrokesToSvg(
 	const lineCount = Math.floor(height / lineHeight);
 	for (let i = 1; i <= lineCount; i++) {
 		const y = i * lineHeight;
-		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="currentColor" stroke-opacity="0.5" />\n`;
+		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="${DEFAULT_CONTENT_COLOUR_WRITING_LINE}" stroke-opacity="0.5" class="${INK_SVG_WRITING_LINE_CLASS}" />\n`;
 	}
 
 	let pathsMarkup = '';
 	for (const stroke of strokes) {
 		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
 		const d = getSvgPathFromStroke(outlinePoints);
-		const tx = stroke.offset.x;
-		const ty = stroke.offset.y;
-		const hasOffset = tx !== 0 || ty !== 0;
-		if (hasOffset) {
-			pathsMarkup += `<g transform="translate(${tx},${ty})"><path d="${d}" fill="${stroke.style.color}" /></g>\n`;
-		} else {
-			pathsMarkup += `<path d="${d}" fill="${stroke.style.color}" />\n`;
-		}
+		pathsMarkup += buildStrokePathMarkup(d, stroke.offset.x, stroke.offset.y);
 	}
 
 	const viewBox = `0 0 ${pageWidth} ${height}`;
 	return buildSvgString(guideMarkup + pathsMarkup, viewBox, snapshot);
 }
 
+
+function buildStrokePathMarkup(d: string, offsetX: number, offsetY: number): string {
+	const pathAttrs = `d="${d}" fill="${DEFAULT_CONTENT_COLOUR_PRIMARY_STROKE}" class="${INK_SVG_STROKE_PATH_CLASS}"`;
+	const hasOffset = offsetX !== 0 || offsetY !== 0;
+	if (hasOffset) {
+		return `<g transform="translate(${offsetX},${offsetY})"><path ${pathAttrs} /></g>\n`;
+	}
+	return `<path ${pathAttrs} />\n`;
+}
 
 // Building the full SVG document
 ///////////////////////////

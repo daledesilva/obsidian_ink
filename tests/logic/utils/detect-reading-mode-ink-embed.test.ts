@@ -89,4 +89,72 @@ describe('findReadingModeInkEmbedCandidates', () => {
 
 		expect(candidates).toHaveLength(0);
 	});
+
+	it('dedupes nested span.internal-embed and img markers (Obsidian reading DOM)', () => {
+		const root = document.createElement('div');
+		root.innerHTML = `
+			<div class="el-p">
+				<p dir="auto">
+					<span alt="InkWriting" src="Ink/Writing/2026.6.10 - 0.10am.svg" class="internal-embed media-embed image-embed is-loaded">
+						<img alt="InkWriting" src="app://obsidian.md/Ink/Writing/2026.6.10%20-%200.10am.svg?t=123">
+					</span>
+					<a class="external-link" href="https://youtu.be/2arL1jh8ihA?type=inkWriting&aspectRatio=3.810">Edit Writing</a>
+				</p>
+			</div>
+		`;
+
+		const mockFile = { path: 'Ink/Writing/2026.6.10 - 0.10am.svg' };
+		const candidates = findReadingModeInkEmbedCandidates(
+			mockApp((path) => (path === 'Ink/Writing/2026.6.10 - 0.10am.svg' ? mockFile : null)),
+			root,
+			'notes/example.md',
+		);
+
+		expect(candidates).toHaveLength(1);
+		expect(candidates[0].embedKind).toBe('writing');
+		expect(candidates[0].partialEmbedFilepath).toBe('Ink/Writing/2026.6.10 - 0.10am.svg');
+		expect(candidates[0].embedMarkerEl.tagName).toBe('SPAN');
+		expect(candidates[0].embeddedFile).toBe(mockFile);
+	});
+
+	it('resolves vault path from app:// temp-vault absolute img src', () => {
+		const root = document.createElement('div');
+		root.innerHTML = `
+			<p>
+				<img alt="InkWriting" src="app://vault-id/var/folders/tmp/qa-test-vault-abc/Ink/Writing/reading-mode-writing.svg?t=123" />
+				<a href="https://example.com?type=inkWriting&aspectRatio=2.500">Edit Writing</a>
+			</p>
+		`;
+
+		const mockFile = { path: 'Ink/Writing/reading-mode-writing.svg' };
+		const candidates = findReadingModeInkEmbedCandidates(
+			mockApp((path) => (path === 'Ink/Writing/reading-mode-writing.svg' ? mockFile : null)),
+			root,
+			'notes/example.md',
+		);
+
+		expect(candidates).toHaveLength(1);
+		expect(candidates[0].partialEmbedFilepath).toBe('Ink/Writing/reading-mode-writing.svg');
+	});
+
+	it('resolves vault path from app:// img src when img is the only marker', () => {
+		const root = document.createElement('div');
+		root.innerHTML = `
+			<p>
+				<img alt="InkDrawing" src="app://obsidian.md/Ink/Drawing/reading-mode-drawing.svg?t=456" />
+				<a href="https://example.com?type=inkDrawing&width=500&aspectRatio=2.500">Edit Drawing</a>
+			</p>
+		`;
+
+		const mockFile = { path: 'Ink/Drawing/reading-mode-drawing.svg' };
+		const candidates = findReadingModeInkEmbedCandidates(
+			mockApp((path) => (path === 'Ink/Drawing/reading-mode-drawing.svg' ? mockFile : null)),
+			root,
+			'notes/example.md',
+		);
+
+		expect(candidates).toHaveLength(1);
+		expect(candidates[0].partialEmbedFilepath).toBe('Ink/Drawing/reading-mode-drawing.svg');
+		expect(candidates[0].embeddedFile).toBe(mockFile);
+	});
 });

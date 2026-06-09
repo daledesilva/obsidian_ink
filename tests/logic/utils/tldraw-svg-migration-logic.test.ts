@@ -50,7 +50,8 @@ describe('convertTldrawInkFileDataToInkCanvas', () => {
 		const out = buildFileStr(converted!);
 		expect(out).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
 		expect(out).not.toContain('<tldraw version="2.1.0">');
-		expect(out).toContain('fill="currentColor"');
+		expect(out).toContain('fill="#000000"');
+		expect(out).toContain('class="ink-type-stroke ink-color-primary"');
 	});
 
 	test('converts writing fixture to ink-canvas', () => {

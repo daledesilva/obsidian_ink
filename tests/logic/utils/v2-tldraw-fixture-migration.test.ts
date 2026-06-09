@@ -53,8 +53,8 @@ describe('v2 tldraw fixture migration', () => {
 			expect(isInkCanvasFile(parsed!)).toBe(true);
 			expect(parsed!.inkCanvas?.strokes.length).toBeGreaterThan(0);
 
-			expect(out).toContain('fill="currentColor"');
-			expect(out).not.toContain('fill="#1d1d1d"');
+			expect(out).toContain('fill="#000000"');
+			expect(out).toContain('class="ink-type-stroke ink-color-primary"');
 			for (const stroke of parsed!.inkCanvas!.strokes) {
 				expect(stroke.style.color).toBe('currentColor');
 			}
@@ -101,8 +101,10 @@ describe('v2 tldraw fixture migration', () => {
 			expect(isInkCanvasFile(parsed!)).toBe(true);
 			expect(parsed!.inkCanvas?.strokes.length).toBeGreaterThan(10);
 
-			expect(out).toContain('fill="currentColor"');
-			expect(out).not.toContain('fill="#1d1d1d"');
+			expect(out).toContain('fill="#000000"');
+			expect(out).toContain('class="ink-type-stroke ink-color-primary"');
+			expect(out).toContain('stroke="#888888"');
+			expect(out).toContain('class="ink-type-writing-line ink-color-writing-line"');
 			for (const stroke of parsed!.inkCanvas!.strokes) {
 				expect(stroke.style.color).toBe('currentColor');
 			}

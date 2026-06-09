@@ -147,6 +147,27 @@ export function adjustCameraToPreservePagePointAtScreenTargets(
 	};
 }
 
+/** Keep the page point under the viewport center fixed when the container resizes (zoom unchanged). */
+export function adjustCameraToPreserveViewportCenter(
+	camera: CameraState,
+	oldContainerRect: DOMRect,
+	newContainerRect: DOMRect,
+): CameraState {
+	const anchorScreenX = oldContainerRect.left + oldContainerRect.width / 2;
+	const anchorScreenY = oldContainerRect.top + oldContainerRect.height / 2;
+	const targetScreenX = newContainerRect.left + newContainerRect.width / 2;
+	const targetScreenY = newContainerRect.top + newContainerRect.height / 2;
+	return adjustCameraToPreservePagePointAtScreenTargets(
+		camera,
+		oldContainerRect,
+		anchorScreenX,
+		anchorScreenY,
+		newContainerRect,
+		targetScreenX,
+		targetScreenY,
+	);
+}
+
 /**
  * Signed pixel delta for right-drag zoom from horizontal and vertical drag combined.
  * Up and right zoom in (positive); down and left zoom out (negative).

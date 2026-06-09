@@ -4,7 +4,7 @@ import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
-import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
+import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { createPanMomentumController, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
 import { computeStrokesBounds } from './svg-export';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
@@ -241,20 +241,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		setCameraState({ x: 0, y: prevY, zoom });
 	}, [pageWidth, props.isEmbedded]);
 
-	const initialViewBoxRef = useRef(props.initialViewBox);
-	initialViewBoxRef.current = props.initialViewBox;
-
-	const resetWritingAlignedDrawingCamera = useCallback((preserveY = false) => {
-		const container = containerRef.current;
-		const vb = initialViewBoxRef.current;
-		if (!container || !vb || vb.width <= 0) return;
-		const zoom = clampZoom(container.clientWidth / vb.width);
-		const nextY = preserveY ? cameraRef.current.y : -vb.y;
-		const next = { x: -vb.x, y: nextY, zoom };
-		setCameraState(next);
-		emitCameraChange(next, { source: 'api' });
-	}, [emitCameraChange]);
-
 	// Camera is never persisted — fit on mount. Use layout effect so initial camera applies before paint.
 	useLayoutEffect(() => {
 		if (writingMode) {
@@ -361,26 +347,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		return () => resizeObserver.disconnect();
 	}, [writingMode, props.isEmbedded, resetWritingCamera]);
 
-	// Embedded blank drawing: re-fit zoom when container width changes (same as writing)
+	// Drawing mode: preserve zoom and keep the viewport center on the same page point when resized
 	useEffect(() => {
-		if (writingMode || !props.isEmbedded || !props.writingAlignedZoom) return;
-		const container = containerRef.current;
-		if (!container) return;
-
-		let lastWidth = container.clientWidth;
-		const resizeObserver = new ResizeObserver(() => {
-			const width = container.clientWidth;
-			if (width === lastWidth) return;
-			lastWidth = width;
-			resetWritingAlignedDrawingCamera(true);
-		});
-		resizeObserver.observe(container);
-		return () => resizeObserver.disconnect();
-	}, [writingMode, props.isEmbedded, props.writingAlignedZoom, resetWritingAlignedDrawingCamera]);
-
-	// Embedded drawing: keep page content under the embed's geometric center when resized
-	useEffect(() => {
-		if (writingMode || !props.isEmbedded || props.writingAlignedZoom) return;
+		if (writingMode) return;
 		const container = containerRef.current;
 		if (!container) return;
 
@@ -390,30 +359,51 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const containerRect = container.getBoundingClientRect();
 			if (containerRect.width <= 0 || containerRect.height <= 0) return;
 
-			const embedEl =
-				container.closest<HTMLElement>('.ddc_ink_resize-container') ?? container;
-			const embedRect = embedEl.getBoundingClientRect();
+			if (props.isEmbedded) {
+				const embedEl =
+					container.closest<HTMLElement>('.ddc_ink_resize-container') ?? container;
+				const embedRect = embedEl.getBoundingClientRect();
 
-			if (lastEmbedRect && lastContainerRect) {
-				const anchorScreenX = lastEmbedRect.left + lastEmbedRect.width / 2;
-				const anchorScreenY = lastEmbedRect.top + lastEmbedRect.height / 2;
-				const targetScreenX = embedRect.left + embedRect.width / 2;
-				const targetScreenY = embedRect.top + embedRect.height / 2;
+				if (lastEmbedRect && lastContainerRect) {
+					const anchorScreenX = lastEmbedRect.left + lastEmbedRect.width / 2;
+					const anchorScreenY = lastEmbedRect.top + lastEmbedRect.height / 2;
+					const targetScreenX = embedRect.left + embedRect.width / 2;
+					const targetScreenY = embedRect.top + embedRect.height / 2;
+					const sizeChanged =
+						embedRect.width !== lastEmbedRect.width
+						|| embedRect.height !== lastEmbedRect.height;
+
+					if (sizeChanged) {
+						const prevContainerRect = lastContainerRect;
+						setCameraState((prev) => {
+							const next = adjustCameraToPreservePagePointAtScreenTargets(
+								prev,
+								prevContainerRect,
+								anchorScreenX,
+								anchorScreenY,
+								containerRect,
+								targetScreenX,
+								targetScreenY,
+							);
+							if (next.x === prev.x && next.y === prev.y) return prev;
+							emitCameraChange(next, { source: 'api' });
+							return next;
+						});
+					}
+				}
+				lastEmbedRect = embedRect;
+			} else if (lastContainerRect) {
 				const sizeChanged =
-					embedRect.width !== lastEmbedRect.width ||
-					embedRect.height !== lastEmbedRect.height;
+					containerRect.width !== lastContainerRect.width
+					|| containerRect.height !== lastContainerRect.height;
 
 				if (sizeChanged) {
 					const prevContainerRect = lastContainerRect;
 					setCameraState((prev) => {
-						const next = adjustCameraToPreservePagePointAtScreenTargets(
+						const next = adjustCameraToPreserveViewportCenter(
 							prev,
 							prevContainerRect,
-							anchorScreenX,
-							anchorScreenY,
 							containerRect,
-							targetScreenX,
-							targetScreenY,
 						);
 						if (next.x === prev.x && next.y === prev.y) return prev;
 						emitCameraChange(next, { source: 'api' });
@@ -421,12 +411,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					});
 				}
 			}
-			lastEmbedRect = embedRect;
+
 			lastContainerRect = containerRect;
 		});
 		resizeObserver.observe(container);
 		return () => resizeObserver.disconnect();
-	}, [writingMode, props.isEmbedded, props.writingAlignedZoom, emitCameraChange]);
+	}, [writingMode, props.isEmbedded, emitCameraChange]);
 
 	// Build the editor interface and expose it
 	useEffect(() => {

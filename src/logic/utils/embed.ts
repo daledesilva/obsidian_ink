@@ -67,6 +67,42 @@ export function applyCommonAncestorStyling(embedEl: HTMLElement) {
 	}
 }
 
+export type InkEmbedKind = 'drawing' | 'writing';
+
+/**
+ * Reading-mode equivalent of {@link applyCommonAncestorStyling}.
+ * Applies per-embed on the post-processor host element only — never on `.markdown-preview-section`.
+ * Drawing embeds get full-bleed into page margins; writing embeds only receive the embed-block class.
+ */
+export function applyReadingModeAncestorStyling(hostEl: HTMLElement, embedKind: InkEmbedKind) {
+	hostEl.classList.add('ddc_ink_embed-block');
+
+	if (embedKind !== 'drawing') return;
+
+	const previewContainerEl = (
+		hostEl.closest('.markdown-preview-view')
+		?? hostEl.closest('.markdown-rendered')
+	) as HTMLElement | null;
+	if (!previewContainerEl) return;
+
+	const previewStyle = window.getComputedStyle(previewContainerEl);
+	appendNegativeHorizontalMargin(hostEl, previewStyle.paddingInlineStart, 'margin-inline-start');
+	appendNegativeHorizontalMargin(hostEl, previewStyle.paddingInlineEnd, 'margin-inline-end');
+}
+
+function appendNegativeHorizontalMargin(
+	targetEl: HTMLElement,
+	marginValue: string,
+	cssProperty: 'margin-inline-start' | 'margin-inline-end',
+) {
+	const hasMargin = marginValue && marginValue !== '0' && marginValue !== '0px';
+	if (!hasMargin) return;
+
+	let style = targetEl.getAttribute('style') ?? '';
+	style += `; ${cssProperty}: calc(-1 * ${marginValue} + 4px) !important`;
+	targetEl.setAttribute('style', style);
+}
+
 /**
  * Removes an element from a markdown in the active editor.
  * Pass in the context and el used when creating the embed.

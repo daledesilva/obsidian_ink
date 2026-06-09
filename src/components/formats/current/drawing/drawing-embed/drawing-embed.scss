@@ -11,8 +11,10 @@
 	transition-property: none;
 }
 
-// Universal selector that works in both Live Preview AND Reading View
-.markdown-rendered:has(.ddc_ink_drawing-embed) {
+// Universal selector that works in both Live Preview AND Reading View.
+// Reading mode: scope full-bleed to per-embed host only — never the whole preview view/section.
+.markdown-rendered:has(.ddc_ink_drawing-embed),
+.ddc_ink_reading-embed-host.ddc_ink_embed-block:has(.ddc_ink_drawing-embed) {
     // Enables placing UI elements outside of the embed
     contain: unset !important;
     overflow: visible;

@@ -22,7 +22,9 @@
 
 // Universal selector that works in both Live Preview AND Reading View
 // TODO: This is common to drawing and writing files. It should be moved to a common area.
-.markdown-rendered.ddc_ink_embed-block {
+.markdown-rendered.ddc_ink_embed-block,
+.markdown-preview-view .ddc_ink_embed-block,
+.markdown-preview-section.ddc_ink_embed-block {
     
     // Enables placing elements outside of the embed
     contain: unset !important;

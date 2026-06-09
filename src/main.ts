@@ -16,6 +16,7 @@ import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
 import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
 import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { registerReadingModeInkEmbeds } from './components/formats/current/reading-mode/register-reading-mode-ink-embeds';
 import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
 import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
@@ -163,6 +164,7 @@ export default class InkPlugin extends Plugin {
 			const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
 			this.registerEditorExtension([inkEmbedsExtension()]);
 			registerPasteEmbedHandler(this);
+			registerReadingModeInkEmbeds(this);
 		}
 
 		registerSettingsTab(this);

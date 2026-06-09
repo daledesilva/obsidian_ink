@@ -46,6 +46,14 @@ module.exports = {
   },
   TFile: class {},
   Vault: class {},
+  MarkdownRenderChild: class {
+    constructor(containerEl) {
+      this.containerEl = containerEl;
+    }
+    load() {}
+    unload() {}
+  },
+  normalizePath: (path) => path.replace(/\\/g, '/'),
   Setting: class {
     constructor() {}
     setName() { return this; }

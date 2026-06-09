@@ -14,7 +14,12 @@
 
 The writing and drawing embed extensions must check `editorLivePreviewField` **before** the early-return optimisation that skips updates when there are no document changes and no refresh effect. If the mode check runs after that early return, widgets incorrectly persist when the user switches to Obsidian Source mode. The `isLivePreview` check must run first so that we return `Decoration.none` when in Source mode, regardless of whether the transaction has document changes.
 
+### Reading mode embed rendering
+
+Reading mode uses `registerMarkdownPostProcessor` to mount the same preview components as Live Preview (non-interactive). Option B (native image pipe sizing in markdown) was not chosen — see [Reading mode embed rendering](reading-mode-embed-rendering.md).
+
 ### Related documentation
 
 - [Ink embeds: contexts and limitations](ink-embeds-contexts-and-limitations.md) — Supported and unsupported embed contexts.
-- [Blocked features](blocked-features.md) — Reading mode embed sizing and other incomplete features.
+- [Reading mode embed rendering](reading-mode-embed-rendering.md) — Post-processor approach and Option A vs B rationale.
+- [Blocked features](blocked-features.md) — Other incomplete features (if any).

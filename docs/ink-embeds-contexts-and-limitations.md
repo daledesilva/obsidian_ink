@@ -29,7 +29,7 @@ flowchart TD
 | Columns (Obsidian Columns, MCM, MCL) | Yes | Yes | No | See [Embeds in columns](embeds-in-columns.md) |
 | Admonition code blocks | Yes | No | No | Content parsed as code, opaque to markdown parser |
 | Source mode | N/A | No | N/A | Live Preview only; extensions return `Decoration.none` |
-| Reading mode | N/A | Yes | No | Sizing/layout differs — see [Blocked features](blocked-features.md) |
+| Reading mode | N/A | Yes | No | Preview-only; sizing matches LP — see [Reading mode embed rendering](reading-mode-embed-rendering.md) |
 
 ## Supported contexts
 
@@ -59,7 +59,7 @@ In Source mode, Obsidian shows raw markdown. Ink embed extensions intentionally 
 
 ### Reading mode
 
-Embeds display in Reading mode, but sizing and full-bleed margins do not match Live Preview. See [Blocked features](blocked-features.md) for the technical details.
+Embeds display in Reading mode with the same preview sizing and layout as Live Preview (read-only — no in-place editing). Implemented via a markdown post-processor. See [Reading mode embed rendering](reading-mode-embed-rendering.md).
 
 ## Technical gotchas
 
@@ -71,5 +71,6 @@ Embeds display in Reading mode, but sizing and full-bleed margins do not match L
 ## See also
 
 - [Embeds in columns](embeds-in-columns.md) — Detailed explanation of the columns limitation.
-- [Blocked features](blocked-features.md) — Reading mode sizing and other incomplete features.
+- [Reading mode embed rendering](reading-mode-embed-rendering.md) — How reading mode matches Live Preview preview layout.
+- [Blocked features](blocked-features.md) — Other incomplete features (if any).
 - [UX decisions](ux-decisions.md) — Source mode technical notes.

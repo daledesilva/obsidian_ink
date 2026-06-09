@@ -34,7 +34,7 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
     }
 }
 
-const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
+export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
 

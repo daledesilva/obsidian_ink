@@ -34,6 +34,7 @@ import { buildDrawingEmbed } from '../../utils/build-embeds';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
+import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
 
 /////////////////////
 /////////////////////
@@ -70,6 +71,7 @@ export class DrawingEmbedWidget extends WidgetType {
         rootEl.setAttribute('data-widget-id', this.id);
 
         preventWidgetRootStealingFocus(rootEl);
+        applyCommonAncestorStyling(rootEl);
 
         const root = createRoot(rootEl);
 

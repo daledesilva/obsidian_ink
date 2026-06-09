@@ -81,9 +81,14 @@
 
 .ddc_ink_drawing-embed {
     box-sizing: content-box;
+    overflow: visible;
     transition-property: padding;
     transition-duration: 0.5s;
     transition-timing-function: ease-out;
+}
+
+.ddc_ink_drawing-embed .ddc_ink_resize-container {
+    overflow: visible;
 }
 
 // Hide "Edit Drawing" anchor tags

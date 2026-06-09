@@ -353,13 +353,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		if(!maxWidth) return;
 
 		let destWidth = embedWidthRef.current + pxWidthDiff;
-		if(destWidth < 350) destWidth = 350;
-		if(destWidth > maxWidth) destWidth = maxWidth;
+		destWidth = Math.max(destWidth, 150);
+		destWidth = Math.min(destWidth, maxWidth);
 		
 		const curHeight = resizeContainerElRef.current.getBoundingClientRect().height;
 		let destHeight = curHeight + pxHeightDiff;
-		if(destHeight < 150) destHeight = 150;
-
+		destHeight = Math.max(destHeight, 150);
+		
 		embedWidthRef.current = destWidth;
 		embedAspectRatioRef.current = destWidth / destHeight;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';

@@ -53,7 +53,7 @@ Reading mode’s native image renderer would size the embed from the pipe dimens
 
 1. User opens a note in Reading mode.
 2. Obsidian renders `![InkDrawing](<path>) [Edit Drawing](<url>?type=inkDrawing&width=…&aspectRatio=…&viewBox…=…)`.
-3. `registerReadingModeInkEmbeds` post-processor runs on each preview section.
+3. `registerReadingModeInkEmbeds` post-processor runs on each preview section (or on the full `.markdown-preview-view` during PDF export — see [PDF export](#pdf-export)).
 4. `findReadingModeInkEmbedCandidates` locates `internal-embed` / `img` + sibling Edit link, parses settings, resolves `TFile` via `context.sourcePath`.
 5. Native block is replaced with `InkReadingEmbedHost` (`MarkdownRenderChild`).
 6. Host mounts `DrawingEmbedPreview` or `WritingEmbedPreview` inside a sized `.ddc_ink_resize-container`.
@@ -76,6 +76,47 @@ Reading mode’s native image renderer would size the embed from the pipe dimens
 
 Embeds are non-interactive in reading mode (no click-to-edit).
 
+## PDF export
+
+Built-in **Export to PDF** uses the same reading-mode HTML pipeline, not Live Preview widgets. Obsidian renders the note into a temporary print DOM (under `.print`), then converts it with Electron’s `printToPDF`.
+
+```mermaid
+flowchart LR
+    Note["Note markdown"]
+    PrintDOM["Temporary .print preview DOM"]
+    PostProc["Ink MarkdownPostProcessor"]
+    Preview["DrawingEmbedPreview / WritingEmbedPreview"]
+    PDF["Exported PDF"]
+    Note --> PrintDOM --> PostProc --> Preview --> PDF
+```
+
+### Why the post-processor must handle PDF differently
+
+In **Reading mode**, `registerMarkdownPostProcessor` receives **section-level** elements — `p`, `.el-p`, blockquote wrappers, and similar. Ink scans each block for an embed marker plus its Edit link.
+
+In **PDF export**, Obsidian passes the **entire page** as a single element — typically `.markdown-preview-view.markdown-rendered` — not individual sections. This matches behaviour reported by other plugin authors ([Obsidian forum: post-processors and PDF export](https://forum.obsidian.md/t/export-to-pdf-and-post-processor-seems-not-playing-well/38485)).
+
+If Ink only accepted section roots, the post-processor would return immediately during export. Embeds would stay as native `internal-embed` / `img` nodes, which:
+
+- Show the **full SVG canvas** (no `viewBox` crop from the Edit link)
+- Ignore saved **width** and **aspect ratio** (often filling the page)
+
+Drawing reframing is stored in the Edit link URL (`viewBoxX`, `viewBoxY`, `viewBoxWidth`, `viewBoxHeight`, plus `width` and `aspectRatio`). Only `DrawingEmbedPreview` applies that crop after inlining the SVG — native image embeds cannot.
+
+### Lifecycle constraints on full-page export
+
+On the full-page PDF path, Ink mounts fresh `InkReadingEmbedHost` instances for every embed in one pass. Two rules prevent export from hanging:
+
+1. **Skip stale-host remount on full-page roots** — `remountStaleReadingEmbedHostsInRoot` exists to recover cached reading-view DOM when toggling Live Preview ↔ Reading mode. On PDF export, all hosts were just created; running remount synchronously races React commit (host is `ACTIVE` but `.ddc_ink_embed` is not in the DOM yet). The remount path uses `plugin.addChild` instead of `context.addChild`; those orphans never unload when the print DOM is discarded, which can leave Obsidian’s “Exporting to PDF” progress bar stuck even after the file is written.
+
+2. **Defer stale remount elsewhere** — For section-level reading mode, stale recovery runs in `requestAnimationFrame` so React can commit before the “missing embed” check runs.
+
+Implementation: `FULL_PAGE_PREVIEW_ROOT_SELECTOR` and the deferred remount block in `register-reading-mode-ink-embeds.ts`.
+
+### Obsidian print CSS (optional for Ink)
+
+PDF export often requires rules under `@media print { .print … }`. Frontmatter `cssclass` values may not appear on the print DOM. Ink does not ship print-specific CSS today; embed layout comes from the same preview components and inline dimensions as Reading mode. If custom export styling is added later, test against a real PDF export, not just Reading mode.
+
 ## Technical gotchas
 
 1. Obsidian may render a `span.internal-embed` rather than `img` — the detector handles both.
@@ -83,6 +124,8 @@ Embeds are non-interactive in reading mode (no click-to-edit).
 3. The Edit link must be **removed** from the DOM when replacing the block, not only hidden with CSS.
 4. Transclusion requires `context.sourcePath` when resolving embed file paths, not the active editor file.
 5. Blockquote right-edge overflow is a known Live Preview limitation; reading mode follows the same behaviour.
+6. **PDF export uses a full-page post-processor root** — See [PDF export](#pdf-export). Do not remove `FULL_PAGE_PREVIEW_ROOT_SELECTOR` or revert to section-only scan roots without testing reframed drawing exports.
+7. **Do not run stale-host remount synchronously after mounting on full-page roots** — Causes a React race and can hang the export progress bar; see [PDF export § Lifecycle constraints](#lifecycle-constraints-on-full-page-export).
 
 ## See also
 

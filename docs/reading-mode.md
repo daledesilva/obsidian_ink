@@ -52,6 +52,7 @@ Ink waits until the full block is on the page before replacing it. The Edit link
 | Drawing size | Width from settings, capped to the note column; height from aspect ratio; optional viewBox crop from settings. |
 | Writing size | Full column width; height from aspect ratio. |
 | Full-bleed drawings | Reading mode can extend drawing embeds edge-to-edge in the preview column, same as Live Preview. |
+| PDF export | Same preview layout and drawing reframing as Reading mode — via the reading-mode post-processor on Obsidian’s print DOM. See [Reading mode embed rendering — PDF export](reading-mode-embed-rendering.md#pdf-export). |
 
 For implementation file paths and design alternatives, see [Reading mode embed rendering](reading-mode-embed-rendering.md).
 
@@ -62,6 +63,7 @@ For implementation file paths and design alternatives, see [Reading mode embed r
 3. **Edit link is required** — An image without the matching Edit link is treated as a normal attachment, not an Ink embed.
 4. **Timing** — Ink replaces embeds after the paragraph is complete. Partial renders during page build are skipped until the block is ready.
 5. **Same file, many notes** — Path resolution uses the note that contains the embed, not whichever file you have focused.
+6. **PDF export** — Uses the same reading-mode preview path as on-screen Reading mode, not Live Preview. Reframes and embed sizing export correctly when the post-processor runs on Obsidian’s print DOM. See [Reading mode embed rendering — PDF export](reading-mode-embed-rendering.md#pdf-export).
 
 ## See also
 

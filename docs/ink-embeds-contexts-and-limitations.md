@@ -30,6 +30,7 @@ flowchart TD
 | Admonition code blocks | Yes | No | No | Content parsed as code, opaque to markdown parser |
 | Source mode | N/A | No | N/A | Live Preview only; extensions return `Decoration.none` |
 | Reading mode | N/A | Yes | No | Preview-only; sizing matches LP — see [Reading mode embed rendering](reading-mode-embed-rendering.md) |
+| PDF export | N/A | Yes | No | Same post-processor path as Reading mode; full-page root — see [PDF export](reading-mode-embed-rendering.md#pdf-export) |
 
 ## Supported contexts
 
@@ -60,6 +61,10 @@ In Source mode, Obsidian shows raw markdown. Ink embed extensions intentionally 
 ### Reading mode
 
 Embeds display in Reading mode with the same preview sizing and layout as Live Preview (read-only — no in-place editing). Implemented via a markdown post-processor. See [Reading mode embed rendering](reading-mode-embed-rendering.md).
+
+### PDF export
+
+**Export to PDF** uses Obsidian’s print renderer, not Live Preview widgets. Ink’s reading-mode post-processor must run on the temporary print DOM so drawing reframes (`viewBox`), width, and aspect ratio match what you see in Reading mode. See [Reading mode embed rendering — PDF export](reading-mode-embed-rendering.md#pdf-export).
 
 ## Technical gotchas
 

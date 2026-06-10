@@ -27,6 +27,8 @@ const INK_READING_SOURCE_PATH_DATA = 'inkSourcePath';
 
 export function registerReadingModeInkEmbeds(plugin: InkPlugin) {
 	// Run late so block containers include the full embed marker + Edit link row.
+	// Reading mode passes section elements (p, .el-p, …); PDF export passes the entire
+	// .markdown-preview-view — both roots must be accepted or export shows the full SVG.
 	plugin.registerMarkdownPostProcessor((element, context) => {
 		const matchesScanRoot = element.matches(READING_MODE_EMBED_SCAN_ROOT_SELECTOR);
 		const isFullPagePreviewRoot = element.matches(FULL_PAGE_PREVIEW_ROOT_SELECTOR);

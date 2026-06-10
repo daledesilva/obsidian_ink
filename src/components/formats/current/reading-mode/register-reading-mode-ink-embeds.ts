@@ -17,6 +17,8 @@ import '../writing/writing-embed/writing-embed.scss';
 import '../writing/writing-embed-preview/writing-embed-preview.scss';
 
 const READING_MODE_EMBED_SCAN_ROOT_SELECTOR = 'p, .el-p, .markdown-preview-section, blockquote, .callout, .markdown-embed';
+/** Obsidian PDF export passes the entire preview pane as `el`, not individual sections. */
+const FULL_PAGE_PREVIEW_ROOT_SELECTOR = '.markdown-preview-view';
 
 const INK_READING_EMBED_KIND_DATA = 'inkEmbedKind';
 const INK_READING_FILE_PATH_DATA = 'inkFilePath';
@@ -26,7 +28,9 @@ const INK_READING_SOURCE_PATH_DATA = 'inkSourcePath';
 export function registerReadingModeInkEmbeds(plugin: InkPlugin) {
 	// Run late so block containers include the full embed marker + Edit link row.
 	plugin.registerMarkdownPostProcessor((element, context) => {
-		if (!element.matches(READING_MODE_EMBED_SCAN_ROOT_SELECTOR)) return;
+		const matchesScanRoot = element.matches(READING_MODE_EMBED_SCAN_ROOT_SELECTOR);
+		const isFullPagePreviewRoot = element.matches(FULL_PAGE_PREVIEW_ROOT_SELECTOR);
+		if (!matchesScanRoot && !isFullPagePreviewRoot) return;
 
 		// Obsidian may invoke the processor before sibling nodes (e.g. Edit link) are attached.
 		queueMicrotask(() => {

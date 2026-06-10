@@ -64,6 +64,7 @@ function processReadingModeInkEmbedsInRoot(
 	rootEl: HTMLElement,
 	context: MarkdownPostProcessorContext,
 ) {
+	const isFullPageRoot = rootEl.matches(FULL_PAGE_PREVIEW_ROOT_SELECTOR);
 	const candidates = findReadingModeInkEmbedCandidates(
 		plugin.app,
 		rootEl,
@@ -97,8 +98,14 @@ function processReadingModeInkEmbedsInRoot(
 		}, context);
 	}
 
-	remountStaleReadingEmbedHostsInRoot(plugin, rootEl, context.sourcePath);
+	// Defer stale-host recovery until after React commit. On the full-page PDF export path,
+	// skip remount entirely — hosts were just created and a synchronous remount races React
+	// (active but no .ddc_ink_embed yet), re-mounts via plugin.addChild, and never unloads,
+	// leaving Obsidian's export progress bar stuck.
 	requestAnimationFrame(() => {
+		if (!isFullPageRoot) {
+			remountStaleReadingEmbedHostsInRoot(plugin, rootEl, context.sourcePath);
+		}
 		refreshReadingModeEmbedDimensionsInRoot(rootEl);
 	});
 }

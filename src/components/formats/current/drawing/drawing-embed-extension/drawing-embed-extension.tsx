@@ -35,12 +35,13 @@ import { duplicateDrawingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
+import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
 
 /////////////////////
 /////////////////////
 
-// Refresh effect that can carry viewport position to filter embeds
-const refreshEmbedsEffectDrawing = StateEffect.define<number | void>();
+// Refresh effect that can carry viewport position to filter embeds, or force a full widget rebuild
+const refreshEmbedsEffectDrawing = StateEffect.define<number | InkEmbedRefreshRequest | void>();
 
 const mountedDecorationIds: string[] = [];
 
@@ -438,7 +439,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
         // Check for refresh effect and extract viewportFrom if present
         const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectDrawing));
         const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value;
+        const { viewportFrom, forceRebuild } = parseInkEmbedRefreshEffectValue(refreshEffect?.value);
 
         if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
             return prevEmbeds;
@@ -446,8 +447,8 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
 
         const builder = new RangeSetBuilder<Decoration>();
 
-        // If viewportFrom is provided, preserve existing decorations above it
-        if (viewportFrom !== undefined) {
+        // If viewportFrom is provided, preserve existing decorations above it (unless force-rebuilding all)
+        if (viewportFrom !== undefined && !forceRebuild) {
             const iter = prevEmbeds.iter();
             while (iter.value) {
                 // Map positions through document changes to ensure correct placement
@@ -505,7 +506,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                     oldDecoration.next();
                 }
 
-            if(decorationAlreadyExists && oldDecoration.value) {
+            if (!forceRebuild && decorationAlreadyExists && oldDecoration.value) {
                 // Reuse previous decoration
                 builder.add(
                     embedLinkInfo.startPosition,
@@ -621,7 +622,10 @@ export function drawingEmbedExtension(): Extension {
 
 // Public callable function to force an immediate rebuild of decorations/widgets
 // If viewportFrom is provided, only rebuilds embeds at or below that position
-export function refreshDrawingEmbedsNow(viewportFrom?: number): void {
+export function refreshDrawingEmbedsNow(
+	viewportFrom?: number,
+	options?: { forceRebuild?: boolean },
+): void {
     const { plugin } = getGlobals();
     const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
     const editor = activeView?.editor;
@@ -629,7 +633,12 @@ export function refreshDrawingEmbedsNow(viewportFrom?: number): void {
     // @ts-expect-error not typed by Obsidian
     const cmView = editor.cm as EditorView | undefined;
     if (!cmView) return;
-    cmView.dispatch({ effects: refreshEmbedsEffectDrawing.of(viewportFrom) });
+
+	const payload: number | InkEmbedRefreshRequest | undefined = options?.forceRebuild
+		? { viewportFrom, forceRebuild: true }
+		: viewportFrom;
+
+    cmView.dispatch({ effects: refreshEmbedsEffectDrawing.of(payload) });
 }
 
 export function registerDrawingEmbed(plugin: InkPlugin) {

@@ -18,13 +18,14 @@ import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
+import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
 import { EmbedSettings, formatEmbedAspectRatio } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
 // Refresh effect that can carry viewport position to filter embeds
-const refreshEmbedsEffectWriting = StateEffect.define<number | void>();
+const refreshEmbedsEffectWriting = StateEffect.define<number | InkEmbedRefreshRequest | void>();
 
 export class WritingEmbedWidget extends WidgetType {
     id: string;
@@ -360,7 +361,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
         // Check for refresh effect and extract viewportFrom if present
         const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
         const hasRefreshEffect = !!refreshEffect;
-        const viewportFrom = refreshEffect?.value;
+        const { viewportFrom, forceRebuild } = parseInkEmbedRefreshEffectValue(refreshEffect?.value);
 
         if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
             return prevEmbeds;
@@ -368,8 +369,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
 
         const builder = new RangeSetBuilder<Decoration>();
 
-        // If viewportFrom is provided, preserve existing decorations above it
-        if (viewportFrom !== undefined) {
+        if (viewportFrom !== undefined && !forceRebuild) {
             const iter = prevEmbeds.iter();
             while (iter.value) {
                 // Map positions through document changes to ensure correct placement
@@ -423,7 +423,7 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
                     oldDecoration.next();
                 }
 
-            if (decorationAlreadyExists && oldDecoration.value) {
+            if (!forceRebuild && decorationAlreadyExists && oldDecoration.value) {
                 builder.add(embedLinkInfo.startPosition, embedLinkInfo.endPosition, oldDecoration.value);
             } else {
                 builder.add(
@@ -532,7 +532,10 @@ export function writingEmbedExtension(): Extension {
 
 // Public callable function to force an immediate rebuild of decorations/widgets
 // If viewportFrom is provided, only rebuilds embeds at or below that position
-export function refreshWritingEmbedsNow(viewportFrom?: number): void {
+export function refreshWritingEmbedsNow(
+	viewportFrom?: number,
+	options?: { forceRebuild?: boolean },
+): void {
     const { plugin } = getGlobals();
     const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
     const editor = activeView?.editor;
@@ -540,7 +543,12 @@ export function refreshWritingEmbedsNow(viewportFrom?: number): void {
     // @ts-expect-error not typed by Obsidian
     const cmView = editor.cm as EditorView | undefined;
     if (!cmView) return;
-    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(viewportFrom) });
+
+	const payload: number | InkEmbedRefreshRequest | undefined = options?.forceRebuild
+		? { viewportFrom, forceRebuild: true }
+		: viewportFrom;
+
+    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(payload) });
 }
 
 export function registerWritingEmbed(plugin: InkPlugin) {

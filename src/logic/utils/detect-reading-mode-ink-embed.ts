@@ -4,6 +4,10 @@ import { EmbedSettings } from 'src/types/embed-settings';
 import { InkEmbedKind } from './embed';
 
 export const INK_READING_PROCESSED_ATTR = 'data-ink-reading-processed';
+/** Set while a MarkdownRenderChild is mounted into the host. */
+export const INK_READING_ACTIVE_ATTR = 'data-ink-reading-active';
+/** Set synchronously before addChild to avoid duplicate mounts in the same tick. */
+export const INK_READING_MOUNTING_ATTR = 'data-ink-reading-mounting';
 
 export type ReadingModeInkEmbedCandidate = {
 	embedKind: InkEmbedKind;

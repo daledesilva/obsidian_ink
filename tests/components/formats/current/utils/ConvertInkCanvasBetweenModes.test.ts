@@ -1,5 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
-import { PLUGIN_VERSION, WRITING_LINE_HEIGHT } from 'src/constants';
+import { PLUGIN_VERSION, WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
+import { computeStrokesBounds } from 'src/ink-canvas/svg-export';
 import {
 	convertDrawInkCanvasDataToWrite,
 	convertWriteInkCanvasDataToDraw,
@@ -124,6 +125,30 @@ describe('convertDrawInkCanvasDataToWrite', () => {
 		expect(result.inkCanvas!.camera).toBeUndefined();
 	});
 
+	test('fits oversized off-origin drawing strokes within writing page margins', () => {
+		const wideStroke: InkStroke = {
+			id: 'wide',
+			points: [
+				[0, 500, 0.5],
+				[WRITING_PAGE_WIDTH * 2, 500, 0.5],
+			],
+			style: { ...DEFAULT_STROKE_STYLE },
+			offset: { x: 0, y: 0 },
+		};
+		const svg = makeInkCanvasSvg('inkDrawing', {
+			version: 1,
+			strokes: [wideStroke],
+			gridEnabled: true,
+		});
+		const input = parseInkCanvasFile(svg);
+
+		const result = convertDrawInkCanvasDataToWrite(input, WRITING_LINE_HEIGHT);
+		const bounds = computeStrokesBounds(result.inkCanvas!.strokes);
+		const margin = WRITING_PAGE_WIDTH * 0.05;
+		expect(bounds.maxX).toBeLessThanOrEqual(WRITING_PAGE_WIDTH - margin + 1);
+		expect(bounds.minX).toBeGreaterThanOrEqual(margin - 1);
+	});
+
 	test('re-renders SVG with writing guide lines', () => {
 		const svg = makeInkCanvasSvg('inkDrawing', {
 			version: 1,
@@ -158,7 +183,6 @@ describe('ink-canvas write -> draw -> write round trip', () => {
 
 		expect(asWrite.meta.fileType).toBe('inkWriting');
 		expect(asWrite.inkCanvas!.strokes).toHaveLength(1);
-		expect(asWrite.inkCanvas!.strokes[0].points).toEqual(SAMPLE_STROKE.points);
 	});
 });
 

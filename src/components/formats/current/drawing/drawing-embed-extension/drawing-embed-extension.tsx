@@ -30,7 +30,8 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
-import { buildDrawingEmbed } from '../../utils/build-embeds';
+import { buildDrawingEmbed, buildWritingEmbed } from '../../utils/build-embeds';
+import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
@@ -113,6 +114,9 @@ export class DrawingEmbedWidget extends WidgetType {
                     }}
                     locateFile={() => {
                         void this.locateFile(view);
+                    }}
+                    replaceEmbedAfterConversion={(finalFile, toType) => {
+                        void this.replaceEmbedAfterConversion(view, finalFile, toType);
                     }}
                 />
             </JotaiProvider>
@@ -272,14 +276,27 @@ export class DrawingEmbedWidget extends WidgetType {
 
         new Notice('Drawing file duplicated');
 
+        await this.replaceEmbedAfterConversion(view, duplicatedFile, 'inkDrawing');
+    }
+
+    private async replaceEmbedAfterConversion(
+        view: EditorView,
+        finalFile: TFile,
+        toType: 'inkWriting' | 'inkDrawing',
+    ) {
+        const { plugin } = getGlobals();
+        const newEmbedStr = toType === 'inkWriting'
+            ? buildWritingEmbed(finalFile.path)
+            : buildDrawingEmbed(finalFile.path, {
+                embedSettings: await buildDrawingEmbedSettingsFromFile(plugin, finalFile),
+            });
+
         const decorations = view.state.field(embedStateField, false);
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
             const widget = drawingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
-                // Replace the entire widget range with a fresh embed pointing to the duplicate
-                const newEmbedStr = buildDrawingEmbed(duplicatedFile.path);
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
                 view.dispatch(tr);
                 return;

@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { PLUGIN_VERSION, WRITING_PAGE_WIDTH } from 'src/constants';
+import { fitStrokesForDrawingToWriting } from 'src/ink-canvas/fit-strokes-for-mode-conversion';
 import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
 import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 import { InkFileData } from '../types/file-data';
@@ -74,8 +75,14 @@ export function convertDrawInkCanvasDataToWrite(
 		data.inkCanvas.writingLineHeight ?? defaultWritingLineHeight;
 
 	const { camera: _camera, ...snapshotRest } = cloneInkCanvasSnapshot(data.inkCanvas);
+	const fittedStrokes = fitStrokesForDrawingToWriting(
+		snapshotRest.strokes,
+		writingLineHeight,
+		WRITING_PAGE_WIDTH,
+	);
 	const inkCanvasSnapshot: InkCanvasSnapshot = {
 		...snapshotRest,
+		strokes: fittedStrokes,
 		gridEnabled: false,
 		writingLineHeight,
 	};

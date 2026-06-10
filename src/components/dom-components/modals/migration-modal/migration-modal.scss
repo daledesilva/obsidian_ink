@@ -51,6 +51,19 @@
 		margin-bottom: 12px;
 	}
 
+	.ddc_ink_migration-warning p {
+		margin: 0;
+		color: var(--text-muted);
+		font-size: 0.9em;
+	}
+
+	.ddc_ink_migration-hint {
+		font-size: 0.85em;
+		color: var(--text-muted);
+		font-style: italic;
+		margin-top: 8px;
+	}
+
 	.ddc_ink_migration-section {
 		margin-bottom: 16px;
 

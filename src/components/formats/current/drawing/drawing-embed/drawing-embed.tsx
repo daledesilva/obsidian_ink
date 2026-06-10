@@ -83,6 +83,10 @@ interface DrawingEmbed_Props {
 	resolveAsReference?: () => void,
 	resolveAsDuplicate?: () => void | Promise<void>,
 	locateFile?: () => void,
+	replaceEmbedAfterConversion?: (
+		finalFile: TFile,
+		toType: 'inkWriting' | 'inkDrawing',
+	) => void | Promise<void>,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -180,7 +184,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				if (!props.embeddedFile) return;
 				new FileConversionModal(getGlobals().plugin, props.embeddedFile, 'inkWriting', {
 					sourceMdFile: props.sourceMdFile,
-					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
+					onConversionComplete: (finalFile, toType) => {
+						if (finalFile) void props.replaceEmbedAfterConversion?.(finalFile, toType);
+						ignoreChangesAndSwitchToPreviewMode();
+					},
 				}).open();
 			}
 		},

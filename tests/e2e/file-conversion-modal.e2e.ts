@@ -111,6 +111,27 @@ describe('FileConversionModal', function () {
 			// After scan completes, Convert button should appear
 			await waitForModalButton('Convert');
 		});
+
+		it('confirm phase shows layout and embed warnings with duplicate option', async function () {
+			await obsidianPage.openFile('Ink/Drawing/modal-test-drawing.svg');
+			await browser.pause(1500);
+
+			await browser.executeObsidian(async ({ app }) => {
+				const plugin = (app.plugins.plugins as any)['ink'];
+				if (!plugin) return;
+				const file = app.vault.getAbstractFileByPath('Ink/Drawing/modal-test-drawing.svg');
+				if (!file) return;
+				new plugin.FileConversionModal(plugin, file, 'inkWriting').open();
+			});
+			await browser.pause(800);
+
+			await waitForModalButton('Convert');
+			const text = await modalText();
+
+			expect(text).toContain('Layout changes');
+			expect(text).toContain('Embeds');
+			expect(text).toContain('Duplicate and convert copy');
+		});
 	});
 
 	// ─── Confirm → convert: writing → drawing ───────────────────────────────
@@ -175,6 +196,7 @@ describe('FileConversionModal', function () {
 						'inkDrawing',
 						affected,
 						null,
+						{ mode: 'in-place' },
 						() => {},
 					);
 
@@ -251,6 +273,7 @@ describe('FileConversionModal', function () {
 						'inkWriting',
 						affected,
 						null,
+						{ mode: 'in-place' },
 						() => {},
 					);
 
@@ -316,6 +339,7 @@ describe('FileConversionModal', function () {
 						'inkDrawing',
 						affected,
 						movePath,
+						{ mode: 'in-place' },
 						() => {},
 					);
 

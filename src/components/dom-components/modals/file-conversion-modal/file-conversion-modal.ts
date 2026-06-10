@@ -2,13 +2,21 @@ import '../migration-modal/migration-modal.scss';
 import { Modal, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import {
+	FILE_CONVERSION_IN_PLACE,
 	FileConversionResult,
+	FileConversionScope,
 	findNotesContainingFileEmbed,
 	executeFileConversion,
 } from 'src/logic/utils/convert-file-embeds';
+import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
+import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
+import { previewDrawingToWritingScale } from 'src/ink-canvas/fit-strokes-for-mode-conversion';
+import { WRITING_LINE_HEIGHT } from 'src/constants';
 
 ////////
 ////////
+
+const EMBED_LIST_CAP = 10;
 
 const enum Phase {
 	Scanning,
@@ -34,6 +42,10 @@ export class FileConversionModal extends Modal {
 	private phase: Phase = Phase.Scanning;
 	private affectedNotes: TFile[] = [];
 	private conversionResult: FileConversionResult | null = null;
+	private conversionScope: FileConversionScope = FILE_CONVERSION_IN_PLACE;
+
+	private isInkCanvas = false;
+	private fitScalePreview: number | null = null;
 
 	// Move option
 	private suggestedMovePath: string | null = null;
@@ -125,12 +137,40 @@ export class FileConversionModal extends Modal {
 					if (this.convertedCountEl) this.convertedCountEl.setText(String(this.affectedNotes.length));
 				},
 			);
+
+			await this.detectInkCanvasAndFitPreview();
 		} catch (err) {
 			if (this.statusTextEl) this.statusTextEl.setText('Scan failed: ' + String(err));
 			return;
 		}
 
 		this.renderConfirmPhase();
+	}
+
+	private async detectInkCanvasAndFitPreview() {
+		try {
+			const svgStr = await this.plugin.app.vault.read(this.file);
+			const data = extractInkJsonFromSvg(svgStr);
+			this.isInkCanvas = !!data && isInkCanvasFile(data);
+			if (
+				this.isInkCanvas
+				&& this.toType === 'inkWriting'
+				&& data?.inkCanvas?.strokes
+			) {
+				const lineHeight =
+					data.inkCanvas.writingLineHeight
+					?? data.meta.writingLineHeight
+					?? this.plugin.settings.writingLineHeight
+					?? WRITING_LINE_HEIGHT;
+				this.fitScalePreview = previewDrawingToWritingScale(
+					data.inkCanvas.strokes,
+					lineHeight,
+				);
+			}
+		} catch {
+			this.isInkCanvas = false;
+			this.fitScalePreview = null;
+		}
 	}
 
 	// ─── Phase 2: Confirm ─────────────────────────────────────────────────────
@@ -140,26 +180,8 @@ export class FileConversionModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		const typeLabel = this.toType === 'inkDrawing' ? 'drawing' : 'writing';
-
-		// Determine which notes to show and what messaging to use
-		const otherNotes = this.sourceMdFile
-			? this.affectedNotes.filter(n => n.path !== this.sourceMdFile!.path)
-			: this.affectedNotes;
-
-		const notesCount = otherNotes.length;
-		const fromFullPage = !this.sourceMdFile;
-
-		if (notesCount > 0) {
-			const heading = fromFullPage
-				? `These notes embed this file:`
-				: `These other notes also embed this file:`;
-			this.renderList(contentEl, heading, otherNotes.map(n => n.path));
-
-			contentEl.createEl('p', {
-				text: `Are you sure you want to convert it to ${typeLabel}? This will update all notes that embed it.`,
-			});
-		}
+		this.renderLayoutWarning(contentEl);
+		this.renderEmbedSummary(contentEl);
 
 		// Move checkbox (only when file is in the expected subfolder)
 		if (this.suggestedMovePath) {
@@ -179,8 +201,107 @@ export class FileConversionModal extends Modal {
 		const cancelBtn = buttonsEl.createEl('button', { text: 'Cancel' });
 		cancelBtn.addEventListener('click', () => this.close());
 
+		const duplicateBtn = buttonsEl.createEl('button', {
+			text: 'Duplicate and convert copy',
+		});
+		duplicateBtn.addEventListener('click', () => {
+			this.conversionScope = {
+				mode: 'duplicate',
+				instigatingNote: this.sourceMdFile,
+				embedUpdate: this.sourceMdFile ? 'instigating-only' : 'none',
+			};
+			this.renderConvertingPhase();
+		});
+
 		const convertBtn = buttonsEl.createEl('button', { cls: 'mod-cta', text: 'Convert' });
-		convertBtn.addEventListener('click', () => this.renderConvertingPhase());
+		convertBtn.addEventListener('click', () => {
+			this.conversionScope = FILE_CONVERSION_IN_PLACE;
+			this.renderConvertingPhase();
+		});
+	}
+
+	private renderLayoutWarning(parent: HTMLElement) {
+		const sectionEl = parent.createDiv({ cls: 'ddc_ink_migration-section ddc_ink_migration-warning' });
+		sectionEl.createDiv({
+			cls: 'ddc_ink_migration-section-title',
+			text: 'Layout changes',
+		});
+
+		if (this.isInkCanvas) {
+			if (this.toType === 'inkWriting') {
+				let text = 'Strokes will be scaled (smaller only) and repositioned to fit the writing page. This cannot be undone.';
+				if (this.fitScalePreview != null && this.fitScalePreview < 1) {
+					const pct = Math.round(this.fitScalePreview * 100);
+					text += ` Strokes will be scaled to approximately ${pct}% of their current size.`;
+				}
+				sectionEl.createEl('p', { text });
+			} else {
+				sectionEl.createEl('p', {
+					text: 'The drawing embed viewBox in affected notes will be recalculated to fit the ink. Stroke positions are unchanged.',
+				});
+			}
+			return;
+		}
+
+		sectionEl.createEl('p', {
+			text: 'Legacy tldraw format: layout adjustment does not apply. Only metadata and embed type will change.',
+		});
+	}
+
+	private renderEmbedSummary(parent: HTMLElement) {
+		const totalCount = this.affectedNotes.length;
+		const sectionEl = parent.createDiv({ cls: 'ddc_ink_migration-section' });
+		sectionEl.createDiv({
+			cls: 'ddc_ink_migration-section-title',
+			text: 'Embeds',
+		});
+
+		if (totalCount === 0) {
+			sectionEl.createEl('p', { text: 'This file is not embedded in any notes.' });
+			return;
+		}
+
+		const typeLabel = this.toType === 'inkDrawing' ? 'drawing' : 'writing';
+		const otherCount = this.sourceMdFile
+			? this.affectedNotes.filter((n) => n.path !== this.sourceMdFile!.path).length
+			: totalCount;
+
+		if (this.sourceMdFile) {
+			const includesThis = this.affectedNotes.some((n) => n.path === this.sourceMdFile!.path);
+			if (includesThis && otherCount > 0) {
+				sectionEl.createEl('p', {
+					text: `Embedded in ${totalCount} note${totalCount !== 1 ? 's' : ''} (including this note and ${otherCount} other${otherCount !== 1 ? 's' : ''}). Converting will update all ${totalCount} embeds.`,
+				});
+			} else if (includesThis) {
+				sectionEl.createEl('p', {
+					text: `Embedded in this note only. Converting will update this embed to ${typeLabel}.`,
+				});
+			} else {
+				sectionEl.createEl('p', {
+					text: `Embedded in ${totalCount} other note${totalCount !== 1 ? 's' : ''}. Converting will update all of them.`,
+				});
+			}
+		} else {
+			sectionEl.createEl('p', {
+				text: `Embedded in ${totalCount} note${totalCount !== 1 ? 's' : ''}. Converting will update all embeds to ${typeLabel}.`,
+			});
+		}
+
+		const listPaths = this.affectedNotes.map((n) => n.path);
+		const visiblePaths = listPaths.slice(0, EMBED_LIST_CAP);
+		this.renderList(sectionEl, 'Notes:', visiblePaths);
+		if (listPaths.length > EMBED_LIST_CAP) {
+			sectionEl.createEl('p', {
+				text: `…and ${listPaths.length - EMBED_LIST_CAP} more.`,
+			});
+		}
+
+		if (totalCount > 0 && this.sourceMdFile) {
+			sectionEl.createEl('p', {
+				cls: 'ddc_ink_migration-hint',
+				text: 'Use "Duplicate and convert copy" to convert a copy and update only this note\'s embed. Other notes keep the original file.',
+			});
+		}
 	}
 
 	private renderList(parent: HTMLElement, title: string, items: string[]) {
@@ -212,9 +333,17 @@ export class FileConversionModal extends Modal {
 		const progressBarEl = contentEl.createDiv({ cls: 'ddc_ink_migration-progress-bar' });
 		this.progressBarInnerEl = progressBarEl.createDiv({ cls: 'ddc_ink_migration-progress-bar-inner' });
 
+		const notesToUpdate = this.conversionScope.mode === 'in-place'
+			? this.affectedNotes.length
+			: this.conversionScope.embedUpdate === 'instigating-only' && this.sourceMdFile
+				? 1
+				: this.conversionScope.embedUpdate === 'all-affected'
+					? this.affectedNotes.length
+					: 0;
+
 		const statsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-stats' });
 		this.convertedCountEl = this.createStat(statsEl, '0', 'updated').countEl;
-		this.remainingCountEl = this.createStat(statsEl, String(this.affectedNotes.length), 'remaining').countEl;
+		this.remainingCountEl = this.createStat(statsEl, String(notesToUpdate), 'remaining').countEl;
 		this.failedCountEl = this.createStat(statsEl, '0', 'failed').countEl;
 
 		void this.runConversion();
@@ -232,13 +361,18 @@ export class FileConversionModal extends Modal {
 				this.toType,
 				this.affectedNotes,
 				moveToPath,
+				this.conversionScope,
 				(done, total) => {
 					const pct = total > 0 ? (done / total) * 100 : 100;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
-					if (this.remainingCountEl && this.conversionResult) {
+					if (this.remainingCountEl) {
 						this.remainingCountEl.setText(String(total - done));
-						this.convertedCountEl?.setText(String(this.conversionResult.updatedNotePaths.length));
-						this.failedCountEl?.setText(String(this.conversionResult.failed.length));
+					}
+					if (this.convertedCountEl && this.conversionResult) {
+						this.convertedCountEl.setText(String(this.conversionResult.updatedNotePaths.length));
+					}
+					if (this.failedCountEl && this.conversionResult) {
+						this.failedCountEl.setText(String(this.conversionResult.failed.length));
 					}
 				},
 			);
@@ -266,9 +400,16 @@ export class FileConversionModal extends Modal {
 
 		const typeLabel = this.toType === 'inkDrawing' ? 'drawing' : 'writing';
 		const noteCount = result.updatedNotePaths.length;
-		contentEl.createEl('p', {
-			text: `Converted to ${typeLabel}. ${noteCount} note${noteCount !== 1 ? 's' : ''} updated.`,
-		});
+
+		if (result.wasDuplicated && result.finalFile) {
+			contentEl.createEl('p', {
+				text: `Created and converted a copy to ${typeLabel} at ${result.finalFile.path}. ${noteCount} note${noteCount !== 1 ? 's' : ''} updated. The original file was not changed.`,
+			});
+		} else {
+			contentEl.createEl('p', {
+				text: `Converted to ${typeLabel}. ${noteCount} note${noteCount !== 1 ? 's' : ''} updated.`,
+			});
+		}
 
 		if (result.failed.length > 0) {
 			this.renderList(contentEl, `Failed (${result.failed.length})`, result.failed);

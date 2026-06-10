@@ -73,6 +73,10 @@ export function WritingEmbed (props: {
 	resolveAsReference?: () => void,
 	resolveAsDuplicate?: () => void | Promise<void>,
 	locateFile?: () => void,
+	replaceEmbedAfterConversion?: (
+		finalFile: TFile,
+		toType: 'inkWriting' | 'inkDrawing',
+	) => void | Promise<void>,
 }) {
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
@@ -165,7 +169,10 @@ export function WritingEmbed (props: {
 				if (!props.writingFileRef) return;
 				new FileConversionModal(props.plugin, props.writingFileRef, 'inkDrawing', {
 					sourceMdFile: props.sourceMdFile,
-					onConversionComplete: () => ignoreChangesAndSwitchToPreviewMode(),
+					onConversionComplete: (finalFile, toType) => {
+						if (finalFile) void props.replaceEmbedAfterConversion?.(finalFile, toType);
+						ignoreChangesAndSwitchToPreviewMode();
+					},
 				}).open();
 			}
 		},

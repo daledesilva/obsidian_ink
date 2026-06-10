@@ -13,14 +13,20 @@ jest.mock('src/components/formats/current/utils/convertWriteFileToDraw', () => (
 jest.mock('src/components/formats/current/utils/convertDrawFileToWrite', () => ({
 	convertDrawFileToWrite: jest.fn(),
 }));
+jest.mock('src/components/formats/current/utils/duplicate-files', () => ({
+	duplicateDrawingFile: jest.fn(),
+	duplicateWritingFile: jest.fn(),
+}));
 
 import { TFile } from 'obsidian';
 import {
+	FILE_CONVERSION_IN_PLACE,
 	findNotesContainingFileEmbed,
 	removeAllEmbedsOfFileFromNote,
 	updateEmbedInNote,
 	executeFileConversion,
 } from 'src/logic/utils/convert-file-embeds';
+import { duplicateWritingFile } from 'src/components/formats/current/utils/duplicate-files';
 import { buildWritingEmbed, buildDrawingEmbed } from 'src/components/formats/current/utils/build-embeds';
 import { convertWriteFileToDraw } from 'src/components/formats/current/utils/convertWriteFileToDraw';
 
@@ -442,7 +448,7 @@ describe('executeFileConversion', () => {
 		const plugin = makePlugin(vault);
 		const svgFile = { path: SVG_PATH } as TFile;
 
-		await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, jest.fn());
+		await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, FILE_CONVERSION_IN_PLACE, jest.fn());
 
 		expect(vault.modify).toHaveBeenCalledTimes(3);
 		for (const call of (vault.modify as jest.Mock).mock.calls) {
@@ -459,7 +465,7 @@ describe('executeFileConversion', () => {
 		const plugin = makePlugin(vault);
 		const svgFile = { path: SVG_PATH } as TFile;
 
-		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, jest.fn());
+		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, FILE_CONVERSION_IN_PLACE, jest.fn());
 
 		expect(result.updatedNotePaths).toHaveLength(3);
 		expect(result.updatedNotePaths).toContain('Notes/A.md');
@@ -472,7 +478,7 @@ describe('executeFileConversion', () => {
 		const plugin = makePlugin(vault);
 		const svgFile = { path: SVG_PATH } as TFile;
 
-		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', [], null, jest.fn());
+		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', [], null, FILE_CONVERSION_IN_PLACE, jest.fn());
 
 		expect(vault.modify).not.toHaveBeenCalled();
 		expect(result.updatedNotePaths).toHaveLength(0);
@@ -487,10 +493,43 @@ describe('executeFileConversion', () => {
 
 		(convertWriteFileToDraw as jest.Mock).mockRejectedValueOnce(new Error('ink-canvas store missing'));
 
-		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, jest.fn());
+		const result = await executeFileConversion(plugin, svgFile, 'inkDrawing', notes, null, FILE_CONVERSION_IN_PLACE, jest.fn());
 
 		expect(vault.modify).not.toHaveBeenCalled();
 		expect(result.updatedNotePaths).toHaveLength(0);
 		expect(result.failed.some((message) => message.startsWith('SVG conversion failed'))).toBe(true);
+	});
+
+	it('duplicate scope updates only the instigating note', async () => {
+		const notePaths = ['Notes/A.md', 'Notes/B.md'];
+		const [files, notes] = makeAffectedNotes(notePaths, SVG_PATH);
+		const vault = makeVault(files);
+		const plugin = makePlugin(vault);
+		const svgFile = { path: SVG_PATH } as TFile;
+		const copyFile = { path: 'Ink/Writing/copy.svg' } as TFile;
+
+		(duplicateWritingFile as jest.Mock).mockResolvedValueOnce(copyFile);
+
+		const instigatingNote = { path: 'Notes/A.md' } as TFile;
+		const result = await executeFileConversion(
+			plugin,
+			svgFile,
+			'inkDrawing',
+			notes,
+			null,
+			{
+				mode: 'duplicate',
+				instigatingNote,
+				embedUpdate: 'instigating-only',
+			},
+			jest.fn(),
+		);
+
+		expect(duplicateWritingFile).toHaveBeenCalled();
+		expect(vault.modify).toHaveBeenCalledTimes(1);
+		expect(result.wasDuplicated).toBe(true);
+		expect(result.finalFile?.path).toBe('Ink/Writing/copy.svg');
+		expect(result.updatedNotePaths).toEqual(['Notes/A.md']);
+		expect(result.originalFilePath).toBe(SVG_PATH);
 	});
 });

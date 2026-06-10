@@ -11,7 +11,8 @@ import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
-import { buildWritingEmbed } from '../../utils/build-embeds';
+import { buildDrawingEmbed, buildWritingEmbed } from '../../utils/build-embeds';
+import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateWritingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import './writing-embed-extension.scss';
@@ -89,6 +90,9 @@ export class WritingEmbedWidget extends WidgetType {
                     }}
                     locateFile={() => {
                         void this.locateFile(view);
+                    }}
+                    replaceEmbedAfterConversion={(finalFile, toType) => {
+                        void this.replaceEmbedAfterConversion(view, finalFile, toType);
                     }}
                 />
             </JotaiProvider>
@@ -225,14 +229,27 @@ export class WritingEmbedWidget extends WidgetType {
 
         new Notice('Writing file duplicated');
 
+        await this.replaceEmbedAfterConversion(view, duplicatedFile, 'inkWriting');
+    }
+
+    private async replaceEmbedAfterConversion(
+        view: EditorView,
+        finalFile: TFile,
+        toType: 'inkWriting' | 'inkDrawing',
+    ) {
+        const { plugin } = getGlobals();
+        const newEmbedStr = toType === 'inkWriting'
+            ? buildWritingEmbed(finalFile.path)
+            : buildDrawingEmbed(finalFile.path, {
+                embedSettings: await buildDrawingEmbedSettingsFromFile(plugin, finalFile),
+            });
+
         const decorations = view.state.field(embedStateFieldWriting, false);
         if (!decorations) return;
         const it = decorations.iter();
         while (it.value) {
             const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
-                // Replace the entire widget range with a fresh embed pointing to the duplicate
-                const newEmbedStr = buildWritingEmbed(duplicatedFile.path);
                 const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
                 view.dispatch(tr);
                 return;

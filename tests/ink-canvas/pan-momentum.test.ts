@@ -1,6 +1,9 @@
 import {
+	createModifierWheelZoomDirectionResolver,
 	createPanMomentumController,
+	getModifierWheelZoomDirection,
 	isTrackpadWheel,
+	isTrackpadWheelForZoom,
 } from 'src/ink-canvas/pan-momentum';
 
 describe('isTrackpadWheel', () => {
@@ -29,6 +32,138 @@ describe('isTrackpadWheel', () => {
 			deltaY: 120,
 		} as WheelEvent;
 		expect(isTrackpadWheel(event)).toBe(false);
+	});
+});
+
+describe('isTrackpadWheelForZoom', () => {
+	it('returns true for fine-grained pixel-mode deltas', () => {
+		const event = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 4,
+		} as WheelEvent;
+		expect(isTrackpadWheelForZoom(event)).toBe(true);
+	});
+
+	it('returns false for typical mouse wheel pixel notches', () => {
+		const event = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 53,
+		} as WheelEvent;
+		expect(isTrackpadWheelForZoom(event)).toBe(false);
+	});
+
+	it('returns false for line-mode wheel', () => {
+		const event = {
+			deltaMode: WheelEvent.DOM_DELTA_LINE,
+			deltaX: 0,
+			deltaY: 3,
+		} as WheelEvent;
+		expect(isTrackpadWheelForZoom(event)).toBe(false);
+	});
+});
+
+describe('getModifierWheelZoomDirection', () => {
+	it('keeps Cmd+scroll direction for line-mode deltas', () => {
+		const zoomIn = {
+			deltaMode: WheelEvent.DOM_DELTA_LINE,
+			deltaX: 0,
+			deltaY: 3,
+			ctrlKey: false,
+			metaKey: true,
+		} as WheelEvent;
+		const zoomOut = {
+			deltaMode: WheelEvent.DOM_DELTA_LINE,
+			deltaX: 0,
+			deltaY: -3,
+			ctrlKey: false,
+			metaKey: true,
+		} as WheelEvent;
+		expect(getModifierWheelZoomDirection(zoomIn)).toBe(1);
+		expect(getModifierWheelZoomDirection(zoomOut)).toBe(-1);
+	});
+
+	it('does not invert Cmd+scroll pixel-mode mouse deltas', () => {
+		const zoomIn = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 4,
+			ctrlKey: false,
+			metaKey: true,
+		} as WheelEvent;
+		const zoomOut = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: -204,
+			ctrlKey: false,
+			metaKey: true,
+		} as WheelEvent;
+		expect(getModifierWheelZoomDirection(zoomIn)).toBe(1);
+		expect(getModifierWheelZoomDirection(zoomOut)).toBe(-1);
+	});
+
+	it('inverts pinch wheel events (ctrlKey without metaKey)', () => {
+		const zoomIn = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 4,
+			ctrlKey: true,
+			metaKey: false,
+		} as WheelEvent;
+		const zoomOut = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: -4,
+			ctrlKey: true,
+			metaKey: false,
+		} as WheelEvent;
+		expect(getModifierWheelZoomDirection(zoomIn)).toBe(-1);
+		expect(getModifierWheelZoomDirection(zoomOut)).toBe(1);
+	});
+});
+
+describe('createModifierWheelZoomDirectionResolver', () => {
+	it('keeps Cmd+scroll consistent across mixed deltas in one burst', () => {
+		const resolver = createModifierWheelZoomDirectionResolver();
+		const leadIn = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 4,
+			ctrlKey: false,
+			metaKey: true,
+		} as WheelEvent;
+		const largeFollowUp = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 204,
+			ctrlKey: false,
+			metaKey: true,
+		} as WheelEvent;
+
+		expect(resolver.getDirection(leadIn)).toBe(1);
+		expect(resolver.getDirection(largeFollowUp)).toBe(1);
+	});
+
+	it('inverts pinch events consistently', () => {
+		const resolver = createModifierWheelZoomDirectionResolver();
+		const pinchIn = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: 4,
+			ctrlKey: true,
+			metaKey: false,
+		} as WheelEvent;
+		const pinchOut = {
+			deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+			deltaX: 0,
+			deltaY: -4,
+			ctrlKey: true,
+			metaKey: false,
+		} as WheelEvent;
+
+		expect(resolver.getDirection(pinchIn)).toBe(-1);
+		expect(resolver.getDirection(pinchOut)).toBe(1);
 	});
 });
 

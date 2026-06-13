@@ -187,30 +187,36 @@ The listener is dispatched immediately on mount with a synthetic `scroll` event 
 
 ## 3b. Pointer capture and scroll restore — embed pan/zoom gestures
 
-**Source:** `src/components/formats/current/drawing/tldraw-drawing-editor/tldraw-drawing-editor.tsx`  
-**Related doc:** `docs/pan-zoom.md`
+**Source:** `src/ink-canvas/ink-svg-canvas.tsx`, `src/components/jsx-components/finger-blocker/finger-blocker.tsx`  
+**Related doc:** [pan-zoom.md](pan-zoom.md)
 
-The embed pan/zoom gestures (middle-mouse pan, right-drag zoom, mod+scroll zoom) are handled in `tldraw-drawing-editor` — outside of `FingerBlocker`. These gestures call `tlContainer.setPointerCapture(e.pointerId)`, which transfers pointer capture away from `FingerBlocker`.
+Current-format embed pan/zoom (middle-mouse pan, right-drag pan/zoom, mod+scroll zoom, two-finger touch pinch) is handled on `InkSvgCanvas` and `FingerBlocker` — not in the legacy `tldraw-drawing-editor` path.
 
-### The pointer capture conflict
+Mod+scroll zoom in embeds: `FingerBlocker` listens in capture phase and forwards the wheel event to the ink SVG when `ctrlKey || metaKey`. The SVG listener calls `preventDefault()` on the forwarded event; the blocker calls `preventDefault()` only on the original (never `stopPropagation`). See [pan-zoom.md — Modifier + wheel zoom direction](pan-zoom.md).
 
-`FingerBlocker` calls `lockScroll()` on every mouse/pen `pointerdown`, setting `.cm-scroller` to `overflow: hidden` and `scrollbar-color: transparent transparent`. When a gesture transfers capture to `tlContainer`, `FingerBlocker` never receives the `pointerup` event and therefore never calls `unlockScroll()`. This leaves the scroller permanently locked until the note is reloaded.
+Middle/right-button pan and zoom are handled on the SVG via pointer listeners. `FingerBlocker` does not call `lockScroll()` for non-primary mouse buttons.
+
+### The pointer capture conflict (legacy tldraw embeds)
+
+On **legacy** `tldraw-drawing-editor` embeds, middle/right pan/zoom called `tlContainer.setPointerCapture()`, which could leave `FingerBlocker` without a matching `pointerup` and the note scroller locked.
+
+**Current-format** `InkSvgCanvas` embeds handle middle/right pan/zoom on the SVG directly; `FingerBlocker` skips `lockScroll()` for non-primary buttons, so this capture-transfer deadlock does not apply.
 
 ```mermaid
 sequenceDiagram
     participant FB as FingerBlocker
-    participant TDE as tldraw-drawing-editor
+    participant TDE as tldraw-drawing-editor legacy
     participant CMS as .cm-scroller
 
     FB->>CMS: lockScroll() — overflow: hidden, scrollbarColor: transparent
     FB->>FB: setPointerCapture(pointerId)
 
-    Note over TDE: gesture starts (e.g. mid-mouse pan)
+    Note over TDE: gesture starts e.g. mid-mouse pan
     TDE->>TDE: tlContainer.setPointerCapture(pointerId)
     Note over FB: FingerBlocker loses capture
 
     TDE--xFB: pointerup never arrives at FingerBlocker
-    Note over CMS: scroll stays locked indefinitely ❌
+    Note over CMS: scroll stays locked indefinitely
 ```
 
 ### Fix — non-primary button guard + `restoreEmbedScroll()`
@@ -218,12 +224,14 @@ sequenceDiagram
 Two complementary fixes work together:
 
 **1. Non-primary button guard in `FingerBlocker`**  
-`FingerBlocker` only calls `lockScroll()` and sets `isPenDownRef.current = true` for pen input or left mouse button (`button === 0`). Middle (`button 1`) and right (`button 2`) clicks are never drawing actions — they are used exclusively by embed pan/zoom gestures in `tldraw-drawing-editor`. Skipping the lock for these buttons means the scroll-pinning state is never entered, so the `handleScroll` force-restoration listener is never active during pan/zoom gestures.
+`FingerBlocker` only calls `lockScroll()` and sets `isPenDownRef.current = true` for pen input or left mouse button (`button === 0`). Middle (`button 1`) and right (`button 2`) clicks are never drawing actions — they are used by embed pan/zoom gestures on `InkSvgCanvas`. Skipping the lock for these buttons means the scroll-pinning state is never entered, so the `handleScroll` force-restoration listener is never active during pan/zoom gestures.
 
 > **Why not `lostpointercapture`?** An earlier attempt added a `lostpointercapture` listener to `FingerBlocker` to detect when another element stole pointer capture. However, `FingerBlocker` forwards events to `.tl-canvas` as synthetic `PointerEvent` objects via `dispatchEvent`. When `tldraw-drawing-editor` then calls `tlContainer.setPointerCapture(e.pointerId)` on the forwarded event, Electron/Chromium silently rejects it — `setPointerCapture` only works for pointer IDs that are registered from real hardware dispatch, not synthetic copies. As a result, FingerBlocker never actually loses capture, and `lostpointercapture` never fires. The `lostpointercapture` listener remains in the code as a safety net for any future scenario where real capture is taken.
 
-**2. `restoreEmbedScroll()` in `tldraw-drawing-editor`**  
-Each gesture end handler calls `restoreEmbedScroll()`, which restores the visual state of `.cm-scroller`:
+**2. Embed scroll restore after ink canvas gestures**  
+Legacy tldraw embeds call `restoreEmbedScroll()` from `tldraw-drawing-editor` gesture end handlers. Current-format `InkSvgCanvas` embeds rely on `FingerBlocker` not entering scroll lock for middle/right-button gestures; mod+scroll does not use `pointerup`. If note scrolling becomes stuck after pan/zoom, see [pan-zoom.md](pan-zoom.md) and the non-primary button guard above.
+
+When using legacy tldraw embeds, `restoreEmbedScroll()`:
 
 - Sets `overflow: 'auto'` immediately.
 - Restores `scrollbarColor: 'auto'` after a 200 ms delay — matching the same delay `FingerBlocker` uses to avoid a visible flash of the scrollbar reappearing.
@@ -273,7 +281,7 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 | Gesture suppression | `FingerBlocker` | Wheel / swipe gestures during pen input |
 | Non-primary button guard | `FingerBlocker` | Scroll-pinning activated by middle/right-click embed pan/zoom gestures |
 | `lostpointercapture` scroll unlock | `FingerBlocker` | Safety net: unlock if real pointer capture is transferred elsewhere |
-| Pan/zoom gesture scroll restore | `tldraw-drawing-editor` | Overflow/scrollbar styles not restored after embed pan/zoom gestures |
+| Pan/zoom gesture scroll restore | `InkSvgCanvas` + `FingerBlocker`; legacy: `tldraw-drawing-editor` | Overflow/scrollbar styles not restored after embed pan/zoom gestures |
 | Downward-only embed refresh | `InkEmbedsExtension` | Remount jank on iPad during upward scroll |
 | Menu bar scroll tracking | `PrimaryMenuBar` | Menu scrolls off-screen with embed |
 | Embed removal cursor reset | `embed.ts` | Scroll jumps when embed is deleted |

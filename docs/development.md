@@ -322,6 +322,8 @@ Troubleshooting:
 
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
 - [Ink canvas: zoom-scaled stroke smoothing](ink-canvas-zoom-scaled-strokes.md) — How capture zoom scales streamline, smoothing, and duplicate-point merge at reference 1×.
+- [Pan and zoom](pan-zoom.md) — Drawing editor gestures, modifier+wheel direction (mouse vs trackpad pinch), and zoom math (`InkSvgCanvas`).
+- [Embed scrolling](embed-scrolling.md) — How `FingerBlocker` coordinates note scrolling with ink embed input and pan/zoom.
 - [Debugging on device (Boox / Android)](debugging-on-device.md) — USB remote DevTools for the Obsidian Android WebView, desktop vs Electron vs mobile, and links to native `logcat` + correlated ingest workflows in eInk Bridge docs.
 - [File format and conversion](file-format-and-conversion.md) — Ink SVG structure, drawing↔writing conversion flow, and preview preservation.
 - [Blocked features](blocked-features.md) — Features that are incomplete or non-functional and what's needed to unblock them.

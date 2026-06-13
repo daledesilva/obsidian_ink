@@ -5,7 +5,7 @@ import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
 import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
-import { createPanMomentumController, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
+import { createPanMomentumController, createModifierWheelZoomDirectionResolver, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
 import { computeStrokesBounds } from './svg-export';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
@@ -127,6 +127,17 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const rect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
 		onCameraChangeRef.current?.({ ...nextCamera }, rect, meta);
 	}, []);
+	const commitUserCameraState = useCallback((computeNext: (prev: CameraState) => CameraState) => {
+		let nextCamera: CameraState | null = null;
+		setCameraState((prev) => {
+			nextCamera = computeNext(prev);
+			cameraRef.current = nextCamera;
+			return nextCamera;
+		});
+		if (nextCamera) {
+			emitCameraChange(nextCamera, { source: 'user' });
+		}
+	}, [emitCameraChange]);
 	const gridEnabledRef = useRef(gridEnabled);
 	gridEnabledRef.current = gridEnabled;
 	const onChangeRef = useRef(props.onChange);
@@ -186,24 +197,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const applyPanScreenDeltaImmediate = useCallback((deltaScreenX: number, deltaScreenY: number): boolean => {
 		if (writingMode && !props.isEmbedded) {
 			let hitClamp = false;
+			let nextCamera: CameraState | null = null;
 			setCameraState((prev) => {
 				const newY = clampWritingY(prev.y + deltaScreenY / prev.zoom, prev.zoom);
 				if (Math.abs(newY - prev.y) < 1e-9 && Math.abs(deltaScreenY) > 1e-9) {
 					hitClamp = true;
 				}
-				const next = { ...prev, y: newY };
-				emitCameraChange(next, { source: 'user' });
-				return next;
+				nextCamera = { ...prev, y: newY };
+				cameraRef.current = nextCamera;
+				return nextCamera;
 			});
+			if (nextCamera) {
+				emitCameraChange(nextCamera, { source: 'user' });
+			}
 			return !hitClamp;
 		}
-		setCameraState((prev) => {
-			const next = panByScreenDelta(prev, deltaScreenX, deltaScreenY);
-			emitCameraChange(next, { source: 'user' });
-			return next;
-		});
+		commitUserCameraState((prev) => panByScreenDelta(prev, deltaScreenX, deltaScreenY));
 		return true;
-	}, [writingMode, props.isEmbedded, clampWritingY, emitCameraChange]);
+	}, [writingMode, props.isEmbedded, clampWritingY, commitUserCameraState, emitCameraChange]);
 
 	const applyPanScreenDelta = useCallback((deltaScreenX: number, deltaScreenY: number) => {
 		panMomentumRef.current?.recordScreenDelta(deltaScreenX, deltaScreenY);
@@ -778,20 +789,18 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (deltaX !== 0 || deltaY !== 0) {
 				panMomentumRef.current?.recordScreenDelta(deltaX, deltaY);
 			}
-			setCameraState(prev => {
+			commitUserCameraState((prev) => {
 				const afterPan = panByScreenDelta(prev, deltaX, deltaY);
 				const newZoom = clampZoom(afterPan.zoom * distanceRatio);
 				const zoomDelta = 1 / newZoom - 1 / afterPan.zoom;
-				const next = {
+				return {
 					x: afterPan.x + anchorX * zoomDelta,
 					y: afterPan.y + anchorY * zoomDelta,
 					zoom: newZoom,
 				};
-				emitCameraChange(next, { source: 'user' });
-				return next;
 			});
 		},
-		[emitCameraChange],
+		[commitUserCameraState],
 	);
 
 	const handleEmbedTwoFingerGestureEnd = useCallback(() => {
@@ -822,6 +831,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	///////////////////////////
 
 	const wheelIdleTimerRef = useRef<number | null>(null);
+	const modifierWheelZoomDirectionResolverRef = useRef(
+		createModifierWheelZoomDirectionResolver(),
+	);
+	const commitUserCameraStateRef = useRef(commitUserCameraState);
+	commitUserCameraStateRef.current = commitUserCameraState;
 	const applyPanScreenDeltaRef = useRef(applyPanScreenDelta);
 	applyPanScreenDeltaRef.current = applyPanScreenDelta;
 	const releasePanMomentumRef = useRef(releasePanMomentum);
@@ -876,14 +890,18 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				} else {
 					clearTrackpadWheelIdleTimer();
 					cancelPanMomentumRef.current();
+					let nextCamera: CameraState | null = null;
 					setCameraState((prev) => {
-						const next = {
+						nextCamera = {
 							...prev,
 							y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
 						};
-						emitCameraChange(next, { source: 'user' });
-						return next;
+						cameraRef.current = nextCamera;
+						return nextCamera;
 					});
+					if (nextCamera) {
+						emitCameraChange(nextCamera, { source: 'user' });
+					}
 				}
 				return;
 			}
@@ -896,27 +914,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const svgRect = svg.getBoundingClientRect();
 				const anchorX = e.clientX - svgRect.left;
 				const anchorY = e.clientY - svgRect.top;
-				const direction: 1 | -1 = e.deltaY < 0 ? -1 : 1;
-				setCameraState((prev) => {
-					const next = zoomAtPoint(prev, anchorX, anchorY, direction);
-					emitCameraChange(next, { source: 'user' });
-					return next;
-				});
+				const direction = modifierWheelZoomDirectionResolverRef.current.getDirection(e);
+				commitUserCameraStateRef.current((prev) =>
+					zoomAtPoint(prev, anchorX, anchorY, direction),
+				);
 				return;
 			}
 			if (!props.isEmbedded) {
 				e.preventDefault();
+				modifierWheelZoomDirectionResolverRef.current.cancel();
 				if (isTrackpadWheel(e)) {
 					applyPanScreenDeltaRef.current(e.deltaX, e.deltaY);
 					scheduleTrackpadWheelRelease();
 				} else {
 					clearTrackpadWheelIdleTimer();
 					cancelPanMomentumRef.current();
-					setCameraState((prev) => {
-						const next = panByScreenDelta(prev, e.deltaX, e.deltaY);
-						emitCameraChange(next, { source: 'user' });
-						return next;
-					});
+					commitUserCameraStateRef.current((prev) =>
+						panByScreenDelta(prev, e.deltaX, e.deltaY),
+					);
 				}
 			}
 		};
@@ -924,6 +939,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		svg.addEventListener('wheel', handleWheelNative, { passive: false });
 		return () => {
 			clearTrackpadWheelIdleTimer();
+			modifierWheelZoomDirectionResolverRef.current.cancel();
 			svg.removeEventListener('wheel', handleWheelNative);
 		};
 	}, [writingMode, props.isEmbedded, clampWritingY, emitCameraChange]);

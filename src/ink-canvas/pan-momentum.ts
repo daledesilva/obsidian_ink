@@ -32,6 +32,9 @@ const DEFAULT_STOP_VELOCITY = 15;
 const DEFAULT_VELOCITY_WINDOW_MS = 120;
 const SAMPLE_RETENTION_MS = 150;
 
+/** Max per-event delta (px) to treat modifier+wheel zoom as trackpad; mouse notches are usually larger. */
+const TRACKPAD_WHEEL_ZOOM_MAX_DELTA_PX = 16;
+
 /**
  * Heuristic: pixel-mode wheel with small deltas (typical trackpad).
  * May misclassify on some platforms; only affects optional wheel momentum.
@@ -39,6 +42,42 @@ const SAMPLE_RETENTION_MS = 150;
 export function isTrackpadWheel(event: WheelEvent): boolean {
 	if (event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) return false;
 	return Math.abs(event.deltaY) < 100 && Math.abs(event.deltaX) < 100;
+}
+
+/** Stricter trackpad check for modifier+wheel zoom (avoids misclassifying mouse wheel pixel notches). */
+export function isTrackpadWheelForZoom(event: WheelEvent): boolean {
+	if (event.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) return false;
+	return Math.abs(event.deltaY) < TRACKPAD_WHEEL_ZOOM_MAX_DELTA_PX
+		&& Math.abs(event.deltaX) < TRACKPAD_WHEEL_ZOOM_MAX_DELTA_PX;
+}
+
+/** True when the OS maps a trackpad pinch to a wheel event (macOS/Electron). */
+export function isPinchWheelZoomEvent(event: WheelEvent): boolean {
+	return event.ctrlKey && !event.metaKey;
+}
+
+/** Zoom direction for modifier+wheel; inverts pinch only — Cmd+scroll (mouse or trackpad) stays natural. */
+export function getModifierWheelZoomDirection(event: WheelEvent): 1 | -1 {
+	const direction: 1 | -1 = event.deltaY < 0 ? -1 : 1;
+	return isPinchWheelZoomEvent(event) ? (direction > 0 ? -1 : 1) : direction;
+}
+
+export type ModifierWheelZoomDirectionResolver = {
+	getDirection(event: WheelEvent): 1 | -1;
+	cancel(): void;
+};
+
+/**
+ * Resolves modifier+wheel zoom direction per event.
+ * Pinch (ctrlKey without metaKey) is inverted; Cmd/Ctrl+scroll is not.
+ */
+export function createModifierWheelZoomDirectionResolver(): ModifierWheelZoomDirectionResolver {
+	return {
+		getDirection(event: WheelEvent): 1 | -1 {
+			return getModifierWheelZoomDirection(event);
+		},
+		cancel() {},
+	};
 }
 
 export function createPanMomentumController(options: PanMomentumOptions): PanMomentumController {

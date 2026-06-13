@@ -164,8 +164,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	selectedIdsRef.current = selectedIds;
 	const onDedicatedVerticalTouchPanRef = useRef(props.onDedicatedVerticalTouchPan);
 	onDedicatedVerticalTouchPanRef.current = props.onDedicatedVerticalTouchPan;
-	const onPanGestureEndRef = useRef(props.onPanGestureEnd);
-	onPanGestureEndRef.current = props.onPanGestureEnd;
 
 	const panMomentumRef = useRef<PanMomentumController | null>(null);
 	useEffect(() => {
@@ -222,16 +220,10 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [applyPanScreenDeltaImmediate]);
 
 	const releasePanMomentum = useCallback(() => {
-		const usesExternalWritingPan =
-			writingMode && !props.isEmbedded && !!onDedicatedVerticalTouchPanRef.current;
-		if (usesExternalWritingPan) {
-			onPanGestureEndRef.current?.();
-			return;
-		}
 		panMomentumRef.current?.release((deltaScreenX, deltaScreenY) =>
 			applyPanScreenDeltaImmediate(deltaScreenX, deltaScreenY),
 		);
-	}, [writingMode, props.isEmbedded, applyPanScreenDeltaImmediate]);
+	}, [applyPanScreenDeltaImmediate]);
 
 	const cancelPanMomentum = useCallback(() => {
 		panMomentumRef.current?.cancel();
@@ -572,9 +564,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Space+drag pan (Phase C)
 	const isSpaceHeldRef = useRef(false);
 	const isPointerOverCanvasRef = useRef(false);
-	/** Middle-mouse drag: temporarily switches tool to erase, then restores. */
-	const isMiddleButtonEraseActiveRef = useRef(false);
-	const middleButtonToolBeforeEraseRef = useRef<InkTool | null>(null);
+	/** Mod+left drag: temporarily switches tool to erase, then restores. */
+	const isModLeftTemporaryEraseActiveRef = useRef(false);
+	const toolBeforeModLeftTemporaryEraseRef = useRef<InkTool | null>(null);
 	const [cursorStyle, setCursorStyle] = useState<React.CSSProperties['cursor']>(undefined);
 	const isBooxInputLockedRef = useRef(props.isBooxInputLocked ?? false);
 	isBooxInputLockedRef.current = props.isBooxInputLocked ?? false;
@@ -582,16 +574,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Discard any in-progress local stroke when Boox takes over input (matches tldraw lockTldrawInput).
 	useEffect(() => {
 		if (!props.isBooxInputLocked) return;
-		if (isMiddleButtonEraseActiveRef.current) {
-			const previousTool = middleButtonToolBeforeEraseRef.current;
+		if (isModLeftTemporaryEraseActiveRef.current) {
+			const previousTool = toolBeforeModLeftTemporaryEraseRef.current;
 			if (previousTool) applyToolChange(previousTool);
-			middleButtonToolBeforeEraseRef.current = null;
-			isMiddleButtonEraseActiveRef.current = false;
+			toolBeforeModLeftTemporaryEraseRef.current = null;
+			isModLeftTemporaryEraseActiveRef.current = false;
 		}
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 		selectToolPointerCancel({} as PointerEvent, selectCtx);
 	}, [props.isBooxInputLocked]); // eslint-disable-line -- stable effect deps
+
+	const beginMousePan = (e: React.PointerEvent) => {
+		cancelPanMomentum();
+		isPanning.current = true;
+		lastPanPoint.current = { x: e.clientX, y: e.clientY };
+		(e.target as HTMLElement).setPointerCapture(e.pointerId);
+		setCursorStyle('grabbing');
+	};
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
 		// Touch input: two-finger gestures are handled by the native touch listener.
@@ -602,11 +602,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const isSpacePanGesture = isSpaceHeldRef.current && e.button === 0;
 		if (isSpacePanGesture) {
 			if (writingMode && props.isEmbedded) return;
-			cancelPanMomentum();
-			isPanning.current = true;
-			lastPanPoint.current = { x: e.clientX, y: e.clientY };
-			(e.target as HTMLElement).setPointerCapture(e.pointerId);
-			setCursorStyle('grabbing');
+			beginMousePan(e);
 			return;
 		}
 
@@ -633,21 +629,28 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 			// RMB drag → pan (embedded writing: suppress note menu only — no pan/scroll)
 			if (writingMode && props.isEmbedded) return;
-			cancelPanMomentum();
-			isPanning.current = true;
-			lastPanPoint.current = { x: e.clientX, y: e.clientY };
-			(e.target as HTMLElement).setPointerCapture(e.pointerId);
-			setCursorStyle('grabbing');
+			beginMousePan(e);
 			return;
 		}
 
-		// Middle-click: temporary eraser (all embeds and dedicated views).
+		// Middle-click drag → pan (same rules as right-drag pan).
 		if (e.pointerType === 'mouse' && e.button === 1) {
 			e.preventDefault();
 			e.nativeEvent.stopPropagation();
+			if (writingMode && props.isEmbedded) return;
+			beginMousePan(e);
+			return;
+		}
+
+		// Mod + left-click drag → temporary eraser.
+		const isModLeftTemporaryErase =
+			e.pointerType === 'mouse' && e.button === 0 && (e.ctrlKey || e.metaKey);
+		if (isModLeftTemporaryErase) {
+			e.preventDefault();
+			e.nativeEvent.stopPropagation();
 			if (!isBooxInputLockedRef.current) {
-				isMiddleButtonEraseActiveRef.current = true;
-				middleButtonToolBeforeEraseRef.current = toolRef.current;
+				isModLeftTemporaryEraseActiveRef.current = true;
+				toolBeforeModLeftTemporaryEraseRef.current = toolRef.current;
 				applyToolChange('erase');
 				eraseToolPointerDown(e.nativeEvent, eraseCtx);
 			}
@@ -699,7 +702,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (isMiddleButtonEraseActiveRef.current) {
+		if (isModLeftTemporaryEraseActiveRef.current) {
 			if (!isBooxInputLockedRef.current) {
 				eraseToolPointerMove(e.nativeEvent, eraseCtx);
 			}
@@ -730,14 +733,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (isMiddleButtonEraseActiveRef.current) {
-			isMiddleButtonEraseActiveRef.current = false;
+		if (isModLeftTemporaryEraseActiveRef.current) {
+			isModLeftTemporaryEraseActiveRef.current = false;
 			if (!isBooxInputLockedRef.current) {
 				eraseToolPointerUp(e.nativeEvent, eraseCtx);
-				const previousTool = middleButtonToolBeforeEraseRef.current;
+				const previousTool = toolBeforeModLeftTemporaryEraseRef.current;
 				if (previousTool) applyToolChange(previousTool);
 			}
-			middleButtonToolBeforeEraseRef.current = null;
+			toolBeforeModLeftTemporaryEraseRef.current = null;
 			return;
 		}
 
@@ -765,14 +768,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			return;
 		}
 
-		if (isMiddleButtonEraseActiveRef.current) {
-			isMiddleButtonEraseActiveRef.current = false;
+		if (isModLeftTemporaryEraseActiveRef.current) {
+			isModLeftTemporaryEraseActiveRef.current = false;
 			if (!isBooxInputLockedRef.current) {
 				eraseToolPointerCancel(e.nativeEvent, eraseCtx);
-				const previousTool = middleButtonToolBeforeEraseRef.current;
+				const previousTool = toolBeforeModLeftTemporaryEraseRef.current;
 				if (previousTool) applyToolChange(previousTool);
 			}
-			middleButtonToolBeforeEraseRef.current = null;
+			toolBeforeModLeftTemporaryEraseRef.current = null;
 			return;
 		}
 
@@ -1002,7 +1005,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			<FingerBlocker
 				wrapperRef={canvasWrapperRef}
 				touchGestureMode={inkTouchGestureMode}
-				enableMiddleButtonTemporaryErase
+				enableModLeftTemporaryErase
 				onVerticalTouchPan={
 					writingMode && !props.isEmbedded
 						? props.onDedicatedVerticalTouchPan

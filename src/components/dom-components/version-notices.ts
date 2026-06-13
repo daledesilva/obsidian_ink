@@ -46,7 +46,7 @@ function showChanges(plugin: InkPlugin) {
     listEl.createEl('li').setText(`Easier copy and paste.`);
     listEl.createEl('li').setText(`Customisable line height.`);
     listEl.createEl('li').setText(`Dominant hand setting.`);
-    listEl.createEl('li').setText(`Hold ⌘/Ctrl and drag with the left mouse button to switch to eraser temporarily.`);
+    listEl.createEl('li').setText(`Hold ⌘/Ctrl to switch to eraser temporarily.`);
         
     noticeBody.createEl('h2').setText(`Note`);
     const listEl2 = noticeBody.createEl('ul');

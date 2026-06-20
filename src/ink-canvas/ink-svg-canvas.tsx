@@ -591,8 +591,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Space+drag pan (Phase C)
 	const isSpaceHeldRef = useRef(false);
 	const isPointerOverCanvasRef = useRef(false);
-	/** While ⌘/Ctrl is held: temporarily switches tool to erase, then restores on release. */
+	/** While ⌘/Ctrl or a finger is held on FingerBlocker: temporarily switch to erase. */
 	const isModKeyHeldRef = useRef(false);
+	const temporaryEraseTriggersRef = useRef({ modKey: false, fingerHeld: false });
 	const isModTemporaryEraseModeRef = useRef(false);
 	const toolBeforeModTemporaryEraseRef = useRef<InkTool | null>(null);
 	const lastCanvasPointerRef = useRef<LastCanvasPointerState | null>(null);
@@ -607,6 +608,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Discard any in-progress local stroke when Boox takes over input (matches tldraw lockTldrawInput).
 	useEffect(() => {
 		if (!props.isBooxInputLocked) return;
+		temporaryEraseTriggersRef.current = { modKey: false, fingerHeld: false };
 		if (isModTemporaryEraseModeRef.current) {
 			isModTemporaryEraseModeRef.current = false;
 			isModKeyHeldRef.current = false;
@@ -686,10 +688,27 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 	}, []); // eslint-disable-line -- stable effect deps
 
+	const syncTemporaryEraseMode = useCallback(() => {
+		const { modKey, fingerHeld } = temporaryEraseTriggersRef.current;
+		const shouldBeActive = (modKey || fingerHeld) && !isBooxInputLockedRef.current;
+		if (shouldBeActive) {
+			beginModTemporaryEraseMode({ forceActivate: true });
+		} else {
+			endModTemporaryEraseMode();
+		}
+	}, [beginModTemporaryEraseMode, endModTemporaryEraseMode]);
+
+	const handleFingerHeldTemporaryEraseChange = useCallback((active: boolean) => {
+		temporaryEraseTriggersRef.current.fingerHeld = active;
+		syncTemporaryEraseMode();
+	}, [syncTemporaryEraseMode]);
+
 	const beginModTemporaryEraseModeRef = useRef(beginModTemporaryEraseMode);
 	beginModTemporaryEraseModeRef.current = beginModTemporaryEraseMode;
 	const endModTemporaryEraseModeRef = useRef(endModTemporaryEraseMode);
 	endModTemporaryEraseModeRef.current = endModTemporaryEraseMode;
+	const syncTemporaryEraseModeRef = useRef(syncTemporaryEraseMode);
+	syncTemporaryEraseModeRef.current = syncTemporaryEraseMode;
 
 	const recordCanvasPointer = (e: React.PointerEvent) => {
 		lastCanvasPointerRef.current = {
@@ -1084,14 +1103,15 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 	}, []); // eslint-disable-line -- stable effect deps
 
-	// ⌘/Ctrl held → temporary eraser; release → restore prior tool.
+	// ⌘/Ctrl or finger-held on FingerBlocker → temporary eraser; release → restore prior tool.
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (!isModKeyKeyboardEvent(e) || e.repeat) return;
 			isModKeyHeldRef.current = true;
+			temporaryEraseTriggersRef.current.modKey = true;
 			// Activate for any mounted ink editor (dedicated or embed-in-edit). InkSvgCanvas
 			// is not mounted in preview mode, so mod+erase is scoped to open editors only.
-			beginModTemporaryEraseModeRef.current({ forceActivate: true });
+			syncTemporaryEraseModeRef.current();
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
@@ -1099,13 +1119,16 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const modStillHeld = e.metaKey || e.ctrlKey;
 			if (!modStillHeld) {
 				isModKeyHeldRef.current = false;
+				temporaryEraseTriggersRef.current.modKey = false;
 			}
 			if (modStillHeld) return;
-			endModTemporaryEraseModeRef.current();
+			syncTemporaryEraseModeRef.current();
 		};
 
 		const handleWindowBlur = () => {
-			endModTemporaryEraseModeRef.current();
+			isModKeyHeldRef.current = false;
+			temporaryEraseTriggersRef.current.modKey = false;
+			syncTemporaryEraseModeRef.current();
 		};
 
 		window.addEventListener('keydown', handleKeyDown, true);
@@ -1156,6 +1179,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				forwardFingerToCanvas={
 					!!props.isFingerDrawingActive && !props.isBooxInputLocked
 				}
+				onFingerHeldTemporaryEraseChange={handleFingerHeldTemporaryEraseChange}
 				onDrawingEmbedTwoFingerGesture={
 					!writingMode ? handleDrawingEmbedTwoFingerGesture : undefined
 				}

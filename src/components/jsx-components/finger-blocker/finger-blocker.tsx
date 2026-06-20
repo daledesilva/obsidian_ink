@@ -115,6 +115,11 @@ export type FingerBlockerProps = {
 	forwardPenToCanvas?: boolean;
 	/** When true, single-finger touch is forwarded to the canvas like pen input. */
 	forwardFingerToCanvas?: boolean;
+	/**
+	 * Ink canvas: finger drawing off — single finger held on the blocker temporarily
+	 * activates eraser (same as ⌘/Ctrl) without blocking note scroll.
+	 */
+	onFingerHeldTemporaryEraseChange?: (active: boolean) => void;
 	/** Ink canvas embedded drawing: two-finger pan/zoom on the ink canvas. */
 	onDrawingEmbedTwoFingerGesture?: (params: {
 		deltaX: number;
@@ -143,6 +148,7 @@ export function FingerBlocker({
 	onVerticalTouchPan,
 	forwardPenToCanvas = true,
 	forwardFingerToCanvas = false,
+	onFingerHeldTemporaryEraseChange,
 	onDrawingEmbedTwoFingerGesture,
 	onEmbedTwoFingerGestureEnd,
 	onPanGestureEnd,
@@ -205,8 +211,20 @@ export function FingerBlocker({
 	const middleButtonPanPointerIdsRef = React.useRef<Set<number>>(new Set());
 	/** Single-finger touch pointers forwarded for finger drawing. */
 	const fingerDrawingPointerIdsRef = React.useRef<Set<number>>(new Set());
+	/** Single-finger touch held for temporary eraser (finger drawing off). */
+	const fingerHeldTemporaryErasePointerIdsRef = React.useRef<Set<number>>(new Set());
 	const forwardFingerToCanvasRef = React.useRef(forwardFingerToCanvas);
 	forwardFingerToCanvasRef.current = forwardFingerToCanvas;
+	const onFingerHeldTemporaryEraseChangeRef = React.useRef(onFingerHeldTemporaryEraseChange);
+	onFingerHeldTemporaryEraseChangeRef.current = onFingerHeldTemporaryEraseChange;
+	React.useEffect(() => {
+		if (forwardFingerToCanvas) {
+			if (fingerHeldTemporaryErasePointerIdsRef.current.size > 0) {
+				fingerHeldTemporaryErasePointerIdsRef.current.clear();
+				onFingerHeldTemporaryEraseChangeRef.current?.(false);
+			}
+		}
+	}, [forwardFingerToCanvas]);
 	React.useEffect(() => {
 		onVerticalTouchPanRef.current = onVerticalTouchPan;
 	}, [onVerticalTouchPan]);
@@ -341,6 +359,29 @@ export function FingerBlocker({
 		const isFingerDrawingForwardActive = () =>
 			forwardFingerToCanvasRef.current && forwardPenToCanvas;
 
+		const beginFingerHeldTemporaryErase = (pointerId: number) => {
+			if (!onFingerHeldTemporaryEraseChangeRef.current) return;
+			if (isFingerDrawingForwardActive()) return;
+			if (fingerHeldTemporaryErasePointerIdsRef.current.has(pointerId)) return;
+			fingerHeldTemporaryErasePointerIdsRef.current.add(pointerId);
+			if (fingerHeldTemporaryErasePointerIdsRef.current.size === 1) {
+				onFingerHeldTemporaryEraseChangeRef.current(true);
+			}
+		};
+
+		const endFingerHeldTemporaryErasePointer = (pointerId: number) => {
+			if (!fingerHeldTemporaryErasePointerIdsRef.current.delete(pointerId)) return;
+			if (fingerHeldTemporaryErasePointerIdsRef.current.size === 0) {
+				onFingerHeldTemporaryEraseChangeRef.current?.(false);
+			}
+		};
+
+		const clearAllFingerHeldTemporaryErase = () => {
+			if (fingerHeldTemporaryErasePointerIdsRef.current.size === 0) return;
+			fingerHeldTemporaryErasePointerIdsRef.current.clear();
+			onFingerHeldTemporaryEraseChangeRef.current?.(false);
+		};
+
 		const cancelActiveFingerDrawingPointers = (penTarget: EventTarget | null) => {
 			if (!penTarget) return;
 			for (const pointerId of [...fingerDrawingPointerIdsRef.current]) {
@@ -469,6 +510,7 @@ export function FingerBlocker({
 					beginTouchGestureSession();
 					resetDedicatedWritingGestureState();
 					if (touchCount >= 2 && !twoFingerVerticalPanActiveRef.current) {
+						clearAllFingerHeldTemporaryErase();
 						blockObsidianTouchEvent(e);
 						setFingerBlockerTouchMode(element, 'none');
 						twoFingerVerticalPanActiveRef.current = true;
@@ -484,6 +526,7 @@ export function FingerBlocker({
 							y: e.clientY,
 						});
 						prevSingleFingerVerticalPanClientYByPointerRef.current.set(e.pointerId, e.clientY);
+						beginFingerHeldTemporaryErase(e.pointerId);
 					}
 				} else if (verticalTouchPan) {
 					// Legacy tldraw dedicated writing: block all touch immediately.
@@ -503,6 +546,7 @@ export function FingerBlocker({
 					}
 				} else if (touchCount >= 2 && isInkCanvasTwoFingerMode() && !twoFingerModeActiveRef.current) {
 					beginTouchGestureSession();
+					clearAllFingerHeldTemporaryErase();
 					// Switch from single-finger scroll mode to two-finger gesture mode.
 					blockObsidianTouchEvent(e);
 					setFingerBlockerTouchMode(element, 'none');
@@ -534,6 +578,7 @@ export function FingerBlocker({
 				} else if (!twoFingerModeActiveRef.current) {
 					// Single finger: let the browser handle scrolling
 					setFingerBlockerTouchMode(element, 'pan-xy');
+					beginFingerHeldTemporaryErase(e.pointerId);
 				}
 			}
 		};
@@ -827,6 +872,7 @@ export function FingerBlocker({
 					}
 				}
 			} else if (e.pointerType === 'touch') {
+				endFingerHeldTemporaryErasePointer(e.pointerId);
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				// Keep recentPenInputRef until all fingers lift (touchend below) so post-pen scroll works on iOS.
 				if (activeTouchPointerDataRef.current.size === 0) {
@@ -875,6 +921,10 @@ export function FingerBlocker({
 					unlockScroll();
 				}
 				return;
+			}
+
+			if (e.pointerType === 'touch') {
+				endFingerHeldTemporaryErasePointer(e.pointerId);
 			}
 
 			setFingerBlockerTouchMode(element, 'default');
@@ -1011,6 +1061,10 @@ export function FingerBlocker({
 				activeTouchPointerDataRef.current.delete(touch.identifier);
 			});
 
+			if (e.touches.length === 0) {
+				clearAllFingerHeldTemporaryErase();
+			}
+
 			if (onVerticalTouchPanRef.current) {
 				if (twoFingerVerticalPanActiveRef.current && e.touches.length < 2) {
 					twoFingerVerticalPanActiveRef.current = false;
@@ -1078,6 +1132,7 @@ export function FingerBlocker({
 			embedPanZoomPointerIdsRef.current.clear();
 			middleButtonPanPointerIdsRef.current.clear();
 			fingerDrawingPointerIdsRef.current.clear();
+			clearAllFingerHeldTemporaryErase();
 			touchGestureSessionActiveRef.current = false;
 			resetDedicatedWritingGestureState();
 			unlockScroll();
@@ -1096,7 +1151,7 @@ export function FingerBlocker({
 				inkSvg.removeEventListener('pointercancel', endInkPenSession, inkPenEndOpts);
 			}
 		};
-	}, [forwardPenToCanvas, forwardFingerToCanvas, enableTwoFingerGestures, onVerticalTouchPan, touchGestureMode]);
+	}, [forwardPenToCanvas, forwardFingerToCanvas, onFingerHeldTemporaryEraseChange, enableTwoFingerGestures, onVerticalTouchPan, touchGestureMode]);
 
 	// Add scroll restoration listener to the scroller itself
 	React.useEffect(() => {

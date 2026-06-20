@@ -14,12 +14,15 @@ export function injectPendingPasteIntoEmbeds(text: string): string | null {
 		foundEmbeds = true;
 		return fullMatch.replace(`(${settingsUrl})`, `(${settingsUrl}&pendingPaste=true)`);
 	});
-	return foundEmbeds ? modified : null;
+
+	if (!foundEmbeds) return null;
+	return modified;
 }
 
 export function registerPasteEmbedHandler(plugin: InkPlugin): void {
 	plugin.registerEvent(plugin.app.workspace.on('editor-paste', (evt: ClipboardEvent, editor: Editor) => {
-		if (evt.defaultPrevented) return; // REVIEW: Risky automated addition. Monitor this.
+		if (evt.defaultPrevented) return;
+
 		const clipboardText = evt.clipboardData?.getData('text/plain');
 		if (!clipboardText) return;
 

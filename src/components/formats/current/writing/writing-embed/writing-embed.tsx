@@ -15,7 +15,7 @@ import { getBooxConnectionEnabled } from "src/logic/device-settings/device-setti
 import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
 import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
-import { TFile, WorkspaceLeaf } from "obsidian";
+import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
@@ -24,6 +24,8 @@ import type { PageBounds } from "../writing-editor/page-bounds";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { getGlobals } from "src/stores/global-store";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
+import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
+import { EmbedPreviewContextMenu } from "src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu";
 
 ///////
 ///////
@@ -77,6 +79,8 @@ export function WritingEmbed (props: {
 		finalFile: TFile,
 		toType: 'inkWriting' | 'inkDrawing',
 	) => void | Promise<void>,
+	getEmbedMarkdown?: () => string | null,
+	deleteEmbed?: () => void,
 }) {
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
@@ -155,12 +159,58 @@ export function WritingEmbed (props: {
 	// 	saveAndSwitchToPreviewMode();
 	// }
 
+	function handleCopyEmbed(_source: 'context-menu' | 'overflow-menu') {
+		const embedStr = props.getEmbedMarkdown?.() ?? null;
+		if (!embedStr) {
+			new Notice('Could not read embed markdown to copy');
+			return;
+		}
+		void copyEmbedMarkdownToClipboard(embedStr);
+	}
+
+	function handleDeleteEmbed() {
+		const removeFn = props.deleteEmbed ?? props.remove;
+		if (!props.writingFileRef || !props.sourceMdFile) {
+			removeFn();
+			return;
+		}
+		openRemoveEmbedFlow(
+			props.plugin,
+			props.writingFileRef,
+			props.sourceMdFile,
+			'inkWriting',
+			() => removeFn(),
+		);
+	}
+
+	const embedClipboardMenuOptions: MenuOption[] = [
+		{
+			text: 'Copy embed',
+			action: () => { handleCopyEmbed('context-menu'); },
+		},
+		{
+			text: 'Delete embed',
+			warning: true,
+			action: () => { handleDeleteEmbed(); },
+		},
+	];
+
 	const commonExtendedOptions = [
 		{
 			text: 'Open writing',
 			action: () => {
 				void openInDedicatedView();
 			}
+		},
+		{ separator: true },
+		{
+			text: 'Copy embed',
+			action: () => { handleCopyEmbed('overflow-menu'); },
+		},
+		{
+			text: 'Delete embed',
+			warning: true,
+			action: () => { handleDeleteEmbed(); },
 		},
 		{ separator: true },
 		{
@@ -188,23 +238,6 @@ export function WritingEmbed (props: {
 					confirmLabel: 'Erase all',
 					confirmAction: () => void editorControlsRef.current?.eraseAll?.(),
 				}).open();
-			},
-		},
-		{
-			text: 'Remove embed',
-			warning: true,
-			action: () => {
-				if (!props.writingFileRef || !props.sourceMdFile) {
-					props.remove();
-					return;
-				}
-				openRemoveEmbedFlow(
-					props.plugin,
-					props.writingFileRef,
-					props.sourceMdFile,
-					'inkWriting',
-					() => props.remove(),
-				);
 			},
 		},
 	] as MenuOption[]
@@ -274,13 +307,15 @@ export function WritingEmbed (props: {
 					ref = {resizeContainerElRef}
 				>
 				
-					<WritingEmbedPreviewWrapper
-						embedId = {props.embedId}
-						plugin = {props.plugin}
-						onResize = {(height: number) => applySizingWhilePreviewing(height)}
-						writingFile = {props.writingFileRef}
-						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
-					/>
+					<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
+						<WritingEmbedPreviewWrapper
+							embedId = {props.embedId}
+							plugin = {props.plugin}
+							onResize = {(height: number) => applySizingWhilePreviewing(height)}
+							writingFile = {props.writingFileRef}
+							onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+						/>
+					</EmbedPreviewContextMenu>
 
 					{(writingFormat === 'ink-canvas' || writingFormat === 'tldraw') && props.writingFileRef && (
 						<WritingEditorWrapper

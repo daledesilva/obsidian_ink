@@ -2,8 +2,6 @@ import classNames from 'classnames';
 import './writing-embed-preview.scss';
 import * as React from 'react';
 import SVG from 'react-inlinesvg';
-import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
-import TransitionMenu from 'src/components/jsx-components/transition-menu/transition-menu';
 import InkPlugin from 'src/main';
 import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom } from '../writing-embed/writing-embed';

@@ -11,7 +11,7 @@ import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
-import { buildDrawingEmbed, buildWritingEmbed } from '../../utils/build-embeds';
+import { buildDrawingEmbedLine, buildWritingEmbedLine } from '../../utils/build-embeds';
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateWritingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
@@ -22,6 +22,10 @@ import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-lea
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
 import { EmbedSettings, formatEmbedAspectRatio } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
+import {
+	getEmbedDecorationRange,
+	getEmbedMarkdownRange,
+} from 'src/logic/utils/embed-markdown-range';
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
@@ -78,6 +82,10 @@ export class WritingEmbedWidget extends WidgetType {
                         void this.save(pageData);
                     }}
                     remove={() => {
+                        this.removeEmbed(view);
+                    }}
+                    getEmbedMarkdown={() => this.getEmbedMarkdown(view)}
+                    deleteEmbed={() => {
                         this.removeEmbed(view);
                     }}
                     setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
@@ -183,42 +191,52 @@ export class WritingEmbedWidget extends WidgetType {
         view.requestMeasure();
     }
 
-    private removeEmbed(view: EditorView) {
-        // Find this widget's decoration range and remove it
+    private getDecorationBounds(view: EditorView): { decFrom: number; decTo: number } | null {
         const decorations = view.state.field(embedStateFieldWriting, false);
-        if (!decorations) return;
+        if (!decorations) return null;
         const it = decorations.iter();
         while (it.value) {
             const widget = writingEmbedWidgetFromDecoration(it.value);
             if (widget && widget.id === this.id) {
-                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: '' } });
-                view.dispatch(tr);
-                return;
+                return { decFrom: it.from, decTo: it.to };
             }
             it.next();
         }
+        return null;
+    }
+
+    private getEmbedMarkdownRangeInView(view: EditorView) {
+        const bounds = this.getDecorationBounds(view);
+        if (!bounds) return null;
+        return getEmbedMarkdownRange(
+            view.state.doc,
+            bounds.decFrom,
+            bounds.decTo,
+            'inkWriting',
+        );
+    }
+
+    getEmbedMarkdown(view: EditorView): string | null {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return null;
+        return view.state.doc.sliceString(range.from, range.to);
+    }
+
+    private removeEmbed(view: EditorView) {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: '' } });
+        view.dispatch(tr);
     }
 
     private resolveAsReference(view: EditorView) {
-        const decorations = view.state.field(embedStateFieldWriting, false);
-        if (!decorations) return;
-        const it = decorations.iter();
-        while (it.value) {
-            const widget = writingEmbedWidgetFromDecoration(it.value);
-            if (widget && widget.id === this.id) {
-                const from = it.from;
-                const to = it.to;
-                const currentText = view.state.doc.sliceString(from, to);
-                // Remove the pendingPaste param - always appended last by the paste handler
-                const updated = currentText.replace(/&pendingPaste=true/, '');
-                if (updated !== currentText) {
-                    const tr = view.state.update({ changes: { from, to, insert: updated } });
-                    view.dispatch(tr);
-                }
-                return;
-            }
-            it.next();
-        }
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        const updated = currentText.replace(/&pendingPaste=true/, '');
+        if (updated === currentText) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: updated } });
+        view.dispatch(tr);
     }
 
     private async resolveAsDuplicate(view: EditorView) {
@@ -238,24 +256,19 @@ export class WritingEmbedWidget extends WidgetType {
         toType: 'inkWriting' | 'inkDrawing',
     ) {
         const { plugin } = getGlobals();
-        const newEmbedStr = toType === 'inkWriting'
-            ? buildWritingEmbed(finalFile.path)
-            : buildDrawingEmbed(finalFile.path, {
+        const insertEmbedMarkdown = toType === 'inkWriting'
+            ? buildWritingEmbedLine(finalFile.path)
+            : buildDrawingEmbedLine(finalFile.path, {
                 embedSettings: await buildDrawingEmbedSettingsFromFile(plugin, finalFile),
             });
 
-        const decorations = view.state.field(embedStateFieldWriting, false);
-        if (!decorations) return;
-        const it = decorations.iter();
-        while (it.value) {
-            const widget = writingEmbedWidgetFromDecoration(it.value);
-            if (widget && widget.id === this.id) {
-                const tr = view.state.update({ changes: { from: it.from, to: it.to, insert: newEmbedStr } });
-                view.dispatch(tr);
-                return;
-            }
-            it.next();
-        }
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+
+        const tr = view.state.update({
+            changes: { from: range.from, to: range.to, insert: insertEmbedMarkdown },
+        });
+        view.dispatch(tr);
     }
 
     private async locateFile(view: EditorView) {
@@ -266,79 +279,46 @@ export class WritingEmbedWidget extends WidgetType {
     }
 
     private updateEmbedFilepath(view: EditorView, newFilepath: string) {
-        const decorations = view.state.field(embedStateFieldWriting, false);
-        if (!decorations) return;
-        const it = decorations.iter();
-        while (it.value) {
-            const widget = writingEmbedWidgetFromDecoration(it.value);
-            if (widget && widget.id === this.id) {
-                const from = it.from;
-                const to = it.to;
-                const currentText = view.state.doc.sliceString(from, to);
-                let updated = currentText.replace(/\(<([^>]+)>\)/, `(<${newFilepath}>)`);
-                // Preserve pendingPaste when the embed was pasted so user still gets reference/duplicate prompt
-                if (!this.isPendingPaste) {
-                    updated = updated.replace(/&pendingPaste=true/, '');
-                }
-                if (updated !== currentText) {
-                    const tr = view.state.update({ changes: { from, to, insert: updated } });
-                    view.dispatch(tr);
-                }
-                return;
-            }
-            it.next();
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        let updated = currentText.replace(/\(<([^>]+)>\)/, `(<${newFilepath}>)`);
+        if (!this.isPendingPaste) {
+            updated = updated.replace(/&pendingPaste=true/, '');
         }
+        if (updated === currentText) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: updated } });
+        view.dispatch(tr);
     }
 
     private setEmbedProps(view: EditorView, aspectRatio: number) {
-        // Update instance settings
         this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
-        
-        // Notify CodeMirror to re-measure
         view.requestMeasure();
-        
-        const aspectRatioStr = formatEmbedAspectRatio(aspectRatio);
 
-        // Find this widget's decoration range and update aspectRatio in markdown
-        const decorations = view.state.field(embedStateFieldWriting, false);
-        if (!decorations) return;
-        const it = decorations.iter();
-        while (it.value) {
-            const widget = writingEmbedWidgetFromDecoration(it.value);
-            if (widget && widget.id === this.id) {
-                const from = it.from;
-                const to = it.to;
-                const currentText = view.state.doc.sliceString(from, to);
-                let updated = currentText;
-                
-                // Replace aspectRatio if present, otherwise add it
-                if (/aspectRatio=[^&)]+/.test(updated)) {
-                    updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${aspectRatioStr}`);
-                } else {
-                    // Add aspectRatio to the URL parameters
-                    // Find the [Edit Writing](...) section and add parameter
-                    updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^)]*)?(\))/, (match, p1, p2, p3) => {
-                        if (p2) {
-                            // Already has parameters
-                            return `${p1}${p2}&aspectRatio=${aspectRatioStr}${p3}`;
-                        } else {
-                            // No parameters yet
-                            return `${p1}?aspectRatio=${aspectRatioStr}${p3}`;
-                        }
-                    });
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+
+        const aspectRatioStr = formatEmbedAspectRatio(aspectRatio);
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        let updated = currentText;
+
+        if (/aspectRatio=[^&)]+/.test(updated)) {
+            updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${aspectRatioStr}`);
+        } else {
+            updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^)]*)?(\))/, (match, p1, p2, p3) => {
+                if (p2) {
+                    return `${p1}${p2}&aspectRatio=${aspectRatioStr}${p3}`;
                 }
-                
-                if (updated !== currentText) {
-                    const tr = view.state.update({
-                        changes: { from, to, insert: updated },
-                        annotations: [Transaction.addToHistory.of(false)],
-                    });
-                    view.dispatch(tr);
-                }
-                return;
-            }
-            it.next();
+                return `${p1}?aspectRatio=${aspectRatioStr}${p3}`;
+            });
         }
+
+        if (updated === currentText) return;
+        const tr = view.state.update({
+            changes: { from: range.from, to: range.to, insert: updated },
+            annotations: [Transaction.addToHistory.of(false)],
+        });
+        view.dispatch(tr);
     }
 }
 
@@ -414,9 +394,13 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
             if (alterFlow === 'ignore-children') return false;
             if (alterFlow === 'continue-traversal') return true;
 
-            // Collapse whitespace before and consume newline after
-            embedLinkInfo.startPosition -= 2;
-            embedLinkInfo.endPosition += 1;
+            const decorationRange = getEmbedDecorationRange(
+                transaction.state.doc,
+                embedLinkInfo.startPosition,
+                embedLinkInfo.endPosition,
+            );
+            embedLinkInfo.startPosition = decorationRange.from;
+            embedLinkInfo.endPosition = decorationRange.to;
 
             let decorationAlreadyExists = false;
                 const oldDecoration = prevEmbeds.iter();

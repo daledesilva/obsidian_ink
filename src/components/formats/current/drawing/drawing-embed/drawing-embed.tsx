@@ -15,7 +15,7 @@ import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
-import { TFile, WorkspaceLeaf } from "obsidian";
+import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import classNames from "classnames";
 import { atom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
@@ -24,6 +24,8 @@ import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-emb
 import { EmbedSettings } from "src/types/embed-settings";
 import { DrawingEditorWrapper } from "../drawing-editor/drawing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
+import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
+import { EmbedPreviewContextMenu } from "src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 
@@ -87,6 +89,8 @@ interface DrawingEmbed_Props {
 		finalFile: TFile,
 		toType: 'inkWriting' | 'inkDrawing',
 	) => void | Promise<void>,
+	getEmbedMarkdown?: () => string | null,
+	deleteEmbed?: () => void,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -170,12 +174,58 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		};
 	}, [props.workspaceLeafId])
 
+	function handleCopyEmbed(_source: 'context-menu' | 'overflow-menu') {
+		const embedStr = props.getEmbedMarkdown?.() ?? null;
+		if (!embedStr) {
+			new Notice('Could not read embed markdown to copy');
+			return;
+		}
+		void copyEmbedMarkdownToClipboard(embedStr);
+	}
+
+	function handleDeleteEmbed() {
+		const removeFn = props.deleteEmbed ?? props.remove;
+		if (!props.embeddedFile || !props.sourceMdFile) {
+			removeFn();
+			return;
+		}
+		openRemoveEmbedFlow(
+			getGlobals().plugin,
+			props.embeddedFile,
+			props.sourceMdFile,
+			'inkDrawing',
+			() => removeFn(),
+		);
+	}
+
+	const embedClipboardMenuOptions: MenuOption[] = [
+		{
+			text: 'Copy embed',
+			action: () => { handleCopyEmbed('context-menu'); },
+		},
+		{
+			text: 'Delete embed',
+			warning: true,
+			action: () => { handleDeleteEmbed(); },
+		},
+	];
+
 	const commonExtendedOptions = [
 		{
 			text: 'Open drawing',
 			action: async () => {
 				await openInDedicatedView();
 			}
+		},
+		{ separator: true },
+		{
+			text: 'Copy embed',
+			action: () => { handleCopyEmbed('overflow-menu'); },
+		},
+		{
+			text: 'Delete embed',
+			warning: true,
+			action: () => { handleDeleteEmbed(); },
 		},
 		{ separator: true },
 		{
@@ -203,23 +253,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					confirmLabel: 'Erase all',
 					confirmAction: () => void editorControlsRef.current?.eraseAll?.(),
 				}).open();
-			},
-		},
-		{
-			text: 'Remove embed',
-			warning: true,
-			action: () => {
-				if (!props.embeddedFile || !props.sourceMdFile) {
-					props.remove();
-					return;
-				}
-				openRemoveEmbedFlow(
-					getGlobals().plugin,
-					props.embeddedFile,
-					props.sourceMdFile,
-					'inkDrawing',
-					() => props.remove(),
-				);
 			},
 		},
 	].filter(Boolean) as MenuOption[]
@@ -296,13 +329,15 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					}}
 				>
 				
-				<DrawingEmbedPreviewWrapper
-					embedId = {props.embedId}
-					embeddedFile = {props.embeddedFile}
-					embedSettings = {props.embedSettings}
-					onReady = {() => {}}
-					onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
-				/>
+				<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
+					<DrawingEmbedPreviewWrapper
+						embedId = {props.embedId}
+						embeddedFile = {props.embeddedFile}
+						embedSettings = {props.embedSettings}
+						onReady = {() => {}}
+						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+					/>
+				</EmbedPreviewContextMenu>
 
 				{(drawingFormat === 'ink-canvas' || drawingFormat === 'legacyInk') && (
 					<DrawingEditorWrapper

@@ -1,7 +1,7 @@
-import { Menu, MenuItem } from "obsidian";
 import "./overflow-menu.scss";
 import * as React from "react";
 import { OverflowIcon } from "src/graphics/icons/overflow-icon";
+import { buildMenuFromOptions, showMenuOptionsAtMouseEvent } from "./show-menu-options";
 
 //////////
 //////////
@@ -18,15 +18,11 @@ interface MenuSeparator {
 
 export type MenuOption = MenuItemOption | MenuSeparator;
 
-function isSeparator(option: MenuOption): option is MenuSeparator {
-    return 'separator' in option && option.separator === true;
-}
-
 export const OverflowMenu: React.FC<{
     menuOptions: MenuOption[]
 }> = (props) => {
 
-    const menuRef = React.useRef<Menu | null>(null);
+    const menuRef = React.useRef<ReturnType<typeof buildMenuFromOptions> | null>(null);
     const isMenuOpenRef = React.useRef(false);
 
     return <>
@@ -39,43 +35,19 @@ export const OverflowMenu: React.FC<{
                         isMenuOpenRef.current = false;
                         return;
                     }
-                    const menu = new Menu();
-                    props.menuOptions.forEach((option) => {
-                        if (isSeparator(option)) {
-                            menu.addSeparator();
-                            return;
-                        }
-                        menu.addItem((item: MenuItem) => {
-                            item
-                                .setTitle(option.text)
-                                .onClick(() => { void option.action(); });
-                            if (option.warning) {
-                                const domMaybe = (
-                                    item as MenuItem & { dom?: Element }
-                                ).dom;
-                                domMaybe?.addClass('mod-warning');
-                            }
-                        });
-                    });
+                    const menu = showMenuOptionsAtMouseEvent(props.menuOptions, e.nativeEvent);
                     menu.onHide(() => {
                         isMenuOpenRef.current = false;
                         menuRef.current = null;
                     });
                     menuRef.current = menu;
                     isMenuOpenRef.current = true;
-                    menu.showAtMouseEvent(e.nativeEvent);
                 }}
             >
                 <OverflowIcon />
             </button>
         </div>
     </>
-    {/* <button>...</button> */ }
-    {/* <button
-                onClick = {() => props.onCopyClick()}
-            >
-                Duplicate
-            </button>             */}
 
 };
 

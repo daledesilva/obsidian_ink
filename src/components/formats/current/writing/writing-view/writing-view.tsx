@@ -13,6 +13,8 @@ import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
+import { buildWritingEmbedLine } from "../../utils/build-embeds";
+import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 
 ////////
 ////////
@@ -155,6 +157,15 @@ export class WritingView extends TextFileView {
 
     private buildExtendedMenu(): MenuOption[] {
         return [
+            { separator: true },
+            {
+                text: 'Copy embed',
+                action: () => {
+                    if (!this.file) return;
+                    const embedStr = buildWritingEmbedLine(this.file.path);
+                    void copyEmbedMarkdownToClipboard(embedStr);
+                },
+            },
             { separator: true },
             {
                 text: 'Convert to Drawing',

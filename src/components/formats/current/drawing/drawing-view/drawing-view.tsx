@@ -16,6 +16,9 @@ import { DrawingEditor } from "../drawing-editor/drawing-editor";
 import { InkFileData } from "../../types/file-data";
 import { DrawingEditorControls } from "../drawing-embed/drawing-embed";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
+import { buildDrawingEmbedLine } from "../../utils/build-embeds";
+import { buildDrawingEmbedSettingsFromFile } from "src/logic/utils/build-drawing-embed-settings-from-file";
+import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 
 ////////
 ////////
@@ -24,6 +27,18 @@ export const DRAWING_VIEW_TYPE = "ink_drawing-view";
 
 function getExtendedOptions(plugin: InkPlugin, fileRef: TFile): MenuOption[] {
     return [
+        { separator: true },
+        {
+            text: 'Copy embed',
+            action: () => {
+                if (!fileRef) return;
+                void (async () => {
+                    const embedSettings = await buildDrawingEmbedSettingsFromFile(plugin, fileRef);
+                    const embedStr = buildDrawingEmbedLine(fileRef.path, { embedSettings });
+                    void copyEmbedMarkdownToClipboard(embedStr);
+                })();
+            },
+        },
         { separator: true },
         {
             text: 'Convert to Writing',

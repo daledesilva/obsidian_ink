@@ -19,6 +19,7 @@ import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
+import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { getGlobals } from 'src/stores/global-store';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
@@ -97,6 +98,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	const dominantHand = useDominantHand();
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
+	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
+	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
 	const shortDelayTimerRef = useRef<number>();
 	const longDelayTimerRef = useRef<number>();
@@ -123,6 +126,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			logToVault('Ink canvas editor unmounted: ' + props.drawingFile.path);
 		};
 	}, []);
+
+	React.useEffect(() => {
+		if (!isFingerDrawingGloballyEnabled) setIsFingerDrawingActive(false);
+	}, [isFingerDrawingGloballyEnabled]);
 
 	React.useEffect(() => {
 		if (!initialSnapshot || !isLegacyInkFileRef.current) return;
@@ -764,6 +771,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				}
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}
+				isFingerDrawingActive={isFingerDrawingActive}
 				blockObsidianPenGestures={!!props.embedded || isBooxInputLocked}
 				onBooxEmbedGeometryChange={
 					props.embedded && isBooxInputLocked
@@ -778,6 +786,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					onStoreChange={handleStoreChange}
 					onActivateTool={handleBooxActivateTool}
 					onExpandClick={props.embedded ? () => props.onOpenInDedicatedView?.() : undefined}
+					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
+					isFingerDrawingActive={isFingerDrawingActive}
+					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}
 					embedId={props.embedId}
 					workspaceLeafId={props.workspaceLeafId}
 					plugin={getGlobals().plugin}

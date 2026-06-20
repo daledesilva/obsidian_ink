@@ -29,6 +29,7 @@ import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
+import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { embedsInEditModeAtom, type WritingEditorControls } from '../writing-embed/writing-embed';
@@ -101,6 +102,8 @@ export const WritingEditorWrapper: React.FC<WritingEditorProps> = (props) => {
 export function WritingEditor(props: WritingEditorProps) {
 	const dominantHand = useDominantHand();
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
+	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
+	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
 	const [booxConnected, setBooxConnected] = React.useState(false);
 	const resizePostProcessTimeoutRef = useRef<number>();
@@ -129,6 +132,10 @@ export function WritingEditor(props: WritingEditorProps) {
 		dedicatedWritingScrollMomentumRef.current = createPanMomentumController({ axis: 'y' });
 		return () => dedicatedWritingScrollMomentumRef.current?.cancel();
 	}, []);
+
+	React.useEffect(() => {
+		if (!isFingerDrawingGloballyEnabled) setIsFingerDrawingActive(false);
+	}, [isFingerDrawingGloballyEnabled]);
 
 	React.useEffect(() => {
 		verbose('INK CANVAS WRITING EDITOR mounted');
@@ -985,6 +992,7 @@ export function WritingEditor(props: WritingEditorProps) {
 				}
 				isEmbedded={props.embedded}
 				isBooxInputLocked={isBooxInputLocked}
+				isFingerDrawingActive={isFingerDrawingActive}
 				blockObsidianPenGestures={props.embedded || isBooxInputLocked}
 				onBooxEmbedGeometryChange={
 					props.embedded && isBooxInputLocked
@@ -999,6 +1007,9 @@ export function WritingEditor(props: WritingEditorProps) {
 					onStoreChange={handleStoreChange}
 					onActivateTool={handleBooxActivateTool}
 					onExpandClick={props.embedded ? props.onOpenInDedicatedView : undefined}
+					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
+					isFingerDrawingActive={isFingerDrawingActive}
+					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}
 					embedId={props.embedded && props.embedId ? props.embedId : undefined}
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? props.plugin : undefined}

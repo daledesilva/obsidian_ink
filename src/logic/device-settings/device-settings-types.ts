@@ -16,6 +16,8 @@ export interface DeviceSettingsV1 {
 	pluginVersion: string;
 	/** Boox / eInk Bridge companion WebSocket (per device, not vault-synced). */
 	booxConnectionEnabled: boolean;
+	/** When true, editors show a toolbar toggle to draw with a finger on touch devices. */
+	fingerDrawingEnabled: boolean;
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;
 	/** Last detected input for this device (shared by writing and drawing). */
 	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;

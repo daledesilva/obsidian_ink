@@ -113,6 +113,8 @@ export type FingerBlockerProps = {
 	onVerticalTouchPan?: (deltaY: number) => void;
 	/** Ink canvas: when false, pen still locks note scroll but is not forwarded (Boox). */
 	forwardPenToCanvas?: boolean;
+	/** When true, single-finger touch is forwarded to the canvas like pen input. */
+	forwardFingerToCanvas?: boolean;
 	/** Ink canvas embedded drawing: two-finger pan/zoom on the ink canvas. */
 	onDrawingEmbedTwoFingerGesture?: (params: {
 		deltaX: number;
@@ -140,6 +142,7 @@ export function FingerBlocker({
 	enableTwoFingerGestures,
 	onVerticalTouchPan,
 	forwardPenToCanvas = true,
+	forwardFingerToCanvas = false,
 	onDrawingEmbedTwoFingerGesture,
 	onEmbedTwoFingerGestureEnd,
 	onPanGestureEnd,
@@ -200,6 +203,10 @@ export function FingerBlocker({
 	const embedPanZoomPointerIdsRef = React.useRef<Set<number>>(new Set());
 	/** Middle-click pan pointers forwarded to ink-svg-canvas. */
 	const middleButtonPanPointerIdsRef = React.useRef<Set<number>>(new Set());
+	/** Single-finger touch pointers forwarded for finger drawing. */
+	const fingerDrawingPointerIdsRef = React.useRef<Set<number>>(new Set());
+	const forwardFingerToCanvasRef = React.useRef(forwardFingerToCanvas);
+	forwardFingerToCanvasRef.current = forwardFingerToCanvas;
 	React.useEffect(() => {
 		onVerticalTouchPanRef.current = onVerticalTouchPan;
 	}, [onVerticalTouchPan]);
@@ -331,6 +338,35 @@ export function FingerBlocker({
 		const isMiddleButtonPanMouseButton = (e: PointerEvent) =>
 			e.pointerType === 'mouse' && e.button === 1;
 
+		const isFingerDrawingForwardActive = () =>
+			forwardFingerToCanvasRef.current && forwardPenToCanvas;
+
+		const cancelActiveFingerDrawingPointers = (penTarget: EventTarget | null) => {
+			if (!penTarget) return;
+			for (const pointerId of [...fingerDrawingPointerIdsRef.current]) {
+				const stored = activeTouchPointerDataRef.current.get(pointerId);
+				if (stored) {
+					forwardPointerEvent(
+						penTarget,
+						'pointercancel',
+						new PointerEvent('pointercancel', {
+							pointerId: stored.pointerId,
+							pointerType: 'touch',
+							clientX: stored.clientX,
+							clientY: stored.clientY,
+							bubbles: true,
+							cancelable: true,
+						}),
+					);
+				}
+				fingerDrawingPointerIdsRef.current.delete(pointerId);
+			}
+			if (fingerDrawingPointerIdsRef.current.size === 0) {
+				setFingerBlockerTouchMode(element, 'default');
+				unlockScroll();
+			}
+		};
+
 		const handlePointerDown = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				// Let browser back/forward mouse buttons (3 & 4) pass through so
@@ -393,6 +429,39 @@ export function FingerBlocker({
 					pressure: e.pressure,
 				});
 				const touchCount = activeTouchPointerDataRef.current.size;
+				const penTarget = getPenForwardTarget();
+
+				if (isFingerDrawingForwardActive() && touchCount >= 2 && fingerDrawingPointerIdsRef.current.size > 0) {
+					cancelActiveFingerDrawingPointers(penTarget);
+				}
+
+				if (
+					isFingerDrawingForwardActive()
+					&& touchCount === 1
+					&& !twoFingerModeActiveRef.current
+					&& !twoFingerVerticalPanActiveRef.current
+				) {
+					lockScroll();
+					isPenDownRef.current = true;
+					setFingerBlockerTouchMode(element, 'none');
+					e.preventDefault();
+					e.stopPropagation();
+					e.stopImmediatePropagation();
+
+					const target = e.target as HTMLElement;
+					try {
+						target.setPointerCapture(e.pointerId);
+					} catch {
+						// Ignore if capture fails
+					}
+
+					fingerDrawingPointerIdsRef.current.add(e.pointerId);
+					if (penTarget) {
+						forwardPointerEvent(penTarget, 'pointerdown', e);
+					}
+					return;
+				}
+
 				const verticalTouchPan = onVerticalTouchPanRef.current;
 				const dedicatedWritingVertical = isDedicatedWritingVerticalMode();
 
@@ -470,6 +539,15 @@ export function FingerBlocker({
 		};
 
 		const endInkPenSession = (e: PointerEvent) => {
+			if (fingerDrawingPointerIdsRef.current.has(e.pointerId)) {
+				fingerDrawingPointerIdsRef.current.delete(e.pointerId);
+				activeTouchPointerDataRef.current.delete(e.pointerId);
+				if (fingerDrawingPointerIdsRef.current.size === 0) {
+					setFingerBlockerTouchMode(element, 'default');
+					unlockScroll();
+				}
+				return;
+			}
 			if (!isDrawingPointer(e)) return;
 			setFingerBlockerTouchMode(element, 'default');
 			unlockScroll();
@@ -500,6 +578,43 @@ export function FingerBlocker({
 					const moveSamples = getPointerSamples(e);
 					for (const sample of moveSamples) {
 						// Same reference as the captured move: preserve original pressure/width semantics.
+						if (sample === e) {
+							forwardPointerEvent(penTarget, 'pointermove', sample);
+						} else {
+							forwardPointerEvent(penTarget, 'pointermove', sample, e);
+						}
+					}
+				}
+			} else if (e.pointerType === 'touch' && fingerDrawingPointerIdsRef.current.has(e.pointerId)) {
+				const existing = activeTouchPointerDataRef.current.get(e.pointerId);
+				if (existing) {
+					activeTouchPointerDataRef.current.set(e.pointerId, {
+						...existing,
+						clientX: e.clientX,
+						clientY: e.clientY,
+						screenX: e.screenX,
+						screenY: e.screenY,
+					});
+				}
+
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+
+				if (isPenDownRef.current && activeScrollerRef.current && lockedScrollPosRef.current) {
+					const scroller = activeScrollerRef.current;
+					if (
+						Math.abs(scroller.scrollTop - lockedScrollPosRef.current.y) > 1
+						|| Math.abs(scroller.scrollLeft - lockedScrollPosRef.current.x) > 1
+					) {
+						scroller.scrollTo(lockedScrollPosRef.current.x, lockedScrollPosRef.current.y);
+					}
+				}
+
+				const penTarget = getPenForwardTarget();
+				if (penTarget) {
+					const moveSamples = getPointerSamples(e);
+					for (const sample of moveSamples) {
 						if (sample === e) {
 							forwardPointerEvent(penTarget, 'pointermove', sample);
 						} else {
@@ -684,6 +799,33 @@ export function FingerBlocker({
 						// Ignore
 					}
 				}
+			} else if (e.pointerType === 'touch' && fingerDrawingPointerIdsRef.current.has(e.pointerId)) {
+				const penTarget = getPenForwardTarget();
+				if (penTarget) {
+					forwardPointerEvent(penTarget, 'pointerup', e);
+				}
+				fingerDrawingPointerIdsRef.current.delete(e.pointerId);
+				activeTouchPointerDataRef.current.delete(e.pointerId);
+				if (activeTouchPointerDataRef.current.size === 0) {
+					recentPenInputRef.current = false;
+				}
+				if (fingerDrawingPointerIdsRef.current.size === 0) {
+					setFingerBlockerTouchMode(element, 'default');
+					unlockScroll();
+				}
+
+				e.preventDefault();
+				e.stopPropagation();
+				e.stopImmediatePropagation();
+
+				const target = e.target as HTMLElement;
+				if (target.hasPointerCapture(e.pointerId)) {
+					try {
+						target.releasePointerCapture(e.pointerId);
+					} catch (err) {
+						// Ignore
+					}
+				}
 			} else if (e.pointerType === 'touch') {
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				// Keep recentPenInputRef until all fingers lift (touchend below) so post-pen scroll works on iOS.
@@ -721,6 +863,20 @@ export function FingerBlocker({
 		};
 
 		const handlePointerCancel = (e: PointerEvent) => {
+			if (e.pointerType === 'touch' && fingerDrawingPointerIdsRef.current.has(e.pointerId)) {
+				const penTarget = getPenForwardTarget();
+				if (penTarget) {
+					forwardPointerEvent(penTarget, 'pointercancel', e);
+				}
+				fingerDrawingPointerIdsRef.current.delete(e.pointerId);
+				activeTouchPointerDataRef.current.delete(e.pointerId);
+				if (fingerDrawingPointerIdsRef.current.size === 0) {
+					setFingerBlockerTouchMode(element, 'default');
+					unlockScroll();
+				}
+				return;
+			}
+
 			setFingerBlockerTouchMode(element, 'default');
 
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
@@ -800,7 +956,7 @@ export function FingerBlocker({
 		};
 
 		const handleTouchMove = (e: TouchEvent) => {
-			if (isPenDownRef.current || twoFingerModeActiveRef.current) {
+			if (isPenDownRef.current || twoFingerModeActiveRef.current || fingerDrawingPointerIdsRef.current.size > 0) {
 				blockObsidianTouchEvent(e);
 				return;
 			}
@@ -921,6 +1077,7 @@ export function FingerBlocker({
 			isPenDownRef.current = false;
 			embedPanZoomPointerIdsRef.current.clear();
 			middleButtonPanPointerIdsRef.current.clear();
+			fingerDrawingPointerIdsRef.current.clear();
 			touchGestureSessionActiveRef.current = false;
 			resetDedicatedWritingGestureState();
 			unlockScroll();
@@ -939,7 +1096,7 @@ export function FingerBlocker({
 				inkSvg.removeEventListener('pointercancel', endInkPenSession, inkPenEndOpts);
 			}
 		};
-	}, [forwardPenToCanvas, enableTwoFingerGestures, onVerticalTouchPan, touchGestureMode]);
+	}, [forwardPenToCanvas, forwardFingerToCanvas, enableTwoFingerGestures, onVerticalTouchPan, touchGestureMode]);
 
 	// Add scroll restoration listener to the scroller itself
 	React.useEffect(() => {

@@ -38,6 +38,7 @@ import {
 	getBooxConnectionEnabled,
 	migrateBooxConnectionFromVaultToDevice,
 	resetBooxConnectionToDefault,
+	resetFingerDrawingToDefault,
 	setBooxConnectionEnabled,
 } from 'src/logic/device-settings/device-settings';
 
@@ -221,6 +222,7 @@ export default class InkPlugin extends Plugin {
 		this.settings = structuredClone(DEFAULT_SETTINGS);
 		setDominantHand(this.settings.dominantHand);
 		resetBooxConnectionToDefault();
+		resetFingerDrawingToDefault();
 		this.booxConnection.onSettingsChanged();
 		await this.saveSettings();
 		new Notice('Ink plugin settings reset');

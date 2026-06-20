@@ -48,9 +48,14 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.booxConnectionEnabled === 'boolean'
 			? partial.booxConnectionEnabled
 			: base.booxConnectionEnabled;
+	const fingerDrawingEnabled =
+		typeof partial.fingerDrawingEnabled === 'boolean'
+			? partial.fingerDrawingEnabled
+			: base.fingerDrawingEnabled;
 	return {
 		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
+		fingerDrawingEnabled,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
 			inkDrawing: partial.strokeInputTreatAs.inkDrawing,
@@ -123,6 +128,19 @@ export function setBooxConnectionEnabled(enabled: boolean): void {
 /** Resets Boox companion to default (off). Used by vault "Reset settings". */
 export function resetBooxConnectionToDefault(): void {
 	setBooxConnectionEnabled(DEFAULT_DEVICE_SETTINGS_V1.booxConnectionEnabled);
+}
+
+export function getFingerDrawingEnabled(): boolean {
+	return readDeviceSettings().fingerDrawingEnabled;
+}
+
+export function setFingerDrawingEnabled(enabled: boolean): void {
+	patchDeviceSettings({ fingerDrawingEnabled: enabled });
+}
+
+/** Resets finger drawing to default (off). Used by vault "Reset settings". */
+export function resetFingerDrawingToDefault(): void {
+	setFingerDrawingEnabled(DEFAULT_DEVICE_SETTINGS_V1.fingerDrawingEnabled);
 }
 
 /**

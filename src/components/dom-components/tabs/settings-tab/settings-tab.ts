@@ -14,9 +14,11 @@ import { setDominantHand } from 'src/stores/dominant-hand-store';
 import type { StrokeInputEditorKind, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import {
 	getBooxConnectionEnabled,
+	getFingerDrawingEnabled,
 	getLastDetectedStrokeInput,
 	getStrokeInputTreatAs,
 	setBooxConnectionEnabled,
+	setFingerDrawingEnabled,
 	setStrokeInputTreatAs,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
@@ -57,6 +59,7 @@ export class MySettingsTab extends PluginSettingTab {
 		let writingSectionEl!: HTMLElement;
 		let drawingSectionEl!: HTMLElement;
 		let booxCompanionToggle: ToggleComponent | undefined;
+		let fingerDrawingToggle: ToggleComponent | undefined;
 
 		insertHighLevelSettings(containerEl, this.plugin,
 			(show) => {
@@ -69,6 +72,9 @@ export class MySettingsTab extends PluginSettingTab {
 			},
 			(toggle) => {
 				booxCompanionToggle = toggle;
+			},
+			(toggle) => {
+				fingerDrawingToggle = toggle;
 			},
 		);
 
@@ -86,6 +92,7 @@ export class MySettingsTab extends PluginSettingTab {
 				strokeInputToggles[1].setDesc(strokeInputTreatAsSettingDesc('inkDrawing'));
 			}
 			booxCompanionToggle?.setValue(getBooxConnectionEnabled());
+			fingerDrawingToggle?.setValue(getFingerDrawingEnabled());
 		});
 		insertFileOrganisationSection(containerEl, this.plugin);
 
@@ -206,6 +213,7 @@ function insertHighLevelSettings(
 	onToggleWriting: (show: boolean) => void,
 	onToggleDrawing: (show: boolean) => void,
 	onBooxToggleReady?: (toggle: ToggleComponent) => void,
+	onFingerDrawingToggleReady?: (toggle: ToggleComponent) => void,
 ) {
 
 	new Setting(containerEl)
@@ -246,6 +254,18 @@ function insertHighLevelSettings(
 			toggle.onChange((value: boolean) => {
 				setBooxConnectionEnabled(value);
 				plugin.booxConnection.onSettingsChanged();
+			});
+		});
+
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Enable finger drawing')
+		.setDesc('Shows a toolbar toggle while editing so you can draw with your finger on touch devices. When off, fingers scroll the note as usual.')
+		.addToggle((toggle) => {
+			toggle.setValue(getFingerDrawingEnabled());
+			onFingerDrawingToggleReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setFingerDrawingEnabled(value);
 			});
 		});
 

@@ -82,6 +82,8 @@ export interface InkSvgCanvasProps {
 	onPanGestureEnd?: () => void;
 	/** When true, ignore local draw/erase/select pointer input (Boox WebSocket creates strokes). */
 	isBooxInputLocked?: boolean;
+	/** When true, single-finger touch input is accepted for draw/erase/select. */
+	isFingerDrawingActive?: boolean;
 	/** When true, pen input pins the note scroller and blocks Obsidian swipe/scroll (embeds and Boox). */
 	blockObsidianPenGestures?: boolean;
 	/** After embed scroll / two-finger pan: reposition the Boox overlay (embedded + Boox only). */
@@ -599,6 +601,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const [cursorStyle, setCursorStyle] = useState<React.CSSProperties['cursor']>(undefined);
 	const isBooxInputLockedRef = useRef(props.isBooxInputLocked ?? false);
 	isBooxInputLockedRef.current = props.isBooxInputLocked ?? false;
+	const isFingerDrawingActiveRef = useRef(props.isFingerDrawingActive ?? false);
+	isFingerDrawingActiveRef.current = props.isFingerDrawingActive ?? false;
 
 	// Discard any in-progress local stroke when Boox takes over input (matches tldraw lockTldrawInput).
 	useEffect(() => {
@@ -615,6 +619,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 		selectToolPointerCancel({} as PointerEvent, selectCtx);
 	}, [props.isBooxInputLocked]); // eslint-disable-line -- stable effect deps
+
+	// Discard in-progress local input when finger drawing is turned off mid-stroke.
+	useEffect(() => {
+		if (props.isFingerDrawingActive) return;
+		drawToolPointerCancel({} as PointerEvent, drawCtx);
+		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
+		selectToolPointerCancel({} as PointerEvent, selectCtx);
+	}, [props.isFingerDrawingActive]); // eslint-disable-line -- stable effect deps
 
 	const shouldModTemporaryEraseActivate = useCallback((): boolean => {
 		const last = lastCanvasPointerRef.current;
@@ -699,8 +711,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
 		// Touch input: two-finger gestures are handled by the native touch listener.
-		// Single-finger and other touch inputs are ignored here — let page scroll win.
-		if (e.pointerType === 'touch') return;
+		// Single-finger touch is ignored unless finger drawing is active.
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
 
 		recordCanvasPointer(e);
 		isPointerOverCanvasRef.current = true;
@@ -776,7 +788,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerMove = useCallback((e: React.PointerEvent) => {
-		if (e.pointerType === 'touch') return;
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
 
 		recordCanvasPointer(e);
 
@@ -822,7 +834,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
-		if (e.pointerType === 'touch') return;
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
 
 		recordCanvasPointer(e);
 
@@ -853,7 +865,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool, releasePanMomentum]); // eslint-disable-line -- stable effect deps
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
-		if (e.pointerType === 'touch') return;
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
 
 		recordCanvasPointer(e);
 
@@ -1141,6 +1153,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						: undefined
 				}
 				forwardPenToCanvas={!props.isBooxInputLocked}
+				forwardFingerToCanvas={
+					!!props.isFingerDrawingActive && !props.isBooxInputLocked
+				}
 				onDrawingEmbedTwoFingerGesture={
 					!writingMode ? handleDrawingEmbedTwoFingerGesture : undefined
 				}

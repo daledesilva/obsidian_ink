@@ -68,6 +68,18 @@
         &:disabled {
             visibility: hidden;
         }
+
+        &.ink_menu-toggle--active {
+            background-color: var(--color-base-60);
+            color: var(--interactive-normal);
+            fill: var(--interactive-normal);
+
+            &:hover {
+                background-color: var(--color-base-60);
+                color: var(--interactive-normal);
+                fill: var(--interactive-normal);
+            }
+        }
     }
 }
 

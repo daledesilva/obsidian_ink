@@ -6,6 +6,7 @@ export const DEVICE_SETTINGS_STORAGE_KEY = 'deviceSettings_v1';
 export const DEFAULT_DEVICE_SETTINGS_V1: DeviceSettingsV1 = {
 	pluginVersion: PLUGIN_VERSION,
 	booxConnectionEnabled: false,
+	fingerDrawingEnabled: false,
 	strokeInputTreatAs: {
 		inkWriting: 'auto',
 		inkDrawing: 'auto',

@@ -72,8 +72,18 @@ function isHardwarePen(e: PointerEvent): boolean {
 	return e.pointerType === 'pen';
 }
 
+function isFingerPointer(e: PointerEvent): boolean {
+	return e.pointerType === 'touch';
+}
+
+/** Finger input always uses mouse-style simulated pressure, regardless of device settings. */
+function getEffectiveStrokeInputTreatAs(e: PointerEvent, ctx: DrawToolContext): ResolvedStrokeInputTreatAs {
+	if (isFingerPointer(e)) return 'mouse';
+	return ctx.getResolvedStrokeInputTreatAs();
+}
+
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
-	const treatAs = ctx.getResolvedStrokeInputTreatAs();
+	const treatAs = getEffectiveStrokeInputTreatAs(e, ctx);
 	const treatAsPen = treatAs === 'pen';
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
@@ -120,30 +130,40 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	// Final segment on `pointerup` can include the true lift position.
 	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: true });
 
-	const detected = detectStrokeInputFromRawPressures(
-		activeStroke.rawSamples
-			.filter((s) => !s.isPointerUpLiftSample)
-			.map((s) => s.pressure),
-	);
-	ctx.onStrokeInputDetected?.(detected);
+	const isFingerStroke = isFingerPointer(e);
 
-	const preference = ctx.getStrokeInputTreatAsPreference();
-	if (preference === 'auto') {
-		const recomputed = recomputeStrokeFromRawSamples({
-			rawSamples: activeStroke.rawSamples,
-			detected,
-			camera: ctx.getCamera(),
-			containerRect: ctx.getContainerRect(),
-			baseStyle: ctx.getStrokeStyle(),
-		});
-		activeStroke.points = recomputed.points;
-		activeStroke.strokePathLength = recomputed.strokePathLength;
-		activeStroke.lastSmoothedPenPressure = recomputed.lastSmoothedPenPressure;
-		activeStroke.style = recomputed.style;
+	if (!isFingerStroke) {
+		const detected = detectStrokeInputFromRawPressures(
+			activeStroke.rawSamples
+				.filter((s) => !s.isPointerUpLiftSample)
+				.map((s) => s.pressure),
+		);
+		ctx.onStrokeInputDetected?.(detected);
+
+		const preference = ctx.getStrokeInputTreatAsPreference();
+		if (preference === 'auto') {
+			const recomputed = recomputeStrokeFromRawSamples({
+				rawSamples: activeStroke.rawSamples,
+				detected,
+				camera: ctx.getCamera(),
+				containerRect: ctx.getContainerRect(),
+				baseStyle: ctx.getStrokeStyle(),
+			});
+			activeStroke.points = recomputed.points;
+			activeStroke.strokePathLength = recomputed.strokePathLength;
+			activeStroke.lastSmoothedPenPressure = recomputed.lastSmoothedPenPressure;
+			activeStroke.style = recomputed.style;
+		} else {
+			activeStroke.style = buildInkStrokeStyleForTreatAs(
+				ctx.getStrokeStyle(),
+				ctx.getResolvedStrokeInputTreatAs(),
+				ctx.getCamera().zoom,
+			);
+		}
 	} else {
 		activeStroke.style = buildInkStrokeStyleForTreatAs(
 			ctx.getStrokeStyle(),
-			ctx.getResolvedStrokeInputTreatAs(),
+			'mouse',
 			ctx.getCamera().zoom,
 		);
 	}
@@ -194,7 +214,7 @@ function appendDrawSamplesFromPointerEvent(
 	const camera = ctx.getCamera();
 	const containerRect = ctx.getContainerRect();
 	const samples = getPointerSamples(e);
-	const treatAsPen = ctx.getResolvedStrokeInputTreatAs() === 'pen';
+	const treatAsPen = getEffectiveStrokeInputTreatAs(e, ctx) === 'pen';
 	const mergeThresholdPage = 1 / camera.zoom;
 	const hardwarePen = isHardwarePen(e);
 	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;

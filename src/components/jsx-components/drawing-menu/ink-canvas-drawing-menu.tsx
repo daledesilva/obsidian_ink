@@ -5,6 +5,7 @@ import { SelectIcon } from 'src/graphics/icons/select-icon';
 import { EraseIcon } from 'src/graphics/icons/erase-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
 import { ExpandIcon } from 'src/graphics/icons/expand-icon';
+import { PointerIcon } from 'src/graphics/icons/pointer-icon';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
 import {
@@ -35,6 +36,9 @@ interface InkCanvasDrawingMenuProps {
 	onStoreChange: () => void;
 	onActivateTool?: (tool: 'draw' | 'erase' | 'select') => void;
 	onExpandClick?: () => void;
+	showFingerDrawingToggle?: boolean;
+	isFingerDrawingActive?: boolean;
+	onFingerDrawingToggle?: () => void;
 	embedId?: string;
 	workspaceLeafId?: string;
 	plugin?: import('src/main').default;
@@ -152,14 +156,25 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 				'ink_menu-bar_full',
 			])}
 		>
-			{props.onExpandClick && (
+			{(props.showFingerDrawingToggle || props.onExpandClick) && (
 				<div className='ink_quick-menu'>
-					<TooltipButton
-						tooltip='Open in full view'
-						onClick={() => props.onExpandClick?.()}
-					>
-						<ExpandIcon />
-					</TooltipButton>
+					{props.onExpandClick && (
+						<TooltipButton
+							tooltip='Open in full view'
+							onClick={() => props.onExpandClick?.()}
+						>
+							<ExpandIcon />
+						</TooltipButton>
+					)}
+					{props.showFingerDrawingToggle && (
+						<TooltipButton
+							tooltip={props.isFingerDrawingActive ? 'Finger drawing on' : 'Finger drawing off'}
+							className={props.isFingerDrawingActive ? 'ink_menu-toggle--active' : undefined}
+							onClick={() => props.onFingerDrawingToggle?.()}
+						>
+							<PointerIcon />
+						</TooltipButton>
+					)}
 				</div>
 			)}
 			<div className='ink_tool-menu'>

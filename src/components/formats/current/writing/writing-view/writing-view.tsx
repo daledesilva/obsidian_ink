@@ -166,7 +166,6 @@ export class WritingView extends TextFileView {
                     void copyEmbedMarkdownToClipboard(embedStr);
                 },
             },
-            { separator: true },
             {
                 text: 'Convert to Drawing',
                 action: () => {

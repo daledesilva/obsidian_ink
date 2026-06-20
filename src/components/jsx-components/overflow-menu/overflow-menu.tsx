@@ -10,6 +10,7 @@ interface MenuItemOption {
     text: string;
     action: () => void;
     warning?: boolean;
+    destructive?: boolean;
 }
 
 interface MenuSeparator {

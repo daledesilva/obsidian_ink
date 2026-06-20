@@ -208,12 +208,6 @@ export function WritingEmbed (props: {
 			action: () => { handleCopyEmbed('overflow-menu'); },
 		},
 		{
-			text: 'Delete embed',
-			warning: true,
-			action: () => { handleDeleteEmbed(); },
-		},
-		{ separator: true },
-		{
 			text: 'Convert to Drawing',
 			action: () => {
 				if (!props.writingFileRef) return;
@@ -239,6 +233,11 @@ export function WritingEmbed (props: {
 					confirmAction: () => void editorControlsRef.current?.eraseAll?.(),
 				}).open();
 			},
+		},
+		{
+			text: 'Delete embed',
+			destructive: true,
+			action: () => { handleDeleteEmbed(); },
 		},
 	] as MenuOption[]
 

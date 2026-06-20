@@ -24,3 +24,13 @@
     }
 }
 
+// Obsidian popup menus render outside our component tree.
+.menu-item.ddc_ink_menu-destructive {
+    color: var(--text-error);
+
+    &:hover,
+    &.is-selected {
+        background-color: rgba(var(--color-red-rgb), 0.15);
+    }
+}
+

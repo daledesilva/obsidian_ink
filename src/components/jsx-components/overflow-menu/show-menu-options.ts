@@ -15,9 +15,12 @@ function populateMenu(menu: Menu, options: MenuOption[]): void {
 			item
 				.setTitle(option.text)
 				.onClick(() => { void option.action(); });
-			if (option.warning) {
-				const domMaybe = (item as MenuItem & { dom?: Element }).dom;
-				domMaybe?.addClass('mod-warning');
+			const menuItemDom = (item as MenuItem & { dom?: Element }).dom;
+			if (option.destructive) {
+				// Do not use setSection('danger') — Obsidian groups danger items at the top of the menu.
+				menuItemDom?.addClass('ddc_ink_menu-destructive');
+			} else if (option.warning) {
+				menuItemDom?.addClass('mod-warning');
 			}
 		});
 	});

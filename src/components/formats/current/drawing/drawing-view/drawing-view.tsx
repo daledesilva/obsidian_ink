@@ -39,7 +39,6 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile): MenuOption[] {
                 })();
             },
         },
-        { separator: true },
         {
             text: 'Convert to Writing',
             action: () => {

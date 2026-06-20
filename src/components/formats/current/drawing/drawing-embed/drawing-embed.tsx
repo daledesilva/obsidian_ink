@@ -223,12 +223,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			action: () => { handleCopyEmbed('overflow-menu'); },
 		},
 		{
-			text: 'Delete embed',
-			warning: true,
-			action: () => { handleDeleteEmbed(); },
-		},
-		{ separator: true },
-		{
 			text: 'Convert to Writing',
 			action: () => {
 				if (!props.embeddedFile) return;
@@ -254,6 +248,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					confirmAction: () => void editorControlsRef.current?.eraseAll?.(),
 				}).open();
 			},
+		},
+		{
+			text: 'Delete embed',
+			destructive: true,
+			action: () => { handleDeleteEmbed(); },
 		},
 	].filter(Boolean) as MenuOption[]
 

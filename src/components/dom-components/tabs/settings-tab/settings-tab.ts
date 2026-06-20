@@ -6,6 +6,7 @@ import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { showWelcomeTips } from 'src/components/dom-components/welcome-notice';
+import { showRecentChanges } from 'src/components/dom-components/version-notices';
 import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-accordion-setting';
 import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggle-setting/two-way-toggle-setting';
 import { ThreeWayToggleSetting } from 'src/components/dom-components/three-way-toggle-setting/three-way-toggle-setting';
@@ -163,7 +164,12 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		.setClass('ddc_ink_bare-setting')
 		.setClass('ddc_ink_bare-setting--no-bottom-margin')
 		.addButton((btn) => {
+			btn.setButtonText('View recent changes');
+			btn.onClick(() => showRecentChanges(plugin));
+		})
+		.addButton((btn) => {
 			btn.setButtonText('Rewatch welcome tips');
+			btn.setCta();
 			btn.onClick(() => showWelcomeTips(plugin));
 		});
 }

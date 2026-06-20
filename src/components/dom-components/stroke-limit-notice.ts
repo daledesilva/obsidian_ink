@@ -26,14 +26,14 @@ function showStrokeLimitTips(plugin: InkPlugin) {
     if(tipsShowingOrDismissed) return;
     tipsShowingOrDismissed = true;
 
-    const noticeBody = createNoticeTemplate();
-    noticeBody.createEl('h1').setText(`Lines disappearing?`);
-    noticeBody.createEl('p').setText(`You may have noticed that your handwriting lines have started disapearing...`);
+    const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
+    scrollAreaEl.createEl('h1').setText(`Lines disappearing?`);
+    scrollAreaEl.createEl('p').setText(`You may have noticed that your handwriting lines have started disapearing...`);
     
     const {
         primaryBtnEl,
         tertiaryBtnEl
-    } = createNoticeCtaBar(noticeBody, {
+    } = createNoticeCtaBar(footerEl, {
         primaryLabel: 'Learn why',
         tertiaryLabel: 'Dismiss for now',
     })
@@ -55,15 +55,15 @@ function showStrokeLimitTips(plugin: InkPlugin) {
 }
 
 function showFullStrokeLimitTip(plugin: InkPlugin) {
-    const noticeBody = createNoticeTemplate();
-    noticeBody.createEl('h1').setText(`To help keep writing smooth...`);//     margin-block-start: 0.1em;
-    noticeBody.createEl('p').setText(`Hiding old strokes helps keep pen latency down and the writing experience smooth.`);
-    noticeBody.createEl('p').setText(`Never fear though, all your strokes still exist and will become visible again later.`);
-    noticeBody.createEl('p').setText(`When you lock or save the embed, those strokes become visible again.`);
+    const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
+    scrollAreaEl.createEl('h1').setText(`To help keep writing smooth...`);//     margin-block-start: 0.1em;
+    scrollAreaEl.createEl('p').setText(`Hiding old strokes helps keep pen latency down and the writing experience smooth.`);
+    scrollAreaEl.createEl('p').setText(`Never fear though, all your strokes still exist and will become visible again later.`);
+    scrollAreaEl.createEl('p').setText(`When you lock or save the embed, those strokes become visible again.`);
     
     const {
         tertiaryBtnEl
-    } = createNoticeCtaBar(noticeBody, {
+    } = createNoticeCtaBar(footerEl, {
         tertiaryLabel: 'Dismiss',
     })
 

@@ -25,7 +25,22 @@ export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number
 export function launchPersistentNotice(noticeBody: DocumentFragment) {
     const notice = new Notice(noticeBody, 0);
     notice.noticeEl.classList.add('ddc_ink_notice');
+    wireNoticePointerHandling(notice.noticeEl);
     return notice;
+}
+
+/** Scroll/footer need pointer-events; stop click bubbling so Obsidian won't dismiss on body clicks. */
+function wireNoticePointerHandling(noticeContentEl: HTMLElement) {
+    noticeContentEl.querySelector('.ddc_ink_notice-scroll')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+    });
+
+    noticeContentEl.querySelector('.ddc_ink_notice-footer')?.addEventListener('click', (event) => {
+        if (event.target instanceof HTMLElement && event.target.closest('a, button')) {
+            return;
+        }
+        event.stopPropagation();
+    });
 }
 
 function createNoticeLabel(noticeParent: HTMLElement | DocumentFragment, noticeNumber?: number, noticeTotal?: number): HTMLParagraphElement {

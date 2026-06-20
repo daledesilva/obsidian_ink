@@ -38,6 +38,7 @@
         overscroll-behavior: contain;
         padding: var(--ddc_ink_notice-content-padding);
         padding-block-end: var(--size-4-2);
+        pointer-events: auto;
     }
 
     .ddc_ink_notice-footer {
@@ -47,6 +48,7 @@
         align-items: center;
         gap: 1em;
         padding: var(--ddc_ink_notice-content-padding);
+        pointer-events: auto;
     }
 
     .ddc_ink_notice-footer-links {

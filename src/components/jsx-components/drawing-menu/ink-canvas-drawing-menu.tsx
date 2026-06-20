@@ -168,7 +168,7 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 					)}
 					{props.showFingerDrawingToggle && (
 						<TooltipButton
-							tooltip={props.isFingerDrawingActive ? 'Finger drawing on' : 'Finger drawing off'}
+							tooltip={props.isFingerDrawingActive ? 'Enable drawing with finger' : 'Disable drawing with finger'}
 							className={props.isFingerDrawingActive ? 'ink_menu-toggle--active' : undefined}
 							onClick={() => props.onFingerDrawingToggle?.()}
 						>

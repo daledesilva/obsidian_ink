@@ -21,7 +21,7 @@ Pointer events feed **one point list** during an active stroke:
 |--------|--------|
 | `points` | Merged samples (~1 screen pixel threshold) — drives the live `<path>` AND is saved on pointer up |
 
-The last point is **replaced in place** while the pen stays within the merge radius, so `points` always tracks the pen tip without a chord lag — there is no separate dense preview trail.
+The last point is **replaced in place or appended** using a **hybrid merge** (~1 px threshold plus a slow-draw time gate) so fast strokes stay smooth and slow curves stay faithful. See [ink-canvas-point-merge.md](ink-canvas-point-merge.md).
 
 ```mermaid
 flowchart LR
@@ -52,7 +52,7 @@ sequenceDiagram
 
   loop pointermove
     User->>DrawTool: pointermove + samples
-    DrawTool->>DrawTool: merge into points (replace tip in place)
+    DrawTool->>DrawTool: hybrid merge into points (append or replace tip)
     DrawTool->>LivePath: updateLiveStrokePath (getStroke on points)
   end
 ```
@@ -114,6 +114,6 @@ flowchart LR
 
 - **WYSIWYG depends on the single shared call.** Live and committed parity holds only because both render `getStroke(points, toStrokeOptions(style))` on the same `points`. If you reintroduce a preview-only point array, an outline preprocessor (e.g. a future `getInkStrokePoints`), or a per-layer option override (e.g. forcing `streamline: 0` on live only), they will diverge again. Apply any such change to **both layers** or keep it out of the render path.
 - **Reload the plugin** after changing `draw-tool` or `ink-svg-canvas`; the live path is updated imperatively and will not reflect code changes until Obsidian reloads the plugin build.
-- **Capture zoom** — see [ink-canvas-zoom-scaled-strokes.md](ink-canvas-zoom-scaled-strokes.md).
+- **Capture-time point merge** — hybrid append/replace-tip while drawing; see [ink-canvas-point-merge.md](ink-canvas-point-merge.md).
 - **Pointer samples** — coalesced expansion in `pointer-samples.ts` is **off** (`USE_COALESCED_POINTER_SAMPLES = false`); one sample per `pointermove`. Re-enabling exposes raw digitizer positional jitter that the faithful outline traces into self-intersecting notches; see [ink-canvas-stroke-artifacts.md](ink-canvas-stroke-artifacts.md).
 - **"xor-fill" outline notches** — caused by outline self-intersection (pressure→radius bowtie, fixed by `PEN_PRESSURE_SLEW_PER_SIZE`; or positional jitter from coalesced). Full causes, the shipped fix, and the approaches tried and **rejected** (distance gate, flat high streamline, backward-only reject, fill-rule, etc.) are documented in [ink-canvas-stroke-artifacts.md](ink-canvas-stroke-artifacts.md). **Do not re-add a forward distance gate** — it posterizes slow strokes and fixes neither cause.

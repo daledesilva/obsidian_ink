@@ -124,7 +124,7 @@ Separate from duplicate merge above: while drawing, `appendOrMergePoint` uses:
 
 $$\text{mergeThresholdPage} = \frac{1}{\text{camera.zoom}}$$
 
-(~1 screen pixel in page units). Documented in Plan 2; unchanged by `stroke-zoom-scale.ts` but solves the same page-vs-screen mismatch during capture.
+(~1 screen pixel in page units). **Append vs replace-tip** follows the hybrid rules in [ink-canvas-point-merge.md](ink-canvas-point-merge.md) (fast-stroke tip replacement + slow-draw time gate). Threshold scaling is documented in Plan 2; unchanged by `stroke-zoom-scale.ts` but solves the same page-vs-screen mismatch during capture.
 
 ### Code map
 

@@ -16,7 +16,6 @@ import {
 	PEN_PRESSURE_SLEW_PER_SIZE,
 	PEN_PRESSURE_SMOOTHING_ALPHA,
 } from '../constants/pen-input';
-
 ///////////////////////////
 ///////////////////////////
 
@@ -55,8 +54,13 @@ interface ActiveStroke {
 	strokePathLength: number;
 	/** Last EMA output for pen pressure; do not smooth across strokes. */
 	lastSmoothedPenPressure: number;
+	/** `timeStamp` of the last committed (appended) point — used for slow-draw trail commits. */
+	lastCommittedPointAtMs: number;
 	rawSamples: RawStrokeSample[];
 }
+
+/** When the pen creeps slowly away from the anchor but stays near the tip, append instead of replacing. */
+const SLOW_DRAW_TIP_REPLACE_APPEND_MS = 40;
 
 let activeStroke: ActiveStroke | null = null;
 
@@ -106,6 +110,7 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 		startedAt: Date.now(),
 		strokePathLength: 0,
 		lastSmoothedPenPressure: pressure,
+		lastCommittedPointAtMs: e.timeStamp,
 		rawSamples: [
 			{
 				clientX: e.clientX,
@@ -259,11 +264,14 @@ function appendDrawSamplesFromPointerEvent(
 			const dx = pagePoint.x - last[0];
 			const dy = pagePoint.y - last[1];
 			const segmentPageDistance = Math.hypot(dx, dy);
+			const sampleTimeMs = e.timeStamp + i;
 			const willMerge =
 				shouldReplaceTipWithPoint(
 					activeStroke.points,
 					[pagePoint.x, pagePoint.y, pressure],
 					mergeThresholdPage,
+					sampleTimeMs,
+					activeStroke.lastCommittedPointAtMs,
 				)
 				&& !(options.forceCommitFinalPoint && i === lastSampleIdx);
 
@@ -291,7 +299,7 @@ function appendDrawSamplesFromPointerEvent(
 		if (options.forceCommitFinalPoint && isLastSample) {
 			setOrAppendLastPoint(activeStroke, nextPoint);
 		} else {
-			appendOrMergePoint(activeStroke, nextPoint, mergeThresholdPage);
+			appendOrMergePoint(activeStroke, nextPoint, mergeThresholdPage, e.timeStamp + i);
 		}
 	}
 
@@ -319,9 +327,12 @@ function recomputeStrokeFromRawSamples(args: {
 	const points: InkPoint[] = [];
 	let strokePathLength = 0;
 	let lastSmoothedPenPressure = 0.5;
+	const mergeState = { points, lastCommittedPointAtMs: 0 };
+	const recomputeSampleIntervalMs = 16;
 
 	const lastSampleIdx = rawSamples.length - 1;
 	for (let i = 0; i < rawSamples.length; i++) {
+		const sampleTimeMs = i * recomputeSampleIntervalMs;
 		const sample = rawSamples[i];
 		const isLastSample = i === lastSampleIdx;
 		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
@@ -346,6 +357,8 @@ function recomputeStrokeFromRawSamples(args: {
 						points,
 						[pagePoint.x, pagePoint.y, pressure],
 						mergeThresholdPage,
+						sampleTimeMs,
+						mergeState.lastCommittedPointAtMs,
 					)
 					&& !isLastSample;
 
@@ -380,7 +393,12 @@ function recomputeStrokeFromRawSamples(args: {
 				strokePathLength += dist;
 			}
 		} else {
-			strokePathLength += applyAppendOrMergePoint(points, nextPoint, mergeThresholdPage);
+			strokePathLength += applyAppendOrMergePoint(
+				mergeState,
+				nextPoint,
+				mergeThresholdPage,
+				sampleTimeMs,
+			);
 		}
 	}
 
@@ -412,49 +430,112 @@ function isWithinMergeRadiusPage(
 	return dx * dx + dy * dy < thresholdSq;
 }
 
-/** Replace the tip only when the sample is within merge radius of both the tip and the anchor. */
+type PointMergeAction = 'append' | 'replace-tip';
+
+interface PointMergeState {
+	points: InkPoint[];
+	lastCommittedPointAtMs: number;
+}
+
+function resolvePointMergeAction(
+	points: InkPoint[],
+	next: InkPoint,
+	mergeThresholdPage: number,
+	sampleTimeMs: number,
+	lastCommittedPointAtMs: number,
+): PointMergeAction {
+	if (points.length === 0) return 'append';
+
+	const last = points[points.length - 1];
+	const withinTipRadius = isWithinMergeRadiusPage(next[0], next[1], last, mergeThresholdPage);
+	if (!withinTipRadius) return 'append';
+
+	if (points.length >= 2) {
+		const anchor = points[points.length - 2];
+		const withinAnchorRadius = isWithinMergeRadiusPage(
+			next[0],
+			next[1],
+			anchor,
+			mergeThresholdPage,
+		);
+		if (!withinAnchorRadius) {
+			const msSinceLastCommit = sampleTimeMs - lastCommittedPointAtMs;
+			if (msSinceLastCommit >= SLOW_DRAW_TIP_REPLACE_APPEND_MS) {
+				return 'append';
+			}
+		}
+	}
+
+	return 'replace-tip';
+}
+
+/** Replace the tip when the sample is within merge radius of the current tip (fast strokes). */
 function shouldReplaceTipWithPoint(
 	points: InkPoint[],
 	next: InkPoint,
 	mergeThresholdPage: number,
+	sampleTimeMs: number,
+	lastCommittedPointAtMs: number,
 ): boolean {
-	if (points.length < 2) return false;
-	const last = points[points.length - 1];
-	const secondLast = points[points.length - 2];
-	return (
-		isWithinMergeRadiusPage(next[0], next[1], last, mergeThresholdPage)
-		&& isWithinMergeRadiusPage(next[0], next[1], secondLast, mergeThresholdPage)
-	);
+	return resolvePointMergeAction(
+		points,
+		next,
+		mergeThresholdPage,
+		sampleTimeMs,
+		lastCommittedPointAtMs,
+	) === 'replace-tip';
 }
 
 /** @returns page-space distance from the previous tip (or zero when the list was empty). */
 function applyAppendOrMergePoint(
-	points: InkPoint[],
+	mergeState: PointMergeState,
 	next: InkPoint,
 	mergeThresholdPage: number,
+	sampleTimeMs: number,
 ): number {
+	const { points } = mergeState;
 	if (points.length === 0) {
 		points.push(next);
+		mergeState.lastCommittedPointAtMs = sampleTimeMs;
 		return 0;
 	}
 
 	const last = points[points.length - 1];
-	const dist = Math.hypot(next[0] - last[0], next[1] - last[1]);
-	if (shouldReplaceTipWithPoint(points, next, mergeThresholdPage)) {
+	const distToLast = Math.hypot(next[0] - last[0], next[1] - last[1]);
+	const mergeAction = resolvePointMergeAction(
+		points,
+		next,
+		mergeThresholdPage,
+		sampleTimeMs,
+		mergeState.lastCommittedPointAtMs,
+	);
+	if (mergeAction === 'replace-tip') {
 		// Preserve the higher pressure when merging; avoids thin “gaps” on quick pen strokes.
 		points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
 	} else {
 		points.push(next);
+		mergeState.lastCommittedPointAtMs = sampleTimeMs;
 	}
-	return dist;
+	return distToLast;
 }
 
-function appendOrMergePoint(stroke: ActiveStroke, next: InkPoint, mergeThresholdPage: number): void {
+function appendOrMergePoint(
+	stroke: ActiveStroke,
+	next: InkPoint,
+	mergeThresholdPage: number,
+	sampleTimeMs: number,
+): void {
+	const mergeState: PointMergeState = {
+		points: stroke.points,
+		lastCommittedPointAtMs: stroke.lastCommittedPointAtMs,
+	};
 	stroke.strokePathLength += applyAppendOrMergePoint(
-		stroke.points,
+		mergeState,
 		next,
 		mergeThresholdPage,
+		sampleTimeMs,
 	);
+	stroke.lastCommittedPointAtMs = mergeState.lastCommittedPointAtMs;
 }
 
 function setOrAppendLastPoint(stroke: ActiveStroke, next: InkPoint): void {
@@ -482,8 +563,8 @@ function updateLiveStrokePath(ctx: DrawToolContext): void {
 	// WYSIWYG: render the live preview from the SAME `points` array, the SAME function
 	// (`getStroke`), and the SAME options (`toStrokeOptions`) that `ink-svg-canvas` / export
 	// use when the stroke commits — so the in-progress trail and the stored stroke are
-	// byte-identical. The tip is replaced in place only while the sample lies within merge
-	// radius of both the tip and the segment anchor (second-to-last point).
+	// byte-identical. The last point is replaced in place while within merge radius of the tip,
+	// so the live stroke tracks the pen without chord lag.
 	const outlinePoints = getStroke(activeStroke.points, toStrokeOptions(activeStroke.style));
 	const pathData = getSvgPathFromStroke(outlinePoints);
 	livePath.setAttribute('d', pathData);

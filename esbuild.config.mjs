@@ -8,6 +8,36 @@ import svg from 'esbuild-plugin-svg';
 
 // import renamePlugin from "./rename-plugin";
 import fs from 'fs';
+import { execSync } from 'child_process';
+
+function detectBuildHostLanIpv4() {
+	if (process.env.INK_DEBUG_SKIP_LAN_DISCOVERY === '1') return '';
+	if (process.env.INK_DEBUG_LAN_IPV4) return process.env.INK_DEBUG_LAN_IPV4;
+	for (const networkInterface of ['en0', 'en1']) {
+		try {
+			const ipv4 = execSync(`ipconfig getifaddr ${networkInterface}`, {
+				encoding: 'utf8',
+				stdio: ['pipe', 'pipe', 'ignore'],
+			}).trim();
+			if (ipv4) return ipv4;
+		} catch {
+			/* try next interface */
+		}
+	}
+	return '';
+}
+
+const inkDebugLanIpv4 = detectBuildHostLanIpv4();
+const inkDebugCursorSessionId = process.env.INK_DEBUG_CURSOR_SESSION_ID ?? '';
+const inkDebugIngestPath = process.env.INK_DEBUG_INGEST_PATH ?? '';
+if (inkDebugLanIpv4) {
+	console.info(`[esbuild] INK_DEBUG_LAN_IPV4=${inkDebugLanIpv4} (baked for mobile ingest)`);
+}
+if (inkDebugCursorSessionId || inkDebugIngestPath) {
+	console.info(
+		`[esbuild] Cursor debug ingest: session=${inkDebugCursorSessionId || '(none)'} path=${inkDebugIngestPath || '(none)'}`,
+	);
+}
 
 const renamePlugin = () => ({
 	name: 'rename-plugin',
@@ -112,6 +142,9 @@ esbuild.build({
 	define: {
 		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),
 		'process.env.INK_EMULATE_MOBILE': JSON.stringify(emulateMobile ? 'true' : 'false'),
+		'INK_DEBUG_LAN_IPV4': JSON.stringify(inkDebugLanIpv4),
+		'INK_DEBUG_CURSOR_SESSION_ID': JSON.stringify(inkDebugCursorSessionId),
+		'INK_DEBUG_INGEST_PATH': JSON.stringify(inkDebugIngestPath),
 	}
 }).catch(() => process.exit(1));
 

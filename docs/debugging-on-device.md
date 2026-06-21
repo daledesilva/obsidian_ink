@@ -1,5 +1,7 @@
 # Debugging Obsidian Ink on a physical device (Boox / Android)
 
+**iPad:** see [Debugging on iPad (USB + Wi‑Fi)](debugging-on-ipad.md) — structured NDJSON ingest (preferred) and Safari Web Inspector.
+
 ## Why it exists
 
 Ink behaviour differs between desktop Electron Obsidian and the **Obsidian Android app** (WebView). Stylus, eInk refresh, WebView version, and Boox-specific flows (companion WebSocket) are easiest to validate on real hardware. This page describes how to get **live JavaScript console output, breakpoints, and network traces** onto your development machine so tools such as Cursor can sit beside a running capture.
@@ -123,7 +125,7 @@ This captures **whatever the page logs to the console** — not network traffic.
 
 ### Structured logs + HTTP ingest (Ink Suite)
 
-When you need durable, ordered NDJSON on the host (especially for race conditions), the plugin uses **`requestUrl`**-based ingest — not ad-hoc `fetch`. Authoritative instructions live in [eInk Bridge — Debug logging](../../eink-bridge/docs/implementations/debug-logging.md) (covers **`universal-dev-logging.ts`**, **`adb reverse`**, LAN bake via **`npm run build`**, and Cursor session files).
+When you need durable, ordered NDJSON on the host (especially for race conditions), use **`postCursorDebugIngest`** from [`src/logic/utils/cursor-debug-ingest.ts`](../src/logic/utils/cursor-debug-ingest.ts) — **`requestUrl`**-based ingest, not ad-hoc `fetch`. **iPad:** [Debugging on iPad](debugging-on-ipad.md). **Boox:** [Debug logging](../../eink-bridge/docs/implementations/debug-logging.md) and **`adb reverse`**.
 
 ### One command: Bridge `logcat` + Obsidian WebView console (two files)
 

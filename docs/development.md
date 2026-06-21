@@ -157,6 +157,27 @@ npm run build:boox
 
 After a successful push, reload Ink on the tablet (toggle the plugin under **Settings → Community plugins**, or restart Obsidian).
 
+#### Deploy to iPad while debugging
+
+There is no `adb` push script for iPad. For **Cursor Debug** work, prefer copying a **local build** into the vault on the device:
+
+1. From `obsidian_ink/`, run `npm run build` (optionally with `INK_DEBUG_CURSOR_SESSION_ID` / `INK_DEBUG_INGEST_PATH` — see [Debugging on iPad](debugging-on-ipad.md)).
+2. Copy `dist/main.js`, `dist/styles.css`, and `dist/manifest-beta.json` (rename to `manifest.json`) into `<vault>/.obsidian/plugins/ink/`.
+3. Quit and reopen Obsidian.
+
+**Do not assume `npm run internal-release` includes uncommitted debug code** — see [Internal release](#internal-release-github-actions) below.
+
+#### Internal release (GitHub Actions)
+
+`npm run internal-release` runs [`scripts/internal-release.sh`](../scripts/internal-release.sh). It **does not build locally**. It moves the **`internal-test`** git tag to **current HEAD** and pushes it; **GitHub Actions** builds from that **committed** snapshot and publishes release assets.
+
+| You need… | Do this |
+|-----------|---------|
+| Quick debug iteration with local changes | `npm run build` → copy **`dist/`** to device |
+| Install via GitHub **internal-test** release | **Commit + push** your branch, then `npm run internal-release`, wait for CI, reinstall from the new release |
+
+Uncommitted files and your local **`dist/`** folder are **never** included in the internal release artifact.
+
 **Default vault paths**
 
 Unless overridden, artifacts are pushed to:

@@ -33,6 +33,9 @@ export function inkDebugLog(entry: {
 	}
 }
 
+// For Cursor Debug NDJSON ingest (preferred on iPad / mobile + agent sessions), use
+// postCursorDebugIngest from src/logic/utils/cursor-debug-ingest.ts — see docs/debugging-on-ipad.md.
+
 function stringifyForLogFragment(value: unknown): string {
 	if (typeof value === 'string') return value;
 	if (typeof value === 'number' || typeof value === 'boolean') {

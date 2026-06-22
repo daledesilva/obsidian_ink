@@ -39,18 +39,35 @@ function showChanges(plugin: InkPlugin) {
     // listEl.createEl('li').setText(`Long pages with multiple embeds should now work much more fluidly.`);
     // listEl.createEl('li').setText(`Inserting existing embeds will now give you a visual preview of the files.`);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.0`);
+    // scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.0`);
+    // const listEl = scrollAreaEl.createEl('ul');
+    // listEl.createEl('li').setText(`Files now saved in a new file format.`);
+    // listEl.createEl('li').setText(`Save your drawing embeds with specific framing: Two fingers or right mouse button to reframe. Cmd + right mouse button to zoom, or Cmd + scroll wheel.`);
+    // listEl.createEl('li').setText(`Frame the same file differently across multiple embeds.`);
+    // listEl.createEl('li').setText(`Full screen writing and drawing is now fully supported.`);
+    // listEl.createEl('li').setText(`Unified undo allows Cmd+Z across embeds and your Markdown note.`);
+    // listEl.createEl('li').setText(`Manual smoothing & pressure selection.`);
+    // listEl.createEl('li').setText(`Easier copy and paste.`);
+    // listEl.createEl('li').setText(`Customisable line height.`);
+    // listEl.createEl('li').setText(`Dominant hand setting.`);
+    // listEl.createEl('li').setText(`Hold ⌘/Ctrl to switch to eraser temporarily.`);
+        
+    // scrollAreaEl.createEl('h2').setText(`Note`);
+    // const listEl2 = scrollAreaEl.createEl('ul');
+    // listEl2.createEl('li').setText(`Existing Ink files will not convert to the new format in this release. This will be added in a later update.`);
+
+
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.1`);
     const listEl = scrollAreaEl.createEl('ul');
-    listEl.createEl('li').setText(`Files now saved in a new file format.`);
-    listEl.createEl('li').setText(`Save your drawing embeds with specific framing: Two fingers or right mouse button to reframe. Cmd + right mouse button to zoom, or Cmd + scroll wheel.`);
-    listEl.createEl('li').setText(`Frame the same file differently across multiple embeds.`);
-    listEl.createEl('li').setText(`Full screen writing and drawing is now fully supported.`);
-    listEl.createEl('li').setText(`Unified undo allows Cmd+Z across embeds and your Markdown note.`);
-    listEl.createEl('li').setText(`Manual smoothing & pressure selection.`);
-    listEl.createEl('li').setText(`Easier copy and paste.`);
-    listEl.createEl('li').setText(`Customisable line height.`);
-    listEl.createEl('li').setText(`Dominant hand setting.`);
-    listEl.createEl('li').setText(`Hold ⌘/Ctrl to switch to eraser temporarily.`);
+    listEl.createEl('li').setText(`Added ability to draw with fingers (Turn on in settings).`);
+    listEl.createEl('li').setText(`Added default drawing grid setting.`);
+    listEl.createEl('li').setText(`Added ability to right click on locked embeds to copy or delete.`);
+    listEl.createEl('li').setText(`Reduced minimum drawing embed size.`);
+    listEl.createEl('li').setText(`Changed shortcut for eraser to Cmd/Ctrl instead of middle mouse button.`);
+    listEl.createEl('li').setText(`Fixed colour theming in reading mode layout.`);
+    listEl.createEl('li').setText(`Fixed reading mode and PDF export sizing.`);
+    listEl.createEl('li').setText(`Fixed trackpad zooming direction.`);
+    listEl.createEl('li').setText(`Fixed ability to draw slowly at high zoom levels.`);
         
     scrollAreaEl.createEl('h2').setText(`Note`);
     const listEl2 = scrollAreaEl.createEl('ul');
@@ -60,7 +77,7 @@ function showChanges(plugin: InkPlugin) {
         tertiaryBtnEl
     } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/n6yKUBJshR4',
+            href: '',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',

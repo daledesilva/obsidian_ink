@@ -21,6 +21,7 @@ import { getInkFileData } from 'src/utils/getInkFileData';
 import { verbose } from 'src/utils/log-to-console';
 import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from '../modify-menu/modify-menu';
+import StyleMenu from '../style-menu/style-menu';
 
 ///////
 ///////
@@ -355,6 +356,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 			<SecondaryMenuBar>
 				<ModifyMenu
+					getTlEditor = {getTlEditor}
+					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
+				/>
+				<StyleMenu
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>

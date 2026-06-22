@@ -1,11 +1,9 @@
 import type { TFile } from 'obsidian';
 import type InkPlugin from 'src/main';
-import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
-import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
-import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { computeStrokesBounds } from 'src/ink-canvas/svg-export';
 import { embedViewBoxFromCamera, fitBoundsToViewport } from 'src/ink-canvas/camera';
 import type { InkStroke } from 'src/ink-canvas/types';
+import { getInkStrokesFromSvg } from 'src/logic/utils/ink-file-has-strokes';
 import { DEFAULT_EMBED_SETTINGS, type EmbedSettings } from 'src/types/embed-settings';
 
 const EMBED_FIT_PADDING_PX = 16;
@@ -16,20 +14,6 @@ function cloneDefaultEmbedSettings(): EmbedSettings {
 		embedDisplay: { ...DEFAULT_EMBED_SETTINGS.embedDisplay },
 		viewBox: { ...DEFAULT_EMBED_SETTINGS.viewBox },
 	};
-}
-
-function getStrokesFromInkFile(svgString: string): InkStroke[] {
-	const inkFileData = extractInkJsonFromSvg(svgString);
-	if (!inkFileData) return [];
-
-	if (isInkCanvasFile(inkFileData) && inkFileData.inkCanvas) {
-		return inkFileData.inkCanvas.strokes ?? [];
-	}
-
-	const migrated = migrateFromTldraw(
-		inkFileData.tldraw,
-	);
-	return migrated.strokes ?? [];
 }
 
 function buildEmbedSettingsWithFittedViewBox(strokes: InkStroke[]): EmbedSettings {
@@ -77,7 +61,7 @@ export async function buildDrawingEmbedSettingsFromFile(
 ): Promise<EmbedSettings> {
 	try {
 		const svgString = await plugin.app.vault.read(file);
-		const strokes = getStrokesFromInkFile(svgString);
+		const strokes = getInkStrokesFromSvg(svgString);
 		return buildDrawingEmbedSettingsFromStrokes(strokes) ?? cloneDefaultEmbedSettings();
 	} catch {
 		return cloneDefaultEmbedSettings();

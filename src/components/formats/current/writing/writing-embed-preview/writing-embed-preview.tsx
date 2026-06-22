@@ -7,6 +7,8 @@ import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 import { TFile } from 'obsidian';
 import { getGlobals } from 'src/stores/global-store';
+import { showLockedChrome } from 'src/logic/utils/ink-file-has-strokes';
+import { useInkFileHasStrokes } from 'src/logic/utils/use-ink-file-has-strokes';
 import emptyWritingSvg from 'src/defaults/empty-writing-embed.svg';
 
 //////////
@@ -35,6 +37,7 @@ export const WritingEmbedPreviewWrapper: React.FC<WritingEmbedPreviewProps> = (p
 export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) => {
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyWritingSvg);
+    const hasStrokes = useInkFileHasStrokes(props.writingFile, props.plugin.app.vault);
 
     React.useEffect(() => {
         //console.log('PREVIEW mounted');
@@ -63,8 +66,8 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
             ref={containerElRef}
             className={classNames([
                 'ddc_ink_writing-embed-preview',
-                props.plugin.settings.writingLinesWhenLocked && 'ddc_ink_visible-lines',
-                props.plugin.settings.writingBackgroundWhenLocked && 'ddc_ink_visible-background',
+                showLockedChrome(props.plugin.settings.writingLinesWhenLocked, hasStrokes) && 'ddc_ink_visible-lines',
+                showLockedChrome(props.plugin.settings.writingBackgroundWhenLocked, hasStrokes) && 'ddc_ink_visible-background',
             ])}
             style={{
                 position: 'absolute',

@@ -7,6 +7,8 @@ import { TFile } from 'obsidian';
 import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { verbose } from 'src/logic/utils/universal-dev-logging';
+import { showLockedChrome } from 'src/logic/utils/ink-file-has-strokes';
+import { useInkFileHasStrokes } from 'src/logic/utils/use-ink-file-has-strokes';
 import { getGlobals } from 'src/stores/global-store';
 import emptyDrawingSvg from 'src/defaults/empty-drawing-embed.svg';
 
@@ -38,6 +40,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const [fileSrc, setFileSrc] = React.useState<string | null>(null);
+    const hasStrokes = useInkFileHasStrokes(props.embeddedFile, plugin.app.vault);
 
     React.useEffect(() => {
         verbose('PREVIEW mounted');
@@ -65,8 +68,8 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             ref = {containerElRef}
             className = {classNames([
                 'ddc_ink_drawing-embed-preview',
-                plugin.settings.drawingFrameWhenLocked && 'ddc_ink_visible-frame',
-                plugin.settings.drawingBackgroundWhenLocked && 'ddc_ink_visible-background',
+                showLockedChrome(plugin.settings.drawingFrameWhenLocked, hasStrokes) && 'ddc_ink_visible-frame',
+                showLockedChrome(plugin.settings.drawingBackgroundWhenLocked, hasStrokes) && 'ddc_ink_visible-background',
             ])}
             style = {{
                 position: 'absolute',

@@ -19,8 +19,9 @@ export const getNewTimestampedWritingFilepath = async (plugin: InkPlugin, instig
         obsAttachmentFolderPath,
         instigatingFileFolderPath,
     });
-    let subFolderPath = getWritingSubfolderPath(plugin);
-    const fullPath = await getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, `${basePath}/${subFolderPath}`);
+    let subFolderPath = sanitizeSubfolderPath(getWritingSubfolderPath(plugin));
+    const attachmentFolderPath = subFolderPath ? `${basePath}/${subFolderPath}` : basePath;
+    const fullPath = await getNewTimestampedFilepath(plugin, WRITE_FILE_EXT, attachmentFolderPath);
     return fullPath;
 }
 
@@ -31,9 +32,24 @@ export const getNewTimestampedDrawingFilepath = async (plugin: InkPlugin, instig
         obsAttachmentFolderPath,
         instigatingFileFolderPath,
     });
-    let subFolderPath = getDrawingSubfolderPath(plugin);
-    const fullPath = await getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, `${basePath}/${subFolderPath}`);
+    let subFolderPath = sanitizeSubfolderPath(getDrawingSubfolderPath(plugin));
+    const attachmentFolderPath = subFolderPath ? `${basePath}/${subFolderPath}` : basePath;
+    const fullPath = await getNewTimestampedFilepath(plugin, DRAW_FILE_EXT, attachmentFolderPath);
     return fullPath;
+}
+
+const sanitizeSubfolderPath = (subFolderPath: string): string => {
+    const trimmedPath = subFolderPath.trim();
+    if (!trimmedPath) return '';
+
+    const normalizedPath = normalizePath(trimmedPath);
+    if (normalizedPath.startsWith('/') || /^[A-Za-z]:\//.test(normalizedPath)) return '';
+    if (!/^[a-zA-Z0-9 _/-]+$/.test(normalizedPath)) return '';
+
+    const segments = normalizedPath.split('/');
+    if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return '';
+
+    return normalizedPath;
 }
 
 const getNewTimestampedFilepath = async (plugin: InkPlugin, ext: string, folderPath: string): Promise<string> => {

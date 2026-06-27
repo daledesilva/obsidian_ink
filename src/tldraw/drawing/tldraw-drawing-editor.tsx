@@ -1,7 +1,7 @@
 import './tldraw-drawing-editor.scss';
 import { Editor, HistoryEntry, StoreSnapshot, TLRecord, TLStoreSnapshot, TLUiOverrides, Tldraw, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLSerializedStore, TLEditorSnapshot, TLUiActionsContextType } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "../../utils/tldraw-helpers";
+import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures, setupUndoRedoHotkeys } from "../../utils/tldraw-helpers";
 import InkPlugin from "../../main";
 import * as React from "react";
 import { svgToPngDataUri } from 'src/utils/screenshots';
@@ -156,10 +156,20 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
 			scope: 'all'	// Filters some things like camera movement changes. But Not sure it's locked down enough, so leaving as all.
 		})
 
+		// Bind Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z for undo/redo while the canvas
+		// has focus. Uses a capture-phase listener so Obsidian's global keymap
+		// can't consume the event first.
+		const removeUndoRedoHotkeys = setupUndoRedoHotkeys(
+			editorWrapperRefEl.current,
+			() => tlEditorRef.current,
+			(ed) => queueOrRunStorePostProcesses(ed),
+		);
+
 		const unmountActions = () => {
 			// NOTE: This prevents the postProcessTimer completing when a new file is open and saving over that file.
 			resetInputPostProcessTimers();
 			removeUserActionListener();
+			removeUndoRedoHotkeys();
 		}
 
 		if(props.saveControlsReference) {

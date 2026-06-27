@@ -546,7 +546,7 @@ function addNewTemplateShapes(editor: Editor) {
 
 	const hasContainer = editor.store.has('shape:writing-container' as TLShapeId);
 	if(!hasContainer) {
-			editor.createShape({
+		 	editor.createShape({
 			id: 'shape:writing-container' as TLShapeId,
 			type: 'writing-container',
 		})
@@ -790,7 +790,9 @@ export const resizeWritingTemplateTightly = (editor: Editor) => {
 
 export async function getDrawingSvg(editor: Editor): Promise<svgObj | undefined> {
 	const allShapeIds = Array.from(editor.getCurrentPageShapeIds().values());
-	const svgObj = await editor.getSvgString(allShapeIds);
+	// Use viewport bounds to ensure SVG matches visible canvas area
+	const viewportBounds = editor.getViewportPageBounds();
+	const svgObj = await editor.getSvgString(allShapeIds, { bounds: viewportBounds, padding: 0 });
 	return svgObj;
 }
 

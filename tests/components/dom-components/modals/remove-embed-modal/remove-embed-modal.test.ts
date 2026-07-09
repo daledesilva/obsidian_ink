@@ -4,10 +4,11 @@
 
 import { TFile } from 'obsidian';
 import { RemoveEmbedModal } from 'src/components/dom-components/modals/remove-embed-modal/remove-embed-modal';
-import { findNotesContainingFileEmbed } from 'src/logic/utils/convert-file-embeds';
+import { findNotesContainingFileEmbed, countFileEmbedOccurrencesInVault } from 'src/logic/utils/convert-file-embeds';
 
 jest.mock('src/logic/utils/convert-file-embeds', () => ({
 	findNotesContainingFileEmbed: jest.fn(),
+	countFileEmbedOccurrencesInVault: jest.fn(),
 }));
 
 function makePlugin() {
@@ -25,6 +26,7 @@ describe('RemoveEmbedModal', () => {
 
 	beforeEach(() => {
 		jest.clearAllMocks();
+		(countFileEmbedOccurrencesInVault as jest.Mock).mockResolvedValue(1);
 	});
 
 	describe('scan phase', () => {
@@ -76,8 +78,9 @@ describe('RemoveEmbedModal', () => {
 	});
 
 	describe('when notes.length === 1', () => {
-		it('does not call onRemoveEmbedOnly immediately (shows confirm phase instead)', async () => {
+		it('does not call onRemoveEmbedOnly immediately when only one embed exists (shows confirm phase instead)', async () => {
 			(findNotesContainingFileEmbed as jest.Mock).mockResolvedValueOnce([sourceMdFile]);
+			(countFileEmbedOccurrencesInVault as jest.Mock).mockResolvedValueOnce(1);
 
 			const plugin = makePlugin();
 			const onRemoveEmbedOnly = jest.fn();
@@ -95,6 +98,29 @@ describe('RemoveEmbedModal', () => {
 			// Unlike notes.length > 1, we show confirm phase — callbacks not invoked yet
 			expect(onRemoveEmbedOnly).not.toHaveBeenCalled();
 			expect(onRemoveEmbedAndFile).not.toHaveBeenCalled();
+		});
+
+		it('calls onRemoveEmbedOnly when the same note embeds the file more than once', async () => {
+			(findNotesContainingFileEmbed as jest.Mock).mockResolvedValueOnce([sourceMdFile]);
+			(countFileEmbedOccurrencesInVault as jest.Mock).mockResolvedValueOnce(2);
+
+			const plugin = makePlugin();
+			const onRemoveEmbedOnly = jest.fn();
+			const onRemoveEmbedAndFile = jest.fn();
+			const modal = new RemoveEmbedModal(plugin, embeddedFile, 'inkWriting', {
+				sourceMdFile,
+				onRemoveEmbedOnly,
+				onRemoveEmbedAndFile,
+			});
+			modal.close = jest.fn();
+
+			modal.onOpen();
+
+			await new Promise((r) => setTimeout(r, 0));
+
+			expect(onRemoveEmbedOnly).toHaveBeenCalledTimes(1);
+			expect(onRemoveEmbedAndFile).not.toHaveBeenCalled();
+			expect(modal.close).toHaveBeenCalled();
 		});
 
 		it('Cancel closes modal', async () => {

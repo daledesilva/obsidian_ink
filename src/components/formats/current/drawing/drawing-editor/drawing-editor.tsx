@@ -133,7 +133,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	React.useEffect(() => {
 		if (!initialSnapshot || !isLegacyInkFileRef.current) return;
-		showLegacyInkUnlockNotice();
+		showLegacyInkUnlockNotice({ plugin: getGlobals().plugin, legacyFile: props.drawingFile });
 	}, [initialSnapshot]);
 
 	// Safety-net: clear timers on unmount

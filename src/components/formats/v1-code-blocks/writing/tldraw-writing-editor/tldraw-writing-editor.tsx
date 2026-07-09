@@ -80,7 +80,7 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 
 	React.useEffect(() => {
 		if (!tlEditorSnapshot) return;
-		showLegacyInkUnlockNotice();
+		showLegacyInkUnlockNotice({ plugin: props.plugin, legacyFile: props.writingFile });
 	}, [tlEditorSnapshot]);
 
 	if(!tlEditorSnapshot) return <></>

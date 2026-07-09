@@ -246,6 +246,57 @@ export async function scanVaultForTldrawInkSvgFiles(
 }
 
 /**
+ * Builds a scan result for in-place migration of one tldraw-metadata SVG file.
+ */
+export async function buildSingleTldrawSvgScanResult(
+	vault: Vault,
+	svgFile: TFile,
+	resolveLinkPath: ResolveVaultLinkPath,
+): Promise<TldrawSvgVaultScanResult | null> {
+	const isTldraw = await isTldrawInkSvgFile(vault, svgFile);
+	if (!isTldraw) return null;
+
+	const referencingNotes: TFile[] = [];
+	let fileKind: 'writing' | 'drawing' | null = null;
+
+	for (const note of vault.getMarkdownFiles()) {
+		let content: string;
+		try {
+			content = await vault.read(note);
+		} catch {
+			continue;
+		}
+
+		for (const ref of findV2InkEmbedRefs(content)) {
+			const canonicalPath = resolveEmbedPath(vault, resolveLinkPath, ref.filepath, note.path);
+			if (canonicalPath !== svgFile.path) continue;
+			referencingNotes.push(note);
+			fileKind = ref.embedKind;
+			break;
+		}
+	}
+
+	if (!fileKind) {
+		const svgString = await vault.read(svgFile);
+		const inkFileData = extractInkJsonFromSvg(svgString);
+		if (inkFileData?.meta.fileType === 'inkWriting') fileKind = 'writing';
+		else if (inkFileData?.meta.fileType === 'inkDrawing') fileKind = 'drawing';
+	}
+
+	if (!fileKind) return null;
+
+	return {
+		tldrawSvgFiles: [{
+			svgFile,
+			fileKind,
+			newSvgPath: svgFile.path,
+			referencingNotes,
+		}],
+		affectedNotes: referencingNotes,
+	};
+}
+
+/**
  * Converts tldraw SVG files in place and updates drawing embed viewBox params in notes.
  */
 export async function executeTldrawSvgMigration(

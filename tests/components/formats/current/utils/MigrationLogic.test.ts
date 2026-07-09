@@ -14,6 +14,7 @@ import {
 	scanVaultForLegacyEmbeds,
 	vaultHasLegacyInkFiles,
 	getLegacyInkFileType,
+	buildSingleLegacyFileScanResult,
 	executeMigration,
 	VaultScanResult,
 	LegacyEmbedBlock,
@@ -797,5 +798,57 @@ describe('executeMigration', () => {
 		expect(pathMap.get('Ink/Writing/foo.writing')).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/foo.svg`);
 		expect(pathMap.get('Ink/Drawing/foo.drawing')).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/foo_1.svg`);
 		expect(pathMap.get('Archive/foo.writing')).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/foo_2.svg`);
+	});
+
+	test('singleLegacyFilePath only updates matching legacy blocks in a note', async () => {
+		const legacyJson = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+		const otherLegacyPath = 'Ink/Writing/other.writing';
+		const noteContents = {
+			'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n${legacyWriteBlock(otherLegacyPath)}\n`,
+		};
+		const vault = makeLegacyVault(noteContents, legacyJson);
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [
+				{
+					legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+					fileType: 'writing',
+					newSvgPath: NEW_SVG_PATH,
+					referencingNotes: [makeNote('Notes/A.md')],
+				},
+				{
+					legacyFile: makeLegacyFile(otherLegacyPath),
+					fileType: 'writing',
+					newSvgPath: 'Ink/Writing/other.svg',
+					referencingNotes: [makeNote('Notes/A.md')],
+				},
+			],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		await executeMigration(vault as any, scanResult, undefined, {
+			singleLegacyFilePath: LEGACY_WRITE_PATH,
+		});
+
+		const modifiedContent = (vault.modify as jest.Mock).mock.calls[0][1] as string;
+		expect(modifiedContent).toContain('Ink/Writing/note.svg');
+		expect(modifiedContent).toContain(otherLegacyPath);
+		expect(modifiedContent).not.toContain(LEGACY_WRITE_PATH);
+	});
+});
+
+describe('buildSingleLegacyFileScanResult', () => {
+	test('returns scan result for one legacy file and its referencing notes', async () => {
+		const legacyPath = 'Ink/Writing/note.writing';
+		const vault = {
+			getMarkdownFiles: () => [{ path: 'Notes/A.md' } as TFile],
+			read: jest.fn(async () => `# Note\n\n\`\`\`handwritten-ink\n${JSON.stringify({ filepath: legacyPath })}\n\`\`\`\n`),
+		};
+
+		const result = await buildSingleLegacyFileScanResult(vault as any, { path: legacyPath } as TFile);
+
+		expect(result?.legacyFiles).toHaveLength(1);
+		expect(result?.legacyFiles[0].legacyFile.path).toBe(legacyPath);
+		expect(result?.affectedNotes).toHaveLength(1);
 	});
 });

@@ -149,7 +149,7 @@ export function WritingEditor(props: WritingEditorProps) {
 
 	React.useEffect(() => {
 		if (!initialSnapshot || !isLegacyInkFileRef.current) return;
-		showLegacyInkUnlockNotice();
+		showLegacyInkUnlockNotice({ plugin: props.plugin, legacyFile: props.writingFile });
 	}, [initialSnapshot]);
 
 	React.useEffect(() => {

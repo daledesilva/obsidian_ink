@@ -1,0 +1,58 @@
+---
+description: Project overview — purpose, folder structure, and architecture
+alwaysApply: true
+---
+
+# Project Overview
+
+---
+
+## What This Project Is
+
+**Obsidian Ink** is an Obsidian community plugin that lets users **write and draw with a stylus** inside Obsidian markdown notes.
+
+Ink content is stored as **standard SVG files** and embedded in notes using normal Obsidian SVG image embeds plus a URL-parameter link. If the plugin is disabled or uninstalled, embeds degrade to simply displaying the SVG.
+
+On **Boox eInk** tablets, a companion Android app (**eInk Bridge**, separate `eink-bridge` repo) can capture pen input with low latency and stream strokes to this plugin over a loopback WebSocket on the same device.
+
+## Folder Structure
+
+```
+src/                                   — Plugin code (CM6 widgets, tldraw editors, commands, logic)
+docs/                                  — Plugin documentation
+tests/                                 — Unit + e2e tests
+qa-test-vault/                         — Test vault used by e2e and manual QA (generated)
+scripts/                               — Build, release, and debug helper scripts
+```
+
+## Architecture Notes
+
+### Ink files and embeds
+
+- **Ink files are SVGs with embedded metadata** (tldraw snapshot) so they can be treated like normal attachments.
+- Notes embed ink via a standard image embed plus an edit link:
+  - ` ![InkWriting](<path/to.svg>) [Edit Writing](<baseUrl>?type=inkWriting&...)`
+  - ` ![InkDrawing](<path/to.svg>) [Edit Drawing](<baseUrl>?type=inkDrawing&...)`
+- The plugin's CodeMirror extensions detect these embeds in Live Preview, render interactive widgets, and open tldraw-based editors for writing/drawing.
+
+### eInk Bridge (Boox) stroke streaming
+
+- **Obsidian Ink** on the tablet connects to `ws://127.0.0.1:8080/ws`, receives `new-stroke` events, and sends drawing-area lifecycle events (`new-drawing-area`, `update-drawing-area`, `close-drawing-area`).
+- Protocol and Bridge implementation details are documented in the **`eink-bridge`** repo only — not here.
+
+```mermaid
+flowchart LR
+  subgraph booxDevice [Boox tablet same device]
+    BooxSdk[BooxPenSdk_EpdLayer]
+    Bridge[einkBridge_WebSocketServer]
+    Obsidian[Obsidian_InkPlugin]
+    BooxSdk --> Bridge
+    Bridge <-->|"ws loopback"| Obsidian
+  end
+```
+
+## Key Constraints
+
+- **Device debugging:** Use **`postCursorDebugIngest`** and **`universal-dev-logging.ts`** helpers for structured development logging. Boox USB combined capture lives in sibling **`eink-bridge/scripts/`**.
+- **eInk latency is a product requirement**: avoid changes that increase input-to-ink latency on Boox targets.
+- **tldraw** must not be upgraded past the version pinned in `package.json` without explicit sign-off.

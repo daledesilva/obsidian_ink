@@ -38,3 +38,14 @@ coverage/
 qa-test-vault/*
 !qa-test-vault/generate.mjs
 !qa-test-vault/README.md
+
+# Optional local Cursor / debug artifacts (not source of truth)
+.cursor/cursor-debug-ingest-url
+.cursor/cursor-debug-session-id
+.cursor/debug-*.log
+.cursor/ingest-logs.ndjson
+.cursor/logcat*.log
+.cursor/session-logcat.log
+.cursor/adb-logcat*
+.cursor/monitor-ingest-live.log
+.cursor/logs/

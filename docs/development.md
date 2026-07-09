@@ -195,7 +195,7 @@ INK_BOOX_PLUGIN_DIRS="/storage/emulated/0/Documents/MyVault/.obsidian/plugins/in
 
 Implementation: `scripts/push-plugin-to-boox.sh` (`--help` for options).
 
-For USB debugging, log capture, and Chrome remote DevTools, see [Debugging on device (Boox / Android)](debugging-on-device.md). For eInk Bridge + Ink together, see repo-root `scripts/boox-debug-bootstrap.sh` and [Boox companion app integration](boox-companion-integration.md).
+For USB debugging, log capture, and Chrome remote DevTools, see [Debugging on device (Boox / Android)](debugging-on-device.md). For eInk Bridge + Ink together, see sibling **`eink-bridge/scripts/boox-debug-bootstrap.sh`** and [Boox companion app integration](boox-companion-integration.md).
 
 #### Writing new tests
 

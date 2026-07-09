@@ -1,0 +1,42 @@
+---
+description: Documentation structure, content, and format standards
+alwaysApply: true
+---
+
+# Documentation Standards
+
+## Location
+
+Store documentation in a `docs/` folder. Organise into separate pages per concept or feature — do not combine unrelated topics in one file.
+
+**Plugin ↔ companion app connection:** Any documentation that describes how this plugin connects to a companion app (WebSocket protocol, stroke streaming, drawing-area lifecycle, etc.) must be created or updated under the **companion app's docs only** (e.g. `eink-bridge/docs/`). Do not add or maintain that cross-component documentation under this repo's `docs/`.
+
+## Docs Are Not a Source of Truth for Code Behavior
+
+When asked about how code works, do **not** use project documentation as a source of truth (it may be out of date).
+
+Use:
+- The code itself, when the question is about implementation/behavior
+- External APIs/services the code relies on, when the question is about an integration or third-party behavior
+
+## Structure
+
+Every documentation page should follow this order:
+
+1. **Why it exists** — the motivation and problem being solved
+2. **Conceptual understanding** — mental model before implementation details
+3. **Flows** — how data or control moves through the system
+4. **Technical details** — implementation specifics
+5. **Technical Gotchas** — a dedicated section for non-obvious pitfalls
+
+## Format
+
+- Use Mermaid diagrams for flows and architecture — prefer over ASCII art or prose descriptions
+- Lead with context before specifics
+- Keep a "Technical Gotchas" section in any page covering complex or surprising behaviour
+
+## Planning
+
+After successful implementation, suggest that the user request relevant documentation be written or updated.
+
+Do **not** write or update documentation unless the user explicitly asks you to.

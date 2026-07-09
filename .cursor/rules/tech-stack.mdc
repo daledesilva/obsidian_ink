@@ -1,0 +1,16 @@
+---
+description: Tech stack — libraries, frameworks, and tools in use
+alwaysApply: true
+---
+
+# Tech Stack
+
+This file is the source of truth for the libraries, frameworks, and tools used in this project. **Keep it up to date — updating this file is the final step of every plan that introduces, removes, or changes a dependency or tool.**
+
+---
+
+- **Language / platform:** TypeScript, Obsidian API, CodeMirror 6 (Live Preview widgets)
+- **Drawing / writing UI:** tldraw v2.x
+- **Testing:** Jest (unit/integration), WebdriverIO + wdio-obsidian-service (e2e)
+- **Build tooling:** esbuild (plugin bundling), npm scripts
+- **Boox companion:** eInk Bridge Android app (`eink-bridge` repo) — loopback WebSocket on the same tablet

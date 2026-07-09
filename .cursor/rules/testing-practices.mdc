@@ -1,0 +1,24 @@
+---
+description: Testing requirements for new features and code changes
+alwaysApply: true
+---
+
+# Testing Practices
+
+## Suggest Tests After Implementation
+
+After implementing a new feature or meaningful code change, suggest that the user request relevant tests (unit and/or e2e) be written and run.
+
+Do **not** write tests or run tests unless the user explicitly asks you to.
+
+## If Asked: Tests Must Be Run and Verified
+
+If the user asks you to run tests, run them to completion and confirm they pass. Do not assume a test will pass without running it.
+
+## Mock Only Uncontrollable Dependencies
+
+Mock only dependencies that are genuinely impossible to control in a test environment (e.g. third-party APIs, hardware, external services with no local equivalent). Do not mock things simply because they are inconvenient — prefer real implementations where possible.
+
+## Never Start Services
+
+Never start the server, app, or any background service as part of a task. Starting services is the user's responsibility unless the user has otherwise stated. If a test requires a running service, flag this to the user first rather than starting it yourself.

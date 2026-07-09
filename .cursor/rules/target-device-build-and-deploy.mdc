@@ -1,0 +1,48 @@
+---
+description: Build and deploy after changes only to the intended connected device class
+alwaysApply: true
+---
+
+# Target Device Build And Deploy
+
+After completing any change that can affect a buildable or runnable artifact, build and deploy before finishing. Do not wait for the user to ask. For documentation-only, Cursor-rule-only, or chat-only work, state that no deployable artifact changed.
+
+## Environment-Specific Exceptions
+
+Unity and React Native projects have their own build, deploy, and device-selection workflows. For those project types, this shared rule establishes the safety principle but does not authorize generic deploy commands.
+
+- **Unity:** Follow the Unity environment rules, skills, and project scripts. Do not trigger Unity builds, deploys, or Play mode yourself when the project says those steps are the user's responsibility. For XR/VR Unity projects, only use documented headset tooling and never substitute a generic Android deploy.
+- **React Native / Expo:** Use the project's React Native build scripts and device-selection flow. Do not invoke `eas build`, `expo run`, `expo start`, Gradle, Xcode, `adb`, or `xcrun` directly unless the React Native rules or scripts explicitly call for it.
+
+When an environment-specific workflow handles device selection internally, do not add a second generic device-targeting pass. Still refuse to deploy if the selected or visible target is clearly the wrong class for the project.
+
+## Identify The Intended Device
+
+Before deploying, determine the project's intended device class from project rules, README files, build configuration, package metadata, and existing deploy commands.
+
+Examples:
+- Virtual reality projects must deploy only to connected VR hardware or an explicitly configured VR simulator.
+- Mobile phone projects must deploy only to connected phone hardware or the project's explicitly configured phone simulator.
+- Desktop, web, plugin, and embedded projects must use their own documented runtime target instead of borrowing another project's device.
+
+If the intended device class is unclear, ask the user before deploying.
+
+## Check Connected Devices
+
+Always list connected devices with the platform's normal tooling before deploy, then choose only a device that matches the intended device class.
+
+Examples:
+- Android/mobile: use `adb devices -l` or the project's existing mobile tooling, and confirm the device is a phone when the project is phone-targeted.
+- Android/VR: use `adb devices -l`, vendor tools, or project-specific VR tooling, and confirm the model is VR hardware such as Quest, Pico, Vive Focus, or the project's documented headset.
+- iOS/mobile: use `xcrun devicectl list devices`, Xcode tooling, or project scripts, and confirm the target is an iPhone/iPad when the project is mobile-targeted.
+- Web/desktop/plugin: use the project-specific local runtime or test harness documented for that environment.
+
+Never deploy to a connected device merely because it is available. If no matching device is connected, or if multiple matching devices are connected and the target is ambiguous, stop and report the available devices instead of deploying.
+
+## Build, Deploy, Verify
+
+Use the project's documented build and deploy commands. If the project defines multiple app packages or build channels, select the documented channel for the situation instead of defaulting to a production package. Feature branches and PRs should prefer a safe dev/staging package when available; production packages should be reserved for main/release work or explicit production checks.
+
+After deploy, launch or exercise the selected package enough to verify that the new build is running on the selected target, then report the selected device, package/channel, and verification result.
+
+If build or deploy fails, read the full error, identify the root cause, fix it when it is in scope, and retry. Do not leave a build or deploy failure unresolved without explaining the blocker.

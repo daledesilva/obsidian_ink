@@ -131,7 +131,7 @@ Remove temporary **`postCursorDebugIngest`** calls after the investigation. Leav
 | Script | Purpose |
 |--------|---------|
 | `bash scripts/ingest-lan-relay.sh` | LAN relay `0.0.0.0:7662` → Cursor `127.0.0.1:7662` |
-| Boox USB ingest | [Boox debug automation](../../../.cursor/rules/boox-usb-debug-automation.mdc) + `adb reverse tcp:7662 tcp:7662` |
+| Boox USB ingest | Sibling **`eink-bridge/.cursor/rules/boox-usb-debug-automation.mdc`** + `adb reverse tcp:7662 tcp:7662` |
 
 ---
 

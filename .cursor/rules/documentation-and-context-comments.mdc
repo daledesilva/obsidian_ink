@@ -1,0 +1,22 @@
+---
+description: Documentation updates and context comments for feature work
+alwaysApply: true
+---
+
+# Documentation And Context Comments
+
+## Documentation
+
+Do not write or update documentation during ordinary implementation unless the user explicitly asks, invokes `/document`, or the current task is documentation-only.
+
+When documenting feature work, document only the feature behavior implemented or materially changed in the current chat thread. Use the implementation, tests, commits, and current conversation as sources of truth; do not document unrelated branch history.
+
+Keep documentation in `docs/` unless the project has a more specific established docs location. Prefer separate pages per concept or feature, and use Mermaid diagrams for flows when they clarify behavior.
+
+## Context Comments
+
+Add brief context comments proactively when implementing or changing features. Context is part of the feature: it helps future agents and developers understand intent and prevents accidental regressions on later branches.
+
+Comments should explain why a function, helper, branch, or code snippet exists and why it is built that way. Cover feature intent, interaction rules, lifecycle ordering, persistence contracts, constraints, edge cases, and regression-sensitive decisions.
+
+Default to adding a short context comment when new feature behavior, a conditional branch, or a helper would otherwise rely on thread history to understand. Avoid comments that merely restate syntax or obvious assignments.

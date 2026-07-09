@@ -1,0 +1,25 @@
+---
+description: Device-local plugin preferences — localStorage, not synced data.json
+alwaysApply: true
+---
+
+# Device-local settings (Obsidian plugin)
+
+## When to use
+
+Settings that **must not** sync with the vault (per-machine / per-browser profile) belong in **device-local storage**, not in `PluginSettings` / `data.json`.
+
+Examples: Boox companion app connection, input interpretation (stroke treat-as), UI toggles that should differ between a Boox tablet and a desktop workstation.
+
+## Implementation
+
+- Use [`src/logic/utils/storage.ts`](src/logic/utils/storage.ts) (`saveLocally` / `fetchLocally`) so keys respect **`window.activeWindow.localStorage`** (Obsidian popouts) and the `au_ink_` localStorage prefix (`LOCAL_STORAGE_PREFIX`).
+- Prefer a **versioned JSON blob** and helpers under [`src/logic/device-settings/`](src/logic/device-settings/) (`readDeviceSettings`, `patchDeviceSettings`, typed accessors) so new fields can be added with migrations later.
+- Same-tab updates do not fire the native `storage` event; emit a small **custom window event** from the write path (see `device-settings.ts`) and subscribe from React hooks where live UI must refresh.
+- **Settings tab vs `data.json`:** It is fine to expose device-only controls in **Obsidian → Settings → community plugin → Ink** (e.g. under Writing / Drawing sections) as long as they only call `device-settings` / `storage.ts` — do **not** persist those fields on `PluginSettings`.
+
+For a full map of settings vs vault files vs in-memory state, see **`docs/plugin-memory-and-persistence.md`**.
+
+## Do not
+
+- Add device-only preferences to `src/types/plugin-settings*.ts` — those sync with the vault.

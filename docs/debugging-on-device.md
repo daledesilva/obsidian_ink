@@ -13,13 +13,13 @@ For **native Android logs** from eInk Bridge (`Log.d`, crashes), use the compani
 | Piece | Who / how |
 |-------|-----------|
 | **Cursor NDJSON ingest + live Debug panel** | **Cursor only** — starts when you begin a **Debug**-mode agent session. The repo cannot open this listener from a shell script. |
-| **`adb reverse tcp:7662 tcp:7662`** + **combined file logs** | **`scripts/boox-debug-bootstrap.sh`** (runs reverse; **`--force-restart`** stops any existing capture and starts fresh — **Cursor agents must use this flag**). Without the flag, bootstrap skips if capture is already running (human convenience). **`start-boox-debug-log-capture.sh`** also runs the same reverse if you start it directly. Both include **`obsidian_ink/scripts/capture-obsidian-android-webview-console.mjs`** — no separate Node step for normal Bridge + Obsidian work. |
+| **`adb reverse tcp:7662 tcp:7662`** + **combined file logs** | **`eink-bridge/scripts/boox-debug-bootstrap.sh`** (sibling repo; runs reverse; **`--force-restart`** stops any existing capture and starts fresh — **Cursor agents must use this flag**). Without the flag, bootstrap skips if capture is already running (human convenience). **`eink-bridge/scripts/start-boox-debug-log-capture.sh`** also runs the same reverse if you start it directly. Both include **`scripts/capture-obsidian-android-webview-console.mjs`** — no separate Node step for normal Bridge + Obsidian work. |
 
-**Agent behaviour:** When Boox USB + Cursor Debug work begins, the agent should follow **`.cursor/rules/boox-usb-debug-automation.mdc`** (run reverse + bootstrap on the first turn, bootstrap in the background).
+**Agent behaviour:** When Boox USB + Cursor Debug work begins, the agent should follow **`eink-bridge/.cursor/rules/boox-usb-debug-automation.mdc`** when that repo is in the workspace (run reverse + bootstrap on the first turn, bootstrap in the background).
 
 **Live Debug panel vs disk files:** The panel shows lines delivered over the session **HTTP ingest** (`requestUrl` from the plugin / Bridge). Lines that only go to **`.cursor/logs/eink-bridge-*.log`** or **`.cursor/logs/obsidian-webview-*.log`** do **not** automatically appear in that panel — open those files in the editor or ask the agent to **`Read`** them for correlation.
 
-**Manual one-shot:** From repo root: `bash scripts/boox-debug-bootstrap.sh` (add **`--force-restart`** to replace a running capture). Cursor agents: **`.cursor/rules/boox-usb-debug-automation.mdc`** — always **`--force-restart`**.
+**Manual one-shot:** From the **eink-bridge** repo root: `bash scripts/boox-debug-bootstrap.sh` (add **`--force-restart`** to replace a running capture). Cursor agents: **`eink-bridge/.cursor/rules/boox-usb-debug-automation.mdc`** — always **`--force-restart`**.
 
 ---
 
@@ -96,7 +96,7 @@ The DevTools **Console** UI does **not** offer a built-in “stream every messag
 - **`Runtime.exceptionThrown`** — uncaught JS errors
 - **`Log.entryAdded`** (optional) — some browser-level messages after **`Log.enable`**
 
-**Ink Suite helper:** For **Bridge + Obsidian** on USB, prefer repo-root **`bash scripts/start-boox-debug-log-capture.sh`** or **`scripts/boox-debug-bootstrap.sh`** — they start this Node capture for you alongside eInk Bridge `logcat`. Use the command below **only** when you want **WebView console only** (no Bridge `logcat`).
+**Ink Suite helper:** For **Bridge + Obsidian** on USB, prefer **`eink-bridge/scripts/start-boox-debug-log-capture.sh`** or **`eink-bridge/scripts/boox-debug-bootstrap.sh`** — they start this Node capture for you alongside eInk Bridge `logcat`. Use the command below **only** when you want **WebView console only** (no Bridge `logcat`).
 
 From the `obsidian_ink/` directory, with Obsidian **open on the tablet** and USB debugging working:
 
@@ -129,13 +129,14 @@ When you need durable, ordered NDJSON on the host (especially for race condition
 
 ### One command: Bridge `logcat` + Obsidian WebView console (two files)
 
-From the **ink-suite repository root** (with the Boox on USB, **`adb devices`** showing `device`, Obsidian open, eInk Bridge running if you want PID-scoped native logs):
+From the **eink-bridge repository root** (with the Boox on USB, **`adb devices`** showing `device`, Obsidian open, eInk Bridge running if you want PID-scoped native logs):
 
 ```bash
+cd ../eink-bridge   # when checked out as a sibling of obsidian_ink
 bash scripts/start-boox-debug-log-capture.sh
 ```
 
-This starts **`adb reverse tcp:7662 tcp:7662`** (for Cursor NDJSON ingest over USB), then **both** captures in parallel, and writes timestamped files under **`.cursor/logs/`** (override with **`DEBUG_CAPTURE_LOG_DIR`**). On each start it **prunes** older **`eink-bridge-*.log`** / **`obsidian-webview-*.log`** in that directory, keeping the **newest 5 per prefix** (set **`BOOX_CAPTURE_LOG_KEEP`** to change). **Bridge `logcat`** and **Obsidian WebView CDP** each **auto-reconnect** within the same session (same timestamped pair of files) when the underlying **`adb`** / process session ends. **Ctrl+C** stops both. Cursor agents run **`bash scripts/boox-debug-bootstrap.sh --force-restart`** in the **background** (restarts capture so the latest scripts load; see **`.cursor/rules/boox-usb-debug-automation.mdc`**). These commands do not launch Obsidian or Bridge — only port reverse and log capture.
+This starts **`adb reverse tcp:7662 tcp:7662`** (for Cursor NDJSON ingest over USB), then **both** captures in parallel, and writes timestamped files under **eink-bridge**'s **`.cursor/logs/`** (override with **`DEBUG_CAPTURE_LOG_DIR`**). On each start it **prunes** older **`eink-bridge-*.log`** / **`obsidian-webview-*.log`** in that directory, keeping the **newest 5 per prefix** (set **`BOOX_CAPTURE_LOG_KEEP`** to change). **Bridge `logcat`** and **Obsidian WebView CDP** each **auto-reconnect** within the same session (same timestamped pair of files) when the underlying **`adb`** / process session ends. **Ctrl+C** stops both. Cursor agents run **`bash scripts/boox-debug-bootstrap.sh --force-restart`** from **eink-bridge** in the **background** (restarts capture so the latest scripts load; see **`eink-bridge/.cursor/rules/boox-usb-debug-automation.mdc`**). These commands do not launch Obsidian or Bridge — only port reverse and log capture.
 
 ### Boox drawing pipeline context
 

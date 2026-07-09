@@ -8,7 +8,12 @@ import {
 	convertLegacyToInkCanvasFileData,
 	convertLegacyJsonToInkFileData,
 	getLegacySvgPath,
+	getTestRunSvgPath,
+	buildTestRunSvgPathMap,
+	INK_TEST_CONVERSIONS_FOLDER,
 	scanVaultForLegacyEmbeds,
+	vaultHasLegacyInkFiles,
+	getLegacyInkFileType,
 	executeMigration,
 	VaultScanResult,
 	LegacyEmbedBlock,
@@ -196,6 +201,8 @@ describe('scanVaultForLegacyEmbeds', () => {
 	function makeTFile(path: string): TFile {
 		const file = new TFile();
 		(file as any).path = path;
+		const dotIndex = path.lastIndexOf('.');
+		(file as any).extension = dotIndex >= 0 ? path.substring(dotIndex + 1) : '';
 		return file;
 	}
 
@@ -204,11 +211,13 @@ describe('scanVaultForLegacyEmbeds', () => {
 		existingLegacyPaths: string[] = [LEGACY_PATH],
 	) {
 		const notePaths = Object.keys(noteContents);
+		const legacyFiles = existingLegacyPaths.map((p) => makeTFile(p));
 		const legacyFileByPath = Object.fromEntries(
-			existingLegacyPaths.map((p) => [p, makeTFile(p)]),
+			legacyFiles.map((f) => [f.path, f]),
 		);
 		return {
 			getMarkdownFiles: () => notePaths.map((p) => makeTFile(p)),
+			getFiles: () => legacyFiles,
 			read: jest.fn(async (note: TFile) => noteContents[note.path] ?? ''),
 			getAbstractFileByPath: jest.fn((path: string) => legacyFileByPath[path] ?? null),
 		};
@@ -217,6 +226,7 @@ describe('scanVaultForLegacyEmbeds', () => {
 	test('returns empty when no markdown files', async () => {
 		const vault = {
 			getMarkdownFiles: () => [],
+			getFiles: () => [],
 			read: jest.fn(),
 			getAbstractFileByPath: jest.fn(),
 		};
@@ -225,14 +235,25 @@ describe('scanVaultForLegacyEmbeds', () => {
 		expect(result.affectedNotes).toHaveLength(0);
 	});
 
-	test('returns empty when no legacy embeds in any file', async () => {
+	test('returns empty when no legacy files exist in vault', async () => {
 		const vault = makeScanVault({
 			'Notes/A.md': '# Title\n\nPlain text without embeds.',
 			'Notes/B.md': 'More plain text.',
-		});
+		}, []);
 		const result = await scanVaultForLegacyEmbeds(vault as any);
 		expect(result.legacyFiles).toHaveLength(0);
 		expect(result.affectedNotes).toHaveLength(0);
+	});
+
+	test('includes orphan legacy files not referenced by any note embed', async () => {
+		const vault = makeScanVault({
+			'Notes/A.md': '# Title\n\nPlain text without embeds.',
+		});
+		const result = await scanVaultForLegacyEmbeds(vault as any);
+		expect(result.legacyFiles).toHaveLength(1);
+		expect(result.legacyFiles[0].legacyFile.path).toBe(LEGACY_PATH);
+		expect(result.affectedNotes).toHaveLength(0);
+		expect(result.legacyFiles[0].referencingNotes).toHaveLength(0);
 	});
 
 	test('finds one legacy file and one affected note', async () => {
@@ -299,6 +320,36 @@ describe('scanVaultForLegacyEmbeds', () => {
 		expect(result.legacyFiles).toHaveLength(1);
 		expect(result.affectedNotes).toHaveLength(1);
 		expect(result.affectedNotes[0].path).toBe('Notes/B.md');
+	});
+});
+
+describe('vaultHasLegacyInkFiles', () => {
+	test('returns true when vault has .writing or .drawing files', () => {
+		const vault = {
+			getFiles: () => [
+				{ extension: 'writing', path: 'Ink/Writing/note.writing' },
+				{ extension: 'md', path: 'Notes/A.md' },
+			],
+		};
+		expect(vaultHasLegacyInkFiles(vault as any)).toBe(true);
+	});
+
+	test('returns false when vault has no legacy ink files', () => {
+		const vault = {
+			getFiles: () => [
+				{ extension: 'svg', path: 'Ink/Writing/note.svg' },
+				{ extension: 'md', path: 'Notes/A.md' },
+			],
+		};
+		expect(vaultHasLegacyInkFiles(vault as any)).toBe(false);
+	});
+});
+
+describe('getLegacyInkFileType', () => {
+	test('maps extensions to file types', () => {
+		expect(getLegacyInkFileType('Ink/Writing/note.writing')).toBe('writing');
+		expect(getLegacyInkFileType('Ink/Drawing/note.drawing')).toBe('drawing');
+		expect(getLegacyInkFileType('Ink/Writing/note.svg')).toBeNull();
 	});
 });
 
@@ -471,6 +522,7 @@ describe('executeMigration', () => {
 				if (options?.createThrows) throw new Error('permission denied');
 				created[path] = content;
 			}),
+			createFolder: jest.fn(async (_path: string) => {}),
 			delete: jest.fn(async (_f: TFile) => {
 				if (options?.deleteThrows) throw new Error('delete failed');
 				deleted.push(_f.path);
@@ -704,5 +756,46 @@ describe('executeMigration', () => {
 		await executeMigration(vault as any, scanResult, (done, total) => progressCalls.push([done, total]));
 
 		expect(progressCalls).toEqual([[1, 3], [2, 3], [3, 3]]);
+	});
+
+	test('test run writes to _ink-test-conversions without deleting or updating notes', async () => {
+		const legacyJson = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, legacyJson);
+		const testSvgPath = getTestRunSvgPath(LEGACY_WRITE_PATH);
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		const result = await executeMigration(vault as any, scanResult, undefined, { testRun: true });
+
+		expect(vault.createFolder).toHaveBeenCalledWith(INK_TEST_CONVERSIONS_FOLDER);
+		expect(testSvgPath).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/note.svg`);
+		expect((vault as any)._created[testSvgPath]).toBeDefined();
+		expect((vault as any)._created[NEW_SVG_PATH]).toBeUndefined();
+		expect(vault.delete).not.toHaveBeenCalled();
+		expect(vault.modify).not.toHaveBeenCalled();
+		expect(result.convertedFiles).toBe(1);
+		expect(result.updatedNotes).toBe(0);
+		expect(result.testRunOutputFolder).toBe(INK_TEST_CONVERSIONS_FOLDER);
+	});
+
+	test('test run disambiguates conflicting basenames with _1, _2 suffixes', () => {
+		const pathMap = buildTestRunSvgPathMap([
+			'Ink/Writing/foo.writing',
+			'Ink/Drawing/foo.drawing',
+			'Archive/foo.writing',
+		]);
+
+		expect(pathMap.get('Ink/Writing/foo.writing')).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/foo.svg`);
+		expect(pathMap.get('Ink/Drawing/foo.drawing')).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/foo_1.svg`);
+		expect(pathMap.get('Archive/foo.writing')).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/foo_2.svg`);
 	});
 });

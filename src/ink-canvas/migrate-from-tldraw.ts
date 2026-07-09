@@ -1,7 +1,7 @@
 import { WRITING_LINE_HEIGHT } from 'src/constants';
-import { buildInkStrokeStyleForTreatAs } from './stroke-presets';
 import type { InkCanvasSnapshot, InkPoint, InkStroke, InkStrokeStyle } from './types';
 import { DEFAULT_STROKE_STYLE } from './types';
+import { INK_STROKE_ZOOM_REFERENCE } from './stroke-zoom-scale';
 
 ///////////////////////////
 ///////////////////////////
@@ -202,19 +202,33 @@ function convertDrawShape(shape: TldrawDrawRecord, captureZoom: number): InkStro
 
 function mapTldrawStyle(
 	props: TldrawDrawRecord['props'],
-	captureZoom: number,
+	_captureZoom: number,
 ): InkStrokeStyle {
 	const basePx = TLDRAW_SIZE_TO_PX[props.size] ?? TLDRAW_SIZE_TO_PX['m'];
 	// tldraw's draw shape renderer uses `1 + size * 1.5` as the effective
 	// perfect-freehand size. We replicate that here.
 	const effectiveSize = 1 + basePx * 1.5;
-	const treatAs = props.isPen ? 'pen' : 'mouse';
 
-	const base: InkStrokeStyle = {
+	return buildTldrawMigrationStrokeStyle(props, effectiveSize);
+}
+
+/**
+ * Stroke style for tldraw → ink-canvas migration only.
+ *
+ * Uses {@link DEFAULT_STROKE_STYLE} smoothing (streamline/smoothing 0.5) so baked SVG paths
+ * match legacy tldraw preview. Live ink-canvas pen presets (streamline 0) are intentionally
+ * more faithful to raw points and look jagged on migrated captures.
+ */
+export function buildTldrawMigrationStrokeStyle(
+	props: TldrawDrawRecord['props'],
+	effectiveSize: number,
+): InkStrokeStyle {
+	return {
 		...DEFAULT_STROKE_STYLE,
 		size: effectiveSize,
 		color: 'currentColor',
+		simulatePressure: !props.isPen,
+		inputKind: props.isPen ? 'pen' : 'mouse',
+		captureZoom: INK_STROKE_ZOOM_REFERENCE,
 	};
-
-	return buildInkStrokeStyleForTreatAs(base, treatAs, captureZoom);
 }

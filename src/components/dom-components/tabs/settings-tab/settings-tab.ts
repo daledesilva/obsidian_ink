@@ -11,6 +11,7 @@ import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-acc
 import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggle-setting/two-way-toggle-setting';
 import { ThreeWayToggleSetting } from 'src/components/dom-components/three-way-toggle-setting/three-way-toggle-setting';
 import { setDominantHand } from 'src/stores/dominant-hand-store';
+import { vaultHasLegacyInkFiles } from 'src/logic/utils/migration-logic';
 import type { StrokeInputEditorKind, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import {
 	getBooxConnectionEnabled,
@@ -34,6 +35,7 @@ export function registerSettingsTab(plugin: InkPlugin) {
 export class MySettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
 	private unsubscribeDeviceSettings?: () => void;
+	private legacyMigrateScanGeneration = 0;
 
 	constructor(app: App, plugin: MyPlugin) {
 		super(app, plugin);
@@ -52,6 +54,8 @@ export class MySettingsTab extends PluginSettingTab {
 		
 		containerEl.createEl('hr');
 		insertGettingStartedSection(containerEl, this.plugin);
+		const migrateWrapper = insertMigrateSection(containerEl, this.plugin);
+		void this.refreshLegacyMigrateSectionVisibility(migrateWrapper);
 
 		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
 		// The callbacks only fire on user interaction, after display() has completed
@@ -77,6 +81,8 @@ export class MySettingsTab extends PluginSettingTab {
 				fingerDrawingToggle = toggle;
 			},
 		);
+
+		insertTldrawSvgMigrateSection(containerEl, this.plugin);
 
 		containerEl.createEl('hr');
 		const strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[] = [];
@@ -125,8 +131,28 @@ export class MySettingsTab extends PluginSettingTab {
 	}
 
 	hide(): void {
+		this.legacyMigrateScanGeneration++;
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
+	}
+
+	private async refreshLegacyMigrateSectionVisibility(wrapperEl: HTMLElement) {
+		const generation = ++this.legacyMigrateScanGeneration;
+		await Promise.resolve();
+
+		if (generation !== this.legacyMigrateScanGeneration) return;
+
+		const hasLegacyFiles = vaultHasLegacyInkFiles(this.plugin.app.vault);
+		if (!hasLegacyFiles) return;
+
+		if (generation !== this.legacyMigrateScanGeneration) return;
+
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				if (generation !== this.legacyMigrateScanGeneration) return;
+				wrapperEl.classList.add('ddc_ink_expanded');
+			});
+		});
 	}
 }
 
@@ -178,6 +204,47 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 			btn.setButtonText('Rewatch welcome tips');
 			btn.setCta();
 			btn.onClick(() => showWelcomeTips(plugin));
+		});
+}
+
+function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
+	const wrapperEl = containerEl.createDiv('ddc_ink_legacy-migrate-card-wrapper');
+	const innerEl = wrapperEl.createDiv('ddc_ink_legacy-migrate-card-inner');
+	const cardEl = innerEl.createDiv('ddc_ink_legacy-migrate-card');
+
+	cardEl.createDiv({
+		cls: 'ddc_ink_legacy-migrate-card-title',
+		text: 'Migrate Legacy Ink Files',
+	});
+
+	cardEl.createDiv({
+		cls: 'ddc_ink_legacy-migrate-card-desc',
+		text: 'This version of Ink uses a new SVG format. To use the newer features, you\'ll need to migrate your legacy Ink files.',
+	});
+
+	new Setting(cardEl)
+		.setClass('ddc_ink_bare-setting')
+		.setClass('ddc_ink_bare-setting--left')
+		.setClass('ddc_ink_legacy-migrate-card-action')
+		.addButton((button) => {
+			button.setCta();
+			button.setButtonText('Show migration options…');
+			button.onClick(() => plugin.openMigrationModal());
+		});
+
+	return wrapperEl;
+}
+
+function insertTldrawSvgMigrateSection(containerEl: HTMLElement, plugin: InkPlugin) {
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Developer: Migrate tldraw SVG to ink-canvas')
+		.setDesc(
+			'Bulk-convert v2 SVG files still on <tldraw> metadata (referenced by embeds) to ink-canvas in place. Drawing embed viewBox is refit to stroke bounds.',
+		)
+		.addButton((button) => {
+			button.setButtonText('Migrate tldraw SVGs…');
+			button.onClick(() => plugin.openTldrawSvgMigrationModal());
 		});
 }
 

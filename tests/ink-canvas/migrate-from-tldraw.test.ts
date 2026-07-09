@@ -2,15 +2,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, test } from '@jest/globals';
 import {
+	buildTldrawMigrationStrokeStyle,
 	migrateFromTldraw,
 	migrateWritingFromTldraw,
 	type TldrawSnapshotForMigration,
 } from 'src/ink-canvas/migrate-from-tldraw';
-import {
-	MOUSE_NUMERIC_STROKE_PARTIAL,
-	PEN_NUMERIC_STROKE_PARTIAL,
-} from 'src/ink-canvas/stroke-presets';
 import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
+import { DEFAULT_STROKE_STYLE } from 'src/ink-canvas/types';
 import type { InkStroke } from 'src/ink-canvas/types';
 
 const LEGACY_WRITING_FIXTURE = path.join(
@@ -25,33 +23,25 @@ function expectAllStrokesUseThemeColor(strokes: InkStroke[]): void {
 	}
 }
 
-function expectMouseStrokePreset(stroke: InkStroke): void {
-	expect(stroke.style.inputKind).toBe('mouse');
-	expect(stroke.style.thinning).toBe(MOUSE_NUMERIC_STROKE_PARTIAL.thinning);
-	expect(stroke.style.smoothing).toBe(MOUSE_NUMERIC_STROKE_PARTIAL.smoothing);
-	expect(stroke.style.streamline).toBe(MOUSE_NUMERIC_STROKE_PARTIAL.streamline);
-	expect(stroke.style.simulatePressure).toBe(MOUSE_NUMERIC_STROKE_PARTIAL.simulatePressure);
-}
-
-function expectPenStrokePreset(stroke: InkStroke): void {
-	expect(stroke.style.inputKind).toBe('pen');
-	expect(stroke.style.thinning).toBe(PEN_NUMERIC_STROKE_PARTIAL.thinning);
-	expect(stroke.style.smoothing).toBe(PEN_NUMERIC_STROKE_PARTIAL.smoothing);
-	expect(stroke.style.streamline).toBe(PEN_NUMERIC_STROKE_PARTIAL.streamline);
-	expect(stroke.style.simulatePressure).toBe(PEN_NUMERIC_STROKE_PARTIAL.simulatePressure);
+function expectTldrawMigrationStrokePreset(stroke: InkStroke, isPen: boolean): void {
+	expect(stroke.style.inputKind).toBe(isPen ? 'pen' : 'mouse');
+	expect(stroke.style.thinning).toBe(DEFAULT_STROKE_STYLE.thinning);
+	expect(stroke.style.smoothing).toBe(DEFAULT_STROKE_STYLE.smoothing);
+	expect(stroke.style.streamline).toBe(DEFAULT_STROKE_STYLE.streamline);
+	expect(stroke.style.simulatePressure).toBe(!isPen);
 }
 
 describe('migrate-from-tldraw stroke styles', () => {
-	test('legacy writing fixture uses currentColor and mouse presets', () => {
+	test('legacy writing fixture uses tldraw migration smoothing (not live pen preset)', () => {
 		const legacy = JSON.parse(fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8')) as {
 			tldraw: TldrawSnapshotForMigration;
 		};
 		const migrated = migrateWritingFromTldraw(legacy.tldraw);
 		expectAllStrokesUseThemeColor(migrated.strokes);
-		expectMouseStrokePreset(migrated.strokes[0]);
+		expectTldrawMigrationStrokePreset(migrated.strokes[0], false);
 	});
 
-	test('legacy drawing fixture uses currentColor and mouse presets', () => {
+	test('legacy drawing fixture uses tldraw migration smoothing', () => {
 		const legacyDrawingFixture = path.join(
 			__dirname,
 			'../../qa-test-vault/fixtures/legacy-drawing-fixture.drawing',
@@ -62,7 +52,7 @@ describe('migrate-from-tldraw stroke styles', () => {
 		const migrated = migrateFromTldraw(legacy.tldraw);
 		expect(migrated.camera).toBeUndefined();
 		expectAllStrokesUseThemeColor(migrated.strokes);
-		expectMouseStrokePreset(migrated.strokes[0]);
+		expectTldrawMigrationStrokePreset(migrated.strokes[0], false);
 	});
 
 	test('exported SVG uses baked primary stroke fill and classes', () => {
@@ -76,7 +66,7 @@ describe('migrate-from-tldraw stroke styles', () => {
 		expect(svgString).not.toContain('fill="currentColor"');
 	});
 
-	test('pen shapes get pen numeric preset', () => {
+	test('pen shapes keep migration smoothing with simulatePressure off', () => {
 		const snapshot: TldrawSnapshotForMigration = {
 			store: {
 				'shape:pen': {
@@ -105,7 +95,22 @@ describe('migrate-from-tldraw stroke styles', () => {
 		};
 		const migrated = migrateFromTldraw(snapshot);
 		expect(migrated.strokes).toHaveLength(1);
-		expectPenStrokePreset(migrated.strokes[0]);
+		expectTldrawMigrationStrokePreset(migrated.strokes[0], true);
 		expect(migrated.strokes[0].style.color).toBe('currentColor');
+	});
+
+	test('buildTldrawMigrationStrokeStyle maps medium size to tldraw effective width', () => {
+		const style = buildTldrawMigrationStrokeStyle(
+			{
+				color: 'black',
+				size: 'm',
+				isPen: true,
+				isComplete: true,
+				segments: [],
+			},
+			6.25,
+		);
+		expect(style.size).toBe(6.25);
+		expect(style.streamline).toBe(0.5);
 	});
 });

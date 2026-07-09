@@ -4,6 +4,8 @@ import InkPlugin from 'src/main';
 import {
 	VaultScanResult,
 	MigrationResult,
+	MigrationOptions,
+	INK_TEST_CONVERSIONS_FOLDER,
 	scanVaultForLegacyEmbeds,
 	executeMigration,
 } from 'src/logic/utils/migration-logic';
@@ -23,6 +25,7 @@ export class MigrationModal extends Modal {
 	private phase: Phase = Phase.Scanning;
 	private scanResult: VaultScanResult | null = null;
 	private migrationResult: MigrationResult | null = null;
+	private migrationOptions: MigrationOptions = { testRun: false };
 
 	// DOM refs
 	private progressBarInnerEl: HTMLElement | null = null;
@@ -64,13 +67,10 @@ export class MigrationModal extends Modal {
 		this.remainingCountEl = this.createStat(statsEl, '0', 'remaining').countEl;
 		this.convertedCountEl = this.createStat(statsEl, '0', 'found').countEl;
 
-		// Start scanning asynchronously
 		void this.runScan();
 	}
 
 	private async runScan() {
-		const total = this.plugin.app.vault.getMarkdownFiles().length;
-
 		try {
 			this.scanResult = await scanVaultForLegacyEmbeds(
 				this.plugin.app.vault,
@@ -101,7 +101,7 @@ export class MigrationModal extends Modal {
 	private renderNothingToMigrate() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.createEl('p', { text: 'No legacy ink embeds were found in your vault. Nothing to migrate.' });
+		contentEl.createEl('p', { text: 'No legacy Ink files were found in your vault. Nothing to migrate.' });
 
 		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
 		const doneBtn = buttonsEl.createEl('button', { cls: 'mod-cta', text: 'Done' });
@@ -116,30 +116,60 @@ export class MigrationModal extends Modal {
 		const scan = this.scanResult!;
 		contentEl.empty();
 
+		this.titleEl.setText('Migrate Legacy Ink Files to New Format');
+
+		const legacyFileCount = scan.legacyFiles.length;
+		const noteCount = scan.affectedNotes.length;
 		contentEl.createEl('p', {
-			text: `Found ${scan.legacyFiles.length} legacy embed file${scan.legacyFiles.length !== 1 ? 's' : ''} and ${scan.affectedNotes.length} note${scan.affectedNotes.length !== 1 ? 's' : ''} to update. Each file will be converted to SVG with ink-canvas metadata (strokes migrated from the legacy tldraw snapshot). Strokes that were hidden by the legacy editor stash cannot be recovered. Review below and confirm.`,
+			text: `Found ${legacyFileCount} legacy Ink file${legacyFileCount !== 1 ? 's' : ''} and ${noteCount} note${noteCount !== 1 ? 's' : ''} to update. This modal will allow you to migrate these to the newest SVG format.`,
 		});
 
-		// List: embeds to convert
-		this.renderList(
-			contentEl,
-			`Embeds that will be converted (${scan.legacyFiles.length})`,
-			scan.legacyFiles.map(e => e.legacyFile.path),
-		);
-
-		// List: notes to update
-		this.renderList(
-			contentEl,
-			`Notes that will have their links updated (${scan.affectedNotes.length})`,
-			scan.affectedNotes.map(n => n.path),
-		);
+		this.renderMigrationChoiceCards(contentEl);
 
 		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
 		const cancelBtn = buttonsEl.createEl('button', { text: 'Cancel' });
 		cancelBtn.addEventListener('click', () => this.close());
+	}
 
-		const migrateBtn = buttonsEl.createEl('button', { cls: 'mod-cta', text: 'Migrate' });
-		migrateBtn.addEventListener('click', () => this.renderMigratingPhase());
+	private renderMigrationChoiceCards(parent: HTMLElement) {
+		const gridEl = parent.createDiv({ cls: 'ddc_ink_migration-choice-grid' });
+
+		const testCard = gridEl.createDiv({ cls: 'ddc_ink_migration-choice-card' });
+		testCard.setAttribute('role', 'button');
+		testCard.setAttribute('tabindex', '0');
+		testCard.createDiv({ cls: 'ddc_ink_migration-choice-card-title', text: 'Test Migration' });
+		testCard.createDiv({
+			cls: 'ddc_ink_migration-choice-card-desc',
+			text: 'Convert legacy files into the new format without deleting the old files. Validate the conversion works before migrating permanently.',
+		});
+		testCard.addEventListener('click', () => this.startMigration({ testRun: true }));
+		testCard.addEventListener('keydown', (ev) => {
+			if (ev.key === 'Enter' || ev.key === ' ') {
+				ev.preventDefault();
+				this.startMigration({ testRun: true });
+			}
+		});
+
+		const permanentCard = gridEl.createDiv({ cls: 'ddc_ink_migration-choice-card' });
+		permanentCard.setAttribute('role', 'button');
+		permanentCard.setAttribute('tabindex', '0');
+		permanentCard.createDiv({ cls: 'ddc_ink_migration-choice-card-title', text: 'Migrate Permanently' });
+		permanentCard.createDiv({
+			cls: 'ddc_ink_migration-choice-card-desc',
+			text: 'Convert the legacy files to the new format, delete the legacy files, and update links in all notes to the new files.',
+		});
+		permanentCard.addEventListener('click', () => this.startMigration({ testRun: false }));
+		permanentCard.addEventListener('keydown', (ev) => {
+			if (ev.key === 'Enter' || ev.key === ' ') {
+				ev.preventDefault();
+				this.startMigration({ testRun: false });
+			}
+		});
+	}
+
+	private startMigration(options: MigrationOptions) {
+		this.migrationOptions = options;
+		this.renderMigratingPhase();
 	}
 
 	private renderList(parent: HTMLElement, title: string, items: string[]) {
@@ -163,14 +193,20 @@ export class MigrationModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		this.statusTextEl = contentEl.createDiv({ cls: 'ddc_ink_migration-status-text', text: 'Migrating…' });
+		const isTestRun = this.migrationOptions.testRun === true;
+		this.statusTextEl = contentEl.createDiv({
+			cls: 'ddc_ink_migration-status-text',
+			text: isTestRun ? 'Running test migration…' : 'Migrating…',
+		});
 
 		const progressBarEl = contentEl.createDiv({ cls: 'ddc_ink_migration-progress-bar' });
 		this.progressBarInnerEl = progressBarEl.createDiv({ cls: 'ddc_ink_migration-progress-bar-inner' });
 
+		const fileCount = this.scanResult!.legacyFiles.length;
+		const noteCount = isTestRun ? 0 : this.scanResult!.affectedNotes.length;
 		const statsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-stats' });
 		this.convertedCountEl = this.createStat(statsEl, '0', 'converted').countEl;
-		this.remainingCountEl = this.createStat(statsEl, String(this.scanResult!.legacyFiles.length + this.scanResult!.affectedNotes.length), 'remaining').countEl;
+		this.remainingCountEl = this.createStat(statsEl, String(fileCount + noteCount), 'remaining').countEl;
 		this.skippedCountEl = this.createStat(statsEl, '0', 'skipped').countEl;
 		this.failedCountEl = this.createStat(statsEl, '0', 'failed').countEl;
 
@@ -182,15 +218,13 @@ export class MigrationModal extends Modal {
 
 	private async runMigration() {
 		const scan = this.scanResult!;
-		const total = scan.legacyFiles.length + scan.affectedNotes.length;
-		let done = 0;
+		const isTestRun = this.migrationOptions.testRun === true;
 
 		try {
 			this.migrationResult = await executeMigration(
 				this.plugin.app.vault,
 				scan,
 				(d, tot) => {
-					done = d;
 					const pct = tot > 0 ? (d / tot) * 100 : 100;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(tot - d));
@@ -201,6 +235,7 @@ export class MigrationModal extends Modal {
 						if (this.failedCountEl) this.failedCountEl.setText(String(this.migrationResult.failed.length));
 					}
 				},
+				this.migrationOptions,
 			);
 		} catch (err) {
 			if (this.statusTextEl) this.statusTextEl.setText('Migration failed: ' + String(err));
@@ -216,11 +251,31 @@ export class MigrationModal extends Modal {
 		this.phase = Phase.Done;
 		const { contentEl } = this;
 		const result = this.migrationResult!;
+		const isTestRun = this.migrationOptions.testRun === true;
 		contentEl.empty();
 
-		contentEl.createEl('p', {
-			text: `Migration complete. ${result.convertedFiles} file${result.convertedFiles !== 1 ? 's' : ''} converted, ${result.updatedNotes} note${result.updatedNotes !== 1 ? 's' : ''} updated.`,
-		});
+		if (isTestRun) {
+			this.titleEl.setText('Test Migration Complete');
+
+			const hasFailures = result.failed.length > 0;
+			const summary = hasFailures
+				? `Test migration finished with errors. ${result.convertedFiles} file${result.convertedFiles !== 1 ? 's' : ''} written to ${INK_TEST_CONVERSIONS_FOLDER}/.`
+				: `Test migration complete. ${result.convertedFiles} file${result.convertedFiles !== 1 ? 's' : ''} written to ${INK_TEST_CONVERSIONS_FOLDER}/.`;
+			contentEl.createEl('p', { text: summary });
+
+			const whatsNextEl = contentEl.createDiv({ cls: 'ddc_ink_migration-whats-next' });
+			whatsNextEl.createEl('p', { text: "What's next:" });
+			const stepsEl = whatsNextEl.createEl('ul');
+			stepsEl.createEl('li', {
+				text: `Check conversion tests in ${INK_TEST_CONVERSIONS_FOLDER}/.`,
+			});
+			stepsEl.createEl('li', { text: 'If satisfied, delete test conversions folder.' });
+			stepsEl.createEl('li', { text: 'Run migration again permanently.' });
+		} else {
+			contentEl.createEl('p', {
+				text: `Migration complete. ${result.convertedFiles} file${result.convertedFiles !== 1 ? 's' : ''} converted, ${result.updatedNotes} note${result.updatedNotes !== 1 ? 's' : ''} updated.`,
+			});
+		}
 
 		if (result.skipped.length > 0) {
 			this.renderList(contentEl, `Skipped (${result.skipped.length})`, result.skipped);
@@ -232,7 +287,7 @@ export class MigrationModal extends Modal {
 
 		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
 
-		if (result.updatedNotePaths.length > 0) {
+		if (!isTestRun && result.updatedNotePaths.length > 0) {
 			if (result.updatedNotePaths.length > 10) {
 				const randomBtn = buttonsEl.createEl('button', { text: 'Open 10 random notes' });
 				randomBtn.addEventListener('click', () => {

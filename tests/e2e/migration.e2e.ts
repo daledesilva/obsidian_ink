@@ -2,6 +2,31 @@ import { browser, expect } from "@wdio/globals";
 import { obsidianPage } from "wdio-obsidian-service";
 import { dismissBlockingPopups } from "./helpers/dismiss-popups";
 
+async function waitForMigrationConfirmPhase(timeout = 10000) {
+	await browser.waitUntil(
+		async () => {
+			const text = await browser.execute(() => {
+				const modal = document.querySelector(".modal-container");
+				return modal?.textContent ?? '';
+			});
+			return text.includes('legacy Ink') || text.includes('newest SVG format');
+		},
+		{ timeout },
+	);
+}
+
+async function clickMigratePermanentlyCard() {
+	await browser.execute(() => {
+		const cards = document.querySelectorAll(".modal-container .ddc_ink_migration-choice-card");
+		for (const card of cards) {
+			if (card.textContent?.includes('Migrate Permanently')) {
+				(card as HTMLElement).click();
+				return;
+			}
+		}
+	});
+}
+
 describe("Legacy Embed Migration", function () {
 	before(async function () {
 		await browser.reloadObsidian({ vault: "qa-test-vault" });
@@ -37,50 +62,18 @@ describe("Legacy Embed Migration", function () {
 	});
 
 	it("modal scans and shows legacy files found", async function () {
-		// Modal is already open from previous test; wait for scan to finish
-		// The scan phase shows stats and then transitions to confirm
-		await browser.waitUntil(
-			async () => {
-				const text = await browser.execute(() => {
-					const modal = document.querySelector(".modal-container");
-					return modal?.textContent ?? '';
-				});
-				return text.includes('Migrate') || text.includes('convert');
-			},
-			{ timeout: 10000 }
-		);
+		await waitForMigrationConfirmPhase();
 
 		const modalText = await browser.execute(() => {
 			const modal = document.querySelector(".modal-container");
 			return modal ? modal.textContent : '';
 		});
-		// Should show at least 1 embed to convert
-		expect(modalText).toBeTruthy();
+		expect(modalText).toContain('legacy Ink');
 	});
 
 	it("migration executes successfully and converts legacy files", async function () {
-		// Find and click the Migrate button
-		await browser.waitUntil(
-			async () => {
-				const buttons = await browser.$$(".modal-container button");
-				for (const btn of buttons) {
-					const text = await btn.getText();
-					if (text.trim() === 'Migrate') return true;
-				}
-				return false;
-			},
-			{ timeout: 8000 }
-		);
-
-		await browser.execute(() => {
-			const buttons = document.querySelectorAll(".modal-container button");
-			for (const btn of buttons) {
-				if (btn.textContent?.trim() === 'Migrate') {
-					(btn as HTMLElement).click();
-					break;
-				}
-			}
-		});
+		await waitForMigrationConfirmPhase(8000);
+		await clickMigratePermanentlyCard();
 
 		// Wait for migration to complete (Done button appears)
 		await browser.waitUntil(
@@ -260,18 +253,9 @@ describe("Migration: cancel", function () {
 		await browser.executeObsidian(({ app }) => {
 			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
 		});
-		await browser.waitUntil(
-			async () => {
-				const buttons = await browser.$$(".modal-container button");
-				for (const btn of buttons) {
-					if ((await btn.getText()).trim() === 'Migrate') return true;
-				}
-				return false;
-			},
-			{ timeout: 10000 }
-		);
+		await waitForMigrationConfirmPhase();
 
-		// Click Cancel instead of Migrate
+		// Click Cancel instead of migrating
 		await browser.execute(() => {
 			const buttons = document.querySelectorAll(".modal-container button");
 			for (const btn of buttons) {
@@ -322,26 +306,8 @@ describe("Migration: multi-note embed update", function () {
 			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
 		});
 
-		await browser.waitUntil(
-			async () => {
-				const buttons = await browser.$$(".modal-container button");
-				for (const btn of buttons) {
-					if ((await btn.getText()).trim() === 'Migrate') return true;
-				}
-				return false;
-			},
-			{ timeout: 10000 }
-		);
-
-		await browser.execute(() => {
-			const buttons = document.querySelectorAll(".modal-container button");
-			for (const btn of buttons) {
-				if (btn.textContent?.trim() === 'Migrate') {
-					(btn as HTMLElement).click();
-					break;
-				}
-			}
-		});
+		await waitForMigrationConfirmPhase();
+		await clickMigratePermanentlyCard();
 
 		await browser.waitUntil(
 			async () => {

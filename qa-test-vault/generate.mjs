@@ -494,6 +494,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
 - **16 – V2 Tldraw Migration**: Real v2 \`<tldraw>\` SVGs; preview, edit, upgrade to ink-canvas on save
 - **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
+- **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
@@ -501,6 +502,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   generateCopyPastePathsTestAssets();
   generateV2TldrawMigrationAssets();
   generateTldrawBulkMigrationAssets();
+  generateCapturedLegacyMigrationAssets();
 
   ensureDir('.obsidian');
   // Enable community plugins needed for column layout e2e tests.
@@ -873,6 +875,102 @@ Bulk-convert tldraw SVG files to ink-canvas via **Settings → Developer: Migrat
 7. Unlock drawing embed — strokes framed correctly (fitted viewBox).
 
 E2e resets \`Ink/Drawing/bulk-tldraw-drawing.svg\` and \`Ink/Writing/bulk-tldraw-writing.svg\` from \`_test-fixtures/\` before each run.
+`);
+}
+
+// ─── Section 18: Captured Legacy Migration (real .writing / .drawing files) ───
+
+const CAPTURED_LEGACY_FIXTURES = [
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-07-22-2152.writing' },
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-07-22-2202.writing' },
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-07-22-2348.writing' },
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-08-06-2302.writing' },
+  { fileType: 'drawing', fixtureFile: 'captured-legacy-drawing-2025-03-16-1327.drawing' },
+  { fileType: 'drawing', fixtureFile: 'captured-legacy-drawing-2025-03-16-1330.drawing' },
+];
+
+function capturedLegacyVaultBasename(fixtureFile) {
+  return fixtureFile.replace(/\.(writing|drawing)$/, '');
+}
+
+function generateCapturedLegacyMigrationAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '18 - Captured Legacy Migration'));
+
+  function buildLegacyWritingEmbed(filepath) {
+    return `\`\`\`handwritten-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath })}\n\`\`\``;
+  }
+  function buildLegacyDrawingEmbed(filepath) {
+    return `\`\`\`handdrawn-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath, width: 500, aspectRatio: 1 })}\n\`\`\``;
+  }
+
+  const writingNotes = [];
+  const drawingNotes = [];
+
+  for (const { fileType, fixtureFile } of CAPTURED_LEGACY_FIXTURES) {
+    const basename = capturedLegacyVaultBasename(fixtureFile);
+    const vaultSubfolder = fileType === 'writing' ? 'Ink/Writing' : 'Ink/Drawing';
+    const vaultPath = `${vaultSubfolder}/${basename}.${fileType === 'writing' ? 'writing' : 'drawing'}`;
+    const src = path.join(FIXTURES, fixtureFile);
+    const dest = path.join(VAULT_ROOT, vaultPath);
+    fs.copyFileSync(src, dest);
+
+    const slug = basename.replace(/^captured-legacy-(writing|drawing)-/, '');
+    const notePath = `18 - Captured Legacy Migration/${fileType === 'writing' ? 'Writing' : 'Drawing'} - ${slug}.md`;
+    const embed =
+      fileType === 'writing'
+        ? buildLegacyWritingEmbed(vaultPath)
+        : buildLegacyDrawingEmbed(vaultPath);
+
+    writeFile(notePath, `# Captured Legacy ${fileType === 'writing' ? 'Writing' : 'Drawing'} — ${slug}
+
+Real v1 \`.${fileType === 'writing' ? 'writing' : 'drawing'}\` capture (moved from ink-suite repo root into \`fixtures/${fixtureFile}\`).
+
+Run **Migrate legacy ink embeds** from the command palette, then verify:
+
+- Legacy file \`${vaultPath}\` is removed
+- \`${vaultSubfolder}/${basename}.svg\` exists with \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\`
+- This note's code block is replaced with a current-format image embed
+
+${embed}
+`);
+
+    if (fileType === 'writing') {
+      writingNotes.push({ notePath, vaultPath, basename });
+    } else {
+      drawingNotes.push({ notePath, vaultPath, basename });
+    }
+  }
+
+  const writingList = writingNotes
+    .map((n) => `- \`${n.notePath}\` → \`${n.vaultPath}\``)
+    .join('\n');
+  const drawingList = drawingNotes
+    .map((n) => `- \`${n.notePath}\` → \`${n.vaultPath}\``)
+    .join('\n');
+
+  writeFile('18 - Captured Legacy Migration/README.md', `# Captured Legacy Migration
+
+Real v1 \`.writing\` / \`.drawing\` files captured from production vaults and checked into \`fixtures/\` (originally at the ink-suite repo root).
+
+Unit tests: \`tests/logic/utils/captured-legacy-fixture-migration.test.ts\`
+
+## Manual checklist
+
+1. Run \`node qa-test-vault/generate.mjs\` to reset vault.
+2. Open each note below — legacy embed should render in v1 preview.
+3. Command palette → **Migrate legacy ink embeds** → confirm all six files are listed.
+4. Run migration; verify each legacy file becomes \`.svg\` with ink-canvas metadata.
+5. Re-open notes — current-format embeds should preview correctly.
+
+## Writing captures
+
+${writingList}
+
+## Drawing captures
+
+${drawingList}
 `);
 }
 

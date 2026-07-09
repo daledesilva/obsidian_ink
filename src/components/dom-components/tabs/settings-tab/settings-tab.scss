@@ -1,3 +1,72 @@
+.ddc_ink_legacy-migrate-card-wrapper {
+	display: grid;
+	grid-template-rows: 0fr;
+	overflow: hidden;
+	margin-bottom: 0;
+	transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+	&.ddc_ink_expanded {
+		grid-template-rows: 1fr;
+		margin-bottom: 2em;
+	}
+}
+
+.ddc_ink_legacy-migrate-card-inner {
+	min-height: 0;
+	overflow: hidden;
+	transform-origin: top center;
+	transform: scaleY(0);
+	opacity: 0;
+	transition:
+		transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+		opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+	.ddc_ink_legacy-migrate-card-wrapper.ddc_ink_expanded & {
+		transform: scaleY(1);
+		opacity: 1;
+	}
+}
+
+.ddc_ink_legacy-migrate-card {
+	margin-bottom: 0;
+	padding: 1.1em 1.25em;
+	border-radius: var(--radius-l);
+
+	.ddc_ink_legacy-migrate-card-title {
+		font-weight: 600;
+		font-size: var(--font-ui-medium);
+		margin-bottom: 0.45em;
+	}
+
+	.ddc_ink_legacy-migrate-card-desc {
+		font-size: 0.9em;
+		line-height: 1.5;
+		margin-bottom: 0.85em;
+	}
+
+	.ddc_ink_legacy-migrate-card-action {
+		margin-block-end: 0;
+	}
+}
+
+.theme-dark .ddc_ink_legacy-migrate-card {
+	background-color: hsl(0, 0%, 94%);
+	color: hsl(0, 0%, 8%);
+
+	.ddc_ink_legacy-migrate-card-desc {
+		color: hsl(0, 0%, 22%);
+	}
+}
+
+.theme-light .ddc_ink_legacy-migrate-card {
+	background-color: hsl(0, 0%, 16%);
+	color: hsl(0, 0%, 96%);
+
+	.ddc_ink_legacy-migrate-card-desc {
+		color: hsl(0, 0%, 82%);
+	}
+}
+
 .ddc_ink_section {
     margin-bottom: 2em;
 }

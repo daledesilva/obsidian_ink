@@ -4,6 +4,8 @@ Stage all relevant changes, write a commit message in the required format, commi
 
 Any text after `/commit` is optional context — e.g. a ClickUp task ID (`/commit 86abc1234`) or a hint about what changed.
 
+If any files have changed or gone missing since your last edits, ignore them because the user probably changed them on purpose. Do not redo anything — just commit the files as they are.
+
 ## Git safety
 
 - NEVER update the git config

@@ -431,14 +431,9 @@ export async function executeMigration(
 				testRunSvgPathByLegacyPath,
 			);
 
-			// Check if SVG file already exists (test runs overwrite prior outputs)
+			// Permanent runs overwrite a same-path SVG when present so re-migration replaces
+			// stale output; legacy is deleted only after that write succeeds.
 			const existing = vault.getAbstractFileByPath(outputSvgPath);
-			if (existing instanceof TFile && !isTestRun) {
-				result.skipped.push(outputSvgPath + ' (already exists)');
-				done++;
-				onProgress?.(done, total);
-				continue;
-			}
 
 			if (!isTestRun && entry.fileType === 'drawing' && inkFileData.inkCanvas) {
 				const embedSettings = buildDrawingEmbedSettingsFromStrokes(
@@ -451,13 +446,28 @@ export async function executeMigration(
 
 			const svgStr = buildFileStr(inkFileData);
 			if (existing instanceof TFile) {
-				await vault.modify(existing, svgStr);
+				try {
+					await vault.modify(existing, svgStr);
+				} catch (err: unknown) {
+					const detail = err instanceof Error ? err.message : String(err);
+					throw new Error('failed to overwrite existing SVG – ' + detail);
+				}
 			} else {
-				await vault.create(outputSvgPath, svgStr);
+				try {
+					await vault.create(outputSvgPath, svgStr);
+				} catch (err: unknown) {
+					const detail = err instanceof Error ? err.message : String(err);
+					throw new Error('failed to create SVG – ' + detail);
+				}
 			}
 
 			if (shouldDeleteLegacyFiles) {
-				await vault.delete(entry.legacyFile);
+				try {
+					await vault.delete(entry.legacyFile);
+				} catch (err: unknown) {
+					const detail = err instanceof Error ? err.message : String(err);
+					throw new Error('failed to delete legacy file – ' + detail);
+				}
 			}
 			result.convertedFiles++;
 		} catch (err: unknown) {

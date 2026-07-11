@@ -60,25 +60,38 @@ The **Migrate legacy ink embeds** flow ([`migration-logic.ts`](../src/logic/util
 
 1. Scans markdown for legacy code blocks and collects referenced legacy files.
 2. For each legacy file, runs `convertLegacyToInkCanvasFileData`: migrate tldraw draw shapes → `InkCanvasSnapshot`, render SVG paths, write `<ink-canvas version="…">` via `buildFileStr` (not an intermediate tldraw-on-disk SVG).
-3. Replaces code blocks in notes with current `![InkWriting]` / `![InkDrawing]` embeds.
+3. Writes the SVG beside the legacy file (same basename, `.svg`). If that path already exists, **permanent** migration **overwrites** it; the legacy file is deleted only after that write succeeds.
+4. Replaces code blocks in notes with current `![InkWriting]` / `![InkDrawing]` embeds.
 
 ```mermaid
-flowchart LR
+flowchart TD
   V1File[".writing / .drawing JSON"]
-  Migrate["migrateFromTldraw / migrateWritingFromTldraw"]
-  Render["renderStrokesToSvg"]
-  SVG[".svg with ink-canvas metadata"]
-  Note["Markdown v2 embed"]
+  Convert["convertLegacyToInkCanvasFileData"]
+  Exists{"Same-path SVG exists?"}
+  Modify["vault.modify SVG"]
+  Create["vault.create SVG"]
+  Delete["Delete legacy file"]
+  Fail["failed with create/overwrite/delete detail"]
+  Notes["Update markdown embeds"]
 
-  V1File --> Migrate --> Render --> SVG
-  Note --> Note
-  SVG --> Note
+  V1File --> Convert
+  Convert --> Exists
+  Exists -->|yes| Modify
+  Exists -->|no| Create
+  Modify -->|ok| Delete
+  Create -->|ok| Delete
+  Modify -->|error| Fail
+  Create -->|error| Fail
+  Delete -->|ok| Notes
+  Delete -->|error| Fail
 ```
+
+**Test migration** (modal “test run”) is separate: it writes under `_ink-test-conversions/`, may append `_1` / `_2` basename suffixes on collisions within the batch, never deletes legacy files, and does not rewrite notes.
 
 ### Technical gotchas
 
 - Strokes that were in the legacy editor **stash** at last save are not in the v1 JSON and cannot be recovered (same limitation as before).
-- If the target `.svg` already exists, the file step is skipped but notes may still be updated.
+- Permanent migration (bulk settings/command **and** on-open single-file) overwrites an existing same-path `.svg`. Legacy deletion runs only after create/overwrite succeeds; create, overwrite, or delete failures are reported in `failed` (and surface in the modal or on-open notice) without deleting the legacy file.
 - Open **Settings → Ink → Update Ink files…** or run the command **Migrate legacy ink embeds to ink-canvas**.
 - For migrating a **single** file from the editor notice (embed vs dedicated reopen rules), see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md).
 

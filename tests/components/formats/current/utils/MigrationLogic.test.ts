@@ -507,6 +507,7 @@ describe('executeMigration', () => {
 			existingSvgPath?: string;
 			createThrows?: boolean;
 			deleteThrows?: boolean;
+			modifyThrows?: boolean;
 		},
 	) {
 		const created: Record<string, string> = {};
@@ -528,7 +529,9 @@ describe('executeMigration', () => {
 				if (options?.deleteThrows) throw new Error('delete failed');
 				deleted.push(_f.path);
 			}),
-			modify: jest.fn(async (_f: TFile, _content: string) => {}),
+			modify: jest.fn(async (_f: TFile, _content: string) => {
+				if (options?.modifyThrows) throw new Error('modify denied');
+			}),
 			getAbstractFileByPath: jest.fn((path: string) =>
 				options?.existingSvgPath === path ? existingFile : null,
 			),
@@ -647,7 +650,7 @@ describe('executeMigration', () => {
 		expect(result.updatedNotePaths).toHaveLength(0);
 	});
 
-	test('skips when target SVG already exists', async () => {
+	test('overwrites when target SVG already exists and deletes legacy', async () => {
 		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
 		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH), {
 			existingSvgPath: NEW_SVG_PATH,
@@ -666,8 +669,15 @@ describe('executeMigration', () => {
 		const result = await executeMigration(vault as any, scanResult);
 
 		expect(vault.create).not.toHaveBeenCalled();
-		expect(result.skipped).toContain(NEW_SVG_PATH + ' (already exists)');
-		expect(result.convertedFiles).toBe(0);
+		expect(vault.modify).toHaveBeenCalled();
+		const svgModifyCall = (vault.modify as jest.Mock).mock.calls.find(
+			(call) => (call[0] as TFile).path === NEW_SVG_PATH,
+		);
+		expect(svgModifyCall).toBeDefined();
+		expect(svgModifyCall![1] as string).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
+		expect((vault as any)._deleted).toContain(LEGACY_WRITE_PATH);
+		expect(result.convertedFiles).toBe(1);
+		expect(result.skipped).not.toContain(NEW_SVG_PATH + ' (already exists)');
 	});
 
 	test('adds to skipped when parse returns null', async () => {
@@ -709,8 +719,36 @@ describe('executeMigration', () => {
 		const result = await executeMigration(vault as any, scanResult);
 
 		expect(result.failed.length).toBeGreaterThan(0);
+		expect(result.failed[0]).toContain('failed to create SVG');
 		expect(result.failed[0]).toContain('permission denied');
 		expect(result.convertedFiles).toBe(0);
+		expect(vault.delete).not.toHaveBeenCalled();
+	});
+
+	test('adds to failed when overwrite modify throws and keeps legacy', async () => {
+		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
+		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH), {
+			existingSvgPath: NEW_SVG_PATH,
+			modifyThrows: true,
+		});
+
+		const scanResult: VaultScanResult = {
+			legacyFiles: [{
+				legacyFile: makeLegacyFile(LEGACY_WRITE_PATH),
+				fileType: 'writing',
+				newSvgPath: NEW_SVG_PATH,
+				referencingNotes: [],
+			}],
+			affectedNotes: [makeNote('Notes/A.md')],
+		};
+
+		const result = await executeMigration(vault as any, scanResult);
+
+		expect(result.failed.length).toBeGreaterThan(0);
+		expect(result.failed[0]).toContain('failed to overwrite existing SVG');
+		expect(result.failed[0]).toContain('modify denied');
+		expect(result.convertedFiles).toBe(0);
+		expect(vault.delete).not.toHaveBeenCalled();
 	});
 
 	test('adds to failed when vault.delete throws', async () => {
@@ -732,6 +770,7 @@ describe('executeMigration', () => {
 		const result = await executeMigration(vault as any, scanResult);
 
 		expect(result.failed.length).toBeGreaterThan(0);
+		expect(result.failed[0]).toContain('failed to delete legacy file');
 		expect(result.failed[0]).toContain('delete failed');
 	});
 

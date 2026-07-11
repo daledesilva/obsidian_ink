@@ -267,7 +267,7 @@ Migration from legacy v1 code-block embeds to current-format SVG embeds is cover
 | `convertLegacyToInkCanvasFileData` | v1 → ink-canvas: writing/drawing, `meta.transcript`, real fixture round-trip, invalid/missing JSON. |
 | `v1-bulk-ink-canvas-migration.test.ts` | 50× conversion (25 writing + 25 drawing) from real legacy fixtures. |
 | `replaceLegacyBlockInMarkdown` | Replace block, preserve surrounding content, replace all occurrences. |
-| `executeMigration` | Updates all affected notes, skip when SVG exists, parse failure, create/delete failure, `onProgress` callback. |
+| `executeMigration` | Updates all affected notes, overwrite when SVG exists, parse failure, create/overwrite/delete failure, `onProgress` callback. |
 
 **E2E test coverage** (`tests/e2e/migration.e2e.ts`)
 

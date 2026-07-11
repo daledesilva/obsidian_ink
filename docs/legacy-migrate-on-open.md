@@ -54,6 +54,7 @@ Call sites that show the notice (current ink-canvas editors and v1 tldraw editor
 
 ## Technical Gotchas
 
+- **Same write rules as bulk permanent migration.** On-open calls `executeMigration` without `testRun`, so an existing same-path `.svg` is overwritten and the legacy file is deleted only after that write succeeds. Failures surface via the notice as create/overwrite/delete details.
 - **Do not always reopen in a dedicated view after migrate.** `openInkFileInView` uses the active leaf. From an embed that leaf is the markdown note; opening an ink view replaces the note and also prevents `refreshLivePreviewEmbedsWhenReady` from seeing an active Live Preview markdown view.
 - **Dedicated reopen is still required for path changes.** Migrating `.writing` / `.drawing` produces a new `.svg` path; the dedicated leaf must open that file in the correct writing/drawing view type.
 - **Embed path depends on the note remaining active.** Refresh retries until the active view is source-mode Live Preview; stealing the leaf for an ink view makes refresh a no-op.

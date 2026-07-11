@@ -80,6 +80,7 @@ flowchart LR
 - Strokes that were in the legacy editor **stash** at last save are not in the v1 JSON and cannot be recovered (same limitation as before).
 - If the target `.svg` already exists, the file step is skipped but notes may still be updated.
 - Open **Settings → Ink → Update Ink files…** or run the command **Migrate legacy ink embeds to ink-canvas**.
+- For migrating a **single** file from the editor notice (embed vs dedicated reopen rules), see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md).
 
 ## Drawing ↔ writing conversion
 

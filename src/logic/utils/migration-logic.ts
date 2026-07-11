@@ -235,6 +235,8 @@ export function getTestRunSvgPath(legacyFilePath: string): string {
 export type MigrationOptions = {
 	/** Write converted SVGs to {@link INK_TEST_CONVERSIONS_FOLDER}; do not update notes or delete legacy files. */
 	testRun?: boolean;
+	/** When set, note updates only replace legacy blocks for this legacy attachment path. */
+	singleLegacyFilePath?: string;
 };
 
 export function resolveMigrationOutputSvgPath(
@@ -252,6 +254,43 @@ async function ensureVaultFolderExists(vault: Vault, folderPath: string): Promis
 	if (!vault.getAbstractFileByPath(folderPath)) {
 		await vault.createFolder(folderPath);
 	}
+}
+
+/**
+ * Builds a vault scan result for migrating one legacy `.writing` / `.drawing` file.
+ */
+export async function buildSingleLegacyFileScanResult(
+	vault: Vault,
+	legacyFile: TFile,
+): Promise<VaultScanResult | null> {
+	const fileType = getLegacyInkFileType(legacyFile.path);
+	if (!fileType) return null;
+
+	const referencingNotes: TFile[] = [];
+
+	for (const note of vault.getMarkdownFiles()) {
+		let content: string;
+		try {
+			content = await vault.read(note);
+		} catch {
+			continue;
+		}
+
+		const blocks = findLegacyEmbedBlocks(content);
+		if (blocks.some(block => block.filepath === legacyFile.path)) {
+			referencingNotes.push(note);
+		}
+	}
+
+	return {
+		legacyFiles: [{
+			legacyFile,
+			fileType,
+			newSvgPath: getLegacySvgPath(legacyFile.path),
+			referencingNotes,
+		}],
+		affectedNotes: referencingNotes,
+	};
 }
 
 /**
@@ -351,11 +390,14 @@ export async function executeMigration(
 	};
 
 	const notesToUpdate = isTestRun ? [] : scanResult.affectedNotes;
-	const total = scanResult.legacyFiles.length + notesToUpdate.length;
+	const legacyFilesToConvert = options?.singleLegacyFilePath
+		? scanResult.legacyFiles.filter(entry => entry.legacyFile.path === options.singleLegacyFilePath)
+		: scanResult.legacyFiles;
+	const total = legacyFilesToConvert.length + notesToUpdate.length;
 	let done = 0;
 
 	logToVault(
-		'Migration started. Files: ' + scanResult.legacyFiles.length
+		'Migration started. Files: ' + legacyFilesToConvert.length
 		+ ', Notes: ' + notesToUpdate.length
 		+ (isTestRun ? ' (test run)' : ''),
 	);
@@ -365,13 +407,13 @@ export async function executeMigration(
 	}
 
 	const testRunSvgPathByLegacyPath = isTestRun
-		? buildTestRunSvgPathMap(scanResult.legacyFiles.map(entry => entry.legacyFile.path))
+		? buildTestRunSvgPathMap(legacyFilesToConvert.map(entry => entry.legacyFile.path))
 		: undefined;
 
 	const drawingEmbedSettingsBySvgPath = new Map<string, EmbedSettings>();
 
 	// Step 1: Convert each legacy file to SVG
-	for (const entry of scanResult.legacyFiles) {
+	for (const entry of legacyFilesToConvert) {
 		try {
 			const legacyJson = await vault.read(entry.legacyFile);
 			const inkFileData = convertLegacyToInkCanvasFileData(legacyJson, entry.fileType);
@@ -435,6 +477,9 @@ export async function executeMigration(
 			const blocks = findLegacyEmbedBlocks(content);
 
 			for (const block of blocks) {
+				if (options?.singleLegacyFilePath && block.filepath !== options.singleLegacyFilePath) {
+					continue;
+				}
 				const newSvgPath = resolveMigrationOutputSvgPath(block.filepath, options);
 				const newEmbed =
 					block.embedType === 'writing'

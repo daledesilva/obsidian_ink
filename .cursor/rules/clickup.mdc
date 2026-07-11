@@ -29,12 +29,16 @@ When told to start working on a ClickUp ticket (by ID, URL, or name), **immediat
 
 ### Opening a pull request
 
-When a pull request is opened for one or more ClickUp tickets, move each linked ticket to the list's **Review** status/column after the PR exists.
+When a pull request is opened for one or more ClickUp tickets, after the PR exists:
+
+1. Move each linked ticket to the list's **Review** status/column.
+2. Save the PR URL on each linked ticket in the custom **PR** field.
 
 - Resolve the exact Review status for the task's list when needed.
-- Use ClickUp MCP (`clickup_update_task` with `status`) to update each linked task.
-- If a linked task is already in Review or a later review/done status, leave it unchanged.
-- If ClickUp MCP is unavailable or the Review status cannot be resolved, report that clearly and ask the user to move the task manually; do not skip this step silently.
+- Resolve the **PR** custom field with `clickup_get_custom_fields` (match name `PR`, ignoring case; prefer a URL-type field). Do not hardcode a field ID.
+- Use ClickUp MCP `clickup_update_task` with `status` and `custom_fields: [{ id: <PR field id>, value: <PR URL> }]`.
+- If a linked task is already in Review or a later review/done status, leave its status unchanged but still set or refresh the **PR** field.
+- If ClickUp MCP is unavailable, the Review status cannot be resolved, or the **PR** field cannot be resolved/updated, report that clearly and ask the user to finish those steps manually; do not skip this silently.
 
 ### ClickUp tickets in one request
 
@@ -45,7 +49,7 @@ When the user asks to complete **one or more** ClickUp tickets in a **single req
 3. Implement and complete all requested tickets on that branch (new or current, per step 2).
 4. Commit the work on that branch. One commit per ticket is fine when changes are independent; one combined commit is fine when the work is tightly coupled. Include a `Clickup Task:` line for each ticket in the relevant commit message(s).
 5. Push the branch and open a pull request into `main` (use `/pr` or follow `.cursor/commands/pr.md`) when the work is complete, unless the user explicitly asked for separate branches or PRs.
-6. After the PR is created, move each linked ClickUp ticket to the list's **Review** status/column (same rules as above).
+6. After the PR is created, move each linked ClickUp ticket to the list's **Review** status/column and save the PR URL in the **PR** custom field (same rules as above).
 
 When the user **explicitly** asks for separate branches (e.g. "one branch per ticket"), create a branch per ticket, commit each independently, and open one PR per branch into `main`.
 

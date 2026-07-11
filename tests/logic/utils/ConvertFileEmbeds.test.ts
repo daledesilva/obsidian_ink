@@ -21,6 +21,8 @@ jest.mock('src/components/formats/current/utils/duplicate-files', () => ({
 import { TFile } from 'obsidian';
 import {
 	FILE_CONVERSION_IN_PLACE,
+	countFileEmbedOccurrencesInMarkdown,
+	countFileEmbedOccurrencesInVault,
 	findNotesContainingFileEmbed,
 	removeAllEmbedsOfFileFromNote,
 	updateEmbedInNote,
@@ -181,6 +183,40 @@ describe('findNotesContainingFileEmbed', () => {
 		);
 		expect(results).toHaveLength(1);
 		expect(results[0].path).toBe('Notes/Good.md');
+	});
+});
+
+// ─── countFileEmbedOccurrencesInMarkdown / countFileEmbedOccurrencesInVault ───
+
+describe('countFileEmbedOccurrencesInMarkdown', () => {
+	const WRITING_PATH = 'Ink/Writing/my-note.svg';
+
+	it('counts multiple embeds of the same file in one note', () => {
+		const markdown = `# Note\n\n${writingLine(WRITING_PATH)}\nMore\n${writingLine(WRITING_PATH)}\n`;
+		expect(countFileEmbedOccurrencesInMarkdown(markdown, WRITING_PATH, 'inkWriting')).toBe(2);
+	});
+
+	it('returns zero when the file is not embedded', () => {
+		const markdown = `# Note\n\n${writingLine('Ink/Writing/other.svg')}\n`;
+		expect(countFileEmbedOccurrencesInMarkdown(markdown, WRITING_PATH, 'inkWriting')).toBe(0);
+	});
+});
+
+describe('countFileEmbedOccurrencesInVault', () => {
+	const WRITING_PATH = 'Ink/Writing/my-note.svg';
+
+	it('sums embed counts across all markdown files', async () => {
+		const vault = makeVault({
+			'Notes/A.md': `# A\n\n${writingLine(WRITING_PATH)}\n${writingLine(WRITING_PATH)}\n`,
+			'Notes/B.md': `# B\n\n${writingLine(WRITING_PATH)}\n`,
+			'Notes/C.md': `# C\n\n`,
+		});
+		const count = await countFileEmbedOccurrencesInVault(
+			vault as any,
+			WRITING_PATH,
+			'inkWriting',
+		);
+		expect(count).toBe(3);
 	});
 });
 

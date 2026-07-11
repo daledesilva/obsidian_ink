@@ -58,6 +58,57 @@ export type FileConversionResult = {
 
 ////////
 
+function buildFileEmbedPattern(
+	svgFilePath: string,
+	embedType: 'inkWriting' | 'inkDrawing',
+	global = false,
+): RegExp {
+	const escapedPath = svgFilePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const altText = embedType === 'inkWriting' ? 'InkWriting' : 'InkDrawing';
+	return new RegExp(
+		` !\\[${altText}\\]\\(<${escapedPath}>\\)`,
+		global ? 'g' : undefined,
+	);
+}
+
+/** Counts v2 embed lines for one file in a single markdown string. */
+export function countFileEmbedOccurrencesInMarkdown(
+	markdownContent: string,
+	svgFilePath: string,
+	embedType: 'inkWriting' | 'inkDrawing',
+): number {
+	const pattern = buildFileEmbedPattern(svgFilePath, embedType, true);
+	return markdownContent.match(pattern)?.length ?? 0;
+}
+
+/**
+ * Counts every v2 embed line in the vault that references the given file.
+ * Used when deciding whether deleting one embed can also delete the attachment.
+ */
+export async function countFileEmbedOccurrencesInVault(
+	vault: Vault,
+	svgFilePath: string,
+	embedType: 'inkWriting' | 'inkDrawing',
+	onProgress?: (scanned: number, total: number) => void,
+): Promise<number> {
+	const mdFiles = vault.getMarkdownFiles();
+	const total = mdFiles.length;
+	let embedCount = 0;
+
+	for (let i = 0; i < mdFiles.length; i++) {
+		const file = mdFiles[i];
+		try {
+			const content = await vault.cachedRead(file);
+			embedCount += countFileEmbedOccurrencesInMarkdown(content, svgFilePath, embedType);
+		} catch (_) {
+			// Unreadable file – skip
+		}
+		onProgress?.(i + 1, total);
+	}
+
+	return embedCount;
+}
+
 /**
  * Scans the vault for markdown files that contain a v2 embed referencing the
  * given SVG file path with the given embed type.
@@ -73,14 +124,7 @@ export async function findNotesContainingFileEmbed(
 	const mdFiles = vault.getMarkdownFiles();
 	const total = mdFiles.length;
 	const results: TFile[] = [];
-
-	// Escape path for use inside a regex
-	const escapedPath = svgFilePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	// Match the specific image alt depending on type
-	const altText = fromType === 'inkWriting' ? 'InkWriting' : 'InkDrawing';
-	const pattern = new RegExp(
-		` !\\[${altText}\\]\\(<${escapedPath}>\\)`,
-	);
+	const pattern = buildFileEmbedPattern(svgFilePath, fromType);
 
 	for (let i = 0; i < mdFiles.length; i++) {
 		const file = mdFiles[i];

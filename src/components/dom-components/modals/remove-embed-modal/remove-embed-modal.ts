@@ -1,7 +1,10 @@
 import '../migration-modal/migration-modal.scss';
 import { Modal, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
-import { findNotesContainingFileEmbed } from 'src/logic/utils/convert-file-embeds';
+import {
+	countFileEmbedOccurrencesInVault,
+	findNotesContainingFileEmbed,
+} from 'src/logic/utils/convert-file-embeds';
 
 ////////
 ////////
@@ -28,6 +31,7 @@ export class RemoveEmbedModal extends Modal {
 
 	private phase: Phase = Phase.Scanning;
 	private affectedNotes: TFile[] = [];
+	private totalEmbedCount = 0;
 
 	private progressBarInnerEl: HTMLElement | null = null;
 	private statusTextEl: HTMLElement | null = null;
@@ -79,16 +83,28 @@ export class RemoveEmbedModal extends Modal {
 
 	private async runScan() {
 		try {
+			const vault = this.plugin.app.vault;
 			this.affectedNotes = await findNotesContainingFileEmbed(
-				this.plugin.app.vault,
+				vault,
 				this.embeddedFile.path,
 				this.embedType,
 				(scanned, total) => {
 					const remaining = total - scanned;
-					const pct = total > 0 ? (scanned / total) * 100 : 100;
+					const pct = total > 0 ? (scanned / total) * 100 : 50;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
 					if (this.foundCountEl) this.foundCountEl.setText(String(this.affectedNotes.length));
+				},
+			);
+			this.totalEmbedCount = await countFileEmbedOccurrencesInVault(
+				vault,
+				this.embeddedFile.path,
+				this.embedType,
+				(scanned, total) => {
+					const remaining = total - scanned;
+					const pct = total > 0 ? 50 + (scanned / total) * 50 : 100;
+					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
+					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
 				},
 			);
 		} catch (err) {
@@ -96,12 +112,13 @@ export class RemoveEmbedModal extends Modal {
 			return;
 		}
 
+		const isOnlyEmbedInVault = this.totalEmbedCount === 1;
 		const isOnlyInCurrentNote = this.affectedNotes.length === 1;
 
-		if (isOnlyInCurrentNote) {
+		if (isOnlyEmbedInVault && isOnlyInCurrentNote) {
 			this.renderConfirmPhase();
 		} else {
-			// File is embedded elsewhere; remove embed only without prompting
+			// Other notes or duplicate embeds in this note still reference the file.
 			this.opts.onRemoveEmbedOnly();
 			this.close();
 		}

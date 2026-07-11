@@ -14,6 +14,39 @@ export type LegacyInkNoticeContext = {
 	isEmbedded?: boolean;
 };
 
+type TrackedLegacyInkNotice = {
+	filePath: string;
+	notice: Notice;
+};
+
+/** One persistent notice per legacy file — embed + dedicated must not stack stale CTAs. */
+const activeLegacyInkNotices: TrackedLegacyInkNotice[] = [];
+
+/**
+ * Hides any open "Legacy Ink file" notices for this attachment path.
+ * Used when expanding to a dedicated view or after a successful migrate so a
+ * leftover embed notice cannot migrate a file that was already converted/deleted.
+ */
+export function dismissLegacyInkNoticesForFile(filePath: string): void {
+	for (let index = activeLegacyInkNotices.length - 1; index >= 0; index--) {
+		const entry = activeLegacyInkNotices[index];
+		if (entry.filePath !== filePath) continue;
+		entry.notice.hide();
+		activeLegacyInkNotices.splice(index, 1);
+	}
+}
+
+function trackLegacyInkNotice(filePath: string, notice: Notice): void {
+	// Replace any prior notice for the same file (e.g. embed notice when dedicated mounts).
+	dismissLegacyInkNoticesForFile(filePath);
+	activeLegacyInkNotices.push({ filePath, notice });
+}
+
+function untrackLegacyInkNotice(notice: Notice): void {
+	const index = activeLegacyInkNotices.findIndex((entry) => entry.notice === notice);
+	if (index >= 0) activeLegacyInkNotices.splice(index, 1);
+}
+
 /**
  * Persistent CTA shown when a legacy ink editor mounts. Migration keeps the note
  * in place for embeds; dedicated views reopen the converted SVG (see migrate-legacy-ink-on-open).
@@ -31,6 +64,7 @@ export function showLegacyInkUnlockNotice(context: LegacyInkNoticeContext): void
 	});
 
 	const notice = launchPersistentNotice(noticeBody);
+	trackLegacyInkNotice(context.legacyFile.path, notice);
 
 	primaryBtnEl?.addEventListener('click', () => {
 		if (!primaryBtnEl || primaryBtnEl.disabled) return;
@@ -42,7 +76,7 @@ export function showLegacyInkUnlockNotice(context: LegacyInkNoticeContext): void
 				await runLegacyInkMigrationFromNotice(context.plugin, context.legacyFile, {
 					isEmbedded: context.isEmbedded,
 				});
-				notice.hide();
+				dismissLegacyInkNoticesForFile(context.legacyFile.path);
 			} catch (err) {
 				new Notice('Migration failed: ' + String(err));
 			} finally {
@@ -54,5 +88,6 @@ export function showLegacyInkUnlockNotice(context: LegacyInkNoticeContext): void
 
 	tertiaryBtnEl?.addEventListener('click', () => {
 		notice.hide();
+		untrackLegacyInkNotice(notice);
 	});
 }

@@ -28,6 +28,7 @@ import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clip
 import { EmbedPreviewContextMenu } from "src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
 
 ///////
 ///////
@@ -494,6 +495,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
     async function openInDedicatedView() {
 		if (!props.embeddedFile) return;
+		// Drop the embed's migrate CTA before expand — saveAndHalt may already rewrite a
+		// tldraw SVG as ink-canvas, and a leftover notice would then fail as "not eligible".
+		dismissLegacyInkNoticesForFile(props.embeddedFile.path);
 		if (editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}

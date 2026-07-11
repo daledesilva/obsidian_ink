@@ -26,6 +26,7 @@ import { getGlobals } from "src/stores/global-store";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 import { EmbedPreviewContextMenu } from "src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu";
+import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
 
 ///////
 ///////
@@ -347,6 +348,9 @@ export function WritingEmbed (props: {
 
 	async function openInDedicatedView() {
 		if (!props.writingFileRef) return;
+		// Drop the embed migrate CTA before expand so a leftover notice cannot target a
+		// file that saveAndHalt may already have rewritten as ink-canvas.
+		dismissLegacyInkNoticesForFile(props.writingFileRef.path);
 		if (editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}

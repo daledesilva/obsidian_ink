@@ -10,8 +10,14 @@ import { runLegacyInkMigrationFromNotice } from 'src/logic/utils/migrate-legacy-
 export type LegacyInkNoticeContext = {
 	plugin: InkPlugin;
 	legacyFile: TFile;
+	/** When true, migration refreshes the note embed in place instead of opening a dedicated ink view. */
+	isEmbedded?: boolean;
 };
 
+/**
+ * Persistent CTA shown when a legacy ink editor mounts. Migration keeps the note
+ * in place for embeds; dedicated views reopen the converted SVG (see migrate-legacy-ink-on-open).
+ */
 export function showLegacyInkUnlockNotice(context: LegacyInkNoticeContext): void {
 	const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
 	scrollAreaEl.createEl('h1').setText('Legacy Ink file');
@@ -33,7 +39,9 @@ export function showLegacyInkUnlockNotice(context: LegacyInkNoticeContext): void
 
 		void (async (): Promise<void> => {
 			try {
-				await runLegacyInkMigrationFromNotice(context.plugin, context.legacyFile);
+				await runLegacyInkMigrationFromNotice(context.plugin, context.legacyFile, {
+					isEmbedded: context.isEmbedded,
+				});
 				notice.hide();
 			} catch (err) {
 				new Notice('Migration failed: ' + String(err));

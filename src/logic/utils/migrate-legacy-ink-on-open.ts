@@ -98,8 +98,13 @@ export async function migrateLegacyInkFileOnOpen(
 export async function runLegacyInkMigrationFromNotice(
 	plugin: InkPlugin,
 	legacyFile: TFile,
+	options?: { isEmbedded?: boolean },
 ): Promise<void> {
 	const migrationResult = await migrateLegacyInkFileOnOpen(plugin, legacyFile);
 	new Notice('Migrated to the new SVG format.');
+	// Embeds already get a Live Preview rebuild from migrateLegacyInkFileOnOpen; opening a
+	// dedicated ink leaf would steal the active markdown note. Only reopen when migration
+	// started from a dedicated writing/drawing view (e.g. .writing → new .svg path).
+	if (options?.isEmbedded) return;
 	await openInkFileInView(migrationResult.openedFile, migrationResult.viewType);
 }

@@ -75,7 +75,11 @@ export function TldrawDrawingEditor_v1(props: TldrawDrawingEditorProps_v1) {
 
 	React.useEffect(() => {
 		if (!tlEditorSnapshot) return;
-		showLegacyInkUnlockNotice({ plugin: props.plugin, legacyFile: props.drawingFile });
+		showLegacyInkUnlockNotice({
+			plugin: props.plugin,
+			legacyFile: props.drawingFile,
+			isEmbedded: props.embedded,
+		});
 	}, [tlEditorSnapshot]);
 
 	if(!tlEditorSnapshot) return <></>

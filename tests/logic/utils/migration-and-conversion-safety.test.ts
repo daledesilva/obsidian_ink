@@ -212,6 +212,70 @@ describe('migration and conversion safety', () => {
 			expect(noteContents['Notes/Target.md']).toContain('![InkWriting]');
 			expect(noteContents[unrelatedNotePath]).toBe('# Other\n\nNo legacy embed here.\n');
 		});
+
+		it('updates embed strings in every note that references the migrated file', async () => {
+			const legacyJson = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+			const notePaths = ['Notes/A.md', 'Notes/B.md', 'Notes/C.md'];
+			const noteContents: Record<string, string> = {};
+			for (const notePath of notePaths) {
+				noteContents[notePath] = `# Title\n\n${legacyWriteBlock(LEGACY_PATH)}\n\nTrailing text.`;
+			}
+			const vault = makeLegacyVault(noteContents, { [LEGACY_PATH]: legacyJson });
+
+			const scanResult: VaultScanResult = {
+				legacyFiles: [{
+					legacyFile: { path: LEGACY_PATH } as TFile,
+					fileType: 'writing',
+					newSvgPath: NEW_SVG_PATH,
+					referencingNotes: notePaths.map(p => ({ path: p } as TFile)),
+				}],
+				affectedNotes: notePaths.map(p => ({ path: p } as TFile)),
+			};
+
+			const result = await executeMigration(vault as any, scanResult);
+
+			expect(result.updatedNotes).toBe(3);
+			expect(result.updatedNotePaths).toEqual(expect.arrayContaining(notePaths));
+			for (const notePath of notePaths) {
+				expect(noteContents[notePath]).toContain('![InkWriting]');
+				expect(noteContents[notePath]).toContain(NEW_SVG_PATH);
+				expect(noteContents[notePath]).not.toContain('```handwritten-ink');
+				expect(noteContents[notePath]).not.toContain(LEGACY_PATH);
+			}
+		});
+
+		it('converts every legacy embed of the same file when a note embeds it multiple times', async () => {
+			const legacyJson = fs.readFileSync(LEGACY_WRITING_FIXTURE, 'utf8');
+			const duplicatedBlock = legacyWriteBlock(LEGACY_PATH);
+			const noteContents = {
+				'Notes/Duplicates.md':
+					`# Duplicates\n\nFirst:\n${duplicatedBlock}\n\nSecond:\n${duplicatedBlock}\n\nDone.\n`,
+			};
+			const vault = makeLegacyVault(noteContents, { [LEGACY_PATH]: legacyJson });
+
+			expect(findLegacyEmbedBlocks(noteContents['Notes/Duplicates.md'])).toHaveLength(2);
+
+			const scanResult: VaultScanResult = {
+				legacyFiles: [{
+					legacyFile: { path: LEGACY_PATH } as TFile,
+					fileType: 'writing',
+					newSvgPath: NEW_SVG_PATH,
+					referencingNotes: [{ path: 'Notes/Duplicates.md' } as TFile],
+				}],
+				affectedNotes: [{ path: 'Notes/Duplicates.md' } as TFile],
+			};
+
+			await executeMigration(vault as any, scanResult);
+
+			const updated = noteContents['Notes/Duplicates.md'];
+			expect(updated).not.toContain('```handwritten-ink');
+			expect(updated).not.toContain(LEGACY_PATH);
+			expect(updated.split('![InkWriting]').length - 1).toBe(2);
+			expect(updated.split(NEW_SVG_PATH).length - 1).toBe(2);
+			expect(updated).toContain('First:');
+			expect(updated).toContain('Second:');
+			expect(updated).toContain('Done.');
+		});
 	});
 
 	describe('file conversion isolation and moves', () => {

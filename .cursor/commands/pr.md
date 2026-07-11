@@ -54,13 +54,14 @@ EOF
 )"
 ```
 
-9. After the PR is created, move each linked ClickUp task to the list's **Review** status/column:
-   - Resolve the exact Review status when needed.
-   - Prefer **ClickUp MCP** `clickup_update_task` with `status`.
-   - Leave tasks unchanged if they are already in Review or a later review/done status.
-   - If MCP is unavailable or the Review status cannot be resolved, report that clearly and ask the user to move the task manually.
+9. After the PR is created, update each linked ClickUp task:
+   - Move it to the list's **Review** status/column (resolve the exact Review status when needed).
+   - Save the PR URL in the custom **PR** field: resolve the field with `clickup_get_custom_fields` (match name `PR`, ignoring case; prefer URL type), then set `custom_fields: [{ id: <PR field id>, value: <PR URL> }]` via `clickup_update_task`.
+   - Prefer **ClickUp MCP** `clickup_update_task` for both the status and the **PR** field in one update when possible.
+   - Leave status unchanged if the task is already in Review or a later review/done status, but still set or refresh the **PR** field.
+   - If MCP is unavailable, the Review status cannot be resolved, or the **PR** field cannot be resolved/updated, report that clearly and ask the user to finish those steps manually.
 
-10. Report the PR URL, title, base branch, commit count, ClickUp tasks linked, ClickUp tasks moved to Review, and any warnings (no ClickUp tasks found, MCP unavailable, skipped push, status update failed, etc.).
+10. Report the PR URL, title, base branch, commit count, ClickUp tasks linked, ClickUp tasks moved to Review, **PR** field updates, and any warnings (no ClickUp tasks found, MCP unavailable, skipped push, status or PR-field update failed, etc.).
 
 ## PR body format
 
@@ -105,4 +106,5 @@ When done, show:
 - Number of commits included
 - ClickUp tasks linked (IDs + URLs)
 - ClickUp tasks moved to Review (IDs + status), or why they were not moved
+- ClickUp **PR** custom field updates (IDs + URL), or why they were not set
 - Any warnings

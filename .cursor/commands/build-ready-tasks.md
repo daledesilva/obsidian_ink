@@ -1,19 +1,19 @@
 # Build ready tasks
 
-Implement ClickUp tickets from one list's `Build Ready` column as a sequence of focused commits and pull requests.
+Implement ClickUp tickets from one list's `Ready` column that have ticket type `Build`, as a sequence of focused commits and pull requests.
 
 Any text after `/build-ready-tasks` must be a ClickUp list URL or list ID.
 
 ## Safety
 
-- Use the ClickUp MCP server for all ClickUp reads and updates. Before the first MCP call, read the relevant tool descriptors for `clickup_get_list`, `clickup_filter_tasks`, `clickup_get_task`, and `clickup_update_task`.
+- Use the ClickUp MCP server for all ClickUp reads and updates. Before the first MCP call, read the relevant tool descriptors for `clickup_get_list`, `clickup_filter_tasks`, `clickup_get_task`, `clickup_get_custom_fields`, and `clickup_update_task`.
 - Do not use browser automation as a fallback for missing ClickUp MCP support.
 - Do not start if the current git working tree has uncommitted tracked changes or unrelated untracked files. Ask the user whether to commit, stash, or remove them first.
 - Never update git config, skip hooks, force push, use interactive git commands, reset, rebase, or amend unless the user explicitly asks.
-- Treat this command as explicit approval to create branches, implement work, commit, push, and open PRs for the selected Build Ready tickets only.
+- Treat this command as explicit approval to create branches, implement work, commit, push, and open PRs for the selected Ready + Build tickets only.
 - Stop the workflow on the first unresolved implementation, test, push, PR, or ClickUp blocker. Report the completed PRs, remaining groups, and the blocker.
 
-## Resolve the Build Ready tickets
+## Resolve the Ready Build tickets
 
 1. Parse the text after `/build-ready-tasks`.
    - If it is missing, ask for a ClickUp list URL or list ID and stop.
@@ -24,34 +24,46 @@ Any text after `/build-ready-tasks` must be a ClickUp list URL or list ID.
    - If the input is clearly a list name rather than an ID or URL, use `clickup_get_list` with `list_name`.
 
 3. Inspect the list's configured statuses.
-   - Match the status named `Build Ready`, ignoring only case and surrounding whitespace.
-   - If no matching status exists, say exactly: `There is no build ready column`
+   - Match the status named `Ready`, ignoring only case and surrounding whitespace.
+   - If no matching status exists, say exactly: `There is no ready column`
    - After saying that, do nothing else.
 
-4. Retrieve every task in the list with the matched Build Ready status.
-   - Use `clickup_filter_tasks` with `list_ids: [<list id>]`, `statuses: [<exact Build Ready status>]`, `include_closed: false`, and `subtasks: true`.
+4. Retrieve every task in the list with the matched Ready status.
+   - Use `clickup_filter_tasks` with `list_ids: [<list id>]`, `statuses: [<exact Ready status>]`, `include_closed: false`, and `subtasks: true`.
    - Paginate until all matching tasks are collected.
-   - If no tasks are in Build Ready, report that and stop.
+   - If no tasks are in Ready, report that and stop.
 
-5. For each Build Ready task, fetch implementation context:
+5. Keep only tickets with ticket type `Build`.
+   - For each Ready task, use `clickup_get_task` (or inspect `task_type` / `taskType` from the filter payload when present).
+   - Include a task only when its ticket type is `Build`, ignoring only case and surrounding whitespace.
+   - Do not implement Ready tickets of any other type (or with no type). Report them as skipped with their type.
+   - If no Ready + Build tickets remain, report that and stop.
+
+6. For each Ready + Build task, fetch implementation context:
    - Use `clickup_get_task` with `include: ["dependencies", "linked_tasks", "subtasks", "description", "checklists", "custom_fields"]` and `expand_statuses: true`.
-   - Record task ID, custom ID, title, URL, description summary, status, dependencies, linked tasks, subtasks, checklist size, priority, estimate if available, and available statuses.
+   - Record task ID, custom ID, title, URL, description summary, status, task type, dependencies, linked tasks, subtasks, checklist size, priority, estimate if available, available statuses, and custom fields (including the `PR` field when present).
+
+7. Resolve the workspace/list `PR` custom field once for later updates:
+   - Use `clickup_get_custom_fields` (list, folder, space, and/or `include_workspace: true` as needed).
+   - Match the field named `PR`, ignoring only case and surrounding whitespace.
+   - Prefer a URL-type field when more than one match exists.
+   - If no `PR` field exists, continue the workflow but report that PR links cannot be saved on tickets.
 
 ## Build the implementation plan
 
-Create a dependency graph using only the Build Ready tasks as in-scope implementation nodes.
+Create a dependency graph using only the Ready + Build tasks as in-scope implementation nodes.
 
 - A task with no in-scope blockers is a base dependency.
-- A task blocked by another Build Ready task must not be implemented before its blocker.
-- If a task is blocked by a task outside the Build Ready set, report the external blocker. Do not implement that task unless the dependency is clearly informational or already complete.
+- A task blocked by another Ready + Build task must not be implemented before its blocker.
+- If a task is blocked by a task outside the Ready + Build set, report the external blocker. Do not implement that task unless the dependency is clearly informational or already complete.
 - If a dependency cycle exists, report the cycle and stop.
 
 Classify each task before grouping:
 
-- **Base dependency:** Unlocks other Build Ready work.
+- **Base dependency:** Unlocks other Ready + Build work.
 - **Small related task:** Similar area, low risk, and can share a PR without making review hard.
 - **Significant feature:** Large scope, multiple subsystems, many subtasks/checklist items, high estimate, risky migration, or broad user-facing behavior. Significant features get their own PR.
-- **Blocked:** Has unresolved blockers outside the current Build Ready plan.
+- **Blocked:** Has unresolved blockers outside the current Ready + Build plan.
 
 Group tasks in implementation order:
 
@@ -71,7 +83,7 @@ Before implementing, show a short plan with:
 - The ordered PR groups
 - The tickets in each group
 - Which groups are stacked on earlier groups
-- Any blocked or skipped tickets and why
+- Any blocked or skipped tickets and why (including Ready tickets skipped for non-Build type)
 
 Proceed without asking for extra confirmation unless the plan has ambiguity that could change the code architecture or release order.
 
@@ -86,7 +98,7 @@ For each group, complete the full loop before starting the next group:
    - For dependent groups, create the branch from the prerequisite group branch.
    - Name the branch using `git-workflow.mdc`, with the dominant prefix and a short description. Include a task ID when it helps traceability.
 
-2. Move the group's tickets out of Build Ready.
+2. Move the group's tickets out of Ready.
    - Resolve an active-work status such as `In Progress` from the task's available statuses.
    - If an active-work status exists, use `clickup_update_task` to move each group task there.
    - If no active-work status exists, leave the tasks unchanged and report that status movement was skipped.
@@ -114,10 +126,13 @@ For each group, complete the full loop before starting the next group:
    - Use the default base branch for independent groups.
    - Use the prerequisite group branch as the base for stacked groups.
 
-7. Move the group's tickets to review.
+7. Move the group's tickets to review and save the PR link.
    - Resolve the `Review` status from the task's available statuses.
-   - If a Review status exists, use `clickup_update_task` to move each group task there after the PR exists.
-   - If no Review status exists, leave the tasks unchanged and report that status movement was skipped.
+   - After the PR exists, use `clickup_update_task` for each group task to:
+     - Move it to Review when that status exists (leave unchanged if already Review or later).
+     - Set the `PR` custom field to the PR URL when the field was resolved earlier (`custom_fields: [{ id: <PR field id>, value: <PR URL> }]`).
+   - If no Review status exists, still save the PR field when possible, leave status unchanged, and report that status movement was skipped.
+   - If the `PR` field could not be resolved or the update fails, report that clearly and ask the user to paste the PR URL manually.
 
 8. Report progress for the group:
    - Branch
@@ -126,6 +141,7 @@ For each group, complete the full loop before starting the next group:
    - Tickets included
    - Tests or verification run
    - ClickUp status changes
+   - Whether the `PR` custom field was updated on each ticket
 
 ## PR body format
 
@@ -154,8 +170,8 @@ Omit `## Stack` only when the PR is independent and based on the default branch.
 
 When all possible groups are complete, show:
 
-- List name and Build Ready status used
+- List name and Ready status used
 - PRs created in merge order
-- Tickets completed, skipped, or blocked
+- Tickets completed, skipped (including Ready tickets that are not type Build), or blocked
 - Verification summary
-- Any ClickUp statuses that could not be updated
+- Any ClickUp statuses or `PR` field values that could not be updated

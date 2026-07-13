@@ -7,6 +7,32 @@ import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
 /////////////////////
 
 /**
+ * Cheap file-type check for picker discovery — avoids DOMParser + JSON.parse of large
+ * tldraw/ink-canvas payloads when we only need to know writing vs drawing.
+ * Returns null when the SVG does not look like an Ink attachment of a single known type.
+ */
+export function sniffInkSvgFileType(svgString: string): 'inkWriting' | 'inkDrawing' | null {
+	const trimmedStart = svgString.trimStart();
+	if (!trimmedStart.startsWith('<')) return null;
+
+	const hasInkMarker =
+		/<ink[\s>]/i.test(svgString)
+		|| /<ink-canvas[\s>]/i.test(svgString)
+		|| /<tldraw[\s>]/i.test(svgString);
+	if (!hasInkMarker) return null;
+
+	const isWriting = /file-type\s*=\s*["']inkWriting["']/i.test(svgString);
+	const isDrawing = /file-type\s*=\s*["']inkDrawing["']/i.test(svgString);
+	if (isWriting && !isDrawing) return 'inkWriting';
+	if (isDrawing && !isWriting) return 'inkDrawing';
+	// Match extractInkCanvasFormat: ink-canvas without file-type defaults to drawing
+	if (!isWriting && !isDrawing && /<ink-canvas[\s>]/i.test(svgString)) {
+		return 'inkDrawing';
+	}
+	return null;
+}
+
+/**
  * Extracts JSON content from SVG metadata.
  * Supports two metadata formats:
  * - `<ink-canvas version="…">` — ink-canvas engine (`inkCanvas` snapshot)

@@ -82,8 +82,8 @@ export function registerDrawingView (plugin: InkPlugin) {
             if (!inkFileData) return;
             if (inkFileData.meta.fileType !== "inkDrawing") return;
 
-            // Add edit button to the SVG view
-            addEditButtonToSvgView(plugin, leaf, file, DRAWING_VIEW_TYPE);
+            // Add edit button and theme-aware inline preview to the native SVG view
+            addEditButtonToSvgView(plugin, leaf, file, DRAWING_VIEW_TYPE, svgString, 'inkDrawing');
         } catch (_) {
             // Fail silently; fall back to default SVG handling
         }

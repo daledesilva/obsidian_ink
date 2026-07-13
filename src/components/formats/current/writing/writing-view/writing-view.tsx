@@ -51,8 +51,8 @@ export function registerWritingView (plugin: InkPlugin) {
             if (!inkFileData) return;
             if (inkFileData.meta.fileType !== "inkWriting") return;
 
-            // Add edit button to the SVG view
-            addEditButtonToSvgView(plugin, leaf, file, WRITING_VIEW_TYPE);
+            // Add edit button and theme-aware inline preview to the native SVG view
+            addEditButtonToSvgView(plugin, leaf, file, WRITING_VIEW_TYPE, svgString, 'inkWriting');
         } catch (_) {
             // Fail silently; fall back to default SVG handling
         }

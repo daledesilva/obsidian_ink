@@ -7,6 +7,12 @@ import { UndoManager } from './undo-manager';
 import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { createPanMomentumController, createModifierWheelZoomDirectionResolver, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
 import { computeStrokesBounds } from './svg-export';
+import {
+	computeApproxStrokePageBounds,
+	pageRectsIntersect,
+	visiblePageRectFromContainer,
+	type PageRect,
+} from './stroke-viewport-culling';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
@@ -144,6 +150,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [, forceRender] = useState(0);
+	// Bumped on note/window scroll so render-time culling re-evaluates without touching StrokeStore.
+	const [viewportRevision, setViewportRevision] = useState(0);
+	const strokeBoundsCacheRef = useRef(new Map<string, PageRect>());
 
 	// Refs that stay in sync with state so tool callbacks see current values
 	const cameraRef = useRef(camera);
@@ -334,6 +343,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Subscribe to store changes to re-render strokes
 	useEffect(() => {
 		const unsubStore = storeRef.current.subscribe(() => {
+			// Invalidate cull bounds — offsets/points may have changed; store still holds every stroke.
+			strokeBoundsCacheRef.current.clear();
 			forceRender(n => n + 1);
 			props.onChange?.();
 
@@ -359,6 +370,38 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		});
 		return () => { unsubStore(); unsubUndo(); };
 	}, []); // eslint-disable-line -- stable effect deps
+
+	// Re-cull when the note scroller or window moves the canvas on/off screen (embeds + dedicated).
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		let rafId = 0;
+		const bumpViewportRevision = () => {
+			if (rafId) return;
+			rafId = window.requestAnimationFrame(() => {
+				rafId = 0;
+				setViewportRevision((n) => n + 1);
+			});
+		};
+
+		const noteScroller = container.closest('.cm-scroller');
+		noteScroller?.addEventListener('scroll', bumpViewportRevision, { passive: true });
+		window.addEventListener('scroll', bumpViewportRevision, { passive: true, capture: true });
+		window.addEventListener('resize', bumpViewportRevision);
+		const visualViewport = window.visualViewport;
+		visualViewport?.addEventListener('scroll', bumpViewportRevision);
+		visualViewport?.addEventListener('resize', bumpViewportRevision);
+
+		return () => {
+			if (rafId) window.cancelAnimationFrame(rafId);
+			noteScroller?.removeEventListener('scroll', bumpViewportRevision);
+			window.removeEventListener('scroll', bumpViewportRevision, true);
+			window.removeEventListener('resize', bumpViewportRevision);
+			visualViewport?.removeEventListener('scroll', bumpViewportRevision);
+			visualViewport?.removeEventListener('resize', bumpViewportRevision);
+		};
+	}, [props.isEmbedded, writingMode]);
 
 	// Writing mode: re-fit zoom when container width changes (not height — embed resize animates height)
 	useEffect(() => {
@@ -1126,6 +1169,32 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const cameraTransform = `scale(${camera.zoom}) translate(${camera.x}, ${camera.y})`;
 
+	// Render-only visibility: skip mounting StrokePath for fully off-screen strokes.
+	// void viewportRevision — dependency so scroll bumps re-evaluate without store changes.
+	void viewportRevision;
+	const containerRect = containerRef.current?.getBoundingClientRect() ?? null;
+	const visiblePageRect = containerRect
+		? visiblePageRectFromContainer(camera, containerRect)
+		: undefined;
+
+	const getCachedApproxStrokeBounds = (stroke: InkStroke): PageRect => {
+		const cached = strokeBoundsCacheRef.current.get(stroke.id);
+		if (cached) return cached;
+		const bounds = computeApproxStrokePageBounds(stroke);
+		strokeBoundsCacheRef.current.set(stroke.id, bounds);
+		return bounds;
+	};
+
+	const isStrokeVisibleInViewport = (stroke: InkStroke): boolean => {
+		// Always keep selected strokes mounted — select-tool moves their DOM groups.
+		if (selectedIds.has(stroke.id)) return true;
+		// Before layout, show everything to avoid a blank first paint.
+		if (visiblePageRect === undefined) return true;
+		// Fully off-screen container → cull all non-selected strokes.
+		if (visiblePageRect === null) return false;
+		return pageRectsIntersect(getCachedApproxStrokeBounds(stroke), visiblePageRect);
+	};
+
 	const inkTouchGestureMode = resolveInkTouchGestureMode({
 		writingMode,
 		isEmbedded: !!props.isEmbedded,
@@ -1210,27 +1279,40 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						const margin = pw * 0.05;
 						const lineCount = Math.floor(pageHeightState / lh);
 						const guideLineStrokeWidth = (isBooxConnectionEnabled ? 2 : 1) / camera.zoom;
-						return Array.from({ length: lineCount }, (_, i) => (
-							<line
-								key={i}
-								className="ink-writing-guide-line"
-								x1={margin}
-								y1={(i + 1) * lh}
-								x2={pw - margin}
-								y2={(i + 1) * lh}
-								stroke={isBooxConnectionEnabled ? 'var(--text-normal)' : 'currentColor'}
-								strokeOpacity={isBooxConnectionEnabled ? 1 : 0.5}
-								strokeWidth={guideLineStrokeWidth}
-							/>
-						));
+						return Array.from({ length: lineCount }, (_, i) => {
+							const lineY = (i + 1) * lh;
+							// Cull guide lines the same way as strokes — render-only, page height unchanged.
+							if (visiblePageRect === null) return null;
+							if (
+								visiblePageRect !== undefined
+								&& (lineY < visiblePageRect.minY || lineY > visiblePageRect.maxY)
+							) {
+								return null;
+							}
+							return (
+								<line
+									key={i}
+									className="ink-writing-guide-line"
+									x1={margin}
+									y1={lineY}
+									x2={pw - margin}
+									y2={lineY}
+									stroke={isBooxConnectionEnabled ? 'var(--text-normal)' : 'currentColor'}
+									strokeOpacity={isBooxConnectionEnabled ? 1 : 0.5}
+									strokeWidth={guideLineStrokeWidth}
+								/>
+							);
+						});
 					})()}
-					{/* Committed strokes */}
+					{/* Committed strokes — store keeps all; only visible (or selected) mount as SVG */}
 					{strokes.map(stroke => (
-						<StrokePath
-							key={stroke.id}
-							stroke={stroke}
-							isSelected={selectedIds.has(stroke.id)}
-						/>
+						isStrokeVisibleInViewport(stroke) ? (
+							<StrokePath
+								key={stroke.id}
+								stroke={stroke}
+								isSelected={selectedIds.has(stroke.id)}
+							/>
+						) : null
 					))}
 
 					{/* Live stroke (in-progress, drawn imperatively) */}

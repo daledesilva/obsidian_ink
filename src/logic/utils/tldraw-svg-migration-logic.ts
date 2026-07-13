@@ -19,6 +19,7 @@ import {
 } from 'src/ink-canvas/migrate-from-tldraw';
 import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
 import type { EmbedSettings } from 'src/types/embed-settings';
+import type { MigrationRunProgress } from 'src/logic/utils/migration-logic';
 
 ////////
 ////////
@@ -180,7 +181,7 @@ function resolveEmbedPath(
 export async function scanVaultForTldrawInkSvgFiles(
 	vault: Vault,
 	resolveLinkPath: ResolveVaultLinkPath,
-	onProgress?: (scanned: number, total: number) => void,
+	onProgress?: (scanned: number, total: number, foundCount: number) => void,
 ): Promise<TldrawSvgVaultScanResult> {
 	const markdownFiles = vault.getMarkdownFiles();
 	const total = markdownFiles.length;
@@ -196,7 +197,7 @@ export async function scanVaultForTldrawInkSvgFiles(
 		try {
 			content = await vault.read(note);
 		} catch {
-			onProgress?.(i + 1, total);
+			onProgress?.(i + 1, total, fileMap.size);
 			continue;
 		}
 
@@ -236,7 +237,7 @@ export async function scanVaultForTldrawInkSvgFiles(
 			}
 		}
 
-		onProgress?.(i + 1, total);
+		onProgress?.(i + 1, total, fileMap.size);
 	}
 
 	return {
@@ -302,7 +303,7 @@ export async function buildSingleTldrawSvgScanResult(
 export async function executeTldrawSvgMigration(
 	vault: Vault,
 	scanResult: TldrawSvgVaultScanResult,
-	onProgress?: (done: number, total: number) => void,
+	onProgress?: (done: number, total: number, liveStats: MigrationRunProgress) => void,
 ): Promise<TldrawSvgMigrationResult> {
 	const result: TldrawSvgMigrationResult = {
 		convertedFiles: 0,
@@ -318,6 +319,14 @@ export async function executeTldrawSvgMigration(
 	const total = scanResult.tldrawSvgFiles.length + scanResult.affectedNotes.length;
 	let done = 0;
 
+	const reportProgress = () => {
+		onProgress?.(done, total, {
+			convertedFiles: result.convertedFiles,
+			skippedCount: result.skipped.length,
+			failedCount: result.failed.length,
+		});
+	};
+
 	logToVault(
 		'Tldraw SVG migration started. Files: '
 			+ scanResult.tldrawSvgFiles.length
@@ -332,7 +341,7 @@ export async function executeTldrawSvgMigration(
 			if (!inkFileData) {
 				result.skipped.push(entry.svgFile.path + ' (no ink JSON)');
 				done++;
-				onProgress?.(done, total);
+				reportProgress();
 				continue;
 			}
 
@@ -340,7 +349,7 @@ export async function executeTldrawSvgMigration(
 			if (!converted) {
 				result.skipped.push(entry.svgFile.path + ' (already ink-canvas or not tldraw)');
 				done++;
-				onProgress?.(done, total);
+				reportProgress();
 				continue;
 			}
 
@@ -364,7 +373,7 @@ export async function executeTldrawSvgMigration(
 		}
 
 		done++;
-		onProgress?.(done, total);
+		reportProgress();
 	}
 
 	for (const note of scanResult.affectedNotes) {
@@ -392,7 +401,7 @@ export async function executeTldrawSvgMigration(
 		}
 
 		done++;
-		onProgress?.(done, total);
+		reportProgress();
 	}
 
 	logToVault(

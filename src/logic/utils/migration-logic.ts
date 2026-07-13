@@ -293,14 +293,21 @@ export async function buildSingleLegacyFileScanResult(
 	};
 }
 
+/** Live counters for migration execute progress UI (must be passed mid-run; result is only assigned after await). */
+export type MigrationRunProgress = {
+	convertedFiles: number;
+	skippedCount: number;
+	failedCount: number;
+};
+
 /**
  * Scans the vault for legacy `.writing` / `.drawing` files and notes with legacy embeds.
  * Returns a VaultScanResult with every legacy file to convert and notes to update.
- * Calls onProgress(scanned, total) after each markdown file is processed.
+ * Calls onProgress(scanned, total, foundCount) after each markdown file is processed.
  */
 export async function scanVaultForLegacyEmbeds(
 	vault: Vault,
-	onProgress?: (scanned: number, total: number) => void,
+	onProgress?: (scanned: number, total: number, foundCount: number) => void,
 ): Promise<VaultScanResult> {
 	const markdownFiles = vault.getMarkdownFiles();
 	const total = markdownFiles.length;
@@ -324,13 +331,13 @@ export async function scanVaultForLegacyEmbeds(
 		try {
 			content = await vault.read(note);
 		} catch (_) {
-			onProgress?.(i + 1, total);
+			onProgress?.(i + 1, total, legacyFileMap.size);
 			continue;
 		}
 
 		const blocks = findLegacyEmbedBlocks(content);
 		if (blocks.length === 0) {
-			onProgress?.(i + 1, total);
+			onProgress?.(i + 1, total, legacyFileMap.size);
 			continue;
 		}
 
@@ -348,7 +355,7 @@ export async function scanVaultForLegacyEmbeds(
 			}
 		}
 
-		onProgress?.(i + 1, total);
+		onProgress?.(i + 1, total, legacyFileMap.size);
 	}
 
 	return {
@@ -369,12 +376,12 @@ export type MigrationResult = {
 
 /**
  * Executes the migration: converts each legacy file to SVG and updates referencing notes.
- * Calls onProgress(done, total) after each step.
+ * Calls onProgress(done, total, liveStats) after each step so the UI can update mid-run.
  */
 export async function executeMigration(
 	vault: Vault,
 	scanResult: VaultScanResult,
-	onProgress?: (done: number, total: number) => void,
+	onProgress?: (done: number, total: number, liveStats: MigrationRunProgress) => void,
 	options?: MigrationOptions,
 ): Promise<MigrationResult> {
 	const isTestRun = options?.testRun === true;
@@ -412,6 +419,14 @@ export async function executeMigration(
 
 	const drawingEmbedSettingsBySvgPath = new Map<string, EmbedSettings>();
 
+	const reportProgress = () => {
+		onProgress?.(done, total, {
+			convertedFiles: result.convertedFiles,
+			skippedCount: result.skipped.length,
+			failedCount: result.failed.length,
+		});
+	};
+
 	// Step 1: Convert each legacy file to SVG
 	for (const entry of legacyFilesToConvert) {
 		try {
@@ -421,7 +436,7 @@ export async function executeMigration(
 			if (!inkFileData) {
 				result.skipped.push(entry.legacyFile.path + ' (could not parse)');
 				done++;
-				onProgress?.(done, total);
+				reportProgress();
 				continue;
 			}
 
@@ -477,7 +492,7 @@ export async function executeMigration(
 		}
 
 		done++;
-		onProgress?.(done, total);
+		reportProgress();
 	}
 
 	// Step 2: Update markdown notes
@@ -512,7 +527,7 @@ export async function executeMigration(
 		}
 
 		done++;
-		onProgress?.(done, total);
+		reportProgress();
 	}
 
 	logToVault('Migration complete. Converted: ' + result.convertedFiles + ', Failed: ' + result.failed.length + ', Skipped: ' + result.skipped.length);

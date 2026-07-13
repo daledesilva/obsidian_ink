@@ -129,12 +129,13 @@ export class FileConversionModal extends Modal {
 				this.plugin.app.vault,
 				this.file.path,
 				fromType,
-				(scanned, total) => {
+				(scanned, total, foundCount) => {
 					const remaining = total - scanned;
 					const pct = total > 0 ? (scanned / total) * 100 : 100;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
-					if (this.convertedCountEl) this.convertedCountEl.setText(String(this.affectedNotes.length));
+					// foundCount comes from the scanner — affectedNotes is empty until await finishes
+					if (this.convertedCountEl) this.convertedCountEl.setText(String(foundCount));
 				},
 			);
 
@@ -362,17 +363,18 @@ export class FileConversionModal extends Modal {
 				this.affectedNotes,
 				moveToPath,
 				this.conversionScope,
-				(done, total) => {
+				(done, total, liveStats) => {
 					const pct = total > 0 ? (done / total) * 100 : 100;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) {
 						this.remainingCountEl.setText(String(total - done));
 					}
-					if (this.convertedCountEl && this.conversionResult) {
-						this.convertedCountEl.setText(String(this.conversionResult.updatedNotePaths.length));
+					// liveStats are required because conversionResult is only assigned after await
+					if (this.convertedCountEl) {
+						this.convertedCountEl.setText(String(liveStats.updatedNotes));
 					}
-					if (this.failedCountEl && this.conversionResult) {
-						this.failedCountEl.setText(String(this.conversionResult.failed.length));
+					if (this.failedCountEl) {
+						this.failedCountEl.setText(String(liveStats.failedCount));
 					}
 				},
 			);

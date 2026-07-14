@@ -81,7 +81,7 @@ export class MigrationModal extends Modal {
 						this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					}
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
-					// foundCount comes from the scanner — scanResult is null until await finishes
+					// Live foundCount from the scanner — this.scanResult stays null until await ends.
 					if (this.convertedCountEl) this.convertedCountEl.setText(String(foundCount));
 				},
 			);
@@ -229,7 +229,7 @@ export class MigrationModal extends Modal {
 					const pct = tot > 0 ? (d / tot) * 100 : 100;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(tot - d));
-					// liveStats are required because migrationResult is only assigned after await
+					// Mid-run counters must come from liveStats — migrationResult is null until await ends.
 					if (this.convertedCountEl) this.convertedCountEl.setText(String(liveStats.convertedFiles));
 					if (this.skippedCountEl) this.skippedCountEl.setText(String(liveStats.skippedCount));
 					if (this.failedCountEl) this.failedCountEl.setText(String(liveStats.failedCount));

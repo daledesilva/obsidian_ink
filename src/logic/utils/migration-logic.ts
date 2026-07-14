@@ -303,7 +303,8 @@ export type MigrationRunProgress = {
 /**
  * Scans the vault for legacy `.writing` / `.drawing` files and notes with legacy embeds.
  * Returns a VaultScanResult with every legacy file to convert and notes to update.
- * Calls onProgress(scanned, total, foundCount) after each markdown file is processed.
+ * Calls onProgress(scanned, total, foundCount) after each markdown file so the modal can
+ * show live found/remaining counts — callers must not read the eventual return value mid-scan.
  */
 export async function scanVaultForLegacyEmbeds(
 	vault: Vault,

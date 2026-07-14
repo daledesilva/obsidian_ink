@@ -88,10 +88,25 @@ flowchart TD
 
 **Test migration** (modal “test run”) is separate: it writes under `_ink-test-conversions/`, may append `_1` / `_2` basename suffixes on collisions within the batch, never deletes legacy files, and does not rewrite notes.
 
+**Progress UI:** Scan and migrate callbacks pass live counts (`found` during scan; `converted` / `skipped` / `failed` during migrate). The modal must use those callback arguments — not `scanResult` / `migrationResult`, which stay null until each `await` finishes.
+
+```mermaid
+flowchart LR
+  Scan["scanVaultForLegacyEmbeds"]
+  Migrate["executeMigration"]
+  Modal["MigrationModal"]
+  Scan -->|"onProgress scanned,total,foundCount"| Modal
+  Migrate -->|"onProgress done,total,liveStats"| Modal
+```
+
+**Manual QA (progress density):** With only a handful of legacy files, the bar and counters jump too fast to verify mid-run updates. After `node qa-test-vault/generate.mjs` (or `npm run open-qa`), open **19 - Migration Progress Density** — forty unique `.writing`/`.drawing` copies plus embeds, for watching scan/migrate stats tick. Prefer **Test Migration** so permanent delete does not wipe the set mid-session.
+
 ### Technical gotchas
 
 - Strokes that were in the legacy editor **stash** at last save are not in the v1 JSON and cannot be recovered (same limitation as before).
 - Permanent migration (bulk settings/command **and** on-open single-file) overwrites an existing same-path `.svg`. Legacy deletion runs only after create/overwrite succeeds; create, overwrite, or delete failures are reported in `failed` (and surface in the modal or on-open notice) without deleting the legacy file.
+- Mid-run modal stats must read callback args; assigning from `scanResult` / `migrationResult` inside `onProgress` always shows zeros until the phase completes.
+- A vault with few unique legacy attachments cannot expose progress-UI regressions — regenerate section 19 when validating the migration modal.
 - Open **Settings → Ink → Update Ink files…** or run the command **Migrate legacy ink embeds to ink-canvas**.
 - For migrating a **single** file from the editor notice (embed vs dedicated reopen rules), see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md).
 

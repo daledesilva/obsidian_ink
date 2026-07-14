@@ -50,6 +50,21 @@ export function pageRectsIntersect(a: PageRect, b: PageRect): boolean {
 }
 
 /**
+ * Cheap page-space content bottom for writing page-height / grow math.
+ * Uses the same approx AABBs as culling (points + size pad) so store updates do not
+ * pay getStroke for every stroke. Biases high vs outline bounds — empty buffer space is fine.
+ * Persistence/export still use full outline bounds where a tight fit is required.
+ */
+export function computeApproxContentMaxY(strokes: InkStroke[]): number {
+	let maxY = 0;
+	for (const stroke of strokes) {
+		const bounds = computeApproxStrokePageBounds(stroke);
+		if (bounds.maxY > maxY) maxY = bounds.maxY;
+	}
+	return maxY;
+}
+
+/**
  * Page-space rect for the portion of the canvas container that is actually on screen
  * (container ∩ browser viewport), with a screen-pixel margin for scroll hysteresis.
  * Returns null when the container is fully off-screen — callers should cull all strokes.

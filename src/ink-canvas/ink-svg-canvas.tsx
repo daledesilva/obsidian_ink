@@ -1,20 +1,21 @@
 import './ink-svg-canvas.scss';
-import React, { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useCallback, useState, memo } from 'react';
 import { getStroke } from 'perfect-freehand';
 import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
 import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
-import { panByScreenDelta, zoomAtPoint, clampZoom, clampWritingCameraY, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
+import { panByScreenDelta, zoomAtPoint, clampZoom, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { createPanMomentumController, createModifierWheelZoomDirectionResolver, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
 import { computeStrokesBounds } from './svg-export';
 import {
+	computeApproxContentMaxY,
 	computeApproxStrokePageBounds,
 	pageRectsIntersect,
 	visiblePageRectFromContainer,
 	type PageRect,
 } from './stroke-viewport-culling';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
-import { MENUBAR_HEIGHT_PX, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
+import { WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
 import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
@@ -82,8 +83,6 @@ export interface InkSvgCanvasProps {
 	writingBufferLines?: number;
 	/** Called when inviting page height should be recomputed (writing mode only). */
 	onPageHeightChange?: (candidateHeightPx: number) => void;
-	/** Dedicated writing view: vertical touch pan callback (screen pixels). */
-	onDedicatedVerticalTouchPan?: (deltaY: number) => void;
 	/** Fired when a pan/scroll gesture ends (start flick momentum in parent if needed). */
 	onPanGestureEnd?: () => void;
 	/** When true, ignore local draw/erase/select pointer input (Boox WebSocket creates strokes). */
@@ -121,8 +120,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	function computeInitialPageHeight(): number {
 		const strokes = props.initialSnapshot?.strokes ?? [];
+		// Approx maxY — same helper as store updates; export still uses outline bounds.
 		const contentHeight = strokes.length > 0
-			? computeStrokesBounds(strokes).maxY
+			? computeApproxContentMaxY(strokes)
 			: 0;
 		return cropWritingStrokeHeightInvitingly(contentHeight, writingBufferLines, writingLineHeight);
 	}
@@ -153,6 +153,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Bumped on note/window scroll so render-time culling re-evaluates without touching StrokeStore.
 	const [viewportRevision, setViewportRevision] = useState(0);
 	const strokeBoundsCacheRef = useRef(new Map<string, PageRect>());
+	// Cached SVG path `d` per stroke id — offset is applied via transform, so moves do not bust this.
+	const strokePathDCacheRef = useRef(new Map<string, string>());
 
 	// Refs that stay in sync with state so tool callbacks see current values
 	const cameraRef = useRef(camera);
@@ -198,57 +200,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	strokeStyleRef.current = strokeStyle;
 	const selectedIdsRef = useRef(selectedIds);
 	selectedIdsRef.current = selectedIds;
-	const onDedicatedVerticalTouchPanRef = useRef(props.onDedicatedVerticalTouchPan);
-	onDedicatedVerticalTouchPanRef.current = props.onDedicatedVerticalTouchPan;
 
 	const panMomentumRef = useRef<PanMomentumController | null>(null);
 	useEffect(() => {
+		// Dedicated writing scrolls via HTML; drawing (and any residual writing pan) use xy.
 		panMomentumRef.current = createPanMomentumController({
-			axis: writingMode && !props.isEmbedded ? 'y' : 'xy',
+			axis: 'xy',
 		});
 		return () => panMomentumRef.current?.cancel();
-	}, [writingMode, props.isEmbedded]);
-
-	const getScrollContentBottomPageY = useCallback((): number => {
-		const strokes = storeRef.current.getAll();
-		if (strokes.length === 0) return WRITING_MIN_PAGE_HEIGHT;
-		return Math.max(computeStrokesBounds(strokes).maxY, WRITING_MIN_PAGE_HEIGHT);
 	}, []);
 
-	const clampWritingY = useCallback((y: number, zoom: number): number => {
-		const container = containerRef.current;
-		if (!container) return y;
-		const cameraYMax = props.isEmbedded ? 0 : MENUBAR_HEIGHT_PX;
-		return clampWritingCameraY(
-			y,
-			zoom,
-			container.clientHeight,
-			getScrollContentBottomPageY(),
-			cameraYMax,
-		);
-	}, [getScrollContentBottomPageY, props.isEmbedded]);
-
 	const applyPanScreenDeltaImmediate = useCallback((deltaScreenX: number, deltaScreenY: number): boolean => {
+		// Dedicated writing: vertical motion is native scroller — do not pan the camera.
 		if (writingMode && !props.isEmbedded) {
-			let hitClamp = false;
-			let nextCamera: CameraState | null = null;
-			setCameraState((prev) => {
-				const newY = clampWritingY(prev.y + deltaScreenY / prev.zoom, prev.zoom);
-				if (Math.abs(newY - prev.y) < 1e-9 && Math.abs(deltaScreenY) > 1e-9) {
-					hitClamp = true;
-				}
-				nextCamera = { ...prev, y: newY };
-				cameraRef.current = nextCamera;
-				return nextCamera;
-			});
-			if (nextCamera) {
-				emitCameraChange(nextCamera, { source: 'user' });
-			}
-			return !hitClamp;
+			return false;
 		}
 		commitUserCameraState((prev) => panByScreenDelta(prev, deltaScreenX, deltaScreenY));
 		return true;
-	}, [writingMode, props.isEmbedded, clampWritingY, commitUserCameraState, emitCameraChange]);
+	}, [writingMode, props.isEmbedded, commitUserCameraState]);
 
 	const applyPanScreenDelta = useCallback((deltaScreenX: number, deltaScreenY: number) => {
 		panMomentumRef.current?.recordScreenDelta(deltaScreenX, deltaScreenY);
@@ -269,16 +238,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const container = containerRef.current;
 		if (!container) return;
 		const zoom = container.clientWidth / pageWidth;
-		let prevY: number;
-		if (preserveY) {
-			prevY = cameraRef.current.y;
-		} else if (props.isEmbedded) {
-			prevY = 0;
-		} else {
-			prevY = MENUBAR_HEIGHT_PX;
-		}
+		// Dedicated writing uses HTML page scroll + padding for the menubar; keep camera Y at 0
+		// (embeds already used Y = 0). preserveY is only for width-refit mid-session.
+		const prevY = preserveY ? cameraRef.current.y : 0;
 		setCameraState({ x: 0, y: prevY, zoom });
-	}, [pageWidth, props.isEmbedded]);
+	}, [pageWidth]);
 
 	// Camera is never persisted — fit on mount. Use layout effect so initial camera applies before paint.
 	useLayoutEffect(() => {
@@ -343,8 +307,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Subscribe to store changes to re-render strokes
 	useEffect(() => {
 		const unsubStore = storeRef.current.subscribe(() => {
-			// Invalidate cull bounds — offsets/points may have changed; store still holds every stroke.
+			// Invalidate cull bounds + path `d` — points/style may have changed; store still holds every stroke.
 			strokeBoundsCacheRef.current.clear();
+			strokePathDCacheRef.current.clear();
 			forceRender(n => n + 1);
 			props.onChange?.();
 
@@ -352,7 +317,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				const allStrokes = storeRef.current.getAll();
 				const lh = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
 				const contentHeight = allStrokes.length > 0
-					? computeStrokesBounds(allStrokes).maxY
+					? computeApproxContentMaxY(allStrokes)
 					: 0;
 				const candidateHeight = cropWritingStrokeHeightInvitingly(
 					contentHeight,
@@ -386,7 +351,10 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 
 		const noteScroller = container.closest('.cm-scroller');
+		// Dedicated writing: tall HTML scroller (not camera pan) — re-cull as the page scrolls.
+		const dedicatedScroller = container.closest('.ddc_ink_writing-dedicated-scroller');
 		noteScroller?.addEventListener('scroll', bumpViewportRevision, { passive: true });
+		dedicatedScroller?.addEventListener('scroll', bumpViewportRevision, { passive: true });
 		window.addEventListener('scroll', bumpViewportRevision, { passive: true, capture: true });
 		window.addEventListener('resize', bumpViewportRevision);
 		const visualViewport = window.visualViewport;
@@ -396,6 +364,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		return () => {
 			if (rafId) window.cancelAnimationFrame(rafId);
 			noteScroller?.removeEventListener('scroll', bumpViewportRevision);
+			dedicatedScroller?.removeEventListener('scroll', bumpViewportRevision);
 			window.removeEventListener('scroll', bumpViewportRevision, true);
 			window.removeEventListener('resize', bumpViewportRevision);
 			visualViewport?.removeEventListener('scroll', bumpViewportRevision);
@@ -1019,44 +988,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 
 		const handleWheelNative = (e: WheelEvent) => {
-			// Embedded writing: pass wheel through to the markdown note scroller
-			if (writingMode && props.isEmbedded) {
-				return;
-			}
-			if (writingMode && !props.isEmbedded) {
-				if (e.ctrlKey || e.metaKey) return;
-				e.preventDefault();
-				const delta = e.deltaY * (e.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1);
-				const usesExternalWritingPan = !!onDedicatedVerticalTouchPanRef.current;
-				if (usesExternalWritingPan) {
-					if (isTrackpadWheel(e)) {
-						scheduleTrackpadWheelRelease();
-					} else {
-						clearTrackpadWheelIdleTimer();
-						cancelPanMomentumRef.current();
-					}
-					onDedicatedVerticalTouchPanRef.current?.(delta);
-					return;
-				}
-				if (isTrackpadWheel(e)) {
-					applyPanScreenDeltaRef.current(0, -delta);
-					scheduleTrackpadWheelRelease();
-				} else {
-					clearTrackpadWheelIdleTimer();
-					cancelPanMomentumRef.current();
-					let nextCamera: CameraState | null = null;
-					setCameraState((prev) => {
-						nextCamera = {
-							...prev,
-							y: clampWritingY(prev.y - delta / prev.zoom, prev.zoom),
-						};
-						cameraRef.current = nextCamera;
-						return nextCamera;
-					});
-					if (nextCamera) {
-						emitCameraChange(nextCamera, { source: 'user' });
-					}
-				}
+			// Writing (embed note scroll or dedicated tall-page scroller): do not steal wheel.
+			if (writingMode) {
 				return;
 			}
 
@@ -1096,7 +1029,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			modifierWheelZoomDirectionResolverRef.current.cancel();
 			svg.removeEventListener('wheel', handleWheelNative);
 		};
-	}, [writingMode, props.isEmbedded, clampWritingY, emitCameraChange]);
+	}, [writingMode, props.isEmbedded]);
 
 
 	// Space+drag pan (Phase C)
@@ -1106,7 +1039,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			const shouldActivate = e.key === ' ' && !e.repeat && !e.metaKey && !e.ctrlKey && isPointerOverCanvasRef.current && !props.isEmbedded;
+			// Writing dedicated uses HTML scroll; embeds pass Space through to the note.
+			const shouldActivate = e.key === ' '
+				&& !e.repeat
+				&& !e.metaKey
+				&& !e.ctrlKey
+				&& isPointerOverCanvasRef.current
+				&& !props.isEmbedded
+				&& !writingMode;
 			if (!shouldActivate) return;
 			isSpaceHeldRef.current = true;
 			setCursorStyle('grab');
@@ -1195,10 +1135,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		return pageRectsIntersect(getCachedApproxStrokeBounds(stroke), visiblePageRect);
 	};
 
+	// Writing embeds + dedicated writing both use document scroll (cm-scroller or
+	// .ddc_ink_writing-dedicated-scroller) — never camera-Y touch pan.
 	const inkTouchGestureMode = resolveInkTouchGestureMode({
 		writingMode,
 		isEmbedded: !!props.isEmbedded,
-		hasDedicatedVerticalTouchPan: writingMode && !props.isEmbedded && !!props.onDedicatedVerticalTouchPan,
+		hasDedicatedVerticalTouchPan: false,
 	});
 
 	// FingerBlocker must sit outside overflow:hidden so iOS can chain finger scroll to .cm-scroller
@@ -1216,11 +1158,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			<FingerBlocker
 				wrapperRef={canvasWrapperRef}
 				touchGestureMode={inkTouchGestureMode}
-				onVerticalTouchPan={
-					writingMode && !props.isEmbedded
-						? props.onDedicatedVerticalTouchPan
-						: undefined
-				}
 				forwardPenToCanvas={!props.isBooxInputLocked}
 				forwardFingerToCanvas={
 					!!props.isFingerDrawingActive && !props.isBooxInputLocked
@@ -1279,17 +1216,20 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						const margin = pw * 0.05;
 						const lineCount = Math.floor(pageHeightState / lh);
 						const guideLineStrokeWidth = (isBooxConnectionEnabled ? 2 : 1) / camera.zoom;
-						return Array.from({ length: lineCount }, (_, i) => {
-							const lineY = (i + 1) * lh;
-							// Cull guide lines the same way as strokes — render-only, page height unchanged.
-							if (visiblePageRect === null) return null;
-							if (
-								visiblePageRect !== undefined
-								&& (lineY < visiblePageRect.minY || lineY > visiblePageRect.maxY)
-							) {
-								return null;
-							}
-							return (
+						// Only emit guide indices overlapping the visible page rect — avoid
+						// Array.from(full page) + null cull on tall documents during scroll.
+						if (visiblePageRect === null) return null;
+						let startIndex = 1;
+						let endIndex = lineCount;
+						if (visiblePageRect !== undefined) {
+							startIndex = Math.max(1, Math.floor(visiblePageRect.minY / lh));
+							endIndex = Math.min(lineCount, Math.ceil(visiblePageRect.maxY / lh));
+						}
+						if (endIndex < startIndex) return null;
+						const lines: React.JSX.Element[] = [];
+						for (let i = startIndex; i <= endIndex; i++) {
+							const lineY = i * lh;
+							lines.push(
 								<line
 									key={i}
 									className="ink-writing-guide-line"
@@ -1300,9 +1240,10 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 									stroke={isBooxConnectionEnabled ? 'var(--text-normal)' : 'currentColor'}
 									strokeOpacity={isBooxConnectionEnabled ? 1 : 0.5}
 									strokeWidth={guideLineStrokeWidth}
-								/>
+								/>,
 							);
-						});
+						}
+						return lines;
 					})()}
 					{/* Committed strokes — store keeps all; only visible (or selected) mount as SVG */}
 					{strokes.map(stroke => (
@@ -1311,6 +1252,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 								key={stroke.id}
 								stroke={stroke}
 								isSelected={selectedIds.has(stroke.id)}
+								pathDCache={strokePathDCacheRef.current}
 							/>
 						) : null
 					))}
@@ -1335,14 +1277,36 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 interface StrokePathProps {
 	stroke: InkStroke;
 	isSelected: boolean;
+	/** Shared cache: path `d` depends on points/style only; offset is a transform. */
+	pathDCache: Map<string, string>;
 }
 
-function StrokePath(props: StrokePathProps): React.JSX.Element {
-	const { stroke, isSelected } = props;
+function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): boolean {
+	if (prev.isSelected !== next.isSelected) return false;
+	if (prev.pathDCache !== next.pathDCache) return false;
+	const a = prev.stroke;
+	const b = next.stroke;
+	if (a === b) return true;
+	if (a.id !== b.id) return false;
+	if (a.points !== b.points) return false;
+	if (a.style !== b.style) return false;
+	// Offset-only changes still need a re-render for the translate transform, but not a new `d`.
+	if (a.offset.x !== b.offset.x || a.offset.y !== b.offset.y) return false;
+	return true;
+}
+
+const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {
+	const { stroke, isSelected, pathDCache } = props;
 	// All strokes render through perfect-freehand's `getStroke` directly — the same call the
 	// live preview makes (see `draw-tool.ts`), so committed strokes match what was drawn.
-	const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
-	const d = getSvgPathFromStroke(outlinePoints);
+	// Cached by stroke id: parent re-renders (viewportRevision, unrelated store updates after
+	// cache clear + remount) reuse `d` when the id is still populated; offset is transform-only.
+	let d = pathDCache.get(stroke.id);
+	if (d === undefined) {
+		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
+		d = getSvgPathFromStroke(outlinePoints);
+		pathDCache.set(stroke.id, d);
+	}
 
 	const hasOffset = stroke.offset.x !== 0 || stroke.offset.y !== 0;
 
@@ -1370,4 +1334,4 @@ function StrokePath(props: StrokePathProps): React.JSX.Element {
 			)}
 		</g>
 	);
-}
+}, strokePathPropsAreEqual);

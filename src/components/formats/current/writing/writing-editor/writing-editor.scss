@@ -11,6 +11,29 @@
 	}
 }
 
+// Dedicated writing: native tall-page scroll (camera Y stays pinned). Menus stay absolute
+// overlays on the editor root so chrome does not scroll with the page.
+.ddc_ink_writing-editor.ddc_ink_dedicated-editor {
+	.ddc_ink_writing-dedicated-scroller {
+		position: absolute;
+		inset: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.ddc_ink_writing-dedicated-page {
+		width: 100%;
+		position: relative;
+
+		.ink-svg-canvas-wrapper,
+		.ink-svg-canvas-container {
+			width: 100%;
+			height: 100%;
+		}
+	}
+}
+
 // .ddc_ink_writing-editor {
 //     transition: height 0.5s ease;
     

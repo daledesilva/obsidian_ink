@@ -211,7 +211,13 @@ function generateAllNotes() {
     ['02 - Legacy Format/V1 Writing Embed.md', `# V1 Writing\n${v1W}`],
     ['02 - Legacy Format/V1 Drawing Embed.md', `# V1 Drawing\n${v1D}`],
     ['02 - Legacy Format/V1 and V2 Side by Side.md', `# V1 and V2\n## V1 Writing\n${v1W}\n## V2 Writing\n${w('hello-world.svg')}\n## V1 Drawing\n${v1D}\n## V2 Drawing\n${d('simple-shape.svg')}`],
-    ['03 - Density and Repetition/Many Embeds on One Page.md', `# Many Embeds\n\n${[1,2,3,4,5,6].map(i => i%2?w('hello-world.svg'):d('simple-shape.svg')).join('\n\n')}\n\nEnd.`],
+    // ~10× the old 6-embed density note; unique ink-canvas files so Live Preview + picker "on current page" both stress.
+    ['03 - Density and Repetition/Many Embeds on One Page.md', `# Many Embeds\n\n${Array.from({ length: PICKER_STRESS_EMBED_COUNT }, (_, i) => {
+      const n = String(i + 1).padStart(2, '0');
+      return i % 2 === 0
+        ? w(`picker-stress-writing-${n}.svg`)
+        : d(`picker-stress-drawing-${n}.svg`, 500, 16 / 9, { x: 0, y: 0, w: 200, h: 120 });
+    }).join('\n\n')}\n\nEnd.`],
     ['03 - Density and Repetition/Same Embed Repeated.md', `# Same Repeated\n\n${w('hello-world.svg')}${w('hello-world.svg')}${w('hello-world.svg')}${w('hello-world.svg')}${w('hello-world.svg')}`],
     ['03 - Density and Repetition/Same Embed Across Pages Note A.md', `# Note A\n\n${d('simple-shape.svg')}\n\nSame in multiple notes.`],
     ['03 - Density and Repetition/Same Embed Across Pages Note B.md', `# Note B\n\n${d('simple-shape.svg')}\n\nSame in multiple notes.`],
@@ -474,7 +480,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 
 - **01 – Basic Embeds**: Single, multiple, mixed, empty
 - **02 – Legacy Format**: v1 code block embeds (handwritten-ink, handdrawn-ink)
-- **03 – Density and Repetition**: Many embeds, same embed repeated, back-to-back
+- **03 – Density and Repetition**: Many unique ink-canvas embeds (~60), same embed repeated, back-to-back
 - **04 – Obsidian Native Features**: Block quotes, lists, tables, transclusion, headings, code blocks
 - **04b – Callouts and Layout**: Native callouts, Admonition, List Callouts, Columns (Multi-Column, Obsidian Columns, MCL)
 - **05 – Settings Variations**: writingLinesWhenLocked, drawingFrameWhenLocked, etc.
@@ -496,6 +502,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
 - **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
+- **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
@@ -505,6 +512,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   generateTldrawBulkMigrationAssets();
   generateCapturedLegacyMigrationAssets();
   generateMigrationProgressDensityAssets();
+  generatePickerStressAssets();
 
   ensureDir('.obsidian');
   // Enable community plugins needed for column layout e2e tests.
@@ -1144,6 +1152,153 @@ Path scenarios (plugin × Obsidian settings):
 - **Subfolder/Deep Target.md** — nested target for depth test
 - **Relative Path Source.md** — relative path embed (../) — may break when pasted elsewhere
 - **Filename Only Embed.md** — filename only, ambiguous with OtherFolder/copy-paste-ambig.svg
+`);
+}
+
+// ─── Section 20: Insert-existing picker stress (many current ink-canvas files) ─
+// ~10× the handful of named current fixtures so Insert Existing can exercise sniffing,
+// sectioning, and lazy mount/unload of viewport previews on a large vault.
+// Numbered 20 because section 19 is Migration Progress Density on release_0.5.
+
+/** Unique ink-canvas writing + drawing SVGs; also referenced by density / picker notes. */
+const PICKER_STRESS_FILE_COUNT = 50;
+/** Embeds on the density page (~10× the previous 6). */
+const PICKER_STRESS_EMBED_COUNT = 60;
+
+function buildPickerStressStrokeStyle() {
+  return {
+    size: 8,
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    simulatePressure: true,
+    color: 'currentColor',
+  };
+}
+
+/**
+ * Compact ink-canvas SVG with visible stroke markup so picker previews are not blank.
+ * Index varies geometry so scrolling the picker shows distinct cards.
+ * Always sets file-type so sniffInkSvgFileType can classify writing vs drawing without JSON parse.
+ */
+function buildPickerStressInkCanvasSvg(fileType, index) {
+  const strokeId = `picker-stress-${fileType}-${index}`;
+  const isWriting = fileType === 'inkWriting';
+  // Distinct diagonal / scribble per index so lazy-loaded cards are visually different.
+  const x1 = 20 + (index % 10) * 8;
+  const y1 = 30 + (index % 7) * 6;
+  const x2 = 160 - (index % 9) * 5;
+  const y2 = 90 - (index % 5) * 4;
+  const midX = (x1 + x2) / 2;
+  const midY = y1 + ((index % 4) - 1.5) * 12;
+  const snapshot = {
+    version: 1,
+    strokes: [{
+      id: strokeId,
+      points: [[x1, y1, 0.5], [midX, midY, 0.6], [x2, y2, 0.5]],
+      style: buildPickerStressStrokeStyle(),
+      offset: { x: 0, y: 0 },
+    }],
+    gridEnabled: !isWriting,
+    ...(isWriting ? { writingLineHeight: 150 } : {}),
+  };
+  const viewBox = isWriting ? '0 0 2000 300' : '0 0 200 120';
+  const visibleMarkup = isWriting
+    ? [
+      `<line x1="100" y1="150" x2="1900" y2="150" stroke="#888888" stroke-opacity="0.5" class="ink-type-writing-line ink-color-writing-line" />`,
+      // Scale scribble into writing page space so embeds/previews show ink, not only guide lines.
+      `<path d="M${100 + x1 * 8},${120 + y1} L${100 + midX * 8},${120 + midY} L${100 + x2 * 8},${120 + y2}" fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round" class="ink-type-stroke ink-color-primary" />`,
+    ].join('\n')
+    : `<path d="M${x1},${y1} L${midX},${midY} L${x2},${y2}" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round" class="ink-type-stroke ink-color-primary" />`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
+<metadata>
+<ink plugin-version="${PLUGIN_VERSION}" file-type="${fileType}"/>
+<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">${JSON.stringify(snapshot)}</ink-canvas>
+</metadata>
+${visibleMarkup}
+</svg>
+`;
+}
+
+function pickerStressFilename(kind, index) {
+  const n = String(index).padStart(2, '0');
+  return kind === 'writing'
+    ? `picker-stress-writing-${n}.svg`
+    : `picker-stress-drawing-${n}.svg`;
+}
+
+function generatePickerStressAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '20 - Insert Existing Picker'));
+
+  for (let i = 1; i <= PICKER_STRESS_FILE_COUNT; i++) {
+    const writingName = pickerStressFilename('writing', i);
+    const drawingName = pickerStressFilename('drawing', i);
+    fs.writeFileSync(
+      path.join(VAULT_ROOT, 'Ink/Writing', writingName),
+      buildPickerStressInkCanvasSvg('inkWriting', i),
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(VAULT_ROOT, 'Ink/Drawing', drawingName),
+      buildPickerStressInkCanvasSvg('inkDrawing', i),
+      'utf8',
+    );
+  }
+
+  const writingEmbeds = Array.from({ length: PICKER_STRESS_FILE_COUNT }, (_, i) =>
+    buildWritingEmbed(`Ink/Writing/${pickerStressFilename('writing', i + 1)}`)).join('\n');
+  const drawingEmbeds = Array.from({ length: PICKER_STRESS_FILE_COUNT }, (_, i) =>
+    buildDrawingEmbed(
+      `Ink/Drawing/${pickerStressFilename('drawing', i + 1)}`,
+      500,
+      16 / 9,
+      { x: 0, y: 0, w: 200, h: 120 },
+    )).join('\n');
+
+  writeFile('20 - Insert Existing Picker/README.md', `# Insert Existing Picker
+
+Stress fixtures for **Insert existing writing/drawing** (lazy SVG previews, sniff without full JSON parse).
+
+## What was generated
+
+- \`${PICKER_STRESS_FILE_COUNT}\` unique **ink-canvas** writing SVGs: \`Ink/Writing/picker-stress-writing-01.svg\` … \`-${String(PICKER_STRESS_FILE_COUNT).padStart(2, '0')}.svg\`
+- \`${PICKER_STRESS_FILE_COUNT}\` unique **ink-canvas** drawing SVGs: \`Ink/Drawing/picker-stress-drawing-01.svg\` … \`-${String(PICKER_STRESS_FILE_COUNT).padStart(2, '0')}.svg\`
+- Density note \`03 - Density and Repetition/Many Embeds on One Page.md\` embeds ${PICKER_STRESS_EMBED_COUNT} of these (mixed writing/drawing)
+
+## How to test
+
+1. Open **All Writing Files Embed.md** or a blank note → command **Insert existing writing**.
+2. Confirm the picker opens quickly, lists many files, and only mounts previews near the viewport while scrolling.
+3. Repeat with **Insert existing drawing** from **All Drawing Files Embed.md**.
+4. From **On Current Page Writing.md**, open the writing picker and confirm an **On this page** (or equivalent) section lists the embeds from that note.
+`);
+
+  writeFile('20 - Insert Existing Picker/All Writing Files Embed.md', `# All Writing Files Embed
+
+All ${PICKER_STRESS_FILE_COUNT} picker-stress writing files embedded (scroll the note; use Insert existing writing to see the full vault list).
+
+${writingEmbeds}
+`);
+
+  writeFile('20 - Insert Existing Picker/All Drawing Files Embed.md', `# All Drawing Files Embed
+
+All ${PICKER_STRESS_FILE_COUNT} picker-stress drawing files embedded.
+
+${drawingEmbeds}
+`);
+
+  // Subset on one note so "on current page" has a non-trivial section without embedding the entire set twice.
+  const onPageCount = 20;
+  const onPageWriting = Array.from({ length: onPageCount }, (_, i) =>
+    buildWritingEmbed(`Ink/Writing/${pickerStressFilename('writing', i + 1)}`)).join('\n');
+  writeFile('20 - Insert Existing Picker/On Current Page Writing.md', `# On Current Page Writing
+
+Embeds the first ${onPageCount} picker-stress writing files. Open **Insert existing writing** from this note to exercise the on-current-page section vs the rest of the vault.
+
+${onPageWriting}
 `);
 }
 

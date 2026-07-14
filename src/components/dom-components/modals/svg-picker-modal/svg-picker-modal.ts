@@ -9,6 +9,11 @@ import {
 ////////
 ////////
 
+/** Cap concurrent SVG parses so scrolling does not stampede vault reads + DOMParser. */
+const MAX_CONCURRENT_PREVIEW_LOADS = 4;
+/** Prefetch slightly outside the scroller so fast scrolls still feel continuous. */
+const PREVIEW_ROOT_MARGIN = "120px 0px";
+
 function fileMatchesQuery(file: TFile, query: string): boolean {
 	const trimmed = query.trim();
 	if (trimmed === "") return true;
@@ -20,13 +25,30 @@ function filterFiles(files: TFile[], query: string): TFile[] {
 	return files.filter((file) => fileMatchesQuery(file, query));
 }
 
+type CardPreviewState = {
+	file: TFile;
+	previewHost: HTMLElement;
+	isMounted: boolean;
+	loadGeneration: number;
+};
+
 export class SvgFilePickerModal extends Modal {
 	titleText: string;
 	sections: SectionedFiles;
 	fileType: "inkWriting" | "inkDrawing";
 	onChoose: (file: TFile) => void;
 	searchQuery = "";
+	/** True after onClose — discovery must not refresh a dismissed modal. */
+	hasClosed = false;
+	private isScanning = false;
 	private svgContentCache = new Map<string, string>();
+	private previewObserver: IntersectionObserver | null = null;
+	private cardPreviewStates = new Map<HTMLElement, CardPreviewState>();
+	private activePreviewLoads = 0;
+	private pendingPreviewLoads: CardPreviewState[] = [];
+	private searchComponent: SearchComponent | null = null;
+	private sectionsContainer: HTMLElement | null = null;
+	private statusEl: HTMLElement | null = null;
 
 	constructor(
 		app: App,
@@ -35,6 +57,7 @@ export class SvgFilePickerModal extends Modal {
 			sections: SectionedFiles;
 			fileType: "inkWriting" | "inkDrawing";
 			onChoose: (file: TFile) => void;
+			isScanning?: boolean;
 		}
 	) {
 		super(app);
@@ -42,24 +65,124 @@ export class SvgFilePickerModal extends Modal {
 		this.sections = options.sections;
 		this.fileType = options.fileType;
 		this.onChoose = options.onChoose;
+		this.isScanning = options.isScanning === true;
 	}
 
-	private async loadInlinePreview(previewHost: HTMLElement, file: TFile): Promise<void> {
+	/**
+	 * Replace sectioned files after async discovery finishes (or streams updates).
+	 * Re-renders the filtered grid while keeping the search query.
+	 */
+	setSections(sections: SectionedFiles, isScanning: boolean) {
+		if (this.hasClosed) return;
+		this.sections = sections;
+		this.isScanning = isScanning;
+		this.updateStatusText();
+		this.applyFilter();
+	}
+
+	private updateStatusText() {
+		if (!this.statusEl) return;
+		if (this.isScanning) {
+			this.statusEl.setText("Scanning vault for ink files…");
+			this.statusEl.show();
+			return;
+		}
+		this.statusEl.hide();
+	}
+
+	private disconnectPreviewObserver() {
+		this.previewObserver?.disconnect();
+		this.previewObserver = null;
+		this.cardPreviewStates.clear();
+		this.pendingPreviewLoads = [];
+		this.activePreviewLoads = 0;
+	}
+
+	private ensurePreviewObserver() {
+		if (this.previewObserver || !this.sectionsContainer) return;
+		// Observe against the sections scroller so off-screen grid cards unload.
+		this.previewObserver = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					const state = this.cardPreviewStates.get(entry.target as HTMLElement);
+					if (!state) continue;
+					if (entry.isIntersecting) {
+						this.enqueuePreviewMount(state);
+					} else if (state.isMounted) {
+						this.unloadPreview(state);
+					}
+				}
+			},
+			{
+				root: this.sectionsContainer,
+				rootMargin: PREVIEW_ROOT_MARGIN,
+				threshold: 0.01,
+			},
+		);
+	}
+
+	private enqueuePreviewMount(state: CardPreviewState) {
+		if (state.isMounted) return;
+		if (this.pendingPreviewLoads.includes(state)) return;
+		this.pendingPreviewLoads.push(state);
+		this.pumpPreviewLoadQueue();
+	}
+
+	private pumpPreviewLoadQueue() {
+		while (
+			this.activePreviewLoads < MAX_CONCURRENT_PREVIEW_LOADS
+			&& this.pendingPreviewLoads.length > 0
+		) {
+			const next = this.pendingPreviewLoads.shift();
+			if (!next) break;
+			if (next.isMounted) continue;
+			this.activePreviewLoads++;
+			void this.loadInlinePreview(next).finally(() => {
+				this.activePreviewLoads = Math.max(0, this.activePreviewLoads - 1);
+				this.pumpPreviewLoadQueue();
+			});
+		}
+	}
+
+	private unloadPreview(state: CardPreviewState) {
+		// Keep string cache; drop DOM so off-screen complex SVGs do not stay mounted.
+		state.loadGeneration++;
+		state.isMounted = false;
+		state.previewHost.empty();
+		state.previewHost.createDiv({
+			cls: "ink-svg-picker-preview-placeholder",
+			text: "",
+		});
+	}
+
+	private async loadInlinePreview(state: CardPreviewState): Promise<void> {
+		const generation = ++state.loadGeneration;
+		const { previewHost, file } = state;
 		try {
 			let svgString = this.svgContentCache.get(file.path);
 			if (svgString === undefined) {
-				svgString = await this.app.vault.read(file);
+				svgString = await this.app.vault.cachedRead(file);
 				this.svgContentCache.set(file.path, svgString);
 			}
-			if (mountInlineSvgPreview(previewHost, svgString)) return;
+			// Card may have scrolled out or been re-rendered while we awaited
+			if (generation !== state.loadGeneration) return;
+			if (![...this.cardPreviewStates.values()].includes(state)) return;
+
+			if (mountInlineSvgPreview(previewHost, svgString)) {
+				state.isMounted = true;
+				return;
+			}
 		} catch {
 			// fall through to placeholder
 		}
+		if (generation !== state.loadGeneration) return;
+		if (![...this.cardPreviewStates.values()].includes(state)) return;
 		previewHost.empty();
 		previewHost.createDiv({
 			cls: "ink-svg-picker-preview-placeholder",
 			text: "Preview unavailable",
 		});
+		state.isMounted = true;
 	}
 
 	private createFileCard(container: HTMLElement, file: TFile, isHorizontalRow = false): void {
@@ -73,7 +196,20 @@ export class SvgFilePickerModal extends Modal {
 		const previewHost = previewWrapper.createDiv({
 			cls: embedPreviewClassForFileType(this.fileType),
 		});
-		void this.loadInlinePreview(previewHost, file);
+		// Placeholder until the card intersects the scroll viewport
+		previewHost.createDiv({
+			cls: "ink-svg-picker-preview-placeholder",
+			text: "",
+		});
+
+		const state: CardPreviewState = {
+			file,
+			previewHost,
+			isMounted: false,
+			loadGeneration: 0,
+		};
+		this.cardPreviewStates.set(card, state);
+		this.previewObserver?.observe(card);
 
 		const label = card.createDiv({ cls: "ink-svg-picker-label" });
 		label.setText(file.basename);
@@ -142,7 +278,10 @@ export class SvgFilePickerModal extends Modal {
 	}
 
 	private renderSections(container: HTMLElement, filteredRecent: TFile[], filteredOnPage: TFile[], filteredOther: TFile[]): void {
+		this.disconnectPreviewObserver();
 		container.empty();
+		this.ensurePreviewObserver();
+
 		const otherLabel =
 			this.fileType === "inkDrawing" ? "Other drawings" : "Other writing";
 		const recentLabel =
@@ -151,7 +290,7 @@ export class SvgFilePickerModal extends Modal {
 		const hasAnyResults = filteredRecent.length > 0 || filteredOnPage.length > 0 || filteredOther.length > 0;
 		if (!hasAnyResults) {
 			const emptyEl = container.createDiv({ cls: "ink-svg-picker-empty" });
-			emptyEl.setText("No files match your search");
+			emptyEl.setText(this.isScanning ? "Scanning vault…" : "No files match your search");
 			return;
 		}
 
@@ -175,36 +314,45 @@ export class SvgFilePickerModal extends Modal {
 		}
 	}
 
+	private applyFilter() {
+		if (!this.sectionsContainer || !this.searchComponent) return;
+		this.searchQuery = this.searchComponent.getValue();
+		const filteredRecent = filterFiles(this.sections.recent, this.searchQuery);
+		const filteredOnPage = filterFiles(this.sections.onCurrentPage, this.searchQuery);
+		const filteredOther = filterFiles(this.sections.other, this.searchQuery);
+		this.renderSections(this.sectionsContainer, filteredRecent, filteredOnPage, filteredOther);
+	}
+
 	onOpen() {
 		const { titleEl, contentEl } = this;
 		titleEl.setText(this.titleText);
 
+		this.statusEl = contentEl.createDiv({ cls: "ink-svg-picker-status" });
+		this.updateStatusText();
+
 		const searchContainer = contentEl.createDiv({ cls: "ink-svg-picker-search" });
-		const searchComponent = new SearchComponent(searchContainer);
-		searchComponent.setPlaceholder("Search by filename...");
-		searchComponent.setValue(this.searchQuery);
+		this.searchComponent = new SearchComponent(searchContainer);
+		this.searchComponent.setPlaceholder("Search by filename...");
+		this.searchComponent.setValue(this.searchQuery);
 
-		const sectionsContainer = contentEl.createDiv({ cls: "ink-svg-picker-sections" });
+		this.sectionsContainer = contentEl.createDiv({ cls: "ink-svg-picker-sections" });
 
-		const applyFilter = () => {
-			this.searchQuery = searchComponent.getValue();
-			const filteredRecent = filterFiles(this.sections.recent, this.searchQuery);
-			const filteredOnPage = filterFiles(this.sections.onCurrentPage, this.searchQuery);
-			const filteredOther = filterFiles(this.sections.other, this.searchQuery);
-			this.renderSections(sectionsContainer, filteredRecent, filteredOnPage, filteredOther);
-		};
+		this.searchComponent.onChange(() => this.applyFilter());
 
-		searchComponent.onChange(applyFilter);
-
-		applyFilter();
+		this.applyFilter();
 
 		window.requestAnimationFrame(() => {
-			searchComponent.inputEl.focus();
+			this.searchComponent?.inputEl.focus();
 		});
 	}
 
 	onClose() {
+		this.hasClosed = true;
+		this.disconnectPreviewObserver();
 		this.svgContentCache.clear();
+		this.searchComponent = null;
+		this.sectionsContainer = null;
+		this.statusEl = null;
 		this.contentEl.empty();
 	}
 }

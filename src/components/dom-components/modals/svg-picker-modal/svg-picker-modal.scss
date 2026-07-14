@@ -141,3 +141,16 @@
 .ink-svg-picker-search {
 	margin-bottom: 8px;
 }
+
+.ink-svg-picker-status {
+	margin-bottom: 8px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.ink-svg-picker-sections {
+	// Dedicated scroller so IntersectionObserver can mount/unload off-screen previews.
+	max-height: min(70vh, 36em);
+	overflow: auto;
+	padding-right: 2px;
+}

@@ -15,6 +15,8 @@ export function embedPreviewClassForFileType(
 
 /**
  * Parse an SVG string and append the root element into `host` for CSS theme overrides.
+ * Callers must put writing/drawing embed preview classes on `host` (or an ancestor)
+ * so ink-svg-preview-theme.scss can override baked black fills — img/object cannot.
  * Returns true when an svg element was mounted.
  */
 export function mountInlineSvgPreview(host: HTMLElement, svgString: string): boolean {

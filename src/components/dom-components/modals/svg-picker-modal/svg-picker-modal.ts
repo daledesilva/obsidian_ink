@@ -11,6 +11,7 @@ import {
 
 /** Cap concurrent SVG parses so scrolling does not stampede vault reads + DOMParser. */
 const MAX_CONCURRENT_PREVIEW_LOADS = 4;
+/** Prefetch slightly outside the scroller so fast scrolls still feel continuous. */
 const PREVIEW_ROOT_MARGIN = "120px 0px";
 
 function fileMatchesQuery(file: TFile, query: string): boolean {

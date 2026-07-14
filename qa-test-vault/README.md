@@ -19,7 +19,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 
 - **01 – Basic Embeds**: Single, multiple, mixed, empty
 - **02 – Legacy Format**: v1 code block embeds (handwritten-ink, handdrawn-ink)
-- **03 – Density and Repetition**: Many embeds, same embed repeated, back-to-back
+- **03 – Density and Repetition**: Many unique ink-canvas embeds (~60), same embed repeated, back-to-back
 - **04 – Obsidian Native Features**: Block quotes, lists, tables, transclusion, headings, code blocks
 - **04b – Callouts and Layout**: Native callouts, Admonition, List Callouts, Columns (Multi-Column, Obsidian Columns, MCL)
 - **05 – Settings Variations**: writingLinesWhenLocked, drawingFrameWhenLocked, etc.
@@ -40,3 +40,4 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **16 – V2 Tldraw Migration**: Real v2 `<tldraw>` SVGs; preview, edit, upgrade to ink-canvas on save
 - **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
+- **19 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA

@@ -84,7 +84,7 @@ Because the flag lives in the document itself, the decision prompt persists acro
 | Embed builder | `utils/build-embeds.ts` | Accepts `options.pendingPaste` and appends `&pendingPaste=true` to the URL |
 | URL parser | `utils/parse-settings-from-url.ts` | Returns `isPendingPaste: boolean` alongside `embedSettings` |
 | Paste handler | `utils/paste-embed-handler.ts` | Non-anchored global regex; injects `pendingPaste=true` into every embed found in clipboard text |
-| File picker utility | `src/logic/utils/open-ink-file-picker.ts` | Filters vault SVGs by ink file type, builds sectioned layout (Recent, On current page, Other), opens `SvgFilePickerModal`; shared by insert commands and the locate action |
+| File picker utility | `src/logic/utils/open-ink-file-picker.ts` | Opens the modal immediately, sniffs ink SVG types without full JSON parse, builds sectioned layout (Recent, On current page, Other); shared by insert commands and the locate action. See [Insert existing file picker](insert-existing-file-picker.md). |
 | CM6 widget (writing) | `writing-embed-extension.tsx` | Parses `isPendingPaste`, passes it, resolve callbacks, and `locateFile` to `WritingEmbed` |
 | CM6 widget (drawing) | `drawing-embed-extension.tsx` | Same for drawing |
 | React embed (writing) | `writing-embed.tsx` | When file is not found, always shows the not-found banner (with path + Locate button); when file is found and pending, shows the reference/duplicate banner above the preview |
@@ -120,9 +120,9 @@ When inserting an existing drawing or writing file (or when locating a missing f
 
 A file may appear in both Recent and On current page when it qualifies for both. The Other section excludes files that appear in either of the first two sections. Recent selections are persisted to `localStorage` and updated whenever the user chooses a file from the picker.
 
-Thumbnail previews use mtime-based cache busting (`?t=<mtime>`) on the image src so they stay current after edits. Without it, the browser would serve cached images for the same `getResourcePath` URL.
-
 A search input at the top filters visible results across all sections by matching the query against file basename or path (case-insensitive). When nothing matches, "No files match your search" is shown.
+
+For open latency, type sniffing, and lazy viewport previews on large vaults, see [Insert existing file picker](insert-existing-file-picker.md).
 
 ### Path scenarios covered by e2e tests
 

@@ -55,6 +55,9 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertGettingStartedSection(containerEl, this.plugin);
 		const migrateWrapper = insertMigrateSection(containerEl, this.plugin);
+		this.plugin.refreshLegacyMigrateSectionVisibility = () => {
+			void this.refreshLegacyMigrateSectionVisibility(migrateWrapper);
+		};
 		void this.refreshLegacyMigrateSectionVisibility(migrateWrapper);
 
 		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
@@ -132,6 +135,7 @@ export class MySettingsTab extends PluginSettingTab {
 
 	hide(): void {
 		this.legacyMigrateScanGeneration++;
+		this.plugin.refreshLegacyMigrateSectionVisibility = null;
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
 	}
@@ -143,7 +147,10 @@ export class MySettingsTab extends PluginSettingTab {
 		if (generation !== this.legacyMigrateScanGeneration) return;
 
 		const hasLegacyFiles = vaultHasLegacyInkFiles(this.plugin.app.vault);
-		if (!hasLegacyFiles) return;
+		if (!hasLegacyFiles) {
+			wrapperEl.classList.remove('ddc_ink_expanded');
+			return;
+		}
 
 		if (generation !== this.legacyMigrateScanGeneration) return;
 

@@ -104,6 +104,9 @@ export class MigrationModal extends Modal {
 		contentEl.empty();
 		contentEl.createEl('p', { text: 'No legacy Ink files were found in your vault. Nothing to migrate.' });
 
+		// Settings may still be open behind the modal — collapse the migrate card.
+		this.plugin.refreshLegacyMigrateSectionVisibility?.();
+
 		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
 		const doneBtn = buttonsEl.createEl('button', { cls: 'mod-cta', text: 'Done' });
 		doneBtn.addEventListener('click', () => this.close());
@@ -274,6 +277,9 @@ export class MigrationModal extends Modal {
 			contentEl.createEl('p', {
 				text: `Migration complete. ${result.convertedFiles} file${result.convertedFiles !== 1 ? 's' : ''} converted, ${result.updatedNotes} note${result.updatedNotes !== 1 ? 's' : ''} updated.`,
 			});
+			// Collapse the settings migrate card once permanent migration finishes so
+			// users do not re-trigger it while settings remains open behind the modal.
+			this.plugin.refreshLegacyMigrateSectionVisibility?.();
 		}
 
 		if (result.skipped.length > 0) {

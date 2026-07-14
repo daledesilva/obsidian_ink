@@ -54,6 +54,12 @@ export default class InkPlugin extends Plugin {
 	/** Sidebar collapsed state captured before opening a dedicated ink view, restored on close. */
 	inkViewSidebarState: { leftWasCollapsed: boolean; rightWasCollapsed: boolean } | null = null;
 
+	/**
+	 * Settings tab registers this while open so permanent migration can collapse
+	 * the legacy migrate card without a full settings redraw.
+	 */
+	refreshLegacyMigrateSectionVisibility: (() => void) | null = null;
+
 	// Exposed for e2e testing
 	readonly FileConversionModal = FileConversionModal;
 	readonly findNotesContainingFileEmbed = findNotesContainingFileEmbed;

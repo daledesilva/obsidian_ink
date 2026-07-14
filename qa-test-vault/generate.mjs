@@ -501,7 +501,8 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **16 – V2 Tldraw Migration**: Real v2 \`<tldraw>\` SVGs; preview, edit, upgrade to ink-canvas on save
 - **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
-- **19 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
+- **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
+- **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
@@ -510,6 +511,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   generateV2TldrawMigrationAssets();
   generateTldrawBulkMigrationAssets();
   generateCapturedLegacyMigrationAssets();
+  generateMigrationProgressDensityAssets();
   generatePickerStressAssets();
 
   ensureDir('.obsidian');
@@ -982,6 +984,74 @@ ${drawingList}
 `);
 }
 
+// ─── Section 19: Migration Progress Density (many unique legacy files) ─────────
+// Enough distinct .writing/.drawing files that MigrationModal scan + convert
+// progress bars and live counters visibly tick instead of jumping 0 → done.
+
+const MIGRATION_PROGRESS_DENSITY_COUNT = 40;
+
+function generateMigrationProgressDensityAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '19 - Migration Progress Density'));
+
+  const writingSrc = path.join(FIXTURES, 'legacy-writing-fixture.writing');
+  const drawingSrc = path.join(FIXTURES, 'legacy-drawing-fixture.drawing');
+
+  function buildLegacyWritingEmbed(filepath) {
+    return `\`\`\`handwritten-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath })}\n\`\`\``;
+  }
+  function buildLegacyDrawingEmbed(filepath) {
+    return `\`\`\`handdrawn-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath, width: 500, aspectRatio: 1 })}\n\`\`\``;
+  }
+
+  const noteLinks = [];
+  const half = Math.floor(MIGRATION_PROGRESS_DENSITY_COUNT / 2);
+
+  for (let i = 1; i <= MIGRATION_PROGRESS_DENSITY_COUNT; i++) {
+    const padded = String(i).padStart(2, '0');
+    const isWriting = i <= half;
+    const fileType = isWriting ? 'writing' : 'drawing';
+    const vaultSubfolder = isWriting ? 'Ink/Writing' : 'Ink/Drawing';
+    const basename = `progress-density-${padded}`;
+    const vaultPath = `${vaultSubfolder}/${basename}.${fileType}`;
+    const src = isWriting ? writingSrc : drawingSrc;
+    fs.copyFileSync(src, path.join(VAULT_ROOT, vaultPath));
+
+    const notePath = `19 - Migration Progress Density/${isWriting ? 'Writing' : 'Drawing'} ${padded}.md`;
+    const embed = isWriting
+      ? buildLegacyWritingEmbed(vaultPath)
+      : buildLegacyDrawingEmbed(vaultPath);
+
+    writeFile(notePath, `# Migration Progress Density — ${basename}
+
+Legacy \`.${fileType}\` copy for watching MigrationModal progress (found/converted/remaining).
+
+${embed}
+`);
+    noteLinks.push(`- \`${notePath}\` → \`${vaultPath}\``);
+  }
+
+  writeFile('19 - Migration Progress Density/README.md', `# Migration Progress Density
+
+Creates **${MIGRATION_PROGRESS_DENSITY_COUNT}** unique legacy \`.writing\` / \`.drawing\` files (plus notes with embeds) so **Migrate legacy ink embeds** shows live progress-bar and counter updates during scan and migrate.
+
+## Manual checklist
+
+1. Run \`node qa-test-vault/generate.mjs\` to reset the vault (recreates these files).
+2. Command palette → **Migrate legacy ink embeds to ink-canvas**.
+3. Watch scan: remaining/found should update while notes are scanned.
+4. Choose **Test Migration** (safer) or **Migrate Permanently**.
+5. Watch migrate: converted/remaining/skipped/failed should update mid-run (not stay at 0 until done).
+
+Together with sections 13 and 18, the vault should list well over ${MIGRATION_PROGRESS_DENSITY_COUNT} legacy files.
+
+## Files
+
+${noteLinks.join('\n')}
+`);
+}
+
 // ─── Section 15: Copy Paste Paths ──────────────────────────────────────────────
 
 function generateCopyPastePathsTestAssets() {
@@ -1085,9 +1155,10 @@ Path scenarios (plugin × Obsidian settings):
 `);
 }
 
-// ─── Section 19: Insert-existing picker stress (many current ink-canvas files) ─
+// ─── Section 20: Insert-existing picker stress (many current ink-canvas files) ─
 // ~10× the handful of named current fixtures so Insert Existing can exercise sniffing,
 // sectioning, and lazy mount/unload of viewport previews on a large vault.
+// Numbered 20 because section 19 is Migration Progress Density on release_0.5.
 
 /** Unique ink-canvas writing + drawing SVGs; also referenced by density / picker notes. */
 const PICKER_STRESS_FILE_COUNT = 50;
@@ -1160,7 +1231,7 @@ function pickerStressFilename(kind, index) {
 function generatePickerStressAssets() {
   ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
   ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
-  ensureDir(path.join(VAULT_ROOT, '19 - Insert Existing Picker'));
+  ensureDir(path.join(VAULT_ROOT, '20 - Insert Existing Picker'));
 
   for (let i = 1; i <= PICKER_STRESS_FILE_COUNT; i++) {
     const writingName = pickerStressFilename('writing', i);
@@ -1187,7 +1258,7 @@ function generatePickerStressAssets() {
       { x: 0, y: 0, w: 200, h: 120 },
     )).join('\n');
 
-  writeFile('19 - Insert Existing Picker/README.md', `# Insert Existing Picker
+  writeFile('20 - Insert Existing Picker/README.md', `# Insert Existing Picker
 
 Stress fixtures for **Insert existing writing/drawing** (lazy SVG previews, sniff without full JSON parse).
 
@@ -1205,14 +1276,14 @@ Stress fixtures for **Insert existing writing/drawing** (lazy SVG previews, snif
 4. From **On Current Page Writing.md**, open the writing picker and confirm an **On this page** (or equivalent) section lists the embeds from that note.
 `);
 
-  writeFile('19 - Insert Existing Picker/All Writing Files Embed.md', `# All Writing Files Embed
+  writeFile('20 - Insert Existing Picker/All Writing Files Embed.md', `# All Writing Files Embed
 
 All ${PICKER_STRESS_FILE_COUNT} picker-stress writing files embedded (scroll the note; use Insert existing writing to see the full vault list).
 
 ${writingEmbeds}
 `);
 
-  writeFile('19 - Insert Existing Picker/All Drawing Files Embed.md', `# All Drawing Files Embed
+  writeFile('20 - Insert Existing Picker/All Drawing Files Embed.md', `# All Drawing Files Embed
 
 All ${PICKER_STRESS_FILE_COUNT} picker-stress drawing files embedded.
 
@@ -1223,7 +1294,7 @@ ${drawingEmbeds}
   const onPageCount = 20;
   const onPageWriting = Array.from({ length: onPageCount }, (_, i) =>
     buildWritingEmbed(`Ink/Writing/${pickerStressFilename('writing', i + 1)}`)).join('\n');
-  writeFile('19 - Insert Existing Picker/On Current Page Writing.md', `# On Current Page Writing
+  writeFile('20 - Insert Existing Picker/On Current Page Writing.md', `# On Current Page Writing
 
 Embeds the first ${onPageCount} picker-stress writing files. Open **Insert existing writing** from this note to exercise the on-current-page section vs the rest of the vault.
 

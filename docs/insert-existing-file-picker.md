@@ -38,7 +38,7 @@ flowchart TB
 
 ### Manual QA (large vault)
 
-Regenerate the qa-test-vault (`node qa-test-vault/generate.mjs`), then use **19 – Insert Existing Picker**:
+Regenerate the qa-test-vault (`node qa-test-vault/generate.mjs`), then use **20 – Insert Existing Picker**:
 
 - ~50 unique ink-canvas writing + ~50 drawing SVGs (`picker-stress-*.svg`)
 - Density note with ~60 unique embeds
@@ -52,7 +52,7 @@ Regenerate the qa-test-vault (`node qa-test-vault/generate.mjs`), then use **19 
 | Cheap type check | `sniffInkSvgFileType` in `extractInkJsonFromSvg.ts` | Writing/drawing without full JSON parse |
 | Modal UI + lazy previews | `svg-picker-modal.ts` / `.scss` | Sections, search, IntersectionObserver queue |
 | Inline themed SVG | `mountInlineSvgPreview` in `inline-svg-preview.ts` | Parse SVG string into host for CSS theming |
-| Stress fixtures | `qa-test-vault/generate.mjs` → section 19 | Many current-format files for manual picker QA |
+| Stress fixtures | `qa-test-vault/generate.mjs` → section 20 | Many current-format files for manual picker QA |
 
 Section layout (Recent / On current page / Other) and recent-path `localStorage` behaviour are also described under [Copy & paste embeds](copy-paste-embeds.md#insert-existing-file-modal).
 

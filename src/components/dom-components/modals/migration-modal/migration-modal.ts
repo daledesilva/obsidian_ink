@@ -74,14 +74,15 @@ export class MigrationModal extends Modal {
 		try {
 			this.scanResult = await scanVaultForLegacyEmbeds(
 				this.plugin.app.vault,
-				(scanned, tot) => {
+				(scanned, tot, foundCount) => {
 					const remaining = tot - scanned;
 					const pct = tot > 0 ? (scanned / tot) * 100 : 100;
 					if (this.progressBarInnerEl) {
 						this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					}
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
-					if (this.convertedCountEl) this.convertedCountEl.setText(String(this.scanResult?.legacyFiles.length ?? 0));
+					// Live foundCount from the scanner — this.scanResult stays null until await ends.
+					if (this.convertedCountEl) this.convertedCountEl.setText(String(foundCount));
 				},
 			);
 		} catch (err) {
@@ -224,16 +225,14 @@ export class MigrationModal extends Modal {
 			this.migrationResult = await executeMigration(
 				this.plugin.app.vault,
 				scan,
-				(d, tot) => {
+				(d, tot, liveStats) => {
 					const pct = tot > 0 ? (d / tot) * 100 : 100;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(tot - d));
-
-					if (this.migrationResult) {
-						if (this.convertedCountEl) this.convertedCountEl.setText(String(this.migrationResult.convertedFiles));
-						if (this.skippedCountEl) this.skippedCountEl.setText(String(this.migrationResult.skipped.length));
-						if (this.failedCountEl) this.failedCountEl.setText(String(this.migrationResult.failed.length));
-					}
+					// Mid-run counters must come from liveStats — migrationResult is null until await ends.
+					if (this.convertedCountEl) this.convertedCountEl.setText(String(liveStats.convertedFiles));
+					if (this.skippedCountEl) this.skippedCountEl.setText(String(liveStats.skippedCount));
+					if (this.failedCountEl) this.failedCountEl.setText(String(liveStats.failedCount));
 				},
 				this.migrationOptions,
 			);

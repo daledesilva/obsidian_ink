@@ -8,7 +8,7 @@ import {
 } from "jotai";
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
-import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
+import { ensureThemedNativeInkSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -61,52 +61,25 @@ export function registerDrawingView (plugin: InkPlugin) {
         (leaf) => new DrawingView(leaf, plugin)
     );
 
-    // Helper function to check and add edit button for drawing files
-    async function checkAndAddEditButton(leaf: WorkspaceLeaf, file: TFile) {
-        if (!file || file.extension !== 'svg') return;
-        
-        const currentViewType = leaf.view?.getViewType?.();
-        // Skip if already in our custom view
-        if (currentViewType === DRAWING_VIEW_TYPE) return;
-
-        try {
-            const svgString = await plugin.app.vault.read(file);
-            if (!svgString || !svgString.trim().startsWith('<svg')) return;
-
-            // Re-check after the async read — the leaf may have transitioned to
-            // DRAWING_VIEW_TYPE while vault.read was awaited (race condition when
-            // opening via Obsidian Menu whose onClick is not awaited by Obsidian)
-            if (leaf.view?.getViewType?.() === DRAWING_VIEW_TYPE) return;
-
-            const inkFileData = extractInkJsonFromSvg(svgString);
-            if (!inkFileData) return;
-            if (inkFileData.meta.fileType !== "inkDrawing") return;
-
-            // Add edit button to the SVG view
-            addEditButtonToSvgView(plugin, leaf, file, DRAWING_VIEW_TYPE);
-        } catch (_) {
-            // Fail silently; fall back to default SVG handling
-        }
-    }
-
-    // Add edit button to SVG views that contain ink drawing data
+    // Native SVG leaf theming is owned by ensureThemedNativeInkSvgView (also registered
+    // from writing-view). Keep a second hook so drawing SVGs still theme if event
+    // ordering only hits this register path; in-flight lock dedupes concurrent calls.
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
             if (!file) return;
             const targetLeaf = plugin.app.workspace.getMostRecentLeaf();
             if (targetLeaf) {
-                await checkAndAddEditButton(targetLeaf, file);
+                await ensureThemedNativeInkSvgView(plugin, targetLeaf, file);
             }
         })
     );
 
-    // Also check when a leaf becomes active (e.g., when navigating back)
     plugin.registerEvent(
         plugin.app.workspace.on('active-leaf-change', async (leaf) => {
             if (!leaf) return;
             const view = leaf.view;
             if (view instanceof FileView && view.file) {
-                await checkAndAddEditButton(leaf, view.file);
+                await ensureThemedNativeInkSvgView(plugin, leaf, view.file);
             }
         })
     );

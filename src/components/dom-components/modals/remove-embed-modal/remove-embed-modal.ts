@@ -88,12 +88,13 @@ export class RemoveEmbedModal extends Modal {
 				vault,
 				this.embeddedFile.path,
 				this.embedType,
-				(scanned, total) => {
+				(scanned, total, foundCount) => {
 					const remaining = total - scanned;
 					const pct = total > 0 ? (scanned / total) * 100 : 50;
 					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
 					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
-					if (this.foundCountEl) this.foundCountEl.setText(String(this.affectedNotes.length));
+					// foundCount comes from the scanner — affectedNotes is empty until await finishes
+					if (this.foundCountEl) this.foundCountEl.setText(String(foundCount));
 				},
 			);
 			this.totalEmbedCount = await countFileEmbedOccurrencesInVault(

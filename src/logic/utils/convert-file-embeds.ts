@@ -113,13 +113,13 @@ export async function countFileEmbedOccurrencesInVault(
  * Scans the vault for markdown files that contain a v2 embed referencing the
  * given SVG file path with the given embed type.
  *
- * Calls onProgress(scanned, total) after each file is checked.
+ * Calls onProgress(scanned, total, foundCount) after each file is checked.
  */
 export async function findNotesContainingFileEmbed(
 	vault: Vault,
 	svgFilePath: string,
 	fromType: 'inkWriting' | 'inkDrawing',
-	onProgress?: (scanned: number, total: number) => void,
+	onProgress?: (scanned: number, total: number, foundCount: number) => void,
 ): Promise<TFile[]> {
 	const mdFiles = vault.getMarkdownFiles();
 	const total = mdFiles.length;
@@ -136,7 +136,7 @@ export async function findNotesContainingFileEmbed(
 		} catch (_) {
 			// Unreadable file – skip
 		}
-		onProgress?.(i + 1, total);
+		onProgress?.(i + 1, total, results.length);
 	}
 
 	return results;
@@ -262,6 +262,11 @@ async function duplicateFileForConversion(
 	return duplicateWritingFile(plugin, file, instigatingNote);
 }
 
+export type FileConversionRunProgress = {
+	updatedNotes: number;
+	failedCount: number;
+};
+
 /**
  * Performs the full file conversion:
  * 1. (Optional) duplicate the file (duplicate scope only).
@@ -269,7 +274,7 @@ async function duplicateFileForConversion(
  * 3. Converts the SVG content (write↔draw).
  * 4. Updates note embeds per scope.
  *
- * onProgress(done, total) is called after each step.
+ * onProgress(done, total, liveStats) is called after each step so the UI can update mid-run.
  */
 export async function executeFileConversion(
 	plugin: InkPlugin,
@@ -278,7 +283,7 @@ export async function executeFileConversion(
 	affectedNotes: TFile[],
 	moveToPath: string | null,
 	scope: FileConversionScope,
-	onProgress: (done: number, total: number) => void,
+	onProgress: (done: number, total: number, liveStats: FileConversionRunProgress) => void,
 ): Promise<FileConversionResult> {
 	const vault = plugin.app.vault;
 	const notesToUpdate = resolveNotesToUpdate(scope, affectedNotes);
@@ -296,6 +301,13 @@ export async function executeFileConversion(
 		finalFile: null,
 		originalFilePath: file.path,
 		wasDuplicated,
+	};
+
+	const reportProgress = () => {
+		onProgress(done, total, {
+			updatedNotes: result.updatedNotePaths.length,
+			failedCount: result.failed.length,
+		});
 	};
 
 	const oldPath = file.path;
@@ -319,7 +331,7 @@ export async function executeFileConversion(
 			return result;
 		}
 		done++;
-		onProgress(done, total);
+		reportProgress();
 	} else {
 		// Close any open ink views to prevent them from overwriting the converted file
 		closeLeavesWithFileOpen(plugin, oldPath);
@@ -334,7 +346,7 @@ export async function executeFileConversion(
 			result.failed.push(`Move failed: ${String(err)}`);
 		}
 		done++;
-		onProgress(done, total);
+		reportProgress();
 	}
 
 	const newPath = currentFile.path;
@@ -356,7 +368,7 @@ export async function executeFileConversion(
 		result.failed.push(`SVG conversion failed: ${String(err)}`);
 	}
 	done++;
-	onProgress(done, total);
+	reportProgress();
 
 	if (!svgConversionSucceeded) {
 		result.finalFile = currentFile;
@@ -372,7 +384,7 @@ export async function executeFileConversion(
 			result.failed.push(`${note.path}: ${String(err)}`);
 		}
 		done++;
-		onProgress(done, total);
+		reportProgress();
 	}
 
 	result.finalFile = currentFile;

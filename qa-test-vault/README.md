@@ -40,3 +40,4 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **16 – V2 Tldraw Migration**: Real v2 `<tldraw>` SVGs; preview, edit, upgrade to ink-canvas on save
 - **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
+- **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update

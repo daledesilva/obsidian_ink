@@ -1,4 +1,5 @@
-// Shared stroke colours for inlined ink SVG previews (embeds + file picker modal).
+// Shared stroke colours for inlined ink SVG previews (embeds, file picker modal,
+// and native SVG leaf after ensureThemedNativeInkSvgView mounts a themed host).
 // SVG must be in the DOM (not img) for these rules to apply.
 
 .ddc_ink_writing-embed-preview,

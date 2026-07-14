@@ -4,6 +4,15 @@
     position: relative;
 }
 
+// Applied synchronously on file-open before vault.read so baked-black media never paints.
+.ddc_ink_svg-view--awaiting-theme {
+    img,
+    object,
+    embed {
+        visibility: hidden !important;
+    }
+}
+
 // Hide Obsidian's native SVG img/object once we mount a theme-aware inline preview.
 .ddc_ink_svg-native-media--hidden {
     display: none !important;

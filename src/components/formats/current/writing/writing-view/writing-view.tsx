@@ -9,7 +9,7 @@ import { type MenuOption } from "src/components/jsx-components/overflow-menu/ove
 import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
-import { addEditButtonToSvgView } from "src/logic/utils/addEditButtonToSvgView";
+import { ensureThemedNativeInkSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -29,53 +29,24 @@ export function registerWritingView (plugin: InkPlugin) {
         (leaf) => new WritingView(leaf, plugin)
     );
 
-    // Helper function to check and add edit button for writing files
-    async function checkAndAddEditButton(leaf: WorkspaceLeaf, file: TFile) {
-        if (!file || file.extension !== 'svg') return;
-        if (!leaf) return;
-        
-        const currentViewType = leaf.view?.getViewType?.();
-        // Skip if already in our custom view
-        if (currentViewType === WRITING_VIEW_TYPE) return;
-
-        try {
-            const svgString = await plugin.app.vault.read(file);
-            if (!svgString || !svgString.trim().startsWith('<svg')) return;
-
-            // Re-check after the async read — the leaf may have transitioned to
-            // WRITING_VIEW_TYPE while vault.read was awaited (race condition when
-            // opening via Obsidian Menu whose onClick is not awaited by Obsidian)
-            if (leaf.view?.getViewType?.() === WRITING_VIEW_TYPE) return;
-
-            const inkFileData = extractInkJsonFromSvg(svgString);
-            if (!inkFileData) return;
-            if (inkFileData.meta.fileType !== "inkWriting") return;
-
-            // Add edit button and theme-aware inline preview to the native SVG view
-            addEditButtonToSvgView(plugin, leaf, file, WRITING_VIEW_TYPE, svgString, 'inkWriting');
-        } catch (_) {
-            // Fail silently; fall back to default SVG handling
-        }
-    }
-
-    // Add edit button to SVG views that contain ink writing data
+    // Native SVG leaf: suppress black-img flash early, then theme + Edit when ink.
+    // Shared with drawing via ensureThemedNativeInkSvgView (handles both file types).
     plugin.registerEvent(
         plugin.app.workspace.on('file-open', async (file) => {
             if (!file) return;
             const targetLeaf = plugin.app.workspace.getMostRecentLeaf();
             if (targetLeaf) {
-                await checkAndAddEditButton(targetLeaf, file);
+                await ensureThemedNativeInkSvgView(plugin, targetLeaf, file);
             }
         })
     );
 
-    // Also check when a leaf becomes active (e.g., when navigating back)
     plugin.registerEvent(
         plugin.app.workspace.on('active-leaf-change', async (leaf) => {
             if (!leaf) return;
             const view = leaf.view;
             if (view instanceof FileView && view.file) {
-                await checkAndAddEditButton(leaf, view.file);
+                await ensureThemedNativeInkSvgView(plugin, leaf, view.file);
             }
         })
     );

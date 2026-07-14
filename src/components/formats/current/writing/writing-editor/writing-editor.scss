@@ -20,6 +20,9 @@
 		overflow-x: hidden;
 		overflow-y: auto;
 		-webkit-overflow-scrolling: touch;
+		// Avoid clientWidth shrink when the scrollbar appears mid-write (that would
+		// change width-fit zoom and shift content under the pen).
+		scrollbar-gutter: stable;
 	}
 
 	.ddc_ink_writing-dedicated-page {

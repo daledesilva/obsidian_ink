@@ -165,7 +165,9 @@ y    = topMarginPx
 
 ### Dedicated writing — y-position preservation on resize
 
-When the writing dedicated view is resized, the user may have scrolled down into the document. A plain `initWritingCamera` would reset `y` back to the top margin. Instead, the resize observer callback:
+> **Current-format ink-canvas writing:** dedicated views no longer scroll via camera Y. They use a tall HTML scroller; width-fit zoom changes rescale `scrollTop` in `syncDedicatedPageCssHeight`. See [dedicated-writing-html-scroll.md](dedicated-writing-html-scroll.md).
+
+When the **legacy tldraw** writing dedicated view is resized, the user may have scrolled down into the document. A plain `initWritingCamera` would reset `y` back to the top margin. Instead, the resize observer callback:
 
 1. Captures `prevY = editor.getCamera().y`
 2. Calls `initWritingCamera` (resets zoom and x correctly, but y is now at `MENUBAR_HEIGHT_PX`)

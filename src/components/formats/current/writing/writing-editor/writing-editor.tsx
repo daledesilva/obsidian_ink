@@ -129,6 +129,8 @@ export function WritingEditor(props: WritingEditorProps) {
 	const dedicatedScrollerRef = useRef<HTMLDivElement>(null);
 	const dedicatedPageRef = useRef<HTMLDivElement>(null);
 	const [dedicatedPageCssHeightPx, setDedicatedPageCssHeightPx] = React.useState<number | null>(null);
+	/** Last width-fit zoom applied to dedicated page CSS — used only when zoom changes. */
+	const dedicatedLastZoomRef = useRef<number | null>(null);
 
 	React.useEffect(() => {
 		if (!isFingerDrawingGloballyEnabled) setIsFingerDrawingActive(false);
@@ -306,6 +308,9 @@ export function WritingEditor(props: WritingEditorProps) {
 	/**
 	 * Map writing pageHeight (page units) → CSS px for the tall dedicated page.
 	 * zoom = scrollerWidth / WRITING_PAGE_WIDTH (same width-fit as the canvas camera).
+	 *
+	 * Height growth must not change scrollTop — that would jump ink under the pen.
+	 * Only rescale scrollTop when width-fit zoom actually changes.
 	 */
 	function syncDedicatedPageCssHeight(options?: {
 		pageHeight?: number;
@@ -322,27 +327,23 @@ export function WritingEditor(props: WritingEditorProps) {
 			?? WRITING_MIN_PAGE_HEIGHT;
 		const nextCssHeight = pageHeight * zoom;
 		const prevScrollTop = scroller.scrollTop;
-		const prevScrollHeight = scroller.scrollHeight;
-		const prevClientHeight = scroller.clientHeight;
-		const wasNearBottom = prevScrollHeight > 0
-			&& (prevScrollHeight - prevScrollTop - prevClientHeight) < prevClientHeight;
+		const prevZoom = dedicatedLastZoomRef.current;
 
 		setDedicatedPageCssHeightPx(nextCssHeight);
+		dedicatedLastZoomRef.current = zoom;
 
-		if (options?.preservePageScroll) {
+		if (
+			options?.preservePageScroll
+			&& prevZoom != null
+			&& Math.abs(prevZoom - zoom) > 1e-6
+		) {
 			window.requestAnimationFrame(() => {
 				const el = dedicatedScrollerRef.current;
 				if (!el) return;
-				if (wasNearBottom) {
-					el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
-					return;
-				}
-				// Width-fit zoom change: keep the same page-space scroll position.
-				const contentScrollRange = Math.max(prevScrollHeight - MENUBAR_HEIGHT_PX, 1);
-				const prevZoom = contentScrollRange / Math.max(pageHeight, 1);
-				if (prevZoom > 0 && Math.abs(prevZoom - zoom) > 1e-6) {
-					el.scrollTop = prevScrollTop * (zoom / prevZoom);
-				}
+				// Menubar padding is fixed CSS px; only rescale the content scroll past it.
+				const pad = MENUBAR_HEIGHT_PX;
+				const contentScrollTop = Math.max(0, prevScrollTop - pad);
+				el.scrollTop = pad + contentScrollTop * (zoom / prevZoom);
 			});
 		}
 	}

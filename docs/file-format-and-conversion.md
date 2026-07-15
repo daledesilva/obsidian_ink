@@ -107,8 +107,56 @@ flowchart LR
 - Permanent migration (bulk settings/command **and** on-open single-file) overwrites an existing same-path `.svg`. Legacy deletion runs only after create/overwrite succeeds; create, overwrite, or delete failures are reported in `failed` (and surface in the modal or on-open notice) without deleting the legacy file.
 - Mid-run modal stats must read callback args; assigning from `scanResult` / `migrationResult` inside `onProgress` always shows zeros until the phase completes.
 - A vault with few unique legacy attachments cannot expose progress-UI regressions — regenerate section 19 when validating the migration modal.
-- Open **Settings → Ink → Update Ink files…** or run the command **Migrate legacy ink embeds to ink-canvas**.
+- Open **Settings → Ink → Show migration options…** or run the command **Migrate legacy ink embeds to ink-canvas**.
 - For migrating a **single** file from the editor notice (embed vs dedicated reopen rules), see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md).
+- After permanent migration (or “nothing to migrate”), the settings migrate card must collapse while settings stays open — see [Settings migrate card visibility](#settings-migrate-card-visibility).
+
+## Settings migrate card visibility
+
+**Why it exists:** Settings stays open behind `MigrationModal`. After permanent migration removes every legacy `.writing`/`.drawing` file, the **Migrate Legacy Ink Files** card must collapse immediately so users cannot open the modal again from a stale expanded CTA. The same collapse runs when the modal finds nothing left to migrate.
+
+### Conceptual understanding
+
+The card is a settings-only promotional strip. Visibility is driven by `vaultHasLegacyInkFiles` (any vault `.writing`/`.drawing`), not by markdown scan results. CSS class `ddc_ink_expanded` on the wrapper expands the card; without it the card stays collapsed (height 0).
+
+While the settings tab is displayed, it registers `plugin.refreshLegacyMigrateSectionVisibility`. The migration modal calls that hook when it should re-sync the card — without rebuilding the whole settings tab.
+
+```mermaid
+flowchart TD
+  Display["Settings display()"]
+  Register["Register refreshLegacyMigrateSectionVisibility"]
+  Scan["vaultHasLegacyInkFiles"]
+  Expand["Add ddc_ink_expanded"]
+  Collapse["Remove ddc_ink_expanded"]
+  Modal["MigrationModal"]
+  Permanent["Permanent migrate done"]
+  Empty["Nothing to migrate"]
+  Test["Test migration done"]
+  Hide["Settings hide()"]
+
+  Display --> Register --> Scan
+  Scan -->|yes| Expand
+  Scan -->|no| Collapse
+  Modal --> Permanent --> Register
+  Modal --> Empty --> Register
+  Test -.->|no refresh call| Register
+  Hide -->|clear callback| Register
+```
+
+### Technical details
+
+| Piece | Role |
+|-------|------|
+| [`settings-tab.ts`](../src/components/dom-components/tabs/settings-tab/settings-tab.ts) `insertMigrateSection` / `refreshLegacyMigrateSectionVisibility` | Builds the card; expands/collapses from a vault legacy-file scan; registers/clears the plugin callback around `display`/`hide` |
+| [`main.ts`](../src/main.ts) `refreshLegacyMigrateSectionVisibility` | Nullable hook so the modal can refresh the open settings card without importing the settings tab |
+| [`migration-modal.ts`](../src/components/dom-components/modals/migration-modal/migration-modal.ts) | Calls the hook from `renderNothingToMigrate` and from the **permanent** branch of `renderDonePhase` only |
+
+### Technical Gotchas
+
+- **Collapse must remove `ddc_ink_expanded`.** Returning early when no legacy files remain used to leave a previously expanded card visible. Always clear the class on a negative scan.
+- **Test migration must not collapse the card.** It does not delete legacy files, so the CTA should stay expanded if settings is still open.
+- **Callback lifetime matches settings display.** `hide()` nulls the hook so a closed settings tab is never refreshed through a stale wrapper element.
+- **Generation guard.** Concurrent refresh calls from settings open + modal completion drop older scans via `legacyMigrateScanGeneration`.
 
 ## Drawing ↔ writing conversion
 

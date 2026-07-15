@@ -55,6 +55,7 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertGettingStartedSection(containerEl, this.plugin);
 		const migrateWrapper = insertMigrateSection(containerEl, this.plugin);
+		// Modal stays atop settings; register so permanent/empty migrate can collapse the card live.
 		this.plugin.refreshLegacyMigrateSectionVisibility = () => {
 			void this.refreshLegacyMigrateSectionVisibility(migrateWrapper);
 		};
@@ -135,6 +136,7 @@ export class MySettingsTab extends PluginSettingTab {
 
 	hide(): void {
 		this.legacyMigrateScanGeneration++;
+		// Drop the modal hook so refreshes cannot touch a detached migrate wrapper.
 		this.plugin.refreshLegacyMigrateSectionVisibility = null;
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
@@ -147,6 +149,7 @@ export class MySettingsTab extends PluginSettingTab {
 		if (generation !== this.legacyMigrateScanGeneration) return;
 
 		const hasLegacyFiles = vaultHasLegacyInkFiles(this.plugin.app.vault);
+		// Negative scan must clear expand — an early return left the card visible after permanent migrate.
 		if (!hasLegacyFiles) {
 			wrapperEl.classList.remove('ddc_ink_expanded');
 			return;

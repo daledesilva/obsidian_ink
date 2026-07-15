@@ -1039,10 +1039,12 @@ Creates **${MIGRATION_PROGRESS_DENSITY_COUNT}** unique legacy \`.writing\` / \`.
 ## Manual checklist
 
 1. Run \`node qa-test-vault/generate.mjs\` to reset the vault (recreates these files).
-2. Command palette → **Migrate legacy ink embeds to ink-canvas**.
-3. Watch scan: remaining/found should update while notes are scanned.
-4. Choose **Test Migration** (safer) or **Migrate Permanently**.
-5. Watch migrate: converted/remaining/skipped/failed should update mid-run (not stay at 0 until done).
+2. **Settings → Ink** — migrate card should be expanded while legacy files exist.
+3. Command palette → **Migrate legacy ink embeds to ink-canvas** (or **Show migration options…** on the card).
+4. Watch scan: remaining/found should update while notes are scanned.
+5. Choose **Test Migration** first (safer): card behind the modal should stay expanded.
+6. Watch migrate: converted/remaining/skipped/failed should update mid-run (not stay at 0 until done).
+7. After a successful **Migrate Permanently**, the settings migrate card should collapse without closing settings.
 
 Together with sections 13 and 18, the vault should list well over ${MIGRATION_PROGRESS_DENSITY_COUNT} legacy files.
 

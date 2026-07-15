@@ -238,7 +238,10 @@ export function FingerBlocker({
 
 	const getScroller = (): HTMLElement | null => {
 		const wrapper = getWrapper();
-		return wrapper ? (wrapper.closest('.cm-scroller')) : null;
+		if (!wrapper) return null;
+		// Embeds ride Obsidian's note scroller; dedicated writing uses its own tall-page scroller.
+		return wrapper.closest('.cm-scroller')
+			?? wrapper.closest('.ddc_ink_writing-dedicated-scroller');
 	};
 
 	const lockScroll = () => {

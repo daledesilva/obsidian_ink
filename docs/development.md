@@ -344,6 +344,8 @@ Troubleshooting:
 ### Related documentation
 
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
+- [Ink canvas: stroke viewport culling](ink-canvas-stroke-viewport-culling.md) — Render-only skip of off-screen mounts + path `d` / approx maxY caches.
+- [Dedicated writing: tall HTML page scroll](dedicated-writing-html-scroll.md) — Native scroller instead of camera-Y pan for long writing pages.
 - [Ink canvas: capture-time point merge](ink-canvas-point-merge.md) — Hybrid append/replace-tip merge for fast smoothness and slow curves.
 - [Ink canvas: zoom-scaled stroke smoothing](ink-canvas-zoom-scaled-strokes.md) — How capture zoom scales streamline, smoothing, and duplicate-point merge at reference 1×.
 - [Pan and zoom](pan-zoom.md) — Drawing editor gestures, modifier+wheel direction (mouse vs trackpad pinch), and zoom math (`InkSvgCanvas`).

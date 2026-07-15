@@ -37,6 +37,16 @@ describe('touch-gesture-policy', () => {
 			).toBe('dedicatedWritingVertical');
 		});
 
+		it('returns embedNoteScroll for dedicated writing without camera pan (tall HTML scroller)', () => {
+			expect(
+				resolveInkTouchGestureMode({
+					writingMode: true,
+					isEmbedded: false,
+					hasDedicatedVerticalTouchPan: false,
+				}),
+			).toBe('embedNoteScroll');
+		});
+
 		it('returns inkCanvasTwoFinger for drawing', () => {
 			expect(
 				resolveInkTouchGestureMode({

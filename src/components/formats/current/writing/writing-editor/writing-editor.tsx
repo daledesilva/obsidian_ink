@@ -16,8 +16,6 @@ import {
 	WRITING_MIN_PAGE_HEIGHT,
 	WRITING_PAGE_WIDTH,
 } from 'src/constants';
-import { clampWritingCameraY } from 'src/ink-canvas/camera';
-import { createPanMomentumController, isTrackpadWheel, type PanMomentumController } from 'src/ink-canvas/pan-momentum';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
 import ExtendedWritingMenu from 'src/components/jsx-components/extended-writing-menu/extended-writing-menu';
@@ -40,7 +38,8 @@ import {
 	recordEmbedCanvasActionOnUnifiedStack,
 } from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
-import { renderWritingStrokesToSvg, computeStrokesBounds } from 'src/ink-canvas/svg-export';
+import { renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
+import { computeApproxContentMaxY } from 'src/ink-canvas/stroke-viewport-culling';
 import { migrateWritingFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import type { PageBounds } from './page-bounds';
 import {
@@ -125,13 +124,13 @@ export function WritingEditor(props: WritingEditorProps) {
 	const curHeightRef = useRef<number | null>(null);
 	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
 	const forceNextPageHeightChangeRef = useRef(false);
-	const dedicatedWritingScrollMomentumRef = useRef<PanMomentumController | null>(null);
 	const isLegacyInkFileRef = useRef(false);
-
-	React.useEffect(() => {
-		dedicatedWritingScrollMomentumRef.current = createPanMomentumController({ axis: 'y' });
-		return () => dedicatedWritingScrollMomentumRef.current?.cancel();
-	}, []);
+	/** Dedicated writing: native tall-page scroller (not camera pan). */
+	const dedicatedScrollerRef = useRef<HTMLDivElement>(null);
+	const dedicatedPageRef = useRef<HTMLDivElement>(null);
+	const [dedicatedPageCssHeightPx, setDedicatedPageCssHeightPx] = React.useState<number | null>(null);
+	/** Last width-fit zoom applied to dedicated page CSS — used only when zoom changes. */
+	const dedicatedLastZoomRef = useRef<number | null>(null);
 
 	React.useEffect(() => {
 		if (!isFingerDrawingGloballyEnabled) setIsFingerDrawingActive(false);
@@ -243,10 +242,13 @@ export function WritingEditor(props: WritingEditorProps) {
 
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
-		if (!editorWrapperRefEl.current) return;
 		if (!getBooxConnectionEnabled()) return;
+		if (!editorWrapperRefEl.current) return;
 
-		const scrollEl = editorWrapperRefEl.current.closest('.cm-scroller');
+		// Embed: Obsidian note scroller. Dedicated: tall writing page scroller.
+		const scrollEl = props.embedded
+			? editorWrapperRefEl.current.closest('.cm-scroller')
+			: dedicatedScrollerRef.current;
 		if (!scrollEl) return;
 
 		const onScroll = () => {
@@ -270,13 +272,16 @@ export function WritingEditor(props: WritingEditorProps) {
 			visualViewport?.removeEventListener('scroll', onVisualViewportChange);
 			visualViewport?.removeEventListener('resize', onVisualViewportChange);
 		};
-	}, [initialSnapshot]);
+	}, [initialSnapshot, props.embedded]);
 
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
 		if (!editorWrapperRefEl.current) return;
 
 		const resizeObserver = new ResizeObserver(() => {
+			if (!props.embedded) {
+				syncDedicatedPageCssHeight({ preservePageScroll: true });
+			}
 			if (pendingNewOverlayRef.current && isViewActiveRef.current && websocketConnectedRef.current) {
 				const sent = newAndroidDrawingArea();
 				if (sent) {
@@ -293,96 +298,55 @@ export function WritingEditor(props: WritingEditorProps) {
 				sendAdjustmentImmediate();
 			}
 		});
-		resizeObserver.observe(editorWrapperRefEl.current);
+		const observeTarget = props.embedded
+			? editorWrapperRefEl.current
+			: (dedicatedScrollerRef.current ?? editorWrapperRefEl.current);
+		resizeObserver.observe(observeTarget);
 		return () => resizeObserver.disconnect();
-	}, [initialSnapshot]);
-
-	function getScrollContentBottomPageY(editor: InkCanvasEditor): number {
-		const strokes = editor.getSnapshot().strokes;
-		if (strokes.length === 0) return WRITING_MIN_PAGE_HEIGHT;
-		return Math.max(computeStrokesBounds(strokes).maxY, WRITING_MIN_PAGE_HEIGHT);
-	}
-
-	function clampDedicatedWritingCamera(editor: InkCanvasEditor, cameraY: number): number {
-		const container = editor.getContainerElement();
-		const viewportHeightPx = container?.clientHeight ?? 0;
-		const zoom = editor.getCamera().zoom;
-		return clampWritingCameraY(
-			cameraY,
-			zoom,
-			viewportHeightPx,
-			getScrollContentBottomPageY(editor),
-			MENUBAR_HEIGHT_PX,
-		);
-	}
-
-	function applyDedicatedInkWritingVerticalScrollImmediate(deltaScreenPx: number): boolean {
-		const editor = editorRef.current;
-		if (!editor) return false;
-		const camera = editor.getCamera();
-		const newY = camera.y - deltaScreenPx / camera.zoom;
-		const clampedY = clampDedicatedWritingCamera(editor, newY);
-		const hitClamp = Math.abs(clampedY - camera.y) < 1e-9 && Math.abs(newY - clampedY) > 1e-9;
-		editor.setCamera({
-			x: camera.x,
-			y: clampedY,
-			zoom: camera.zoom,
-		});
-		return !hitClamp;
-	}
-
-	function releaseDedicatedWritingScrollMomentum() {
-		dedicatedWritingScrollMomentumRef.current?.release((_deltaScreenX, deltaScreenY) =>
-			applyDedicatedInkWritingVerticalScrollImmediate(deltaScreenY),
-		);
-	}
-
-	function applyDedicatedInkWritingVerticalScroll(deltaScreenPx: number) {
-		dedicatedWritingScrollMomentumRef.current?.recordScreenDelta(0, deltaScreenPx);
-		applyDedicatedInkWritingVerticalScrollImmediate(deltaScreenPx);
-	}
-
-	// Dedicated view: capture-phase wheel so Obsidian does not steal vertical scroll
-	React.useEffect(() => {
-		if (!initialSnapshot) return;
-		if (props.embedded) return;
-		const wrapperEl = editorWrapperRefEl.current;
-		if (!wrapperEl) return;
-
-		const TRACKPAD_WHEEL_IDLE_MS = 80;
-		let wheelIdleTimer: number | null = null;
-
-		const clearTrackpadWheelIdleTimer = () => {
-			if (wheelIdleTimer !== null) {
-				window.clearTimeout(wheelIdleTimer);
-				wheelIdleTimer = null;
-			}
-		};
-
-		const onWheelScroll = (e: WheelEvent) => {
-			e.preventDefault();
-			e.stopPropagation();
-			let deltaY = e.deltaY;
-			if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) deltaY *= 16;
-			if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) deltaY *= 600;
-			if (isTrackpadWheel(e)) {
-				clearTrackpadWheelIdleTimer();
-				wheelIdleTimer = window.setTimeout(() => {
-					wheelIdleTimer = null;
-					releaseDedicatedWritingScrollMomentum();
-				}, TRACKPAD_WHEEL_IDLE_MS);
-			} else {
-				clearTrackpadWheelIdleTimer();
-				dedicatedWritingScrollMomentumRef.current?.cancel();
-			}
-			applyDedicatedInkWritingVerticalScroll(deltaY);
-		};
-		wrapperEl.addEventListener('wheel', onWheelScroll, { capture: true, passive: false });
-		return () => {
-			clearTrackpadWheelIdleTimer();
-			wrapperEl.removeEventListener('wheel', onWheelScroll, { capture: true });
-		};
 	}, [initialSnapshot, props.embedded]);
+
+	/**
+	 * Map writing pageHeight (page units) → CSS px for the tall dedicated page.
+	 * zoom = scrollerWidth / WRITING_PAGE_WIDTH (same width-fit as the canvas camera).
+	 *
+	 * Height growth must not change scrollTop — that would jump ink under the pen.
+	 * Only rescale scrollTop when width-fit zoom actually changes.
+	 */
+	function syncDedicatedPageCssHeight(options?: {
+		pageHeight?: number;
+		preservePageScroll?: boolean;
+	}) {
+		if (props.embedded) return;
+		const scroller = dedicatedScrollerRef.current;
+		const editor = editorRef.current;
+		if (!scroller) return;
+
+		const zoom = Math.max(scroller.clientWidth, 1) / WRITING_PAGE_WIDTH;
+		const pageHeight = options?.pageHeight
+			?? editor?.getPageHeight()
+			?? WRITING_MIN_PAGE_HEIGHT;
+		const nextCssHeight = pageHeight * zoom;
+		const prevScrollTop = scroller.scrollTop;
+		const prevZoom = dedicatedLastZoomRef.current;
+
+		setDedicatedPageCssHeightPx(nextCssHeight);
+		dedicatedLastZoomRef.current = zoom;
+
+		if (
+			options?.preservePageScroll
+			&& prevZoom != null
+			&& Math.abs(prevZoom - zoom) > 1e-6
+		) {
+			window.requestAnimationFrame(() => {
+				const el = dedicatedScrollerRef.current;
+				if (!el) return;
+				// Menubar padding is fixed CSS px; only rescale the content scroll past it.
+				const pad = MENUBAR_HEIGHT_PX;
+				const contentScrollTop = Math.max(0, prevScrollTop - pad);
+				el.scrollTop = pad + contentScrollTop * (zoom / prevZoom);
+			});
+		}
+	}
 
 	function handleEditorReady(editor: InkCanvasEditor) {
 		editorRef.current = editor;
@@ -454,7 +418,7 @@ export function WritingEditor(props: WritingEditorProps) {
 		const bufferLines = props.plugin.settings.writingBufferLines;
 		const strokes = editor.getSnapshot().strokes;
 		const contentHeight = strokes.length > 0
-			? computeStrokesBounds(strokes).maxY
+			? computeApproxContentMaxY(strokes)
 			: 0;
 		return cropWritingStrokeHeightInvitingly(contentHeight, bufferLines, lineHeight);
 	}
@@ -574,25 +538,31 @@ export function WritingEditor(props: WritingEditorProps) {
 			return;
 		}
 
-		// Dedicated view: grow page to cover viewport bottom + content (never shrink)
-		const container = editor.getContainerElement();
-		const viewportHeightPx = container?.clientHeight ?? 0;
-		const camera = editor.getCamera();
+		// Dedicated view: grow tall HTML page for viewport bottom + content (never shrink).
+		// scrollTop is offset by MENUBAR padding above the canvas content.
+		const scroller = dedicatedScrollerRef.current;
+		const viewportHeightPx = scroller?.clientHeight ?? 0;
+		const scrollTopPx = Math.max(0, (scroller?.scrollTop ?? 0) - MENUBAR_HEIGHT_PX);
+		const zoom = Math.max(scroller?.clientWidth ?? 1, 1) / WRITING_PAGE_WIDTH;
 		const targetHeight = computeDedicatedWritingPageHeight(
-			camera.y,
+			scrollTopPx,
 			viewportHeightPx,
-			camera.zoom,
+			zoom,
 			invitingFromContent,
 			lineHeight,
 		);
 		if (targetHeight > editor.getPageHeight()) {
 			editor.setWritingPageHeight(targetHeight);
 			curHeightRef.current = targetHeight;
-			const cam = editor.getCamera();
-			editor.setCamera({
-				x: cam.x,
-				y: clampDedicatedWritingCamera(editor, cam.y),
-				zoom: cam.zoom,
+			syncDedicatedPageCssHeight({
+				pageHeight: targetHeight,
+				preservePageScroll: true,
+			});
+		} else if (isInitialMount || dedicatedPageCssHeightPx === null) {
+			curHeightRef.current = editor.getPageHeight();
+			syncDedicatedPageCssHeight({
+				pageHeight: editor.getPageHeight(),
+				preservePageScroll: false,
 			});
 		}
 	}
@@ -604,7 +574,7 @@ export function WritingEditor(props: WritingEditorProps) {
 		const strokes = editorRef.current?.getSnapshot().strokes ?? [];
 		const lineHeight = writingLineHeightRef.current;
 		const tightHeight = strokes.length > 0
-			? cropWritingStrokeHeightTightly(computeStrokesBounds(strokes).maxY, lineHeight)
+			? cropWritingStrokeHeightTightly(computeApproxContentMaxY(strokes), lineHeight)
 			: WRITING_MIN_PAGE_HEIGHT;
 		const tightBounds: PageBounds = { x: 0, y: 0, w: pw, h: tightHeight };
 		if (getBooxConnectionEnabled() && websocketConnectedRef.current) {
@@ -950,6 +920,29 @@ export function WritingEditor(props: WritingEditorProps) {
 
 	if (!initialSnapshot) return <></>;
 
+	const canvas = (
+		<InkSvgCanvas
+			initialSnapshot={initialSnapshot}
+			writingMode={true}
+			pageWidth={WRITING_PAGE_WIDTH}
+			writingBufferLines={props.plugin.settings.writingBufferLines}
+			onEditorReady={handleEditorReady}
+			onChange={handleStoreChange}
+			onEmbedUndoStackPush={handleEmbedUndoStackPush}
+			onPageHeightChange={handlePageHeightChange}
+			isEmbedded={props.embedded}
+			isBooxInputLocked={isBooxInputLocked}
+			isFingerDrawingActive={isFingerDrawingActive}
+			// Writing always pins its scroll parent on pen (note scroller or dedicated scroller).
+			blockObsidianPenGestures={true}
+			onBooxEmbedGeometryChange={
+				isBooxInputLocked
+					? repositionBooxOverlayAfterEmbedGeometryChange
+					: undefined
+			}
+		/>
+	);
+
 	return <>
 		<div
 			ref={editorWrapperRefEl}
@@ -979,31 +972,25 @@ export function WritingEditor(props: WritingEditorProps) {
 				}
 			}}
 		>
-			<InkSvgCanvas
-				initialSnapshot={initialSnapshot}
-				writingMode={true}
-				pageWidth={WRITING_PAGE_WIDTH}
-				writingBufferLines={props.plugin.settings.writingBufferLines}
-				onEditorReady={handleEditorReady}
-				onChange={handleStoreChange}
-				onEmbedUndoStackPush={handleEmbedUndoStackPush}
-				onPageHeightChange={handlePageHeightChange}
-				onDedicatedVerticalTouchPan={
-					props.embedded ? undefined : applyDedicatedInkWritingVerticalScroll
-				}
-				onPanGestureEnd={
-					props.embedded ? undefined : releaseDedicatedWritingScrollMomentum
-				}
-				isEmbedded={props.embedded}
-				isBooxInputLocked={isBooxInputLocked}
-				isFingerDrawingActive={isFingerDrawingActive}
-				blockObsidianPenGestures={props.embedded || isBooxInputLocked}
-				onBooxEmbedGeometryChange={
-					props.embedded && isBooxInputLocked
-						? repositionBooxOverlayAfterEmbedGeometryChange
-						: undefined
-				}
-			/>
+			{props.embedded ? canvas : (
+				<div
+					ref={dedicatedScrollerRef}
+					className="ddc_ink_writing-dedicated-scroller"
+				>
+					{/* padding-top clears the fixed primary menu (replaces old camera Y offset). */}
+					<div
+						ref={dedicatedPageRef}
+						className="ddc_ink_writing-dedicated-page"
+						style={{
+							height: dedicatedPageCssHeightPx ?? '100%',
+							paddingTop: MENUBAR_HEIGHT_PX,
+							boxSizing: 'content-box',
+						}}
+					>
+						{canvas}
+					</div>
+				</div>
+			)}
 
 			<PrimaryMenuBar>
 				<InkCanvasDrawingMenu

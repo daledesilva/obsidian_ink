@@ -83,6 +83,7 @@ Boox / eInk Bridge strokes may bypass parts of this path when ingested over the 
 | Live `<path>` element | `src/ink-canvas/ink-svg-canvas.tsx` (`liveStrokeRef`) |
 | Pointer handling, `points` array, live path updates | `src/ink-canvas/tools/draw-tool.ts` |
 | Committed stroke rendering | `StrokePath` in `ink-svg-canvas.tsx` — `getStroke(points, toStrokeOptions(style))`, same call the live preview makes |
+| Off-screen mounts + path cache | Viewport culling and cached path `d` — see [ink-canvas-stroke-viewport-culling.md](ink-canvas-stroke-viewport-culling.md) |
 | Current-format drawing embed | `src/components/formats/current/drawing/tldraw-drawing-editor/` |
 
 Legacy v1 drawing embeds use tldraw’s canvas directly and do not use this live-path pipeline.

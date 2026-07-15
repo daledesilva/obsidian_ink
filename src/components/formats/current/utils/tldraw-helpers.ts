@@ -1000,18 +1000,20 @@ export function extendWritingTemplateToFillViewport(editor: Editor, topReservedP
 
 /**
  * Pure helper for ink-canvas dedicated writing view page height.
- * Mirrors resizeWritingTemplateForDedicatedView without a tldraw Editor.
+ * Uses native scroller metrics (scrollTop + viewport) so the ruled page fills
+ * what is on screen plus a buffer — mirrors the old camera-Y formula where
+ * scrollTop ≡ -cameraY.
  *
  * @param invitingContentHeight Inviting page height from stroke content (e.g. getInvitingWritingBounds().h).
  */
 export function computeDedicatedWritingPageHeight(
-	cameraY: number,
+	scrollTopPx: number,
 	viewportHeightPx: number,
 	zoom: number,
 	invitingContentHeight: number,
 	lineHeight: number = WRITING_LINE_HEIGHT,
 ): number {
-	const pageBottomVisible = (viewportHeightPx - cameraY) / zoom;
+	const pageBottomVisible = (scrollTopPx + viewportHeightPx) / zoom;
 	const minFromViewport = pageBottomVisible + 10 * lineHeight;
 	return Math.max(minFromViewport, invitingContentHeight);
 }
@@ -1033,7 +1035,7 @@ export function resizeWritingTemplateForDedicatedView(editor: Editor): number | 
 	const contentBounds = getInvitingWritingBounds(editor);
 	const invitingContentHeight = contentBounds ? contentBounds.h : WRITING_MIN_PAGE_HEIGHT;
 	const targetHeight = computeDedicatedWritingPageHeight(
-		camera.y,
+		-camera.y,
 		viewportHeight,
 		zoom,
 		invitingContentHeight,

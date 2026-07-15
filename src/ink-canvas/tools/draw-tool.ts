@@ -1,5 +1,3 @@
-import { getStroke } from 'perfect-freehand';
-import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
 import { screenToPage } from '../camera';
 import { AddStrokeCommand } from '../commands';
@@ -8,7 +6,6 @@ import type { UndoManager } from '../undo-manager';
 import { detectStrokeInputFromRawPressures } from 'src/logic/device-settings/detect-stroke-input-from-pressures';
 import type { ResolvedStrokeInputTreatAs, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import type { CameraState, InkPoint, InkStroke, InkStrokeStyle } from '../types';
-import { toStrokeOptions } from '../types';
 import { buildInkStrokeStyleForTreatAs } from '../stroke-presets';
 import {
 	normalizePointerPenPressureForCapture,
@@ -16,6 +13,7 @@ import {
 	PEN_PRESSURE_SLEW_PER_SIZE,
 	PEN_PRESSURE_SMOOTHING_ALPHA,
 } from '../constants/pen-input';
+import { clearLiveStrokeCanvas, paintLiveStrokeOnCanvas } from '../utils/live-stroke-canvas';
 ///////////////////////////
 ///////////////////////////
 
@@ -34,7 +32,10 @@ export interface DrawToolContext {
 	getStrokeInputTreatAsPreference: () => StrokeInputTreatAs;
 	/** Resolved pen vs mouse presets and pressure handling (never `'auto'`). */
 	getResolvedStrokeInputTreatAs: () => ResolvedStrokeInputTreatAs;
-	getLiveStrokePath: () => SVGPathElement | null;
+	/** Transparent HTML canvas overlay for the in-progress stroke (not the SVG). */
+	getLiveStrokeCanvas: () => HTMLCanvasElement | null;
+	/** Host used to resolve `currentColor` / CSS vars for canvas fills. */
+	getLiveStrokeColorHost: () => Element | null;
 	onStrokeInputDetected?: (detected: ResolvedStrokeInputTreatAs) => void;
 	onStrokeComplete?: () => void;
 }
@@ -186,9 +187,12 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	const command = new AddStrokeCommand(ctx.store, stroke);
 	ctx.undoManager.execute(command);
 
-	// Clear live stroke
-	const livePath = ctx.getLiveStrokePath();
-	if (livePath) livePath.setAttribute('d', '');
+	// Defer clear by one frame so the new SVG StrokePath can mount first — avoids a blank
+	// gap between overlay and committed ink. Same lift timing as bridge strokes (appear on up).
+	const liveCanvas = ctx.getLiveStrokeCanvas();
+	requestAnimationFrame(() => {
+		clearLiveStrokeCanvas(liveCanvas);
+	});
 
 	activeStroke = null;
 	ctx.onStrokeComplete?.();
@@ -196,8 +200,7 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 
 export function drawToolPointerCancel(_e: PointerEvent, ctx: DrawToolContext): void {
 	// Discard the in-progress stroke
-	const livePath = ctx.getLiveStrokePath();
-	if (livePath) livePath.setAttribute('d', '');
+	clearLiveStrokeCanvas(ctx.getLiveStrokeCanvas());
 	activeStroke = null;
 }
 
@@ -554,19 +557,23 @@ function setOrAppendLastPoint(stroke: ActiveStroke, next: InkPoint): void {
 	stroke.strokePathLength += dist;
 }
 
-/** Imperatively update the live stroke <path> element (no React re-render). */
+/**
+ * Imperatively paint the live stroke onto the HTML canvas overlay (no React re-render).
+ * Keeps mid-stroke drawing off the SVG so large committed documents do not lag the tip.
+ */
 function updateLiveStrokePath(ctx: DrawToolContext): void {
 	if (!activeStroke) return;
-	const livePath = ctx.getLiveStrokePath();
-	if (!livePath) return;
+	const liveCanvas = ctx.getLiveStrokeCanvas();
+	if (!liveCanvas) return;
 
-	// WYSIWYG: render the live preview from the SAME `points` array, the SAME function
-	// (`getStroke`), and the SAME options (`toStrokeOptions`) that `ink-svg-canvas` / export
-	// use when the stroke commits — so the in-progress trail and the stored stroke are
-	// byte-identical. The last point is replaced in place while within merge radius of the tip,
-	// so the live stroke tracks the pen without chord lag.
-	const outlinePoints = getStroke(activeStroke.points, toStrokeOptions(activeStroke.style));
-	const pathData = getSvgPathFromStroke(outlinePoints);
-	livePath.setAttribute('d', pathData);
-	livePath.setAttribute('fill', activeStroke.style.color);
+	// WYSIWYG: same `points`, `getStroke`, and `toStrokeOptions` as committed SVG / export.
+	// Path geometry is built with `getSvgPathFromStroke` and filled via Path2D so the canvas
+	// preview matches the SVG stroke that appears on pointer up.
+	paintLiveStrokeOnCanvas({
+		canvas: liveCanvas,
+		points: activeStroke.points,
+		style: activeStroke.style,
+		camera: ctx.getCamera(),
+		colorHost: ctx.getLiveStrokeColorHost(),
+	});
 }

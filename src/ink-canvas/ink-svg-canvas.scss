@@ -17,3 +17,13 @@
 	/* Ease-in-out cubic: starts and ends slowly, faster in the middle */
 	animation: ink-stroke-pending-erase 0.2s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
 }
+
+/* Transparent overlay for the in-progress stroke; pointer events stay on the SVG below. */
+.ink-svg-canvas-live-overlay {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 1;
+}

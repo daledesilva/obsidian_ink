@@ -115,7 +115,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const canvasWrapperRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
-	const liveStrokeRef = useRef<SVGPathElement>(null);
+	const liveStrokeCanvasRef = useRef<HTMLCanvasElement>(null);
 	const cameraGroupRef = useRef<SVGGElement>(null);
 
 	function computeInitialPageHeight(): number {
@@ -562,7 +562,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		getStrokeStyle: () => ({ ...strokeStyleRef.current }),
 		getStrokeInputTreatAsPreference: () => strokeInputTreatAsPreferenceRef.current,
 		getResolvedStrokeInputTreatAs: () => resolvedStrokeInputTreatAsRef.current,
-		getLiveStrokePath: () => liveStrokeRef.current,
+		getLiveStrokeCanvas: () => liveStrokeCanvasRef.current,
+		getLiveStrokeColorHost: () => containerRef.current,
 		onStrokeInputDetected: (detected) => {
 			setLastDetectedStrokeInput(detected);
 		},
@@ -1256,15 +1257,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 							/>
 						) : null
 					))}
-
-					{/* Live stroke (in-progress, drawn imperatively) */}
-					<path
-						ref={liveStrokeRef}
-						fill={strokeStyle.color}
-						pointerEvents="none"
-					/>
 				</g>
 			</svg>
+			{/* Live stroke overlay — HTML canvas so mid-stroke drawing stays off the SVG tree */}
+			<canvas
+				ref={liveStrokeCanvasRef}
+				className="ink-svg-canvas-live-overlay"
+				aria-hidden="true"
+			/>
 			</div>
 		</div>
 	);
@@ -1298,7 +1298,8 @@ function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): 
 const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {
 	const { stroke, isSelected, pathDCache } = props;
 	// All strokes render through perfect-freehand's `getStroke` directly — the same call the
-	// live preview makes (see `draw-tool.ts`), so committed strokes match what was drawn.
+	// live canvas overlay makes (see `draw-tool.ts` / `live-stroke-canvas.ts`), so committed
+	// strokes match what was drawn.
 	// Cached by stroke id: parent re-renders (viewportRevision, unrelated store updates after
 	// cache clear + remount) reuse `d` when the id is still populated; offset is transform-only.
 	let d = pathDCache.get(stroke.id);

@@ -62,7 +62,7 @@ Scroll listeners (`.cm-scroller`, `.ddc_ink_writing-dedicated-scroller`, window 
 | Cull filter, caches, guide band, scroll bump | `src/ink-canvas/ink-svg-canvas.tsx` |
 | Inviting height using approx maxY | `writing-editor.tsx` |
 
-Tradeoffs: approx bounds bias high (extra empty ruled space is fine). Scroll remounts still cost until `d` hits cache. Mid-stroke live preview is separate and unaffected.
+Tradeoffs: approx bounds bias high (extra empty ruled space is fine). Scroll remounts still cost until `d` hits cache. Mid-stroke live preview uses a separate HTML canvas overlay and is unaffected by SVG culling — see [ink-canvas-live-drawing.md](ink-canvas-live-drawing.md).
 
 Related: [dedicated writing HTML scroll](dedicated-writing-html-scroll.md) — how dedicated views scroll without camera-Y thrash.
 

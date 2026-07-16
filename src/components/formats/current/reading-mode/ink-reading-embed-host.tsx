@@ -10,6 +10,9 @@ import { getFullPageWidth } from 'src/logic/utils/getFullPageWidth';
 import { DRAWING_INITIAL_WIDTH } from 'src/constants';
 import { DEFAULT_EMBED_SETTINGS, EmbedSettings } from 'src/types/embed-settings';
 import InkPlugin from 'src/main';
+import {
+	readWritingFileAspectRatio,
+} from 'src/logic/utils/writing-embed-aspect-ratio';
 
 //////////
 //////////
@@ -20,6 +23,8 @@ export type InkReadingEmbedHostParams = {
 	embeddedFile: TFile | null;
 	partialEmbedFilepath: string;
 	embedSettings: EmbedSettings;
+	/** Note that contains this embed — used to heal stale writing aspectRatio URL params. */
+	sourcePath?: string;
 };
 
 export class InkReadingEmbedHost extends MarkdownRenderChild {
@@ -27,6 +32,7 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 	private resizeObserver: ResizeObserver | null = null;
 	private pageResizeObserver: ResizeObserver | null = null;
 	private resizeContainerEl: HTMLElement | null = null;
+	private writingFileModifyRef: ReturnType<InkPlugin['app']['vault']['on']> | null = null;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -53,20 +59,35 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 				embeddedFile={this.params.embeddedFile}
 				partialEmbedFilepath={this.params.partialEmbedFilepath}
 				embedSettings={this.params.embedSettings}
+				sourcePath={this.params.sourcePath}
 				onMount={(_embedEl, resizeContainerEl) => {
 					this.resizeContainerEl = resizeContainerEl;
 					this.attachResizeObserver(resizeContainerEl);
 					this.attachPageResizeObserver(resizeContainerEl);
 					this.applyDimensions();
+					void this.syncWritingAspectRatioFromFile();
 				}}
 			/>,
 		);
 
 		window.addEventListener('resize', this.handleWindowResize);
+
+		if (this.params.embedKind === 'writing' && this.params.embeddedFile) {
+			const writingFilePath = this.params.embeddedFile.path;
+			const onModify = (modifiedFile: TFile) => {
+				if (modifiedFile.path !== writingFilePath) return;
+				void this.syncWritingAspectRatioFromFile();
+			};
+			this.writingFileModifyRef = this.params.plugin.app.vault.on('modify', onModify);
+		}
 	}
 
 	onunload(): void {
 		window.removeEventListener('resize', this.handleWindowResize);
+		if (this.writingFileModifyRef) {
+			this.params.plugin.app.vault.offref(this.writingFileModifyRef);
+			this.writingFileModifyRef = null;
+		}
 		this.pageResizeObserver?.disconnect();
 		this.pageResizeObserver = null;
 		this.resizeContainerEl = null;
@@ -85,6 +106,25 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 			this.resizeContainerEl,
 			this.params.embedSettings,
 		);
+	}
+
+	/**
+	 * Heal reading-mode writing height from the SVG viewBox.
+	 * Skip note vault.modify here — rewriting markdown while mounting embeds
+	 * remounts the note and can fail the first open (same as Live Preview).
+	 */
+	private async syncWritingAspectRatioFromFile() {
+		if (this.params.embedKind !== 'writing' || !this.params.embeddedFile) return;
+
+		const derivedAspectRatio = await readWritingFileAspectRatio(
+			this.params.plugin,
+			this.params.embeddedFile,
+		);
+		if (derivedAspectRatio == null) return;
+
+		this.params.embedSettings.embedDisplay.aspectRatio = derivedAspectRatio;
+		this.containerEl.dataset.inkEmbedSettings = JSON.stringify(this.params.embedSettings);
+		this.applyDimensions();
 	}
 
 	private attachResizeObserver(resizeContainerEl: HTMLElement | null) {

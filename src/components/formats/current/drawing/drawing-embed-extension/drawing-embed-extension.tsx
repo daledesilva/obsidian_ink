@@ -37,6 +37,7 @@ import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
+import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect-ratio';
 import {
 	getEmbedDecorationRange,
 	getEmbedMarkdownRange,
@@ -279,8 +280,13 @@ export class DrawingEmbedWidget extends WidgetType {
         toType: 'inkWriting' | 'inkDrawing',
     ) {
         const { plugin } = getGlobals();
+        const writingAspectRatio = toType === 'inkWriting'
+            ? await readWritingFileAspectRatio(plugin, finalFile)
+            : null;
         const insertEmbedMarkdown = toType === 'inkWriting'
-            ? buildWritingEmbedLine(finalFile.path)
+            ? buildWritingEmbedLine(finalFile.path, {
+                ...(writingAspectRatio != null ? { aspectRatio: writingAspectRatio } : {}),
+            })
             : buildDrawingEmbedLine(finalFile.path, {
                 embedSettings: await buildDrawingEmbedSettingsFromFile(plugin, finalFile),
             });

@@ -97,6 +97,7 @@ function processReadingModeInkEmbedsInRoot(
 			embeddedFile: candidate.embeddedFile,
 			partialEmbedFilepath: candidate.partialEmbedFilepath,
 			embedSettings: candidate.embedSettings,
+			sourcePath: context.sourcePath,
 		}, context);
 	}
 
@@ -193,6 +194,7 @@ function readReadingEmbedHostParams(
 		embeddedFile,
 		partialEmbedFilepath,
 		embedSettings,
+		sourcePath,
 	};
 }
 

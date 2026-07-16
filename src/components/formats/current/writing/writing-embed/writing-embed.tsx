@@ -18,7 +18,7 @@ import { logToVault } from "src/logic/utils/log-to-vault";
 import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
-import { atom, useSetAtom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from "src/types/embed-settings";
 import type { PageBounds } from "../writing-editor/page-bounds";
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
@@ -27,6 +27,9 @@ import { type MenuOption } from "src/components/jsx-components/overflow-menu/ove
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 import { EmbedPreviewContextMenu } from "src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu";
 import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
+import {
+	readWritingFileAspectRatio,
+} from "src/logic/utils/writing-embed-aspect-ratio";
 
 ///////
 ///////
@@ -96,6 +99,8 @@ export function WritingEmbed (props: {
 	// const dispatch = useDispatch();
 
 	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom);
+	const embedsInEditMode = useAtomValue(embedsInEditModeAtom);
+	const isThisEmbedEditing = !!(props.embedId && embedsInEditMode.has(props.embedId));
 	type WritingFormat = 'tldraw' | 'ink-canvas' | 'unknown';
 	const [writingFormat, setWritingFormat] = React.useState<WritingFormat>('unknown');
 
@@ -110,6 +115,45 @@ export function WritingEmbed (props: {
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
 		resizeContainer.style.height = containerWidth / aspectRatio + 'px';
 	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio]);
+
+	// SVG viewBox is authoritative for preview height.
+	// Do NOT rewrite note markdown here: mount-time setEmbedProps caused CM remount
+	// storms (many embeds rewriting the same note) and notes failing to open on first click.
+	// URL aspectRatio is healed by builders / inline saveAndSwitchToPreviewMode instead.
+	React.useEffect(() => {
+		if (!props.writingFileRef || isThisEmbedEditing) return;
+		let cancelled = false;
+
+		const syncAspectRatioFromFile = async () => {
+			const fileRef = props.writingFileRef;
+			if (!fileRef) return;
+			try {
+				const derivedAspectRatio = await readWritingFileAspectRatio(props.plugin, fileRef);
+				if (cancelled || derivedAspectRatio == null) return;
+
+				embedAspectRatioRef.current = derivedAspectRatio;
+				const resizeContainer = resizeContainerElRef.current;
+				if (resizeContainer) {
+					const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
+					applyEmbedHeight(containerWidth / derivedAspectRatio);
+				}
+			} catch {
+				// Keep URL-based first-paint height if the SVG cannot be read.
+			}
+		};
+
+		void syncAspectRatioFromFile();
+
+		const onModify = (modifiedFile: TFile) => {
+			if (modifiedFile.path !== props.writingFileRef?.path) return;
+			void syncAspectRatioFromFile();
+		};
+		const eventRef = props.plugin.app.vault.on('modify', onModify);
+		return () => {
+			cancelled = true;
+			props.plugin.app.vault.offref(eventRef);
+		};
+	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing]);
 
 	React.useEffect(() => {
 		if (!props.writingFileRef) return;

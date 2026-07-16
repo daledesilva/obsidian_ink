@@ -20,12 +20,17 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
-import { EmbedSettings, formatEmbedAspectRatio } from 'src/types/embed-settings';
+import { EmbedSettings } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import {
 	getEmbedDecorationRange,
 	getEmbedMarkdownRange,
 } from 'src/logic/utils/embed-markdown-range';
+import {
+	patchWritingEmbedAspectRatioInEmbedSnippet,
+	readWritingFileAspectRatio,
+} from 'src/logic/utils/writing-embed-aspect-ratio';
+
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
 
@@ -256,11 +261,17 @@ export class WritingEmbedWidget extends WidgetType {
         toType: 'inkWriting' | 'inkDrawing',
     ) {
         const { plugin } = getGlobals();
+        const writingAspectRatio = toType === 'inkWriting'
+            ? await readWritingFileAspectRatio(plugin, finalFile)
+            : null;
         const insertEmbedMarkdown = toType === 'inkWriting'
-            ? buildWritingEmbedLine(finalFile.path)
+            ? buildWritingEmbedLine(finalFile.path, {
+                ...(writingAspectRatio != null ? { aspectRatio: writingAspectRatio } : {}),
+            })
             : buildDrawingEmbedLine(finalFile.path, {
                 embedSettings: await buildDrawingEmbedSettingsFromFile(plugin, finalFile),
             });
+
 
         const range = this.getEmbedMarkdownRangeInView(view);
         if (!range) return;
@@ -298,20 +309,8 @@ export class WritingEmbedWidget extends WidgetType {
         const range = this.getEmbedMarkdownRangeInView(view);
         if (!range) return;
 
-        const aspectRatioStr = formatEmbedAspectRatio(aspectRatio);
         const currentText = view.state.doc.sliceString(range.from, range.to);
-        let updated = currentText;
-
-        if (/aspectRatio=[^&)]+/.test(updated)) {
-            updated = updated.replace(/(aspectRatio=)([^&)]+)/, `$1${aspectRatioStr}`);
-        } else {
-            updated = updated.replace(/(\[Edit Writing\]\([^?]+)(\?[^)]*)?(\))/, (match, p1, p2, p3) => {
-                if (p2) {
-                    return `${p1}${p2}&aspectRatio=${aspectRatioStr}${p3}`;
-                }
-                return `${p1}?aspectRatio=${aspectRatioStr}${p3}`;
-            });
-        }
+        const updated = patchWritingEmbedAspectRatioInEmbedSnippet(currentText, aspectRatio);
 
         if (updated === currentText) return;
         const tr = view.state.update({

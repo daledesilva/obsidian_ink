@@ -50,9 +50,13 @@ export const buildDrawingEmbed = (
 /** Single-line embed markdown with required leading space (no block newlines). */
 export function buildWritingEmbedLine(
 	filepath: string,
-	options?: { pendingPaste?: boolean },
+	options?: { pendingPaste?: boolean; aspectRatio?: number },
 ): string {
 	const params = new URLSearchParams();
+	// Persist page aspect from the SVG viewBox when known so CM estimatedHeight matches preview.
+	if (options?.aspectRatio != null && Number.isFinite(options.aspectRatio) && options.aspectRatio > 0) {
+		params.append('aspectRatio', formatEmbedAspectRatio(options.aspectRatio));
+	}
 	if (options?.pendingPaste) params.append('pendingPaste', 'true');
 
 	const query = params.toString();
@@ -62,7 +66,10 @@ export function buildWritingEmbedLine(
 	return ` ![InkWriting](<${filepath}>) [Edit Writing](${url})`;
 }
 
-export const buildWritingEmbed = (filepath: string, options?: { pendingPaste?: boolean }): string => {
+export const buildWritingEmbed = (
+	filepath: string,
+	options?: { pendingPaste?: boolean; aspectRatio?: number },
+): string => {
 	const line = buildWritingEmbedLine(filepath, options);
 	return `\n${line}\n`;
 };

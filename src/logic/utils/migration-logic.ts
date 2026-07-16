@@ -11,6 +11,7 @@ import { buildFileStr } from "src/components/formats/current/utils/buildFileStr"
 import { buildWritingEmbed, buildDrawingEmbed } from "src/components/formats/current/utils/build-embeds";
 import { buildDrawingEmbedSettingsFromStrokes } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import type { EmbedSettings } from "src/types/embed-settings";
+import { parseSvgViewBoxAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
 import {
 	migrateFromTldraw,
 	migrateWritingFromTldraw,
@@ -419,6 +420,7 @@ export async function executeMigration(
 		: undefined;
 
 	const drawingEmbedSettingsBySvgPath = new Map<string, EmbedSettings>();
+	const writingAspectRatioBySvgPath = new Map<string, number>();
 
 	const reportProgress = () => {
 		onProgress?.(done, total, {
@@ -461,6 +463,12 @@ export async function executeMigration(
 			}
 
 			const svgStr = buildFileStr(inkFileData);
+			if (!isTestRun && entry.fileType === 'writing') {
+				const writingAspectRatio = parseSvgViewBoxAspectRatio(svgStr);
+				if (writingAspectRatio != null) {
+					writingAspectRatioBySvgPath.set(outputSvgPath, writingAspectRatio);
+				}
+			}
 			if (existing instanceof TFile) {
 				try {
 					await vault.modify(existing, svgStr);
@@ -509,7 +517,12 @@ export async function executeMigration(
 				const newSvgPath = resolveMigrationOutputSvgPath(block.filepath, options);
 				const newEmbed =
 					block.embedType === 'writing'
-						? buildWritingEmbed(newSvgPath)
+						? (() => {
+							const aspectRatio = writingAspectRatioBySvgPath.get(newSvgPath);
+							return aspectRatio != null
+								? buildWritingEmbed(newSvgPath, { aspectRatio })
+								: buildWritingEmbed(newSvgPath);
+						})()
 						: (() => {
 							const embedSettings = drawingEmbedSettingsBySvgPath.get(newSvgPath);
 							return embedSettings

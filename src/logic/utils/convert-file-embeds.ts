@@ -7,6 +7,7 @@ import { duplicateDrawingFile, duplicateWritingFile } from "src/components/forma
 import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { buildDrawingEmbedSettingsFromStrokes } from "src/logic/utils/build-drawing-embed-settings-from-file";
+import { parseSvgViewBoxAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
 import type { EmbedSettings } from "src/types/embed-settings";
 // View type strings (avoid importing from view modules to prevent heavy deps in tests)
 const INK_WRITING_VIEW_TYPE = "ink_writing-view";
@@ -195,6 +196,26 @@ async function buildDrawingEmbedLineForConvertedFile(
 	return buildDrawingEmbed(newSvgPath, embedSettings ? { embedSettings } : undefined).trim();
 }
 
+async function buildWritingEmbedLineForConvertedFile(
+	vault: Vault,
+	newSvgPath: string,
+): Promise<string> {
+	try {
+		const svgFile = vault.getAbstractFileByPath(newSvgPath);
+		if (!(svgFile instanceof TFile)) {
+			return buildWritingEmbed(newSvgPath).trim();
+		}
+		const svgString = await vault.read(svgFile);
+		const aspectRatio = parseSvgViewBoxAspectRatio(svgString);
+		return buildWritingEmbed(
+			newSvgPath,
+			aspectRatio != null ? { aspectRatio } : undefined,
+		).trim();
+	} catch {
+		return buildWritingEmbed(newSvgPath).trim();
+	}
+}
+
 /**
  * Replaces all v2 embed lines in a markdown note that reference oldSvgPath
  * (of fromType) with a new embed for newSvgPath of toType.
@@ -219,7 +240,7 @@ export async function updateEmbedInNote(
 	);
 
 	const newEmbedLine = toType === 'inkWriting'
-		? buildWritingEmbed(newSvgPath).trim()
+		? await buildWritingEmbedLineForConvertedFile(vault, newSvgPath)
 		: await buildDrawingEmbedLineForConvertedFile(vault, newSvgPath);
 
 	const updated = content.replace(lineRegex, ` ${newEmbedLine}`);

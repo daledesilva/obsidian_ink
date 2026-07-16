@@ -15,6 +15,7 @@ import { FileConversionModal } from "src/components/dom-components/modals/file-c
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { buildWritingEmbedLine } from "../../utils/build-embeds";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
+import { readWritingFileAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
 
 ////////
 ////////
@@ -133,8 +134,15 @@ export class WritingView extends TextFileView {
                 text: 'Copy embed',
                 action: () => {
                     if (!this.file) return;
-                    const embedStr = buildWritingEmbedLine(this.file.path);
-                    void copyEmbedMarkdownToClipboard(embedStr);
+                    void (async () => {
+                        if (!this.file) return;
+                        const aspectRatio = await readWritingFileAspectRatio(this.plugin, this.file);
+                        const embedStr = buildWritingEmbedLine(
+                            this.file.path,
+                            aspectRatio != null ? { aspectRatio } : undefined,
+                        );
+                        void copyEmbedMarkdownToClipboard(embedStr);
+                    })();
                 },
             },
             {

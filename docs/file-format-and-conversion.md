@@ -52,16 +52,46 @@ When saving ink-canvas files, the plugin writes the current `INK_CANVAS_FORMAT_V
 - Files may still show `<ink-canvas version="1">` from early ink-canvas builds; they load normally and are rewritten to the current semver on the next save.
 - Do not confuse `<ink-canvas version="…">` with embed URL query parameters — URL `version=` was removed; only the SVG metadata carries format version.
 
-## Vault migration (v1 code blocks)
+## Vault migration (legacy → ink-canvas)
 
-**Why:** Older vaults used ` ```handwritten-ink` / ` ```handdrawn-ink` code fences pointing at `.writing` / `.drawing` JSON files with a tldraw snapshot inside.
+**Why:** Vaults may still contain (1) v1 `.writing` / `.drawing` JSON beside old code-fence embeds, and/or (2) SVG files that already use `![InkWriting]` / `![InkDrawing]` embeds but still store **tldraw** metadata instead of ink-canvas. Settings and the migrate command must convert **both** so leftover files do not keep showing the on-open Legacy CTA after a “successful” migrate.
 
-The **Migrate legacy ink embeds** flow ([`migration-logic.ts`](../src/logic/utils/migration-logic.ts), [`MigrationModal`](../src/components/dom-components/modals/migration-modal/migration-modal.ts)):
+### What counts as migratable
 
-1. Scans markdown for legacy code blocks and collects referenced legacy files.
-2. For each legacy file, runs `convertLegacyToInkCanvasFileData`: migrate tldraw draw shapes → `InkCanvasSnapshot`, render SVG paths, write `<ink-canvas version="…">` via `buildFileStr` (not an intermediate tldraw-on-disk SVG).
-3. Writes the SVG beside the legacy file (same basename, `.svg`). If that path already exists, **permanent** migration **overwrites** it; the legacy file is deleted only after that write succeeds.
-4. Replaces code blocks in notes with current `![InkWriting]` / `![InkDrawing]` embeds.
+| Kind | Detection | Permanent migrate |
+|------|-----------|-------------------|
+| v1 attachment | `.writing` / `.drawing` referenced by legacy code fences | Convert beside path → `.svg`, delete legacy, rewrite notes |
+| tldraw Ink SVG | Ink metadata + tldraw snapshot + `fileType` `inkWriting` or `inkDrawing` (not already ink-canvas; not plain unrelated SVGs) | In-place rewrite to `<ink-canvas>`; update drawing embed viewBoxes in notes when needed |
+
+Eligibility helpers live in [`tldraw-svg-migration-logic.ts`](../src/logic/utils/tldraw-svg-migration-logic.ts) (`isMigratableLegacyInkFileData`, `sniffInkSvgFileType` first). The same rules drive Settings card visibility (`vaultNeedsInkFormatMigration`) and the tldraw half of the modal scan.
+
+### Combined Settings / modal flow
+
+[`MigrationModal`](../src/components/dom-components/modals/migration-modal/migration-modal.ts) runs **one** user-facing migrate:
+
+1. Scan `.writing` / `.drawing` via `scanVaultForLegacyEmbeds`.
+2. Scan migratable tldraw Ink SVGs via `scanVaultForTldrawInkSvgFiles` (embed-linked SVGs **and** a full-vault `.svg` pass for orphans / attachment-folder files).
+3. **Test Migration** (only when v1 files exist): converts `.writing`/`.drawing` under `_ink-test-conversions/` — does **not** convert tldraw SVGs.
+4. **Migrate Permanently**: `executeMigration` then `executeTldrawSvgMigration`.
+
+```mermaid
+flowchart TD
+  Open["Settings migrate card / command"]
+  ScanV1["scanVaultForLegacyEmbeds"]
+  ScanSvg["scanVaultForTldrawInkSvgFiles"]
+  Confirm["Confirm: test and/or permanent"]
+  Test["Test: v1 only → _ink-test-conversions/"]
+  Perm["Permanent: executeMigration then executeTldrawSvgMigration"]
+  Done["Done UI"]
+  Card["Settings card: remove ddc_ink_expanded"]
+
+  Open --> ScanV1 --> ScanSvg --> Confirm
+  Confirm -->|test| Test --> Done
+  Confirm -->|permanent| Perm --> Done
+  Done -->|"onPermanentMigrationFinished"| Card
+```
+
+**v1 permanent write rules** ([`migration-logic.ts`](../src/logic/utils/migration-logic.ts)):
 
 ```mermaid
 flowchart TD
@@ -86,29 +116,41 @@ flowchart TD
   Delete -->|error| Fail
 ```
 
-**Test migration** (modal “test run”) is separate: it writes under `_ink-test-conversions/`, may append `_1` / `_2` basename suffixes on collisions within the batch, never deletes legacy files, and does not rewrite notes.
+### Settings migrate card
 
-**Progress UI:** Scan and migrate callbacks pass live counts (`found` during scan; `converted` / `skipped` / `failed` during migrate). The modal must use those callback arguments — not `scanResult` / `migrationResult`, which stay null until each `await` finishes.
+The card under Getting started uses CSS grid `0fr` ↔ `1fr` (`ddc_ink_expanded`) to animate open/closed. Visibility is **`vaultNeedsInkFormatMigration`** (same file set as the modal). On permanent migrate **Done** (not modal close), Settings refreshes that class on the **existing** wrapper so the card collapses in the background while the completion dialog is still open. Calling `display()` instead would empty the tab and skip the collapse transition.
+
+Developer-only **Migrate tldraw SVG to ink-canvas** remains a separate settings control for the SVG-only path.
+
+### Progress UI
+
+Scan and migrate callbacks pass live counts (`found` during scan; `converted` / `skipped` / `failed` during migrate). The modal must use those callback arguments — not `scanResult` / `migrationResult`, which stay null until each `await` finishes. Combined scan progress is split across the two scan phases (≈50% + ≈50%).
 
 ```mermaid
 flowchart LR
-  Scan["scanVaultForLegacyEmbeds"]
-  Migrate["executeMigration"]
+  ScanV1["scanVaultForLegacyEmbeds"]
+  ScanSvg["scanVaultForTldrawInkSvgFiles"]
+  MigV1["executeMigration"]
+  MigSvg["executeTldrawSvgMigration"]
   Modal["MigrationModal"]
-  Scan -->|"onProgress scanned,total,foundCount"| Modal
-  Migrate -->|"onProgress done,total,liveStats"| Modal
+  ScanV1 -->|"onProgress"| Modal
+  ScanSvg -->|"onProgress"| Modal
+  MigV1 -->|"onProgress liveStats"| Modal
+  MigSvg -->|"onProgress liveStats"| Modal
 ```
 
-**Manual QA (progress density):** With only a handful of legacy files, the bar and counters jump too fast to verify mid-run updates. After `node qa-test-vault/generate.mjs` (or `npm run open-qa`), open **19 - Migration Progress Density** — forty unique `.writing`/`.drawing` copies plus embeds, for watching scan/migrate stats tick. Prefer **Test Migration** so permanent delete does not wipe the set mid-session.
+**Manual QA (progress density):** After `node qa-test-vault/generate.mjs` (or `npm run open-qa`), open **19 - Migration Progress Density** — prefer **Test Migration** so permanent delete does not wipe the set mid-session. For full permanent coverage (including tldraw SVGs), use a vault that still has both kinds of leftovers.
 
 ### Technical gotchas
 
 - Strokes that were in the legacy editor **stash** at last save are not in the v1 JSON and cannot be recovered (same limitation as before).
-- Permanent migration (bulk settings/command **and** on-open single-file) overwrites an existing same-path `.svg`. Legacy deletion runs only after create/overwrite succeeds; create, overwrite, or delete failures are reported in `failed` (and surface in the modal or on-open notice) without deleting the legacy file.
+- Permanent v1 migration overwrites an existing same-path `.svg`. Legacy deletion runs only after create/overwrite succeeds.
 - Mid-run modal stats must read callback args; assigning from `scanResult` / `migrationResult` inside `onProgress` always shows zeros until the phase completes.
-- A vault with few unique legacy attachments cannot expose progress-UI regressions — regenerate section 19 when validating the migration modal.
-- Open **Settings → Ink → Update Ink files…** or run the command **Migrate legacy ink embeds to ink-canvas**.
-- For migrating a **single** file from the editor notice (embed vs dedicated reopen rules), see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md).
+- **Do not hide the Settings card from embed-linked SVGs only.** Attachment-folder / orphan tldraw Ink SVGs still need migrate and used to keep the on-open CTA after Settings “finished.”
+- **Do not count plain SVGs.** Eligibility requires Ink sniff + tldraw + writing/drawing file types — otherwise unrelated vault art would keep the card open forever.
+- Collapse the card by toggling `ddc_ink_expanded` on the live wrapper when permanent Done appears — not via full Settings `display()` rebuild, and not on modal close alone.
+- Open **Settings → Ink → Show migration options…** or run **Migrate legacy ink embeds to ink-canvas**.
+- For migrating a **single** file from the editor notice, see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md). Writing embed height after migration: [writing-embed-aspect-ratio.md](./writing-embed-aspect-ratio.md).
 
 ## Drawing ↔ writing conversion
 

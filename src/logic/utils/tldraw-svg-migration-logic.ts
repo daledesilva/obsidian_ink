@@ -11,7 +11,7 @@ import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr'
 import { buildDrawingEmbed } from 'src/components/formats/current/utils/build-embeds';
 import { parseSettingsFromUrl } from 'src/components/formats/current/utils/parse-settings-from-url';
 import { buildDrawingEmbedSettingsFromStrokes } from 'src/logic/utils/build-drawing-embed-settings-from-file';
-import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
+import { extractInkJsonFromSvg, sniffInkSvgFileType } from 'src/logic/utils/extractInkJsonFromSvg';
 import {
 	migrateFromTldraw,
 	migrateWritingFromTldraw,
@@ -20,6 +20,7 @@ import {
 import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
 import type { EmbedSettings } from 'src/types/embed-settings';
 import type { MigrationRunProgress } from 'src/logic/utils/migration-logic';
+import { vaultHasLegacyInkFiles } from 'src/logic/utils/migration-logic';
 
 ////////
 ////////
@@ -150,15 +151,39 @@ export function replaceV2DrawingEmbedLinesInMarkdown(
 	});
 }
 
-async function isTldrawInkSvgFile(vault: Vault, file: TFile): Promise<boolean> {
+async function isMigratableLegacyInkSvgFile(vault: Vault, file: TFile): Promise<boolean> {
 	try {
 		const svgString = await vault.read(file);
+		// Cheap reject of non-Ink SVGs before full metadata parse.
+		if (sniffInkSvgFileType(svgString) == null) return false;
 		const data = extractInkJsonFromSvg(svgString);
-		if (!data) return false;
-		return !isInkCanvasFile(data);
+		return isMigratableLegacyInkFileData(data);
 	} catch {
 		return false;
 	}
+}
+
+/** True when Ink metadata exists and can be converted to ink-canvas (tldraw writing/drawing). */
+export function isMigratableLegacyInkFileData(data: InkFileData | null | undefined): boolean {
+	if (!data || isInkCanvasFile(data)) return false;
+	if (!data.tldraw || !data.meta) return false;
+	const fileType = data.meta.fileType;
+	return fileType === 'inkWriting' || fileType === 'inkDrawing';
+}
+
+async function resolveTldrawSvgFileKind(
+	vault: Vault,
+	file: TFile,
+): Promise<'writing' | 'drawing' | null> {
+	try {
+		const svgString = await vault.read(file);
+		const inkFileData = extractInkJsonFromSvg(svgString);
+		if (inkFileData?.meta.fileType === 'inkWriting') return 'writing';
+		if (inkFileData?.meta.fileType === 'inkDrawing') return 'drawing';
+	} catch {
+		/* ignore */
+	}
+	return null;
 }
 
 function resolveEmbedPath(
@@ -176,7 +201,11 @@ function resolveEmbedPath(
 }
 
 /**
- * Scans the vault for v2 embeds whose linked SVG files still use tldraw metadata.
+ * Scans the vault for SVG files still on tldraw metadata.
+ * Pass 1: SVG targets of v2 embeds (collects referencing notes for viewBox updates).
+ * Pass 2: every `.svg` attachment — catches orphans / attachment-folder files not
+ * linked via `![InkWriting|InkDrawing]` that still show the on-open migrate CTA.
+ * Eligibility matches Settings visibility and on-open migrate (Ink + tldraw writing/drawing only).
  */
 export async function scanVaultForTldrawInkSvgFiles(
 	vault: Vault,
@@ -184,20 +213,24 @@ export async function scanVaultForTldrawInkSvgFiles(
 	onProgress?: (scanned: number, total: number, foundCount: number) => void,
 ): Promise<TldrawSvgVaultScanResult> {
 	const markdownFiles = vault.getMarkdownFiles();
-	const total = markdownFiles.length;
+	const svgFiles = vault.getFiles().filter((file) => file.extension === 'svg');
+	const total = markdownFiles.length + svgFiles.length;
 
 	const fileMap = new Map<string, TldrawSvgFileScanEntry>();
 	const affectedNoteSet = new Map<string, TFile>();
 	const pendingChecks = new Map<string, Promise<boolean>>();
+	let scanned = 0;
 
-	for (let i = 0; i < markdownFiles.length; i++) {
-		const note = markdownFiles[i];
+	const report = () => onProgress?.(scanned, total, fileMap.size);
+
+	for (const note of markdownFiles) {
 		let content: string;
 
 		try {
 			content = await vault.read(note);
 		} catch {
-			onProgress?.(i + 1, total, fileMap.size);
+			scanned++;
+			report();
 			continue;
 		}
 
@@ -216,7 +249,7 @@ export async function scanVaultForTldrawInkSvgFiles(
 
 				let checkPromise = pendingChecks.get(canonicalPath);
 				if (!checkPromise) {
-					checkPromise = isTldrawInkSvgFile(vault, svgFile);
+					checkPromise = isMigratableLegacyInkSvgFile(vault, svgFile);
 					pendingChecks.set(canonicalPath, checkPromise);
 				}
 
@@ -237,13 +270,55 @@ export async function scanVaultForTldrawInkSvgFiles(
 			}
 		}
 
-		onProgress?.(i + 1, total, fileMap.size);
+		scanned++;
+		report();
+	}
+
+	// Orphan / unembedded tldraw SVGs (e.g. Attachments/Ink/… fixtures opened in dedicated view).
+	for (const svgFile of svgFiles) {
+		if (!fileMap.has(svgFile.path)) {
+			let checkPromise = pendingChecks.get(svgFile.path);
+			if (!checkPromise) {
+				checkPromise = isMigratableLegacyInkSvgFile(vault, svgFile);
+				pendingChecks.set(svgFile.path, checkPromise);
+			}
+			const isTldraw = await checkPromise;
+			if (isTldraw) {
+				const fileKind = await resolveTldrawSvgFileKind(vault, svgFile);
+				if (fileKind) {
+					fileMap.set(svgFile.path, {
+						svgFile,
+						fileKind,
+						newSvgPath: svgFile.path,
+						referencingNotes: [],
+					});
+				}
+			}
+		}
+
+		scanned++;
+		report();
 	}
 
 	return {
 		tldrawSvgFiles: Array.from(fileMap.values()),
 		affectedNotes: Array.from(affectedNoteSet.values()),
 	};
+}
+
+/**
+ * True when Settings migrate should stay available: same file set the migrate modal converts
+ * (v1 `.writing`/`.drawing` and migratable tldraw Ink SVGs — not plain unrelated SVGs).
+ */
+export async function vaultNeedsInkFormatMigration(
+	vault: Vault,
+	resolveLinkPath: ResolveVaultLinkPath,
+): Promise<boolean> {
+	if (vaultHasLegacyInkFiles(vault)) {
+		return true;
+	}
+	const tldrawScan = await scanVaultForTldrawInkSvgFiles(vault, resolveLinkPath);
+	return tldrawScan.tldrawSvgFiles.length > 0;
 }
 
 /**
@@ -254,7 +329,7 @@ export async function buildSingleTldrawSvgScanResult(
 	svgFile: TFile,
 	resolveLinkPath: ResolveVaultLinkPath,
 ): Promise<TldrawSvgVaultScanResult | null> {
-	const isTldraw = await isTldrawInkSvgFile(vault, svgFile);
+	const isTldraw = await isMigratableLegacyInkSvgFile(vault, svgFile);
 	if (!isTldraw) return null;
 
 	const referencingNotes: TFile[] = [];

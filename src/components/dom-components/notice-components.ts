@@ -54,6 +54,14 @@ function createNoticeLabel(noticeParent: HTMLElement | DocumentFragment, noticeN
     return labelEl;
 }
 
+/** Inline twin of notice blockquotes — same accent chip look for shortcuts/commands inside a sentence. */
+export function createNoticeInlineQuote(parentEl: HTMLElement, text: string): HTMLQuoteElement {
+    return parentEl.createEl('q', {
+        cls: 'ddc_ink_notice-inline-quote',
+        text,
+    });
+}
+
 export function createNoticeCtaBar(
     footerEl: HTMLElement,
     props: {

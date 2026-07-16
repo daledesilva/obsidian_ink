@@ -13,7 +13,7 @@ That migrate action permanently converts only the opened attachment, refreshes L
 
 Expanding an unlocked embed to a dedicated view **dismisses** any migrate notice for that file first (expand also `saveAndHalt`s, which can already rewrite a tldraw SVG as ink-canvas on disk).
 
-Bulk vault migration (Settings / command palette) remains a separate path; see [file-format-and-conversion.md](./file-format-and-conversion.md).
+Bulk vault migration (Settings / command palette) converts **both** v1 `.writing`/`.drawing` and migratable tldraw Ink SVGs; see [file-format-and-conversion.md](./file-format-and-conversion.md). On-open migrate uses the same tldraw eligibility (`isMigratableLegacyInkFileData`) as that scan so orphan attachment SVGs and Settings stay aligned.
 
 ## Flows
 

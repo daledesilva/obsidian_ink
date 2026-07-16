@@ -62,8 +62,8 @@ export default class InkPlugin extends Plugin {
 	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
 	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
 
-	openMigrationModal() {
-		new MigrationModal(this).open();
+	openMigrationModal(onPermanentMigrationFinished?: () => void) {
+		new MigrationModal(this, onPermanentMigrationFinished).open();
 	}
 
 	openTldrawSvgMigrationModal() {

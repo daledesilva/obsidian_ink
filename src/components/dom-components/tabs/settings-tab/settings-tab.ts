@@ -11,7 +11,7 @@ import { ToggleAccordionSetting } from 'src/components/dom-components/toggle-acc
 import { TwoWayToggleSetting } from 'src/components/dom-components/two-way-toggle-setting/two-way-toggle-setting';
 import { ThreeWayToggleSetting } from 'src/components/dom-components/three-way-toggle-setting/three-way-toggle-setting';
 import { setDominantHand } from 'src/stores/dominant-hand-store';
-import { vaultHasLegacyInkFiles } from 'src/logic/utils/migration-logic';
+import { vaultNeedsInkFormatMigration } from 'src/logic/utils/tldraw-svg-migration-logic';
 import type { StrokeInputEditorKind, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import {
 	getBooxConnectionEnabled,
@@ -54,7 +54,10 @@ export class MySettingsTab extends PluginSettingTab {
 		
 		containerEl.createEl('hr');
 		insertGettingStartedSection(containerEl, this.plugin);
-		const migrateWrapper = insertMigrateSection(containerEl, this.plugin);
+		// Refresh on permanent-migrate Done (not modal close) so the card animates shut behind the completion UI.
+		const migrateWrapper = insertMigrateSection(containerEl, this.plugin, () => {
+			void this.refreshLegacyMigrateSectionVisibility(migrateWrapper);
+		});
 		void this.refreshLegacyMigrateSectionVisibility(migrateWrapper);
 
 		// Declare refs before insertHighLevelSettings so its callbacks can close over them.
@@ -142,17 +145,15 @@ export class MySettingsTab extends PluginSettingTab {
 
 		if (generation !== this.legacyMigrateScanGeneration) return;
 
-		const hasLegacyFiles = vaultHasLegacyInkFiles(this.plugin.app.vault);
-		if (!hasLegacyFiles) return;
-
+		const needsMigration = await vaultNeedsInkFormatMigration(
+			this.plugin.app.vault,
+			(linkpath, sourceNotePath) =>
+				this.plugin.app.metadataCache.getFirstLinkpathDest(linkpath, sourceNotePath)?.path ?? null,
+		);
 		if (generation !== this.legacyMigrateScanGeneration) return;
 
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				if (generation !== this.legacyMigrateScanGeneration) return;
-				wrapperEl.classList.add('ddc_ink_expanded');
-			});
-		});
+		// Always set expanded from the latest scan — never leave a stale visible card.
+		wrapperEl.classList.toggle('ddc_ink_expanded', needsMigration);
 	}
 }
 
@@ -187,6 +188,13 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	const tipsGridEl = tipsSectionEl.createDiv('ddc_ink_tips-grid');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Drawing embed framing');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Two fingers or right mouse button to reframe. Cmd + right mouse button to zoom, or Cmd + scroll wheel.`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Locked embeds');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Right click on a locked embed to copy or delete it.`);
+	// Same tip as the version notice — keep discoverable after onboarding tips are dismissed.
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Temporary eraser');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Hold ⌘/Ctrl to switch to eraser temporarily.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pencil Scribble');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
@@ -207,7 +215,11 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		});
 }
 
-function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin): HTMLElement {
+function insertMigrateSection(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	onPermanentMigrationFinished?: () => void,
+): HTMLElement {
 	const wrapperEl = containerEl.createDiv('ddc_ink_legacy-migrate-card-wrapper');
 	const innerEl = wrapperEl.createDiv('ddc_ink_legacy-migrate-card-inner');
 	const cardEl = innerEl.createDiv('ddc_ink_legacy-migrate-card');
@@ -219,7 +231,7 @@ function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin): HTML
 
 	cardEl.createDiv({
 		cls: 'ddc_ink_legacy-migrate-card-desc',
-		text: 'This version of Ink uses a new SVG format. To use the newer features, you\'ll need to migrate your legacy Ink files.',
+		text: 'This version of Ink uses a new SVG format. Migrate legacy .writing/.drawing files and older Ink SVG files still on the previous format to unlock newer features.',
 	});
 
 	new Setting(cardEl)
@@ -229,7 +241,7 @@ function insertMigrateSection(containerEl: HTMLElement, plugin: InkPlugin): HTML
 		.addButton((button) => {
 			button.setCta();
 			button.setButtonText('Show migration options…');
-			button.onClick(() => plugin.openMigrationModal());
+			button.onClick(() => plugin.openMigrationModal(onPermanentMigrationFinished));
 		});
 
 	return wrapperEl;

@@ -86,19 +86,31 @@
         font-size: var(--font-text-size);
         color: var(--text-normal);
     }
-    blockquote {
-        font-size: var(--font-text-size);
-        padding: 0.5em 0.8em;
-        margin-inline: 0;
+    // Shared “command / shortcut” chrome — blockquote for standalone tips, q for inline in lists.
+    blockquote,
+    q.ddc_ink_notice-inline-quote {
         color: var(--text-accent);
         background-color: var(--background-primary);
         border-radius: var(--button-radius);
-        display: block;
-
         outline: solid 1px var(--background-modifier-border);
         box-shadow: inset 0px 0px 8px var(--background-modifier-box-shadow),
                     0px 0px 8px var(--background-modifier-box-shadow)
                     !important;
+    }
+    blockquote {
+        font-size: var(--font-text-size);
+        padding: 0.5em 0.8em;
+        margin-inline: 0;
+        display: block;
+    }
+    q.ddc_ink_notice-inline-quote {
+        // Match surrounding list/paragraph text — do not force --font-text-size (often larger in li).
+        font-size: inherit;
+        display: inline;
+        padding: 0.1em 0.45em;
+        margin-inline: 0.15em;
+        quotes: none;
+        white-space: nowrap;
     }
     ul, ol {
         padding-inline-start: 1em;

@@ -1,4 +1,6 @@
 .ddc_ink_legacy-migrate-card-wrapper {
+	// Animate open/close via grid 0fr↔1fr. Toggle ddc_ink_expanded on this same
+	// node after permanent migrate Done — rebuilding Settings with display() skips the transition.
 	display: grid;
 	grid-template-rows: 0fr;
 	overflow: hidden;

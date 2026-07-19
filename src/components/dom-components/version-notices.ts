@@ -50,7 +50,7 @@ function showChanges(plugin: InkPlugin) {
         primaryBtnEl,
     } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'FILL IN LATER',
+            href: 'https://youtu.be/plrnx7J_Avc',
             label: 'View feature demos',
         },
         primaryLabel: 'Continue',
@@ -90,7 +90,7 @@ function showChangesPageTwo(plugin: InkPlugin) {
         tertiaryBtnEl
     } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'FILL IN LATER',
+            href: 'https://youtu.be/plrnx7J_Avc',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',

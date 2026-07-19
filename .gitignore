@@ -34,10 +34,13 @@ coverage/
 .nyc_output/
 *.lcov
 
-# QA test vault (generated - run node qa-test-vault/generate.mjs)
+# QA test vault: generated notes/Ink copies stay local; fixtures are source inputs
+# for generate.mjs and for Jest migration tests, so they must be tracked for CI.
 qa-test-vault/*
 !qa-test-vault/generate.mjs
 !qa-test-vault/README.md
+!qa-test-vault/fixtures/
+!qa-test-vault/fixtures/**
 
 # Optional local Cursor / debug artifacts (not source of truth)
 .cursor/cursor-debug-ingest-url

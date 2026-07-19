@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400">
+<metadata>
+<ink-canvas version="0.5.0">{"version":1,"strokes":[{"id":"reading-mode-drawing-stroke","points":[[0,0,0.5],[1000,0,0.5],[1000,400,0.5],[0,400,0.5],[0,0,0.5]],"style":{"size":8,"thinning":0.5,"smoothing":0.5,"streamline":0.5,"simulatePressure":true,"color":"currentColor"},"offset":{"x":0,"y":0}}],"gridEnabled":false}</ink-canvas>
+</metadata>
+<path d="M0,0 L1000,0 L1000,400 L0,400 Z" fill="#000000" class="ink-type-stroke ink-color-primary" />
+</svg>

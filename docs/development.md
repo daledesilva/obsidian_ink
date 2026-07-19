@@ -84,6 +84,7 @@ flowchart TD
 - Passing `npm ci` on Node 24 does **not** prove CI will pass — always re-check under Node 22 when touching the lockfile.
 - Do not “fix” this by switching CI to `npm install`; keep `npm ci` and keep the lockfile honest for Node 22.
 - Root `devDependencies` still pin `@types/node` to `^16` for the project; the nested `create-wdio` peers are separate lock entries and should not force a root `@types/node` bump unless you intentionally change TypeScript’s Node typings.
+- Generated QA vault content under `qa-test-vault/` stays gitignored, but **`qa-test-vault/fixtures/` is tracked**. Jest migration tests and `generate.mjs` read those files directly; if they are missing on CI you get `ENOENT` under `qa-test-vault/fixtures/…`.
 
 #### How to run tests
 

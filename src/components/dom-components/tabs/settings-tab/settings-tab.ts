@@ -186,6 +186,15 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	// Information (tips) first
 	const tipsSectionEl = contentEl.createDiv('ddc_ink_tips-section');
 	const tipsGridEl = tipsSectionEl.createDiv('ddc_ink_tips-grid');
+	// Same feature-demo reel as version notices — keep it discoverable from Getting started.
+	const featureDemosLabelEl = tipsGridEl.createDiv('ddc_ink_tips-label');
+	const featureDemosLinkEl = featureDemosLabelEl.createEl('a', {
+		href: 'https://youtu.be/plrnx7J_Avc',
+		text: 'View feature demos',
+	});
+	featureDemosLinkEl.setAttribute('target', '_blank');
+	featureDemosLinkEl.setAttribute('rel', 'noopener');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText('Short videos demonstrating Ink\'s features.');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Drawing embed framing');
@@ -282,7 +291,7 @@ function insertPluginDevelopmentSection(containerEl: HTMLElement) {
 	};
 	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink/releases', 'Latest Changes', 'Version history, release notes, and download links for each Ink release.');
 	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink', 'Roadmap', 'Main repository with source code, roadmap, and project information.');
-	addLinkRow(tipsGridEl, 'https://www.youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL', 'Development Diaries', 'Video diaries documenting the plugin\'s development progress.');
+	addLinkRow(tipsGridEl, 'https://youtu.be/plrnx7J_Avc', 'View feature demos', 'Short videos demonstrating Ink\'s features.');
 	addLinkRow(tipsGridEl, 'https://github.com/daledesilva/obsidian_ink/issues', 'Request feature / Report bug', 'Submit feature requests, report bugs, or join the discussion.');
 }
 

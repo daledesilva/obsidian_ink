@@ -163,8 +163,9 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
     } = createNoticeCtaBar(footerEl, {
         footerLinks: [
             {
-                href: 'https://youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL&si=GVp9ILvCAaRTwyYd',
-                label: 'View dev diaries',
+                // Point at the feature-demo reel rather than the long diary playlist.
+                href: 'https://youtu.be/plrnx7J_Avc',
+                label: 'View feature demos',
             },
             {
                 href: 'https://designdebt.club/socials',

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Tags HEAD as <version>-beta and pushes so Draft beta release (build/package only) runs.
+# Does not start the Test workflow — unit/e2e stay local or Actions → Test (manual).
+
 # Check if a version tag was provided
 if [ -z "$1" ]; then
     echo "Error: Please provide a version tag"

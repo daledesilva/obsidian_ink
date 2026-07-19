@@ -1,9 +1,12 @@
 #!/bin/bash
 
+# Tags HEAD and pushes tags so Draft public release (build/package only) runs.
+# Does not start the Test workflow — unit/e2e stay local or Actions → Test (manual).
+
 # Check if a version tag was provided
 if [ -z "$1" ]; then
     echo "Error: Please provide a version tag"
-    echo "eg: npm run ext-release <version-tag>"
+    echo "eg: npm run public-release <version-tag>"
     exit 1
 fi
 

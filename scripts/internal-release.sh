@@ -9,7 +9,8 @@
 #    then pushes that tag to origin.
 # 3. GitHub Actions (`.github/workflows/publish-internal-release.yml`) runs on the tag
 #    push, checks out THAT COMMIT on ubuntu-latest, runs `npm install` + `npm run build`,
-#    and uploads dist/ as the internal-test release assets.
+#    and uploads dist/ as the internal-test release assets. Does not start the Test
+#    workflow (unit/e2e stay local or Actions → Test, manual-only).
 #
 # WHAT GETS BUILT
 # ---------------

@@ -87,6 +87,8 @@ flowchart TD
 - Do not “fix” this by switching CI to `npm install`; keep `npm ci` and keep the lockfile honest for Node 22.
 - Root `devDependencies` still pin `@types/node` to `^16` for the project; the nested `create-wdio` peers are separate lock entries and should not force a root `@types/node` bump unless you intentionally change TypeScript’s Node typings.
 - Generated QA vault content under `qa-test-vault/` stays gitignored, but **`qa-test-vault/fixtures/` is tracked**. Jest migration tests and `generate.mjs` read those files directly; if they are missing on CI you get `ENOENT` under `qa-test-vault/fixtures/…`.
+- **`npm run public-release` / `beta-release` / `internal-release` do not run unit or e2e.** They only push a tag that starts the matching draft/publish release workflow (install + build + package). If Actions “takes forever” after a release, check the job name: a long **Test** / **Run e2e tests** step is a different workflow (and no longer starts automatically on `main`).
+- Re-enabling Test on every push/PR is a one-line trigger change in `test.yaml`; do not assume releases will start failing if someone does that — releases never call Test.
 
 #### How to run tests
 
@@ -206,6 +208,15 @@ There is no `adb` push script for iPad. For **Cursor Debug** work, prefer copyin
 **Do not assume `npm run internal-release` includes uncommitted debug code** — see [Internal release](#internal-release-github-actions) below.
 
 #### Internal release (GitHub Actions)
+
+Release tag scripts only start **build-and-package** workflows — never the Test workflow:
+
+| Script | Tag pattern | Workflow | Runs tests? |
+|--------|-------------|----------|-------------|
+| `npm run internal-release` | `internal-test` | Publish internal release | No |
+| `npm run beta-release <tag>` | `*-beta` | Draft beta release | No |
+| `npm run public-release <tag>` | semver | Draft public release | No |
+| Actions → Test → Run workflow | (manual) | Test | Yes (unit + e2e) |
 
 `npm run internal-release` runs [`scripts/internal-release.sh`](../scripts/internal-release.sh). It **does not build locally**. It moves the **`internal-test`** git tag to **current HEAD** and pushes it; **GitHub Actions** builds from that **committed** snapshot and publishes release assets.
 

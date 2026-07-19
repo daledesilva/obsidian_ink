@@ -1,0 +1,44 @@
+---
+description: Obsidian plugin UI and styling conventions
+globs: **/*.{tsx,jsx,ts,js,scss,css}
+alwaysApply: false
+---
+
+# Obsidian Plugin UI and Styling
+
+## Use Obsidian Theme Tokens
+
+Pull visual tokens from Obsidian CSS variables and the project's established style tokens. Do not hardcode theme-sensitive colors, typography, spacing, border radii, or animation timings.
+
+```scss
+// ❌ BAD
+.project-card {
+    color: #3a86ff;
+    font-size: 14px;
+}
+
+// ✅ GOOD
+.project-card {
+    color: var(--text-normal);
+    font-size: var(--font-ui-small);
+}
+```
+
+## No Inline Styles Except Truly Dynamic Values
+
+Avoid inline styles. The only acceptable exception is a value that is computed at runtime and cannot be expressed statically (e.g. a width derived from a live measurement).
+
+## Follow the Project's Style API
+
+Use the existing plugin style approach:
+
+- Colocated SCSS files imported by the component or view they style
+- Stable class names with the project's established plugin prefix
+- Obsidian CSS variables for theme compatibility
+- Host-platform DOM APIs only where Obsidian requires them, such as settings panels and native modals
+
+Do not introduce a new styling approach without a clear reason.
+
+## No Hardcoded Colors or Sizes
+
+If a value could ever need to change for a theme, dark mode, or screen size, it must come from the theme — not be hardcoded.

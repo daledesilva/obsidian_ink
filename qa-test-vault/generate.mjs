@@ -1,0 +1,1305 @@
+#!/usr/bin/env node
+/**
+ * QA Test Vault Generator
+ * Run from obsidian_ink/: node qa-test-vault/generate.mjs
+ * Rebuilds the entire vault from scratch for visual regression testing.
+ *
+ * Ink files (SVGs and legacy .writing/.drawing) are copied from real captured
+ * fixtures in fixtures/ rather than synthesised. Synthetic snapshots omit
+ * required tldraw session fields and do not render in the plugin.
+ *
+ * Exceptions — kept synthetic because they must be blank:
+ *   Ink/Writing/empty-writing.svg  — starting state for the buffer-lines dynamic e2e test
+ *   Ink/Drawing/empty-drawing.svg  — used by empty-embed tests
+ */
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VAULT_ROOT = path.resolve(__dirname);
+const FIXTURES = path.resolve(__dirname, 'fixtures');
+const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
+const PLUGIN_VERSION = '0.4.0';
+const TLDRAW_VERSION = '2.1.0';
+const INK_CANVAS_FORMAT_VERSION = '0.5.0';
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+function writeFile(relPath, content) {
+  const full = path.join(VAULT_ROOT, relPath);
+  ensureDir(path.dirname(full));
+  fs.writeFileSync(full, content, 'utf8');
+}
+
+// ---- Tldraw snapshot helpers ----
+const DRAWING_SCHEMA = {
+  schemaVersion: 2,
+  sequences: {
+    'com.tldraw.store': 4, 'com.tldraw.asset': 1, 'com.tldraw.camera': 1,
+    'com.tldraw.document': 2, 'com.tldraw.instance': 25, 'com.tldraw.instance_page_state': 5,
+    'com.tldraw.page': 1, 'com.tldraw.instance_presence': 5, 'com.tldraw.pointer': 1,
+    'com.tldraw.shape': 4, 'com.tldraw.shape.draw': 2,
+  },
+};
+
+function makeTldrawSnapshot(store, pageId = 'page:page1') {
+  return {
+    document: { store, schema: DRAWING_SCHEMA },
+    session: {
+      version: 0, currentPageId: pageId, exportBackground: true,
+      pageStates: [{ pageId, camera: { x: 0, y: 0, z: 0.3 }, selectedShapeIds: [] }],
+    },
+  };
+}
+
+// ---- Embed builders ----
+function buildWritingEmbed(filepath) {
+  return `\n ![InkWriting](<${filepath}>) [Edit Writing](${INK_BASE_URL}?type=inkWriting)\n`;
+}
+
+function buildDrawingEmbed(filepath, width = 500, aspectRatio = 16 / 9, vb = { x: 0, y: 0, w: 500, h: 281 }) {
+  const params = new URLSearchParams({
+    type: 'inkDrawing', width: String(width), aspectRatio: aspectRatio.toFixed(3),
+    viewBoxX: String(vb.x), viewBoxY: String(vb.y), viewBoxWidth: String(vb.w), viewBoxHeight: String(vb.h),
+  });
+  return `\n ![InkDrawing](<${filepath}>) [Edit Drawing](${INK_BASE_URL}?${params})\n`;
+}
+
+// ---- SVG generation ----
+const WRITING_PAGE = 'page:3qj9EtNgqSCW_6knX2K9_';
+const WRITING_PAGE_WIDTH = 2000;
+const WRITING_LINE_HEIGHT = 150;
+
+function makeWritingStore(extraShapes = {}) {
+  return {
+    'document:document': { gridSize: 10, name: '', meta: {}, id: 'document:document', typeName: 'document' },
+    [WRITING_PAGE]: { meta: {}, id: WRITING_PAGE, name: 'Handwritten Note', index: 'a1', typeName: 'page' },
+    'shape:writing-lines': {
+      x: 0, y: 0, rotation: 0, isLocked: true, opacity: 1, meta: {},
+      type: 'writing-lines', parentId: WRITING_PAGE, index: 'a1',
+      props: { x: 0, y: 0, w: WRITING_PAGE_WIDTH, h: WRITING_LINE_HEIGHT * 1.5 },
+      id: 'shape:writing-lines', typeName: 'shape',
+    },
+    'shape:writing-container': {
+      x: 0, y: 0, rotation: 0, isLocked: true, opacity: 1, meta: {},
+      type: 'writing-container', parentId: WRITING_PAGE, index: 'a1',
+      props: { x: 0, y: 0, w: WRITING_PAGE_WIDTH, h: WRITING_LINE_HEIGHT * 1.5 },
+      id: 'shape:writing-container', typeName: 'shape',
+    },
+    ...extraShapes,
+  };
+}
+
+function createWritingSvg(filename, svgBody, store) {
+  const snapshot = makeTldrawSnapshot(store, WRITING_PAGE);
+  const tldrawJson = JSON.stringify(snapshot).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" direction="ltr" width="2064" height="289" viewBox="-32 -32 2064 289" stroke-linecap="round" stroke-linejoin="round" style="background-color: transparent;">
+  <metadata>
+    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
+    <tldraw version="${TLDRAW_VERSION}">${tldrawJson}</tldraw>
+  </metadata>
+  <defs/>
+  ${svgBody}
+</svg>`;
+  writeFile(`Ink/Writing/${filename}`, svg);
+}
+
+const DRAW_PAGE = 'page:3qj9EtNgqSCW_6knX2K9_';
+
+function makeDrawingStore(extraShapes = {}) {
+  return {
+    'document:document': { gridSize: 10, name: '', meta: {}, id: 'document:document', typeName: 'document' },
+    [DRAW_PAGE]: { meta: {}, id: DRAW_PAGE, name: 'Handwritten Note', index: 'a1', typeName: 'page' },
+    ...extraShapes,
+  };
+}
+
+
+function generateSvgAssets() {
+  // Use real captured SVG fixtures for named files so they render correctly in the plugin.
+  // Synthetic snapshots omit required tldraw session fields and do not render.
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  for (const name of ['hello-world.svg', 'multi-line.svg', 'dense-strokes.svg']) {
+    fs.copyFileSync(path.join(FIXTURES, 'writing-fixture.svg'), path.join(VAULT_ROOT, `Ink/Writing/${name}`));
+  }
+  for (const name of ['simple-shape.svg', 'complex-diagram.svg', 'tiny-drawing.svg']) {
+    fs.copyFileSync(path.join(FIXTURES, 'drawing-fixture.svg'), path.join(VAULT_ROOT, `Ink/Drawing/${name}`));
+  }
+
+  // Ink-canvas fixtures for reading-mode theme tests (baked #000000 strokes, #888888 guide lines).
+  fs.copyFileSync(
+    path.join(FIXTURES, 'reading-mode-writing.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/reading-mode-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'reading-mode-drawing.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/reading-mode-drawing.svg'),
+  );
+
+  // Empty files remain synthetic: they must contain no strokes.
+  // empty-writing.svg is the starting file for the buffer-lines dynamic e2e test.
+  const writingLine = '<g transform="matrix(1,0,0,1,0,0)"><line x1="100" y1="150" x2="1900" y2="150"/></g><g><rect width="2000" height="225" opacity="0"/></g>';
+  createWritingSvg('empty-writing.svg', writingLine, makeWritingStore());
+
+  const emptyStore = makeDrawingStore();
+  const emptyDrawSvg = `<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 395 130" width="395" height="130" fill="none" class="ddc_ink_drawing-placeholder">
+  <metadata>
+    <ink plugin-version="${PLUGIN_VERSION}" file-type="inkDrawing"/>
+    <tldraw version="${TLDRAW_VERSION}">${JSON.stringify(makeTldrawSnapshot(emptyStore, DRAW_PAGE)).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}</tldraw>
+  </metadata>
+  <g><rect rx="10" ry="10" x="1" y="1" width="393" height="128" style="fill:none;stroke-width:1;stroke:rgb(255,255,255);stroke-opacity:0.1;"/></g>
+  <g><rect rx="2" ry="2" x="189" y="56" width="18" height="18" style="fill:none;stroke-width:2;stroke:rgb(255,255,255);stroke-opacity:1;" class="stroke-shape"/>
+  <circle cx="195" cy="62" style="fill:none;stroke-width:2;stroke:rgb(255,255,255);stroke-opacity:1;" r="2" class="stroke-shape"/>
+  <path d="m207 68-3.086-3.086a2 2 0 0 0-2.828 0L192 74" style="fill:none;stroke-width:2;stroke:rgb(255,255,255);stroke-opacity:1;" class="stroke-shape"/></g>
+</svg>`;
+  writeFile('Ink/Drawing/empty-drawing.svg', emptyDrawSvg);
+}
+
+function generateLegacyAssets() {
+  // Use real captured legacy fixtures so they render correctly in the plugin.
+  // Synthetic snapshots omit required tldraw fields and do not render.
+  ensureDir(path.join(VAULT_ROOT, 'Legacy'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-writing-fixture.writing'),
+    path.join(VAULT_ROOT, 'Legacy/legacy-writing.writing'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-drawing-fixture.drawing'),
+    path.join(VAULT_ROOT, 'Legacy/legacy-drawing.drawing'),
+  );
+}
+
+function generateTemplates() {
+  writeFile('Templates/Ink-Embed-Writing.md', `# New Note from Template
+Created: {{date}}
+
+${buildWritingEmbed('Ink/Writing/hello-world.svg')}
+
+More content here.
+`);
+  writeFile('Templates/Ink-Embed-Drawing.md', `# New Note with Drawing
+Created: {{date}}
+
+${buildDrawingEmbed('Ink/Drawing/simple-shape.svg')}
+
+Notes below.
+`);
+}
+
+function generateAllNotes() {
+  const w = (f) => buildWritingEmbed(`Ink/Writing/${f}`);
+  const d = (f, ww, ar, vb) => buildDrawingEmbed(`Ink/Drawing/${f}`, ww || 500, ar ?? 16/9, vb);
+  const v1W = `\n\`\`\`handwritten-ink
+{"versionAtEmbed":"${PLUGIN_VERSION}","filepath":"Legacy/legacy-writing.writing"}
+\`\`\`\n`;
+  const v1D = `\n\`\`\`handdrawn-ink
+{"versionAtEmbed":"${PLUGIN_VERSION}","filepath":"Legacy/legacy-drawing.drawing","width":500,"aspectRatio":1}
+\`\`\`\n`;
+
+  const notes = [
+    ['01 - Basic Embeds/Single Writing Embed.md', `# Single Writing Embed\n\nParagraph before.\n\n${w('hello-world.svg')}\n\nParagraph after.`],
+    ['01 - Basic Embeds/Single Drawing Embed.md', `# Single Drawing Embed\n\nBefore.\n\n${d('simple-shape.svg')}\n\nAfter.`],
+    ['01 - Basic Embeds/Multiple Writing Embeds.md', `# Multiple Writing Embeds\n\n${w('hello-world.svg')}\n\n${w('multi-line.svg')}\n\n${w('hello-world.svg')}`],
+    ['01 - Basic Embeds/Multiple Drawing Embeds.md', `# Multiple Drawing Embeds\n\n${d('simple-shape.svg')}\n\n${d('complex-diagram.svg')}\n\n${d('simple-shape.svg')}`],
+    ['01 - Basic Embeds/Mixed Writing and Drawing.md', `# Mixed\n\n${w('hello-world.svg')}\n\n${d('simple-shape.svg')}\n\n${w('multi-line.svg')}\n\n${d('complex-diagram.svg')}`],
+    ['01 - Basic Embeds/Empty Embeds.md', `# Empty Embeds\n${w('empty-writing.svg')}\n${d('empty-drawing.svg')}`],
+    ['02 - Legacy Format/V1 Writing Embed.md', `# V1 Writing\n${v1W}`],
+    ['02 - Legacy Format/V1 Drawing Embed.md', `# V1 Drawing\n${v1D}`],
+    ['02 - Legacy Format/V1 and V2 Side by Side.md', `# V1 and V2\n## V1 Writing\n${v1W}\n## V2 Writing\n${w('hello-world.svg')}\n## V1 Drawing\n${v1D}\n## V2 Drawing\n${d('simple-shape.svg')}`],
+    // ~10× the old 6-embed density note; unique ink-canvas files so Live Preview + picker "on current page" both stress.
+    ['03 - Density and Repetition/Many Embeds on One Page.md', `# Many Embeds\n\n${Array.from({ length: PICKER_STRESS_EMBED_COUNT }, (_, i) => {
+      const n = String(i + 1).padStart(2, '0');
+      return i % 2 === 0
+        ? w(`picker-stress-writing-${n}.svg`)
+        : d(`picker-stress-drawing-${n}.svg`, 500, 16 / 9, { x: 0, y: 0, w: 200, h: 120 });
+    }).join('\n\n')}\n\nEnd.`],
+    ['03 - Density and Repetition/Same Embed Repeated.md', `# Same Repeated\n\n${w('hello-world.svg')}${w('hello-world.svg')}${w('hello-world.svg')}${w('hello-world.svg')}${w('hello-world.svg')}`],
+    ['03 - Density and Repetition/Same Embed Across Pages Note A.md', `# Note A\n\n${d('simple-shape.svg')}\n\nSame in multiple notes.`],
+    ['03 - Density and Repetition/Same Embed Across Pages Note B.md', `# Note B\n\n${d('simple-shape.svg')}\n\nSame in multiple notes.`],
+    ['03 - Density and Repetition/Dense Writing.md', `# Dense\n\n${w('dense-strokes.svg')}`],
+    ['03 - Density and Repetition/Rapid Succession.md', `# Rapid\n\n${d('simple-shape.svg')}${d('simple-shape.svg')}${w('hello-world.svg')}${w('hello-world.svg')}`],
+    ['04 - Obsidian Native Features/In Block Quotes.md', `# Block Quotes\n\n> ${w('hello-world.svg').trim()}\n\n> ${d('simple-shape.svg').trim()}`],
+    ['04 - Obsidian Native Features/In Numbered Lists.md', `# Numbered Lists\n\n1. First\n2.${w('hello-world.svg')}\n3. Third`],
+    ['04 - Obsidian Native Features/In Bullet Lists.md', `# Bullet Lists\n\n- One\n-${w('hello-world.svg')}\n- Three`],
+    ['04 - Obsidian Native Features/In Native Task Lists.md', `# Native Tasks\n\n- [ ] Before\n${w('hello-world.svg')}\n- [x] After`],
+    ['04 - Obsidian Native Features/In Tables.md', `# Tables\n\n| A | B |\n|---|---|\n| Text | ${d('simple-shape.svg').replace(/\n/g,' ').trim()} |`],
+    ['04 - Obsidian Native Features/Transclusion Source.md', `# Transclusion Source\n\n${w('hello-world.svg')}\n\n${d('simple-shape.svg')}\n\nUse ![[Transclusion Source]]`],
+    ['04 - Obsidian Native Features/Transclusion Target.md', `# Transclusion Target\n\n![[Transclusion Source]]`],
+    ['04 - Obsidian Native Features/With Headings and TOC.md', `# Headings and TOC\n\n## One\n${w('hello-world.svg')}\n\n### Sub\n${d('simple-shape.svg')}\n\n## Two`],
+    ['04 - Obsidian Native Features/Under Folded Heading.md', `# Folded Heading\n\n## Collapse\n\n${w('hello-world.svg')}`],
+    ['04 - Obsidian Native Features/With Tags and Links.md', `# Tags and Links\n\n#ink #qa\n\n[[01 - Basic Embeds/Single Writing Embed]]\n\n${w('hello-world.svg')}`],
+    ['04 - Obsidian Native Features/Adjacent to Code Blocks.md', `# Adjacent Code\n\n\`\`\`js\nconst x=1;\n\`\`\`\n\n${w('hello-world.svg')}\n\n\`\`\`text\nplain\n\`\`\``],
+    ['04 - Obsidian Native Features/On Canvas (Quick Test).md', `# On Canvas\n\nAdd as canvas card. See 08e.\n\n${w('hello-world.svg')}`],
+  ];
+
+  notes.forEach(([path, content]) => writeFile(path, content));
+
+  // 04b Callouts
+  writeFile('04b - Callouts and Layout Containers/In Callouts - All Types.md',
+    ['note','info','abstract','tip','warning','question','todo','example','faq'].map(t =>
+      `> [!${t}]\n> ${w('hello-world.svg').replace(/\n/g,' ').trim()}`
+    ).join('\n\n'));
+  writeFile('04b - Callouts and Layout Containers/In Nested Callouts.md', `# Nested\n\n> [!note] Outer\n> > [!info] Inner\n> > ${w('hello-world.svg').replace(/\n/g,' ').trim()}`);
+  writeFile('04b - Callouts and Layout Containers/In Collapsible Callouts.md', `# Collapsible\n\n> [!faq]+ Expanded\n> ${w('hello-world.svg').replace(/\n/g,' ').trim()}\n\n> [!faq]- Collapsed\n> ${d('simple-shape.svg').replace(/\n/g,' ').trim()}`);
+  writeFile('04b - Callouts and Layout Containers/In Admonition - Code Blocks.md', `# Admonition\n\n\`\`\`ad-note\ntitle: Note\n${w('hello-world.svg').replace(/^\s+|\s+$/g,'')}\n\`\`\`\n\n\`\`\`ad-tip\n${d('simple-shape.svg').replace(/^\s+|\s+$/g,'')}\n\`\`\``);
+  writeFile('04b - Callouts and Layout Containers/In List Callouts.md', `# List Callouts\n\n- ! ${w('hello-world.svg')}\n- ? ${d('simple-shape.svg')}`);
+  writeFile('04b - Callouts and Layout Containers/In Columns - Multi-Column Layout.md', `# Multi-Column Layout\n\n> [!multi-column]\n>\n>> [!col|30]\n>> Left\n>> ${w('hello-world.svg').replace(/\n/g,' ')}\n>>\n>> [!col|70]\n>> Right\n>> ${d('simple-shape.svg').replace(/\n/g,' ')}`);
+  writeFile('04b - Callouts and Layout Containers/In Columns - Obsidian Columns.md', `# Obsidian Columns\n\n> [!col]\n>> Left\n>> ${w('hello-world.svg').replace(/\n/g,' ')}\n>\n>> [!col-md]\n>> Right\n>> ${d('simple-shape.svg').replace(/\n/g,' ')}`);
+  writeFile('04b - Callouts and Layout Containers/In Columns - MCL List Grid.md', `# MCL List Grid\n\n- Item 1 #mcl/list-grid\n- ${w('hello-world.svg').replace(/\n/g,' ')}\n- ${d('simple-shape.svg').replace(/\n/g,' ')}`);
+
+  // In Columns - All Methods: comprehensive QA page covering all column plugin syntaxes (used by e2e tests)
+  {
+    const bt = '```';
+    writeFile('04b - Callouts and Layout Containers/In Columns - All Methods.md', [
+      '# Embeds in Column Layouts',
+      '',
+      '---',
+      '',
+      '## Multi-Column Markdown (code fence syntax)',
+      '*Requires: Multi-Column Markdown plugin*',
+      '',
+      bt + ' start-multi-column',
+      'ID: ink-test-1',
+      'number of columns: 2',
+      bt,
+      '',
+      '**Left column**',
+      ' ' + w('hello-world.svg').trim(),
+      '',
+      bt + ' column-break',
+      bt,
+      '',
+      '**Right column**',
+      ' ' + d('simple-shape.svg').trim(),
+      '',
+      bt + ' end-multi-column',
+      bt,
+      '',
+      '---',
+      '',
+      '## Obsidian Columns plugin ([!col] callout)',
+      '*Requires: Obsidian Columns plugin*',
+      '',
+      '> [!col]',
+      '>> **Left**',
+      '>> ' + w('hello-world.svg').trim(),
+      '>',
+      '>> [!col-md]',
+      '>> **Right**',
+      '>> ' + d('simple-shape.svg').trim(),
+      '',
+      '---',
+      '',
+      '## MCL Multi Column ([!multi-column] callout)',
+      '*Requires: Modular CSS Layout plugin or MCL CSS snippet*',
+      '',
+      '> [!multi-column]',
+      '>',
+      '>> [!col-md|30]',
+      '>> **Left 30%**',
+      '>> ' + w('hello-world.svg').trim(),
+      '>',
+      '>> [!col-md|70]',
+      '>> **Right 70%**',
+      '>> ' + d('simple-shape.svg').trim(),
+      '',
+      '---',
+      '',
+      '## MCL List Grid (hashtag syntax)',
+      '*Requires: Modular CSS Layout plugin or MCL CSS snippet*',
+      '',
+      '- #mcl/list-grid',
+      '-   ' + w('hello-world.svg').trim(),
+      '-   ' + d('simple-shape.svg').trim(),
+      '',
+      '---',
+      '',
+      '## Three-Column Layout (Multi-Column Markdown)',
+      '*Requires: Multi-Column Markdown plugin*',
+      '',
+      bt + ' start-multi-column',
+      'ID: ink-test-3col',
+      'number of columns: 3',
+      bt,
+      '',
+      '**Column A**',
+      ' ' + w('hello-world.svg').trim(),
+      '',
+      bt + ' column-break',
+      bt,
+      '',
+      '**Column B**',
+      ' ' + d('simple-shape.svg').trim(),
+      '',
+      bt + ' column-break',
+      bt,
+      '',
+      '**Column C**',
+      ' ' + w('hello-world.svg').trim(),
+      '',
+      bt + ' end-multi-column',
+      bt,
+    ].join('\n'));
+  }
+
+  // 05 Settings
+  writeFile('05 - Settings Variations/Writing Lines When Locked.md', `# Writing Lines When Locked\n\nToggle writingLinesWhenLocked.\n\n${w('hello-world.svg')}`);
+  writeFile('05 - Settings Variations/Writing Background When Locked.md', `# Writing Background When Locked\n\nToggle writingBackgroundWhenLocked.\n\n${w('hello-world.svg')}`);
+  writeFile('05 - Settings Variations/Drawing Frame When Locked.md', `# Drawing Frame When Locked\n\nToggle drawingFrameWhenLocked.\n\n${d('simple-shape.svg')}`);
+  writeFile('05 - Settings Variations/Drawing Background When Locked.md', `# Drawing Background When Locked\n\nToggle drawingBackgroundWhenLocked.\n\n${d('simple-shape.svg')}`);
+  writeFile('05 - Settings Variations/Stroke Limit Testing.md', `# Stroke Limit\n\n${w('dense-strokes.svg')}`);
+
+  // 06 Sizing
+  const dp = 'Ink/Drawing/simple-shape.svg';
+  [[100,'Very Narrow'],[200,'Narrow'],[500,'Default'],[700,'Medium Wide'],[800,'Wide'],[1000,'Very Wide']].forEach(([ww,label]) =>
+    writeFile(`06 - Sizing and Aspect Ratios/${label} (${ww}px).md`, `# ${label}\n${buildDrawingEmbed(dp, ww)}`));
+  [[2,'Very Short (2:1)'],[16/9,'Short (16:9)'],[1,'Square (1:1)'],[9/16,'Tall (9:16)'],[0.5,'Very Tall (1:2)']].forEach(([ar,label]) =>
+    writeFile(`06 - Sizing and Aspect Ratios/${label}.md`, `# ${label}\n${buildDrawingEmbed(dp, 500, ar)}`));
+  writeFile('06 - Sizing and Aspect Ratios/Short Writing (1 line).md', `# Short Writing\n${w('hello-world.svg')}`);
+  writeFile('06 - Sizing and Aspect Ratios/Long Writing (many lines).md', `# Long Writing\n${w('multi-line.svg')}`);
+  writeFile('06 - Sizing and Aspect Ratios/Range of Widths and Lengths.md', `# Range\n\n${buildDrawingEmbed(dp,150,0.5)}${buildDrawingEmbed(dp,300,1)}${buildDrawingEmbed(dp,500,1.78)}${buildDrawingEmbed(dp,700,2)}${buildDrawingEmbed(dp,900,0.5)}`);
+  writeFile('06 - Sizing and Aspect Ratios/Custom ViewBox.md', `# Custom ViewBox\n${buildDrawingEmbed(dp,500,1,{x:50,y:25,w:200,h:100})}`);
+
+  // 07 Theme
+  writeFile('07 - Theme and Layout/Readable Line Width.md', `# Readable Line Width\n\nLong text. Lorem ipsum dolor sit amet.\n\n${w('hello-world.svg')}`);
+  writeFile('07 - Theme and Layout/Full Width Note.md', `---\ncssclasses: wide-page\n---\n\n# Full Width\n\n${d('simple-shape.svg')}`);
+  writeFile('07 - Theme and Layout/Dark and Light Mode.md', `# Dark and Light\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+  writeFile('07 - Theme and Layout/Minimal Theme Test.md', `# Minimal Theme\n\n${w('hello-world.svg')}`);
+  writeFile('07 - Theme and Layout/Adjacent to Images.md', `# Adjacent Images\n\n${w('hello-world.svg')}\n\n![[sample.png]]\n\n${d('simple-shape.svg')}`);
+  writeFile('07 - Theme and Layout/Embed After Horizontal Rule.md', `# After HR\n\n---\n${w('hello-world.svg')}`);
+
+  // 08 Plugin
+  writeFile('08 - Plugin Compatibility/Kanban - Board with Ink.md', `---\n\nkanban-plugin: basic\n\n---\n\n## Column A\n\n- [ ]${w('hello-world.svg')}\n\n## Column B\n\n- [ ]${w('multi-line.svg')}\n\n%% kanban:settings\n\`\`\`\n{"kanban-plugin":"basic"}\n\`\`\`\n%%`);
+  writeFile('08 - Plugin Compatibility/Tabs - Tabbed Ink Content.md', `# Tabs\n\n\`\`\`tabs\ntab: Tab 1\n${w('hello-world.svg')}\ntab: Tab 2\n${d('simple-shape.svg')}\n\`\`\``);
+  writeFile('08 - Plugin Compatibility/Slides Extended - Presentation.md', `# Slide 1\n\n${w('hello-world.svg')}\n\n---\n\n# Slide 2\n\n${d('simple-shape.svg')}\n\n---\n\n# Slide 3`);
+  writeFile('08 - Plugin Compatibility/Tasks - Alongside Ink.md', `# Tasks\n\n- [ ] Task 1\n${w('hello-world.svg')}\n- [ ] Task 2\n${d('simple-shape.svg')}\n- [x] Task 3`);
+  const excalidrawJson = JSON.stringify({type:'excalidraw',version:2,source:'https://excalidraw.com',elements:[{type:'rectangle',version:1,versionNonce:1,isDeleted:false,id:'rect1',fillStyle:'hachure',strokeWidth:1,strokeStyle:'solid',roughness:1,opacity:100,angle:0,x:50,y:50,strokeColor:'#000000',backgroundColor:'none',width:100,height:60,seed:1,groupIds:[],frameId:null,roundness:null,boundElements:[],updated:1,link:null,locked:false}],appState:{gridSize:null,viewBackgroundColor:'#ffffff'},files:{}});
+  writeFile('08 - Plugin Compatibility/sample.excalidraw', excalidrawJson);
+  writeFile('08 - Plugin Compatibility/Excalidraw - Coexistence.md', `# Excalidraw\n\n${w('hello-world.svg')}\n\n![[sample.excalidraw]]\n\n${d('simple-shape.svg')}`);
+  writeFile('08 - Plugin Compatibility/Style Settings - Variable Widths.md', `# Style Settings\n\n${w('hello-world.svg')}`);
+  writeFile('08 - Plugin Compatibility/Better Export PDF - Print Test.md', `# PDF Export\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+  writeFile('08 - Plugin Compatibility/Hover Editor - Popover Test.md', `# Hover Editor\n\n[[01 - Basic Embeds/Single Writing Embed]]\n[[04 - Obsidian Native Features/Transclusion Source]]`);
+  writeFile('08 - Plugin Compatibility/Webpage Export - HTML Test.md', `# HTML Export\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+
+  // 08b Insertion
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Templater - Insert Template with Embed.md', `# Templater\n\nRun "Insert template", select Templates/Ink-Embed-Writing.md.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Templater - Folder Template with Embed.md', `# Templater Folder\n\nConfigure folder template. Create new note.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Templater - Daily Note Template.md', `# Templater Daily\n\nSet as daily note template. Create daily note.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/QuickAdd - Template Choice with Embed.md', `# QuickAdd Template\n\nCreate Template choice -> Ink-Embed-Writing. Run.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/QuickAdd - Capture to Note with Embed.md', `# QuickAdd Capture\n\nThis note has embed. Capture to append.\n\n${w('hello-world.svg')}`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/QuickAdd - Macro Invoking Ink Command.md', `# QuickAdd Macro\n\nMacro runs "New handwriting section". Verify embed.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Buttons - New Handwriting Button.md', `# Buttons Handwriting\n\nAdd button for "New handwriting section". Click.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Buttons - New Drawing Button.md', `# Buttons Drawing\n\nAdd button for "New drawing". Click.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Buttons - Insert Template with Embed.md', `# Buttons Template\n\nButton inserts Templates/Ink-Embed-Drawing.md.`);
+  writeFile('08b - Insertion Plugins (Templater QuickAdd Buttons)/Core Template - Note with Embed.md', `# Core Template\n\nSettings -> Templates. Insert template. No plugin.`);
+
+  // 08c Make/Dataview
+  writeFile('08c - Make.md and Dataview/Make.md - Flow View with Ink Note.md', `# Make.md Flow\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+  writeFile('08c - Make.md and Dataview/Make.md - Board View with Ink.md', `# Make.md Board\n\n${w('hello-world.svg')}`);
+  writeFile('08c - Make.md and Dataview/Make.md - Database with Ink in Rows.md', `# Make.md Database\n\n${d('simple-shape.svg')}`);
+  writeFile('08c - Make.md and Dataview/Dataview - List Notes Containing Ink.md', `# Dataview List\n\n\`\`\`dataview\nTABLE file.name FROM "08c - Make.md and Dataview"\n\`\`\``);
+  writeFile('08c - Make.md and Dataview/Dataview - Embed Note with Ink.md', `# Dataview Embed\n\n\`\`\`dataview\nTABLE embed(link(file)) FROM "01 - Basic Embeds" LIMIT 1\n\`\`\``);
+  writeFile('08c - Make.md and Dataview/Dataview - Inline with Ink Nearby.md', `# Dataview Inline\n\n\`= this.file.name\`\n\n${w('hello-world.svg')}`);
+  writeFile('08c - Make.md and Dataview/Dataview - DataviewJS Block with Link.md', `# DataviewJS\n\n\`\`\`dataviewjs\ndv.paragraph(dv.fileLink("01 - Basic Embeds/Single Writing Embed", true))\n\`\`\``);
+
+  // 08d Dashboards
+  writeFile('08d - Dashboards/Dashboards - Grid with Ink Note Embed.md', `# Dashboards\n\nCreate dashboard. Embed "01 - Basic Embeds/Single Writing Embed".`);
+  writeFile('08d - Dashboards/Dashboards - Grid with Dataview Block.md', `# Dashboards Dataview\n\nDashboard with Dataview block.`);
+  writeFile('08d - Dashboards/Dashboard++ - MOC with Ink Notes.md', `# Dashboard++ MOC\n\n- [[01 - Basic Embeds/Single Writing Embed]]\n- [[01 - Basic Embeds/Single Drawing Embed]]`);
+  writeFile('08d - Dashboards/Dashboard++ - Index with Transclusion.md', `# Dashboard++ Transclusion\n\n![[01 - Basic Embeds/Single Writing Embed]]`);
+
+  // 08e Canvas
+  writeFile('08e - Canvas/Canvas - Note Card with Ink.md', `# Canvas Card\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+  writeFile('08e - Canvas/Canvas - Multiple Note Cards.md', `# Canvas Multiple\n\nAdd note cards with ink.`);
+  writeFile('08e - Canvas/Canvas - Canvas Embed in Note.md', `# Canvas Embed\n\n![[Canvas for Tests.canvas]]`);
+  writeFile('08e - Canvas/Canvas - Grouped Cards with Ink.md', `# Canvas Grouped\n\nGrouped cards with ink notes.`);
+  writeFile('08e - Canvas/Canvas Source for Canvas Tests.md', `# Canvas Source\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+
+  // 09 Edge
+  writeFile('09 - Edge Cases and Error States/Missing File Reference.md', `# Missing File\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting)`);
+  const drawingParams = new URLSearchParams({ type: 'inkDrawing', width: '500', aspectRatio: (16/9).toFixed(3), viewBoxX: '0', viewBoxY: '0', viewBoxWidth: '500', viewBoxHeight: '281' });
+  writeFile('09 - Edge Cases and Error States/Missing Drawing Reference.md', `# Missing Drawing\n\n ![InkDrawing](<Ink/Drawing/nonexistent.svg>) [Edit Drawing](${INK_BASE_URL}?${drawingParams})`);
+  writeFile('09 - Edge Cases and Error States/Missing File Pending Paste.md', `# Missing File Pending Paste\n\n ![InkWriting](<Ink/Writing/nonexistent.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting&pendingPaste=true)`);
+  writeFile('09 - Edge Cases and Error States/Broken Embed Syntax.md', `# Broken\n\n![InkWriting](<Ink/Writing/hello-world.svg>) (missing space before !)`);
+  writeFile('09 - Edge Cases and Error States/Special Characters in Path.md', `# Special Chars\n\nCreate file with spaces/parens.`);
+  writeFile('09 - Edge Cases and Error States/Very Long Filepath.md', `# Long Path\n\n${w('Ink/Writing/hello-world.svg')}`);
+  writeFile('09 - Edge Cases and Error States/Embed in Source Mode.md', `# Source Mode\n\nSwitch to Source. V2 should not render.\n\n${w('hello-world.svg')}`);
+  writeFile(
+    '09 - Edge Cases and Error States/Embed in Reading View.md',
+    `# Reading View\n\nInk-canvas fixtures with baked colours — previews should inline SVG and theme via CSS.\n\n${w('reading-mode-writing.svg')}\n\n${d('reading-mode-drawing.svg', 1000, 2.5, { x: 0, y: 0, w: 1000, h: 400 })}`,
+  );
+  writeFile('09 - Edge Cases and Error States/Empty Note with Embed.md', w('hello-world.svg'));
+  writeFile('09 - Edge Cases and Error States/File Without Metadata.md', `# No Metadata\n\nUse plain SVG.`);
+  writeFile('09 - Edge Cases and Error States/Embed in List Continuation.md', `# List Continuation\n\n- Item\n    ${w('hello-world.svg').trim()}`);
+
+  // 10 Cross-ref
+  writeFile('10 - Cross-Reference/Source Note.md', `# Source\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+  writeFile('10 - Cross-Reference/Transcluded Reference.md', `# Transcluded\n\n![[Source Note]]`);
+  writeFile('10 - Cross-Reference/Same File Different Notes A.md', `# A\n\n${d('simple-shape.svg')}`);
+  writeFile('10 - Cross-Reference/Same File Different Notes B.md', `# B\n\n${d('simple-shape.svg')}`);
+  writeFile('10 - Cross-Reference/Same File Different Notes C.md', `# C\n\n${d('simple-shape.svg')}`);
+
+  // 11 CodeMirror
+  writeFile('11 - CodeMirror and Editor Behavior/Cursor Navigation Around Embeds.md', `# Cursor Nav\n\n${w('hello-world.svg')}`);
+  writeFile('11 - CodeMirror and Editor Behavior/Split Pane - Two Notes Side by Side.md', `# Split Pane\n\n${d('simple-shape.svg')}`);
+  writeFile('11 - CodeMirror and Editor Behavior/Undo Redo with Embeds.md', `# Undo Redo\n\nBefore.\n${w('hello-world.svg')}\nAdd after, Undo.`);
+  writeFile('11 - CodeMirror and Editor Behavior/Paste Near Embed.md', `# Paste\n\n${w('hello-world.svg')}\n\nPaste after.`);
+  writeFile('11 - CodeMirror and Editor Behavior/Search and Replace.md', `# Search\n\n${w('hello-world.svg')}`);
+  writeFile('11 - CodeMirror and Editor Behavior/Native Print Export.md', `# Print\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
+}
+
+function main() {
+  console.log('Generating QA test vault...');
+  generateSvgAssets();
+  generateLegacyAssets();
+  generateTemplates();
+  generateAllNotes();
+  writeFile('README.md', `# QA Test Vault for obsidian_ink
+
+Self-contained vault for visual regression testing. Contains dummy markdown notes, sample ink embeds (SVG v2 and legacy v1 formats), and compatibility tests for Obsidian plugins.
+
+All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured fixtures in \`fixtures/\` so they render correctly in the plugin. The only exceptions are \`Ink/Writing/empty-writing.svg\` and \`Ink/Drawing/empty-drawing.svg\`, which are kept blank by design.
+
+## Quick Start
+
+1. Run \`node qa-test-vault/generate.mjs\` from the obsidian_ink project root to create/reset the vault.
+2. Open the \`qa-test-vault\` folder as an Obsidian vault.
+3. Install and enable the Ink plugin (symlink or copy from main project).
+4. Walk through numbered sections (01–11) following instructions in each note.
+
+## Reset
+
+\`node qa-test-vault/generate.mjs\` rebuilds the entire vault from scratch. Run after code changes to retest.
+
+## Structure
+
+- **01 – Basic Embeds**: Single, multiple, mixed, empty
+- **02 – Legacy Format**: v1 code block embeds (handwritten-ink, handdrawn-ink)
+- **03 – Density and Repetition**: Many unique ink-canvas embeds (~60), same embed repeated, back-to-back
+- **04 – Obsidian Native Features**: Block quotes, lists, tables, transclusion, headings, code blocks
+- **04b – Callouts and Layout**: Native callouts, Admonition, List Callouts, Columns (Multi-Column, Obsidian Columns, MCL)
+- **05 – Settings Variations**: writingLinesWhenLocked, drawingFrameWhenLocked, etc.
+- **06 – Sizing and Aspect Ratios**: Width range (100–1000px), aspect ratios, writing length
+- **07 – Theme and Layout**: Readable width, full width, dark/light mode
+- **08 – Plugin Compatibility**: Kanban, Tabs, Slides, Tasks, Excalidraw, export
+- **08b – Insertion Plugins**: Templater, QuickAdd, Buttons, Core Templates
+- **08c – Make.md and Dataview**: Flow view, board, database, queries
+- **08d – Dashboards**: Grid embeds, Dashboard++ MOC
+- **08e – Canvas**: Note cards, canvas embed in note, grouped cards
+- **09 – Edge Cases**: Missing file, broken syntax, source/reading mode
+- **10 – Cross-Reference**: Transclusion, same file across notes
+- **11 – CodeMirror**: Cursor nav, split pane, undo, paste, search, print
+- **12 – File Conversion**: Writing/drawing convert via pane menu (tldraw + ink-canvas fixture SVGs)
+- **13 – Migration Test**: Legacy v1 code block embeds for migration testing
+- **14 – Conversion Modal**: Multi-note embed scan and conversion modal tests
+- **15 – Copy Paste Paths**: Cross-folder paste, relative paths, ambiguous filename
+- **16 – V2 Tldraw Migration**: Real v2 \`<tldraw>\` SVGs; preview, edit, upgrade to ink-canvas on save
+- **17 – Tldraw Bulk Migration**: Developer modal — bulk tldraw → ink-canvas in place
+- **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
+- **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
+- **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
+`);
+  generateConversionTestAssets();
+  generateMigrationTestAssets();
+  generateConversionModalTestAssets();
+  generateCopyPastePathsTestAssets();
+  generateV2TldrawMigrationAssets();
+  generateTldrawBulkMigrationAssets();
+  generateCapturedLegacyMigrationAssets();
+  generateMigrationProgressDensityAssets();
+  generatePickerStressAssets();
+
+  ensureDir('.obsidian');
+  // Enable community plugins needed for column layout e2e tests.
+  // Note: Modular CSS Layout (MCL) is a CSS snippet only — it is NOT a community plugin
+  // and cannot be listed here. The [!multi-column] and #mcl/list-grid pages will render
+  // via standard callout/list fallback unless the MCL CSS snippet is also installed.
+  writeFile('.obsidian/community-plugins.json', JSON.stringify([
+    'obsidian-columns',
+    'multi-column-markdown',
+    'obsidian-admonition',
+    'obsidian-kanban',
+    'tabs',
+    'obsidian-hover-editor',
+    'obsidian-excalidraw-plugin',
+  ], null, 2));
+  writeFile('.obsidian/app.json', JSON.stringify({ safeMode: false }, null, 2));
+  // Clear plugin persistence so onboarding tests see first-run state
+  const dataPath = path.join(VAULT_ROOT, '.obsidian', 'data.json');
+  if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
+  // Pre-seed Ink plugin data so the welcome popup does not show during e2e tests.
+  // The onboarding test explicitly resets welcomeTipRead and reloads the plugin to test first-run flow.
+  const inkPluginDir = path.join(VAULT_ROOT, '.obsidian', 'plugins', 'ink');
+  ensureDir(inkPluginDir);
+  const inkPluginData = {
+    onboardingTips: { welcomeTipRead: true, strokeLimitTipRead: false, lastVersionTipRead: PLUGIN_VERSION },
+    customAttachmentFolders: false,
+    noteAttachmentFolderLocation: 'obsidian',
+    notelessAttachmentFolderLocation: 'root',
+    writingSubfolder: 'Ink/Writing',
+    drawingSubfolder: 'Ink/Drawing',
+    writingEnabled: true,
+    writingStrokeLimit: 200,
+    writingBufferLines: 3,
+    writingDynamicStrokeThickness: true,
+    writingSmoothing: false,
+    writingLinesWhenLocked: true,
+    writingBackgroundWhenLocked: true,
+    drawingEnabled: true,
+    drawingFrameWhenLocked: false,
+    drawingBackgroundWhenLocked: false,
+  };
+  fs.writeFileSync(path.join(inkPluginDir, 'data.json'), JSON.stringify(inkPluginData, null, 2), 'utf8');
+  // Pre-seed Excalidraw plugin so the "Welcome to Excalidraw" release notes modal does not show.
+  // The modal shows when previousRelease < PLUGIN_VERSION. Setting previousRelease to the installed
+  // version suppresses it. Read version from manifest so we stay in sync when the plugin is updated.
+  const excalidrawPluginDir = path.join(VAULT_ROOT, '.obsidian', 'plugins', 'obsidian-excalidraw-plugin');
+  const excalidrawManifestPath = path.join(excalidrawPluginDir, 'manifest.json');
+  if (fs.existsSync(excalidrawManifestPath)) {
+    ensureDir(excalidrawPluginDir);
+    const excalidrawManifest = JSON.parse(fs.readFileSync(excalidrawManifestPath, 'utf8'));
+    const excalidrawVersion = excalidrawManifest?.version ?? '2.20.6';
+    const excalidrawData = { previousRelease: excalidrawVersion };
+    fs.writeFileSync(path.join(excalidrawPluginDir, 'data.json'), JSON.stringify(excalidrawData, null, 2), 'utf8');
+  }
+  console.log('Done. Vault at', VAULT_ROOT);
+}
+
+// ─── Section 12: File Conversion ──────────────────────────────────────────────
+
+const INK_CANVAS_CONVERSION_SAMPLE_STROKE = {
+  id: 'stroke-convert-e2e',
+  points: [[10, 20, 0.5], [100, 20, 0.5]],
+  style: {
+    size: 8,
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    simulatePressure: true,
+    color: 'currentColor',
+  },
+  offset: { x: 0, y: 0 },
+};
+
+function buildInkCanvasConversionFixtureSvg(fileType) {
+  const snapshot = {
+    version: 1,
+    strokes: [INK_CANVAS_CONVERSION_SAMPLE_STROKE],
+    gridEnabled: fileType === 'inkDrawing',
+    ...(fileType === 'inkWriting' ? { writingLineHeight: 150 } : {}),
+  };
+  return `<svg xmlns="http://www.w3.org/2000/svg">
+\t<metadata>
+\t\t<ink plugin-version="${PLUGIN_VERSION}" file-type="${fileType}"/>
+\t\t<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">${JSON.stringify(snapshot)}</ink-canvas>
+\t</metadata>
+</svg>`;
+}
+
+function generateConversionTestAssets() {
+  // Tldraw-on-disk fixtures (legacy engine until edited/saved).
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/Writing To Convert.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/Drawing To Convert.svg'),
+  );
+
+  // Ink-canvas fixtures (current on-disk format).
+  fs.writeFileSync(
+    path.join(FIXTURES, 'ink-canvas-writing-to-convert.svg'),
+    buildInkCanvasConversionFixtureSvg('inkWriting'),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(FIXTURES, 'ink-canvas-drawing-to-convert.svg'),
+    buildInkCanvasConversionFixtureSvg('inkDrawing'),
+    'utf8',
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'ink-canvas-writing-to-convert.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/Ink Canvas Writing To Convert.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'ink-canvas-drawing-to-convert.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/Ink Canvas Drawing To Convert.svg'),
+  );
+
+  writeFile('12 - File Conversion/Conversion Test.md', `# File Conversion Test
+
+Use the three-dot (more-options) menu on each file tab to convert between writing and drawing formats.
+
+## Tldraw-on-disk (legacy engine)
+
+${buildWritingEmbed('Ink/Writing/Writing To Convert.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/Drawing To Convert.svg')}
+
+## Ink-canvas (current engine)
+
+${buildWritingEmbed('Ink/Writing/Ink Canvas Writing To Convert.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/Ink Canvas Drawing To Convert.svg')}
+`);
+}
+
+// ─── Section 13: Migration Test ───────────────────────────────────────────────
+
+function generateMigrationTestAssets() {
+  // Use real captured legacy fixtures (same pattern as SVG fixtures in section 12).
+  // Synthetic snapshots omit required tldraw fields and do not render or migrate correctly.
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-writing-fixture.writing'),
+    path.join(VAULT_ROOT, 'Ink/Writing/migration-test-2.writing'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'legacy-drawing-fixture.drawing'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/migration-test-2.drawing'),
+  );
+
+  // Legacy code block embed helper
+  function buildLegacyWritingEmbed(filepath) {
+    return `\`\`\`handwritten-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath })}\n\`\`\``;
+  }
+  function buildLegacyDrawingEmbed(filepath) {
+    return `\`\`\`handdrawn-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath, width: 500, aspectRatio: 1 })}\n\`\`\``;
+  }
+
+  writeFile('13 - Migration Test/Legacy Writing Note.md', `# Legacy Writing Note
+
+This note contains a legacy v1 handwritten-ink embed for migration testing.
+After running the migration command, this code block should be replaced with a current-format image embed.
+
+${buildLegacyWritingEmbed('Ink/Writing/migration-test-2.writing')}
+
+Content after the embed.
+`);
+
+  writeFile('13 - Migration Test/Legacy Drawing Note.md', `# Legacy Drawing Note
+
+This note contains a legacy v1 handdrawn-ink embed for migration testing.
+After running the migration command, this code block should be replaced with a current-format image embed.
+
+${buildLegacyDrawingEmbed('Ink/Drawing/migration-test-2.drawing')}
+
+Content after the embed.
+`);
+
+  writeFile('13 - Migration Test/Mixed Formats Note.md', `# Mixed Formats Note
+
+This note contains both a legacy v1 embed AND a current-format embed.
+The migration should only update the legacy embed.
+
+${buildLegacyWritingEmbed('Ink/Writing/migration-test-2.writing')}
+
+${buildWritingEmbed('Ink/Writing/hello-world.svg')}
+
+Content after the embeds.
+`);
+
+  writeFile('13 - Migration Test/README.md', `# Migration Test
+
+This folder contains test files for the "Migrate legacy ink embeds" command.
+Run the command from the command palette, then verify:
+
+1. \`Legacy Writing Note.md\` - legacy writing embed replaced with current format
+2. \`Legacy Drawing Note.md\` - legacy drawing embed replaced with current format
+3. \`Mixed Formats Note.md\` - only the legacy embed replaced; current format embed unchanged
+4. \`Ink/Writing/migration-test-2.writing\` is gone, \`Ink/Writing/migration-test-2.svg\` exists with \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\` (not tldraw metadata)
+5. \`Ink/Drawing/migration-test-2.drawing\` is gone, \`Ink/Drawing/migration-test-2.svg\` exists with ink-canvas metadata
+`);
+}
+
+// ─── Section 14: Conversion Modal Test ────────────────────────────────────────
+
+function generateConversionModalTestAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/modal-test-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Drawing/modal-test-drawing.svg'),
+  );
+
+  writeFile('14 - Conversion Modal/Note With Writing.md', `# Note With Writing
+
+${buildWritingEmbed('Ink/Writing/modal-test-writing.svg')}
+`);
+
+  writeFile('14 - Conversion Modal/Note With Drawing.md', `# Note With Drawing
+
+${buildDrawingEmbed('Ink/Drawing/modal-test-drawing.svg')}
+`);
+
+  // Second note embeds the same writing file — used to test "other notes" messaging
+  writeFile('14 - Conversion Modal/Second Note With Writing.md', `# Second Note With Writing
+
+${buildWritingEmbed('Ink/Writing/modal-test-writing.svg')}
+`);
+}
+
+// ─── Section 16: V2 Tldraw Migration (real captures) ───────────────────────────
+
+const V2_TLDRAW_DRAWING_FIXTURE = 'v2-tldraw-drawing-tasks-priority.svg';
+const V2_TLDRAW_WRITING_FIXTURE = 'v2-tldraw-writing-llm-text.svg';
+
+function generateV2TldrawMigrationAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '_test-fixtures'));
+
+  const drawingSrc = path.join(FIXTURES, V2_TLDRAW_DRAWING_FIXTURE);
+  const writingSrc = path.join(FIXTURES, V2_TLDRAW_WRITING_FIXTURE);
+  const drawingVault = path.join(VAULT_ROOT, 'Ink/Drawing', V2_TLDRAW_DRAWING_FIXTURE);
+  const writingVault = path.join(VAULT_ROOT, 'Ink/Writing', V2_TLDRAW_WRITING_FIXTURE);
+  const drawingPristineVault = path.join(VAULT_ROOT, '_test-fixtures', V2_TLDRAW_DRAWING_FIXTURE);
+  const writingPristineVault = path.join(VAULT_ROOT, '_test-fixtures', V2_TLDRAW_WRITING_FIXTURE);
+
+  fs.copyFileSync(drawingSrc, drawingVault);
+  fs.copyFileSync(writingSrc, writingVault);
+  fs.copyFileSync(drawingSrc, drawingPristineVault);
+  fs.copyFileSync(writingSrc, writingPristineVault);
+
+  const editChecklist = `
+## Edit and upgrade checklist
+
+1. Unlock the embed below.
+2. Add a small stroke (pen).
+3. Lock/save the embed.
+4. Open the linked SVG file in Obsidian (or use "Open in dedicated view").
+5. Confirm \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\` in metadata (upgrade from \`<tldraw>\`).
+6. Confirm preview still shows the original content.
+`;
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Drawing - Preview Only.md', `# V2 Tldraw Drawing — Preview Only
+
+Locked preview of a real v2 tldraw drawing file (tasks + priority list).
+
+${buildDrawingEmbed(`Ink/Drawing/${V2_TLDRAW_DRAWING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Writing - Preview Only.md', `# V2 Tldraw Writing — Preview Only
+
+Locked preview of a real v2 tldraw writing file (LLM instruction paragraph).
+
+${buildWritingEmbed(`Ink/Writing/${V2_TLDRAW_WRITING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Drawing - Edit and Upgrade.md', `# V2 Tldraw Drawing — Edit and Upgrade
+${editChecklist}
+${buildDrawingEmbed(`Ink/Drawing/${V2_TLDRAW_DRAWING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/V2 Tldraw Writing - Edit and Upgrade.md', `# V2 Tldraw Writing — Edit and Upgrade
+${editChecklist}
+${buildWritingEmbed(`Ink/Writing/${V2_TLDRAW_WRITING_FIXTURE}`)}
+`);
+
+  writeFile('16 - V2 Tldraw Migration/README.md', `# V2 Tldraw Migration
+
+Real captured v2 SVG files with \`<tldraw version="2.1.0">\` metadata (not ink-canvas).
+
+| Note | Purpose |
+|------|---------|
+| V2 Tldraw Drawing - Preview Only | Preview only |
+| V2 Tldraw Writing - Preview Only | Preview only |
+| V2 Tldraw Drawing - Edit and Upgrade | Unlock → edit → save → verify ink-canvas on disk |
+| V2 Tldraw Writing - Edit and Upgrade | Same for writing |
+
+E2e resets ink files from \`_test-fixtures/\` copies before upgrade tests.
+`);
+}
+
+// ─── Section 17: Tldraw Bulk Migration (developer modal) ─────────────────────
+
+const BULK_TLDRAW_DRAWING_SVG = 'bulk-tldraw-drawing.svg';
+const BULK_TLDRAW_WRITING_SVG = 'bulk-tldraw-writing.svg';
+
+function generateTldrawBulkMigrationAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '_test-fixtures'));
+  ensureDir(path.join(VAULT_ROOT, '17 - Tldraw Bulk Migration'));
+
+  const drawingSrc = path.join(FIXTURES, 'v2-tldraw-drawing-tasks-priority.svg');
+  const writingSrc = path.join(FIXTURES, 'v2-tldraw-writing-llm-text.svg');
+  const drawingVault = path.join(VAULT_ROOT, 'Ink/Drawing', BULK_TLDRAW_DRAWING_SVG);
+  const writingVault = path.join(VAULT_ROOT, 'Ink/Writing', BULK_TLDRAW_WRITING_SVG);
+  const drawingPristine = path.join(VAULT_ROOT, '_test-fixtures', BULK_TLDRAW_DRAWING_SVG);
+  const writingPristine = path.join(VAULT_ROOT, '_test-fixtures', BULK_TLDRAW_WRITING_SVG);
+
+  fs.copyFileSync(drawingSrc, drawingVault);
+  fs.copyFileSync(writingSrc, writingVault);
+  fs.copyFileSync(drawingSrc, drawingPristine);
+  fs.copyFileSync(writingSrc, writingPristine);
+
+  writeFile('17 - Tldraw Bulk Migration/Bulk Drawing - Before.md', `# Bulk Drawing — Before Migration
+
+Locked preview of tldraw drawing SVG for developer bulk migration modal.
+
+${buildDrawingEmbed(`Ink/Drawing/${BULK_TLDRAW_DRAWING_SVG}`)}
+`);
+
+  writeFile('17 - Tldraw Bulk Migration/Bulk Writing - Before.md', `# Bulk Writing — Before Migration
+
+${buildWritingEmbed(`Ink/Writing/${BULK_TLDRAW_WRITING_SVG}`)}
+`);
+
+  writeFile('17 - Tldraw Bulk Migration/Bulk Drawing - Duplicate Ref.md', `# Bulk Drawing — Duplicate Reference
+
+Same drawing SVG embedded twice (viewBox update on both lines).
+
+${buildDrawingEmbed(`Ink/Drawing/${BULK_TLDRAW_DRAWING_SVG}`)}
+
+Second reference:
+
+${buildDrawingEmbed(`Ink/Drawing/${BULK_TLDRAW_DRAWING_SVG}`)}
+`);
+
+  writeFile('17 - Tldraw Bulk Migration/README.md', `# Tldraw Bulk Migration (developer modal)
+
+Bulk-convert tldraw SVG files to ink-canvas via **Settings → Developer: Migrate tldraw SVG to ink-canvas**.
+
+## Manual checklist
+
+1. Run \`node qa-test-vault/generate.mjs\` to reset vault.
+2. Open **Bulk Drawing - Before.md** — preview shows tldraw drawing.
+3. Settings → Ink → **Migrate tldraw SVGs…** (under legacy migration).
+4. Confirm lists include \`Ink/Drawing/bulk-tldraw-drawing.svg\` and notes in this folder.
+5. Click **Migrate**; wait for completion.
+6. Verify SVG contains \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\`.
+7. Unlock drawing embed — strokes framed correctly (fitted viewBox).
+
+E2e resets \`Ink/Drawing/bulk-tldraw-drawing.svg\` and \`Ink/Writing/bulk-tldraw-writing.svg\` from \`_test-fixtures/\` before each run.
+`);
+}
+
+// ─── Section 18: Captured Legacy Migration (real .writing / .drawing files) ───
+
+const CAPTURED_LEGACY_FIXTURES = [
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-07-22-2152.writing' },
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-07-22-2202.writing' },
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-07-22-2348.writing' },
+  { fileType: 'writing', fixtureFile: 'captured-legacy-writing-2024-08-06-2302.writing' },
+  { fileType: 'drawing', fixtureFile: 'captured-legacy-drawing-2025-03-16-1327.drawing' },
+  { fileType: 'drawing', fixtureFile: 'captured-legacy-drawing-2025-03-16-1330.drawing' },
+];
+
+function capturedLegacyVaultBasename(fixtureFile) {
+  return fixtureFile.replace(/\.(writing|drawing)$/, '');
+}
+
+function generateCapturedLegacyMigrationAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '18 - Captured Legacy Migration'));
+
+  function buildLegacyWritingEmbed(filepath) {
+    return `\`\`\`handwritten-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath })}\n\`\`\``;
+  }
+  function buildLegacyDrawingEmbed(filepath) {
+    return `\`\`\`handdrawn-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath, width: 500, aspectRatio: 1 })}\n\`\`\``;
+  }
+
+  const writingNotes = [];
+  const drawingNotes = [];
+
+  for (const { fileType, fixtureFile } of CAPTURED_LEGACY_FIXTURES) {
+    const basename = capturedLegacyVaultBasename(fixtureFile);
+    const vaultSubfolder = fileType === 'writing' ? 'Ink/Writing' : 'Ink/Drawing';
+    const vaultPath = `${vaultSubfolder}/${basename}.${fileType === 'writing' ? 'writing' : 'drawing'}`;
+    const src = path.join(FIXTURES, fixtureFile);
+    const dest = path.join(VAULT_ROOT, vaultPath);
+    fs.copyFileSync(src, dest);
+
+    const slug = basename.replace(/^captured-legacy-(writing|drawing)-/, '');
+    const notePath = `18 - Captured Legacy Migration/${fileType === 'writing' ? 'Writing' : 'Drawing'} - ${slug}.md`;
+    const embed =
+      fileType === 'writing'
+        ? buildLegacyWritingEmbed(vaultPath)
+        : buildLegacyDrawingEmbed(vaultPath);
+
+    writeFile(notePath, `# Captured Legacy ${fileType === 'writing' ? 'Writing' : 'Drawing'} — ${slug}
+
+Real v1 \`.${fileType === 'writing' ? 'writing' : 'drawing'}\` capture (moved from ink-suite repo root into \`fixtures/${fixtureFile}\`).
+
+Run **Migrate legacy ink embeds** from the command palette, then verify:
+
+- Legacy file \`${vaultPath}\` is removed
+- \`${vaultSubfolder}/${basename}.svg\` exists with \`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">\`
+- This note's code block is replaced with a current-format image embed
+
+${embed}
+`);
+
+    if (fileType === 'writing') {
+      writingNotes.push({ notePath, vaultPath, basename });
+    } else {
+      drawingNotes.push({ notePath, vaultPath, basename });
+    }
+  }
+
+  const writingList = writingNotes
+    .map((n) => `- \`${n.notePath}\` → \`${n.vaultPath}\``)
+    .join('\n');
+  const drawingList = drawingNotes
+    .map((n) => `- \`${n.notePath}\` → \`${n.vaultPath}\``)
+    .join('\n');
+
+  writeFile('18 - Captured Legacy Migration/README.md', `# Captured Legacy Migration
+
+Real v1 \`.writing\` / \`.drawing\` files captured from production vaults and checked into \`fixtures/\` (originally at the ink-suite repo root).
+
+Unit tests: \`tests/logic/utils/captured-legacy-fixture-migration.test.ts\`
+
+## Manual checklist
+
+1. Run \`node qa-test-vault/generate.mjs\` to reset vault.
+2. Open each note below — legacy embed should render in v1 preview.
+3. Command palette → **Migrate legacy ink embeds** → confirm all six files are listed.
+4. Run migration; verify each legacy file becomes \`.svg\` with ink-canvas metadata.
+5. Re-open notes — current-format embeds should preview correctly.
+
+## Writing captures
+
+${writingList}
+
+## Drawing captures
+
+${drawingList}
+`);
+}
+
+// ─── Section 19: Migration Progress Density (many unique legacy files) ─────────
+// Enough distinct .writing/.drawing files that MigrationModal scan + convert
+// progress bars and live counters visibly tick instead of jumping 0 → done.
+
+const MIGRATION_PROGRESS_DENSITY_COUNT = 40;
+
+function generateMigrationProgressDensityAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '19 - Migration Progress Density'));
+
+  const writingSrc = path.join(FIXTURES, 'legacy-writing-fixture.writing');
+  const drawingSrc = path.join(FIXTURES, 'legacy-drawing-fixture.drawing');
+
+  function buildLegacyWritingEmbed(filepath) {
+    return `\`\`\`handwritten-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath })}\n\`\`\``;
+  }
+  function buildLegacyDrawingEmbed(filepath) {
+    return `\`\`\`handdrawn-ink\n${JSON.stringify({ versionAtEmbed: PLUGIN_VERSION, filepath, width: 500, aspectRatio: 1 })}\n\`\`\``;
+  }
+
+  const noteLinks = [];
+  const half = Math.floor(MIGRATION_PROGRESS_DENSITY_COUNT / 2);
+
+  for (let i = 1; i <= MIGRATION_PROGRESS_DENSITY_COUNT; i++) {
+    const padded = String(i).padStart(2, '0');
+    const isWriting = i <= half;
+    const fileType = isWriting ? 'writing' : 'drawing';
+    const vaultSubfolder = isWriting ? 'Ink/Writing' : 'Ink/Drawing';
+    const basename = `progress-density-${padded}`;
+    const vaultPath = `${vaultSubfolder}/${basename}.${fileType}`;
+    const src = isWriting ? writingSrc : drawingSrc;
+    fs.copyFileSync(src, path.join(VAULT_ROOT, vaultPath));
+
+    const notePath = `19 - Migration Progress Density/${isWriting ? 'Writing' : 'Drawing'} ${padded}.md`;
+    const embed = isWriting
+      ? buildLegacyWritingEmbed(vaultPath)
+      : buildLegacyDrawingEmbed(vaultPath);
+
+    writeFile(notePath, `# Migration Progress Density — ${basename}
+
+Legacy \`.${fileType}\` copy for watching MigrationModal progress (found/converted/remaining).
+
+${embed}
+`);
+    noteLinks.push(`- \`${notePath}\` → \`${vaultPath}\``);
+  }
+
+  writeFile('19 - Migration Progress Density/README.md', `# Migration Progress Density
+
+Creates **${MIGRATION_PROGRESS_DENSITY_COUNT}** unique legacy \`.writing\` / \`.drawing\` files (plus notes with embeds) so **Migrate legacy ink embeds** shows live progress-bar and counter updates during scan and migrate.
+
+## Manual checklist
+
+1. Run \`node qa-test-vault/generate.mjs\` to reset the vault (recreates these files).
+2. Command palette → **Migrate legacy ink embeds to ink-canvas**.
+3. Watch scan: remaining/found should update while notes are scanned.
+4. Choose **Test Migration** (safer) or **Migrate Permanently**.
+5. Watch migrate: converted/remaining/skipped/failed should update mid-run (not stay at 0 until done).
+
+Together with sections 13 and 18, the vault should list well over ${MIGRATION_PROGRESS_DENSITY_COUNT} legacy files.
+
+## Files
+
+${noteLinks.join('\n')}
+`);
+}
+
+// ─── Section 15: Copy Paste Paths ──────────────────────────────────────────────
+
+function generateCopyPastePathsTestAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths'));
+
+  // Source note with vault-root embed — copy from here, paste into target in different folder
+  writeFile('15 - Copy Paste Paths/Source Note.md', `# Source Note (Copy Paste Paths)
+
+Copy the writing or drawing embed below and paste into "Target Note Different Folder.md" or "Deep Target.md".
+
+${buildWritingEmbed('Ink/Writing/hello-world.svg')}
+
+${buildDrawingEmbed('Ink/Drawing/simple-shape.svg')}
+`);
+
+  // Target note in same section but different file — empty, for pasting
+  writeFile('15 - Copy Paste Paths/Target Note Different Folder.md', `# Target Note (Different Folder)
+
+Paste embed here. The source is in the same folder; tests also use 10 - Cross-Reference/Source Note.md as source.
+`);
+
+  // Deep target — nested one level deeper for depth test
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/Subfolder'));
+  writeFile('15 - Copy Paste Paths/Subfolder/Deep Target.md', `# Deep Target
+
+Paste embed here. Source may be from 10 - Cross-Reference/ (different depth).
+`);
+
+  // Relative path source — embed with ../ which will break when pasted elsewhere
+  writeFile('15 - Copy Paste Paths/Relative Path Source.md', `# Relative Path Source
+
+This embed uses a relative path. When pasted into a note in a different folder, resolution may fail.
+
+ ![InkWriting](<../Ink/Writing/hello-world.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting)
+`);
+
+  // Note-mode scenario — paths like noteAttachmentFolderLocation='note' (file next to note's folder)
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Writing/note-mode-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, '15 - Copy Paste Paths/SourceFolder/Ink/Drawing/note-mode-drawing.svg'),
+  );
+
+  // Obsidian-attachments scenario — paths when Obsidian attachment folder is custom (e.g. Attachments)
+  ensureDir(path.join(VAULT_ROOT, 'Attachments/Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Attachments/Ink/Drawing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Attachments/Ink/Writing/obsidian-mode-writing.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'drawing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Attachments/Ink/Drawing/obsidian-mode-drawing.svg'),
+  );
+
+  // Very long path — file at Ink/Writing/Ink/Writing/hello-world.svg for long-path test
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing/Ink/Writing'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/Ink/Writing/hello-world.svg'),
+  );
+
+  // Ambiguous filename — two files named copy-paste-ambig.svg in different folders
+  ensureDir(path.join(VAULT_ROOT, '15 - Copy Paste Paths/OtherFolder'));
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, 'Ink/Writing/copy-paste-ambig.svg'),
+  );
+  fs.copyFileSync(
+    path.join(FIXTURES, 'writing-fixture.svg'),
+    path.join(VAULT_ROOT, '15 - Copy Paste Paths/OtherFolder/copy-paste-ambig.svg'),
+  );
+  writeFile('15 - Copy Paste Paths/Filename Only Embed.md', `# Filename Only
+
+Embed uses filename only (no path). Ambiguous if multiple same-named files exist.
+
+ ![InkWriting](<copy-paste-ambig.svg>) [Edit Writing](${INK_BASE_URL}?type=inkWriting)
+`);
+
+  writeFile('15 - Copy Paste Paths/README.md', `# Copy Paste Paths
+
+E2E tests for embed path behaviour when copying and pasting between notes in different folders.
+
+Path scenarios (plugin × Obsidian settings):
+- **root** — Ink/Writing/, Ink/Drawing/
+- **note** — SourceFolder/Ink/Writing/, SourceFolder/Ink/Drawing/
+- **obsidian-attachments** — Attachments/Ink/Writing/, Attachments/Ink/Drawing/
+
+- **Source Note.md** — vault-root embeds (Ink/Writing/..., Ink/Drawing/...)
+- **Target Note Different Folder.md** — empty, for pasting
+- **Subfolder/Deep Target.md** — nested target for depth test
+- **Relative Path Source.md** — relative path embed (../) — may break when pasted elsewhere
+- **Filename Only Embed.md** — filename only, ambiguous with OtherFolder/copy-paste-ambig.svg
+`);
+}
+
+// ─── Section 20: Insert-existing picker stress (many current ink-canvas files) ─
+// ~10× the handful of named current fixtures so Insert Existing can exercise sniffing,
+// sectioning, and lazy mount/unload of viewport previews on a large vault.
+// Numbered 20 because section 19 is Migration Progress Density on release_0.5.
+
+/** Unique ink-canvas writing + drawing SVGs; also referenced by density / picker notes. */
+const PICKER_STRESS_FILE_COUNT = 50;
+/** Embeds on the density page (~10× the previous 6). */
+const PICKER_STRESS_EMBED_COUNT = 60;
+
+function buildPickerStressStrokeStyle() {
+  return {
+    size: 8,
+    thinning: 0.5,
+    smoothing: 0.5,
+    streamline: 0.5,
+    simulatePressure: true,
+    color: 'currentColor',
+  };
+}
+
+/**
+ * Compact ink-canvas SVG with visible stroke markup so picker previews are not blank.
+ * Index varies geometry so scrolling the picker shows distinct cards.
+ * Always sets file-type so sniffInkSvgFileType can classify writing vs drawing without JSON parse.
+ */
+function buildPickerStressInkCanvasSvg(fileType, index) {
+  const strokeId = `picker-stress-${fileType}-${index}`;
+  const isWriting = fileType === 'inkWriting';
+  // Distinct diagonal / scribble per index so lazy-loaded cards are visually different.
+  const x1 = 20 + (index % 10) * 8;
+  const y1 = 30 + (index % 7) * 6;
+  const x2 = 160 - (index % 9) * 5;
+  const y2 = 90 - (index % 5) * 4;
+  const midX = (x1 + x2) / 2;
+  const midY = y1 + ((index % 4) - 1.5) * 12;
+  const snapshot = {
+    version: 1,
+    strokes: [{
+      id: strokeId,
+      points: [[x1, y1, 0.5], [midX, midY, 0.6], [x2, y2, 0.5]],
+      style: buildPickerStressStrokeStyle(),
+      offset: { x: 0, y: 0 },
+    }],
+    gridEnabled: !isWriting,
+    ...(isWriting ? { writingLineHeight: 150 } : {}),
+  };
+  const viewBox = isWriting ? '0 0 2000 300' : '0 0 200 120';
+  const visibleMarkup = isWriting
+    ? [
+      `<line x1="100" y1="150" x2="1900" y2="150" stroke="#888888" stroke-opacity="0.5" class="ink-type-writing-line ink-color-writing-line" />`,
+      // Scale scribble into writing page space so embeds/previews show ink, not only guide lines.
+      `<path d="M${100 + x1 * 8},${120 + y1} L${100 + midX * 8},${120 + midY} L${100 + x2 * 8},${120 + y2}" fill="none" stroke="#000000" stroke-width="6" stroke-linecap="round" class="ink-type-stroke ink-color-primary" />`,
+    ].join('\n')
+    : `<path d="M${x1},${y1} L${midX},${midY} L${x2},${y2}" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round" class="ink-type-stroke ink-color-primary" />`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">
+<metadata>
+<ink plugin-version="${PLUGIN_VERSION}" file-type="${fileType}"/>
+<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">${JSON.stringify(snapshot)}</ink-canvas>
+</metadata>
+${visibleMarkup}
+</svg>
+`;
+}
+
+function pickerStressFilename(kind, index) {
+  const n = String(index).padStart(2, '0');
+  return kind === 'writing'
+    ? `picker-stress-writing-${n}.svg`
+    : `picker-stress-drawing-${n}.svg`;
+}
+
+function generatePickerStressAssets() {
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Writing'));
+  ensureDir(path.join(VAULT_ROOT, 'Ink/Drawing'));
+  ensureDir(path.join(VAULT_ROOT, '20 - Insert Existing Picker'));
+
+  for (let i = 1; i <= PICKER_STRESS_FILE_COUNT; i++) {
+    const writingName = pickerStressFilename('writing', i);
+    const drawingName = pickerStressFilename('drawing', i);
+    fs.writeFileSync(
+      path.join(VAULT_ROOT, 'Ink/Writing', writingName),
+      buildPickerStressInkCanvasSvg('inkWriting', i),
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(VAULT_ROOT, 'Ink/Drawing', drawingName),
+      buildPickerStressInkCanvasSvg('inkDrawing', i),
+      'utf8',
+    );
+  }
+
+  const writingEmbeds = Array.from({ length: PICKER_STRESS_FILE_COUNT }, (_, i) =>
+    buildWritingEmbed(`Ink/Writing/${pickerStressFilename('writing', i + 1)}`)).join('\n');
+  const drawingEmbeds = Array.from({ length: PICKER_STRESS_FILE_COUNT }, (_, i) =>
+    buildDrawingEmbed(
+      `Ink/Drawing/${pickerStressFilename('drawing', i + 1)}`,
+      500,
+      16 / 9,
+      { x: 0, y: 0, w: 200, h: 120 },
+    )).join('\n');
+
+  writeFile('20 - Insert Existing Picker/README.md', `# Insert Existing Picker
+
+Stress fixtures for **Insert existing writing/drawing** (lazy SVG previews, sniff without full JSON parse).
+
+## What was generated
+
+- \`${PICKER_STRESS_FILE_COUNT}\` unique **ink-canvas** writing SVGs: \`Ink/Writing/picker-stress-writing-01.svg\` … \`-${String(PICKER_STRESS_FILE_COUNT).padStart(2, '0')}.svg\`
+- \`${PICKER_STRESS_FILE_COUNT}\` unique **ink-canvas** drawing SVGs: \`Ink/Drawing/picker-stress-drawing-01.svg\` … \`-${String(PICKER_STRESS_FILE_COUNT).padStart(2, '0')}.svg\`
+- Density note \`03 - Density and Repetition/Many Embeds on One Page.md\` embeds ${PICKER_STRESS_EMBED_COUNT} of these (mixed writing/drawing)
+
+## How to test
+
+1. Open **All Writing Files Embed.md** or a blank note → command **Insert existing writing**.
+2. Confirm the picker opens quickly, lists many files, and only mounts previews near the viewport while scrolling.
+3. Repeat with **Insert existing drawing** from **All Drawing Files Embed.md**.
+4. From **On Current Page Writing.md**, open the writing picker and confirm an **On this page** (or equivalent) section lists the embeds from that note.
+`);
+
+  writeFile('20 - Insert Existing Picker/All Writing Files Embed.md', `# All Writing Files Embed
+
+All ${PICKER_STRESS_FILE_COUNT} picker-stress writing files embedded (scroll the note; use Insert existing writing to see the full vault list).
+
+${writingEmbeds}
+`);
+
+  writeFile('20 - Insert Existing Picker/All Drawing Files Embed.md', `# All Drawing Files Embed
+
+All ${PICKER_STRESS_FILE_COUNT} picker-stress drawing files embedded.
+
+${drawingEmbeds}
+`);
+
+  // Subset on one note so "on current page" has a non-trivial section without embedding the entire set twice.
+  const onPageCount = 20;
+  const onPageWriting = Array.from({ length: onPageCount }, (_, i) =>
+    buildWritingEmbed(`Ink/Writing/${pickerStressFilename('writing', i + 1)}`)).join('\n');
+  writeFile('20 - Insert Existing Picker/On Current Page Writing.md', `# On Current Page Writing
+
+Embeds the first ${onPageCount} picker-stress writing files. Open **Insert existing writing** from this note to exercise the on-current-page section vs the rest of the vault.
+
+${onPageWriting}
+`);
+}
+
+main();

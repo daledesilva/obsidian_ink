@@ -18,5 +18,34 @@ dist/*
 # obsidian
 data.json
 
+# Env files (credentials for Obsidian Insiders / beta downloads)
+.env
+.env.*
+!.env.example
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# WDIO Obsidian Service cache
+.obsidian-cache/
+
+# Jest coverage reports
+coverage/
+.nyc_output/
+*.lcov
+
+# QA test vault (generated - run node qa-test-vault/generate.mjs)
+qa-test-vault/*
+!qa-test-vault/generate.mjs
+!qa-test-vault/README.md
+
+# Optional local Cursor / debug artifacts (not source of truth)
+.cursor/cursor-debug-ingest-url
+.cursor/cursor-debug-session-id
+.cursor/debug-*.log
+.cursor/ingest-logs.ndjson
+.cursor/logcat*.log
+.cursor/session-logcat.log
+.cursor/adb-logcat*
+.cursor/monitor-ingest-live.log
+.cursor/logs/

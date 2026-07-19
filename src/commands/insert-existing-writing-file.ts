@@ -1,44 +1,21 @@
-import { App, Editor, FuzzySuggestModal, Notice, TFile } from "obsidian";
-import { WRITE_FILE_EXT } from "src/constants";
+import { Editor, TFile } from "obsidian";
 import InkPlugin from "src/main";
-import { buildWritingEmbed } from "src/utils/embed";
+import { buildWritingEmbed } from "src/components/formats/current/utils/build-embeds";
+import { openInkFilePicker } from "src/logic/utils/open-ink-file-picker";
+import { readWritingFileAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
 
 ////////
 ////////
 
-export const insertExistingWritingFile = (plugin: InkPlugin, editor: Editor) => {
-    new SelectHandwritingFileModal(plugin.app, (filepath) => {
-        let embedStr = buildWritingEmbed(filepath);
-        editor.replaceRange( embedStr, editor.getCursor() );
-    }).open();
-    
+export const insertExistingWritingFile = async (plugin: InkPlugin, editor: Editor) => {
+    const sourceFile = plugin.app.workspace.getActiveFile();
+    const noteContent = editor.getValue();
+    await openInkFilePicker(plugin, 'inkWriting', 'Select writing', async (file: TFile) => {
+        const aspectRatio = await readWritingFileAspectRatio(plugin, file);
+        const embedStr = buildWritingEmbed(file.path, {
+            pendingPaste: true,
+            ...(aspectRatio != null ? { aspectRatio } : {}),
+        });
+        editor.replaceRange(embedStr, editor.getCursor());
+    }, { sourceFile, noteContent });
 }
-
-export class SelectHandwritingFileModal extends FuzzySuggestModal<TFile> {
-    onSubmit: Function;
-
-    constructor(app: App, onSubmit: (filepath: string) => void) {
-        super(app);
-        this.onSubmit = onSubmit;
-    }
-
-    getItems(): TFile[] {
-        const allFiles = this.app.vault.getFiles();
-        const files: TFile[] = [];
-        for(let i=0; i<allFiles.length; i++) {
-            const file = allFiles[i];
-            if(file.extension === WRITE_FILE_EXT) files.push(file);
-        }
-        return files;
-    }
-
-    getItemText(file: TFile): string {
-        return file.basename;
-    }
-
-    onChooseItem(file: TFile, evt: MouseEvent | KeyboardEvent) {
-        this.onSubmit(file.path);
-    }
-}
-
-export default insertExistingWritingFile;

@@ -1,21 +1,28 @@
 import InkPlugin from "src/main";
-import { buildDrawingFileData, stringifyPageData } from "src/utils/page-file";
-import {defaultTLEditorDrawingSnapshot} from "src/defaults/default-tleditor-drawing-snapshot";
-import { getNewTimestampedDrawingFilepath } from "src/utils/file-manipulation";
-import { createFoldersForFilepath } from "src/utils/createFoldersForFilepath";
+import { buildInkCanvasDrawingFileData } from "src/components/formats/current/utils/build-file-data";
+import { getNewTimestampedDrawingSvgFilepath } from "src/logic/utils/file-manipulation";
+import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
 import { TFile } from "obsidian";
+import { buildFileStr } from "src/components/formats/current/utils/buildFileStr";
+import { DEFAULT_SETTINGS } from "src/types/plugin-settings";
+import emptyDrawingSvgStr from "src/defaults/empty-drawing-embed.svg";
+import type { InkCanvasSnapshot } from "src/ink-canvas/types";
 
 ////////
 ////////
 
-const createNewDrawingFile = async (plugin: InkPlugin, instigatingFile?: TFile | null) => {
-    const filepath = await getNewTimestampedDrawingFilepath(plugin, instigatingFile);
-    const pageData = buildDrawingFileData({
-        tlEditorSnapshot: defaultTLEditorDrawingSnapshot,
+export const createNewDrawingFile = async (plugin: InkPlugin, instigatingFile?: TFile | null) => {
+    const filepath = await getNewTimestampedDrawingSvgFilepath(plugin, instigatingFile);
+    const inkCanvasSnapshot: InkCanvasSnapshot = {
+        version: 1,
+        strokes: [],
+        gridEnabled: plugin.settings.drawingGridEnabledByDefault ?? DEFAULT_SETTINGS.drawingGridEnabledByDefault,
+    };
+    const pageData = buildInkCanvasDrawingFileData({
+        inkCanvasSnapshot,
+        svgString: emptyDrawingSvgStr,
     });
     await createFoldersForFilepath(plugin, filepath);
-    const fileRef = await plugin.app.vault.create(filepath, stringifyPageData(pageData));
+    const fileRef = await plugin.app.vault.create(filepath, buildFileStr(pageData));
     return fileRef;
 }
-
-export default createNewDrawingFile;

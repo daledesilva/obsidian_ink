@@ -1,46 +1,31 @@
 .ddc_ink_toggle-accordion {
-    padding: 0;
+    display: grid;
+    grid-template-rows: auto 0fr;
+    transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    box-shadow: 0 0 0 2px var(--setting-items-background) inset;
+    border-radius: var(--radius-l);
+    background-color: transparent;
+    margin-bottom: 2em;
     
-    // Negate Obsidian's first-child settings
-    .ddc_ink_toggle-accordion-header .ddc_ink_setting {
-        padding: 0.75em 0;
-        border-top: 1px solid var(--background-modifier-border);
+    .ddc_ink_setting:first-child {
+        margin-block-start: 0;
+    }
+    .ddc_ink_setting:last-child {
+        margin-block-end: 0;
     }
 
     .ddc_ink_toggle-accordion-content {
-        display: none;
+        overflow: hidden;
+        min-height: 0;
     }
 
+    .ddc_ink_toggle-accordion-content-inner {
+        padding: 0.8em;
+    }
 
     &.ddc_ink_expanded {
-        margin-inline: -1em;
-        margin-bottom: 2em;
-
-        border: none;
-        border-radius: 10px;
-        overflow: hidden;
-        background-color: var(--color-base-20);
-
-        .ddc_ink_toggle-accordion-header {
-            padding-block: 0em;
-            padding-inline: 1em;
-            margin-inline: 0;
-            
-            background-color: var(--background-secondary-alt);
-
-            .ddc_ink_setting {
-                border-top: none;
-            }
-        }
-        .ddc_ink_toggle-accordion-content {
-            display: block;
-            background-color: var(--background-primary-alt);
-
-            padding-block-start: 0.8em;
-            padding-block-end: 0;
-            padding-inline: 1em;
-        }
-    
+        grid-template-rows: auto 1fr;
     }
 
 }

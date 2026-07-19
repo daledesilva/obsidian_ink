@@ -1,0 +1,29 @@
+---
+description: Rules for planning — documentation as the final step, Mermaid for diagrams
+alwaysApply: true
+---
+
+# Planning Workflow
+
+## Suggest Documentation After Implementation
+
+After successful implementation, suggest `/document` when documenting the current thread's feature work would help future maintenance.
+
+Do **not** write or update documentation unless the user explicitly asks, invokes `/document`, or the current task is documentation-only.
+
+## Use Mermaid for Diagrams
+
+Use Mermaid format for all diagrams in plans and documentation. Prefer Mermaid over prose descriptions, ASCII art, or other diagram formats.
+
+```mermaid
+flowchart LR
+    Plan --> Implement --> Verify --> UpdateDocs
+```
+
+## Plan Structure
+
+A well-formed plan should:
+1. State the goal and motivation
+2. Break the work into discrete, ordered steps
+3. Call out any risks, trade-offs, or open questions
+4. End with suggesting `/document` when docs would help future maintenance

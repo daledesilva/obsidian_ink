@@ -1,0 +1,17 @@
+---
+description: Env file update conventions — correct location, always update both files
+alwaysApply: true
+---
+
+# Environment File Conventions
+
+## Location
+
+- Env files belong in the relevant package or service subfolder (e.g. `server/.env`, `client/.env`)
+- Never place env files at the repository root unless there is no service subfolder
+- Infer the correct file from context: if the task is API/backend work, use the server env; if it is frontend/mobile work, use the client env
+
+## Updating Variables
+
+- Always update the real `.env` file as well as `.env.example` and variations.
+- `.env.example` should reflect every variable that `.env` contains, with placeholder or documented values

@@ -11,7 +11,7 @@ import { Setting } from "obsidian";
 export function createSupportButtonSet(containerEl: DocumentFragment | HTMLElement) {
     const supportBarEl = containerEl.createDiv('ddc_ink_support-btn-set');
     const settingEl = new Setting(supportBarEl);
-    settingEl.infoEl.createEl('p').setText('Like Ink?');
+    settingEl.infoEl.createEl('p').setText('Like ink?');
     settingEl.addButton(btn => {
         btn.setClass('ddc_ink_secondary-button');
         btn.setTooltip('Bluesky');

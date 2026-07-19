@@ -1,9 +1,9 @@
-const writeDefaultSvgStr = require('./write_default.svg');
-const writeExistingSvgStr = require('./write_existing.svg');
-const writePasteSvgStr = require('./write_paste.svg');
-const drawDefaultSvgStr = require('./draw_default.svg');
-const drawExistingSvgStr = require('./draw_existing.svg');
-const drawPasteSvgStr = require('./draw_paste.svg');
+import writeDefaultSvgStr from "./write_default.svg";
+import writeExistingSvgStr from "./write_existing.svg";
+import writePasteSvgStr from "./write_paste.svg";
+import drawDefaultSvgStr from "./draw_default.svg";
+import drawExistingSvgStr from "./draw_existing.svg";
+import drawPasteSvgStr from "./draw_paste.svg";
 
 ////////////
 ////////////

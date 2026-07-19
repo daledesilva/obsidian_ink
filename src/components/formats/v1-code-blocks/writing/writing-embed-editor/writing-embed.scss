@@ -1,0 +1,76 @@
+
+
+
+.ddc_ink_resize-container.ddc_ink_smooth-transition {
+    transition-property: height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}
+
+
+
+
+// Universal selector that works in both Live Preview AND Reading View
+.cm-preview-code-block.cm-embed-block.markdown-rendered:has(.ddc_ink_writing-embed) {
+    // Enables placing UI elements outside of the embed
+    contain: unset !important;
+    overflow: visible;
+    
+    // Extend through page horizontal margin
+    margin: 0 calc(-1 * var(--file-margins)) !important;
+
+    // Prevent default obsidian hover outline
+    &:hover {
+        box-shadow: none;
+    }
+    
+    // Prevent default Obsidian 'edit block' button appearing
+    .edit-block-button {
+        display: none;
+    }
+
+    .ddc_ink_writing-editor {
+
+        .tl-container {
+            // Allow tldraw right click menu to overflow container
+            overflow: visible;
+            clip: unset;
+            contain: none !important;
+            
+            .tlui-layout {
+                // Allow tldraw right click menu to overflow container
+                overflow: visible;
+                clip: unset;
+                contain: none !important;
+
+                .tlui-button.tlui-menu__trigger {
+                    display: none;
+                }
+                
+                .tlui-navigation-zone {
+                    display: none;
+                }
+                
+                .tlui-help-menu {
+                    display: none;
+                }
+                
+                
+                .tlui-layout__top {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    translate: 0 -100%;
+                }
+                .tlui-layout__bottom {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    translate: 0 -100%;
+                }
+            }
+        }
+    }
+}

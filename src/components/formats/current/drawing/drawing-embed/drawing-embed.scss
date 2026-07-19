@@ -1,0 +1,152 @@
+@use '../../../../shared/ink-svg-preview-theme';
+@use '../../../../../styles/ink-boox-eink-chrome';
+
+// Boox: disable transition on the editor canvas only (stroke latency).
+.ddc_ink_resize-container.ddc_ink_resize-container--boox,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox .ddc_ink_drawing-editor {
+	transition: none !important;
+}
+
+.ddc_ink_drawing-embed:has(.ddc_ink_resize-container--boox) {
+	transition-property: none;
+}
+
+// Reading mode: per-embed host only — never `.markdown-rendered:has(...)` (breaks preview scroll).
+// Live Preview full-bleed: `.cm-embed-block` in drawing-embed-extension.scss.
+.ddc_ink_reading-embed-host.ddc_ink_embed-block:has(.ddc_ink_drawing-embed) {
+    // Enables placing UI elements outside of the embed
+    contain: unset !important;
+    overflow: visible;
+    
+    // Extend through page horizontal margin
+    margin: 0 calc(-1 * var(--file-margins)) !important;
+
+    // Prevent default obsidian hover outline
+    &:hover {
+        box-shadow: none;
+    }
+    
+    // Prevent default Obsidian 'edit block' button appearing
+    .edit-block-button {
+        display: none;
+    }
+
+    .ddc_ink_drawing-editor {
+
+        .tl-container {
+            // Allow tldraw right click menu to overflow container
+            overflow: visible;
+            clip: unset;
+            contain: none !important;
+            
+            .tlui-layout {
+                // Allow tldraw right click menu to overflow container
+                overflow: visible;
+                clip: unset;
+                contain: none !important;
+
+                .tlui-button.tlui-menu__trigger {
+                    display: none;
+                }
+                
+                .tlui-navigation-zone {
+                    display: none;
+                }
+                
+                .tlui-help-menu {
+                    display: none;
+                }
+                
+                
+                .tlui-layout__top {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    translate: 0 -100%;
+                }
+                .tlui-layout__bottom {
+                    grid-row: 1;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    translate: 0 -100%;
+                }
+            }
+        }
+    }
+}
+
+
+
+
+.ddc_ink_drawing-embed {
+    box-sizing: content-box;
+    overflow: visible;
+    transition-property: padding;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}
+
+.ddc_ink_drawing-embed .ddc_ink_resize-container {
+    overflow: visible;
+}
+
+// Hide "Edit Drawing" anchor tags
+a[href*="type=inkDrawing"] {
+    visibility: hidden;
+}
+
+.ddc_ink_pending-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0.75em;
+    margin-bottom: 0.5em;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+
+    .ddc_ink_pending-banner__title {
+        font-weight: var(--font-semibold);
+        font-size: var(--font-ui-small);
+        color: var(--text-normal);
+        white-space: nowrap;
+    }
+
+    .ddc_ink_pending-banner__actions {
+        display: flex;
+        gap: 0.5em;
+        margin-left: auto;
+    }
+
+    .ddc_ink_pending-banner__btn {
+        cursor: pointer;
+        padding: 0.4em 1em;
+        border-radius: var(--radius-s);
+        border: 1px solid var(--background-modifier-border);
+        background-color: var(--interactive-normal);
+        color: var(--text-normal);
+        font-size: var(--font-ui-small);
+
+        &:hover {
+            background-color: var(--interactive-hover);
+        }
+
+        &--primary {
+            background-color: var(--interactive-accent);
+            color: var(--text-on-accent);
+            border-color: var(--interactive-accent);
+
+            &:hover {
+                background-color: var(--interactive-accent-hover);
+                border-color: var(--interactive-accent-hover);
+            }
+        }
+    }
+
+    &--not-found {
+        border-color: var(--color-orange);
+    }
+}

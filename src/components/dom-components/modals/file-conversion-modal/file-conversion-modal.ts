@@ -1,0 +1,455 @@
+import '../migration-modal/migration-modal.scss';
+import { Modal, TFile } from 'obsidian';
+import InkPlugin from 'src/main';
+import {
+	FILE_CONVERSION_IN_PLACE,
+	FileConversionResult,
+	FileConversionScope,
+	findNotesContainingFileEmbed,
+	executeFileConversion,
+} from 'src/logic/utils/convert-file-embeds';
+import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
+import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
+import { previewDrawingToWritingScale } from 'src/ink-canvas/fit-strokes-for-mode-conversion';
+import { WRITING_LINE_HEIGHT } from 'src/constants';
+
+////////
+////////
+
+const EMBED_LIST_CAP = 10;
+
+const enum Phase {
+	Scanning,
+	Confirm,
+	Converting,
+	Done,
+}
+
+export type FileConversionModalOpts = {
+	/** The markdown note the user is currently viewing (only set when triggered from an embed). */
+	sourceMdFile?: TFile;
+	/** Called immediately after SVG + notes are updated, before showing Done phase. Receives the file at its final path and the target type. */
+	onConversionComplete?: (finalFile: TFile | null, toType: 'inkWriting' | 'inkDrawing') => void;
+};
+
+export class FileConversionModal extends Modal {
+	private plugin: InkPlugin;
+	private file: TFile;
+	private toType: 'inkWriting' | 'inkDrawing';
+	private sourceMdFile: TFile | undefined;
+	private onConversionComplete: ((finalFile: TFile | null, toType: 'inkWriting' | 'inkDrawing') => void) | undefined;
+
+	private phase: Phase = Phase.Scanning;
+	private affectedNotes: TFile[] = [];
+	private conversionResult: FileConversionResult | null = null;
+	private conversionScope: FileConversionScope = FILE_CONVERSION_IN_PLACE;
+
+	private isInkCanvas = false;
+	private fitScalePreview: number | null = null;
+
+	// Move option
+	private suggestedMovePath: string | null = null;
+	private moveCheckboxEl: HTMLInputElement | null = null;
+
+	// DOM refs
+	private progressBarInnerEl: HTMLElement | null = null;
+	private statusTextEl: HTMLElement | null = null;
+	private convertedCountEl: HTMLElement | null = null;
+	private remainingCountEl: HTMLElement | null = null;
+	private failedCountEl: HTMLElement | null = null;
+
+	constructor(
+		plugin: InkPlugin,
+		file: TFile,
+		toType: 'inkWriting' | 'inkDrawing',
+		opts?: FileConversionModalOpts,
+	) {
+		super(plugin.app);
+		this.plugin = plugin;
+		this.file = file;
+		this.toType = toType;
+		this.sourceMdFile = opts?.sourceMdFile;
+		this.onConversionComplete = opts?.onConversionComplete;
+	}
+
+	onOpen() {
+		const label = this.toType === 'inkDrawing' ? 'Drawing' : 'Writing';
+		this.titleEl.setText(`Convert to ${label}`);
+		this.contentEl.addClass('ddc_ink_migration-modal');
+		this.computeSuggestedMovePath();
+		this.renderScanPhase();
+	}
+
+	onClose() {
+		this.contentEl.empty();
+	}
+
+	// ─── Move path helper ─────────────────────────────────────────────────────
+
+	private computeSuggestedMovePath() {
+		const { writingSubfolder, drawingSubfolder } = this.plugin.settings;
+		const parentPath = this.file.parent?.path ?? '';
+
+		if (this.toType === 'inkDrawing' && parentPath === writingSubfolder) {
+			this.suggestedMovePath = `${drawingSubfolder}/${this.file.name}`;
+		} else if (this.toType === 'inkWriting' && parentPath === drawingSubfolder) {
+			this.suggestedMovePath = `${writingSubfolder}/${this.file.name}`;
+		} else {
+			this.suggestedMovePath = null;
+		}
+	}
+
+	// ─── Phase 1: Scan ────────────────────────────────────────────────────────
+
+	private renderScanPhase() {
+		this.phase = Phase.Scanning;
+		const { contentEl } = this;
+		contentEl.empty();
+
+		this.statusTextEl = contentEl.createDiv({
+			cls: 'ddc_ink_migration-status-text',
+			text: 'Scanning vault for notes that embed this file…',
+		});
+
+		const progressBarEl = contentEl.createDiv({ cls: 'ddc_ink_migration-progress-bar' });
+		this.progressBarInnerEl = progressBarEl.createDiv({ cls: 'ddc_ink_migration-progress-bar-inner' });
+
+		const statsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-stats' });
+		this.remainingCountEl = this.createStat(statsEl, '0', 'remaining').countEl;
+		this.convertedCountEl = this.createStat(statsEl, '0', 'found').countEl;
+
+		void this.runScan();
+	}
+
+	private async runScan() {
+		const fromType = this.toType === 'inkDrawing' ? 'inkWriting' : 'inkDrawing';
+
+		try {
+			this.affectedNotes = await findNotesContainingFileEmbed(
+				this.plugin.app.vault,
+				this.file.path,
+				fromType,
+				(scanned, total, foundCount) => {
+					const remaining = total - scanned;
+					const pct = total > 0 ? (scanned / total) * 100 : 100;
+					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
+					if (this.remainingCountEl) this.remainingCountEl.setText(String(remaining));
+					// foundCount comes from the scanner — affectedNotes is empty until await finishes
+					if (this.convertedCountEl) this.convertedCountEl.setText(String(foundCount));
+				},
+			);
+
+			await this.detectInkCanvasAndFitPreview();
+		} catch (err) {
+			if (this.statusTextEl) this.statusTextEl.setText('Scan failed: ' + String(err));
+			return;
+		}
+
+		this.renderConfirmPhase();
+	}
+
+	private async detectInkCanvasAndFitPreview() {
+		try {
+			const svgStr = await this.plugin.app.vault.read(this.file);
+			const data = extractInkJsonFromSvg(svgStr);
+			this.isInkCanvas = !!data && isInkCanvasFile(data);
+			if (
+				this.isInkCanvas
+				&& this.toType === 'inkWriting'
+				&& data?.inkCanvas?.strokes
+			) {
+				const lineHeight =
+					data.inkCanvas.writingLineHeight
+					?? data.meta.writingLineHeight
+					?? this.plugin.settings.writingLineHeight
+					?? WRITING_LINE_HEIGHT;
+				this.fitScalePreview = previewDrawingToWritingScale(
+					data.inkCanvas.strokes,
+					lineHeight,
+				);
+			}
+		} catch {
+			this.isInkCanvas = false;
+			this.fitScalePreview = null;
+		}
+	}
+
+	// ─── Phase 2: Confirm ─────────────────────────────────────────────────────
+
+	private renderConfirmPhase() {
+		this.phase = Phase.Confirm;
+		const { contentEl } = this;
+		contentEl.empty();
+
+		this.renderLayoutWarning(contentEl);
+		this.renderEmbedSummary(contentEl);
+
+		// Move checkbox (only when file is in the expected subfolder)
+		if (this.suggestedMovePath) {
+			const destFolder = this.toType === 'inkDrawing'
+				? this.plugin.settings.drawingSubfolder
+				: this.plugin.settings.writingSubfolder;
+			const moveOptionEl = contentEl.createDiv({ cls: 'ddc_ink_migration-move-option' });
+			this.moveCheckboxEl = moveOptionEl.createEl('input', { type: 'checkbox' });
+			this.moveCheckboxEl.checked = true;
+			this.moveCheckboxEl.id = 'ddc_ink_move-checkbox';
+			const labelEl = moveOptionEl.createEl('label');
+			labelEl.setAttribute('for', 'ddc_ink_move-checkbox');
+			labelEl.setText(`Also move file to ${destFolder}`);
+		}
+
+		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
+		const cancelBtn = buttonsEl.createEl('button', { text: 'Cancel' });
+		cancelBtn.addEventListener('click', () => this.close());
+
+		const duplicateBtn = buttonsEl.createEl('button', {
+			text: 'Duplicate and convert copy',
+		});
+		duplicateBtn.addEventListener('click', () => {
+			this.conversionScope = {
+				mode: 'duplicate',
+				instigatingNote: this.sourceMdFile,
+				embedUpdate: this.sourceMdFile ? 'instigating-only' : 'none',
+			};
+			this.renderConvertingPhase();
+		});
+
+		const convertBtn = buttonsEl.createEl('button', { cls: 'mod-cta', text: 'Convert' });
+		convertBtn.addEventListener('click', () => {
+			this.conversionScope = FILE_CONVERSION_IN_PLACE;
+			this.renderConvertingPhase();
+		});
+	}
+
+	private renderLayoutWarning(parent: HTMLElement) {
+		const sectionEl = parent.createDiv({ cls: 'ddc_ink_migration-section ddc_ink_migration-warning' });
+		sectionEl.createDiv({
+			cls: 'ddc_ink_migration-section-title',
+			text: 'Layout changes',
+		});
+
+		if (this.isInkCanvas) {
+			if (this.toType === 'inkWriting') {
+				let text = 'Strokes will be scaled (smaller only) and repositioned to fit the writing page. This cannot be undone.';
+				if (this.fitScalePreview != null && this.fitScalePreview < 1) {
+					const pct = Math.round(this.fitScalePreview * 100);
+					text += ` Strokes will be scaled to approximately ${pct}% of their current size.`;
+				}
+				sectionEl.createEl('p', { text });
+			} else {
+				sectionEl.createEl('p', {
+					text: 'The drawing embed viewBox in affected notes will be recalculated to fit the ink. Stroke positions are unchanged.',
+				});
+			}
+			return;
+		}
+
+		sectionEl.createEl('p', {
+			text: 'Legacy tldraw format: layout adjustment does not apply. Only metadata and embed type will change.',
+		});
+	}
+
+	private renderEmbedSummary(parent: HTMLElement) {
+		const totalCount = this.affectedNotes.length;
+		const sectionEl = parent.createDiv({ cls: 'ddc_ink_migration-section' });
+		sectionEl.createDiv({
+			cls: 'ddc_ink_migration-section-title',
+			text: 'Embeds',
+		});
+
+		if (totalCount === 0) {
+			sectionEl.createEl('p', { text: 'This file is not embedded in any notes.' });
+			return;
+		}
+
+		const typeLabel = this.toType === 'inkDrawing' ? 'drawing' : 'writing';
+		const otherCount = this.sourceMdFile
+			? this.affectedNotes.filter((n) => n.path !== this.sourceMdFile!.path).length
+			: totalCount;
+
+		if (this.sourceMdFile) {
+			const includesThis = this.affectedNotes.some((n) => n.path === this.sourceMdFile!.path);
+			if (includesThis && otherCount > 0) {
+				sectionEl.createEl('p', {
+					text: `Embedded in ${totalCount} note${totalCount !== 1 ? 's' : ''} (including this note and ${otherCount} other${otherCount !== 1 ? 's' : ''}). Converting will update all ${totalCount} embeds.`,
+				});
+			} else if (includesThis) {
+				sectionEl.createEl('p', {
+					text: `Embedded in this note only. Converting will update this embed to ${typeLabel}.`,
+				});
+			} else {
+				sectionEl.createEl('p', {
+					text: `Embedded in ${totalCount} other note${totalCount !== 1 ? 's' : ''}. Converting will update all of them.`,
+				});
+			}
+		} else {
+			sectionEl.createEl('p', {
+				text: `Embedded in ${totalCount} note${totalCount !== 1 ? 's' : ''}. Converting will update all embeds to ${typeLabel}.`,
+			});
+		}
+
+		const listPaths = this.affectedNotes.map((n) => n.path);
+		const visiblePaths = listPaths.slice(0, EMBED_LIST_CAP);
+		this.renderList(sectionEl, 'Notes:', visiblePaths);
+		if (listPaths.length > EMBED_LIST_CAP) {
+			sectionEl.createEl('p', {
+				text: `…and ${listPaths.length - EMBED_LIST_CAP} more.`,
+			});
+		}
+
+		if (totalCount > 0 && this.sourceMdFile) {
+			sectionEl.createEl('p', {
+				cls: 'ddc_ink_migration-hint',
+				text: 'Use "Duplicate and convert copy" to convert a copy and update only this note\'s embed. Other notes keep the original file.',
+			});
+		}
+	}
+
+	private renderList(parent: HTMLElement, title: string, items: string[]) {
+		const sectionEl = parent.createDiv({ cls: 'ddc_ink_migration-section' });
+		sectionEl.createDiv({ cls: 'ddc_ink_migration-section-title', text: title });
+		const listEl = sectionEl.createDiv({ cls: 'ddc_ink_migration-list' });
+
+		if (items.length === 0) {
+			listEl.createDiv({ cls: 'ddc_ink_migration-list-empty', text: 'None' });
+		} else {
+			for (const item of items) {
+				listEl.createDiv({ cls: 'ddc_ink_migration-list-item', text: item });
+			}
+		}
+	}
+
+	// ─── Phase 3: Converting ──────────────────────────────────────────────────
+
+	private renderConvertingPhase() {
+		this.phase = Phase.Converting;
+		const { contentEl } = this;
+		contentEl.empty();
+
+		this.statusTextEl = contentEl.createDiv({
+			cls: 'ddc_ink_migration-status-text',
+			text: 'Converting…',
+		});
+
+		const progressBarEl = contentEl.createDiv({ cls: 'ddc_ink_migration-progress-bar' });
+		this.progressBarInnerEl = progressBarEl.createDiv({ cls: 'ddc_ink_migration-progress-bar-inner' });
+
+		const notesToUpdate = this.conversionScope.mode === 'in-place'
+			? this.affectedNotes.length
+			: this.conversionScope.embedUpdate === 'instigating-only' && this.sourceMdFile
+				? 1
+				: this.conversionScope.embedUpdate === 'all-affected'
+					? this.affectedNotes.length
+					: 0;
+
+		const statsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-stats' });
+		this.convertedCountEl = this.createStat(statsEl, '0', 'updated').countEl;
+		this.remainingCountEl = this.createStat(statsEl, String(notesToUpdate), 'remaining').countEl;
+		this.failedCountEl = this.createStat(statsEl, '0', 'failed').countEl;
+
+		void this.runConversion();
+	}
+
+	private async runConversion() {
+		const moveToPath = (this.moveCheckboxEl?.checked && this.suggestedMovePath)
+			? this.suggestedMovePath
+			: null;
+
+		try {
+			this.conversionResult = await executeFileConversion(
+				this.plugin,
+				this.file,
+				this.toType,
+				this.affectedNotes,
+				moveToPath,
+				this.conversionScope,
+				(done, total, liveStats) => {
+					const pct = total > 0 ? (done / total) * 100 : 100;
+					if (this.progressBarInnerEl) this.progressBarInnerEl.style.width = pct.toFixed(1) + '%';
+					if (this.remainingCountEl) {
+						this.remainingCountEl.setText(String(total - done));
+					}
+					// liveStats are required because conversionResult is only assigned after await
+					if (this.convertedCountEl) {
+						this.convertedCountEl.setText(String(liveStats.updatedNotes));
+					}
+					if (this.failedCountEl) {
+						this.failedCountEl.setText(String(liveStats.failedCount));
+					}
+				},
+			);
+		} catch (err) {
+			if (this.statusTextEl) this.statusTextEl.setText('Conversion failed: ' + String(err));
+			return;
+		}
+
+		const svgConversionFailed = this.conversionResult?.failed.some(
+			(message) => message.startsWith('SVG conversion failed'),
+		);
+		if (!svgConversionFailed) {
+			this.onConversionComplete?.(this.conversionResult?.finalFile ?? null, this.toType);
+		}
+		this.renderDonePhase();
+	}
+
+	// ─── Phase 4: Done ────────────────────────────────────────────────────────
+
+	private renderDonePhase() {
+		this.phase = Phase.Done;
+		const { contentEl } = this;
+		const result = this.conversionResult!;
+		contentEl.empty();
+
+		const typeLabel = this.toType === 'inkDrawing' ? 'drawing' : 'writing';
+		const noteCount = result.updatedNotePaths.length;
+
+		if (result.wasDuplicated && result.finalFile) {
+			contentEl.createEl('p', {
+				text: `Created and converted a copy to ${typeLabel} at ${result.finalFile.path}. ${noteCount} note${noteCount !== 1 ? 's' : ''} updated. The original file was not changed.`,
+			});
+		} else {
+			contentEl.createEl('p', {
+				text: `Converted to ${typeLabel}. ${noteCount} note${noteCount !== 1 ? 's' : ''} updated.`,
+			});
+		}
+
+		if (result.failed.length > 0) {
+			this.renderList(contentEl, `Failed (${result.failed.length})`, result.failed);
+		}
+
+		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
+
+		if (result.updatedNotePaths.length > 10) {
+			const randomBtn = buttonsEl.createEl('button', { text: 'Open 10 random notes' });
+			randomBtn.addEventListener('click', () => {
+				const shuffled = [...result.updatedNotePaths].sort(() => Math.random() - 0.5);
+				for (const path of shuffled.slice(0, 10)) {
+					void this.plugin.app.workspace.openLinkText(path, '', true);
+				}
+			});
+		}
+
+		if (result.updatedNotePaths.length > 0) {
+			const openAllBtn = buttonsEl.createEl('button', {
+				text: `Open all ${result.updatedNotePaths.length} note${result.updatedNotePaths.length !== 1 ? 's' : ''}`,
+			});
+			openAllBtn.addEventListener('click', () => {
+				for (const path of result.updatedNotePaths) {
+					void this.plugin.app.workspace.openLinkText(path, '', true);
+				}
+			});
+		}
+
+		const doneBtn = buttonsEl.createEl('button', { cls: 'mod-cta', text: 'Done' });
+		doneBtn.addEventListener('click', () => this.close());
+	}
+
+	// ─── Helpers ──────────────────────────────────────────────────────────────
+
+	private createStat(parent: HTMLElement, count: string, label: string): { countEl: HTMLElement } {
+		const statEl = parent.createDiv({ cls: 'ddc_ink_migration-stat' });
+		const countEl = statEl.createDiv({ cls: 'ddc_ink_migration-stat-count', text: count });
+		statEl.createDiv({ cls: 'ddc_ink_migration-stat-name', text: label });
+		return { countEl };
+	}
+}

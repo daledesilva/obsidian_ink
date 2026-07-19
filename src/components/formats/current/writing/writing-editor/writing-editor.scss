@@ -1,0 +1,89 @@
+@use '../../../../../styles/ink-dominant-hand-layout.scss';
+
+.ddc_ink_writing-editor {
+	width: 100%;
+	height: 100%;
+	position: relative;
+
+	.ink-svg-canvas-container {
+		width: 100%;
+		height: 100%;
+	}
+}
+
+// Dedicated writing: native tall-page scroll (camera Y stays pinned). Menus stay absolute
+// overlays on the editor root so chrome does not scroll with the page.
+.ddc_ink_writing-editor.ddc_ink_dedicated-editor {
+	.ddc_ink_writing-dedicated-scroller {
+		position: absolute;
+		inset: 0;
+		overflow-x: hidden;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		// Avoid clientWidth shrink when the scrollbar appears mid-write (that would
+		// change width-fit zoom and shift content under the pen).
+		scrollbar-gutter: stable;
+	}
+
+	.ddc_ink_writing-dedicated-page {
+		width: 100%;
+		position: relative;
+
+		.ink-svg-canvas-wrapper,
+		.ink-svg-canvas-container {
+			width: 100%;
+			height: 100%;
+		}
+	}
+}
+
+// .ddc_ink_writing-editor {
+//     transition: height 0.5s ease;
+    
+//     .tl-container {
+//         // tldraw seems to put a black background when the container is focussed. This negates that
+//         outline: none !important;
+
+//         .tl-canvas {
+//             background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    
+//             overflow: hidden;
+            
+//             .tl-background {
+//                 background: none;
+//             }
+    
+//         }
+//     }
+// }
+
+
+// // Auto adapts to themes
+// ////////////////////////
+
+// .ddc_ink_writing-editor {
+
+//     // outline thickened but not coloured
+//     outline: solid 8px var(--color-base-10);
+//     border-radius: 20px;
+
+//     // Left side coloured
+//     // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
+//     // border-radius: 5px 20px 20px 5px;
+
+//     background-color: var(--color-base-05);
+
+//     // TODO: Should be placed in a separate file for writing-file-styles
+//     // Writing lines
+//     line {
+//         stroke: var(--color-base-50);
+//         stroke-width: 2px;
+//     }
+// }
+
+// .ddc_ink_writing-editor.ddc_ink_editor-wrapper--loading {
+//     opacity: 0;
+// }
+
+
+

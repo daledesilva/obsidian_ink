@@ -1,0 +1,144 @@
+# Undo/Redo for Ink Embeds
+
+This document describes the conceptual approach for undo and redo when ink embeds (writing or drawing) are in edit mode, and the alternatives that were considered.
+
+---
+
+## Chosen approach: Unified custom stack
+
+When an ink embed is **unlocked** (edit mode), the embed captures Mod+Z and Mod+Shift+Z and maintains its own unified undo/redo history that interleaves tldraw (canvas) actions and Obsidian (markdown) actions.
+
+### Per workspace leaf (pane)
+
+- Each **Obsidian leaf** (`WorkspaceLeaf.id`) has its **own** unified stacks, Obsidian-depth baseline, “active” embed pointer, and (for dedicated ink tabs) its registered tldraw editor.
+- Splitting the same note into two panes ⇒ **two** histories; focus determines which leaf’s stack Mod+Z uses (`activeLeaf`).
+- Implementation detail: [undo-redo-implementation.md](undo-redo-implementation.md).
+
+### When active
+
+- The embed captures Mod+Z and Mod+Shift+Z **only when unlocked** (edit mode) **and** the leaf could be resolved for that embed (see implementation doc if leaf lookup fails).
+- When no embed is active for **that** leaf, the event propagates and Obsidian handles it as usual
+
+### Two stacks
+
+- **Undo stack**: Ordered list of actions to undo (most recent at top)
+- **Redo stack**: Ordered list of actions to redo
+- On undo: pop from undo stack, execute the inverse, push to redo stack
+- On redo: pop from redo stack, execute, push to undo stack
+
+### Stack entries
+
+Each entry is either:
+
+- `"embed"` with an embed/editor id (a tldraw canvas action: stroke drawn, shape erased, etc.)
+- `"embed-resize"` with an embed id and from/to dimensions (a drawing embed resize: width and aspect ratio changed via the resize handle)
+- `"obsidian"` (a CodeMirror action: text typed, embed inserted, etc.)
+
+Drawing embed resizes are pushed when the user finishes a resize gesture (pointer up). Writing embeds resize automatically and do not produce undo entries.
+
+### How we add to the undo stack
+
+We add entries **only when the tldraw store fires** (i.e. when the user does something in the canvas). There is no separate listener for Obsidian changes.
+
+In `editor.store.listen` (tldraw store), when a user change is detected (excluding pointer moves):
+
+1. **Check Obsidian**: For this embed’s **`workspaceLeafId`**, read undo depth from **that leaf’s** `MarkdownView` (same leaf as the stack), via `getObsidianUndoDepthForLeaf`, and compare to `prevObsidianDepth` for that leaf. If depth increased, those Obsidian actions necessarily happened *before* the tldraw change that triggered this callback.
+2. **Add Obsidian entries**: Add that many `"obsidian"` entries to that leaf’s custom undo stack
+3. **Check tldraw**: Get tldraw's `getNumUndos()` and compare to `prevTldrawUndos`. If it increased, add that many `"embed"` entries with the current embed/editor id
+4. **Update baseline**: Set `prevObsidianDepth` and `prevTldrawUndos` to current values; clear the redo stack
+
+**Order**: Obsidian entries are pushed first (older), then embed entries (newer). Both go to the top in that order.
+
+### On Mod+Z
+
+- **First**: Sync — check Obsidian undo depth and tldraw undos; add any Obsidian (or tldraw) entries that accrued since the last store.listen. This ensures we capture Obsidian typing that happened without a canvas action.
+- Then: Pop from the custom undo stack
+- If `"embed"`: call undo on the recorded tldraw editor
+- If `"embed-resize"`: apply the previous dimensions (fromWidth, fromAspectRatio) to the drawing embed
+- If `"obsidian"`: call `editor.undo()` on the **MarkdownView for the same `leafId`** as the stack (not “whatever view happens to be active” if it differed)
+- Push the popped entry onto the redo stack
+
+### On Mod+Shift+Z
+
+- Pop from the custom redo stack
+- If `"embed"`: call redo on the recorded tldraw editor
+- If `"embed-resize"`: apply the post-resize dimensions (toWidth, toAspectRatio) to the drawing embed
+- If `"obsidian"`: call `editor.redo()` on the **MarkdownView for that `leafId`**
+- Push the popped entry onto the undo stack
+
+### Programmatic redo
+
+When we call `editor.redo()` on tldraw, the store updates and `store.listen` fires. Without a guard, sync would see the increased undo count, add an embed entry, and clear the redo stack—wiping the user's ability to redo further. We set a flag (`plugin.__inkProgrammaticRedoInProgress`) before `executeRedo` and clear it after 50ms. When sync sees the flag, it updates the baseline and returns early without adding entries or clearing the redo stack. See [undo-redo-implementation.md](undo-redo-implementation.md) for details.
+
+```mermaid
+flowchart LR
+    subgraph Before [Before fix]
+        B1[Redo] --> B2[executeRedo]
+        B2 --> B3[store.listen]
+        B3 --> B4[sync adds entry]
+        B4 --> B5[redoStack cleared]
+    end
+
+    subgraph After [After fix]
+        A1[Redo] --> A2[Set flag true]
+        A2 --> A3[executeRedo]
+        A3 --> A4[store.listen]
+        A4 --> A5{Flag set?}
+        A5 -->|yes| A6[Skip add/clear]
+        A6 --> A7[redoStack preserved]
+    end
+```
+
+### When undo stack is empty and user presses Mod+Z
+
+Do not lock the embed. Instead, show an Obsidian notification:
+
+> To undo further in Obsidian you must lock the Ink embed (which will discard any redo ability in the embed).
+
+Locking when empty would cause the user to lose tldraw redo history; the notification explains the trade-off.
+
+### Initial state
+
+When entering edit mode, capture `prevObsidianDepth` and `prevTldrawUndos` from the current editors. We only track *increases* from that point, so existing history is not re-recorded.
+
+### Multiple embeds
+
+Each `"embed"` entry stores which embed/editor it belongs to. When popping an `"embed"` entry, we undo the correct tldraw instance from the registry. **Within one leaf**, only one embed is “active” for keyboard shortcuts at a time (last mousedown on an embed in that pane); stacks still hold entries tagged per embed id.
+
+### Locked embed dimensions
+
+When an embed is locked, we persist its dimensions (width, aspect ratio) to the markdown. That update must not be added to CodeMirror's undo history; otherwise sync would add an Obsidian entry, and the next undo would revert the locked embed's size. We use `Transaction.addToHistory.of(false)` on that transaction. See [undo-redo-implementation.md](undo-redo-implementation.md) for details.
+
+---
+
+## Approaches considered and pitfalls
+
+### Focus-based routing
+
+Route Mod+Z to tldraw or Obsidian based on `document.activeElement` (whether focus is in the canvas or in CodeMirror).
+
+**Pitfall**: Focus can drift (e.g. mouse outside the embed, accidental blur). The user might intend to undo a stroke but accidentally undo the embed insertion in Obsidian, causing the whole embed to disappear.
+
+### Edit-mode override (always tldraw when unlocked)
+
+When the embed is in edit mode, always route Mod+Z to tldraw regardless of focus.
+
+**Pitfall**: The user cannot undo text they typed in the surrounding markdown while the embed is open. If they add a caption and press Mod+Z, they expect to undo the caption, not a stroke.
+
+### Unified Obsidian history
+
+Register tldraw changes into CodeMirror's undo stack so a single Mod+Z would undo both text and canvas in chronological order.
+
+**Pitfall**: CodeMirror's undo is document-centric; each step reverts a change to the markdown document. Drawing data lives in separate SVG files, not in the document. This is not structurally feasible without inlining all ink data into the markdown.
+
+### Peek and prevent
+
+Inspect CodeMirror's undo stack to detect when the next undo would remove the embed, then block or warn.
+
+**Pitfall**: CodeMirror does not expose a "peek next undo" API. The history package tracks depth and state but does not describe what the next undo would revert.
+
+### Separate shortcuts
+
+Use different shortcuts for ink vs markdown (e.g. Mod+Alt+Z for ink).
+
+**Pitfall**: Non-standard UX. Users expect Mod+Z everywhere and do not want to remember context-specific shortcuts.

@@ -1,0 +1,110 @@
+@use '../../../../../styles/ink-boox-eink-chrome';
+
+.ddc_ink_resize-container {
+    width: 100%;
+}
+
+.ddc_ink_resize-container.ddc_ink_smooth-transition {
+    transition-property: height;
+    transition-duration: 0.5s;
+    transition-timing-function: ease-out;
+}
+
+// Boox: disable transition on the editor canvas only (stroke latency). Embed container height may still animate.
+.ddc_ink_resize-container.ddc_ink_resize-container--boox,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox.ddc_ink_smooth-transition,
+.ddc_ink_resize-container.ddc_ink_resize-container--boox .ddc_ink_writing-editor {
+    transition: none !important;
+}
+
+
+
+
+// Universal selector that works in both Live Preview AND Reading View
+// TODO: This is common to drawing and writing files. It should be moved to a common area.
+.markdown-rendered.ddc_ink_embed-block,
+.markdown-preview-view .ddc_ink_embed-block,
+.markdown-preview-section.ddc_ink_embed-block {
+    
+    // Enables placing elements outside of the embed
+    contain: unset !important;
+    overflow: visible !important;
+
+    // Extends ink area into margins of writing area
+    // NOTE: The above was removed and moved to javascript applyCommonAncestorStyling function. Because file-margin couldn't be trusted to be a single value. Sometimes it would bve something like '8px 22px'
+    // margin: 0 calc(-1 * var(--file-margins) + 4px) !important;
+
+    // Prevent default obsidian hover outline
+    &:hover {
+        box-shadow: none;
+    }
+    
+    // Prevent default Obsidian 'edit block' button appearing
+    .edit-block-button {
+        display: none;
+    }
+}
+
+blockquote .ddc_ink_writing-embed {
+    margin-inline-start: 1em;
+}
+
+// Hide "Edit Writing" anchor tags
+a[href*="type=inkWriting"] {
+    visibility: hidden;
+}
+
+.ddc_ink_pending-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0.75em;
+    margin-bottom: 0.5em;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-s);
+
+    .ddc_ink_pending-banner__title {
+        font-weight: var(--font-semibold);
+        font-size: var(--font-ui-small);
+        color: var(--text-normal);
+        white-space: nowrap;
+    }
+
+    .ddc_ink_pending-banner__actions {
+        display: flex;
+        gap: 0.5em;
+        margin-left: auto;
+    }
+
+    .ddc_ink_pending-banner__btn {
+        cursor: pointer;
+        padding: 0.4em 1em;
+        border-radius: var(--radius-s);
+        border: 1px solid var(--background-modifier-border);
+        background-color: var(--interactive-normal);
+        color: var(--text-normal);
+        font-size: var(--font-ui-small);
+
+        &:hover {
+            background-color: var(--interactive-hover);
+        }
+
+        &--primary {
+            background-color: var(--interactive-accent);
+            color: var(--text-on-accent);
+            border-color: var(--interactive-accent);
+
+            &:hover {
+                background-color: var(--interactive-accent-hover);
+                border-color: var(--interactive-accent-hover);
+            }
+        }
+    }
+
+    &--not-found {
+        border-color: var(--color-orange);
+    }
+}
+

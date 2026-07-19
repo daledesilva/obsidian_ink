@@ -1,7 +1,7 @@
-const blueskySvgStr = require('./bluesky.svg');
-const mastodonSvgStr = require('./mastodon.svg');
-const threadsSvgStr = require('./threads.svg');
-const twitterSvgStr = require('./twitter.svg');
+import blueskySvgStr from "./bluesky.svg";
+import mastodonSvgStr from "./mastodon.svg";
+import threadsSvgStr from "./threads.svg";
+import twitterSvgStr from "./twitter.svg";
 
 ////////////
 ////////////

@@ -3,7 +3,7 @@
 # Check if a version tag was provided
 if [ -z "$1" ]; then
     echo "Error: Please provide a version tag"
-    echo "eg: npm run ext-release <version-tag>"
+    echo "eg: npm run beta-release 0.1.0"
     exit 1
 fi
 

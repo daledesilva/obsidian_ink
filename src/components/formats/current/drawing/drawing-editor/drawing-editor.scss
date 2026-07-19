@@ -1,0 +1,155 @@
+@use '../../../../../styles/ink-dominant-hand-layout.scss';
+
+
+.ddc_ink_drawing-editor {
+	width: 100%;
+	height: 100%;
+	position: relative;
+
+	.ink-svg-canvas-container {
+		width: 100%;
+		height: 100%;
+	}
+
+	.ink-adaptive-grid .ink-grid-dot {
+		fill: var(--color-base-50);
+	}
+}
+
+// Embedded drawing: default toolbar uses global space-between + centered tools.
+// Narrow embeds only: bleed a compact inline toolbar past the resize box.
+.ddc_ink_embed .ddc_ink_drawing-editor {
+	overflow: visible;
+	container-type: inline-size;
+	container-name: ink-drawing-embed-toolbar;
+
+	// No transition — layout snaps when crossing the narrow-toolbar breakpoint.
+	.ink_primary-menu-bar,
+	.ink_tool-menu {
+		transition: none;
+	}
+
+	@container ink-drawing-embed-toolbar (max-width: 22rem) {
+		.ink_primary-menu-bar {
+			left: 50%;
+			right: auto;
+			width: max-content;
+			min-width: 100%;
+			max-width: none;
+			justify-content: center;
+			gap: 0;
+			transform: translateX(-50%);
+
+			&.ddc_ink_active {
+				transform: translate(-50%, -100%);
+			}
+		}
+
+		.ink_menu-bar_full {
+			flex-grow: 0;
+			width: auto;
+			justify-content: flex-start;
+			gap: 0;
+		}
+
+		.ink_quick-menu,
+		.ink_tool-menu {
+			border-inline-end: 1px solid var(--background-modifier-border);
+			padding-inline-end: 8px;
+			margin-inline-end: 8px;
+		}
+
+		.ink_tool-menu,
+		&.ink_dominant-hand_left .ink_tool-menu {
+			position: static;
+			top: auto;
+			left: auto;
+			transform: none;
+		}
+
+		.ink_other-menu {
+			display: none;
+		}
+	}
+}
+
+// .ddc_ink_drawing-editor {
+//     transition: height 0.5s ease;
+    
+//     .tl-container {
+//         // tldraw seems to put a black background when the container is focussed. This negates that
+//         outline: none !important;
+
+//         .tl-canvas {
+//             background: none;   // This is needed because tldraw Obsidian plugin adds a background here?
+    
+//             overflow: hidden;
+            
+//             .tl-background {
+//                 background: none;
+//             }
+    
+//         }
+//     }
+// }
+
+
+// // Auto adapts to themes
+// ////////////////////////
+
+// .ddc_ink_drawing-editor {
+
+//     // outline thickened but not coloured
+//     outline: solid 8px var(--color-base-10);
+//     border-radius: 20px;
+
+//     // Left side coloured
+//     // box-shadow: -0.4px 0px 0px 0px var(--interactive-accent);
+//     // border-radius: 5px 20px 20px 5px;
+
+//     background-color: var(--color-base-05);
+
+//     // Writing lines
+//     // line {
+//     //     stroke: var(--color-base-50);
+//     //     stroke-width: 2px;
+//     // }
+// }
+
+// /////////
+// // Embed pan/zoom cursor hints (classes toggled on `.tl-container`)
+
+// .tl-container {
+//     &.ink-tldraw-pan-cursor--grab {
+//         cursor: grab;
+//     }
+
+//     &.ink-tldraw-pan-cursor--grabbing {
+//         cursor: grabbing;
+//     }
+
+//     &.ink-tldraw-pan-cursor--ns-resize {
+//         cursor: ns-resize;
+//     }
+// }
+
+// .ddc_ink_drawing-editor.ddc_ink_editor-wrapper--loading {
+//     opacity: 0;
+// }
+
+// .ink-debug-drawing-area-overlay {
+//     position: fixed;
+//     box-shadow: inset 0 0 0 5px rgba(255, 0, 0, 0.2);
+//     pointer-events: none;
+//     z-index: 9999;
+// }
+
+// .ink-debug-stroke-dot {
+//     position: absolute;
+//     width: 2px;
+//     height: 2px;
+//     border-radius: 50%;
+//     background-color: red;
+//     pointer-events: none;
+//     z-index: 9999;
+// }

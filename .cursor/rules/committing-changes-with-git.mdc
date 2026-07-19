@@ -1,0 +1,79 @@
+---
+description: Git commit workflow, safety protocol, and commit message format
+alwaysApply: true
+---
+
+# Committing Changes with Git
+
+> **Setup note:** This rule is intended as a **Cursor User Rule** (Settings → Rules → User Rules) so it applies across all repositories. It may also live as a project rule when copied from `_reference_ide-setup/shared/`. See `shared/docs/cursor-git-commit-setup.md` and root `README.md`.
+
+Only create commits when requested by the user. If unclear, ask first. When the user asks you to create a new git commit, follow these steps carefully:
+
+## Git Safety Protocol
+
+- NEVER update the git config
+- NEVER run destructive/irreversible git commands (like push --force, hard reset, etc.) unless the user explicitly requests them in the user query or in a different user rule
+- NEVER skip hooks (--no-verify, --no-gpg-sign, etc.) unless the user explicitly requests it in the user query or in a different user rule
+- NEVER run force push to main/master, warn the user if they request it
+- Avoid git commit --amend. ONLY use --amend when ALL conditions are met:
+  1. User explicitly requested amend, OR commit SUCCEEDED but pre-commit hook auto-modified files that need including
+  2. HEAD commit was created by you in this conversation (verify: `git log -1 --format='%an %ae'`)
+  3. Commit has NOT been pushed to remote (verify: git status shows "Your branch is ahead")
+- CRITICAL: If commit FAILED or was REJECTED by hook, NEVER amend — fix the issue and create a NEW commit
+- CRITICAL: If you already pushed to remote, NEVER amend unless the user explicitly requests it in the user query or in a different user rule (requires force push)
+- NEVER commit changes unless the user explicitly asks you to in the user query or in a different user rule. It is VERY IMPORTANT to only commit when explicitly asked, otherwise the user will feel that you are being too proactive.
+
+## Steps
+
+1. Run in parallel:
+   - `git status` — see all untracked files
+   - `git diff` and `git diff --staged` — see changes to be committed
+   - `git log -5 --oneline` — recent commit messages for context
+2. Analyze all staged changes and draft a commit message:
+   - Do not commit files that likely contain secrets (.env, credentials.json, etc.). Warn the user if they specifically request to commit those files
+   - Follow the Commit Message Format below
+   - Ensure the message accurately reflects the changes and their purpose
+3. Run sequentially:
+   - Add relevant untracked files to the staging area
+   - Commit the changes with the message
+   - Run `git status` after the commit completes to verify success
+4. If the commit fails due to pre-commit hook, fix the issue and create a NEW commit (see amend rules above)
+
+## Commit Message Format
+
+**Prefix:** Start with an accurate past-tense verb, lowercase, followed by a colon and space (e.g. `added:`, `updated:`, `fixed:`, `redesigned:`, `removed:`).
+
+**Body:** Write 1–2 sentences describing the conceptual what, with emphasis on why. Each sentence after the prefix must start with a past-tense verb and remain entirely in past tense. Use active voice where natural.
+
+**Avoid:**
+- Passive openings (`was dropped`, `was added`)
+- Imperatives (`Fix`, `Rebound`, `Update`)
+- Present tense (`persists`, `allows`, `fixes`)
+- File lists or line-level diffs unless that is the conceptual what
+
+**ClickUp line (optional):** When a ClickUp task is relevant and known, add a blank line after the body, then: `Clickup Task: <ClickUp-task-ID>`
+
+Example:
+
+```
+fixed: Dropped hand tracking input during scene transitions because the OVRHand reference was destroyed on load. Rebounded the reference in Awake so input persisted across scenes.
+
+Clickup Task: 86abc1234
+```
+
+## Important Notes
+
+- NEVER update the git config
+- NEVER run additional commands to read or explore code, besides git shell commands
+- DO NOT push to the remote repository unless the user explicitly asks you to do so in the user query or in a different user rule
+- Never use git commands with the `-i` flag (like git rebase -i or git add -i) since they require interactive input which is not supported
+- If there are no changes to commit, do not create an empty commit
+- ALWAYS pass the commit message via a HEREDOC:
+
+```bash
+git commit -m "$(cat <<'EOF'
+Commit message here.
+
+EOF
+)"
+```

@@ -1,0 +1,55 @@
+---
+description: Cursor Debug NDJSON ingest — preferred logging for iPad and desktop; deploy reminders
+alwaysApply: false
+---
+
+# Cursor Debug structured ingest (Obsidian Ink)
+
+Use this rule when **debugging Obsidian Ink on iPad**, **iPhone**, **desktop**, or any target where a **Cursor Debug** agent session is active and you need **runtime evidence**.
+
+## Preferred logging method
+
+**Use structured NDJSON ingest** — not ad-hoc `fetch`, not `console.log` alone.
+
+| Do | Don't |
+|----|--------|
+| `postCursorDebugIngest()` from `src/logic/utils/cursor-debug-ingest.ts` | `fetch('http://127.0.0.1:7662/…')` inside the plugin |
+| `requestUrl` (handled inside the helper) on Obsidian mobile | Assume Safari `console.debug` reaches the agent |
+| Read `.cursor/debug-<sessionId>.log` on the Mac after reproduction | Guess fixes from code alone |
+
+Build with session values from the Cursor Debug system context:
+
+```bash
+INK_DEBUG_CURSOR_SESSION_ID=<sessionId> \
+INK_DEBUG_INGEST_PATH=/ingest/<uuid> \
+npm run build
+```
+
+**iPad + Wi‑Fi:** start **`bash scripts/ingest-lan-relay.sh`** on the Mac (Cursor binds ingest to localhost only). See **`docs/debugging-on-ipad.md`**.
+
+**Boox + USB:** use **`adb reverse tcp:7662 tcp:7662`** via sibling **`eink-bridge/scripts/boox-debug-bootstrap.sh --force-restart`** — see **`eink-bridge/.cursor/rules/boox-usb-debug-automation.mdc`** when that repo is in the workspace.
+
+## Secondary method (human / breakpoints)
+
+**Safari Web Inspector** (USB): Develop → [iPad] → Obsidian → Console / Sources. Documented in **`docs/debugging-on-ipad.md`**. Does not replace NDJSON for agent analysis unless you also call **`postCursorDebugIngest`**.
+
+## Deploy while debugging — agent must remind
+
+| Path | Includes uncommitted instrumentation? |
+|------|----------------------------------------|
+| Copy local **`dist/`** to device vault | **Yes** |
+| **`npm run internal-release`** → GitHub **`internal-test`** release | **No** — CI builds **committed** code at the tag only |
+
+**Before asking the user to reproduce via internal release:** remind them to **commit + push**, run **`npm run internal-release`**, wait for CI, reinstall — **or** copy local **`dist/`** after **`npm run build`**.
+
+See **`scripts/internal-release.sh`** (header comments) and **`docs/development.md`** (Internal release section).
+
+## Agent duties (iPad + Cursor Debug)
+
+1. Confirm ingest relay (iPad LAN) or **`adb reverse`** (Boox) as appropriate.
+2. Ensure build has **`INK_DEBUG_CURSOR_SESSION_ID`** + **`INK_DEBUG_INGEST_PATH`** (or user set **`localStorage`** `ink-debug-ingest-url`).
+3. **Remind deploy path** (local `dist/` copy vs internal release + commit).
+4. Clear **only** the session log file (`.cursor/debug-<sessionId>.log`) before each reproduction run.
+5. Read the log file after reproduction; cite line evidence before fixing.
+
+Remove temporary **`postCursorDebugIngest`** call sites after verified fix. Keep **`cursor-debug-ingest.ts`**.

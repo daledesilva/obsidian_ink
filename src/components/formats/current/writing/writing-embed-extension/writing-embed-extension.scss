@@ -1,0 +1,37 @@
+// This prevents erroneous line padding when embed is inside a line or quote section.
+.cm-line:has(.ddc_ink_writing-embed) {
+    padding-inline-start: 0 !important;
+    text-indent: 0 !important;
+    
+    .ddc_ink_embed.ddc_ink_writing-embed {
+        margin-left: 0;
+        position: relative;
+        left: 0;
+    }
+}
+
+// When inside a blockquote, restore left padding so the embed clears the purple quote border.
+// Obsidian uses .HyperMD-quote on the cm-line for blockquote lines (no .cm-blockquote parent).
+// The generic rule above zeros padding; this restores it for blockquote context.
+.cm-line.HyperMD-quote:has(.ddc_ink_writing-embed) {
+    padding-inline-start: 1em !important;
+}
+
+// Fallback for .cm-blockquote parent structure if used in some themes
+.cm-blockquote .ddc_ink_embed.ddc_ink_writing-embed,
+.cm-line.HyperMD-quote .ddc_ink_embed.ddc_ink_writing-embed {
+    margin-inline-start: 0.5em;
+}
+
+// TODO: This is communal to both embed types, it should be moved to a common file.
+
+// Highlight styling for widgets when they are within a text selection
+.ddc_ink_widget-root.ddc_ink_widget-highlighted {
+    background-color: var(--text-selection, rgba(0, 123, 255, 0.15));
+    box-shadow: unset;
+    border-radius: unset;
+    .ddc_ink_embed {
+        opacity: 0.6;
+    }
+}
+

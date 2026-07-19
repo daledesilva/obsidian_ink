@@ -4,21 +4,47 @@ import { Notice } from "obsidian";
 /////////////
 /////////////
 
-export function createInkNoticeTemplate(noticeNumber?: number, noticeTotal?: number): DocumentFragment {
-    const noticeBody = document.createDocumentFragment();
-    createNoticeLabel(noticeBody, noticeNumber, noticeTotal);
-    return noticeBody;
+export interface NoticeTemplate {
+    noticeBody: DocumentFragment;
+    scrollAreaEl: HTMLDivElement;
+    footerEl: HTMLDivElement;
 }
 
-export function launchPersistentInkNotice(noticeBody: DocumentFragment) {
+export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number): NoticeTemplate {
+    const noticeBody = document.createDocumentFragment();
+    const scrollAreaEl = noticeBody.createDiv('ddc_ink_notice-scroll');
+    createNoticeLabel(scrollAreaEl, noticeNumber, noticeTotal);
+    const footerEl = noticeBody.createDiv('ddc_ink_notice-footer');
+    return {
+        noticeBody,
+        scrollAreaEl,
+        footerEl,
+    };
+}
+
+export function launchPersistentNotice(noticeBody: DocumentFragment) {
     const notice = new Notice(noticeBody, 0);
     notice.noticeEl.classList.add('ddc_ink_notice');
-    notice.noticeEl.style.pointerEvents = "none";
+    wireNoticePointerHandling(notice.noticeEl);
     return notice;
 }
 
-function createNoticeLabel(noticeBody: DocumentFragment, noticeNumber?: number, noticeTotal?: number): HTMLParagraphElement {
-    const labelEl = noticeBody.createEl('p');
+/** Scroll/footer need pointer-events; stop click bubbling so Obsidian won't dismiss on body clicks. */
+function wireNoticePointerHandling(noticeContentEl: HTMLElement) {
+    noticeContentEl.querySelector('.ddc_ink_notice-scroll')?.addEventListener('click', (event) => {
+        event.stopPropagation();
+    });
+
+    noticeContentEl.querySelector('.ddc_ink_notice-footer')?.addEventListener('click', (event) => {
+        if (event.target instanceof HTMLElement && event.target.closest('a, button')) {
+            return;
+        }
+        event.stopPropagation();
+    });
+}
+
+function createNoticeLabel(noticeParent: HTMLElement | DocumentFragment, noticeNumber?: number, noticeTotal?: number): HTMLParagraphElement {
+    const labelEl = noticeParent.createEl('p');
     let labelText = `Ink plugin`;
     // if(noticeNumber) labelText += ' ('+noticeNumber;
     // if(noticeTotal) labelText += '/'+noticeTotal;
@@ -28,39 +54,63 @@ function createNoticeLabel(noticeBody: DocumentFragment, noticeNumber?: number, 
     return labelEl;
 }
 
+/** Inline twin of notice blockquotes — same accent chip look for shortcuts/commands inside a sentence. */
+export function createNoticeInlineQuote(parentEl: HTMLElement, text: string): HTMLQuoteElement {
+    return parentEl.createEl('q', {
+        cls: 'ddc_ink_notice-inline-quote',
+        text,
+    });
+}
+
 export function createNoticeCtaBar(
-    noticeBody: DocumentFragment,
+    footerEl: HTMLElement,
     props: {
         primaryLabel?: string,
-        tertiaryLabel?:string
+        tertiaryLabel?: string,
+        footerLink?: { href: string; label: string },
+        footerLinks?: { href: string; label: string }[],
     }): {
         ctaBarEl: HTMLDivElement,
         primaryBtnEl: HTMLButtonElement | null,
         tertiaryBtnEl: HTMLButtonElement | null,
+        footerLinkEls: HTMLAnchorElement[],
     } {
-    
+
     let primaryBtnEl: HTMLButtonElement | null = null;
     let tertiaryBtnEl: HTMLButtonElement | null = null;
-        
-    const ctaBarEl = noticeBody.createDiv('ddc_ink_notice-cta-bar');
+    const footerLinkEls: HTMLAnchorElement[] = [];
 
-    if(props.primaryLabel) {
+    const links = props.footerLinks ?? (props.footerLink ? [props.footerLink] : []);
+
+    if (links.length > 0) {
+        const footerLinksEl = footerEl.createDiv('ddc_ink_notice-footer-links');
+        for (const link of links) {
+            const footerLinkEl = footerLinksEl.createEl('a');
+            footerLinkEl.setAttribute('href', link.href);
+            footerLinkEl.setText(link.label);
+            footerLinkEl.onClickEvent((event) => event.stopPropagation());
+            footerLinkEls.push(footerLinkEl);
+        }
+    }
+
+    const ctaBarEl = footerEl.createDiv('ddc_ink_notice-cta-bar');
+
+    if (props.primaryLabel) {
         primaryBtnEl = ctaBarEl.createEl('button');
         primaryBtnEl.setText(props.primaryLabel);
         primaryBtnEl.classList.add('ddc_ink_primary-btn')
-        primaryBtnEl.style.pointerEvents = "all";
     }
 
-    if(props.tertiaryLabel) {
+    if (props.tertiaryLabel) {
         tertiaryBtnEl = ctaBarEl.createEl('button');
         tertiaryBtnEl.setText(props.tertiaryLabel);
         tertiaryBtnEl.classList.add('ddc_ink_tertiary-btn')
-        tertiaryBtnEl.style.pointerEvents = "all";
     }
 
     return {
         ctaBarEl,
         primaryBtnEl,
         tertiaryBtnEl,
+        footerLinkEls,
     }
 }

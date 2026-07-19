@@ -1,25 +1,46 @@
 import './ddc-library/settings-styles.scss';
-import { Editor, Notice, Plugin, addIcon } from 'obsidian';
+import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
-import { registerSettingsTab } from './tabs/settings-tab/settings-tab';
-import {registerWritingEmbed} from './extensions/widgets/writing-embed-widget'
-import insertExistingWritingFile from './commands/insert-existing-writing-file';
-import insertNewWritingFile from './commands/insert-new-writing-file';
-import { registerWritingView } from './views/writing-view';
-import insertNewDrawingFile from './commands/insert-new-drawing-file';
-import insertExistingDrawingFile from './commands/insert-existing-drawing-file';
-import { registerDrawingView } from './views/drawing-view';
-import { registerDrawingEmbed } from './extensions/widgets/drawing-embed-widget';
-import insertRememberedDrawingFile from './commands/insert-remembered-drawing-file';
-import insertRememberedWritingFile from './commands/insert-remembered-writing-file';
-import { showWelcomeTips_maybe } from './notices/welcome-notice';
+import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
+import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
+import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
+import { insertNewWritingFile } from './commands/insert-new-writing-file';
+import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
+import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
+import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
+import { registerDrawingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/drawing-embed-widget';
+import { insertNewDrawingFile } from './commands/insert-new-drawing-file';
+import { showWelcomeTips_maybe } from './components/dom-components/welcome-notice';
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
-import * as semver from "semver";
-import { showVersionNotice } from './notices/version-notices';
-import { atom, useSetAtom } from 'jotai';
-import { debug } from './utils/log-to-console';
-import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr } from './graphics/icons/command-icons';
-import { drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+import { showVersionNotice } from './components/dom-components/version-notices';
+import { atom } from 'jotai';
+import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
+import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { registerReadingModeInkEmbeds } from './components/formats/current/reading-mode/register-reading-mode-ink-embeds';
+import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
+import { setGlobals } from './stores/global-store';
+import { registerWritingView } from './components/formats/current/writing/writing-view/writing-view';
+import { registerDrawingView } from './components/formats/current/drawing/drawing-view/drawing-view';
+import { MigrationModal } from './components/dom-components/modals/migration-modal/migration-modal';
+import { TldrawSvgMigrationModal } from './components/dom-components/modals/tldraw-svg-migration-modal/tldraw-svg-migration-modal';
+import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
+import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfFileFromNote } from './logic/utils/convert-file-embeds';
+import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
+import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
+import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
+import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
+import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+import { BooxConnection } from 'src/connections/boox/boox-connection';
+import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
+import { logToVault } from 'src/logic/utils/log-to-vault';
+import { setDominantHand } from 'src/stores/dominant-hand-store';
+import {
+	getBooxConnectionEnabled,
+	migrateBooxConnectionFromVaultToDevice,
+	resetBooxConnectionToDefault,
+	resetFingerDrawingToDefault,
+	setBooxConnectionEnabled,
+} from 'src/logic/device-settings/device-settings';
 
 ////////
 ////////
@@ -27,11 +48,40 @@ import { drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-ic
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
 
+	/** Boox companion app WebSocket: open only while a drawing editor is active (unlocked). */
+	booxConnection: BooxConnection;
+
+	/** Sidebar collapsed state captured before opening a dedicated ink view, restored on close. */
+	inkViewSidebarState: { leftWasCollapsed: boolean; rightWasCollapsed: boolean } | null = null;
+
+	// Exposed for e2e testing
+	readonly FileConversionModal = FileConversionModal;
+	readonly findNotesContainingFileEmbed = findNotesContainingFileEmbed;
+	readonly executeFileConversion = executeFileConversion;
+	readonly RemoveEmbedModal = RemoveEmbedModal;
+	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
+	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
+
+	openMigrationModal(onPermanentMigrationFinished?: () => void) {
+		new MigrationModal(this, onPermanentMigrationFinished).open();
+	}
+
+	openTldrawSvgMigrationModal() {
+		new TldrawSvgMigrationModal(this).open();
+	}
+
 	async onload() {
 		await this.loadSettings();
 
-		// const setPlugin = useSetAtom(inkPluginAtom);
-		// setPlugin(this);
+		this.booxConnection = new BooxConnection(() => ({
+			booxConnectionEnabled: getBooxConnectionEnabled(),
+		}));
+
+		setGlobals({
+			plugin: this,
+		});
+
+		logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${getBooxConnectionEnabled()}`);
 
 		addIcon('write_default', writeDefaultSvgStr);
 		addIcon('write_existing', writeExistingSvgStr);
@@ -50,20 +100,76 @@ export default class InkPlugin extends Plugin {
 		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
 		// implementHandwrittenNoteAction(this)
 		// implementHandDrawnNoteAction(this)
+		type InkWindowWithOptionalProcessEnv = Window & {
+			process?: { env?: Record<string, string | undefined> };
+		};
+		const inkProcessEnv = (window as InkWindowWithOptionalProcessEnv).process?.env;
+		const emulateMobileRequested = inkProcessEnv?.INK_EMULATE_MOBILE === 'true';
+		const mobileEmulationReloadGuardKey = '__inkMobileEmulationReloadInProgress';
+		type AppWithOptionalMobileEmulation = App & {
+			emulateMobile?: (enabled: boolean) => void;
+			isMobile?: boolean;
+		};
+		const appWithMobileEmulation = this.app as AppWithOptionalMobileEmulation;
+		const canEmulateMobile = typeof appWithMobileEmulation.emulateMobile === 'function';
+		const alreadyInMobileMode = !!(Platform.isMobile || Platform.isMobileApp || appWithMobileEmulation.isMobile);
+		const mobileEmulationReloadInProgress = window.localStorage.getItem(mobileEmulationReloadGuardKey) === 'true';
 
-		if(this.settings.writingEnabled) {
+		if (emulateMobileRequested && canEmulateMobile && !alreadyInMobileMode && !mobileEmulationReloadInProgress) {
+			// emulateMobile(true) can reload the app; guard to avoid repeatedly requesting emulation on each reload.
+			window.localStorage.setItem(mobileEmulationReloadGuardKey, 'true');
+			const runEmulateMobile = appWithMobileEmulation.emulateMobile;
+			if (typeof runEmulateMobile === 'function') {
+				runEmulateMobile(true);
+			}
+			return;
+		}
+
+		// Once emulation is active (or not requested), clear the guard for future sessions.
+		if (!emulateMobileRequested || alreadyInMobileMode) {
+			window.localStorage.removeItem(mobileEmulationReloadGuardKey);
+		}
+
+		if (this.settings.writingEnabled) {
+
+			// Current
 			registerWritingView(this);
 			registerWritingEmbed(this);
-			implementWritingEmbedActions(this);
+			registerUnifiedUndoRedo(this);
+			registerUnifiedUndoRedoCommands(this);
+			implementWritingEmbedCommands(this);
+			
+			// Legacy v1's are on to allow displaying, but not creating
+			registerWritingView_v1(this);
+			registerWritingEmbed_v1(this);
+			// implementWritingEmbedCommandimplementWritingEmbedCommands_v1(this); s_v1(this);
 		}
 		
-		if(this.settings.drawingEnabled) {
+		if (this.settings.drawingEnabled) {
+
+			// Current
 			registerDrawingView(this);
-			registerDrawingEmbed(this);		
-			implementDrawingEmbedActions(this);
+			registerDrawingEmbed(this);
+			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
+			if (!this.settings.writingEnabled) registerUnifiedUndoRedoCommands(this);
+			implementDrawingEmbedCommands(this);
+
+			// Legacy v1's are on to allow displaying, but not creating
+			registerDrawingView_v1(this);
+			registerDrawingEmbed_v1(this);
+			// implementDrawingEmbedCommands_v1(this);
 		}
-		
+
+		// Register a single generic embed orchestrator if either format is enabled
+		if (this.settings.writingEnabled || this.settings.drawingEnabled) {
+			const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
+			this.registerEditorExtension([inkEmbedsExtension()]);
+			registerPasteEmbedHandler(this);
+			registerReadingModeInkEmbeds(this);
+		}
+
 		registerSettingsTab(this);
+		implementMigrationCommand(this);
 
 		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// // Using this function will automatically remove the event listener when this plugin is disabled.
@@ -72,12 +178,41 @@ export default class InkPlugin extends Plugin {
 		// // });
 
 		showOnboardingTips_maybe(this);
+
 	}
-	
-	onunload() {}
+
+	onunload() {
+		logToVault('Plugin unloaded');
+		this.booxConnection?.dispose();
+	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loaded = await this.loadData() as Record<string, unknown> | null;
+		migrateBooxConnectionFromVaultToDevice(loaded);
+		const isNewInstall = !loaded || Object.keys(loaded).length === 0;
+		if (isNewInstall) {
+			this.settings = Object.assign({}, DEFAULT_SETTINGS);
+		} else {
+			this.settings = migrateOutdatedSettings(loaded);
+			this.stripLegacyBooxFromPluginSettings();
+			await this.saveSettings();
+		}
+		setDominantHand(this.settings.dominantHand);
+	}
+
+	/** Removes vault-synced Boox keys after they have been migrated to device storage. */
+	private stripLegacyBooxFromPluginSettings(): boolean {
+		const settingsRecord = this.settings as unknown as Record<string, unknown>;
+		let changed = false;
+		if ('booxConnectionEnabled' in settingsRecord) {
+			delete settingsRecord.booxConnectionEnabled;
+			changed = true;
+		}
+		if ('einkBridgeEnabled' in settingsRecord) {
+			delete settingsRecord.einkBridgeEnabled;
+			changed = true;
+		}
+		return changed;
 	}
 
 	async saveSettings() {
@@ -85,15 +220,27 @@ export default class InkPlugin extends Plugin {
 	}
 
 	async resetSettings() {
-		this.settings = JSON.parse( JSON.stringify(DEFAULT_SETTINGS) );
-		this.saveSettings();
+		this.settings = structuredClone(DEFAULT_SETTINGS);
+		setDominantHand(this.settings.dominantHand);
+		resetBooxConnectionToDefault();
+		resetFingerDrawingToDefault();
+		this.booxConnection.onSettingsChanged();
+		await this.saveSettings();
 		new Notice('Ink plugin settings reset');
+	}
+
+	/** @internal Used by e2e tests to toggle device-local Boox connection. */
+	setBooxConnectionEnabledForTests(enabled: boolean): void {
+		setBooxConnectionEnabled(enabled);
+		this.booxConnection.onSettingsChanged();
 	}
 }
 
 export const inkPluginAtom = atom<InkPlugin>();
 
-function implementWritingEmbedActions(plugin: InkPlugin) {
+function implementWritingEmbedCommands(plugin: InkPlugin) {
+
+	// Current
 	plugin.addCommand({
 		id: 'create-handwritten-section',
 		name: 'New handwriting section',
@@ -106,15 +253,11 @@ function implementWritingEmbedActions(plugin: InkPlugin) {
 		icon: 'write_existing',
 		editorCallback: (editor: Editor) => insertExistingWritingFile(plugin, editor)
 	});
-	plugin.addCommand({
-		id: 'insert-copied-writing',
-		name: 'Copied handwriting section',
-		icon: 'write_paste',
-		editorCallback: (editor: Editor) => insertRememberedWritingFile(plugin, editor)
-	});
 }
 
-function implementDrawingEmbedActions(plugin: InkPlugin) {
+function implementDrawingEmbedCommands(plugin: InkPlugin) {
+
+	// Current
 	plugin.addCommand({
 		id: 'create-drawing-section',
 		name: 'New drawing',
@@ -124,14 +267,22 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 	plugin.addCommand({
 		id: 'embed-drawing-file',
 		name: 'Existing drawing',
-		icon: 'draw_existing',
+		icon: 'folder-dot',
 		editorCallback: (editor: Editor) => insertExistingDrawingFile(plugin, editor)
 	});
+
+}
+
+function implementMigrationCommand(plugin: InkPlugin) {
 	plugin.addCommand({
-		id: 'insert-copied-drawing',
-		name: 'Copied drawing',
-		icon: 'draw_paste',
-		editorCallback: (editor: Editor) => insertRememberedDrawingFile(plugin, editor)
+		id: 'migrate-legacy-embeds',
+		name: 'Migrate legacy ink embeds to ink-canvas',
+		callback: () => plugin.openMigrationModal(),
+	});
+	plugin.addCommand({
+		id: 'migrate-tldraw-svg-to-ink-canvas',
+		name: 'Migrate tldraw SVG files to ink-canvas (developer)',
+		callback: () => plugin.openTldrawSvgMigrationModal(),
 	});
 }
 
@@ -168,7 +319,7 @@ function implementDrawingEmbedActions(plugin: InkPlugin) {
 function showOnboardingTips_maybe(plugin: InkPlugin) {
 	const newInstall = showWelcomeTips_maybe(plugin);
 
-	if(!newInstall) {
+	if (!newInstall) {
 		showVersionNotice(plugin);
 	}
 }

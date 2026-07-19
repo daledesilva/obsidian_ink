@@ -1,26 +1,28 @@
-import InkPlugin from "src/main";
-import createNewWritingFile from "./create-new-writing-file";
-import { Editor } from "obsidian";
-import { buildWritingEmbed } from "src/utils/embed";
-import { activateNextEmbed } from "src/utils/storage";
+import InkPlugin from 'src/main';
+import { Editor } from 'obsidian';
+import { activateNextEmbed, recordRecentFileSelection } from 'src/logic/utils/storage';
+import { buildWritingEmbed } from "src/components/formats/current/utils/build-embeds";
+import { createNewWritingFile } from './create-new-writing-file';
+import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect-ratio';
 
-/////////
-/////////
-
-const insertNewWritingFile = async (plugin: InkPlugin, editor: Editor) => {
+export const insertNewWritingFile = async (plugin: InkPlugin, editor: Editor) => {
     const activeFile = plugin.app.workspace.getActiveFile();
     const fileRef = await createNewWritingFile(plugin, activeFile);
-    let embedStr = buildWritingEmbed(fileRef.path);
-    
+    recordRecentFileSelection("inkWriting", fileRef.path);
+    const aspectRatio = await readWritingFileAspectRatio(plugin, fileRef);
+    const embedStr = buildWritingEmbed(
+        fileRef.path,
+        aspectRatio != null ? { aspectRatio } : undefined,
+    );
+
     activateNextEmbed();
     const positionForEmbed = editor.getCursor();
-    editor.replaceRange( embedStr, positionForEmbed );
-    const positionForCursor = {...positionForEmbed};
-    
-    // Move the cursor to after the embed (Doesn't do anything if the embed is activated by default)
+    editor.replaceRange(embedStr, positionForEmbed);
+
+    const positionForCursor = { ...positionForEmbed };
     const embedLines = embedStr.split(/\r\n|\r|\n/);
     positionForCursor.line += embedLines.length;
-    editor.setCursor(positionForCursor)
-}
+    editor.setCursor(positionForCursor);
+};
 
-export default insertNewWritingFile;
+

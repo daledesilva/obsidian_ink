@@ -1,0 +1,20 @@
+// Shared stroke colours for inlined ink SVG previews (embeds, file picker modal,
+// and native SVG leaf after ensureThemedNativeInkSvgView mounts a themed host).
+// SVG must be in the DOM (not img) for these rules to apply.
+
+.ddc_ink_writing-embed-preview,
+.ddc_ink_drawing-embed-preview {
+	// !important beats baked fill="#000000" presentation attributes in saved SVGs.
+	path { fill: var(--text-normal) !important; }
+}
+
+.ddc_ink_drawing-embed-preview {
+	.ddc_ink_drawing-placeholder {
+		path { stroke: var(--text-normal) !important; }
+		rect, circle { stroke: var(--text-normal) !important; }
+	}
+
+	.frame-children {
+		rect, circle { stroke: var(--text-normal); }
+	}
+}

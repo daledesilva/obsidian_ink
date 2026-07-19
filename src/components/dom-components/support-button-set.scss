@@ -2,6 +2,8 @@
     
     .setting-item {
         border-top: none !important;
+        background: none;
+        padding-inline: 0;
 
         .setting-item-info {
             flex-grow: 2;

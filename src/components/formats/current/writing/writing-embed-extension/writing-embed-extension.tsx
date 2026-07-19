@@ -1,0 +1,690 @@
+import { syntaxTree } from '@codemirror/language';
+import { Extension, RangeSetBuilder, StateEffect, StateField, Transaction } from '@codemirror/state';
+import { Decoration, DecorationSet, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
+import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
+import InkPlugin from 'src/main';
+import * as React from 'react';
+import { createRoot } from 'react-dom/client';
+import { getGlobals } from 'src/stores/global-store';
+import { Provider as JotaiProvider } from 'jotai';
+import { WritingEmbed } from '../writing-embed/writing-embed';
+import { InkFileData } from 'src/components/formats/current/types/file-data';
+import { SyntaxNodeRef } from '@lezer/common';
+import { buildFileStr } from '../../utils/buildFileStr';
+import { buildDrawingEmbedLine, buildWritingEmbedLine } from '../../utils/build-embeds';
+import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
+import { duplicateWritingFile } from '../../utils/duplicate-files';
+import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
+import './writing-embed-extension.scss';
+import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
+import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
+import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
+import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
+import { EmbedSettings } from 'src/types/embed-settings';
+import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
+import {
+	getEmbedDecorationRange,
+	getEmbedMarkdownRange,
+} from 'src/logic/utils/embed-markdown-range';
+import {
+	patchWritingEmbedAspectRatioInEmbedSnippet,
+	readWritingFileAspectRatio,
+} from 'src/logic/utils/writing-embed-aspect-ratio';
+
+
+// Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
+
+// Refresh effect that can carry viewport position to filter embeds
+const refreshEmbedsEffectWriting = StateEffect.define<number | InkEmbedRefreshRequest | void>();
+
+export class WritingEmbedWidget extends WidgetType {
+    id: string;
+    mdFile: TFile;
+    embeddedFile: TFile | null;
+    embedSettings: EmbedSettings;
+    partialEmbedFilepath: string;
+    isPendingPaste: boolean;
+    isHighlighted: boolean = false;
+    private rootEl?: HTMLElement; // Store reference for dynamic height updates
+
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
+        super();
+        this.mdFile = mdFile;
+        this.id = crypto.randomUUID();
+        this.embeddedFile = embeddedFile;
+        this.embedSettings = embedSettings;
+        this.partialEmbedFilepath = partialEmbedFilepath;
+        this.isPendingPaste = isPendingPaste;
+    }
+
+    toDOM(view: EditorView): HTMLElement {
+        const rootEl = document.createElement('div');
+        this.rootEl = rootEl; // Store reference for later height updates
+        rootEl.className = 'ddc_ink_widget-root';
+        rootEl.setAttribute('data-widget-id', this.id);
+        
+        const root = createRoot(rootEl);
+
+        const { plugin } = getGlobals();
+        const hostLeaf = getWorkspaceLeafForEditorView(plugin, view);
+        const workspaceLeafId = hostLeaf?.id ?? '';
+
+        preventWidgetRootStealingFocus(rootEl);
+
+        // Update highlight state based on current selection
+        this.updateHighlightState(view, rootEl);
+
+        root.render(
+            <JotaiProvider>
+                <WritingEmbed
+                    plugin={plugin}
+                    workspaceLeafId={workspaceLeafId}
+                    embedId={this.id}
+                    writingFileRef={this.embeddedFile}
+                    partialEmbedFilepath={this.partialEmbedFilepath}
+                    embedSettings={this.embedSettings}
+                    save={(pageData) => {
+                        void this.save(pageData);
+                    }}
+                    remove={() => {
+                        this.removeEmbed(view);
+                    }}
+                    getEmbedMarkdown={() => this.getEmbedMarkdown(view)}
+                    deleteEmbed={() => {
+                        this.removeEmbed(view);
+                    }}
+                    setEmbedProps={(aspectRatio: number) => this.setEmbedProps(view, aspectRatio)}
+                    onRequestMeasure={() => this.onRequestMeasure(view)}
+                    sourceMdFile={this.mdFile}
+                    isPendingPaste={this.isPendingPaste}
+                    resolveAsReference={() => this.resolveAsReference(view)}
+                    resolveAsDuplicate={() => {
+                        void this.resolveAsDuplicate(view);
+                    }}
+                    locateFile={() => {
+                        void this.locateFile(view);
+                    }}
+                    replaceEmbedAfterConversion={(finalFile, toType) => {
+                        void this.replaceEmbedAfterConversion(view, finalFile, toType);
+                    }}
+                />
+            </JotaiProvider>
+        );
+        
+        return rootEl;
+    }
+
+    get estimatedHeight(): number {
+        // Return estimated height to prevent layout shifts when widget is mounted
+        // Query actual content container width from CodeMirror DOM
+        let height: number;
+        if (this.embedSettings?.embedDisplay?.aspectRatio) {
+            const { plugin } = getGlobals();
+            const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+            const activeEditor = activeView?.editor;
+            
+            if (activeEditor) {
+                // @ts-expect-error, not typed
+                const cmEditorView = activeEditor.cm as EditorView;
+                
+                // Use contentDOM to get the actual content container width (e.g., 700px)
+                // Fallback to scrollDOM if contentDOM is unavailable
+                const contentWidth = cmEditorView.contentDOM?.clientWidth || cmEditorView.scrollDOM.clientWidth;
+                const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
+                const calculatedHeight = contentWidth / aspectRatio;
+                // Add padding (1em top + 0.5em bottom ≈ 24px)
+                height = calculatedHeight + 24;
+            } else {
+                height = 250;
+            }
+
+        } else {
+            height = 250;
+        }
+        return height;
+    }
+
+    updateHighlightState(view: EditorView, rootEl: HTMLElement) {
+        // Find this widget's position in the document
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return;
+        
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = writingEmbedWidgetFromDecoration(it.value);
+            if (widget && widget.id === this.id) {
+                const widgetStart = it.from;
+                const widgetEnd = it.to;
+                
+                // Check if any selection range actually spans across this widget
+                // Selection must have length > 0 and either start before and end after, or encompass the widget
+                const isHighlighted = view.state.selection.ranges.some(range => {
+                    const hasSelection = range.from !== range.to; // Must be an actual selection, not just cursor position
+                    const spansWidget = (range.from < widgetStart && range.to > widgetEnd) || // Selection encompasses entire widget
+                                      (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // Selection starts before and ends within
+                                      (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd); // Selection starts within and ends after
+                    return hasSelection && spansWidget;
+                });
+                
+                // Update the highlight state and CSS class
+                if (isHighlighted !== this.isHighlighted) {
+                    this.isHighlighted = isHighlighted;
+                    if (isHighlighted) {
+                        rootEl.classList.add('ddc_ink_widget-highlighted');
+                    } else {
+                        rootEl.classList.remove('ddc_ink_widget-highlighted');
+                    }
+                }
+                break;
+            }
+            it.next();
+        }
+    }
+
+    // Helper functions
+    ///////////////////
+
+    save = async (pageData: InkFileData) => {
+        if (!this.embeddedFile) return;
+        const plugin = getGlobals().plugin;
+        const pageDataStr = buildFileStr(pageData);
+        await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
+    };
+
+    private onRequestMeasure(view: EditorView) {
+        // Notify CodeMirror to re-measure when embed content changes
+        view.requestMeasure();
+    }
+
+    private getDecorationBounds(view: EditorView): { decFrom: number; decTo: number } | null {
+        const decorations = view.state.field(embedStateFieldWriting, false);
+        if (!decorations) return null;
+        const it = decorations.iter();
+        while (it.value) {
+            const widget = writingEmbedWidgetFromDecoration(it.value);
+            if (widget && widget.id === this.id) {
+                return { decFrom: it.from, decTo: it.to };
+            }
+            it.next();
+        }
+        return null;
+    }
+
+    private getEmbedMarkdownRangeInView(view: EditorView) {
+        const bounds = this.getDecorationBounds(view);
+        if (!bounds) return null;
+        return getEmbedMarkdownRange(
+            view.state.doc,
+            bounds.decFrom,
+            bounds.decTo,
+            'inkWriting',
+        );
+    }
+
+    getEmbedMarkdown(view: EditorView): string | null {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return null;
+        return view.state.doc.sliceString(range.from, range.to);
+    }
+
+    private removeEmbed(view: EditorView) {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: '' } });
+        view.dispatch(tr);
+    }
+
+    private resolveAsReference(view: EditorView) {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        const updated = currentText.replace(/&pendingPaste=true/, '');
+        if (updated === currentText) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: updated } });
+        view.dispatch(tr);
+    }
+
+    private async resolveAsDuplicate(view: EditorView) {
+        if (!this.embeddedFile) return;
+        const { plugin } = getGlobals();
+        const duplicatedFile = await duplicateWritingFile(plugin, this.embeddedFile, this.mdFile);
+        if (!duplicatedFile) return;
+
+        new Notice('Writing file duplicated');
+
+        await this.replaceEmbedAfterConversion(view, duplicatedFile, 'inkWriting');
+    }
+
+    private async replaceEmbedAfterConversion(
+        view: EditorView,
+        finalFile: TFile,
+        toType: 'inkWriting' | 'inkDrawing',
+    ) {
+        const { plugin } = getGlobals();
+        const writingAspectRatio = toType === 'inkWriting'
+            ? await readWritingFileAspectRatio(plugin, finalFile)
+            : null;
+        const insertEmbedMarkdown = toType === 'inkWriting'
+            ? buildWritingEmbedLine(finalFile.path, {
+                ...(writingAspectRatio != null ? { aspectRatio: writingAspectRatio } : {}),
+            })
+            : buildDrawingEmbedLine(finalFile.path, {
+                embedSettings: await buildDrawingEmbedSettingsFromFile(plugin, finalFile),
+            });
+
+
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+
+        const tr = view.state.update({
+            changes: { from: range.from, to: range.to, insert: insertEmbedMarkdown },
+        });
+        view.dispatch(tr);
+    }
+
+    private async locateFile(view: EditorView) {
+        const { plugin } = getGlobals();
+        await openInkFilePicker(plugin, 'inkWriting', 'Locate writing file', (chosenFile) => {
+            this.updateEmbedFilepath(view, chosenFile.path);
+        });
+    }
+
+    private updateEmbedFilepath(view: EditorView, newFilepath: string) {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        let updated = currentText.replace(/\(<([^>]+)>\)/, `(<${newFilepath}>)`);
+        if (!this.isPendingPaste) {
+            updated = updated.replace(/&pendingPaste=true/, '');
+        }
+        if (updated === currentText) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: updated } });
+        view.dispatch(tr);
+    }
+
+    private setEmbedProps(view: EditorView, aspectRatio: number) {
+        this.embedSettings.embedDisplay.aspectRatio = aspectRatio;
+        view.requestMeasure();
+
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        const updated = patchWritingEmbedAspectRatioInEmbedSnippet(currentText, aspectRatio);
+
+        if (updated === currentText) return;
+        const tr = view.state.update({
+            changes: { from: range.from, to: range.to, insert: updated },
+            annotations: [Transaction.addToHistory.of(false)],
+        });
+        view.dispatch(tr);
+    }
+}
+
+function writingEmbedWidgetFromDecoration(deco: Decoration): WritingEmbedWidget | undefined {
+    const specUnknown: unknown = deco.spec;
+    if (!specUnknown || typeof specUnknown !== 'object' || !('widget' in specUnknown)) {
+        return undefined;
+    }
+    const widgetCandidate: unknown = Reflect.get(specUnknown, 'widget');
+    return widgetCandidate instanceof WritingEmbedWidget ? widgetCandidate : undefined;
+}
+
+// State field to manage decorations
+const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<DecorationSet>({
+    create(): DecorationSet {
+        return Decoration.none;
+    },
+    update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
+        const { plugin } = getGlobals();
+
+        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+        const activeEditor = activeView?.editor;
+        if (!activeEditor) return prevEmbeds;
+
+        // @ts-expect-error, not typed
+        const cmEditorView = activeEditor.cm as EditorView;
+        const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
+        if (!isLivePreview) return Decoration.none;
+
+        const firstRun = prevEmbeds.size === 0;
+
+        // Update highlight state for existing widgets when selection changes
+        if (!firstRun && transaction.changes.empty && transaction.selection) {
+            updateWidgetHighlightsWriting(transaction, prevEmbeds);
+        }
+
+        // Check for refresh effect and extract viewportFrom if present
+        const refreshEffect = transaction.effects.find(e => e.is(refreshEmbedsEffectWriting));
+        const hasRefreshEffect = !!refreshEffect;
+        const { viewportFrom, forceRebuild } = parseInkEmbedRefreshEffectValue(refreshEffect?.value);
+
+        if (!firstRun && transaction.changes.empty && !hasRefreshEffect) {
+            return prevEmbeds;
+        }
+
+        const builder = new RangeSetBuilder<Decoration>();
+
+        if (viewportFrom !== undefined && !forceRebuild) {
+            const iter = prevEmbeds.iter();
+            while (iter.value) {
+                // Map positions through document changes to ensure correct placement
+                const mappedFrom = transaction.changes.mapPos(iter.from);
+                const mappedTo = transaction.changes.mapPos(iter.to);
+                
+                if (mappedFrom < viewportFrom) {
+                    builder.add(mappedFrom, mappedTo, iter.value);
+                }
+                iter.next();
+            }
+        }
+
+        // Iterate syntax tree, optionally starting from viewportFrom
+        const iterateOptions = viewportFrom !== undefined 
+            ? { from: viewportFrom, enter: iterateCallback }
+            : { enter: iterateCallback };
+
+        function iterateCallback(syntaxNodeRef: SyntaxNodeRef): boolean | void {
+            const mdFile = activeView?.file;
+            if (!mdFile) return true;
+
+            const { embedLinkInfo, alterFlow } = detectMarkdownEmbedLinkWriting(mdFile, syntaxNodeRef, transaction);
+            if (!embedLinkInfo) return true;
+            if (alterFlow === 'ignore-children') return false;
+            if (alterFlow === 'continue-traversal') return true;
+
+            const decorationRange = getEmbedDecorationRange(
+                transaction.state.doc,
+                embedLinkInfo.startPosition,
+                embedLinkInfo.endPosition,
+            );
+            embedLinkInfo.startPosition = decorationRange.from;
+            embedLinkInfo.endPosition = decorationRange.to;
+
+            let decorationAlreadyExists = false;
+                const oldDecoration = prevEmbeds.iter();
+                while (oldDecoration.value) {
+                    const oldDecFrom = transaction.changes.mapPos(oldDecoration.from);
+                    const oldDecTo = transaction.changes.mapPos(oldDecoration.to);
+                    const positionsMatch = oldDecFrom === embedLinkInfo.startPosition && oldDecTo === embedLinkInfo.endPosition;
+                    if (positionsMatch) {
+                        // Don't reuse if any change touched this decoration's range — stale widget would show wrong state
+                        let rangeWasModified = false;
+                        if (!transaction.changes.empty) {
+                            transaction.changes.iterChangedRanges((fromA, toA) => {
+                                if (fromA < oldDecoration.to && toA > oldDecoration.from) {
+                                    rangeWasModified = true;
+                                }
+                            });
+                        }
+                        decorationAlreadyExists = !rangeWasModified;
+                        if (decorationAlreadyExists) break;
+                    }
+                    oldDecoration.next();
+                }
+
+            if (!forceRebuild && decorationAlreadyExists && oldDecoration.value) {
+                builder.add(embedLinkInfo.startPosition, embedLinkInfo.endPosition, oldDecoration.value);
+            } else {
+                builder.add(
+                    embedLinkInfo.startPosition,
+                    embedLinkInfo.endPosition,
+                    Decoration.replace({
+                        widget: new WritingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste),
+                        isBlock: true,
+                    })
+                );
+            }
+
+            return true;
+        }
+
+        syntaxTree(transaction.state).iterate(iterateOptions);
+
+        return builder.finish();
+    },
+
+    provide(stateField) {
+        return [
+            EditorView.decorations.from(stateField),
+            EditorView.atomicRanges.of((view: EditorView) => {
+                const decorations = view.state.field(embedStateFieldWriting, false);
+                return decorations || Decoration.none;
+            }),
+            preventCodeMirrorHandlingWidgetsEvents(),
+        ];
+    },
+});
+
+// Helper function to update widget highlight states when selection changes
+function updateWidgetHighlightsWriting(transaction: Transaction, decorations: DecorationSet) {
+    const { plugin } = getGlobals();
+    const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+    const activeEditor = activeView?.editor;
+    if (!activeEditor) return;
+
+    // @ts-expect-error, not typed
+    const view = activeEditor.cm as EditorView;
+    
+    // Build a map of widget positions and their highlight states
+    const widgetHighlightStates = new Map<string, boolean>();
+    
+    const it = decorations.iter();
+    while (it.value) {
+        const widget = writingEmbedWidgetFromDecoration(it.value);
+        if (widget) {
+            const widgetStart = it.from;
+            const widgetEnd = it.to;
+            
+            // Check if any selection range actually spans across this widget
+            // Selection must have length > 0 and either start before and end after, or encompass the widget
+            const isHighlighted = transaction.newSelection.ranges.some(range => {
+                const hasSelection = range.from !== range.to; // Must be an actual selection, not just cursor position
+                const spansWidget = (range.from < widgetStart && range.to > widgetEnd) || // Selection encompasses entire widget
+                                  (range.from < widgetStart && range.to > widgetStart && range.to <= widgetEnd) || // Selection starts before and ends within
+                                  (range.from >= widgetStart && range.from < widgetEnd && range.to > widgetEnd); // Selection starts within and ends after
+                return hasSelection && spansWidget;
+            });
+            
+            widgetHighlightStates.set(widget.id, isHighlighted);
+        }
+        it.next();
+    }
+    
+    // Update each widget's DOM element based on its specific highlight state
+    const widgetElements = view.dom.querySelectorAll('.ddc_ink_widget-root');
+    for (const element of widgetElements) {
+        const htmlElement = element as HTMLElement;
+        
+        // Find the corresponding widget by searching through decorations again
+        const decorationsIter = decorations.iter();
+        let matchedWidget: WritingEmbedWidget | undefined;
+        
+        while (decorationsIter.value) {
+            const widget = writingEmbedWidgetFromDecoration(decorationsIter.value);
+            if (widget) {
+                // Try to match this DOM element with the widget by checking if it's the same element
+                // We'll use a data attribute approach for better matching
+                const widgetId = htmlElement.getAttribute('data-widget-id');
+                if (widgetId === widget.id || (!widgetId && matchedWidget === undefined)) {
+                    matchedWidget = widget;
+                    htmlElement.setAttribute('data-widget-id', widget.id);
+                    break;
+                }
+            }
+            decorationsIter.next();
+        }
+        
+        if (matchedWidget) {
+            const isHighlighted = widgetHighlightStates.get(matchedWidget.id) || false;
+            if (isHighlighted) {
+                htmlElement.classList.add('ddc_ink_widget-highlighted');
+            } else {
+                htmlElement.classList.remove('ddc_ink_widget-highlighted');
+            }
+        }
+    }
+}
+
+export function writingEmbedExtension(): Extension {
+    return [embedStateFieldWriting];
+}
+
+// Public callable function to force an immediate rebuild of decorations/widgets
+// If viewportFrom is provided, only rebuilds embeds at or below that position
+export function refreshWritingEmbedsNow(
+	viewportFrom?: number,
+	options?: { forceRebuild?: boolean },
+): void {
+    const { plugin } = getGlobals();
+    const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+    const editor = activeView?.editor;
+    if (!editor) return;
+    // @ts-expect-error not typed by Obsidian
+    const cmView = editor.cm as EditorView | undefined;
+    if (!cmView) return;
+
+	const payload: number | InkEmbedRefreshRequest | undefined = options?.forceRebuild
+		? { viewportFrom, forceRebuild: true }
+		: viewportFrom;
+
+    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(payload) });
+}
+
+export function registerWritingEmbed(plugin: InkPlugin) {
+    plugin.registerEditorExtension([
+        writingEmbedExtension(),
+    ]);
+}
+
+interface EmbedLinkInfoWriting {
+    startPosition: number;
+    endPosition: number;
+    embeddedFile: TFile | null;
+    embedSettings: EmbedSettings;
+    partialEmbedFilepath: string;
+    isPendingPaste: boolean;
+}
+
+function detectMarkdownEmbedLinkWriting(
+    mdFile: TFile,
+    previewLinkStartNode: SyntaxNodeRef,
+    transaction: Transaction
+): { embedLinkInfo?: EmbedLinkInfoWriting; alterFlow?: 'ignore-children' | 'continue-traversal' } {
+    const { plugin } = getGlobals();
+
+    let nextNode: SyntaxNodeRef | null = null;
+
+    // Expect pattern:
+    // space ! [alt] ( <filepath> ) [Edit Writing] ( ink?settings )
+
+    if (!previewLinkStartNode || !previewLinkStartNode.name.includes('formatting_formatting-image_image_image-marker')) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    const spaceBefore = transaction.state.doc.sliceString(previewLinkStartNode.from - 1, previewLinkStartNode.from);
+    if (spaceBefore !== ' ') return { alterFlow: 'continue-traversal' };
+
+    const transcriptStartNode = previewLinkStartNode.node.nextSibling;
+    if (!transcriptStartNode || !transcriptStartNode.name.includes('formatting_formatting-image_image_image-alt-text_link')) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    nextNode = transcriptStartNode.node.nextSibling;
+    if (!nextNode) return { alterFlow: 'continue-traversal' };
+
+    if (transcriptStartNode.to - transcriptStartNode.from === 1) {
+        const transcriptTextNode = nextNode;
+        const transcriptEndNode = transcriptTextNode.node.nextSibling;
+        if (!transcriptEndNode || !transcriptEndNode.name.includes('formatting_formatting-image_image_image-alt-text_link')) {
+            return { alterFlow: 'continue-traversal' };
+        }
+        nextNode = transcriptEndNode.node.nextSibling;
+    }
+
+    const previewUrlStartNode = nextNode;
+    if (!previewUrlStartNode || (!previewUrlStartNode.name.includes('formatting_formatting-link-string') && !previewUrlStartNode.name.includes('string_url'))) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    const previewFilepathNode = previewUrlStartNode.node.nextSibling;
+    if (!previewFilepathNode || !previewFilepathNode.name.includes('string_url')) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    const previewUrlEndNode = previewFilepathNode.node.nextSibling;
+    if (!previewUrlEndNode || (!previewUrlEndNode.name.includes('formatting_formatting-link-string') && !previewUrlEndNode.name.includes('string_url'))) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    let quoteNode = previewUrlEndNode.node.nextSibling;
+    while (quoteNode && quoteNode.name === 'quote_quote-1') {
+        quoteNode = quoteNode.node.nextSibling;
+    }
+    nextNode = quoteNode;
+
+    const editTextStartNode = nextNode;
+    if (!editTextStartNode || !editTextStartNode.name.includes('formatting_formatting-link_link')) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    nextNode = editTextStartNode.node.nextSibling;
+    if (!nextNode) return { alterFlow: 'continue-traversal' };
+
+    if (editTextStartNode.to - editTextStartNode.from === 1) {
+        const editTextNode = nextNode;
+        const editText = transaction.state.doc.sliceString(editTextNode.from, editTextNode.to);
+        // Disambiguate: Require correct writing label
+        if (editText.trim() !== 'Edit Writing') {
+            return { alterFlow: 'continue-traversal' };
+        }
+        const editTextEndNode = editTextNode.node.nextSibling;
+        if (!editTextEndNode || !editTextEndNode.name.includes('formatting_formatting-link_link')) {
+            return { alterFlow: 'continue-traversal' };
+        }
+        nextNode = editTextEndNode.node.nextSibling;
+    }
+
+    const settingsUrlStartNode = nextNode;
+    if (!settingsUrlStartNode || (!settingsUrlStartNode.name.includes('formatting_formatting-link-string') && !settingsUrlStartNode.name.includes('string_url'))) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    const settingsUrlPathNode = settingsUrlStartNode.node.nextSibling;
+    if (!settingsUrlPathNode || !settingsUrlPathNode.name.includes('string_url')) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    // Require query param to include type=InkWriting (host agnostic)
+    const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
+    if (!urlAndSettings.includes('type=inkWriting')) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    const settingsUrlEndNode = settingsUrlPathNode.node.nextSibling;
+    if (!settingsUrlEndNode || (!settingsUrlEndNode.name.includes('formatting_formatting-link-string') && !settingsUrlEndNode.name.includes('string_url'))) {
+        return { alterFlow: 'continue-traversal' };
+    }
+
+    const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from + 1, previewFilepathNode.to - 1);
+    const startOfReplacement = previewLinkStartNode.from;
+    const endOfReplacement = settingsUrlEndNode.to;
+
+    // Parse settings from URL parameters
+    const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
+
+    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path);
+
+    return {
+        embedLinkInfo: {
+            startPosition: startOfReplacement,
+            endPosition: endOfReplacement,
+            embeddedFile: embeddedFile,
+            embedSettings: embedSettings,
+            partialEmbedFilepath: previewPartialFilepath,
+            isPendingPaste: isPendingPaste,
+        },
+    };
+}
+
+

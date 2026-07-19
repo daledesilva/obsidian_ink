@@ -1,0 +1,54 @@
+---
+description: Variable and identifier naming — unambiguous, self-explanatory, no generic placeholders
+alwaysApply: true
+---
+
+# Naming Conventions
+
+## Core Principle
+
+Every name must be self-explanatory without needing to trace the surrounding context. A reader should understand what a variable holds and what it belongs to from the name alone.
+
+## Prefer Full Words
+
+Prefer full descriptive words over abbreviations. Abbreviations save keystrokes but cost comprehension.
+
+## Avoid Generic Placeholders
+
+Do not use vague names that say nothing about what the value actually is:
+
+❌ `data`, `info`, `value`, `item`, `temp`, `result`, `obj`, `val`, `thing`
+
+✅ Use names that describe the domain concept: `userProfile`, `invoiceTotal`, `pendingMessages`
+
+Loop indices (`i`, `j`) are acceptable only in trivially small, obvious loops.
+
+## Booleans
+
+Name booleans as a yes/no question answer:
+
+✅ `isVisible`, `hasUnsavedChanges`, `canEdit`, `isLoading`, `hasFailed`
+
+❌ `visible`, `unsavedChanges`, `editable`, `loading`
+
+## Convey Ownership
+
+When a value belongs to a specific entity, include that entity in the name:
+
+✅ `userAvatarUrl`, `orderCreatedAt`, `sessionTokenExpiry`
+
+❌ `avatarUrl`, `createdAt`, `expiry`
+
+## File scope: exported vs module-private names
+
+**Exported** symbols (anything **`export`ed** for use from **other files** — helpers, hooks, constants, shared **`sx`**, etc.) **should** use a **file-scoped prefix** (aligned with the file or primary export) so names stay unique in the repo and obvious at import or call sites.
+
+**Not exported** module-private helpers in a **`.tsx`** file that is clearly focused on **one primary component** (filename and main export match): **do not** repeat the component or file basename in every name — ownership is already obvious. Prefer **structural or role** names.
+
+❌ `userBubbleOuterSx` (private) in `UserChatBubble.tsx`  
+✅ `outerSx`
+
+**For private symbols, still use a longer or prefixed name when:**
+
+- The file defines **multiple substantial components** or unrelated UI and names would collide.
+- A short name would be **ambiguous inside the file** (e.g. two different “outer” wrappers).

@@ -1,0 +1,176 @@
+---
+description: TypeScript and JavaScript coding style — branching, conditions, comments, React patterns
+globs: **/*.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# TypeScript / JavaScript Coding Style
+
+## Avoid Ternary Branching
+
+Use ternary (`?:`) only when both branches are plain values or single variables. For any logic, side effects, or function calls, use a full `if` statement.
+
+```ts
+// ❌ BAD
+const label = isActive ? getActiveLabel() : computeFallback(item);
+
+// ✅ GOOD
+let label: string;
+if (isActive) {
+    label = getActiveLabel();
+} else {
+    label = computeFallback(item);
+}
+```
+
+## Precompute Complex Conditions
+
+Do not run complex expressions directly inside an `if` condition. Precompute them as named constants first.
+
+```ts
+// ❌ BAD
+if (user.role === 'admin' && permissions.includes('write') && !session.isExpired()) { ... }
+
+// ✅ GOOD
+const isAuthorisedEditor = user.role === 'admin' && permissions.includes('write') && !session.isExpired();
+if (isAuthorisedEditor) { ... }
+```
+
+## Inline Simple `if` Statements
+
+When an `if` statement has a single simple statement in its body, keep it inline without curly braces.
+
+```ts
+// ❌ BAD
+if (!settings) {
+    return;
+}
+
+// ✅ GOOD
+if (!settings) return;
+```
+
+Use braces when the branch contains more than one statement, a nested branch, or a comment that needs to live inside the branch.
+
+## Do Not Use `useMemo` Unnecessarily
+
+Do not wrap trivial value selection or cheap calculations in `React.useMemo` unless stable identity is actually required.
+
+```tsx
+// ❌ BAD
+const chosenAtom = React.useMemo(
+    () => isProjectPage ? projectPageStatelessSettingsAtom : statelessSettingsAtom,
+    [isProjectPage]
+);
+
+// ✅ GOOD
+let chosenAtom = statelessSettingsAtom;
+if (isProjectPage) chosenAtom = projectPageStatelessSettingsAtom;
+```
+
+Use `React.useMemo` when it is needed to preserve identity for derived objects, derived atoms, or expensive computations.
+
+## JSX optional branches
+
+When the **false** branch is only **`null`**, prefer **`{condition && (…)}`** over **`{condition ? (…) : null}`**.
+
+## Imports section divider (`*.ts` / `*.tsx`)
+
+When the file contains any **`import`** or **`import type`** statements:
+
+1. Group **all** import lines at the **top** (after an optional shebang, **`/// <reference … />`**, or other required first-line tooling headers).
+2. Immediately after the last import, add **two identical** full lines of slash characters (same pattern as elsewhere in this repo, e.g. **`//////////`**), **then exactly one blank line**, then everything else (types, exports, implementation).
+
+**Omit** this divider if the file has **no** `import` statements.
+
+## Branch Comments Go Inside the Branch
+
+Place comments that explain a branch at the **start of that branch**, not before the `if` statement.
+
+```ts
+// ❌ BAD
+// Only admins can delete
+if (isAdmin) {
+    deleteRecord();
+}
+
+// ✅ GOOD
+if (isAdmin) {
+    // Only admins can delete
+    deleteRecord();
+}
+```
+
+## React UI Layers
+
+Projects may have two distinct UI layer types — be deliberate about which you use:
+
+- **Framework components** (e.g. React components, JSX) — use for all interactive UI and anything that needs state or reactivity
+- **Host/native elements** (e.g. `document.createElement`, platform-native APIs like Obsidian's `createEl`) — use only when the platform requires it (settings panels, modals driven by the host platform)
+
+Do not mix layers arbitrarily. Follow the established pattern in the project.
+
+## Single `props` parameter (no destructuring)
+
+When a function’s inputs are a **single object** (React function components, render props, and similar), define it with **exactly one parameter** named **`props`**, typed as that object.
+
+- **Do not** destructure in the parameter list (e.g. `({ title, onClose }) =>`).
+- **Do not** unpack `props` in the body (e.g. `const { title, onClose } = props`) only to use those fields.
+- **Always** read fields as **`props.fieldName`** so anything coming from the caller is visibly prefixed with `props.`.
+
+```tsx
+// ❌ BAD
+export const Example: React.FC<ExampleProps> = ({ title, onClose }) => (
+    <Box onClick={onClose}>{title}</Box>
+);
+
+// ❌ BAD
+export const Example: React.FC<ExampleProps> = (props) => {
+    const { title, onClose } = props;
+    return <Box onClick={onClose}>{title}</Box>;
+};
+
+// ✅ GOOD
+export const Example: React.FC<ExampleProps> = (props) => (
+    <Box onClick={props.onClose}>{props.title}</Box>
+);
+```
+
+**Out of scope:** zero-argument functions, multiple **positional** parameters, or a single **non-object** parameter (e.g. `id: string`) — use normal signatures there.
+
+## Props `interface` immediately before the function
+
+When a function takes a single **`props`** object, declare its shape as a **named `export interface`** placed **immediately above** that function (nothing else between the interface and the function).
+
+- Name the interface **`{ComponentOrFunctionName}Props`** (e.g. `SettingsRowProps` before `SettingsRow`).
+- Prefer **`interface`** for that object; do not replace it with only an inline anonymous type on the parameter when this component or function owns the shape.
+- If the **same** props shape is shared across modules, define or import a **named** props interface; avoid an unnamed object type on `props`.
+
+```tsx
+export interface ExamplePanelProps {
+    title: string;
+    onClose: () => void;
+}
+
+/** Renders a titled panel with a close control. */
+export const ExamplePanel: React.FC<ExamplePanelProps> = (props) => (
+    <Box onClick={props.onClose}>{props.title}</Box>
+);
+```
+
+## Minimal TSDoc on every named function
+
+Every **named** function (`function foo`, exported or file-local) and every **`const` binding** whose value is a function or React component must have a **TSDoc** block **`/** … */`** **directly above** that declaration.
+
+- Keep it **minimal**: usually **one short sentence** (what it does or what the component shows). Add `@param` / `@returns` only when a single sentence is not enough.
+- **Omit** TSDoc for **inline** function expressions passed as arguments (e.g. `.map((id) => id)`, short `onClick` lambdas) when a comment would only repeat the code.
+
+## Colocate Styles
+
+Place style definitions (CSS modules, SCSS files, `StyleSheet` objects) in the same folder as the component they style. Do not keep styles in a separate global styles folder unless they are genuinely global tokens.
+
+## State Management
+
+- Use reactive state (e.g. Jotai, Zustand, React state) for UI and cross-component concerns
+- Use session/operational state (e.g. Redux Toolkit) for app-level workflow state that needs structured actions
+- Follow whichever pattern is already established in the project

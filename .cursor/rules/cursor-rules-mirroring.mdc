@@ -1,0 +1,14 @@
+---
+description: Mirror Cursor rule changes back to the reference IDE setup repo
+alwaysApply: true
+---
+
+# Cursor Rules Mirroring
+
+When `./_reference_ide-setup/` is present in the workspace and convention or rule changes are made in this project:
+
+1. Map the change to the correct environment subfolder in the reference repo (Obsidian plugin → `obsidian-plugin/`, Android companion → `android-native/`).
+2. Put cross-cutting changes in `shared/` only when they apply to all project types.
+3. **Cursor is the sole supported AI instruction surface** — do not maintain `.github/copilot-instructions.md` or `.github/instructions/`.
+
+See `_reference_ide-setup/.cursor/rules/reference-repo.mdc` for the full mirroring layout.

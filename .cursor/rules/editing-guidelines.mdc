@@ -1,0 +1,29 @@
+---
+description: Editing guardrails — respect existing patterns, verify fixes, keep logs
+alwaysApply: true
+---
+
+# Editing Guidelines
+
+## Respect Existing Patterns
+
+Before introducing a new pattern or abstraction, check how similar problems are already solved in the codebase and follow the same approach. Only introduce a new pattern if there is a clear reason the existing one cannot work.
+
+## Verify Fixes
+
+Never assume a change will successfully fix something. Every fix must be verified:
+
+- Run the relevant code path or test after applying the fix
+- Do not mark a task complete until verification passes
+
+## Keep Console Logs During a Fix
+
+Do not remove `console.log` statements while actively making a change.
+
+**Debug mode rule:** Never remove logging added for debugging until a final test has been run that shows through the logs that the problem has been fixed. Do not assume a fix has worked without this confirmation.
+
+## Keep Documentation Accurate
+
+If the user asks you to write/update documentation, invokes `/document`, or you are already editing docs for the task, keep documentation accurate and consistent with the implementation.
+
+After successful implementation, suggest `/document` when documenting the current thread's feature work would help future maintenance. Do **not** write or update documentation unless the user explicitly asks, invokes `/document`, or the current task is documentation-only.

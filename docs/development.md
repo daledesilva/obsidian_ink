@@ -54,21 +54,23 @@ These mocks ensure tests focus on component structure/logic without pulling in h
 
 #### CI install and Node version
 
-**Why it exists** — GitHub Actions runs `npm ci` before build and tests. `npm ci` requires `package.json` and `package-lock.json` to be in sync; a lockfile that only “works on your laptop” can still fail CI.
+**Why it exists** — The Test workflow (`.github/workflows/test.yaml`) is **manual-only** (`workflow_dispatch`). It does not run on push/PR to `main`; run unit/e2e locally, and start Test from Actions only when you want a full CI check. Release workflows (internal/beta/public) never run those tests — they only install and build.
 
-**Conceptual understanding** — Local installs often use a newer Node/npm than CI. Different npm majors resolve optional peer dependencies differently. The Test workflow (`.github/workflows/test.yaml`) pins **Node 22.x** (ships **npm 10**). A lockfile refreshed only under Node 24 / npm 11 can omit optional peers that npm 10 still expects during `npm ci`.
+When Test does run, GitHub Actions uses `npm ci` before build and tests. `npm ci` requires `package.json` and `package-lock.json` to be in sync; a lockfile that only “works on your laptop” can still fail that workflow.
+
+**Conceptual understanding** — Local installs often use a newer Node/npm than CI. Different npm majors resolve optional peer dependencies differently. The Test workflow pins **Node 22.x** (ships **npm 10**). A lockfile refreshed only under Node 24 / npm 11 can omit optional peers that npm 10 still expects during `npm ci`.
 
 **Flow**
 
 ```mermaid
 flowchart TD
   localInstall["Local npm install / npm ci"] --> localOk{"Passes on your Node?"}
-  localOk -->|yes Node 24+| pushMain["Push to main"]
-  pushMain --> ciNpmCi["CI: Node 22 + npm ci"]
+  localOk -->|yes Node 24+| optionalCi["Optional: Actions → Test → Run workflow"]
+  optionalCi --> ciNpmCi["CI: Node 22 + npm ci"]
   ciNpmCi --> ciFail{"Missing optional peers in lockfile?"}
   ciFail -->|yes| regen["Regenerate lockfile under Node 22"]
   regen --> commitLock["Commit package-lock.json"]
-  commitLock --> pushMain
+  commitLock --> optionalCi
   ciFail -->|no| tests["build + unit + e2e"]
   localOk -->|no| regen
 ```

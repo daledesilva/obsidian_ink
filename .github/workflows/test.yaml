@@ -1,10 +1,8 @@
 name: Test
 
+# Manual-only: unit + e2e are run locally by default. Start from Actions → Test →
+# Run workflow when a full CI check is needed. Release workflows never use this file.
 on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
 
 permissions: {}

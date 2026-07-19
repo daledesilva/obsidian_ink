@@ -24,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # CI pins Node 22.x (npm 10). Regenerating package-lock.json on a newer Node/npm
+      # can omit optional peer deps that npm ci still requires here — reproduce with
+      # Node 22 + `npm ci`, then `npm install` under Node 22 if the lockfile drifts.
       - uses: actions/setup-node@v4
         with:
           node-version: "22.x"

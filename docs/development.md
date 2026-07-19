@@ -52,6 +52,39 @@ In `tests/setupTests.ts`:
 
 These mocks ensure tests focus on component structure/logic without pulling in heavy runtime dependencies (Obsidian, real tldraw, filesystem).
 
+#### CI install and Node version
+
+**Why it exists** — GitHub Actions runs `npm ci` before build and tests. `npm ci` requires `package.json` and `package-lock.json` to be in sync; a lockfile that only “works on your laptop” can still fail CI.
+
+**Conceptual understanding** — Local installs often use a newer Node/npm than CI. Different npm majors resolve optional peer dependencies differently. The Test workflow (`.github/workflows/test.yaml`) pins **Node 22.x** (ships **npm 10**). A lockfile refreshed only under Node 24 / npm 11 can omit optional peers that npm 10 still expects during `npm ci`.
+
+**Flow**
+
+```mermaid
+flowchart TD
+  localInstall["Local npm install / npm ci"] --> localOk{"Passes on your Node?"}
+  localOk -->|yes Node 24+| pushMain["Push to main"]
+  pushMain --> ciNpmCi["CI: Node 22 + npm ci"]
+  ciNpmCi --> ciFail{"Missing optional peers in lockfile?"}
+  ciFail -->|yes| regen["Regenerate lockfile under Node 22"]
+  regen --> commitLock["Commit package-lock.json"]
+  commitLock --> pushMain
+  ciFail -->|no| tests["build + unit + e2e"]
+  localOk -->|no| regen
+```
+
+**Technical details**
+
+- Workflow step: `actions/setup-node@v4` with `node-version: "22.x"`, then `npm ci`.
+- A known drift case: `create-wdio` (via `@wdio/cli`) pulls `@inquirer/*` packages with optional peer `@types/node` `>=18`. Under Node 22 / npm 10, `npm ci` expects nested lock entries such as `create-wdio/node_modules/@types/node@26.x` and `undici-types@8.x`. Those entries can be absent if the lockfile was last written only with a newer npm.
+- Fix: use Node 22 locally, run `npm install` (or delete `node_modules` and reinstall) so the lockfile records those peers, then verify with `rm -rf node_modules && npm ci` on Node 22 before pushing.
+
+**Technical Gotchas**
+
+- Passing `npm ci` on Node 24 does **not** prove CI will pass — always re-check under Node 22 when touching the lockfile.
+- Do not “fix” this by switching CI to `npm install`; keep `npm ci` and keep the lockfile honest for Node 22.
+- Root `devDependencies` still pin `@types/node` to `^16` for the project; the nested `create-wdio` peers are separate lock entries and should not force a root `@types/node` bump unless you intentionally change TypeScript’s Node typings.
+
 #### How to run tests
 
 - **Unit tests** (Jest, with coverage):

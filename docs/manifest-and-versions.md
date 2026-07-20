@@ -31,7 +31,7 @@ flowchart TD
 | `versions.json` | Repo-root fallback map for older Obsidian apps |
 | `version-bump.mjs` | On `npm version`, sets `manifest.version` and records `versions[targetVersion] = minAppVersion` |
 
-Current contract (plugin `0.5.5`):
+Current contract (plugin `0.5.6`):
 
 ```json
 {
@@ -41,7 +41,8 @@ Current contract (plugin `0.5.5`):
 
 ```json
 {
-  "0.5.5": "1.0.0"
+  "0.5.5": "1.0.0",
+  "0.5.6": "1.0.0"
 }
 ```
 

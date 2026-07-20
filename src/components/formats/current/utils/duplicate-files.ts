@@ -7,6 +7,7 @@ import InkPlugin from "src/main";
 ////////////
 
 // v2 duplicate: writes to .svg
+// Vault.copy requires Obsidian 1.8.7+ and sets the plugin minAppVersion floor.
 
 export const duplicateDrawingFile = async (plugin: InkPlugin, existingFileRef: TFile, instigatingFile?: TFile | null): Promise<TFile | null> => {
     const v = plugin.app.vault;

@@ -4,7 +4,7 @@
 	"author": "Dale de Silva",
 	"description": "Hand write or draw directly between paragraphs in your notes using a digital pen, stylus, or Apple pencil. Useful for handwriting, sketches, scribbles, or even math equations and scientific notation. Runs on the tldraw framework and drawing provides an infinite canvas.",
 	"version": "0.5.6",
-	"minAppVersion": "1.0.0",
+	"minAppVersion": "1.8.7",
 	"authorUrl": "https://designdebt.club",
 	"fundingUrl": "https://ko-fi.com/daledesilva",
 	"isDesktopOnly": false

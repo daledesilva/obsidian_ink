@@ -29,7 +29,7 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Additions in Ink v0.5.4`);
+    scrollAreaEl.createEl('h1').setText(`Additions in Ink v0.5.5`);
 
     const addedListEl = scrollAreaEl.createEl('ul');
     addedListEl.createEl('li').setText(`Full screen writing and drawing is now fully supported.`);
@@ -69,7 +69,7 @@ function showChanges(plugin: InkPlugin) {
 function showChangesPageTwo(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(2, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.4`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.5`);
 
     scrollAreaEl.createEl('h2').setText(`Changed`);
     const changedListEl = scrollAreaEl.createEl('ul');

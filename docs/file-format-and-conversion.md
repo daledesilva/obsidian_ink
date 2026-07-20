@@ -149,8 +149,9 @@ flowchart LR
 - **Do not hide the Settings card from embed-linked SVGs only.** Attachment-folder / orphan tldraw Ink SVGs still need migrate and used to keep the on-open CTA after Settings “finished.”
 - **Do not count plain SVGs.** Eligibility requires Ink sniff + tldraw + writing/drawing file types — otherwise unrelated vault art would keep the card open forever.
 - Collapse the card by toggling `ddc_ink_expanded` on the live wrapper when permanent Done appears — not via full Settings `display()` rebuild, and not on modal close alone.
-- Open **Settings → Ink → Show migration options…** or run **Migrate legacy ink embeds to ink-canvas**.
+- Open **Settings → Ink → Show migration options…** (no command-palette migrate commands).
 - For migrating a **single** file from the editor notice, see [legacy-migrate-on-open.md](./legacy-migrate-on-open.md). Writing embed height after migration: [writing-embed-aspect-ratio.md](./writing-embed-aspect-ratio.md).
+- Permanent migrate deletes legacy files with `FileManager.trashFile` so the user’s trash preference applies.
 
 ## Drawing ↔ writing conversion
 

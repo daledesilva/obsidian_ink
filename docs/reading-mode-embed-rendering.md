@@ -126,6 +126,7 @@ PDF export often requires rules under `@media print { .print … }`. Frontmatter
 5. Blockquote right-edge overflow is a known Live Preview limitation; reading mode follows the same behaviour.
 6. **PDF export uses a full-page post-processor root** — See [PDF export](#pdf-export). Do not remove `FULL_PAGE_PREVIEW_ROOT_SELECTOR` or revert to section-only scan roots without testing reframed drawing exports.
 7. **Do not run stale-host remount synchronously after mounting on full-page roots** — Causes a React race and can hang the export progress bar; see [PDF export § Lifecycle constraints](#lifecycle-constraints-on-full-page-export).
+8. **Drawing embed centering is CSS, not inline literals** — `.ddc_ink_drawing-embed .ddc_ink_resize-container` owns `position` / `left: 50%` / `translate: -50%`. `applyReadingModeEmbedDimensions` only sets dynamic width/height/maxWidth (Obsidian `no-static-styles-assignment`). Writing width `100%` comes from writing-embed SCSS.
 
 ## See also
 

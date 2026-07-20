@@ -19,7 +19,7 @@ flowchart TD
     Check -->|No| ShowModal[Show RemoveEmbedModal]
     ShowModal --> Choice{User choice}
     Choice -->|Remove embed| RemoveOnly
-    Choice -->|Remove and delete file| RemoveAllAndDelete[Remove all embeds of file from note + vault.delete]
+    Choice -->|Remove and delete file| RemoveAllAndDelete[Remove all embeds of file from note + fileManager.trashFile]
     RemoveOnly --> Done[Done]
     RemoveAllAndDelete --> Done
 ```
@@ -71,4 +71,4 @@ QA vault section **15 – Remove Embed** provides notes and fixtures for the e2e
 
 - **Same file embedded multiple times in one note**: "Remove and delete file" removes all such embed lines before deleting the file, so no broken references remain.
 - **sourceMdFile required**: The flow needs the markdown note containing the embed. If `sourceMdFile` is missing (edge case), the action falls back to immediate removal without the prompt.
-- **Obsidian trash**: `vault.delete()` moves the file to system trash by default.
+- **Obsidian trash**: deletion uses `app.fileManager.trashFile()` so the user’s Obsidian trash-vs-permanent-delete preference is respected (do not use `vault.delete()` for this path).

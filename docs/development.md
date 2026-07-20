@@ -1,5 +1,13 @@
 ## Development
 
+### Linting (Obsidian conventions)
+
+This repo uses `eslint-plugin-obsidianmd` so Obsidian directory / popout guidelines are checked locally. See **[ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md)** for why it exists, what to use instead of `document` / `instanceof` / `Vault.delete`, and how Jest polyfills Obsidian globals.
+
+```bash
+npx eslint .
+```
+
 ### Testing
 
 This repository has three test modes:
@@ -41,6 +49,7 @@ See `jest.config.ts`:
 In `tests/setupTests.ts`:
 
 - DOM shims: `window.matchMedia` and `IntersectionObserver` so components relying on these APIs don’t crash.
+- Obsidian globals for popout-safe code paths: `Node.prototype.instanceOf` (→ `instanceof`), `activeDocument` / `activeWindow` (→ `document` / `window`). Required because production code uses those APIs and jsdom does not provide them.
 - `react-inlinesvg` is mocked to a no-op component (previews render consistently in Node).
 - `@tldraw/tldraw` is lightly mocked:
   - Exposes a `TldrawEditor` that immediately calls `onMount` with a minimal `Editor` stub.
@@ -390,6 +399,7 @@ Troubleshooting:
 
 ### Related documentation
 
+- [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd`, popout-safe DOM, trashFile, sentence-case exceptions, Jest polyfills.
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
 - [Ink canvas: stroke viewport culling](ink-canvas-stroke-viewport-culling.md) — Render-only skip of off-screen mounts + path `d` / approx maxY caches.
 - [Dedicated writing: tall HTML page scroll](dedicated-writing-html-scroll.md) — Native scroller instead of camera-Y pan for long writing pages.

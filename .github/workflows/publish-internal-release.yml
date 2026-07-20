@@ -13,6 +13,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Provenance for release assets — same attest path as public/beta (main.js / manifest / styles.css).
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
     - uses: actions/checkout@v4
       with:
@@ -44,6 +49,14 @@ jobs:
         cp README.md ${{ github.event.repository.name }}
         zip -r ${{ github.event.repository.name }}.zip ${{ github.event.repository.name }}
 
+    # Attest packaged plugin assets (not the zip) so provenance matches uploaded release files.
+    - name: Attest plugin artifacts
+      uses: actions/attest-build-provenance@v4
+      with:
+        subject-path: |
+          ${{ github.event.repository.name }}/main.js
+          ${{ github.event.repository.name }}/manifest.json
+          ${{ github.event.repository.name }}/styles.css
 
     # Create the release on github
     - name: Create Release

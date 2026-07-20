@@ -108,7 +108,7 @@ flowchart TD
 - Do not “fix” this by switching CI to `npm install`; keep `npm ci` and keep the lockfile honest for Node 22.
 - Root `devDependencies` still pin `@types/node` to `^16` for the project; the nested `create-wdio` peers are separate lock entries and should not force a root `@types/node` bump unless you intentionally change TypeScript’s Node typings.
 - Generated QA vault content under `qa-test-vault/` stays gitignored, but **`qa-test-vault/fixtures/` is tracked**. Jest migration tests and `generate.mjs` read those files directly; if they are missing on CI you get `ENOENT` under `qa-test-vault/fixtures/…`.
-- **`npm run public-release` / `beta-release` / `internal-release` do not run unit or e2e.** They only push a tag that starts the matching draft/publish release workflow (install + build + package). If Actions “takes forever” after a release, check the job name: a long **Test** / **Run e2e tests** step is a different workflow (and no longer starts automatically on `main`).
+- **`npm run public-release` / `beta-release` / `internal-release` do not run unit or e2e.** They only push a tag that starts the matching draft/publish release workflow (install + build + package + artifact attestation). If Actions “takes forever” after a release, check the job name: a long **Test** / **Run e2e tests** step is a different workflow (and no longer starts automatically on `main`).
 - Re-enabling Test on every push/PR is a one-line trigger change in `test.yaml`; do not assume releases will start failing if someone does that — releases never call Test.
 
 #### How to run tests
@@ -247,6 +247,31 @@ Release tag scripts only start **build-and-package** workflows — never the Tes
 | Install via GitHub **internal-test** release | **Commit + push** your branch, then `npm run internal-release`, wait for CI, reinstall from the new release |
 
 Uncommitted files and your local **`dist/`** folder are **never** included in the internal release artifact.
+
+#### Artifact attestations (release provenance)
+
+**Why:** Obsidian’s community platform recommends GitHub [artifact attestations](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations) on `main.js` and `styles.css` so users can cryptographically verify release assets were built from this repository. All three release workflows (public, beta, internal) mint provenance after packaging.
+
+**Mental model:** Build → copy assets into a package folder → **attest those packaged bytes** → create the GitHub Release and upload the same files. Attestations are bound to content hashes; they must cover the exact files uploaded as release assets, not only `dist/` before copy (copy is bit-identical, but the workflow attests the package folder for clarity).
+
+```mermaid
+flowchart LR
+  Build["npm run build"] --> Package["Package folder: main.js manifest.json styles.css"]
+  Package --> Attest["attest-build-provenance@v4"]
+  Attest --> Release["Create draft/prerelease + upload assets"]
+```
+
+**Technical details**
+
+- Workflows: [`.github/workflows/draft-public-release.yml`](../.github/workflows/draft-public-release.yml), [`draft-beta-release.yml`](../.github/workflows/draft-beta-release.yml), [`publish-internal-release.yml`](../.github/workflows/publish-internal-release.yml)
+- Job permissions: `contents: write`, `id-token: write`, `attestations: write`
+- Subjects: packaged `main.js`, `manifest.json`, `styles.css` (the zip is **not** attested — Obsidian fetches the individual assets)
+
+**Technical gotchas**
+
+- **Only new releases get attestations.** Existing GitHub Releases are unchanged; re-scan on community.obsidian.md after the next tagged release built with these workflows.
+- **Do not attest only `dist/` while uploading a different path** if packaging ever transforms files — subjects must match upload bytes.
+- **Default `GITHUB_TOKEN` permissions are not enough** — without `id-token` / `attestations` write, the attest step fails even when upload succeeds.
 
 **Default vault paths**
 

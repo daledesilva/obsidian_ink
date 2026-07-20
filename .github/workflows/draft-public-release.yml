@@ -20,6 +20,11 @@ on:
 jobs:
   draft-public-release:
     runs-on: ubuntu-latest
+    # Provenance for Obsidian community RELEASES scan — attest the same bytes uploaded as release assets.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,6 +52,15 @@ jobs:
           cp ./dist/styles.css ${{ github.event.repository.name }}
           cp README.md ${{ github.event.repository.name }}
           zip -r ${{ github.event.repository.name }}.zip ${{ github.event.repository.name }}
+
+      # Attest packaged plugin assets (not the zip) so community.obsidian.md can verify provenance.
+      - name: Attest plugin artifacts
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            ${{ github.event.repository.name }}/main.js
+            ${{ github.event.repository.name }}/manifest.json
+            ${{ github.event.repository.name }}/styles.css
 
       # Create the release on github
       - name: Create Release

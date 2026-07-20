@@ -1,4 +1,5 @@
-import { DOMParser } from 'xmldom';
+// Maintained fork of xmldom — GHSA-crh6-fp67-6883 has no patch on the deprecated `xmldom` package.
+import { DOMParser } from '@xmldom/xmldom';
 import { TLEditorSnapshot } from '@tldraw/tldraw';
 import { InkFileData } from '../../components/formats/current/types/file-data';
 import type { InkCanvasSnapshot } from 'src/ink-canvas/types';

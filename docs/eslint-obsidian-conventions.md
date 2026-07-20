@@ -82,6 +82,8 @@ Unit tests therefore exercise the same call sites as the plugin under Obsidian.
 
 ## Technical Gotchas
 
+- **Flat config only — do not restore `.eslintrc`** — Lint config is solely `eslint.config.mjs`. A legacy `.eslintrc` that referenced `@typescript-eslint/parser` / `@typescript-eslint/eslint-plugin` (not installed; this repo uses `typescript-eslint`) caused Obsidian’s community SOURCE CODE scan to fatal with “couldn't find the plugin.” Keep a single flat config so local `npx eslint .` and any tooling that still loads eslintrc cannot diverge into a hard crash.
+- **Scanner ignores local rule overrides** — community.obsidian.md runs its own `eslint-plugin-obsidianmd` recommended set; turning rules off in `eslint.config.mjs` does not silence the hosted scan. Inline `eslint-disable` with a `-- reason` (and matching `eslint-enable` when file-scoped) is the usual escape hatch for allowed rules.
 - **`activeDocument` vs schema fields** — A property named `document` on a tldraw snapshot is not the DOM global. Do not rename it for the lint rule; suppress that line with a short comment.
 - **Sentence-case vs product names** — The rule lowercases many proper nouns (Ink, Boox, SVG). Prefer a one-line disable when UX should keep brand/acronym casing.
 - **`FileManager` in unit tests** — `executeMigration(vault, fileManager, …)` needs a mock with `trashFile` (tests often delegate to the vault mock’s `delete` for assertions).

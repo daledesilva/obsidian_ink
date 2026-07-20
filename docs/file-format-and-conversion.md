@@ -29,6 +29,28 @@ Ink files are SVG files with embedded metadata. The visual content and metadata 
 
 Embed **Edit** links in markdown carry display settings (`width`, `viewBox`, etc.) only — not the ink-canvas format version. Format version lives on the SVG file.
 
+## XML parse and serialize dependency
+
+Save and load of ink SVG metadata use Node-side DOM APIs from **`@xmldom/xmldom`** (not the deprecated npm package `xmldom`):
+
+| Path | Role |
+|------|------|
+| [`buildFileStr.ts`](../src/components/formats/current/utils/buildFileStr.ts) | `DOMParser` + `XMLSerializer` when rewriting `<metadata>` on save |
+| [`extractInkJsonFromSvg.ts`](../src/logic/utils/extractInkJsonFromSvg.ts) | `DOMParser` when reading `<ink>` / `<ink-canvas>` / `<tldraw>` on open |
+
+```mermaid
+flowchart LR
+  VaultSvg[Vault SVG string]
+  Extract[extractInkJsonFromSvg]
+  Build[buildFileStr]
+  VaultSvg --> Extract
+  Extract --> InkData[InkFileData]
+  InkData --> Build
+  Build --> VaultSvg
+```
+
+The maintained fork ships its own TypeScript types; do not re-add `@types/xmldom`.
+
 ## Ink-canvas format version
 
 `INK_CANVAS_FORMAT_VERSION` in [`src/constants.ts`](../src/constants.ts) is the canonical semver for the **`version` attribute** on `<ink-canvas>` (e.g. `version="0.5.0"`). It describes the **functionality and structure** of the **ink-canvas format**: a custom ink payload defined and consumed by this plugin, distinct from:
@@ -173,3 +195,4 @@ Conversion between `inkDrawing` and `inkWriting` changes only the tldraw store (
 
 - **`buildFileStr` expects full SVG content.** The `svgString` parameter must be the complete SVG file (including any existing metadata). When re-serializing an existing file (e.g. during conversion), pass the raw file content, not `data.svgString` — `extractInkJsonFromSvg` does not return `svgString`.
 - **`buildFileStr` strips existing metadata before appending.** When the input `svgString` already contains `<metadata>`, `buildFileStr` removes those elements before adding the new metadata. This avoids duplicate metadata and ensures `extractInkJsonFromSvg` reads the correct data on the next load.
+- **Use `@xmldom/xmldom`, never `xmldom`.** The old `xmldom` package (including `0.6.x`) has no fix for [GHSA-crh6-fp67-6883](https://github.com/advisories/GHSA-crh6-fp67-6883) (multi-root XML). The fork is API-compatible for normal single-root ink SVGs; malformed multi-root input is rejected/logged more strictly and may return `null` from extract instead of silently succeeding.

@@ -1,5 +1,6 @@
 import { INK_CANVAS_FORMAT_VERSION, TLDRAW_VERSION } from 'src/constants';
-import { DOMParser, XMLSerializer } from 'xmldom';
+// Maintained fork of xmldom — GHSA-crh6-fp67-6883 has no patch on the deprecated `xmldom` package.
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import format from 'xml-formatter';
 import { InkFileData } from '../types/file-data';
 import { isInkCanvasFile } from './ink-file-storage-engine';

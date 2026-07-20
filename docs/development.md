@@ -8,6 +8,18 @@ This repo uses `eslint-plugin-obsidianmd` so Obsidian directory / popout guideli
 npx eslint .
 ```
 
+Config is **flat only** (`eslint.config.mjs`). Do not add a legacy `.eslintrc` — it previously referenced missing `@typescript-eslint/*` packages and fatally broke Obsidian’s hosted SOURCE CODE review.
+
+### Repository license
+
+Ink is licensed under **CC BY-NC-ND 4.0** (not open source). Keep these aligned:
+
+- Root [`LICENSE`](../LICENSE) — official Creative Commons legal text only (no CLA appendix; contributions are covered by [CLA.md](CLA.md))
+- `package.json` `"license": "CC-BY-NC-ND-4.0"`
+- README license section
+
+**Gotcha:** GitHub’s license detector does not treat CC-BY-NC-ND as a “recognized” OSS license, so the repo may still show `Other` / no SPDX badge even with a correct `LICENSE` file. Obsidian policy still requires a clear LICENSE + disclosure; the README states the NC-ND terms explicitly.
+
 ### Testing
 
 This repository has three test modes:

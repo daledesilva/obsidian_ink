@@ -20,6 +20,10 @@ Ink is licensed under **CC BY-NC-ND 4.0** (not open source). Keep these aligned:
 
 **Gotcha:** GitHub’s license detector does not treat CC-BY-NC-ND as a “recognized” OSS license, so the repo may still show `Other` / no SPDX badge even with a correct `LICENSE` file. Obsidian policy still requires a clear LICENSE + disclosure; the README states the NC-ND terms explicitly.
 
+### Community plugin page README layout
+
+The [community.obsidian.md](https://community.obsidian.md/plugins/ink) listing renders this repo’s root `README.md` with CSS that differs from GitHub (block images, prose image margins, stubborn table row borders). Demo/media and badge rows use specific HTML table patterns — see **[Community README layout](community-readme-layout.md)** before changing those sections.
+
 ### Testing
 
 This repository has three test modes:

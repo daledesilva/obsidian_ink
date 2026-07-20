@@ -48,7 +48,7 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
 
-	// Sync toolbar highlight when the canvas changes tool (e.g. ⌘/Ctrl temporary erase).
+	// Sync toolbar highlight when the canvas changes tool (e.g. cmd/ctrl temporary erase).
 	React.useEffect(() => {
 		let unsubscribe: (() => void) | undefined;
 		let pollId: number | undefined;

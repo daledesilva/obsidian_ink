@@ -207,6 +207,8 @@ export function WritingEmbed (props: {
 	function handleCopyEmbed(_source: 'context-menu' | 'overflow-menu') {
 		const embedStr = props.getEmbedMarkdown?.() ?? null;
 		if (!embedStr) {
+			// Keep intentional lowercase "markdown" in this notice.
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			new Notice('Could not read embed markdown to copy');
 			return;
 		}

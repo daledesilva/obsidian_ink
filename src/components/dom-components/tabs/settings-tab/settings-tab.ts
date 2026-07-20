@@ -168,6 +168,8 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		.setClass('ddc_ink_controls-header')
 		.setClass('ddc_ink_controls-header--clickable')
 		.setName('Getting started')
+		// Keep "Ink" as the product name.
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		.setDesc('Tips for using Ink, compatibility with other processes, and migrating from older versions.');
 
 	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
@@ -194,6 +196,8 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	});
 	featureDemosLinkEl.setAttribute('target', '_blank');
 	featureDemosLinkEl.setAttribute('rel', 'noopener');
+	// Keep product names and intentional tip-label casing below.
+	/* eslint-disable obsidianmd/ui/sentence-case */
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText('Short videos demonstrating Ink\'s features.');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
@@ -203,11 +207,12 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Right click on a locked embed to copy or delete it.`);
 	// Same tip as the version notice — keep discoverable after onboarding tips are dismissed.
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Temporary eraser');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Hold ⌘/Ctrl to switch to eraser temporarily.`);
-	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS Pencil Scribble');
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Hold cmd/ctrl to switch to eraser temporarily.`);
+	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS pencil scribble');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "sync all other types" in the Obsidian Sync settings.`);
+	/* eslint-enable obsidianmd/ui/sentence-case */
 
 	// Rewatch button
 	new Setting(contentEl)
@@ -264,6 +269,8 @@ function insertTldrawSvgMigrateSection(containerEl: HTMLElement, plugin: InkPlug
 			'Bulk-convert v2 SVG files still on <tldraw> metadata (referenced by embeds) to ink-canvas in place. Drawing embed viewBox is refit to stroke bounds.',
 		)
 		.addButton((button) => {
+			// Keep "SVG" acronym casing.
+			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			button.setButtonText('Migrate tldraw SVGs…');
 			button.onClick(() => plugin.openTldrawSvgMigrationModal());
 		});
@@ -334,8 +341,11 @@ function insertHighLevelSettings(
 
 	new Setting(containerEl)
 		.setClass('ddc_ink_setting')
+		// Keep "Boox" as the product name.
+		/* eslint-disable obsidianmd/ui/sentence-case */
 		.setName('Enable Boox companion app')
 		.setDesc('This enables connection to the Boox companion app for passing through smoother pen strokes. This is currently only available for a closed group of testers.')
+		/* eslint-enable obsidianmd/ui/sentence-case */
 		.addToggle((toggle) => {
 			toggle.setValue(getBooxConnectionEnabled());
 			onBooxToggleReady?.(toggle);
@@ -405,6 +415,8 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 
 			new Setting(container)
 				.setClass('ddc_ink_button-set')
+				// Keep "Ink" as the product name.
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				.setName(`Where should Ink files be saved when created in a note?`)
 				// .setDesc(`The writing and drawing files will be saved into same location as other Obsidian attachments rather than the vault's root folder. The files will still be organised into the subfolders you specify below. You can change the default Obsidian attachment path in in the Files and links tab.`)
 				.addButton( (button) => {
@@ -647,7 +659,9 @@ function insertWritingSettings(
 	new Setting(sectionEl)
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
-		.setDesc(`While editing a Markdown file, run the action 'Insert new handwriting section' to embed a section for writing with a pen.`);
+		// Keep command-name casing as shown in the command palette.
+		// eslint-disable-next-line obsidianmd/ui/sentence-case
+		.setDesc(`While editing a Markdown file, run the action 'New handwriting section' to embed a section for writing with a pen.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 

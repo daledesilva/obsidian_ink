@@ -50,6 +50,8 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
     scrollAreaEl.createEl('h1').setText(`Inserting handwriting sections...`);
     scrollAreaEl.createEl('p').setText(`In any Markdown note, run the following command to begin writing where your Cursor is.`);
+    // Keep command-name casing as shown in the command palette.
+    // eslint-disable-next-line obsidianmd/ui/sentence-case
     scrollAreaEl.createEl('blockquote').setText(`"Ink: New handwriting section"`);
     scrollAreaEl.createEl('p').setText(`( Cmd+P or swipe down )`);
     
@@ -76,6 +78,8 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
     scrollAreaEl.createEl('h1').setText(`Drawing sections...`);
     scrollAreaEl.createEl('p').setText(`These can be added too and can be resized right in your Markdown file. Use the purple lock icon to save framing, or the standard lock icon to save the drawing but revert the framing.`);
+    // Keep command-name casing as shown in the command palette.
+    // eslint-disable-next-line obsidianmd/ui/sentence-case
     scrollAreaEl.createEl('blockquote').setText(`"Ink: New drawing"`);
 
     const {

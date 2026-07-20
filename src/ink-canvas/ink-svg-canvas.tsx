@@ -603,7 +603,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Space+drag pan (Phase C)
 	const isSpaceHeldRef = useRef(false);
 	const isPointerOverCanvasRef = useRef(false);
-	/** While ⌘/Ctrl is held: temporarily switches tool to erase, then restores on release. */
+	/** While cmd/ctrl is held: temporarily switches tool to erase, then restores on release. */
 	const isModKeyHeldRef = useRef(false);
 	const isModTemporaryEraseModeRef = useRef(false);
 	const toolBeforeModTemporaryEraseRef = useRef<InkTool | null>(null);
@@ -1067,7 +1067,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 	}, []); // eslint-disable-line -- stable effect deps
 
-	// ⌘/Ctrl held → temporary eraser; release → restore prior tool.
+	// cmd/ctrl held → temporary eraser; release → restore prior tool.
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (!isModKeyKeyboardEvent(e) || e.repeat) return;

@@ -238,7 +238,7 @@ export class FileConversionModal extends Modal {
 				sectionEl.createEl('p', { text });
 			} else {
 				sectionEl.createEl('p', {
-					text: 'The drawing embed viewBox in affected notes will be recalculated to fit the ink. Stroke positions are unchanged.',
+					text: 'The drawing embed viewbox in affected notes will be recalculated to fit the ink. Stroke positions are unchanged.',
 				});
 			}
 			return;
@@ -300,6 +300,8 @@ export class FileConversionModal extends Modal {
 		if (totalCount > 0 && this.sourceMdFile) {
 			sectionEl.createEl('p', {
 				cls: 'ddc_ink_migration-hint',
+				// Keep button-label casing in the quoted action name.
+				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				text: 'Use "Duplicate and convert copy" to convert a copy and update only this note\'s embed. Other notes keep the original file.',
 			});
 		}

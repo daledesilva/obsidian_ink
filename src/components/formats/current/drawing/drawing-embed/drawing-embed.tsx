@@ -178,7 +178,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function handleCopyEmbed(_source: 'context-menu' | 'overflow-menu') {
 		const embedStr = props.getEmbedMarkdown?.() ?? null;
 		if (!embedStr) {
-			new Notice('Could not read embed markdown to copy');
+			new Notice('Could not read embed Markdown to copy');
 			return;
 		}
 		void copyEmbedMarkdownToClipboard(embedStr);

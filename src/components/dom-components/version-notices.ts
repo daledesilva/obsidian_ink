@@ -43,7 +43,7 @@ function showChanges(plugin: InkPlugin) {
     eraserHoldLi.appendText(`Hold `);
     createNoticeInlineQuote(eraserHoldLi, 'Cmd');
     eraserHoldLi.appendText(` to switch to eraser temporarily.`);
-    addedListEl.createEl('li').setText(`Ability to draw with fingers (Activate in settings).`);
+    addedListEl.createEl('li').setText(`Ability to draw with fingers (activate in settings).`);
     addedListEl.createEl('li').setText(`And more...`);
 
     const {

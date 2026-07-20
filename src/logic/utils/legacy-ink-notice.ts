@@ -54,12 +54,10 @@ function untrackLegacyInkNotice(notice: Notice): void {
 export function showLegacyInkUnlockNotice(context: LegacyInkNoticeContext): void {
 	const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
 	// Keep "Ink" / "SVG" product and acronym casing.
-	/* eslint-disable obsidianmd/ui/sentence-case */
 	scrollAreaEl.createEl('h1').setText('Legacy Ink file');
 	scrollAreaEl.createEl('p').setText(
 		'This is a legacy Ink file and won\'t support all the newest features. You can migrate it to the new SVG format now.',
 	);
-	/* eslint-enable obsidianmd/ui/sentence-case */
 
 	const { primaryBtnEl, tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
 		primaryLabel: 'Migrate to new format',

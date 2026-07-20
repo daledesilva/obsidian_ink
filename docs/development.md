@@ -2,7 +2,7 @@
 
 ### Linting (Obsidian conventions)
 
-This repo uses `eslint-plugin-obsidianmd` so Obsidian directory / popout guidelines are checked locally. See **[ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md)** for why it exists, what to use instead of `document` / `instanceof` / `Vault.delete`, and how Jest polyfills Obsidian globals.
+This repo uses `eslint-plugin-obsidianmd` so Obsidian directory / popout guidelines are checked locally. See **[ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md)** for why it exists, what to use instead of `document` / `instanceof` / `Vault.delete`, and how Jest polyfills Obsidian globals. For community manifest validation (`minAppVersion`, `versions.json`), see **[Manifest minAppVersion and versions.json](manifest-and-versions.md)**.
 
 ```bash
 npx eslint .
@@ -436,7 +436,8 @@ Troubleshooting:
 
 ### Related documentation
 
-- [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd`, popout-safe DOM, trashFile, sentence-case exceptions, Jest polyfills.
+- [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd` 0.4.x, popout-safe DOM, trashFile, pen scroll-lock disables, Jest polyfills.
+- [Manifest minAppVersion and versions.json](manifest-and-versions.md) — valid `x.y.z` app floor, fallback map when minAppVersion changes.
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
 - [Ink canvas: stroke viewport culling](ink-canvas-stroke-viewport-culling.md) — Render-only skip of off-screen mounts + path `d` / approx maxY caches.
 - [Dedicated writing: tall HTML page scroll](dedicated-writing-html-scroll.md) — Native scroller instead of camera-Y pan for long writing pages.

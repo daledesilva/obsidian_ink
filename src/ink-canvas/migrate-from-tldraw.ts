@@ -58,7 +58,7 @@ interface TldrawStoreRecord {
 /** Raw tldraw snapshot as stored in SVG metadata (v2.1+ uses `document.store`). */
 export interface TldrawSnapshotForMigration {
 	store?: Record<string, unknown>;
-	// eslint-disable-next-line obsidianmd/prefer-active-doc -- tldraw snapshot schema key, not the DOM document
+	/** tldraw snapshot schema key (`document.store`), not the DOM `document` global. */
 	document?: { store?: Record<string, unknown> };
 	session?: { isGridMode?: boolean };
 }

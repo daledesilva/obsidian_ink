@@ -41,7 +41,7 @@ export default defineConfig([
 	...obsidianmd.configs.recommended,
 	// Obsidian recommended enables type-aware rules on .js / .json too — turn off outside src TS.
 	{
-		files: ["**/*.js", "**/*.jsx", "**/*.json"],
+		files: ["**/*.js", "**/*.jsx"],
 		extends: [tseslint.configs.disableTypeChecked],
 		rules: {
 			...typedObsidianRulesOff,
@@ -58,6 +58,22 @@ export default defineConfig([
 		},
 		rules: {
 			"obsidianmd/sample-names": "off",
+			// 0.4.x recommended forbids disabling any obsidianmd/* rule. Pen scroll-lock
+			// teardown must keep literal style writes (avoids unpin flash) with targeted
+			// eslint-disable-next-line comments — drop the blanket so those remain valid.
+			"eslint-comments/no-restricted-disable": [
+				"error",
+				"no-console",
+				"no-restricted-globals",
+				"@typescript-eslint/no-restricted-imports",
+				"no-alert",
+				"@typescript-eslint/no-deprecated",
+				"@typescript-eslint/no-explicit-any",
+				"@microsoft/sdl/no-document-write",
+				"no-eval",
+				"@microsoft/sdl/no-inner-html",
+				"obsidianmd/no-nodejs-modules",
+			],
 		},
 	},
 ]);

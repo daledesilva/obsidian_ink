@@ -166,7 +166,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				setIsBooxInputLocked(true);
 				debug('Ink canvas: Connected to Boox companion app WebSocket');
 				// Keep "Boox" as the product name.
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				new Notice('Connected to Boox companion app');
 				const sent = newAndroidDrawingArea();
 				if (sent) {

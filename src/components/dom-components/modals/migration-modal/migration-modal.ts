@@ -146,7 +146,6 @@ export class MigrationModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		// Keep "Ink" as the product name.
-		// eslint-disable-next-line obsidianmd/ui/sentence-case
 		contentEl.createEl('p', { text: 'No legacy Ink files were found in your vault. Nothing to migrate.' });
 
 		const buttonsEl = contentEl.createDiv({ cls: 'ddc_ink_migration-buttons' });
@@ -368,7 +367,6 @@ export class MigrationModal extends Modal {
 
 		if (isTestRun) {
 			// Keep title-style completion heading.
-			// eslint-disable-next-line obsidianmd/ui/sentence-case
 			this.titleEl.setText('Test Migration Complete');
 
 			const hasFailures = failed.length > 0;

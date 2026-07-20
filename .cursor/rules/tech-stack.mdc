@@ -14,5 +14,5 @@ This file is the source of truth for the libraries, frameworks, and tools used i
 - **SVG metadata (parse/serialize):** `@xmldom/xmldom` (not deprecated `xmldom`)
 - **Testing:** Jest (unit/integration), WebdriverIO + wdio-obsidian-service (e2e)
 - **Build tooling:** esbuild (plugin bundling), npm scripts
-- **Linting:** ESLint flat config (`eslint.config.mjs`) + `eslint-plugin-obsidianmd`
+- **Linting:** ESLint flat config (`eslint.config.mjs`) + `eslint-plugin-obsidianmd` ^0.4.1
 - **Boox companion:** eInk Bridge Android app (`eink-bridge` repo) — loopback WebSocket on the same tablet

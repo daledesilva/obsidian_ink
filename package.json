@@ -55,7 +55,7 @@
 		"esbuild-plugin-svg": "^0.1.0",
 		"esbuild-svgr-plugin": "^0.2.0",
 		"eslint": "^9.39.4",
-		"eslint-plugin-obsidianmd": "^0.3.0",
+		"eslint-plugin-obsidianmd": "^0.4.1",
 		"jest": "^29.7.0",
 		"jest-environment-jsdom": "^29.7.0",
 		"mocha": "^11.7.5",

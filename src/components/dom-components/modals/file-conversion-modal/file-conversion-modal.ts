@@ -301,7 +301,6 @@ export class FileConversionModal extends Modal {
 			sectionEl.createEl('p', {
 				cls: 'ddc_ink_migration-hint',
 				// Keep button-label casing in the quoted action name.
-				// eslint-disable-next-line obsidianmd/ui/sentence-case
 				text: 'Use "Duplicate and convert copy" to convert a copy and update only this note\'s embed. Other notes keep the original file.',
 			});
 		}

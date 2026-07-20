@@ -5,23 +5,20 @@ Hand write or draw directly between paragraphs in your notes using a digital pen
 
 ## 🎥 Demo
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=qgir8F7ezNM" target="_blank">
-      <img src="https://img.youtube.com/vi/qgir8F7ezNM/0.jpg" width="60%" alt="Screenshot of devdiary video"><br/>
+  <a href="https://www.youtube.com/watch?v=plrnx7J_Avc" target="_blank">
+      <img src="docs/media/writing-sample.gif" width="60%" alt="Video of using Ink"><br/>
       Click to play demo
   </a>
 
 </p>
 
-**Demo Note**<br/>
-In the video above, I have set up this plugin's commands to be visible in another plugin called [Slash Commander](https://github.com/alephpiece/obsidian-slash-commander) - This allows me to select the insert command quickly by simply typing `/`.
-
 ## 📓 Development Diaries
-I record regular development diaries. [Subscribe and follow along](https://www.youtube.com/@designdebtclub) to see features in development.
 
 <p align="center">
+  I record regular devlogs about my projects.<br/><br/>
     <a href="https://youtube.com/playlist?list=PLAiv7XV4xFx2NMRSCxdGiVombKO-TiMAL&si=TarnAk9A4kzzy0Gu" target="_blank">
-        <img src="docs/media/devdiary-screenshot.jpg" width="60%" alt="Screenshot of devdiary video"><br/>
-        Click to view development diaries
+        <img src="docs/media/devlogs-screenshot.png" width="60%" alt="Screenshot of devdiary video"><br/>
+        Click to view devlogs
     </a>
 </p>
 
@@ -40,37 +37,6 @@ I record regular development diaries. [Subscribe and follow along](https://www.y
   </a>
 </p>
 
-## 🗺️ Rough roadmap
-I've been building this plugin since December 2023 and I'm currently developing it further and using it daily.<br/>
-Below are the high level features in my current development plan along with their expected timeframes.
-
-<details>
-<summary>Historical</summary>
-
-- [x] Proof of concept handwriting input.
-- [x] Proof of concept drawing input.
-- [x] Embeddable in markdown files.
-- [x] Automatic screenshotting.
-- [x] Proof of concept OCR (Transcripts).
-- [x] Refined UI.
-</details>
-
-<details open>
-<summary>Current feature focus</summary>
-
-- [ ] Ability to reframe embedded drawings.
-- [ ] Pen smoothing enhancements (Not eReader related).
-</details>
-
-<details>
-<summary>Speculative</summary>
-
-- [ ] Convert embed format to persist beyond uninstall.
-- [ ] Separate touch interactions.
-- [ ] Multiple pen styles.
-- [ ] Automatic OCR (Transcripts).
-- [ ] Writing edit interactions.
-</details>
 
 ## ⚠️ Be careful
 >As with most Obsidian plugins, this is a free gift to the community, provided 'as is' to help you out. While I'm doing my best to make it awesome (And I love feedback), there are always chances things might not work quite right. To be safe, **please always back up your files**.
@@ -114,40 +80,8 @@ BRAT is another community plugin that allows you to install a Beta version. New 
 - To force an update, run BRAT's Obsidian commnd `Choose a single plugin to update` and choose Ink.
 </details>
 
-## 🛠️ Development
-
-Contributor setup, tests, and local QA vault workflows are in [docs/development.md](docs/development.md).
-
-To build and push the plugin to a USB-connected Boox tablet:
-
-```bash
-cd obsidian_ink
-npm run build:boox
-```
-
-See [Debugging on device](docs/debugging-on-device.md) for USB log capture and WebView DevTools.
-
 ## 🏛️ License
 >Please note that while this repository is public and can be browsed and modified for your personal use, it is not open source. It is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) — see the root [`LICENSE`](LICENSE) file for the full legal text. Contributions are accepted under the [Contributor License Agreement](docs/CLA.md).
-
-## 🗒️ Notes
-
-#### Optimisation Notes
-The plugin currently works based on the [tldraw](https://tldraw.dev/) framework, however, tldraw is implemented using SVG elements which slow down greatly on iOS platforms and possibly others. This equates to significant lag while writing after about 200-300 strokes on iOS (Which is about 3-4 paragraphs). To temporarily mitigate this, the plugin hides strokes while writing that are several lines old. The strokes are still saved and reappear upon freezing the embed, reopening the file, or adjusting the infinite canvas view.
-
-In the future, this plugin will transition off tldraw (at least for writing functionality), to Canvas based input. When this occurs any files that users have created will be converted automatically if necessary—You can count on this as I already have many files in my own vaults that rely on this plugin.
-
-#### Embed Format Notes
-The embed implementation is currently based on a code block that tells the plugin how to display the embed. I'm not happy with this, however, as it means if anyone ever wants to transition off this plugin they have to keep it installed in order to see their old handwritten sections.
-
-I will be modifying this to simply be an image embed that the plugin recognises and enhances. This will mean that even if you uninstall the plugin, all your embeds will still be visible as static images.
-
-#### Drawing Functionality Notes
-There's currently 2 file formats that the plugin implements as embeddable sections. A handwriting file, and a drawing file. This enables the plugin to aid the user in different ways and provide more intuitive UIs for each input mode. The drawing file, however, while I have found that I already prefer using it over other Obsidian plugins, is not the primary goal of this plugin at this stage. It should therefore be treated with caution regarding future support.
-
-Note, however, that the embed format described above will apply here also, which means your exist drawings will still remain visible as static images even if support is removed.
-
-Note also that the drawing functionality will not take the place of Excalidraw. Excalidraw provides a feature rich ability to diagram holistically, whereas this plugin is built around freeform natural pen input. I personally like sketching more freeform with only minimal aid of drag and drop elements, so this is what drawing here is focussed on as that aligns with a handwritten style of taking notes as well.
 
 ## ❤️ Support
 If you find this plugin saves you time or helps you in some way, please consider supporting my development of plugins and other free community material like this.

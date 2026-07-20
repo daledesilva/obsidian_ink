@@ -237,9 +237,10 @@ function scheduleNativeSvgChrome(
 		const containerEl = view?.containerEl;
 		if (!containerEl) return false;
 
-		const viewContent = (containerEl.querySelector('.view-content') ||
-			containerEl.querySelector('.markdown-source-view') ||
-			containerEl) as HTMLElement;
+		const viewContent =
+			containerEl.querySelector<HTMLElement>('.view-content') ||
+			containerEl.querySelector<HTMLElement>('.markdown-source-view') ||
+			containerEl;
 
 		onReady(viewContent, containerEl);
 		return true;

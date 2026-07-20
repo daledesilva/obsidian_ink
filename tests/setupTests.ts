@@ -4,6 +4,18 @@ if (typeof globalThis.structuredClone === 'undefined') {
 	globalThis.structuredClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 }
 
+// Obsidian adds Node.instanceOf for cross-window instanceof checks; jsdom does not.
+// Polyfill so unit tests exercise the same call path as the plugin in Obsidian.
+if (typeof (Node.prototype as { instanceOf?: unknown }).instanceOf !== 'function') {
+	Object.defineProperty(Node.prototype, 'instanceOf', {
+		configurable: true,
+		writable: true,
+		value: function instanceOf(this: Node, type: new (...args: never[]) => unknown): boolean {
+			return this instanceof type;
+		},
+	});
+}
+
 // Minimal mock for Obsidian types used in components
 class TFile {}
 (global as any).TFile = TFile;

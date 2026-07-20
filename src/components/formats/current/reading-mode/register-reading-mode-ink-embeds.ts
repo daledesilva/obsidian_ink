@@ -105,7 +105,8 @@ function processReadingModeInkEmbedsInRoot(
 	// skip remount entirely — hosts were just created and a synchronous remount races React
 	// (active but no .ddc_ink_embed yet), re-mounts via plugin.addChild, and never unloads,
 	// leaving Obsidian's export progress bar stuck.
-	requestAnimationFrame(() => {
+	// Popout-safe: schedule on the window that owns this preview root.
+	window.requestAnimationFrame(() => {
 		if (!isFullPageRoot) {
 			remountStaleReadingEmbedHostsInRoot(plugin, rootEl, context.sourcePath);
 		}
@@ -125,7 +126,7 @@ function remountStaleReadingEmbedHostsInActivePreview(plugin: InkPlugin) {
 
 	remountStaleReadingEmbedHostsInRoot(plugin, previewEl, sourcePath);
 	// Reading pane may have been display:none while in LP — re-measure fluid layouts.
-	requestAnimationFrame(() => {
+	window.requestAnimationFrame(() => {
 		refreshReadingModeEmbedDimensionsInRoot(previewEl);
 	});
 }

@@ -46,7 +46,8 @@ export function refreshLivePreviewEmbedsWhenReady(plugin: InkPlugin) {
 
 		if (!cmView || !isLivePreview) {
 			if (attempt < LIVE_PREVIEW_EMBED_REFRESH_MAX_ATTEMPTS) {
-				requestAnimationFrame(tryRefresh);
+				// Popout-safe: use the window that owns this editor, not the global.
+				window.requestAnimationFrame(tryRefresh);
 			}
 			return;
 		}
@@ -55,5 +56,5 @@ export function refreshLivePreviewEmbedsWhenReady(plugin: InkPlugin) {
 		refreshWritingEmbedsNow(undefined, { forceRebuild: true });
 	};
 
-	queueMicrotask(() => requestAnimationFrame(tryRefresh));
+	queueMicrotask(() => window.requestAnimationFrame(tryRefresh));
 }

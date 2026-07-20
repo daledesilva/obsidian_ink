@@ -203,16 +203,13 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 			<div
 				ref={resizeContainerElRef}
 				className='ddc_ink_resize-container'
+				// Static centering/width live in SCSS; only dynamic size stays inline.
 				style={props.embedKind === 'drawing'
 					? {
 						width: `${embedWidth}px`,
 						height: `${embedWidth / embedAspectRatio}px`,
-						position: 'relative',
-						left: '50%',
-						translate: '-50%',
 					}
 					: {
-						width: '100%',
 						position: 'relative',
 					}}
 			>
@@ -257,10 +254,8 @@ export function applyReadingModeEmbedDimensions(
 
 	if (embedKind === 'drawing') {
 		// Match Live Preview locked preview: saved pixel width, maxWidth caps to page when window shrinks.
+		// Centering (position/left/translate) is in `.ddc_ink_drawing-embed .ddc_ink_resize-container` SCSS.
 		resizeContainerEl.style.width = `${configuredWidth}px`;
-		resizeContainerEl.style.position = 'relative';
-		resizeContainerEl.style.left = '50%';
-		resizeContainerEl.style.translate = '-50%';
 
 		if (pageWidth > 0) {
 			resizeContainerEl.style.maxWidth = `${pageWidth}px`;
@@ -273,8 +268,8 @@ export function applyReadingModeEmbedDimensions(
 		return;
 	}
 
+	// Width 100% comes from `.ddc_ink_resize-container` in writing-embed.scss.
 	const writingWidth = containerWidth || pageWidth || maxFallbackWidth(resizeContainerEl);
-	resizeContainerEl.style.width = '100%';
 	resizeContainerEl.style.height = `${writingWidth / aspectRatio}px`;
 }
 

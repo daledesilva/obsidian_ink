@@ -90,6 +90,10 @@
 
 .ddc_ink_drawing-embed .ddc_ink_resize-container {
     overflow: visible;
+    // Center drawing embeds at saved pixel width (reading mode + shared host layout).
+    position: relative;
+    left: 50%;
+    translate: -50%;
 }
 
 // Hide "Edit Drawing" anchor tags

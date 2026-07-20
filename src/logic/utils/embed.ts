@@ -79,10 +79,9 @@ export function applyReadingModeAncestorStyling(hostEl: HTMLElement, embedKind: 
 
 	if (embedKind !== 'drawing') return;
 
-	const previewContainerEl = (
-		hostEl.closest('.markdown-preview-view')
-		?? hostEl.closest('.markdown-rendered')
-	) as HTMLElement | null;
+	const previewContainerEl =
+		hostEl.closest<HTMLElement>('.markdown-preview-view')
+		?? hostEl.closest<HTMLElement>('.markdown-rendered');
 	if (!previewContainerEl) return;
 
 	const previewStyle = window.getComputedStyle(previewContainerEl);

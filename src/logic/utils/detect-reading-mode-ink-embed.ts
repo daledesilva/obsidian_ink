@@ -76,7 +76,8 @@ export function findReadingModeInkEmbedCandidates(
 
 /** Obsidian nests img inside span.internal-embed — only the outer span is the embed marker. */
 function isNestedObsidianEmbedImg(embedMarkerEl: HTMLElement): boolean {
-	if (!(embedMarkerEl instanceof HTMLImageElement)) return false;
+	// Cross-window safe: popout windows have a different HTMLImageElement constructor.
+	if (!(embedMarkerEl.instanceOf(HTMLImageElement))) return false;
 
 	const parentEmbedEl = embedMarkerEl.parentElement?.closest<HTMLElement>('.internal-embed[alt]');
 	return !!parentEmbedEl && parentEmbedEl !== embedMarkerEl;
@@ -159,7 +160,8 @@ function extractPartialEmbedFilepath(embedMarkerEl: HTMLElement): string | null 
 		}
 	}
 
-	if (embedMarkerEl instanceof HTMLImageElement && embedMarkerEl.src) {
+	// Cross-window safe: popout windows have a different HTMLImageElement constructor.
+	if (embedMarkerEl.instanceOf(HTMLImageElement) && embedMarkerEl.src) {
 		return vaultRelativePathFromObsidianResource(embedMarkerEl.src);
 	}
 

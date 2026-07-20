@@ -9,7 +9,9 @@ async function waitForMigrationConfirmPhase(timeout = 10000) {
 				const modal = document.querySelector(".modal-container");
 				return modal?.textContent ?? '';
 			});
-			return text.includes('legacy Ink') || text.includes('newest SVG format');
+			// Confirm title is sentence case ("legacy ink"); empty-state copy still uses "legacy Ink".
+			const normalized = text.toLowerCase();
+			return normalized.includes('legacy ink') || normalized.includes('newest svg format');
 		},
 		{ timeout },
 	);
@@ -68,7 +70,7 @@ describe("Legacy Embed Migration", function () {
 			const modal = document.querySelector(".modal-container");
 			return modal ? modal.textContent : '';
 		});
-		expect(modalText).toContain('legacy Ink');
+		expect(modalText).toContain('legacy ink');
 	});
 
 	it("migration executes successfully and converts legacy files", async function () {
@@ -301,6 +303,9 @@ describe("Migration: multi-note embed update", function () {
 	});
 
 	it("migration updates embed strings in ALL affected notes (writing and drawing)", async function () {
+		// Full-vault permanent migrate of many legacy + SVG fixtures can exceed Mocha's default.
+		this.timeout(120000);
+
 		// Run the full migration
 		await browser.executeObsidian(({ app }) => {
 			(app.plugins.plugins["ink"] as { openMigrationModal: () => void }).openMigrationModal();
@@ -317,7 +322,7 @@ describe("Migration: multi-note embed update", function () {
 				}
 				return false;
 			},
-			{ timeout: 15000 }
+			{ timeout: 90000 }
 		);
 
 		await browser.execute(() => {

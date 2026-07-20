@@ -436,7 +436,7 @@ Troubleshooting:
 
 ### Related documentation
 
-- [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd` 0.4.x, popout-safe DOM, trashFile, pen scroll-lock disables, Jest polyfills.
+- [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd` 0.4.x, popout-safe DOM, trashFile, pen scroll-lock literal styles (no eslint-disable), Jest polyfills.
 - [Manifest minAppVersion and versions.json](manifest-and-versions.md) — valid `x.y.z` app floor, fallback map when minAppVersion changes.
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
 - [Ink canvas: stroke viewport culling](ink-canvas-stroke-viewport-culling.md) — Render-only skip of off-screen mounts + path `d` / approx maxY caches.

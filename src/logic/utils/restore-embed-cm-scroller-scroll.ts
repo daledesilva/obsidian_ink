@@ -9,10 +9,8 @@ export function restoreEmbedCmScrollerScroll(wrapperEl: HTMLElement | null | und
 	if (!scroller) return;
 	scroller.classList.remove('ink-cm-scroller--scroll-pinned');
 	// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
-	// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 	scroller.style.overflow = 'auto';
 	window.setTimeout(() => {
-		// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- functional pen scroll-lock
 		scroller.style.scrollbarColor = 'auto';
 	}, 200);
 }

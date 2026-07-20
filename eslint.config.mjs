@@ -58,22 +58,9 @@ export default defineConfig([
 		},
 		rules: {
 			"obsidianmd/sample-names": "off",
-			// 0.4.x recommended forbids disabling any obsidianmd/* rule. Pen scroll-lock
-			// teardown must keep literal style writes (avoids unpin flash) with targeted
-			// eslint-disable-next-line comments — drop the blanket so those remain valid.
-			"eslint-comments/no-restricted-disable": [
-				"error",
-				"no-console",
-				"no-restricted-globals",
-				"@typescript-eslint/no-restricted-imports",
-				"no-alert",
-				"@typescript-eslint/no-deprecated",
-				"@typescript-eslint/no-explicit-any",
-				"@microsoft/sdl/no-document-write",
-				"no-eval",
-				"@microsoft/sdl/no-inner-html",
-				"obsidianmd/no-nodejs-modules",
-			],
+			// Keep recommended eslint-comments/no-restricted-disable (includes obsidianmd/*).
+			// Community SOURCE CODE scan rejects disables for Obsidian rules; pen scroll-lock
+			// literal style writes stay intentional without eslint-disable comments.
 		},
 	},
 ]);

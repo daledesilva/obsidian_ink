@@ -1,7 +1,7 @@
 import './tldraw-writing-editor.scss';
-import { Box, DefaultSizeStyle, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLEventInfo, TLShape, TLShapeId } from "@tldraw/tldraw";
+import { Box, DefaultSizeStyle, Editor, TLCamera, getSnapshot, TldrawOptions, TldrawEditor, defaultTools, defaultShapeTools, defaultShapeUtils, TldrawScribble, TldrawShapeIndicators, TldrawSelectionForeground, TldrawSelectionBackground, TldrawHandles, TLEditorSnapshot, TLShape, TLShapeId } from "@tldraw/tldraw";
 import { useRef } from "react";
-import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, bypassReadonly, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, lockTldrawInput, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, resizeWritingTemplate, restrictWritingCamera, silentlyChangeStore, startCameraResizeObserver, startCameraSettleRaf, unlockTldrawInput, updateWritingStoreIfNeeded } from "src/components/formats/current/utils/tldraw-helpers";
+import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, bypassReadonly, focusChildTldrawEditor, getActivityType, getLineHeightFromEditor, getTightWritingBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, lockTldrawInput, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateForDedicatedView, resizeWritingTemplateInvitingly, resizeWritingTemplateInvitinglyIfNecessary, resizeWritingTemplate, restrictWritingCamera, startCameraResizeObserver, startCameraSettleRaf, unlockTldrawInput, updateWritingStoreIfNeeded } from "src/components/formats/current/utils/tldraw-helpers";
 import { useStash } from "./writing-stroke-stash";
 import { WritingContainerUtil } from "../shapes/writing-container"
 import { WritingMenu, tool as WritingTool } from "src/components/jsx-components/writing-menu/writing-menu";
@@ -104,7 +104,6 @@ export const TldrawWritingEditorWrapper: React.FC<TldrawWritingEditorProps> = (p
 }
 
 const MyCustomShapes = [WritingContainerUtil, WritingLinesUtil];
-const myOverrides: Record<string, never> = {}
 const tlOptions: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
@@ -143,7 +142,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const pendingBooxStrokeCompletionsRef = useRef(0);
 	const isAndroidDrawingAreaResizingRef = useRef(false);
 	const queuedBooxStrokePayloadsRef = useRef<BooxStrokePayload[]>([]);
-	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
 
 	// On mount
 	React.useEffect( ()=> {
@@ -1141,17 +1139,6 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 		const basePx = TLDRAW_SIZE_TO_BASE_PX[sizeStyle] ?? TLDRAW_SIZE_TO_BASE_PX['m'];
 		const zoom = editor.getCamera().z;
 		return basePx * zoom * BOOX_STROKE_SIZE_SCALE;
-	}
-
-	/** Throttled variant — use for scroll events that fire rapidly and benefit from coalescing. */
-	function adjustAndroidDrawingAreaThrottled() {
-		if (!isViewActiveRef.current) return;
-		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
-
-		adjustThrottleRef.current = window.setTimeout(() => {
-			adjustThrottleRef.current = null;
-			sendAdjustment(false);
-		}, 200);
 	}
 
 	/** Immediate variant — use when the DOM has already resized and we need Bridge to catch up ASAP.

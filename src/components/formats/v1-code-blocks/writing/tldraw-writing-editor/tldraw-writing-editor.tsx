@@ -1,12 +1,12 @@
 import './tldraw-writing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TldrawSelectionForeground, TldrawSelectionBackground } from "@tldraw/tldraw";
+import { Editor, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot, TldrawSelectionForeground, TldrawSelectionBackground } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, WritingCameraLimits, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getWritingContainerBounds, getWritingSvg, initWritingCamera, initWritingCameraLimits, prepareWritingSnapshot, preventTldrawCanvasesCausingObsidianGestures, resizeWritingTemplateInvitingly, restrictWritingCamera, updateWritingStoreIfNeeded, useStash } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import { WritingContainerUtil_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container"
 import { WritingMenu } from "src/components/jsx-components/writing-menu/writing-menu";
 import InkPlugin from "src/main";
 import * as React from "react";
-import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS, WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
+import { MENUBAR_HEIGHT_PX, WRITE_LONG_DELAY_MS, WRITE_SHORT_DELAY_MS } from 'src/constants';
 import { InkFileData_v1 } from 'src/components/formats/v1-code-blocks/types/file-data';
 import { buildWritingFileData_v1 } from 'src/components/formats/v1-code-blocks/utils/build-file-data';
 import { TFile } from 'obsidian';
@@ -51,7 +51,6 @@ export const TldrawWritingEditorWrapper_v1: React.FC<TldrawWritingEditorProps_v1
 }
 
 const MyCustomShapes_v1 = [WritingContainerUtil_v1, WritingLinesUtil_v1];
-const myOverrides_v1: TLUiOverrides = {}
 const tlOptions_v1: Partial<TldrawOptions> = {
 	defaultSvgPadding: 0,
 }
@@ -66,8 +65,6 @@ export function TldrawWritingEditor_v1(props: TldrawWritingEditorProps_v1) {
 	const tlEditorWrapperElRef = useRef<HTMLDivElement>(null);
 	const { stashStaleContent, unstashStaleContent } = useStash(props.plugin);
 	const cameraLimitsRef = useRef<WritingCameraLimits>();
-	const [preventTransitions, setPreventTransitions] = React.useState<boolean>(true);
-	const recentPenInput = useRef<boolean>(false);
 
 	// On mount
 	React.useEffect( ()=> {

@@ -8,12 +8,6 @@ import { ExpandIcon } from 'src/graphics/icons/expand-icon';
 import { PointerIcon } from 'src/graphics/icons/pointer-icon';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
-import {
-	setProgrammaticUndoInProgress,
-	setProgrammaticRedoInProgress,
-	popEmbedUndoAndPushToRedo,
-	popEmbedRedoAndPushToUndo,
-} from 'src/logic/undo-redo/unified-undo-stack';
 import type { InkCanvasEditor, InkTool } from 'src/ink-canvas/types';
 
 //////////
@@ -78,48 +72,6 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 	}, [props.getEditor]);
 
 	///////////
-
-	function undo() {
-		const editor = props.getEditor();
-		if (!editor) return;
-		const embedId = props.embedId;
-		const leafId = props.workspaceLeafId;
-		const plugin = props.plugin;
-		if (embedId && leafId && plugin) {
-			setProgrammaticUndoInProgress(true, plugin);
-			try {
-				editor.undo();
-				popEmbedUndoAndPushToRedo(leafId, embedId);
-			} finally {
-				const pluginRef = plugin;
-				window.setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
-			}
-		} else {
-			editor.undo();
-		}
-		props.onStoreChange();
-	}
-
-	function redo() {
-		const editor = props.getEditor();
-		if (!editor) return;
-		const embedId = props.embedId;
-		const leafId = props.workspaceLeafId;
-		const plugin = props.plugin;
-		if (embedId && leafId && plugin) {
-			setProgrammaticRedoInProgress(true, plugin);
-			try {
-				editor.redo();
-				popEmbedRedoAndPushToUndo(leafId, embedId);
-			} finally {
-				const pluginRef = plugin;
-				window.setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
-			}
-		} else {
-			editor.redo();
-		}
-		props.onStoreChange();
-	}
 
 	function activateSelectTool() {
 		const editor = props.getEditor();

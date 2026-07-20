@@ -13,7 +13,6 @@ import { getDedicatedInkEditor } from 'src/logic/undo-redo/dedicated-ink-editor-
 import { WRITING_VIEW_TYPE } from 'src/components/formats/current/writing/writing-view/writing-view';
 import { DRAWING_VIEW_TYPE } from 'src/components/formats/current/drawing/drawing-view/drawing-view';
 import {
-	syncUnifiedUndoHistory,
 	isUndoStackEmpty,
 	isRedoStackEmpty,
 	popUndo,
@@ -176,7 +175,7 @@ function executeRedo(plugin: InkPlugin, leafId: string, entry: UnifiedUndoEntry,
 }
 
 export function registerUnifiedUndoRedo(plugin: InkPlugin): void {
-	plugin.registerDomEvent(document, 'keydown', (event: KeyboardEvent) => {
+	plugin.registerDomEvent(activeDocument, 'keydown', (event: KeyboardEvent) => {
 		handleKeydown(plugin, event);
 	}, { capture: true });
 }

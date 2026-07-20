@@ -7,13 +7,6 @@ import { ExpandIcon } from "src/graphics/icons/expand-icon";
 import { Editor } from "@tldraw/tldraw";
 import classNames from "classnames";
 import { TooltipButton } from "src/components/jsx-components/tooltip-button/tooltip-button";
-import { silentlyChangeStore } from "src/components/formats/current/utils/tldraw-helpers";
-import {
-	setProgrammaticUndoInProgress,
-	setProgrammaticRedoInProgress,
-	popEmbedUndoAndPushToRedo,
-	popEmbedRedoAndPushToUndo,
-} from "src/logic/undo-redo/unified-undo-stack";
 
 //////////
 //////////
@@ -37,53 +30,9 @@ interface WritingMenuProps {
 export const WritingMenu = (props: WritingMenuProps) => {
 
     const [curTool, setCurTool] = React.useState<tool>(tool.draw);
-    const [canUndo, setCanUndo] = React.useState<boolean>(false);
-    const [canRedo, setCanRedo] = React.useState<boolean>(false);
 
     ///////////
 
-	function undo() {
-		const tlEditor = props.getTlEditor();
-		if (!tlEditor) return;
-		const embedId = props.embedId;
-		const leafId = props.workspaceLeafId;
-		const plugin = props.plugin;
-		if (embedId && leafId && plugin) {
-			setProgrammaticUndoInProgress(true, plugin);
-			try {
-				silentlyChangeStore(tlEditor, () => tlEditor.undo());
-				popEmbedUndoAndPushToRedo(leafId, embedId);
-			} finally {
-				const pluginRef = plugin;
-				window.setTimeout(() => setProgrammaticUndoInProgress(false, pluginRef), 50);
-			}
-		} else {
-			silentlyChangeStore(tlEditor, () => tlEditor.undo());
-		}
-		setCanUndo(tlEditor.getCanUndo());
-		props.onStoreChange(tlEditor);
-	}
-	function redo() {
-		const tlEditor = props.getTlEditor();
-		if (!tlEditor) return;
-		const embedId = props.embedId;
-		const leafId = props.workspaceLeafId;
-		const plugin = props.plugin;
-		if (embedId && leafId && plugin) {
-			setProgrammaticRedoInProgress(true, plugin);
-			try {
-				silentlyChangeStore(tlEditor, () => tlEditor.redo());
-				popEmbedRedoAndPushToUndo(leafId, embedId);
-			} finally {
-				const pluginRef = plugin;
-				window.setTimeout(() => setProgrammaticRedoInProgress(false, pluginRef), 50);
-			}
-		} else {
-			silentlyChangeStore(tlEditor, () => tlEditor.redo());
-		}
-		setCanRedo(tlEditor.getCanRedo());
-		props.onStoreChange(tlEditor);
-	}
 	function activateSelectTool() {
 		const tlEditor = props.getTlEditor();
 		if (!tlEditor) return;

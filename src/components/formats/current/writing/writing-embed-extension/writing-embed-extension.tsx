@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { Extension, RangeSetBuilder, StateEffect, StateField, Transaction } from '@codemirror/state';
-import { Decoration, DecorationSet, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
+import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
 import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from 'react';
@@ -58,7 +58,7 @@ export class WritingEmbedWidget extends WidgetType {
     }
 
     toDOM(view: EditorView): HTMLElement {
-        const rootEl = document.createElement('div');
+        const rootEl = activeDocument.createElement('div');
         this.rootEl = rootEl; // Store reference for later height updates
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);

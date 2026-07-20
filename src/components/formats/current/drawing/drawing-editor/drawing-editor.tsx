@@ -7,7 +7,7 @@ import classNames from 'classnames';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildInkCanvasDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
-import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS, PLUGIN_VERSION } from 'src/constants';
+import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
@@ -214,7 +214,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	React.useEffect(() => {
 		if (!initialSnapshot) return;
 		if (!editorWrapperRefEl.current) return;
-		const inkPlugin = getGlobals().plugin;
 		if (!getBooxConnectionEnabled()) return;
 
 		const scrollEl = editorWrapperRefEl.current.closest('.cm-scroller');
@@ -630,14 +629,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			adjustThrottleRef.current = null;
 			repositionBooxOverlayAfterEmbedGeometryChange();
 		}, 200);
-	}
-
-	function sendAdjustmentImmediate() {
-		if (adjustThrottleRef.current) window.clearTimeout(adjustThrottleRef.current);
-		adjustThrottleRef.current = window.setTimeout(() => {
-			adjustThrottleRef.current = null;
-			sendAdjustment(true);
-		}, 50);
 	}
 
 	function sendAdjustment(immediate: boolean) {

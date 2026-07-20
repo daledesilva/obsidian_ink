@@ -12,7 +12,7 @@ interface PrimaryMenuBarProps {
 export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
     const scrollContainerElRef = React.useRef<HTMLDivElement>(null);
 	const primaryMenuBarElRef = React.useRef<HTMLDivElement>(null);
-    const [menuActive, setMenuActive] = React.useState<boolean>(true);
+    const [menuActive] = React.useState<boolean>(true);
 
     React.useEffect(() => {
         initScrollHandler();
@@ -76,7 +76,6 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
 
     function handleScrolling(e: Event): void {
         const scrollAreaEl = e.target as HTMLDivElement;
-        const pageScrollY = scrollAreaEl.scrollTop;
 
         const primaryMenuBar = primaryMenuBarElRef.current;
         const embedEl = primaryMenuBar?.parentElement;

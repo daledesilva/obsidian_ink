@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, test } from '@jest/globals';
-import { TFile } from 'obsidian';
+import { FileManager, TFile } from 'obsidian';
 import {
 	findLegacyEmbedBlocks,
 	replaceLegacyBlockInMarkdown,
@@ -500,6 +500,10 @@ describe('executeMigration', () => {
 	const LEGACY_WRITE_PATH = 'Ink/Writing/note.writing';
 	const NEW_SVG_PATH = 'Ink/Writing/note.svg';
 
+	function fileManagerFor(vault: { delete: (file: TFile) => Promise<unknown> }) {
+		return { trashFile: (file: TFile) => vault.delete(file) } as FileManager;
+	}
+
 	function makeLegacyVault(
 		noteContents: Record<string, string>,
 		legacyJson: string,
@@ -567,7 +571,7 @@ describe('executeMigration', () => {
 			affectedNotes: [],
 		};
 
-		await executeMigration(vault as any, scanResult);
+		await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		const createdSvg = (vault as any)._created[NEW_SVG_PATH] as string;
 		expect(createdSvg).toContain(`<ink-canvas version="${INK_CANVAS_FORMAT_VERSION}">`);
@@ -593,7 +597,7 @@ describe('executeMigration', () => {
 			affectedNotes: notePaths.map(makeNote),
 		};
 
-		await executeMigration(vault as any, scanResult);
+		await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		// modify called once per note
 		expect(vault.modify).toHaveBeenCalledTimes(3);
@@ -623,7 +627,7 @@ describe('executeMigration', () => {
 			affectedNotes: notePaths.map(makeNote),
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(result.updatedNotePaths).toHaveLength(3);
 		expect(result.updatedNotePaths).toContain('Notes/A.md');
@@ -644,7 +648,7 @@ describe('executeMigration', () => {
 			affectedNotes: [],
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(vault.modify).not.toHaveBeenCalled();
 		expect(result.updatedNotePaths).toHaveLength(0);
@@ -666,7 +670,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(vault.create).not.toHaveBeenCalled();
 		expect(vault.modify).toHaveBeenCalled();
@@ -694,7 +698,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(vault.create).not.toHaveBeenCalled();
 		expect(result.skipped.some((s) => s.includes('could not parse'))).toBe(true);
@@ -716,7 +720,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(result.failed.length).toBeGreaterThan(0);
 		expect(result.failed[0]).toContain('failed to create SVG');
@@ -742,7 +746,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(result.failed.length).toBeGreaterThan(0);
 		expect(result.failed[0]).toContain('failed to overwrite existing SVG');
@@ -751,7 +755,7 @@ describe('executeMigration', () => {
 		expect(vault.delete).not.toHaveBeenCalled();
 	});
 
-	test('adds to failed when vault.delete throws', async () => {
+	test('adds to failed when fileManager.trashFile throws', async () => {
 		const noteContents = { 'Notes/A.md': `# Title\n\n${legacyWriteBlock(LEGACY_WRITE_PATH)}\n` };
 		const vault = makeLegacyVault(noteContents, makeV1WriteJson(LEGACY_WRITE_PATH), {
 			deleteThrows: true,
@@ -767,7 +771,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		const result = await executeMigration(vault as any, scanResult);
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 		expect(result.failed.length).toBeGreaterThan(0);
 		expect(result.failed[0]).toContain('failed to delete legacy file');
@@ -793,7 +797,7 @@ describe('executeMigration', () => {
 		};
 
 		const progressCalls: [number, number][] = [];
-		await executeMigration(vault as any, scanResult, (done, total) => progressCalls.push([done, total]));
+		await executeMigration(vault as any, fileManagerFor(vault), scanResult, (done, total) => progressCalls.push([done, total]));
 
 		expect(progressCalls).toEqual([[1, 3], [2, 3], [3, 3]]);
 	});
@@ -814,7 +818,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		const result = await executeMigration(vault as any, scanResult, undefined, { testRun: true });
+		const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult, undefined, { testRun: true });
 
 		expect(vault.createFolder).toHaveBeenCalledWith(INK_TEST_CONVERSIONS_FOLDER);
 		expect(testSvgPath).toBe(`${INK_TEST_CONVERSIONS_FOLDER}/note.svg`);
@@ -865,7 +869,7 @@ describe('executeMigration', () => {
 			affectedNotes: [makeNote('Notes/A.md')],
 		};
 
-		await executeMigration(vault as any, scanResult, undefined, {
+		await executeMigration(vault as any, fileManagerFor(vault), scanResult, undefined, {
 			singleLegacyFilePath: LEGACY_WRITE_PATH,
 		});
 

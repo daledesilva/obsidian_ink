@@ -302,7 +302,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		});
 		setCameraState(fittedCamera);
 		emitCameraChange(fittedCamera, { source: 'init' });
-	}, []); // eslint-disable-line -- stable effect deps
+	}, []);  
 
 	// Subscribe to store changes to re-render strokes
 	useEffect(() => {
@@ -334,7 +334,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			}
 		});
 		return () => { unsubStore(); unsubUndo(); };
-	}, []); // eslint-disable-line -- stable effect deps
+	}, []);  
 
 	// Re-cull when the note scroller or window moves the canvas on/off screen (embeds + dedicated).
 	useEffect(() => {
@@ -544,7 +544,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		};
 
 		props.onEditorReady(editor);
-	}, []); // eslint-disable-line -- stable effect deps
+	}, []);  
 
 
 	// Tool contexts
@@ -630,7 +630,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 		selectToolPointerCancel({} as PointerEvent, selectCtx);
-	}, [props.isBooxInputLocked]); // eslint-disable-line -- stable effect deps
+	}, [props.isBooxInputLocked]);  
 
 	// Discard in-progress local input when finger drawing is turned off mid-stroke.
 	useEffect(() => {
@@ -638,7 +638,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 		selectToolPointerCancel({} as PointerEvent, selectCtx);
-	}, [props.isFingerDrawingActive]); // eslint-disable-line -- stable effect deps
+	}, [props.isFingerDrawingActive]);  
 
 	const shouldModTemporaryEraseActivate = useCallback((): boolean => {
 		const last = lastCanvasPointerRef.current;
@@ -680,7 +680,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		if (midStrokeErase) {
 			eraseToolPointerDown(createPointerEventFromLastCanvasPointer(last), eraseCtx);
 		}
-	}, [shouldModTemporaryEraseActivate]); // eslint-disable-line -- stable effect deps
+	}, [shouldModTemporaryEraseActivate]);  
 
 	const endModTemporaryEraseMode = useCallback(() => {
 		if (!isModTemporaryEraseModeRef.current) return;
@@ -696,7 +696,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		if (last?.pointerType === 'mouse' && (last.buttons & 1)) {
 			suppressPrimaryPointerUntilUpRef.current = true;
 		}
-	}, []); // eslint-disable-line -- stable effect deps
+	}, []);  
 
 	const beginModTemporaryEraseModeRef = useRef(beginModTemporaryEraseMode);
 	beginModTemporaryEraseModeRef.current = beginModTemporaryEraseMode;
@@ -797,7 +797,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 
 		(e.target as HTMLElement).setPointerCapture(e.pointerId);
-	}, [tool]); // eslint-disable-line -- stable effect deps
+	}, [tool]);  
 
 	const handlePointerMove = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
@@ -843,7 +843,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerMove(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerMove(e.nativeEvent, selectCtx);
 		}
-	}, [tool]); // eslint-disable-line -- stable effect deps
+	}, [tool]);  
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
@@ -874,7 +874,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerUp(e.nativeEvent, selectCtx);
 		}
-	}, [tool, releasePanMomentum]); // eslint-disable-line -- stable effect deps
+	}, [tool, releasePanMomentum]);  
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
@@ -904,7 +904,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerCancel(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerCancel(e.nativeEvent, selectCtx);
 		}
-	}, [tool]); // eslint-disable-line -- stable effect deps
+	}, [tool]);  
 
 	const handleDrawingEmbedTwoFingerGesture = useCallback(
 		(params: { deltaX: number; deltaY: number; anchorX: number; anchorY: number; distanceRatio: number }) => {
@@ -1065,7 +1065,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			window.removeEventListener('keydown', handleKeyDown, true);
 			window.removeEventListener('keyup', handleKeyUp, true);
 		};
-	}, []); // eslint-disable-line -- stable effect deps
+	}, []);  
 
 	// cmd/ctrl held → temporary eraser; release → restore prior tool.
 	useEffect(() => {

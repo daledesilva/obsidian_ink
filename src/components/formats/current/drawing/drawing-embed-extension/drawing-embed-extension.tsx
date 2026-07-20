@@ -10,7 +10,6 @@ import {
     Decoration,
     DecorationSet,
     EditorView,
-    ViewPlugin,
     WidgetType,
 } from "@codemirror/view";
 import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
@@ -73,7 +72,7 @@ export class DrawingEmbedWidget extends WidgetType {
 
     toDOM(view: EditorView): HTMLElement {
 
-        const rootEl = document.createElement('div');
+        const rootEl = activeDocument.createElement('div');
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
 

@@ -16,6 +16,20 @@ if (typeof (Node.prototype as { instanceOf?: unknown }).instanceOf !== 'function
 	});
 }
 
+// Obsidian globals for popout-safe DOM access; jsdom only provides `document` / `window`.
+if (typeof (globalThis as { activeDocument?: Document }).activeDocument === 'undefined') {
+	Object.defineProperty(globalThis, 'activeDocument', {
+		configurable: true,
+		get: () => document,
+	});
+}
+if (typeof (globalThis as { activeWindow?: Window }).activeWindow === 'undefined') {
+	Object.defineProperty(globalThis, 'activeWindow', {
+		configurable: true,
+		get: () => window,
+	});
+}
+
 // Minimal mock for Obsidian types used in components
 class TFile {}
 (global as any).TFile = TFile;

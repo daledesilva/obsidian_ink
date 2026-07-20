@@ -1,7 +1,6 @@
 import { UnlockIcon } from "src/graphics/icons/unlock-icon";
 import "./transition-menu.scss";
 import * as React from "react";
-import { OverflowIcon } from "src/graphics/icons/overflow-icon";
 import OverflowMenu, { type MenuOption } from "../overflow-menu/overflow-menu";
 import { TooltipButton } from "../tooltip-button/tooltip-button";
 

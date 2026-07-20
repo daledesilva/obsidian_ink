@@ -1,4 +1,4 @@
-import { FileView, TFile, TextFileView, WorkspaceLeaf } from "obsidian";
+import { FileView, TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import InkPlugin from "src/main";

@@ -144,7 +144,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 	};
 
 	const closeKeyboard = () => {
-		const active = document.activeElement as HTMLElement | null;
+		const active = activeDocument.activeElement as HTMLElement | null;
 		if (active && !active.classList.contains('tl-canvas')) {
 			active.blur();
 		}
@@ -185,7 +185,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				const target = e.target as HTMLElement;
 				try {
 					target.setPointerCapture(e.pointerId);
-				} catch (err) {
+				} catch {
 					// Ignore if capture fails
 				}
 
@@ -405,7 +405,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				if (target.hasPointerCapture(e.pointerId)) {
 					try {
 						target.releasePointerCapture(e.pointerId);
-					} catch (err) {
+					} catch {
 						// Ignore
 					}
 				}
@@ -439,7 +439,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				if (target.hasPointerCapture(e.pointerId)) {
 					try {
 						target.releasePointerCapture(e.pointerId);
-					} catch (err) {
+					} catch {
 						// Ignore
 					}
 				}

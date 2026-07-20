@@ -1,5 +1,5 @@
 // import { getAssetUrlsByMetaUrl } from '@tldraw/assets/urls';
-import { MarkdownRenderChild, MarkdownView, TFile } from "obsidian";
+import { MarkdownRenderChild, TFile } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData_v1 } from "src/components/formats/v1-code-blocks/types/file-data";
@@ -77,7 +77,7 @@ class WritingEmbedWidget_v1 extends MarkdownRenderChild {
         let pageData: InkFileData_v1 | null = null;
         try {
             pageData = JSON.parse(pageDataStr) as InkFileData_v1;
-        } catch (e) {
+        } catch {
             pageData = extractInkJsonFromSvg(pageDataStr);
         }
         if (!pageData) {

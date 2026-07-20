@@ -282,7 +282,7 @@ export function FingerBlocker({
 	};
 
 	const closeKeyboard = () => {
-		const active = document.activeElement as HTMLElement | null;
+		const active = activeDocument.activeElement as HTMLElement | null;
 		if (
 			active
 			&& !active.classList.contains('tl-canvas')
@@ -400,7 +400,7 @@ export function FingerBlocker({
 				const target = e.target as HTMLElement;
 				try {
 					target.setPointerCapture(e.pointerId);
-				} catch (err) {
+				} catch {
 					// Ignore if capture fails
 				}
 
@@ -798,7 +798,7 @@ export function FingerBlocker({
 				if (target.hasPointerCapture(e.pointerId)) {
 					try {
 						target.releasePointerCapture(e.pointerId);
-					} catch (err) {
+					} catch {
 						// Ignore
 					}
 				}
@@ -825,7 +825,7 @@ export function FingerBlocker({
 				if (target.hasPointerCapture(e.pointerId)) {
 					try {
 						target.releasePointerCapture(e.pointerId);
-					} catch (err) {
+					} catch {
 						// Ignore
 					}
 				}
@@ -901,7 +901,7 @@ export function FingerBlocker({
 				if (target.hasPointerCapture(e.pointerId)) {
 					try {
 						target.releasePointerCapture(e.pointerId);
-					} catch (err) {
+					} catch {
 						// Ignore
 					}
 				}

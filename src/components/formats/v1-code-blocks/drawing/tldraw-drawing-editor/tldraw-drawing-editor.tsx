@@ -1,5 +1,5 @@
 import './tldraw-drawing-editor.scss';
-import { Editor, TLUiOverrides, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Editor, TldrawEditor, TldrawHandles, TldrawOptions, TldrawScribble, TldrawSelectionBackground, TldrawSelectionForeground, TldrawShapeIndicators, defaultShapeTools, defaultShapeUtils, defaultTools, getSnapshot, TLEditorSnapshot } from "@tldraw/tldraw";
 import { useRef } from "react";
 import { Activity, adaptTldrawToObsidianThemeMode, focusChildTldrawEditor, getActivityType, getDrawingSvg, initDrawingCamera, prepareDrawingSnapshot, preventTldrawCanvasesCausingObsidianGestures } from "src/components/formats/v1-code-blocks/utils/tldraw-helpers";
 import InkPlugin from "src/main";
@@ -48,8 +48,6 @@ export const TldrawDrawingEditorWrapper_v1: React.FC<TldrawDrawingEditorProps_v1
         return <></>
     }
 }
-
-const myOverrides_v1: TLUiOverrides = {}
 
 const tlOptions_v1: Partial<TldrawOptions> = {
 	defaultSvgPadding: 10, // Slight amount to prevent cropping overflows from stroke thickness

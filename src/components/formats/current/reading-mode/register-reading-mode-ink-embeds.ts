@@ -84,7 +84,7 @@ function processReadingModeInkEmbedsInRoot(
 			continue;
 		}
 
-		const hostEl = document.createElement('div');
+		const hostEl = activeDocument.createElement('div');
 		hostEl.setAttribute(INK_READING_PROCESSED_ATTR, 'true');
 		hostEl.classList.add('ddc_ink_reading-embed-host');
 		stampReadingEmbedHostMetadata(hostEl, candidate, context.sourcePath);
@@ -224,7 +224,7 @@ function replaceInkEmbedRangeWithHost(
 	editLinkEl: HTMLElement,
 	hostEl: HTMLElement,
 ) {
-	const range = document.createRange();
+	const range = activeDocument.createRange();
 	range.setStartBefore(embedMarkerEl);
 	range.setEndAfter(editLinkEl);
 	range.deleteContents();

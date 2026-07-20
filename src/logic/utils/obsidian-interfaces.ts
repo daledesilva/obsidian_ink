@@ -12,7 +12,7 @@ export async function getObsidianAttachmentFolderPath(plugin: InkPlugin): Promis
             const { folderpath } = parseFilepath(returnedObsPath);
             attachmentPath = folderpath;
         }
-    } catch (err) {
+    } catch {
         return null;
     }
     return attachmentPath;

@@ -1,7 +1,5 @@
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { Extension } from '@codemirror/state';
-import { MarkdownView } from 'obsidian';
-import { getGlobals } from 'src/stores/global-store';
 import { refreshWritingEmbedsNow } from '../writing/writing-embed-extension/writing-embed-extension';
 import { refreshDrawingEmbedsNow } from '../drawing/drawing-embed-extension/drawing-embed-extension';
 

@@ -394,7 +394,7 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 		await plugin.saveSettings();
 	}
 
-	const accordionSection = new ToggleAccordionSetting(containerEl)
+	new ToggleAccordionSetting(containerEl)
 		.setName('Customise file organisation')
 		.setExpanded(plugin.settings.customAttachmentFolders)
 		.onToggle( async (value: boolean) => {
@@ -531,25 +531,25 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 	const last = getLastDetectedStrokeInput();
 	const detectedLabel = last === 'pen' ? 'Pen' : last === 'mouse' ? 'Mouse' : 'None';
 
-	const frag = document.createDocumentFragment();
+	const frag = activeDocument.createDocumentFragment();
 
-	const intro = document.createElement('p');
+	const intro = activeDocument.createElement('p');
 	intro.textContent =
 		'Automatically detect pen or mouse from pressure (auto), use pen pressure and faithful smoothing (pen), or simulated pressure with higher smoothing (mouse).';
 	frag.appendChild(intro);
 
-	const detectedParagraph = document.createElement('p');
+	const detectedParagraph = activeDocument.createElement('p');
 	detectedParagraph.classList.add('ddc_ink_stroke-input-detected-paragraph');
 
-	const detectedLine = document.createElement('strong');
+	const detectedLine = activeDocument.createElement('strong');
 	detectedLine.append('Last detected input: ');
-	const detectedValue = document.createElement('span');
+	const detectedValue = activeDocument.createElement('span');
 	detectedValue.className = 'ddc_ink_stroke-input-detected-value';
 	detectedValue.textContent = detectedLabel;
 	detectedLine.appendChild(detectedValue);
 	detectedParagraph.appendChild(detectedLine);
 
-	detectedParagraph.appendChild(document.createElement('br'));
+	detectedParagraph.appendChild(activeDocument.createElement('br'));
 	detectedParagraph.append('If detection is incorrect, choose Pen or Mouse manually.');
 
 	frag.appendChild(detectedParagraph);
@@ -790,10 +790,4 @@ function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 				await plugin.saveSettings();
 			});
 		});
-}
-
-function insertGenericWarning(containerEl: HTMLElement, text: string) {
-	const sectionEl = containerEl.createDiv('ddc_ink_section ddc_ink_generic-warning-section');
-	const warningEl = sectionEl.createDiv('warning');
-	warningEl.createEl('p', {text});
 }

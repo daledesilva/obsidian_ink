@@ -314,6 +314,7 @@ export class MigrationModal extends Modal {
 				}
 				legacyResult = await executeMigration(
 					this.plugin.app.vault,
+					this.plugin.app.fileManager,
 					this.scanResult,
 					(d, _tot, liveStats) => {
 						updateLive(d, 0, liveStats, 0, 0, 0);

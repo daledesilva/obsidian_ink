@@ -231,13 +231,3 @@ export function DrawingEmbed_v1 (props: {
 
 
 export default DrawingEmbed_v1;
-
-////////
-////////
-
-async function refreshPageData_v1(plugin: InkPlugin, file: TFile): Promise<InkFileData_v1> {
-	const v = plugin.app.vault;
-	const pageDataStr = await v.read(file);
-	const pageData = JSON.parse(pageDataStr) as InkFileData_v1;
-	return pageData;
-}

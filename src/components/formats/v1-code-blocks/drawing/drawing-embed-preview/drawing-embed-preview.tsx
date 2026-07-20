@@ -32,8 +32,6 @@ export const DrawingEmbedPreviewWrapper_v1: React.FC<DrawingEmbedPreviewProps_v1
 }
 
 export const DrawingEmbedPreview_v1: React.FC<DrawingEmbedPreviewProps_v1> = (props) => {
-    const svgRef = React.useRef(null);
-
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const setEmbedState = useSetAtom(embedStateAtom);
     const [fileSrc, setFileSrc] = React.useState<string>(emptyDrawingSvg);

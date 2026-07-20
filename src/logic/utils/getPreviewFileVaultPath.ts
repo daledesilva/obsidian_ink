@@ -6,7 +6,6 @@ import InkPlugin from "src/main";
 
 export const getPreviewFileVaultPath = (plugin: InkPlugin, fileRef: TFile): string => {
     if (!fileRef) return '';
-    const v = plugin.app.vault;
     const previewFilepath = fileRef.parent?.path + '/' + fileRef.basename + '.png';
     return previewFilepath;
 };

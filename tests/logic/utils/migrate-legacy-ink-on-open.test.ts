@@ -30,6 +30,9 @@ function makePlugin(vault: Record<string, unknown>) {
 	return {
 		app: {
 			vault,
+			fileManager: {
+				trashFile: jest.fn(),
+			},
 			metadataCache: {
 				getFirstLinkpathDest: jest.fn(),
 			},
@@ -62,6 +65,7 @@ describe('migrateLegacyInkFileOnOpen', () => {
 
 		expect(executeMigration).toHaveBeenCalledWith(
 			vault,
+			plugin.app.fileManager,
 			expect.any(Object),
 			undefined,
 			{ singleLegacyFilePath: legacyWritingFile.path },

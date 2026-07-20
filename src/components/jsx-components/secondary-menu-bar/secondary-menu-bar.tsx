@@ -12,7 +12,7 @@ interface SecondaryMenuBarProps {
 export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
     const scrollContainerElRef = React.useRef<HTMLDivElement>(null);
 	const SecondaryMenuBarElRef = React.useRef<HTMLDivElement>(null);
-    const [menuActive, setMenuActive] = React.useState<boolean>(true);
+    const [menuActive] = React.useState<boolean>(true);
 
     React.useEffect(() => {
         initScrollHandler();
@@ -79,8 +79,6 @@ export const SecondaryMenuBar = (props: SecondaryMenuBarProps) => {
     function handleScrolling(e: Event): void {
         const scrollAreaEl = e.target as HTMLDivElement;
         
-        const pageScrollY = scrollAreaEl.scrollTop;
-
         const SecondaryMenuBar = SecondaryMenuBarElRef.current;
         const embedEl = SecondaryMenuBar?.parentElement;
         if (!SecondaryMenuBar) return;

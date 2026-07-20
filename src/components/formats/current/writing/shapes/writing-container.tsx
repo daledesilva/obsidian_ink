@@ -1,4 +1,4 @@
-import { HTMLContainer, Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnBeforeUpdateHandler, TLOnResizeHandler, TLOnTranslateHandler, TLShapeUtilCanBindOpts, resizeBox } from '@tldraw/tldraw';
+import { Rectangle2d, SVGContainer, SvgExportContext, TLBaseShape, TLOnResizeHandler, TLOnTranslateHandler, TLShapeUtilCanBindOpts, resizeBox } from '@tldraw/tldraw';
 import { ShapeUtil } from '@tldraw/tldraw';
 import * as React from 'react';
 import { WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';

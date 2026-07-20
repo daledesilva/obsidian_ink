@@ -1,6 +1,5 @@
-import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShape, TLShapeId, TLUnknownShape, setUserPreferences, Box, TLEditorSnapshot } from "@tldraw/tldraw";
+import { Editor, HistoryEntry, TLStoreSnapshot, TLRecord, TLShapeId, TLUnknownShape, setUserPreferences, Box, TLEditorSnapshot } from "@tldraw/tldraw";
 import { WRITING_LINE_HEIGHT, WRITING_MIN_PAGE_HEIGHT, WRITING_PAGE_WIDTH } from "src/constants";
-import InkPlugin from "src/main";
 import { info, verbose } from "../../../../logic/utils/universal-dev-logging";
 import { WritingContainer } from "../writing/shapes/writing-container";
 import { WritingLines } from "../writing/shapes/writing-lines";
@@ -310,7 +309,7 @@ export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCamer
 }
 
 export function adaptTldrawToObsidianThemeMode(editor: Editor) {
-	const isDarkMode = document.body.classList.contains('theme-dark');
+	const isDarkMode = activeDocument.body.classList.contains('theme-dark');
 
 	if (isDarkMode) {
 		setUserPreferences({
@@ -432,7 +431,8 @@ export const unhideWritingContainer = (editor: Editor) => {
 				prev.meta && typeof prev.meta === "object" && !Array.isArray(prev.meta)
 					? { ...(prev.meta as Record<string, unknown>) }
 					: {};
-			const { savedH: _discardSavedHeight, ...restMeta } = metaBase;
+			const restMeta = { ...metaBase };
+			delete restMeta.savedH;
 			return { ...prev, props: { ...prev.props, h: h }, meta: restMeta } as TLUnknownShape;
 		});
 		lockShape(editor, writingContainerShape);
@@ -455,7 +455,8 @@ export const unhideWritingLines = (editor: Editor) => {
 				prev.meta && typeof prev.meta === "object" && !Array.isArray(prev.meta)
 					? { ...(prev.meta as Record<string, unknown>) }
 					: {};
-			const { savedH: _discardSavedHeight, ...restMeta } = metaBase;
+			const restMeta = { ...metaBase };
+			delete restMeta.savedH;
 			return { ...prev, props: { ...prev.props, h: h }, meta: restMeta } as TLUnknownShape;
 		});
 		lockShape(editor, writingLinesShape);
@@ -831,7 +832,6 @@ export function getInvitingWritingBounds(editor: Editor): Box | null {
 
 // Returns bounds sized tightly for preview/screenshot (minimal extra space)
 export function getTightWritingBounds(editor: Editor): Box | null {
-	const {plugin} = getGlobals()
 	let contentBounds = getAllStrokeBounds(editor);
 	if (!contentBounds) return null;
 	const lineHeight = getLineHeightFromEditor(editor);

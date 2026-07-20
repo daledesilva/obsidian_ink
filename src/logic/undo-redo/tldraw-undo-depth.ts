@@ -5,8 +5,6 @@
  * @see docs/undo-redo-implementation.md
  */
 
-import type { Editor } from '@tldraw/tldraw';
-import type { InkCanvasEditor } from 'src/ink-canvas/types';
 import type { AnyInkEditor } from './ink-editor-registry';
 
 export function getTldrawNumUndos(editor: AnyInkEditor): number {

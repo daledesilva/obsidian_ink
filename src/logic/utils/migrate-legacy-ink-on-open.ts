@@ -43,9 +43,15 @@ export async function migrateLegacyInkFileOnOpen(
 			throw new Error('Could not prepare migration for this legacy file.');
 		}
 
-		const migrationResult = await executeMigration(vault, scanResult, undefined, {
-			singleLegacyFilePath: legacyFile.path,
-		});
+		const migrationResult = await executeMigration(
+			vault,
+			plugin.app.fileManager,
+			scanResult,
+			undefined,
+			{
+				singleLegacyFilePath: legacyFile.path,
+			},
+		);
 
 		if (migrationResult.convertedFiles === 0) {
 			const detail = migrationResult.failed[0] ?? migrationResult.skipped[0] ?? 'unknown error';

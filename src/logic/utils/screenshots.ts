@@ -23,7 +23,7 @@ export async function svgToPngDataUri(svgObj: {	height: number,	width: number, s
 		} 
 		
 		// Set canvas dimensions
-		const canvas = document.createElement('canvas');
+		const canvas = activeDocument.createElement('canvas');
 		canvas.width = width;
 		canvas.height = height;
 		const ctx = canvas.getContext('2d');
@@ -33,7 +33,6 @@ export async function svgToPngDataUri(svgObj: {	height: number,	width: number, s
 		}
 		
 		// Render SVG onto canvas
-		const xmlSerialiser = new XMLSerializer();
 		const svgStr = svgObj.svg;
 		const canvgRenderer = await Canvg.from(ctx, svgStr);
         canvgRenderer.resize(width, height, 'xMidYMid meet')

@@ -7,13 +7,6 @@ import { info, verbose } from "../../../../logic/utils/universal-dev-logging";
 import { WritingContainer_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-container";
 import { WritingLines_v1 } from "src/components/formats/v1-code-blocks/writing/writing-shapes/writing-lines";
 
-function narrowStoreRecordToShape(record: unknown): TLUnknownShape {
-	if (typeof record !== "object" || record === null) {
-		throw new Error("Ink: store update expected a shape record");
-	}
-	return record as TLUnknownShape;
-}
-
 //////////
 //////////
 
@@ -209,7 +202,7 @@ export function restrictWritingCamera(editor: Editor, cameraLimits: WritingCamer
 }
 
 export function adaptTldrawToObsidianThemeMode(editor: Editor) {
-	const isDarkMode = document.body.classList.contains('theme-dark');
+	const isDarkMode = activeDocument.body.classList.contains('theme-dark');
 
 	if (isDarkMode) {
 		setUserPreferences({
@@ -277,18 +270,6 @@ function getCompleteShapes(editor: Editor) {
 	});
 
 	return completeShapes;
-}
-
-function getIncompleteShapes(editor: Editor) {
-	const allShapes = editor.getCurrentPageShapes();
-	let incompleteShapes: TLShape[] = [];
-	for (let i = 0; i < allShapes.length; i++) {
-		const shape = allShapes[i];
-		if ('isComplete' in shape.props && shape.props.isComplete === false) {
-			incompleteShapes.push(shape);
-		}
-	}
-	return incompleteShapes;
 }
 
 export const useStash = (plugin: InkPlugin) => {

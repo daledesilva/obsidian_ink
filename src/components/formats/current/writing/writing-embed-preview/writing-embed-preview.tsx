@@ -6,7 +6,6 @@ import InkPlugin from 'src/main';
 import { useAtomValue } from 'jotai';
 import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 import { TFile } from 'obsidian';
-import { getGlobals } from 'src/stores/global-store';
 import { showLockedChrome } from 'src/logic/utils/ink-file-has-strokes';
 import { useInkFileHasStrokes } from 'src/logic/utils/use-ink-file-has-strokes';
 import emptyWritingSvg from 'src/defaults/empty-writing-embed.svg';
@@ -121,10 +120,6 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
     function onLoad() {
         // Slight delay on transition because otherwise a flicker is sometimes seen
         window.setTimeout(() => {}, 100);
-    }
-
-    async function fetchFileData() {
-        refreshSrc();
     }
 
     function refreshSrc() {

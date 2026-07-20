@@ -6,7 +6,7 @@ import { TFile } from 'obsidian';
 import { openRemoveEmbedFlow } from 'src/logic/utils/remove-embed-flow';
 
 const mockRemoveAllEmbedsOfFileFromNote = jest.fn();
-const mockVaultDelete = jest.fn();
+const mockTrashFile = jest.fn();
 const mockModalOpen = jest.fn();
 
 let capturedModalConstructorArgs: {
@@ -37,8 +37,9 @@ jest.mock('src/components/dom-components/modals/remove-embed-modal/remove-embed-
 function makePlugin() {
 	return {
 		app: {
-			vault: {
-				delete: mockVaultDelete,
+			vault: {},
+			fileManager: {
+				trashFile: mockTrashFile,
 			},
 		},
 	} as any;
@@ -53,7 +54,7 @@ describe('openRemoveEmbedFlow', () => {
 		jest.clearAllMocks();
 		capturedModalConstructorArgs = null;
 		mockRemoveAllEmbedsOfFileFromNote.mockResolvedValue(undefined);
-		mockVaultDelete.mockResolvedValue(undefined);
+		mockTrashFile.mockResolvedValue(undefined);
 	});
 
 	it('creates RemoveEmbedModal with correct params and calls open', () => {
@@ -70,7 +71,7 @@ describe('openRemoveEmbedFlow', () => {
 		expect(mockModalOpen).toHaveBeenCalledTimes(1);
 	});
 
-	it('onRemoveEmbedAndFile calls removeAllEmbedsOfFileFromNote then vault.delete', async () => {
+	it('onRemoveEmbedAndFile calls removeAllEmbedsOfFileFromNote then fileManager.trashFile', async () => {
 		const plugin = makePlugin();
 		openRemoveEmbedFlow(plugin, embeddedFile, sourceMdFile, 'inkWriting', removeEmbedOnlyFn);
 
@@ -84,8 +85,8 @@ describe('openRemoveEmbedFlow', () => {
 			embeddedFile.path,
 			'inkWriting',
 		);
-		expect(mockVaultDelete).toHaveBeenCalledTimes(1);
-		expect(mockVaultDelete).toHaveBeenCalledWith(embeddedFile);
+		expect(mockTrashFile).toHaveBeenCalledTimes(1);
+		expect(mockTrashFile).toHaveBeenCalledWith(embeddedFile);
 	});
 
 	it('onRemoveEmbedAndFile passes correct embedType for inkDrawing', async () => {
@@ -101,27 +102,27 @@ describe('openRemoveEmbedFlow', () => {
 			embeddedFile.path,
 			'inkDrawing',
 		);
-		expect(mockVaultDelete).toHaveBeenCalledWith(embeddedFile);
+		expect(mockTrashFile).toHaveBeenCalledWith(embeddedFile);
 	});
 
-	it('onRemoveEmbedOnly does not call vault.delete', () => {
+	it('onRemoveEmbedOnly does not call fileManager.trashFile', () => {
 		const plugin = makePlugin();
 		openRemoveEmbedFlow(plugin, embeddedFile, sourceMdFile, 'inkWriting', removeEmbedOnlyFn);
 
 		capturedModalConstructorArgs!.opts.onRemoveEmbedOnly();
 
 		expect(removeEmbedOnlyFn).toHaveBeenCalledTimes(1);
-		expect(mockVaultDelete).not.toHaveBeenCalled();
+		expect(mockTrashFile).not.toHaveBeenCalled();
 		expect(mockRemoveAllEmbedsOfFileFromNote).not.toHaveBeenCalled();
 	});
 
-	it('vault.delete called exactly once with embeddedFile when onRemoveEmbedAndFile runs', async () => {
+	it('fileManager.trashFile called exactly once with embeddedFile when onRemoveEmbedAndFile runs', async () => {
 		const plugin = makePlugin();
 		openRemoveEmbedFlow(plugin, embeddedFile, sourceMdFile, 'inkWriting', removeEmbedOnlyFn);
 
 		await capturedModalConstructorArgs!.opts.onRemoveEmbedAndFile();
 
-		expect(mockVaultDelete).toHaveBeenCalledTimes(1);
-		expect(mockVaultDelete).toHaveBeenCalledWith(embeddedFile);
+		expect(mockTrashFile).toHaveBeenCalledTimes(1);
+		expect(mockTrashFile).toHaveBeenCalledWith(embeddedFile);
 	});
 });

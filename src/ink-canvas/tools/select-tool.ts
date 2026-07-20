@@ -218,7 +218,7 @@ function updateLassoVisual(ctx: SelectToolContext): void {
 
 	let lassoEl = svg.querySelector<SVGPolygonElement>('.ink-canvas-lasso');
 	if (!lassoEl) {
-		lassoEl = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+		lassoEl = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'polygon');
 		lassoEl.classList.add('ink-canvas-lasso');
 		lassoEl.setAttribute('fill', 'rgba(0, 123, 255, 0.08)');
 		lassoEl.setAttribute('stroke', 'rgba(0, 123, 255, 0.5)');

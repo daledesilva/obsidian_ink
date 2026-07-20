@@ -38,18 +38,18 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = (props) => {
 	//////////
 	function startResizing(e: React.MouseEvent<HTMLElement>) {
 		props.onResizeStart?.();
-		document.addEventListener('mousemove', handleMouseResizing);
-		document.addEventListener('mouseup', stopResizing);
+		activeDocument.addEventListener('mousemove', handleMouseResizing);
+		activeDocument.addEventListener('mouseup', stopResizing);
 
-		document.addEventListener('touchmove', handleTouchResizing, { passive: false });
-		document.addEventListener('touchend', stopResizing);
+		activeDocument.addEventListener('touchmove', handleTouchResizing, { passive: false });
+		activeDocument.addEventListener('touchend', stopResizing);
 	}
 	function stopResizing(e: Event) {
-		document.removeEventListener('mousemove', handleMouseResizing);
-		document.removeEventListener('mouseup', stopResizing);
+		activeDocument.removeEventListener('mousemove', handleMouseResizing);
+		activeDocument.removeEventListener('mouseup', stopResizing);
 
-		document.removeEventListener('touchmove', handleTouchResizing);
-		document.removeEventListener('touchend', stopResizing);
+		activeDocument.removeEventListener('touchmove', handleTouchResizing);
+		activeDocument.removeEventListener('touchend', stopResizing);
 
 		delete lastPointerXPosition.current;
 		delete lastPointerYPosition.current;

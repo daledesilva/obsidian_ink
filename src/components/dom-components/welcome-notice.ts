@@ -57,7 +57,6 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
     
     const {
         primaryBtnEl,
-        tertiaryBtnEl
     } = createNoticeCtaBar(footerEl, {
         primaryLabel: 'Continue',
         tertiaryLabel: 'Dismiss for now',
@@ -84,7 +83,6 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
 
     const {
         primaryBtnEl,
-        tertiaryBtnEl
     } = createNoticeCtaBar(footerEl, {
         primaryLabel: 'Continue',
         tertiaryLabel: 'Dismiss for now',
@@ -113,7 +111,6 @@ function showiPadWelcomeTip(plugin: InkPlugin) {
 
     const {
         primaryBtnEl,
-        tertiaryBtnEl
     } = createNoticeCtaBar(footerEl, {
         primaryLabel: 'Continue',
         tertiaryLabel: 'Dismiss for now',
@@ -138,7 +135,6 @@ function showSyncingWelcomeTip(plugin: InkPlugin) {
 
     const {
         primaryBtnEl,
-        tertiaryBtnEl
     } = createNoticeCtaBar(footerEl, {
         primaryLabel: 'Continue',
         tertiaryLabel: 'Dismiss for now',

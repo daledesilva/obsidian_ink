@@ -1,7 +1,6 @@
 import "./drawing-embed.scss";
 import * as React from "react";
 import { useRef } from "react";
-import InkPlugin from "src/main";
 import { InkFileData } from "src/components/formats/current/types/file-data";
 import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
@@ -11,7 +10,7 @@ import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
-import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
+import { openInkFileInView } from "src/logic/utils/open-file";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
@@ -472,7 +471,6 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		logToVault('Drawing embed → edit: ' + (props.embeddedFile?.path ?? props.partialEmbedFilepath));
 
 		// When Boox is enabled, only one ink embed (writing or drawing) can be active at a time.
-		const { plugin } = getGlobals();
 		if (getBooxConnectionEnabled()) {
 			await replaceActiveInkEmbed(props.embedId, saveAndSwitchToPreviewMode);
 		}
@@ -554,13 +552,3 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 
 
 export default DrawingEmbed;
-
-////////
-////////
-
-async function refreshPageData(plugin: InkPlugin, file: TFile): Promise<InkFileData> {
-	const v = plugin.app.vault;
-	const pageDataStr = await v.read(file);
-	const pageData = JSON.parse(pageDataStr) as InkFileData;
-	return pageData;
-}

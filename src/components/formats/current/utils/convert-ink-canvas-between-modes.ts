@@ -40,10 +40,11 @@ export function convertWriteInkCanvasDataToDraw(
 		throw new Error('convertWriteInkCanvasDataToDraw requires fileType inkWriting');
 	}
 
-	const { writingLineHeight: _writingLineHeight, camera: _camera, ...snapshotRest } =
-		cloneInkCanvasSnapshot(data.inkCanvas);
+	const snapshotClone = cloneInkCanvasSnapshot(data.inkCanvas);
+	delete snapshotClone.writingLineHeight;
+	delete snapshotClone.camera;
 	const inkCanvasSnapshot: InkCanvasSnapshot = {
-		...snapshotRest,
+		...snapshotClone,
 		gridEnabled,
 	};
 
@@ -74,7 +75,8 @@ export function convertDrawInkCanvasDataToWrite(
 	const writingLineHeight =
 		data.inkCanvas.writingLineHeight ?? defaultWritingLineHeight;
 
-	const { camera: _camera, ...snapshotRest } = cloneInkCanvasSnapshot(data.inkCanvas);
+	const snapshotRest = cloneInkCanvasSnapshot(data.inkCanvas);
+	delete snapshotRest.camera;
 	const fittedStrokes = fitStrokesForDrawingToWriting(
 		snapshotRest.strokes,
 		writingLineHeight,

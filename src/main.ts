@@ -14,8 +14,8 @@ import { showWelcomeTips_maybe } from './components/dom-components/welcome-notic
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
-import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
-import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
+import { registerWritingEmbed } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
 import { registerReadingModeInkEmbeds } from './components/formats/current/reading-mode/register-reading-mode-ink-embeds';
 import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';

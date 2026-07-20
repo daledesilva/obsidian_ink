@@ -11,13 +11,6 @@ import {
 ////////
 ////////
 
-const enum Phase {
-	Scanning,
-	Confirm,
-	Migrating,
-	Done,
-}
-
 export class TldrawSvgMigrationModal extends Modal {
 	private plugin: InkPlugin;
 	private scanResult: TldrawSvgVaultScanResult | null = null;

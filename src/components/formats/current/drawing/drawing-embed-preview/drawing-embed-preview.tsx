@@ -10,7 +10,6 @@ import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { showLockedChrome } from 'src/logic/utils/ink-file-has-strokes';
 import { useInkFileHasStrokes } from 'src/logic/utils/use-ink-file-has-strokes';
 import { getGlobals } from 'src/stores/global-store';
-import emptyDrawingSvg from 'src/defaults/empty-drawing-embed.svg';
 
 //////////
 //////////

@@ -120,7 +120,7 @@ export async function ensureThemedNativeInkSvgView(
 
 		releaseNativeSvgFlashSuppression(leaf);
 		finishEnsure();
-	} catch (_) {
+	} catch {
 		releaseNativeSvgFlashSuppression(leaf);
 		finishEnsure();
 	}
@@ -161,13 +161,13 @@ function addEditButtonToSvgView(
 				return;
 			}
 
-			const buttonContainer = document.createElement('div');
+			const buttonContainer = activeDocument.createElement('div');
 			buttonContainer.className = 'ddc_ink_svg-edit-button-container';
 
 			const isDrawing = viewType.includes('drawing');
 			const buttonText = isDrawing ? 'Edit drawing' : 'Edit writing';
 
-			const editButton = document.createElement('button');
+			const editButton = activeDocument.createElement('button');
 			editButton.className = 'ddc_ink_btn-slim ddc_ink_svg-edit-button';
 			editButton.textContent = buttonText;
 			editButton.title = `Edit ${isDrawing ? 'drawing' : 'writing'} in custom view`;
@@ -277,7 +277,7 @@ function mountThemedNativeViewPreview(
 		el.classList.add('ddc_ink_svg-native-media--hidden');
 	});
 
-	const previewHost = document.createElement('div');
+	const previewHost = activeDocument.createElement('div');
 	// Layout host + shared embed preview class: svg-edit-button.scss sizes the former;
 	// ink-svg-preview-theme.scss recolours paths via the latter (same as embeds/picker).
 	previewHost.className = `${THEMED_PREVIEW_HOST_CLASS} ${embedPreviewClassForFileType(fileType)}`;

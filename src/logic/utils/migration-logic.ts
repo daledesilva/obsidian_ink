@@ -1,4 +1,4 @@
-import { TFile, Vault } from "obsidian";
+import { FileManager, TFile, Vault } from "obsidian";
 import { PLUGIN_VERSION, WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH, WRITE_EMBED_KEY, DRAW_EMBED_KEY } from "src/constants";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { InkFileData } from "src/components/formats/current/types/file-data";
@@ -70,7 +70,7 @@ export function findLegacyEmbedBlocks(markdownContent: string): LegacyEmbedBlock
 					results.push({ fullMatch, embedType, filepath: filepathValue });
 				}
 			}
-		} catch (_) {
+		} catch {
 			// Malformed JSON – skip
 		}
 	}
@@ -102,7 +102,7 @@ export function convertLegacyToInkCanvasFileData(
 	let legacyData: InkFileData_v1;
 	try {
 		legacyData = JSON.parse(legacyJson) as InkFileData_v1;
-	} catch (_) {
+	} catch {
 		return null;
 	}
 
@@ -332,7 +332,7 @@ export async function scanVaultForLegacyEmbeds(
 
 		try {
 			content = await vault.read(note);
-		} catch (_) {
+		} catch {
 			onProgress?.(i + 1, total, legacyFileMap.size);
 			continue;
 		}
@@ -379,9 +379,11 @@ export type MigrationResult = {
 /**
  * Executes the migration: converts each legacy file to SVG and updates referencing notes.
  * Calls onProgress(done, total, liveStats) after each step so the UI can update mid-run.
+ * Uses FileManager.trashFile so permanent migrate respects the user's trash preference.
  */
 export async function executeMigration(
 	vault: Vault,
+	fileManager: FileManager,
 	scanResult: VaultScanResult,
 	onProgress?: (done: number, total: number, liveStats: MigrationRunProgress) => void,
 	options?: MigrationOptions,
@@ -487,7 +489,7 @@ export async function executeMigration(
 
 			if (shouldDeleteLegacyFiles) {
 				try {
-					await vault.delete(entry.legacyFile);
+					await fileManager.trashFile(entry.legacyFile);
 				} catch (err: unknown) {
 					const detail = err instanceof Error ? err.message : String(err);
 					throw new Error('failed to delete legacy file – ' + detail);

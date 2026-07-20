@@ -1,5 +1,4 @@
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownViewModeType } from "obsidian";
-import { DRAW_EMBED_KEY } from "src/constants";
 import InkPlugin from "src/main";
 import { DrawingEmbedData_v1 } from "../../components/formats/v1-code-blocks/utils/build-embeds";
 
@@ -39,8 +38,6 @@ export function applyCommonAncestorStyling(embedEl: HTMLElement) {
 	
 	const scrollerInlineStartMargin = scrollerStyle.paddingInlineStart;
 	const scrollerInlineEndMargin = scrollerStyle.paddingInlineEnd;
-	const scrollerMarginLeft = scrollerStyle.paddingLeft;
-	const scrollerMarginRight = scrollerStyle.paddingRight;
 
 	const pageHasScrollerInlineStartMargin = scrollerInlineStartMargin && scrollerInlineStartMargin !== '0' && scrollerInlineStartMargin !== '0px';
 	if(pageHasScrollerInlineStartMargin) {

@@ -15,15 +15,6 @@ function createMockPlugin() {
     }
 }
 
-function createMockTFile() {
-    return {
-        settings: {},
-        app: {
-            vault: {}
-        }
-    }
-}
-
 /////////////
 
 describe(`getBaseAttachmentPath tests`, () => {

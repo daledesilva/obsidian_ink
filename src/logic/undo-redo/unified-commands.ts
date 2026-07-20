@@ -21,7 +21,7 @@ function createSyntheticUndoRedoKeyboardEvent(shiftKey: boolean): KeyboardEvent 
 function dispatchSyntheticUndoRedoKeydown(shiftKey: boolean): boolean {
 	// Route through the global document keydown handler.
 	// If the unified keydown handler intercepts (preventDefault), dispatchEvent returns false.
-	return document.dispatchEvent(createSyntheticUndoRedoKeyboardEvent(shiftKey));
+	return activeDocument.dispatchEvent(createSyntheticUndoRedoKeyboardEvent(shiftKey));
 }
 
 function executeOrDispatchUnifiedUndoRedo(plugin: InkPlugin, shiftKey: boolean): void {

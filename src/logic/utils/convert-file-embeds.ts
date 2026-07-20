@@ -101,7 +101,7 @@ export async function countFileEmbedOccurrencesInVault(
 		try {
 			const content = await vault.cachedRead(file);
 			embedCount += countFileEmbedOccurrencesInMarkdown(content, svgFilePath, embedType);
-		} catch (_) {
+		} catch {
 			// Unreadable file – skip
 		}
 		onProgress?.(i + 1, total);
@@ -134,7 +134,7 @@ export async function findNotesContainingFileEmbed(
 			if (pattern.test(content)) {
 				results.push(file);
 			}
-		} catch (_) {
+		} catch {
 			// Unreadable file – skip
 		}
 		onProgress?.(i + 1, total, results.length);

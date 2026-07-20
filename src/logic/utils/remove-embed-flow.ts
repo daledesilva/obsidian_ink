@@ -29,7 +29,8 @@ export function openRemoveEmbedFlow(
 						embeddedFile.path,
 						embedType,
 					);
-					await plugin.app.vault.delete(embeddedFile);
+					// Respect user's trash-vs-permanent-delete preference.
+					await plugin.app.fileManager.trashFile(embeddedFile);
 				} catch (err) {
 					new Notice('Failed to remove and delete file: ' + String(err));
 				}

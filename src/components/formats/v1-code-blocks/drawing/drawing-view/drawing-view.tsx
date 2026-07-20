@@ -1,4 +1,4 @@
-import { TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { TextFileView, WorkspaceLeaf } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { DRAW_FILE_V1_EXT } from "src/constants";

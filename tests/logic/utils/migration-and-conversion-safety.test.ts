@@ -16,7 +16,7 @@ jest.mock('src/components/formats/current/utils/duplicate-files', () => ({
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { TFile } from 'obsidian';
+import { FileManager, TFile } from 'obsidian';
 import { buildWritingEmbed, buildDrawingEmbed } from 'src/components/formats/current/utils/build-embeds';
 import {
 	findNotesContainingFileEmbed,
@@ -91,7 +91,11 @@ function makePlugin(vault: ReturnType<typeof makeVault>, settings: Record<string
 	} as any;
 }
 
-function makeLegacyVault(
+function fileManagerFor(vault: { delete: (file: TFile) => Promise<unknown> }) {
+		return { trashFile: (file: TFile) => vault.delete(file) } as FileManager;
+	}
+
+	function makeLegacyVault(
 	noteContents: Record<string, string>,
 	legacyJsonByPath: Record<string, string>,
 ) {
@@ -182,7 +186,7 @@ describe('migration and conversion safety', () => {
 				affectedNotes: [],
 			};
 
-			await executeMigration(vault as any, scanResult);
+			await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 			expect(vault._deleted).toEqual([LEGACY_PATH]);
 			expect(vault._deleted).not.toContain(OTHER_LEGACY_PATH);
@@ -207,7 +211,7 @@ describe('migration and conversion safety', () => {
 				affectedNotes: [{ path: 'Notes/Target.md' } as TFile],
 			};
 
-			await executeMigration(vault as any, scanResult);
+			await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 			expect(noteContents['Notes/Target.md']).toContain('![InkWriting]');
 			expect(noteContents[unrelatedNotePath]).toBe('# Other\n\nNo legacy embed here.\n');
@@ -232,7 +236,7 @@ describe('migration and conversion safety', () => {
 				affectedNotes: notePaths.map(p => ({ path: p } as TFile)),
 			};
 
-			const result = await executeMigration(vault as any, scanResult);
+			const result = await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 			expect(result.updatedNotes).toBe(3);
 			expect(result.updatedNotePaths).toEqual(expect.arrayContaining(notePaths));
@@ -265,7 +269,7 @@ describe('migration and conversion safety', () => {
 				affectedNotes: [{ path: 'Notes/Duplicates.md' } as TFile],
 			};
 
-			await executeMigration(vault as any, scanResult);
+			await executeMigration(vault as any, fileManagerFor(vault), scanResult);
 
 			const updated = noteContents['Notes/Duplicates.md'];
 			expect(updated).not.toContain('```handwritten-ink');

@@ -9,7 +9,7 @@ import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-s
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
-import { openInkFile, openInkFileInView } from "src/logic/utils/open-file";
+import { openInkFileInView } from "src/logic/utils/open-file";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
 import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";

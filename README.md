@@ -128,7 +128,7 @@ npm run build:boox
 See [Debugging on device](docs/debugging-on-device.md) for USB log capture and WebView DevTools.
 
 ## 🏛️ License
->Please note that while this repository is public and can be browsed and modified for your personal use, it is not open source. It is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+>Please note that while this repository is public and can be browsed and modified for your personal use, it is not open source. It is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) — see the root [`LICENSE`](LICENSE) file for the full legal text. Contributions are accepted under the [Contributor License Agreement](docs/CLA.md).
 
 ## 🗒️ Notes
 

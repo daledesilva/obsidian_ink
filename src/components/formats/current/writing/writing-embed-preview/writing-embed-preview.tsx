@@ -122,11 +122,12 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
     }
 
     function refreshSrc() {
-        const basePath = props.plugin.app.vault.getResourcePath(props.writingFile);
-        if (!basePath) return;
-        const mtime = props.writingFile.stat.mtime;
-        const separator = basePath.includes('?') ? '&' : '?';
-        setFileSrc(`${basePath}${separator}t=${mtime}`);
+        if (!props.writingFile) return;
+        void props.plugin.app.vault.read(props.writingFile).then((svgContent) => {
+            if (!svgContent) return;
+            const encoded = btoa(unescape(encodeURIComponent(svgContent)));
+            setFileSrc(`data:image/svg+xml;base64,${encoded}`);
+        }).catch(() => {});
     }
 
 };

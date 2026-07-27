@@ -119,14 +119,16 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
             setFileSrc(null);
             return;
         }
-        const basePath = plugin.app.vault.getResourcePath(props.embeddedFile);
-        if (!basePath) {
+        void plugin.app.vault.read(props.embeddedFile).then((svgContent) => {
+            if (!svgContent) {
+                setFileSrc(null);
+                return;
+            }
+            const encoded = btoa(unescape(encodeURIComponent(svgContent)));
+            setFileSrc(`data:image/svg+xml;base64,${encoded}`);
+        }).catch(() => {
             setFileSrc(null);
-            return;
-        }
-        const mtime = props.embeddedFile.stat.mtime;
-        const separator = basePath.includes('?') ? '&' : '?';
-        setFileSrc(`${basePath}${separator}t=${mtime}`);
+        });
     }
 
 };

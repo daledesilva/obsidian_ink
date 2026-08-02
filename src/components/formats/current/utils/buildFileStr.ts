@@ -20,42 +20,43 @@ export const buildFileStr = (pageData: InkFileData): string => {
 //////////////////////////
 
 function buildInkCanvasFileStr(pageData: InkFileData): string {
-    // For ink-canvas files, the svgString already contains the full SVG with
-    // <ink-canvas> metadata (produced by svg-export.ts). We just need to ensure
-    // the <ink> meta element is present with plugin-version and file-type.
-    let fileStr = pageData.svgString || '<svg></svg>';
+    // The ink-canvas renderer already gives us a complete SVG. Re-parsing and
+    // pretty-printing that multi-megabyte document on every autosave blocks the
+    // input thread in direct proportion to the number of strokes. Replace just
+    // the small metadata block and keep the rendered path markup untouched.
+    const fileStr = pageData.svgString || '<svg></svg>';
+    const snapshotJson = escapeXmlText(JSON.stringify(pageData.inkCanvas));
+    const metadata = [
+        '<metadata>',
+        `<ink plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}" file-type="${escapeXmlAttribute(pageData.meta.fileType)}"/>`,
+        `<ink-canvas version="${escapeXmlAttribute(INK_CANVAS_FORMAT_VERSION)}">${snapshotJson}</ink-canvas>`,
+        '</metadata>',
+    ].join('\n');
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(fileStr, 'image/svg+xml');
-    const svgElement = doc.documentElement;
-
-    // Remove existing metadata to rebuild cleanly
-    const existingMetadata = svgElement.getElementsByTagName('metadata');
-    while (existingMetadata.length > 0) {
-        existingMetadata[0].parentNode?.removeChild(existingMetadata[0]);
+    const metadataPattern = /<metadata\b[^>]*>[\s\S]*?<\/metadata>/i;
+    if (metadataPattern.test(fileStr)) {
+        return fileStr.replace(metadataPattern, metadata);
     }
 
-    const metadataElement = doc.createElement('metadata');
+    const svgOpenPattern = /<svg\b[^>]*>/i;
+    if (svgOpenPattern.test(fileStr)) {
+        return fileStr.replace(svgOpenPattern, (svgOpen) => `${svgOpen}\n${metadata}`);
+    }
 
-    // <ink> meta
-    const inkMetaElement = doc.createElement('ink');
-    inkMetaElement.setAttribute('plugin-version', String(pageData.meta.pluginVersion));
-    inkMetaElement.setAttribute('file-type', pageData.meta.fileType);
-    metadataElement.appendChild(inkMetaElement);
+    return `<svg xmlns="http://www.w3.org/2000/svg">\n${metadata}\n</svg>`;
+}
 
-    // <ink-canvas version="0.5.0"> JSON </ink-canvas>
-    const inkCanvasElement = doc.createElement('ink-canvas');
-    inkCanvasElement.setAttribute('version', INK_CANVAS_FORMAT_VERSION);
-    inkCanvasElement.textContent = JSON.stringify(pageData.inkCanvas, null, 2);
-    metadataElement.appendChild(inkCanvasElement);
+function escapeXmlText(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
 
-    svgElement.appendChild(metadataElement);
-
-    const serializedSvg = new XMLSerializer().serializeToString(svgElement);
-    return format(serializedSvg, {
-        indentation: '\t',
-        lineSeparator: '\n'
-    });
+function escapeXmlAttribute(value: string): string {
+    return escapeXmlText(value)
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
 }
 
 

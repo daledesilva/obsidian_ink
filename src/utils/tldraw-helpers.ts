@@ -55,7 +55,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	if (addedRecords) {
 		for (let i = 0; i < addedRecords.length; i++) {
 			const record = addedRecords[i];
-			if (record.typeName == 'shape' && record.type == 'draw') {
+			if (record.typeName == 'shape' && (record.type == 'draw' || record.type == 'highlight')) {
 				summary.drawShapesStarted += 1;
 				if ('isComplete' in record.props && record.props.isComplete === true) {
 					summary.drawShapesCompleted += 1;
@@ -68,7 +68,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	if (updatedRecords) {
 		for (let i = 0; i < updatedRecords.length; i++) {
 			const recordFinalState = updatedRecords[i][1];
-			if (recordFinalState.typeName == 'shape' && recordFinalState.type == 'draw') {
+			if (recordFinalState.typeName == 'shape' && (recordFinalState.type == 'draw' || recordFinalState.type == 'highlight')) {
 				if ('isComplete' in recordFinalState.props && recordFinalState.props.isComplete === true) {
 					summary.drawShapesCompleted += 1;
 				} else {
@@ -88,7 +88,7 @@ export function getActivitySummary(entry: HistoryEntry<TLRecord>) {
 	if (removedRecords) {
 		for (let i = 0; i < removedRecords.length; i++) {
 			const record = removedRecords[i];
-			if (record.typeName == 'shape' && record.type == 'draw') {
+			if (record.typeName == 'shape' && (record.type == 'draw' || record.type == 'highlight')) {
 				summary.drawShapesRemoved += 1;
 			}
 		}

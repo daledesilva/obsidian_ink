@@ -17,6 +17,10 @@ import { atom, useAtom, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { getFullPageWidth } from "src/utils/getFullPageWidth";
 import { verbose } from "src/utils/log-to-console";
+import {
+	isFluidDrawingEmbedWidth,
+	resolveDrawingEmbedWidth,
+} from "./drawing-embed-sizing";
 const emptyDrawingSvgStr = require('../../placeholders/empty-drawing-embed.svg');
 
 ///////
@@ -51,14 +55,16 @@ export function DrawingEmbed (props: {
 	drawingFileRef: TFile,
 	pageData: InkFileData,
 	saveSrcFile: (pageData: InkFileData) => {},
-	setEmbedProps: (width: number, height: number) => void,
+	setEmbedProps: (width: number | undefined, aspectRatio: number) => void,
 	remove: Function,
 	width?: number,
 	aspectRatio?: number,
+	editable: boolean,
 }) {
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = useRef<HTMLDivElement>(null);
 	const editorControlsRef = useRef<DrawingEditorControls>();
+	const fluidWidthRef = useRef<boolean>(isFluidDrawingEmbedWidth(props.width));
 	const embedWidthRef = useRef<number>(props.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 	// const previewFilePath = getPreviewFileResourcePath(props.plugin, props.fileRef)
@@ -70,18 +76,18 @@ export function DrawingEmbed (props: {
 
 	// On first mount
 	React.useEffect( () => {
-		if(embedShouldActivateImmediately()) {
+		if(props.editable && embedShouldActivateImmediately()) {
 			// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 			setTimeout( () => {
 				switchToEditMode();
 			},200);
 		}
 		
-		window.addEventListener('resize', handleResize);
-		handleResize();
+		window.addEventListener('resize', applyEmbedSize);
+		applyEmbedSize();
 
         return () => {
-			window.removeEventListener('resize', handleResize);
+			window.removeEventListener('resize', applyEmbedSize);
 		}
 	}, [])
 
@@ -131,8 +137,12 @@ export function DrawingEmbed (props: {
 				className = 'ddc_ink_resize-container'
 				ref = {resizeContainerElRef}
 				style = {{
-					width: embedWidthRef.current + 'px',
-					height: embedWidthRef.current / embedAspectRatioRef.current + 'px',
+					width: fluidWidthRef.current ? '100%' : embedWidthRef.current + 'px',
+					maxWidth: '100%',
+					height: fluidWidthRef.current
+						? 'auto'
+						: embedWidthRef.current / embedAspectRatioRef.current + 'px',
+					aspectRatio: `${embedAspectRatioRef.current}`,
 					position: 'relative', // For absolute positioning inside
 					left: '50%',
 					translate: '-50%',
@@ -143,10 +153,10 @@ export function DrawingEmbed (props: {
 					plugin = {props.plugin}
 					onReady = {() => {}}
 					drawingFile = {props.drawingFileRef}
-					onClick = { async () => {
+					onClick = {props.editable ? async () => {
 						// dispatch({ type: 'global-session/setActiveEmbedId', payload: embedId })
 						switchToEditMode();
-					}}
+					} : undefined}
 				/>
 			
 				<TldrawDrawingEditorWrapper
@@ -177,7 +187,8 @@ export function DrawingEmbed (props: {
 		const maxWidth = getFullPageWidth(embedContainerElRef.current)
 		if(!maxWidth) return;
 
-		let destWidth = embedWidthRef.current + pxWidthDiff;
+		const currentWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+		let destWidth = currentWidth + pxWidthDiff;
 		if(destWidth < 350) destWidth = 350;
 		if(destWidth > maxWidth) destWidth = maxWidth;
 		
@@ -185,17 +196,23 @@ export function DrawingEmbed (props: {
 		let destHeight = curHeight + pxHeightDiff;
 		if(destHeight < 150) destHeight = 150;
 
+		fluidWidthRef.current = false;
 		embedWidthRef.current = destWidth;
 		embedAspectRatioRef.current = destWidth / destHeight;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		resizeContainerElRef.current.style.height = destHeight + 'px';
 		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
 	}
-	function applyEmbedHeight() {
+	function applyEmbedSize() {
 		if(!resizeContainerElRef.current) return;
-		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
-		const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
-		resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
+		const availableWidth = getFullPageWidth(embedContainerElRef.current);
+		const savedWidth = fluidWidthRef.current ? undefined : embedWidthRef.current;
+		const displayWidth = resolveDrawingEmbedWidth(savedWidth, availableWidth);
+
+		if(fluidWidthRef.current) embedWidthRef.current = displayWidth;
+		resizeContainerElRef.current.style.width = displayWidth + 'px';
+		resizeContainerElRef.current.style.maxWidth = availableWidth + 'px';
+		resizeContainerElRef.current.style.height = displayWidth/embedAspectRatioRef.current + 'px';
 	}
 
 	// function resetEmbedHeight() {
@@ -209,8 +226,9 @@ export function DrawingEmbed (props: {
 	// }
 
 	function switchToEditMode() {
+		if(!props.editable) return;
 		verbose('Set DrawingEmbedState: loadingEditor')
-		applyEmbedHeight();
+		applyEmbedSize();
 		setEmbedState(DrawingEmbedState.loadingEditor);
 	}
 
@@ -222,17 +240,12 @@ export function DrawingEmbed (props: {
 		}
 		
 		setEmbedState(DrawingEmbedState.loadingPreview);
-		props.setEmbedProps(embedWidthRef.current, embedAspectRatioRef.current);
+		props.setEmbedProps(
+			fluidWidthRef.current ? undefined : embedWidthRef.current,
+			embedAspectRatioRef.current,
+		);
 	}
 
-	function handleResize() {
-		const maxWidth = getFullPageWidth(embedContainerElRef.current);
-		if (resizeContainerElRef.current) {
-			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
-			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
-			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
-		}
-	};
 };
 
 

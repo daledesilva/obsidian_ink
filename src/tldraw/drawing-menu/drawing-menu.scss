@@ -1,0 +1,134 @@
+.ink_drawing-menu {
+    --ink-color-black: #1d1d1d;
+    --ink-color-red: #e03131;
+    --ink-color-blue: #4465e9;
+    --ink-color-green: #099268;
+    --ink-highlight-black: #fddd00;
+    --ink-highlight-red: #ff636e;
+    --ink-highlight-blue: #10acff;
+    --ink-highlight-green: #00ffc8;
+
+    .ink_highlighter-icon {
+        position: relative;
+        width: 1.45em;
+        height: 1.45em;
+        display: block;
+
+        &::before {
+            content: '';
+            position: absolute;
+            width: 0.58em;
+            height: 1.08em;
+            left: 0.44em;
+            top: 0.05em;
+            border: 0.13em solid currentColor;
+            border-radius: 0.12em;
+            transform: rotate(38deg);
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            width: 1.15em;
+            height: 0.18em;
+            left: 0.15em;
+            bottom: 0.04em;
+            border-radius: 1em;
+            background: currentColor;
+        }
+    }
+
+    .ink_drawing-presets {
+        position: absolute;
+        top: calc(50% + 3.2em);
+        left: 50%;
+        transform: translateX(-50%);
+
+        align-items: center;
+        gap: 5px;
+        padding: 4px 6px;
+        pointer-events: auto;
+
+        border: 1px solid var(--background-modifier-border);
+        border-radius: 10px;
+        background: var(--background-primary-alt);
+        box-shadow: var(--shadow-s);
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .ink_drawing-preset-group {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .ink_drawing-preset-divider {
+        width: 1px;
+        height: 18px;
+        background: var(--background-modifier-border);
+    }
+
+    button.ink_drawing-preset-button {
+        width: 27px;
+        min-width: 27px;
+        height: 27px;
+        min-height: 27px;
+        padding: 0 !important;
+        display: grid;
+        place-items: center;
+
+        animation: none;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        box-shadow: none;
+
+        &:hover {
+            background: var(--background-modifier-hover);
+        }
+
+        &[aria-pressed='true'] {
+            background: var(--background-modifier-active-hover);
+            box-shadow: inset 0 0 0 2px var(--interactive-accent);
+        }
+    }
+
+    .ink_drawing-color-button span {
+        width: 13px;
+        height: 13px;
+        border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+        border-radius: 50%;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 18%);
+    }
+
+    .ink_drawing-color_black span { background: var(--ink-color-black); }
+    .ink_drawing-color_red span { background: var(--ink-color-red); }
+    .ink_drawing-color_blue span { background: var(--ink-color-blue); }
+    .ink_drawing-color_green span { background: var(--ink-color-green); }
+
+    .ink_drawing-presets_highlighter {
+        .ink_drawing-color_black span { background: var(--ink-highlight-black); }
+        .ink_drawing-color_red span { background: var(--ink-highlight-red); }
+        .ink_drawing-color_blue span { background: var(--ink-highlight-blue); }
+        .ink_drawing-color_green span { background: var(--ink-highlight-green); }
+    }
+
+    .ink_drawing-size-button span {
+        width: 15px;
+        border-radius: 1em;
+        background: var(--text-muted);
+    }
+
+    .ink_drawing-size_s span { height: 2px; }
+    .ink_drawing-size_m span { height: 4px; }
+    .ink_drawing-size_l span { height: 6px; }
+}
+
+.theme-dark .ink_drawing-menu {
+    --ink-color-black: #f2f2f2;
+    --ink-color-blue: #4f72fc;
+    --ink-highlight-black: #d2b700;
+    --ink-highlight-red: #de002c;
+    --ink-highlight-blue: #0079d2;
+    --ink-highlight-green: #009774;
+}

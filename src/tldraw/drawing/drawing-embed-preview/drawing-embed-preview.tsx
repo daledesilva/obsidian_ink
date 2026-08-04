@@ -15,10 +15,10 @@ const emptyDrawingSvg = require('../../../placeholders/empty-drawing-embed.svg')
 //////////
 
 interface DrawingEmbedPreviewProps {
-    plugin: InkPlugin,
-    onReady: Function,
-    drawingFile: TFile,
-	onClick: React.MouseEventHandler,
+	plugin: InkPlugin,
+	onReady: Function,
+	drawingFile: TFile,
+	onClick?: React.MouseEventHandler,
 }
 
 // Wraps the component so that it can full unmount when inactive
@@ -63,7 +63,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                 position: 'absolute',
                 width: '100%',
                 height: '100%',
-                pointerEvents: 'all',
+				pointerEvents: props.onClick ? 'all' : 'none',
             }}
             onClick = {props.onClick}
 
@@ -76,8 +76,8 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                     src = {fileSrc}
                     style = {{
                         height: '100%',
-                        cursor: 'pointer',
-                        pointerEvents: 'all',
+						cursor: props.onClick ? 'pointer' : 'default',
+						pointerEvents: props.onClick ? 'all' : 'none',
                     }}
                     onLoad = {onLoad}
                 />
@@ -91,9 +91,9 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                         // height: '100%',
                         maxWidth: '100%',
                         maxHeight: '100%',
-                        cursor: 'pointer'
-                    }}
-                    pointerEvents = "visible"
+						cursor: props.onClick ? 'pointer' : 'default'
+					}}
+					pointerEvents = {props.onClick ? "visible" : "none"}
                     onLoad = {onLoad}
                 />
             )}

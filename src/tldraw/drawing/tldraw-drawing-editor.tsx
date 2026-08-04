@@ -21,7 +21,6 @@ import { useRef } from 'react';
 import {
   Activity,
   adaptTldrawToObsidianThemeMode,
-  focusChildTldrawEditor,
   getActivityType,
   getDrawingSvg,
   initDrawingCamera,
@@ -44,6 +43,13 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { verbose } from 'src/utils/log-to-console';
 import { SecondaryMenuBar } from '../secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from '../modify-menu/modify-menu';
+import {
+  containCanvasEvent,
+  executeDrawingKeyboardShortcut,
+  focusDrawingEventBoundary,
+  type DrawingKeyboardEditor,
+} from './drawing-keyboard-shortcuts';
+import { getCenteredZoomCamera } from './drawing-camera';
 
 interface TldrawDrawingEditorProps {
   onReady?: Function;
@@ -117,7 +123,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
   const handleMount = (_editor: Editor) => {
     const editor = (tlEditorRef.current = _editor);
     setEmbedState(DrawingEmbedState.editor);
-    focusChildTldrawEditor(editorWrapperRefEl.current);
+    focusDrawingEventBoundary(editor, editorWrapperRefEl.current);
     preventTldrawCanvasesCausingObsidianGestures(editor);
 
     adaptTldrawToObsidianThemeMode(editor);
@@ -192,19 +198,11 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
     const editor = tlEditorRef.current;
     if (!editor) return;
     const isMac = navigator.platform.toUpperCase().includes('MAC');
-    const modKey = isMac ? e.metaKey : e.ctrlKey;
     const key = e.key.toLowerCase();
 
-    // Undo
-    if (modKey && !e.shiftKey && key === 'z') {
+    if (executeDrawingKeyboardShortcut(e, editor as DrawingKeyboardEditor, isMac)) {
       e.preventDefault();
-      editor.undo();
-      return;
-    }
-    // Redo
-    if (modKey && ((e.shiftKey && key === 'z') || key === 'y')) {
-      e.preventDefault();
-      editor.redo();
+      containCanvasEvent(e);
       return;
     }
 
@@ -212,38 +210,24 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
     if (e.code === 'Space') {
       isSpaceHeldRef.current = true;
       e.preventDefault(); // prevent page scroll on space
+      containCanvasEvent(e);
       return;
     }
 
     // z for zoom drag (non-mod combo)
-    if (!modKey && key === 'z') {
+    if (!e.ctrlKey && !e.metaKey && key === 'z') {
       isZHeldRef.current = true;
       e.preventDefault();
+      containCanvasEvent(e);
       return;
     }
-
-	// 删除选中（光标模式）
-	if (!modKey && (key === 'backspace' || key === 'delete')) {
-		const toolId = (tlEditorRef.current as any)?.getCurrentToolId?.() ?? '';
-		const isSelectTool = toolId === 'select';
-		// 若处于文本编辑状态则不拦截退格
-		const isEditing = !!(tlEditorRef.current as any)?.getEditingShapeId?.();
-
-		if (isSelectTool && !isEditing) {
-			const ids = tlEditorRef.current!.getSelectedShapeIds();
-		if (ids.length > 0) {
-			e.preventDefault(); // 防止浏览器后退/默认行为
-			tlEditorRef.current!.deleteShapes(ids);
-			return;
-		}
-		}
-	}
   }
 	
 
 
   function handleKeyUp(e: React.KeyboardEvent<HTMLDivElement>) {
     const key = e.key.toLowerCase();
+    containCanvasEvent(e);
 
     if (e.code === 'Space') {
       isSpaceHeldRef.current = false;
@@ -277,13 +261,6 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
   function setCamera(editor: Editor, patch: any) {
     (editor as any).setCamera(patch);
   }
-  function setZoom(editor: Editor, newZoom: number) {
-    const cam = getCamera(editor);
-    const patch: any = { ...cam };
-    if ('zoom' in cam) patch.zoom = newZoom;
-    else patch.z = newZoom;
-    setCamera(editor, patch);
-  }
   function clampZoom(z: number): number {
     if (z < MIN_ZOOM) return MIN_ZOOM;
     if (z > MAX_ZOOM) return MAX_ZOOM;
@@ -296,34 +273,23 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
     const patch: any = { ...cam, x: cam.x + dx / z, y: cam.y + dy / z };
     setCamera(editor, patch);
   }
-  // 按屏幕坐标（相对编辑器容器）将缩放锚定到指针位置
-  function zoomCameraAtScreen(editor: Editor, targetZoom: number, sx: number, sy: number) {
-    const cam = getCamera(editor);
-    const z = cam.zoom ?? cam.z ?? 1;
-    const newZoom = clampZoom(targetZoom);
-
-    // screen = (world - cam) * z  =>  world = cam + screen / z
-    const worldX = cam.x + sx / z;
-    const worldY = cam.y + sy / z;
-
-    const patch: any = { ...cam };
-    patch.x = worldX - sx / newZoom;
-    patch.y = worldY - sy / newZoom;
-    if ('zoom' in cam) patch.zoom = newZoom;
-    else patch.z = newZoom;
-
-    setCamera(editor, patch);
-  }
-  function getScreenPointInEditor(e: React.PointerEvent<HTMLDivElement>) {
+  function zoomCameraAtCenter(editor: Editor, targetZoom: number) {
     const rect = editorWrapperRefEl.current?.getBoundingClientRect();
-    const sx = e.clientX - (rect?.left ?? 0);
-    const sy = e.clientY - (rect?.top ?? 0);
-    return { sx, sy };
+    if (!rect) return;
+
+    setCamera(
+      editor,
+      getCenteredZoomCamera(getCamera(editor), clampZoom(targetZoom), {
+        height: rect.height,
+        width: rect.width,
+      }),
+    );
   }
 
   // Pointer capture handlers for pen/mouse/touch gestures on Space/Z
   function onPointerDownCapture(e: React.PointerEvent<HTMLDivElement>) {
     const editor = tlEditorRef.current;
+    focusDrawingEventBoundary(editor, editorWrapperRefEl.current);
     if (!editor) return;
 
     const isKeyHeld = isSpaceHeldRef.current || isZHeldRef.current;
@@ -381,9 +347,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
       let targetZoom = currentZoom * Math.exp(-dy * ZOOM_SENSITIVITY);
       targetZoom = clampZoom(targetZoom);
 
-      // 以鼠标/触控当前位置为缩放锚点
-      const { sx, sy } = getScreenPointInEditor(e);
-      zoomCameraAtScreen(editor, targetZoom, sx, sy);
+      zoomCameraAtCenter(editor, targetZoom);
     }
 
     e.stopPropagation();
@@ -525,13 +489,16 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
         }}
         tabIndex={0}
         onKeyDownCapture={handleKeyDown}
+        onKeyDown={containCanvasEvent}
         onKeyUp={handleKeyUp}
+        onCopy={containCanvasEvent}
+        onCut={containCanvasEvent}
+        onPaste={containCanvasEvent}
         onBlur={handleBlur}
         onPointerDownCapture={onPointerDownCapture}
         onPointerMoveCapture={onPointerMoveCapture}
         onPointerUpCapture={onPointerUpCapture}
         onPointerCancelCapture={onPointerUpCapture}
-        onPointerDown={() => editorWrapperRefEl.current?.focus({ preventScroll: true })}
       >
         <TldrawEditor
           options={tlOptions}
@@ -546,7 +513,7 @@ export function TldrawDrawingEditor(props: TldrawDrawingEditorProps) {
         />
 
         <PrimaryMenuBar>
-          <DrawingMenu getTlEditor={getTlEditor} onStoreChange={(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)} />
+          <DrawingMenu getTlEditor={getTlEditor} />
           {props.embedded && props.extendedMenu && (
             <ExtendedDrawingMenu
               onLockClick={async () => {

@@ -3,8 +3,9 @@
 ///////
 
 import { EditorPosition, MarkdownPostProcessorContext, MarkdownViewModeType } from "obsidian";
-import { DRAW_EMBED_KEY, DRAWING_INITIAL_ASPECT_RATIO, DRAWING_INITIAL_HEIGHT, DRAWING_INITIAL_WIDTH, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
+import { DRAW_EMBED_KEY, DRAWING_INITIAL_ASPECT_RATIO, PLUGIN_VERSION, WRITE_EMBED_KEY } from "src/constants";
 import InkPlugin from "src/main";
+import { getInkEmbedViewMode } from "./ink-embed-view-mode";
 
 export type WritingEmbedData = {
 	versionAtEmbed: string;
@@ -48,7 +49,6 @@ export const buildDrawingEmbed = (filepath: string) => {
 	let embedContent: DrawingEmbedData = {
 		versionAtEmbed: PLUGIN_VERSION,
 		filepath,
-		width: DRAWING_INITIAL_WIDTH,
 		aspectRatio: DRAWING_INITIAL_ASPECT_RATIO,
 	}
 
@@ -76,13 +76,7 @@ export const rebuildDrawingEmbed = (embedData: DrawingEmbedData) => {
 
 // This function came from Notion like tables code
 export const getViewMode = (el: HTMLElement): MarkdownViewModeType | null => {
-	const parent = el.parentElement;
-	if (parent) {
-		return parent.className.includes("cm-preview-code-block")
-			? "source"
-			: "preview";
-	}
-	return null;
+	return getInkEmbedViewMode(el.parentElement?.className);
 };
 
 export function applyCommonAncestorStyling(embedEl: HTMLElement) {

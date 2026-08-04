@@ -3,7 +3,7 @@ import { EditorPosition, MarkdownPostProcessorContext, MarkdownRenderChild, TFil
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
 import { InkFileData, stringifyPageData } from "src/utils/page-file";
-import { DrawingEmbedData, applyCommonAncestorStyling, rebuildDrawingEmbed, removeEmbed, stringifyEmbedData } from "src/utils/embed";
+import { DrawingEmbedData, applyCommonAncestorStyling, getViewMode, removeEmbed, stringifyEmbedData } from "src/utils/embed";
 import InkPlugin from "src/main";
 import DrawingEmbed from "src/tldraw/drawing/drawing-embed";
 import { DRAW_EMBED_KEY } from "src/constants";
@@ -107,6 +107,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 
 		const pageDataStr = await v.read(this.fileRef);
 		const pageData = JSON.parse(pageDataStr) as InkFileData;
+		const editable = getViewMode(this.el) === 'source';
 
 		this.root = createRoot(this.el);
 		this.root.render(
@@ -120,6 +121,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 					remove = {this.embedCtrls.removeEmbed}
 					width = {this.embedData.width}
 					aspectRatio = {this.embedData.aspectRatio}
+					editable = {editable}
 				/>
 			</JotaiProvider>
         );
@@ -140,7 +142,7 @@ class DrawingEmbedWidget extends MarkdownRenderChild {
 		await this.plugin.app.vault.modify(this.fileRef, pageDataStr);
 	}
 
-	setEmbedProps = async (width: number, aspectRatio: number) => {
+	setEmbedProps = async (width: number | undefined, aspectRatio: number) => {
 		const newEmbedData: DrawingEmbedData = {
 			...this.embedData,
 			width,

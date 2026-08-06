@@ -16,6 +16,7 @@ import {
 	PEN_PRESSURE_SLEW_PER_SIZE,
 	PEN_PRESSURE_SMOOTHING_ALPHA,
 } from '../constants/pen-input';
+import { getDashArray } from '../ink-svg-canvas';
 ///////////////////////////
 ///////////////////////////
 
@@ -556,17 +557,57 @@ function setOrAppendLastPoint(stroke: ActiveStroke, next: InkPoint): void {
 
 /** Imperatively update the live stroke <path> element (no React re-render). */
 function updateLiveStrokePath(ctx: DrawToolContext): void {
-	if (!activeStroke) return;
-	const livePath = ctx.getLiveStrokePath();
-	if (!livePath) return;
+    if (!activeStroke) return;
+    const livePath = ctx.getLiveStrokePath();
+    if (!livePath) return;
 
-	// WYSIWYG: render the live preview from the SAME `points` array, the SAME function
-	// (`getStroke`), and the SAME options (`toStrokeOptions`) that `ink-svg-canvas` / export
-	// use when the stroke commits — so the in-progress trail and the stored stroke are
-	// byte-identical. The last point is replaced in place while within merge radius of the tip,
-	// so the live stroke tracks the pen without chord lag.
-	const outlinePoints = getStroke(activeStroke.points, toStrokeOptions(activeStroke.style));
-	const pathData = getSvgPathFromStroke(outlinePoints);
-	livePath.setAttribute('d', pathData);
-	livePath.setAttribute('fill', activeStroke.style.color);
+    const style = activeStroke.style;
+    const isDashedOrDotted = style.dash && style.dash !== 'solid';
+
+    let pathData = '';
+    if (isDashedOrDotted) {
+        pathData = getCenterLinePath(activeStroke.points);
+    } else {
+		// WYSIWYG: render the live preview from the SAME `points` array, the SAME function
+		// (`getStroke`), and the SAME options (`toStrokeOptions`) that `ink-svg-canvas` / export
+		// use when the stroke commits — so the in-progress trail and the stored stroke are
+		// byte-identical. The last point is replaced in place while within merge radius of the tip,
+		// so the live stroke tracks the pen without chord lag.
+        const outlinePoints = getStroke(activeStroke.points, toStrokeOptions(style));
+        pathData = getSvgPathFromStroke(outlinePoints);
+    }
+
+    livePath.setAttribute('d', pathData);
+
+    if (isDashedOrDotted) {
+        livePath.setAttribute('fill', 'none');
+        livePath.setAttribute('stroke', style.color);
+        livePath.setAttribute('stroke-width', style.size.toString());
+        livePath.setAttribute('stroke-dasharray', getDashArray(style.dash, style.size) || '');
+        livePath.setAttribute('stroke-linecap', 'round');
+        livePath.setAttribute('stroke-linejoin', 'round');
+    } else {
+        livePath.setAttribute('fill', style.color);
+        livePath.removeAttribute('stroke');
+        livePath.removeAttribute('stroke-width');
+        livePath.removeAttribute('stroke-dasharray');
+        livePath.removeAttribute('stroke-linecap');
+        livePath.removeAttribute('stroke-linejoin');
+    }
+}
+
+/** Helper function to draw a standard line through the raw input points.
+ * Optimized Version to use InkPoint directly */
+function getCenterLinePath(points: InkPoint[]): string {
+    if (!points || points.length === 0) return '';
+    
+    const start = points[0];
+    let d = `M ${start[0]} ${start[1]}`;
+    
+    for (let i = 1; i < points.length; i++) {
+        const pt = points[i];
+        d += ` L ${pt[0]} ${pt[1]}`;
+    }
+    
+    return d;
 }

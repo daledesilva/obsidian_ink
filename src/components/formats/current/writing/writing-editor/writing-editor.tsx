@@ -56,6 +56,7 @@ import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'sr
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
+import { StyleMenu } from 'src/components/jsx-components/style-menu/style-menu';
 
 ///////////////////////////
 ///////////////////////////
@@ -1028,6 +1029,10 @@ export function WritingEditor(props: WritingEditorProps) {
 				{props.embedded && booxConnected && (
 					<ExpandLinesButton onExpandLines={expandWritingLinesByOne} />
 				)}
+				<StyleMenu
+					getEditor={getEditor}
+					onStoreChange={handleStoreChange}
+				/>
 			</SecondaryMenuBar>
 		</div>
 	</>;

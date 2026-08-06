@@ -42,6 +42,7 @@ import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
 import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
+import { StyleMenu } from 'src/components/jsx-components/style-menu/style-menu';
 
 ///////////////////////////
 ///////////////////////////
@@ -809,6 +810,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					embedId={props.embedded && props.embedId ? props.embedId : undefined}
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? getGlobals().plugin : undefined}
+				/>
+				<StyleMenu
+					getEditor={getEditor}
+					onStoreChange={handleStoreChange}
 				/>
 			</SecondaryMenuBar>
 

@@ -1,5 +1,5 @@
 import type { StrokeStore } from './stroke-store';
-import type { InkStroke } from './types';
+import type { InkStroke, InkStrokeStyle } from './types';
 
 ///////////////////////////
 ///////////////////////////
@@ -108,4 +108,52 @@ export class EraseAllCommand implements InkCommand {
 	unapply(): void {
 		this.store.replaceAll(this.previousStrokes);
 	}
+}
+
+/** Update the style of one or more strokes. */
+export class UpdateStrokesStyleCommand implements InkCommand {
+    private store: StrokeStore;
+    private strokeIds: string[];
+    private newStylePartial: Partial<InkStrokeStyle>;
+    private previousStyles: Map<string, InkStrokeStyle>;
+
+    constructor(
+        store: StrokeStore,
+        strokeIds: string[],
+        newStylePartial: Partial<InkStrokeStyle>
+    ) {
+        this.store = store;
+        this.strokeIds = strokeIds;
+        this.newStylePartial = newStylePartial;
+        this.previousStyles = new Map();
+
+        for (const id of strokeIds) {
+            const stroke = store.getById(id);
+            if (stroke) {
+                // Clone the previous style object so undo restores exact values
+                this.previousStyles.set(id, { ...stroke.style });
+            }
+        }
+    }
+
+    apply(): void {
+        for (const id of this.strokeIds) {
+            const stroke = this.store.getById(id);
+            if (stroke) {
+                stroke.style = { ...stroke.style, ...this.newStylePartial };
+            }
+        }
+        this.store.notify();
+    }
+
+    unapply(): void {
+        for (const id of this.strokeIds) {
+            const prevStyle = this.previousStyles.get(id);
+            const stroke = this.store.getById(id);
+            if (stroke && prevStyle) {
+                stroke.style = { ...prevStyle };
+            }
+        }
+        this.store.notify();
+    }
 }

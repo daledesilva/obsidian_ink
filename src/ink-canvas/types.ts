@@ -8,6 +8,9 @@ import { INK_STROKE_ZOOM_REFERENCE } from './stroke-zoom-scale';
 /** A single point captured during pen/stylus input: [x, y, pressure]. */
 export type InkPoint = [x: number, y: number, pressure: number];
 
+/** Stroke Line Style*/
+export type StrokeDashStyle = 'solid' | 'dashed' | 'dotted';
+
 /** Rendering options stored per-stroke so each stroke can have its own visual style. */
 export interface InkStrokeStyle {
 	/** Base diameter in canvas units. */
@@ -32,6 +35,8 @@ export interface InkStrokeStyle {
 	 * Drives mergeNearDuplicate scaling on re-render; streamline/smoothing are stored already scaled.
 	 */
 	captureZoom?: number;
+	/** Style of the Stroke */
+	dash?: StrokeDashStyle;
 }
 
 /** perfect-freehand options plus ink-canvas outline preprocessing fields. */
@@ -91,6 +96,7 @@ export const DEFAULT_STROKE_STYLE: InkStrokeStyle = {
 	streamline: 0.5,
 	simulatePressure: true,
 	color: 'currentColor',
+	dash: 'solid',
 };
 
 /** Convert an InkStrokeStyle to perfect-freehand StrokeOptions. */

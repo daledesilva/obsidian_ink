@@ -11,7 +11,8 @@ interface TooltipButtonProps {
 	onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 	disabled?: boolean;
 	className?: string;
-	children: React.ReactNode;
+	children?: React.ReactNode;
+	style?: React.CSSProperties;
 }
 
 /**
@@ -28,6 +29,7 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 	disabled,
 	className,
 	children,
+	style
 }) => {
 	const [tooltipVisible, setTooltipVisible] = React.useState(false);
 	const holdTimerRef = React.useRef<number | null>(null);
@@ -72,6 +74,7 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 				onPointerLeave={dismissTooltip}
 				onPointerCancel={dismissTooltip}
 				onClick={onClick}
+				style={style}
 			>
 				{children}
 			</button>

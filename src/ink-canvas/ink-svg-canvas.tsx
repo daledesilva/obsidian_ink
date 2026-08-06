@@ -1289,17 +1289,24 @@ interface StrokePathProps {
 }
 
 function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): boolean {
-	if (prev.isSelected !== next.isSelected) return false;
-	if (prev.pathDCache !== next.pathDCache) return false;
-	const a = prev.stroke;
-	const b = next.stroke;
-	if (a === b) return true;
-	if (a.id !== b.id) return false;
-	if (a.points !== b.points) return false;
-	if (a.style !== b.style) return false;
-	// Offset-only changes still need a re-render for the translate transform, but not a new `d`.
-	if (a.offset.x !== b.offset.x || a.offset.y !== b.offset.y) return false;
-	return true;
+    if (prev.isSelected !== next.isSelected) return false;
+    if (prev.pathDCache !== next.pathDCache) return false;
+    const a = prev.stroke;
+    const b = next.stroke;
+    if (a === b) return true;
+    if (a.id !== b.id) return false;
+    if (a.points !== b.points) return false;
+    
+    // Check individual style properties instead of a strict `a.style !== b.style` reference check.
+    // If your editor mutates the style object in place, `a.style === b.style` would evaluate to true 
+    // and skip re-rendering even if the color or size changed!
+    if (a.style.color !== b.style.color) return false;
+    if (a.style.size !== b.style.size) return false;
+    if (a.style.dash !== b.style.dash) return false;
+
+    // Offset-only changes still need a re-render for the translate transform, but not a new `d`.
+    if (a.offset.x !== b.offset.x || a.offset.y !== b.offset.y) return false;
+    return true;
 }
 
 const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {
@@ -1307,8 +1314,11 @@ const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.E
     
     const isDashedOrDotted = stroke.style.dash && stroke.style.dash !== 'solid';
 
+	//Create unique cache key
+	const geometryCacheKey = `${stroke.id}-${stroke.style.size}-${stroke.style.dash}`;
+
     // Build the SVG path data depending on the dash style
-    let d = pathDCache.get(stroke.id);
+    let d = pathDCache.get(geometryCacheKey);
     if (d === undefined) {
         if (isDashedOrDotted) {
             // Render a single spine for dashed/dotted lines
@@ -1318,7 +1328,7 @@ const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.E
             const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
             d = getSvgPathFromStroke(outlinePoints);
         }
-        pathDCache.set(stroke.id, d);
+        pathDCache.set(geometryCacheKey, d);
     }
 
     const hasOffset = stroke.offset.x !== 0 || stroke.offset.y !== 0;
@@ -1375,7 +1385,6 @@ export function getDashArray(dash?: StrokeDashStyle, size = 8): string | undefin
 export function getCenterLinePath(points: any[]): string {
     if (!points || points.length === 0) return '';
     
-    // perfect-freehand points can be arrays [x, y] or objects {x, y}
     const getPt = (p: any) => (Array.isArray(p) ? { x: p[0], y: p[1] } : { x: p.x, y: p.y });
     
     const start = getPt(points[0]);

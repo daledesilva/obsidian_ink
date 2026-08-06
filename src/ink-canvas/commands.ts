@@ -137,12 +137,22 @@ export class UpdateStrokesStyleCommand implements InkCommand {
     }
 
     apply(): void {
-        for (const id of this.strokeIds) {
-            const stroke = this.store.getById(id);
-            if (stroke) {
-                stroke.style = { ...stroke.style, ...this.newStylePartial };
+
+		const strokes = this.store.getAll();
+        
+        // Create a brand new array with brand new stroke references for affected IDs
+        const updatedStrokes = strokes.map(stroke => {
+            if (this.strokeIds.includes(stroke.id)) {
+                return {
+                    ...stroke,
+                    style: { ...stroke.style, ...this.newStylePartial }
+                };
             }
-        }
+            return stroke;
+        });
+
+        // Push the new array back into the store
+        this.store.replaceAll(updatedStrokes);
         this.store.notify();
     }
 

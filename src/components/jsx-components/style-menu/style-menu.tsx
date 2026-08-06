@@ -3,7 +3,6 @@ import { InkCanvasEditor } from 'src/ink-canvas/types';
 import * as React from 'react';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
-import { getEditor } from "src/logic/undo-redo/ink-editor-registry";
 
 
 export const STROKE_COLORS = [
@@ -64,29 +63,10 @@ export const StyleMenu = React.forwardRef<HTMLDivElement, StyleMenuProps>((props
     const [showColorPicker, setShowColorPicker] = React.useState<boolean>(false);
     const [showSizePicker, setShowSizePicker] = React.useState<boolean>(false);
     const [showDashPicker, setShowDashPicker] = React.useState<boolean>(false);
-    const [isDrawTool, setisDrawTool] = React.useState<boolean>(true);
 
     const [currentColor, setCurrentColor] = React.useState<string>(STROKE_COLORS[0].value);
     const [currentSize, setCurrentSize] = React.useState<number>(STROKE_SIZES[3].size);
     const [currentDash, setCurrentDash] = React.useState<string>(STROKE_DASHES[0].value);
-
-
-    React.useEffect(() => {
-        const editor = props.getEditor();
-        if (!editor) return;
-
-        setisDrawTool(editor.getCurrentTool() === "draw");
-
-        const unsubscribe = editor.subscribeToolChange((inkTool) => {
-            setisDrawTool(inkTool === "draw");
-        });
-
-        return () => {
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            } 
-        };
-    }, [props]);
 
     function selectColor(color: string) {
         const editor = props.getEditor();
@@ -126,11 +106,7 @@ export const StyleMenu = React.forwardRef<HTMLDivElement, StyleMenuProps>((props
                 'ink_menu-bar_floating'
             ])}
         >
-            <div className={classNames([
-                'ink_style-menu',
-                isDrawTool ? 'ink_visible' : 'ink_hidden'
-                ])}
-            >
+            <div className='ink_style-menu'>
 				{/* Color picker button */}
 		    	<div className='ink_style-menu-item'>
 		    		<TooltipButton

@@ -6,19 +6,6 @@
     right: 24px;        
     z-index: 1000;   
 
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    
-    &.ink_hidden {
-        opacity: 0;
-        pointer-events: none;
-    }
-    
-    &.ink_visible {
-        opacity: 1;
-        pointer-events: auto;
-    }
-
-
     button {
         width: 2.5em;
         height: 2.5em;

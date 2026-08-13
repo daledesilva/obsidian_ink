@@ -196,6 +196,11 @@ describe('countFileEmbedOccurrencesInMarkdown', () => {
 		expect(countFileEmbedOccurrencesInMarkdown(markdown, WRITING_PATH, 'inkWriting')).toBe(2);
 	});
 
+	it('counts PDF-safe PNG markers as references to the editable SVG', () => {
+		const markdown = `# Note\n\n${writingLine('Ink/Writing/my-note.png')}\n`;
+		expect(countFileEmbedOccurrencesInMarkdown(markdown, WRITING_PATH, 'inkWriting')).toBe(1);
+	});
+
 	it('returns zero when the file is not embedded', () => {
 		const markdown = `# Note\n\n${writingLine('Ink/Writing/other.svg')}\n`;
 		expect(countFileEmbedOccurrencesInMarkdown(markdown, WRITING_PATH, 'inkWriting')).toBe(0);
@@ -259,6 +264,22 @@ describe('removeAllEmbedsOfFileFromNote', () => {
 		expect(changed).toBe(true);
 		const written = (vault.modify as jest.Mock).mock.calls[0][1] as string;
 		expect(written).not.toContain('![InkDrawing]');
+	});
+
+	it('removes a PDF-safe PNG marker when deleting its editable SVG embed', async () => {
+		const note = { path: 'Notes/PdfSafe.md' } as TFile;
+		const original = `# PDF safe\n\n${writingLine('Ink/Writing/remove-me.png')}\n`;
+		const vault = makeVault({ 'Notes/PdfSafe.md': original });
+
+		const changed = await removeAllEmbedsOfFileFromNote(
+			vault as any,
+			note,
+			WRITING_PATH,
+			'inkWriting',
+		);
+
+		expect(changed).toBe(true);
+		expect((vault.modify as jest.Mock).mock.calls[0][1]).not.toContain('![InkWriting]');
 	});
 
 	it('removes multiple embeds of the same file in one note', async () => {

@@ -42,6 +42,7 @@ import {
 	resetFingerDrawingToDefault,
 	setBooxConnectionEnabled,
 } from 'src/logic/device-settings/device-settings';
+import { registerPrepareInkPdfExportCommand } from 'src/commands/prepare-ink-pdf-export';
 
 ////////
 ////////
@@ -167,6 +168,7 @@ export default class InkPlugin extends Plugin {
 			this.registerEditorExtension([inkEmbedsExtension()]);
 			registerPasteEmbedHandler(this);
 			registerReadingModeInkEmbeds(this);
+			registerPrepareInkPdfExportCommand(this);
 		}
 
 		registerSettingsTab(this);

@@ -107,6 +107,13 @@ function renderStrokePathsAndBounds(strokes: InkStroke[]): {
 	pathsMarkup: string;
 	bounds: StrokeBounds;
 } {
+	if (strokes.length === 0) {
+		return {
+			pathsMarkup: '',
+			bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 },
+		};
+	}
+
 	let minX = Infinity;
 	let minY = Infinity;
 	let maxX = -Infinity;

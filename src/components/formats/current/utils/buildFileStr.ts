@@ -33,14 +33,12 @@ function buildInkCanvasFileStr(pageData: InkFileData): string {
         '</metadata>',
     ].join('\n');
 
-    const metadataPattern = /<metadata\b[^>]*>[\s\S]*?<\/metadata>/i;
-    if (metadataPattern.test(fileStr)) {
-        return fileStr.replace(metadataPattern, metadata);
-    }
+    const metadataPattern = /<metadata\b[^>]*>[\s\S]*?<\/metadata>/gi;
+    const fileWithoutMetadata = fileStr.replace(metadataPattern, '');
 
     const svgOpenPattern = /<svg\b[^>]*>/i;
-    if (svgOpenPattern.test(fileStr)) {
-        return fileStr.replace(svgOpenPattern, (svgOpen) => `${svgOpen}\n${metadata}`);
+    if (svgOpenPattern.test(fileWithoutMetadata)) {
+        return fileWithoutMetadata.replace(svgOpenPattern, (svgOpen) => `${svgOpen}\n${metadata}`);
     }
 
     return `<svg xmlns="http://www.w3.org/2000/svg">\n${metadata}\n</svg>`;

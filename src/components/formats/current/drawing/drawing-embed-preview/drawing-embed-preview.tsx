@@ -93,7 +93,7 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                         cursor: 'pointer'
                     }}
                     pointerEvents = "visible"
-                    cacheRequests = {false}
+                    cacheRequests = {true}
                     key = {fileSrc}
                     onLoad = {onLoad}
                     viewBox = {props.embedSettings?.viewBox

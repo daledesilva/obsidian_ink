@@ -110,6 +110,19 @@ describe('buildFileStr — ink-canvas serialization', () => {
 		expect(result).not.toContain('stale');
 	});
 
+	test('removes every stale metadata block before inserting the current snapshot', () => {
+		const data = makeInkCanvasFileData();
+		data.svgString = data.svgString.replace(
+			'<path id="kept"/>',
+			'<metadata><ink-canvas>also-stale</ink-canvas></metadata><path id="kept"/>',
+		);
+
+		const result = buildFileStr(data);
+		expect(result.match(/<metadata\b/g)).toHaveLength(1);
+		expect(result).not.toContain('also-stale');
+		expect(result).toContain('<path id="kept"/>');
+	});
+
 	test('uses compact XML-safe JSON that survives a round trip', () => {
 		const result = buildFileStr(makeInkCanvasFileData());
 		const parsed = extractInkJsonFromSvg(result);

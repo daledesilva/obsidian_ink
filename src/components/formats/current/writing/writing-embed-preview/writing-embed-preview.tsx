@@ -97,7 +97,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
             {!isImg && (<>
                 <SVG
                     src={fileSrc}
-                    cacheRequests={false}
+                    cacheRequests={true}
                     key={fileSrc}
                     style={{
                         width: '100%',
@@ -118,8 +118,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
     ///////////////////
 
     function onLoad() {
-        // Slight delay on transition because otherwise a flicker is sometimes seen
-        window.setTimeout(() => {}, 100);
+        // Kept as a callback for parity with drawing previews.
     }
 
     function refreshSrc() {

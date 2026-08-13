@@ -16,7 +16,7 @@ jest.mock('src/stores/global-store', () => ({
 			app: {
 				vault: {
 					getResourcePath: () => '/vault/drawing.svg',
-					read: (...args: unknown[]) => mockVaultRead(...args),
+					cachedRead: (...args: unknown[]) => mockVaultRead(...args),
 					on: jest.fn(() => jest.fn()),
 					offref: jest.fn(),
 				},

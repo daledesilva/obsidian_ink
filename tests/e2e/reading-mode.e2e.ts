@@ -90,7 +90,7 @@ describe("Reading mode ink embeds", function () {
 
 		expect(fillsByTheme).not.toBeNull();
 		expect(fillsByTheme!.lightFill).not.toBe(fillsByTheme!.darkFill);
-		// Baked SVG uses #000000 — themed display must not stay hardcoded black in both themes.
-		expect(fillsByTheme!.lightFill === "rgb(0, 0, 0)" && fillsByTheme!.darkFill === "rgb(0, 0, 0)").toBe(false);
+		// Baked SVG uses #000000; dark Reading mode must override it to a visible colour.
+		expect(fillsByTheme!.darkFill).not.toBe("rgb(0, 0, 0)");
 	});
 });

@@ -4,6 +4,7 @@ import { DEFAULT_STROKE_STYLE } from 'src/ink-canvas/types';
 import {
 	getInkStrokesFromSvg,
 	inkFileHasStrokes,
+	sniffInkCanvasHasStrokes,
 	showLockedChrome,
 } from 'src/logic/utils/ink-file-has-strokes';
 
@@ -102,6 +103,23 @@ describe('inkFileHasStrokes', () => {
 			offset: { x: 0, y: 0 },
 		};
 		expect(inkFileHasStrokes(makeInkCanvasSvg([stroke]))).toBe(true);
+	});
+});
+
+describe('sniffInkCanvasHasStrokes', () => {
+	test('detects empty and populated current-format stroke arrays without parsing the SVG', () => {
+		expect(sniffInkCanvasHasStrokes(makeInkCanvasSvg([]))).toBe(false);
+		expect(sniffInkCanvasHasStrokes(makeInkCanvasSvg([{}]))).toBe(true);
+	});
+
+	test('allows whitespace before the first array item', () => {
+		const svg = makeInkCanvasSvg([]).replace('"strokes":[]', '"strokes":[ \n\t]');
+		expect(sniffInkCanvasHasStrokes(svg)).toBe(false);
+	});
+
+	test('falls back for legacy or malformed metadata', () => {
+		expect(sniffInkCanvasHasStrokes(makeTldrawSvg({}))).toBeNull();
+		expect(sniffInkCanvasHasStrokes('<svg><ink-canvas>{"strokes":[')).toBeNull();
 	});
 });
 

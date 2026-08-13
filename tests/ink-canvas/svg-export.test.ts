@@ -42,6 +42,12 @@ describe('svg-export', () => {
 		expect(svg).not.toContain('fill="currentColor"');
 	});
 
+	test('renderStrokesToSvg uses finite fallback bounds for an empty canvas', () => {
+		const svg = renderStrokesToSvg([], emptySnapshot);
+		expect(svg).toContain('viewBox="0 0 1 1"');
+		expect(svg).not.toMatch(/Infinity|NaN/);
+	});
+
 	test('renderStrokesToSvg wraps offset strokes in translate group', () => {
 		const offsetStroke: InkStroke = {
 			...sampleStroke,

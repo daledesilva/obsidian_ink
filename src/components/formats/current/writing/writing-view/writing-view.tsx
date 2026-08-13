@@ -7,6 +7,7 @@ import { InkFileData } from "src/components/formats/current/types/file-data";
 import { WritingEditor } from "../writing-editor/writing-editor";
 import { type MenuOption } from "src/components/jsx-components/overflow-menu/overflow-menu";
 import { buildFileStr } from "../../utils/buildFileStr";
+import { scheduleInkPdfPreviewRefresh } from 'src/logic/utils/ink-pdf-export';
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { WritingEditorControls } from "../writing-embed/writing-embed";
 import { ensureThemedNativeInkSvgView } from "src/logic/utils/addEditButtonToSvgView";
@@ -175,6 +176,7 @@ export class WritingView extends TextFileView {
 
     saveFile = (inkFileData: InkFileData) => {
         this.inkFileData = inkFileData;
+		if (this.file) scheduleInkPdfPreviewRefresh(this.plugin, this.file, inkFileData.svgString);
         void this.save(false);   // Obsidian will call getViewData during this method
     }
 

@@ -2,6 +2,7 @@ import { App, normalizePath, TFile } from 'obsidian';
 import { parseSettingsFromUrl } from 'src/components/formats/current/utils/parse-settings-from-url';
 import { EmbedSettings } from 'src/types/embed-settings';
 import { InkEmbedKind } from './embed';
+import { getInkSourcePathFromEmbedPath } from './ink-pdf-export';
 
 export const INK_READING_PROCESSED_ATTR = 'data-ink-reading-processed';
 /** Set while a MarkdownRenderChild is mounted into the host. */
@@ -49,8 +50,9 @@ export function findReadingModeInkEmbedCandidates(
 			const editLinkEl = findInkEditLinkForMarker(embedMarkerEl, editLinkFragment);
 			if (!editLinkEl) return;
 
-			const partialEmbedFilepath = extractPartialEmbedFilepath(embedMarkerEl);
-			if (!partialEmbedFilepath) return;
+			const markerFilepath = extractPartialEmbedFilepath(embedMarkerEl);
+			if (!markerFilepath) return;
+			const partialEmbedFilepath = getInkSourcePathFromEmbedPath(markerFilepath);
 
 			const settingsHref = editLinkEl.getAttribute('href') ?? '';
 			const { embedSettings, isPendingPaste } = parseSettingsFromUrl(settingsHref);

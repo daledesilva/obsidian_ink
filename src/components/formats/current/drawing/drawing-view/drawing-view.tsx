@@ -7,6 +7,7 @@ import {
 	Provider as JotaiProvider
 } from "jotai";
 import { buildFileStr } from "../../utils/buildFileStr";
+import { scheduleInkPdfPreviewRefresh } from 'src/logic/utils/ink-pdf-export';
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { ensureThemedNativeInkSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
@@ -184,6 +185,7 @@ export class DrawingView extends TextFileView {
 
     saveFile = (inkFileData: InkFileData) => {
         this.inkFileData = inkFileData;
+		if (this.file) scheduleInkPdfPreviewRefresh(this.plugin, this.file, inkFileData.svgString);
         void this.save(false);   // Obsidian will call getViewData during this method
     }
     

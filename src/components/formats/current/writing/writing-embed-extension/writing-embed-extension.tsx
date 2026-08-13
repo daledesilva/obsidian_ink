@@ -30,6 +30,10 @@ import {
 	patchWritingEmbedAspectRatioInEmbedSnippet,
 	readWritingFileAspectRatio,
 } from 'src/logic/utils/writing-embed-aspect-ratio';
+import {
+	getInkSourcePathFromEmbedPath,
+	scheduleInkPdfPreviewRefresh,
+} from 'src/logic/utils/ink-pdf-export';
 
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
@@ -189,6 +193,7 @@ export class WritingEmbedWidget extends WidgetType {
         const plugin = getGlobals().plugin;
         const pageDataStr = buildFileStr(pageData);
         await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
+		scheduleInkPdfPreviewRefresh(plugin, this.embeddedFile, pageData.svgString);
     };
 
     private onRequestMeasure(view: EditorView) {
@@ -667,13 +672,14 @@ function detectMarkdownEmbedLinkWriting(
     }
 
     const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from + 1, previewFilepathNode.to - 1);
+	const inkSourceFilepath = getInkSourcePathFromEmbedPath(previewPartialFilepath);
     const startOfReplacement = previewLinkStartNode.from;
     const endOfReplacement = settingsUrlEndNode.to;
 
     // Parse settings from URL parameters
     const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
 
-    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path);
+    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(inkSourceFilepath), mdFile.path);
 
     return {
         embedLinkInfo: {
@@ -681,7 +687,7 @@ function detectMarkdownEmbedLinkWriting(
             endPosition: endOfReplacement,
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
-            partialEmbedFilepath: previewPartialFilepath,
+            partialEmbedFilepath: inkSourceFilepath,
             isPendingPaste: isPendingPaste,
         },
     };

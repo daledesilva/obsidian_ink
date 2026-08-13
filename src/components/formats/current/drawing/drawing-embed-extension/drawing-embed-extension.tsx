@@ -29,6 +29,10 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
+import {
+	getInkSourcePathFromEmbedPath,
+	scheduleInkPdfPreviewRefresh,
+} from 'src/logic/utils/ink-pdf-export';
 import { buildDrawingEmbedLine, buildWritingEmbedLine } from '../../utils/build-embeds';
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
@@ -191,6 +195,7 @@ export class DrawingEmbedWidget extends WidgetType {
 		const plugin = getGlobals().plugin;
 		const inkFileContents = buildFileStr(inkFileData);
 		await plugin.app.vault.modify(this.embeddedFile, inkFileContents);
+		scheduleInkPdfPreviewRefresh(plugin, this.embeddedFile, inkFileData.svgString);
 	}
 
 	setEmbedProps = async (view: EditorView, width: number, aspectRatio: number) => {
@@ -843,6 +848,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     
     // It's definitely a markdown embed, let's now focus on the urlText to check it's an Ink embed.
     const previewPartialFilepath = transaction.state.doc.sliceString(previewFilepathNode.from+1, previewFilepathNode.to-1); // +&- to remove <> brackets
+	const inkSourceFilepath = getInkSourcePathFromEmbedPath(previewPartialFilepath);
     const urlAndSettings = transaction.state.doc.sliceString(settingsUrlPathNode.from, settingsUrlPathNode.to);
     // Require query param to include type=InkDrawing (host agnostic)
     if (!urlAndSettings.includes('type=inkDrawing')) {
@@ -867,7 +873,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     //     embedSettings.transcription = transaction.state.doc.sliceString(altTextNode.from, altTextNode.to);
     // }
 
-    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(previewPartialFilepath), mdFile.path)
+    const embeddedFile = plugin.app.metadataCache.getFirstLinkpathDest(normalizePath(inkSourceFilepath), mdFile.path)
 
     return {
         embedLinkInfo: {
@@ -875,7 +881,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
             endPosition: endOfReplacement,
             embeddedFile: embeddedFile,
             embedSettings: embedSettings,
-            partialEmbedFilepath: previewPartialFilepath,
+            partialEmbedFilepath: inkSourceFilepath,
             isPendingPaste: isPendingPaste,
         },
     }

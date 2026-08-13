@@ -50,6 +50,29 @@ describe('findReadingModeInkEmbedCandidates', () => {
 		expect(candidates[0].embedSettings.embedDisplay.aspectRatio).toBeCloseTo(2.5);
 	});
 
+	it('uses a PDF-safe PNG marker while resolving the editable SVG source', () => {
+		const root = document.createElement('div');
+		root.innerHTML = `
+			<p>
+				<img class="internal-embed" alt="InkWriting" src="Ink/Writing/page.png" />
+				<a href="https://example.com?type=inkWriting&aspectRatio=2.500">Edit Writing</a>
+			</p>
+		`;
+
+		const svgFile = { path: 'Ink/Writing/page.svg' };
+		const getFirstLinkpathDest = jest.fn((path: string) => path.endsWith('.svg') ? svgFile : null);
+		const candidates = findReadingModeInkEmbedCandidates(
+			mockApp(getFirstLinkpathDest),
+			root,
+			'notes/example.md',
+		);
+
+		expect(candidates).toHaveLength(1);
+		expect(candidates[0].partialEmbedFilepath).toBe('Ink/Writing/page.svg');
+		expect(candidates[0].embeddedFile).toBe(svgFile);
+		expect(getFirstLinkpathDest).toHaveBeenCalledWith('Ink/Writing/page.svg', 'notes/example.md');
+	});
+
 	it('finds multiple drawing embeds in the same preview section', () => {
 		const root = document.createElement('div');
 		root.className = 'markdown-preview-section';

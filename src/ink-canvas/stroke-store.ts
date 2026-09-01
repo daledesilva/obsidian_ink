@@ -20,7 +20,7 @@ export class StrokeStore {
 		return () => { this.listeners.delete(listener); };
 	}
 
-	private notify(): void {
+	notify(): void {
 		for (const listener of this.listeners) {
 			listener();
 		}

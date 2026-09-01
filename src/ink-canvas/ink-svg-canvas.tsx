@@ -16,7 +16,7 @@ import {
 } from './stroke-viewport-culling';
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
-import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
+import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand, UpdateStrokesStyleCommand } from './commands';
 import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
 import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
@@ -29,7 +29,7 @@ import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-res
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
 import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
-import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
+import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke, StrokeDashStyle } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
@@ -483,7 +483,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 			getStrokeStyle: () => ({ ...strokeStyleRef.current }),
 			setStrokeStyle: (partial: Partial<InkStrokeStyle>) => {
-				setStrokeStyle(prev => ({ ...prev, ...partial }));
+    			setStrokeStyle(prev => ({ ...prev, ...partial }));
+
+    			const selectedIds = selectedIdsRef.current;
+    			if (selectedIds.size > 0) {
+        			const ids = Array.from(selectedIds);
+        			const cmd = new UpdateStrokesStyleCommand(storeRef.current, ids, partial);
+        			undoManagerRef.current.execute(cmd);
+    			}
 			},
 
 			getCamera: () => ({ ...cameraRef.current }),
@@ -1282,56 +1289,111 @@ interface StrokePathProps {
 }
 
 function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): boolean {
-	if (prev.isSelected !== next.isSelected) return false;
-	if (prev.pathDCache !== next.pathDCache) return false;
-	const a = prev.stroke;
-	const b = next.stroke;
-	if (a === b) return true;
-	if (a.id !== b.id) return false;
-	if (a.points !== b.points) return false;
-	if (a.style !== b.style) return false;
-	// Offset-only changes still need a re-render for the translate transform, but not a new `d`.
-	if (a.offset.x !== b.offset.x || a.offset.y !== b.offset.y) return false;
-	return true;
+    if (prev.isSelected !== next.isSelected) return false;
+    if (prev.pathDCache !== next.pathDCache) return false;
+    const a = prev.stroke;
+    const b = next.stroke;
+    if (a === b) return true;
+    if (a.id !== b.id) return false;
+    if (a.points !== b.points) return false;
+    
+    // Check individual style properties instead of a strict `a.style !== b.style` reference check.
+    // If your editor mutates the style object in place, `a.style === b.style` would evaluate to true 
+    // and skip re-rendering even if the color or size changed!
+    if (a.style.color !== b.style.color) return false;
+    if (a.style.size !== b.style.size) return false;
+    if (a.style.dash !== b.style.dash) return false;
+
+    // Offset-only changes still need a re-render for the translate transform, but not a new `d`.
+    if (a.offset.x !== b.offset.x || a.offset.y !== b.offset.y) return false;
+    return true;
 }
 
 const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {
-	const { stroke, isSelected, pathDCache } = props;
-	// All strokes render through perfect-freehand's `getStroke` directly — the same call the
-	// live preview makes (see `draw-tool.ts`), so committed strokes match what was drawn.
-	// Cached by stroke id: parent re-renders (viewportRevision, unrelated store updates after
-	// cache clear + remount) reuse `d` when the id is still populated; offset is transform-only.
-	let d = pathDCache.get(stroke.id);
-	if (d === undefined) {
-		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
-		d = getSvgPathFromStroke(outlinePoints);
-		pathDCache.set(stroke.id, d);
-	}
+    const { stroke, isSelected, pathDCache } = props;
+    
+    const isDashedOrDotted = stroke.style.dash && stroke.style.dash !== 'solid';
 
-	const hasOffset = stroke.offset.x !== 0 || stroke.offset.y !== 0;
+	//Create unique cache key
+	const geometryCacheKey = `${stroke.id}-${stroke.style.size}-${stroke.style.dash}`;
 
-	return (
-		<g
-			data-stroke-group=""
-			data-stroke-id={stroke.id}
-			data-offset-x={stroke.offset.x}
-			data-offset-y={stroke.offset.y}
-			transform={hasOffset ? `translate(${stroke.offset.x}, ${stroke.offset.y})` : undefined}
-		>
-			<path
-				data-stroke-id={stroke.id}
-				d={d}
-				fill={stroke.style.color}
-			/>
-			{isSelected && (
-				<path
-					d={d}
-					fill="none"
-					stroke="rgba(0, 123, 255, 0.6)"
-					strokeWidth={2}
-					pointerEvents="none"
-				/>
-			)}
-		</g>
-	);
+    // Build the SVG path data depending on the dash style
+    let d = pathDCache.get(geometryCacheKey);
+    if (d === undefined) {
+        if (isDashedOrDotted) {
+            // Render a single spine for dashed/dotted lines
+            d = getCenterLinePath(stroke.points);
+        } else {
+            // Render the pressure-sensitive outline for solid lines
+            const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
+            d = getSvgPathFromStroke(outlinePoints);
+        }
+        pathDCache.set(geometryCacheKey, d);
+    }
+
+    const hasOffset = stroke.offset.x !== 0 || stroke.offset.y !== 0;
+
+    return (
+        <g
+            data-stroke-group=""
+            data-stroke-id={stroke.id}
+            data-offset-x={stroke.offset.x}
+            data-offset-y={stroke.offset.y}
+            transform={hasOffset ? `translate(${stroke.offset.x}, ${stroke.offset.y})` : undefined}
+        >
+            <path
+                data-stroke-id={stroke.id}
+                d={d}
+                // Switch between filled polygons (solid) and stroked lines (dashed)
+                fill={isDashedOrDotted ? 'none' : stroke.style.color}
+                stroke={isDashedOrDotted ? stroke.style.color : undefined}
+                strokeWidth={isDashedOrDotted ? stroke.style.size : undefined}
+                strokeDasharray={isDashedOrDotted ? getDashArray(stroke.style.dash, stroke.style.size) : undefined}
+                strokeLinecap={isDashedOrDotted ? 'round' : undefined}
+                strokeLinejoin={isDashedOrDotted ? 'round' : undefined}
+            />
+            {isSelected && (
+                <path
+                    d={d}
+                    fill="none"
+                    stroke="rgba(0, 123, 255, 0.6)"
+                    strokeWidth={2}
+                    pointerEvents="none"
+                />
+            )}
+        </g>
+    );
 }, strokePathPropsAreEqual);
+
+
+/** Helper function to convert dash style into SVG stroke-dasharray values */
+export function getDashArray(dash?: StrokeDashStyle, size = 8): string | undefined {
+    if (dash === 'dashed') {
+        const dashLen = size * 2.5;
+        const gapLen = size * 1.5;
+        return `${dashLen},${gapLen}`;
+    }
+    if (dash === 'dotted') {
+        const dotLen = size * 0;
+        const gapLen = size * 2;
+        return `${dotLen},${gapLen}`;
+    }
+    return undefined;
+}
+
+/** Helper function to draw a standard line through the raw input points*/
+export function getCenterLinePath(points: any[]): string {
+    if (!points || points.length === 0) return '';
+    
+    const getPt = (p: any) => (Array.isArray(p) ? { x: p[0], y: p[1] } : { x: p.x, y: p.y });
+    
+    const start = getPt(points[0]);
+    let d = `M ${start.x} ${start.y}`;
+    
+    for (let i = 1; i < points.length; i++) {
+        const pt = getPt(points[i]);
+        d += ` L ${pt.x} ${pt.y}`;
+    }
+    
+    return d;
+}

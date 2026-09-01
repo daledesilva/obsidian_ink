@@ -136,6 +136,7 @@ PDF export often requires rules under `@media print { .print … }`. Frontmatter
 ## See also
 
 - [Reading mode](reading-mode.md) — Conceptual overview (non-technical)
+- [Embed preview SVG loading](embed-preview-svg-loading.md) — Locked preview `vault.read` + raw SVG (CORS / theming)
 - [Ink colours and theming](ink-colours-and-theming.md) — How preview colours follow the theme
 - [Ink embeds: contexts and limitations](ink-embeds-contexts-and-limitations.md)
 - [UX decisions](ux-decisions.md)

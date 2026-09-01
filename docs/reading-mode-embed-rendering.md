@@ -105,7 +105,7 @@ If Ink only accepted section roots, the post-processor would return immediately 
 - Show the **full SVG canvas** (no `viewBox` crop from the Edit link)
 - Ignore saved **width** and **aspect ratio** (often filling the page)
 
-Drawing reframing is stored in the Edit link URL (`viewBoxX`, `viewBoxY`, `viewBoxWidth`, `viewBoxHeight`, plus `width` and `aspectRatio`). Only `DrawingEmbedPreview` applies that crop after inlining the SVG — native image embeds cannot.
+Drawing reframing is stored in the Edit link URL (`viewBoxX`, `viewBoxY`, `viewBoxWidth`, `viewBoxHeight`, plus `width` and `aspectRatio`). Only `DrawingEmbedPreview` applies that crop after inlining the SVG — native image embeds cannot. In Live Preview **edit mode**, users save framing via the purple lock in the drawing toolbar; see [drawing-embed-framing.md](drawing-embed-framing.md).
 
 ### Lifecycle constraints on full-page export
 

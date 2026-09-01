@@ -37,7 +37,7 @@ import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
-import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
+import type { CameraState, InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
@@ -64,6 +64,40 @@ interface BooxStrokePayload {
 	points?: BooxCanvasPoint[];
 	canvasWidth?: number;
 	canvasHeight?: number;
+}
+
+/** Saved embed viewBox vs live camera can differ slightly from fractional layout without a real framing change. */
+const EMBED_VIEWBOX_DIRTY_EPS = 0.75;
+
+/** Maps ink-canvas camera + container size to the embed viewBox persisted in the Edit link. */
+function viewBoxFromCameraAndContainerRect(
+	camera: CameraState,
+	containerRect: DOMRect,
+): { x: number; y: number; width: number; height: number } | null {
+	if (containerRect.width <= 0 || containerRect.height <= 0) return null;
+	return {
+		x: -camera.x,
+		y: -camera.y,
+		width: containerRect.width / camera.zoom,
+		height: containerRect.height / camera.zoom,
+	};
+}
+
+/** True when the live viewBox differs from the saved embed framing beyond layout tolerance. */
+function isEmbedViewBoxDirtyComparedToSaved(
+	liveViewBox: { x: number; y: number; width: number; height: number },
+	savedViewBox: { x: number; y: number; width: number; height: number },
+): boolean {
+	const dx = Math.abs(liveViewBox.x - savedViewBox.x);
+	const dy = Math.abs(liveViewBox.y - savedViewBox.y);
+	const dw = Math.abs(liveViewBox.width - savedViewBox.width);
+	const dh = Math.abs(liveViewBox.height - savedViewBox.height);
+	return (
+		dx > EMBED_VIEWBOX_DIRTY_EPS
+		|| dy > EMBED_VIEWBOX_DIRTY_EPS
+		|| dw > EMBED_VIEWBOX_DIRTY_EPS
+		|| dh > EMBED_VIEWBOX_DIRTY_EPS
+	);
 }
 
 interface DrawingEditorProps {
@@ -115,8 +149,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const setBooxOverlayActiveTimerRef = useRef<number | null>(null);
 	const isViewActiveRef = useRef(true);
 	const pendingNewOverlayRef = useRef(false);
-	const [, setCameraTick] = React.useState(0);
-	const hasUserMovedCameraRef = useRef(false);
+	const [isSaveCameraEnabled, setIsSaveCameraEnabled] = React.useState(false);
+	const isEmbedResizeGestureActiveRef = useRef(false);
+	const hasHandledInitialCameraRef = useRef(false);
+	// Tracks first init only — later InkSvgCanvas remounts must not hide save framing mid-edit.
 	const isLegacyInkFileRef = useRef(false);
 
 	// On mount
@@ -478,38 +514,29 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		if (!editor) return null;
 		const container = editor.getContainerElement();
 		if (!container) return null;
-		const rect = container.getBoundingClientRect();
-		if (rect.width <= 0 || rect.height <= 0) return null;
-		const camera = editor.getCamera();
-		return {
-			x: -camera.x,
-			y: -camera.y,
-			width: rect.width / camera.zoom,
-			height: rect.height / camera.zoom,
-		};
+		return viewBoxFromCameraAndContainerRect(editor.getCamera(), container.getBoundingClientRect());
 	}
 
-	function isViewBoxDirty(): boolean {
-		if (!props.embedded) return false;
-		if (!props.embedSettings) return false;
-		const vb = computeCurrentViewBox();
-		if (!vb) return false;
-		const saved = props.embedSettings.viewBox;
-		// Tolerance: DOMRect sizes can be fractional, which would otherwise show the save button
-		// immediately after unlock even if the camera hasn't moved.
-		const EPS = 0.75;
-		const dx = Math.abs(vb.x - saved.x);
-		const dy = Math.abs(vb.y - saved.y);
-		const dw = Math.abs(vb.width - saved.width);
-		const dh = Math.abs(vb.height - saved.height);
-		const dirty = dx > EPS || dy > EPS || dw > EPS || dh > EPS;
-		return dirty;
+	/** Syncs the purple save-framing control from a known camera + container snapshot. */
+	function syncSaveFramingControlFromCamera(camera: CameraState, containerRect: DOMRect) {
+		if (!props.embedded || !props.embedSettings) {
+			setIsSaveCameraEnabled(false);
+			return;
+		}
+		const liveViewBox = viewBoxFromCameraAndContainerRect(camera, containerRect);
+		if (!liveViewBox) {
+			setIsSaveCameraEnabled(false);
+			return;
+		}
+		const isDirty = isEmbedViewBoxDirtyComparedToSaved(liveViewBox, props.embedSettings.viewBox);
+		setIsSaveCameraEnabled(isDirty);
 	}
 
 	function handleSaveCameraPosition() {
 		const vb = computeCurrentViewBox();
 		if (!vb) return;
 		props.onSaveCameraPosition?.(vb);
+		setIsSaveCameraEnabled(false);
 	}
 
 	const customExtendedMenu = [
@@ -531,13 +558,22 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		if (props.resizeEmbed) props.resizeEmbed(pxWidthDiff, pxHeightDiff);
 	}
 
+	function onResizeStart() {
+		isEmbedResizeGestureActiveRef.current = true;
+		props.onResizeStart?.();
+	}
+
 	function onResizeEnd() {
 		props.onResizeEnd?.();
 		if (props.embedded) {
-			hasUserMovedCameraRef.current = true;
-			setCameraTick((n) => n + 1);
+			const editor = editorRef.current;
+			const container = editor?.getContainerElement();
+			if (editor && container) {
+				syncSaveFramingControlFromCamera(editor.getCamera(), container.getBoundingClientRect());
+			}
 			props.onEmbedResizeEnd?.();
 		}
+		isEmbedResizeGestureActiveRef.current = false;
 	}
 
 
@@ -783,8 +819,26 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				onInteractionChange={handleCanvasInteractionChange}
 				onEmbedUndoStackPush={handleEmbedUndoStackPush}
 				onCameraChange={(camera, containerRect, meta) => {
-					if (meta.source === 'user') hasUserMovedCameraRef.current = true;
-					setCameraTick((n) => n + 1);
+					// Init: suppress save framing only on the first settle after unlock (fractional layout).
+					if (meta.source === 'init') {
+						if (!hasHandledInitialCameraRef.current) {
+							hasHandledInitialCameraRef.current = true;
+							setIsSaveCameraEnabled(false);
+						}
+						return;
+					}
+					// Embed resize: ink canvas may emit api camera adjustments while the handle is dragged.
+					if (
+						meta.source === 'api'
+						&& props.embedded
+						&& isEmbedResizeGestureActiveRef.current
+					) {
+						syncSaveFramingControlFromCamera(camera, containerRect);
+						return;
+					}
+					if (meta.source === 'user') {
+						syncSaveFramingControlFromCamera(camera, containerRect);
+					}
 				}}
 				initialViewBox={props.embedded ? props.embedSettings?.viewBox : undefined}
 				writingAlignedZoom={
@@ -819,7 +873,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				{props.embedded && (
 					<ExtendedDrawingMenu
 						onSaveCameraClick={handleSaveCameraPosition}
-						isSaveCameraEnabled={hasUserMovedCameraRef.current && isViewBoxDirty()}
+						isSaveCameraEnabled={isSaveCameraEnabled}
 						onLockClick={() => props.closeEditor?.()}
 						menuOptions={customExtendedMenu}
 					/>
@@ -842,7 +896,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			{props.resizeEmbed && (
 				<ResizeHandle
 					resizeEmbed={resizeEmbed}
-					onResizeStart={props.onResizeStart}
+					onResizeStart={onResizeStart}
 					onResizeEnd={onResizeEnd}
 				/>
 			)}

@@ -169,15 +169,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		onCameraChangeRef.current?.({ ...nextCamera }, rect, meta);
 	}, []);
 	const commitUserCameraState = useCallback((computeNext: (prev: CameraState) => CameraState) => {
-		let nextCamera: CameraState | null = null;
-		setCameraState((prev) => {
-			nextCamera = computeNext(prev);
-			cameraRef.current = nextCamera;
-			return nextCamera;
-		});
-		if (nextCamera) {
-			emitCameraChange(nextCamera, { source: 'user' });
-		}
+		// Compute synchronously from cameraRef — forwarded pointer events may not run the
+		// setState updater before this function returns, which would skip onCameraChange.
+		const nextCamera = computeNext(cameraRef.current);
+		cameraRef.current = nextCamera;
+		setCameraState(nextCamera);
+		emitCameraChange(nextCamera, { source: 'user' });
 	}, [emitCameraChange]);
 	const gridEnabledRef = useRef(gridEnabled);
 	gridEnabledRef.current = gridEnabled;
@@ -852,18 +849,18 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const dragZoomDelta = getRightDragZoomDelta(startPoint.x, startPoint.y, e.clientX, e.clientY);
 			const hasMoved = Math.abs(dragZoomDelta) > 2;
 			if (hasMoved) rightDragMovedRef.current = true;
-			const factor = Math.exp(dragZoomDelta * 0.005);
-			const initialCam = rightDragInitialCameraRef.current;
-			const newZoom = clampZoom(initialCam.zoom * factor);
-			const focal = rightDragFocalScreenRef.current;
-			const zoomDelta = 1 / newZoom - 1 / initialCam.zoom;
-			const next = {
-				x: initialCam.x + focal.x * zoomDelta,
-				y: initialCam.y + focal.y * zoomDelta,
-				zoom: newZoom,
-			};
-			setCameraState(next);
-			emitCameraChange(next, { source: 'user' });
+			commitUserCameraState(() => {
+				const factor = Math.exp(dragZoomDelta * 0.005);
+				const initialCam = rightDragInitialCameraRef.current;
+				const newZoom = clampZoom(initialCam.zoom * factor);
+				const focal = rightDragFocalScreenRef.current;
+				const zoomDelta = 1 / newZoom - 1 / initialCam.zoom;
+				return {
+					x: initialCam.x + focal.x * zoomDelta,
+					y: initialCam.y + focal.y * zoomDelta,
+					zoom: newZoom,
+				};
+			});
 			return;
 		}
 

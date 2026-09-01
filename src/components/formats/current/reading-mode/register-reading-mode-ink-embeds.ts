@@ -24,6 +24,7 @@ const INK_READING_EMBED_KIND_DATA = 'inkEmbedKind';
 const INK_READING_FILE_PATH_DATA = 'inkFilePath';
 const INK_READING_EMBED_SETTINGS_DATA = 'inkEmbedSettings';
 const INK_READING_SOURCE_PATH_DATA = 'inkSourcePath';
+const INK_READING_HOST_SELECTOR = `.ddc_ink_reading-embed-host[${INK_READING_PROCESSED_ATTR}]`;
 
 export function registerReadingModeInkEmbeds(plugin: InkPlugin) {
 	// Run late so block containers include the full embed marker + Edit link row.
@@ -45,8 +46,12 @@ export function registerReadingModeInkEmbeds(plugin: InkPlugin) {
 	// Obsidian may reuse cached reading-view DOM when toggling LP ↔ RM. MarkdownRenderChild
 	// onunload clears React content but leaves host shells — remount when preview is shown again.
 	// When returning to Live Preview, rebuild CM embed widgets (they only refresh on down-scroll otherwise).
+	let refreshScheduled = false;
 	const scheduleReadingModeOrLivePreviewEmbedRefresh = () => {
+		if (refreshScheduled) return;
+		refreshScheduled = true;
 		queueMicrotask(() => {
+			refreshScheduled = false;
 			const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
 			if (!markdownView) return;
 
@@ -72,6 +77,9 @@ function processReadingModeInkEmbedsInRoot(
 		rootEl,
 		context.sourcePath,
 	);
+	const containsMountedHost = rootEl.matches(INK_READING_HOST_SELECTOR)
+		|| rootEl.querySelector(INK_READING_HOST_SELECTOR) !== null;
+	if (candidates.length === 0 && !containsMountedHost) return;
 
 	// Replace last-to-first so earlier DOM ranges stay valid while iterating.
 	const sortedCandidates = [...candidates].sort((a, b) => {
@@ -106,7 +114,8 @@ function processReadingModeInkEmbedsInRoot(
 	// (active but no .ddc_ink_embed yet), re-mounts via plugin.addChild, and never unloads,
 	// leaving Obsidian's export progress bar stuck.
 	// Popout-safe: schedule on the window that owns this preview root.
-	window.requestAnimationFrame(() => {
+	const rootWindow = rootEl.ownerDocument.defaultView ?? window;
+	rootWindow.requestAnimationFrame(() => {
 		if (!isFullPageRoot) {
 			remountStaleReadingEmbedHostsInRoot(plugin, rootEl, context.sourcePath);
 		}
@@ -136,9 +145,7 @@ function remountStaleReadingEmbedHostsInRoot(
 	rootEl: HTMLElement,
 	sourcePath: string,
 ) {
-	const staleHostEls = [...rootEl.querySelectorAll<HTMLElement>(
-		`.ddc_ink_reading-embed-host[${INK_READING_PROCESSED_ATTR}]`,
-	)].filter((hostEl) => {
+	const staleHostEls = [...rootEl.querySelectorAll<HTMLElement>(INK_READING_HOST_SELECTOR)].filter((hostEl) => {
 		if (hostEl.hasAttribute(INK_READING_MOUNTING_ATTR)) return false;
 		if (!hostEl.hasAttribute(INK_READING_ACTIVE_ATTR)) return true;
 		return !hostEl.querySelector('.ddc_ink_embed');

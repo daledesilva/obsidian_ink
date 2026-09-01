@@ -3,6 +3,10 @@ import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
 import { getPointerSamples } from 'src/ink-canvas/utils/pointer-samples';
 import {
+	isStylusEraserPointerDown,
+	isStylusSideButtonPointerDown,
+} from 'src/ink-canvas/utils/stylus-eraser-pointer';
+import {
 	blockObsidianTouchEvent,
 	shouldBlockObsidianTouch,
 	TOUCH_AXIS_LOCK_THRESHOLD_PX,
@@ -134,6 +138,8 @@ export type FingerBlockerProps = {
 	touchGestureMode?: InkTouchGestureMode;
 	/** Called when a touch session begins that may capture pan/scroll (cancel in-flight momentum). */
 	onTouchGestureSessionStart?: () => void;
+	/** Experimental: pen barrel button forwards to ink-svg for temporary erase instead of pan. */
+	enableStylusSideButtonTemporaryErase?: boolean;
 };
 
 export function FingerBlocker({
@@ -148,6 +154,7 @@ export function FingerBlocker({
 	onPanGestureEnd,
 	touchGestureMode = 'legacy',
 	onTouchGestureSessionStart,
+	enableStylusSideButtonTemporaryErase = false,
 }: FingerBlockerProps) {
 	const blockerRef = React.useRef<HTMLDivElement>(null);
 	const pointerDownRef = React.useRef<boolean>(false);
@@ -203,6 +210,12 @@ export function FingerBlocker({
 	const embedPanZoomPointerIdsRef = React.useRef<Set<number>>(new Set());
 	/** Middle-click pan pointers forwarded to ink-svg-canvas. */
 	const middleButtonPanPointerIdsRef = React.useRef<Set<number>>(new Set());
+	/** Hardware stylus eraser (button 5) pointers forwarded to ink-svg-canvas. */
+	const stylusEraserPointerIdsRef = React.useRef<Set<number>>(new Set());
+	/** Experimental pen barrel-button temporary-erase pointers forwarded to ink-svg-canvas. */
+	const stylusSideButtonErasePointerIdsRef = React.useRef<Set<number>>(new Set());
+	const enableStylusSideButtonTemporaryEraseRef = React.useRef(enableStylusSideButtonTemporaryErase);
+	enableStylusSideButtonTemporaryEraseRef.current = enableStylusSideButtonTemporaryErase;
 	/** Single-finger touch pointers forwarded for finger drawing. */
 	const fingerDrawingPointerIdsRef = React.useRef<Set<number>>(new Set());
 	const forwardFingerToCanvasRef = React.useRef(forwardFingerToCanvas);
@@ -374,7 +387,9 @@ export function FingerBlocker({
 				// Obsidian's history navigation is not intercepted.
 				if (e.pointerType === 'mouse' && (e.button === 3 || e.button === 4)) return;
 
-				const isDrawingInput = e.pointerType === 'pen' || e.button === 0;
+				const isDrawingInput =
+					(e.pointerType === 'pen' || e.button === 0)
+					&& !isStylusEraserPointerDown(e);
 
 				// Only lock scroll for left-click (button 0) and pen input.
 				// Middle (button 1) and right (button 2) ink-canvas pan call
@@ -403,10 +418,35 @@ export function FingerBlocker({
 				}
 
 				const penTarget = getPenForwardTarget();
-				if (penTarget && forwardPenToCanvas && isDrawingInput) {
+				// Hardware eraser (button 5) may report as mouse on Windows; forward explicitly
+				// instead of the draw-input path (see docs/stylus-eraser-input.md).
+				if (penTarget && isInkSvgPenTarget(penTarget) && isStylusEraserPointerDown(e)) {
+					lockScroll();
+					isPenDownRef.current = true;
+					stylusEraserPointerIdsRef.current.add(e.pointerId);
+					forwardPointerEvent(penTarget, 'pointerdown', e);
+				} else if (
+					penTarget
+					&& isInkSvgPenTarget(penTarget)
+					&& enableStylusSideButtonTemporaryEraseRef.current
+					&& isStylusSideButtonPointerDown(e)
+				) {
+					lockScroll();
+					isPenDownRef.current = true;
+					stylusSideButtonErasePointerIdsRef.current.add(e.pointerId);
+					forwardPointerEvent(penTarget, 'pointerdown', e);
+				} else if (penTarget && forwardPenToCanvas && isDrawingInput) {
 					forwardPointerEvent(penTarget, 'pointerdown', e);
 				}
-				if (penTarget && isInkSvgPenTarget(penTarget) && isRightButtonPanMouseButton(e)) {
+				if (
+					penTarget
+					&& isInkSvgPenTarget(penTarget)
+					&& isRightButtonPanMouseButton(e)
+					&& !(
+						enableStylusSideButtonTemporaryEraseRef.current
+						&& isStylusSideButtonPointerDown(e)
+					)
+				) {
 					embedPanZoomPointerIdsRef.current.add(e.pointerId);
 					forwardPointerEvent(penTarget, 'pointerdown', e);
 				}
@@ -571,7 +611,11 @@ export function FingerBlocker({
 				}
 
 				const penTarget = getPenForwardTarget();
-				if (penTarget && middleButtonPanPointerIdsRef.current.has(e.pointerId)) {
+				if (penTarget && stylusEraserPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointermove', e);
+				} else if (penTarget && stylusSideButtonErasePointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointermove', e);
+				} else if (penTarget && middleButtonPanPointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointermove', e);
 				} else if (penTarget && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
 					forwardPointerEvent(penTarget, 'pointermove', e);
@@ -773,7 +817,13 @@ export function FingerBlocker({
 		const handlePointerUp = (e: PointerEvent) => {
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				const penTarget = getPenForwardTarget();
-				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
+				if (penTarget && stylusEraserPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointerup', e);
+					stylusEraserPointerIdsRef.current.delete(e.pointerId);
+				} else if (penTarget && stylusSideButtonErasePointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointerup', e);
+					stylusSideButtonErasePointerIdsRef.current.delete(e.pointerId);
+				} else if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
 					forwardPointerEvent(penTarget, 'pointerup', e);
 				}
 				if (penTarget && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
@@ -882,7 +932,13 @@ export function FingerBlocker({
 
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				const penTarget = getPenForwardTarget();
-				if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
+				if (penTarget && stylusEraserPointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointercancel', e);
+					stylusEraserPointerIdsRef.current.delete(e.pointerId);
+				} else if (penTarget && stylusSideButtonErasePointerIdsRef.current.has(e.pointerId)) {
+					forwardPointerEvent(penTarget, 'pointercancel', e);
+					stylusSideButtonErasePointerIdsRef.current.delete(e.pointerId);
+				} else if (penTarget && forwardPenToCanvas && isDrawingPointer(e)) {
 					forwardPointerEvent(penTarget, 'pointercancel', e);
 				}
 				if (penTarget && embedPanZoomPointerIdsRef.current.has(e.pointerId)) {
@@ -1078,6 +1134,8 @@ export function FingerBlocker({
 			isPenDownRef.current = false;
 			embedPanZoomPointerIdsRef.current.clear();
 			middleButtonPanPointerIdsRef.current.clear();
+			stylusEraserPointerIdsRef.current.clear();
+			stylusSideButtonErasePointerIdsRef.current.clear();
 			fingerDrawingPointerIdsRef.current.clear();
 			touchGestureSessionActiveRef.current = false;
 			resetDedicatedWritingGestureState();

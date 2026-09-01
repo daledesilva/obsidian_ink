@@ -2,6 +2,8 @@
 
 This document describes the strategy used in `FingerBlocker` to differentiate between Pen (drawing) and Finger (scrolling) inputs. This allows users to naturally scroll the page with their fingers while using a stylus or pen for precision drawing without triggering unintended gestures.
 
+For **hardware eraser tip** (`button` 5) and experimental barrel-button erase, see [Stylus eraser input](stylus-eraser-input.md).
+
 ## The Challenge
 
 On many touch devices, the operating system and browser treat Pen input similarly to Touch input for the purpose of scrolling (panning). This creates a conflict when a user wants to:

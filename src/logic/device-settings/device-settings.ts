@@ -52,10 +52,20 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.fingerDrawingEnabled === 'boolean'
 			? partial.fingerDrawingEnabled
 			: base.fingerDrawingEnabled;
+	const doubleTapToggleEraser =
+		typeof partial.doubleTapToggleEraser === 'boolean'
+			? partial.doubleTapToggleEraser
+			: base.doubleTapToggleEraser;
+	const stylusSideButtonTemporaryErase =
+		typeof partial.stylusSideButtonTemporaryErase === 'boolean'
+			? partial.stylusSideButtonTemporaryErase
+			: base.stylusSideButtonTemporaryErase;
 	return {
 		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
 		fingerDrawingEnabled,
+		doubleTapToggleEraser,
+		stylusSideButtonTemporaryErase,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
 			inkDrawing: partial.strokeInputTreatAs.inkDrawing,
@@ -141,6 +151,30 @@ export function setFingerDrawingEnabled(enabled: boolean): void {
 /** Resets finger drawing to default (off). Used by vault "Reset settings". */
 export function resetFingerDrawingToDefault(): void {
 	setFingerDrawingEnabled(DEFAULT_DEVICE_SETTINGS_V1.fingerDrawingEnabled);
+}
+
+export function getDoubleTapToggleEraserEnabled(): boolean {
+	return readDeviceSettings().doubleTapToggleEraser;
+}
+
+export function setDoubleTapToggleEraserEnabled(enabled: boolean): void {
+	patchDeviceSettings({ doubleTapToggleEraser: enabled });
+}
+
+export function getStylusSideButtonTemporaryEraseEnabled(): boolean {
+	return readDeviceSettings().stylusSideButtonTemporaryErase;
+}
+
+export function setStylusSideButtonTemporaryEraseEnabled(enabled: boolean): void {
+	patchDeviceSettings({ stylusSideButtonTemporaryErase: enabled });
+}
+
+/** Resets experimental device toggles to defaults. Used by vault "Reset settings". */
+export function resetExperimentalDeviceSettingsToDefault(): void {
+	patchDeviceSettings({
+		doubleTapToggleEraser: DEFAULT_DEVICE_SETTINGS_V1.doubleTapToggleEraser,
+		stylusSideButtonTemporaryErase: DEFAULT_DEVICE_SETTINGS_V1.stylusSideButtonTemporaryErase,
+	});
 }
 
 /**

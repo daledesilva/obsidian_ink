@@ -21,4 +21,8 @@ export interface DeviceSettingsV1 {
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;
 	/** Last detected input for this device (shared by writing and drawing). */
 	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;
+	/** Experimental: double-tap canvas toggles draw/erase (devices without hardware eraser events). */
+	doubleTapToggleEraser: boolean;
+	/** Experimental: pen barrel button temporarily erases instead of panning. */
+	stylusSideButtonTemporaryErase: boolean;
 }

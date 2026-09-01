@@ -1,4 +1,4 @@
-import { LockIcon } from "src/graphics/icons/lock-icon";
+import { CheckIcon } from "src/graphics/icons/check-icon";
 import { LockFrameIcon } from "src/graphics/icons/lock-frame-icon";
 import "./extended-drawing-menu.scss";
 import * as React from "react";
@@ -25,20 +25,22 @@ export const ExtendedDrawingMenu: React.FC<{
 				<div className="ddc_ink_btn-group ddc_ink_btn-group--lock">
 					{props.onLockClick && (
 						<TooltipButton
-							tooltip={showSaveCamera ? 'Abandon framing' : 'Lock'}
+							tooltip={showSaveCamera ? 'Abandon framing' : 'Finish editing'}
 							className="ddc_ink_btn-group__btn"
 							onClick={() => props.onLockClick?.()}
 						>
-							<LockIcon/>
+							<CheckIcon />
 						</TooltipButton>
 					)}
 					{showSaveCamera && props.onSaveCameraClick && (
+						// Text label distinguishes persist-framing from the adjacent finish-editing check.
 						<TooltipButton
-							tooltip='Save framing'
-							className="ddc_ink_btn-group__btn ddc_ink_btn-group__btn--accent"
+							tooltip='Saving framing'
+							className="ddc_ink_btn-group__btn ddc_ink_btn-group__btn--accent ddc_ink_btn-group__btn--frame"
 							onClick={() => props.onSaveCameraClick?.()}
 						>
 							<LockFrameIcon />
+							<span className="ddc_ink_btn-group__btn-label">Save framing</span>
 						</TooltipButton>
 					)}
 				</div>

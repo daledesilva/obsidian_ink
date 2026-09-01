@@ -160,7 +160,11 @@ Right-drag with mod held uses the dominant screen axis (`dx` vs `dy`, with `dy` 
 
 ### Camera change emission
 
-User-driven camera updates call `commitUserCameraState()`, which applies `setCameraState` and then invokes `onCameraChange` **after** the state update returns. Calling `onCameraChange` inside a `setState` updater triggers React warnings because embed parents (e.g. `DrawingEditor`) update their own state in the callback.
+User-driven camera updates call `commitUserCameraState()`, which computes the next camera **synchronously from `cameraRef`**, updates React state, then invokes `onCameraChange` with `meta.source === 'user'`. Do not call `onCameraChange` inside a `setState` updater — embed parents (e.g. `DrawingEditor`) update their own state in the callback and React will warn.
+
+Forwarded pointer events from `FingerBlocker` into the SVG may not run a `setState` updater before the commit function returns; deferring emission to an updater skipped pan gestures while the camera still moved. See [drawing-embed-framing.md](drawing-embed-framing.md).
+
+Embed parents use `onCameraChange` to show or hide the purple **save framing** control when live viewBox differs from the saved Edit link. See that doc for `init` vs `user` vs `api` handling.
 
 ### Legacy v1 tldraw drawing embeds
 

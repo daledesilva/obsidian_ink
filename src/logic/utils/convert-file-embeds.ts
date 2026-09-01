@@ -9,6 +9,7 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { buildDrawingEmbedSettingsFromStrokes } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import { parseSvgViewBoxAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
 import type { EmbedSettings } from "src/types/embed-settings";
+import { getInkPdfPreviewPath } from 'src/logic/utils/ink-pdf-export';
 // View type strings (avoid importing from view modules to prevent heavy deps in tests)
 const INK_WRITING_VIEW_TYPE = "ink_writing-view";
 const INK_DRAWING_VIEW_TYPE = "ink_drawing-view";
@@ -65,9 +66,10 @@ function buildFileEmbedPattern(
 	global = false,
 ): RegExp {
 	const escapedPath = svgFilePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const escapedPreviewPath = getInkPdfPreviewPath(svgFilePath).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const altText = embedType === 'inkWriting' ? 'InkWriting' : 'InkDrawing';
 	return new RegExp(
-		` !\\[${altText}\\]\\(<${escapedPath}>\\)`,
+		` !\\[${altText}\\]\\(<(?:${escapedPath}|${escapedPreviewPath})>\\)`,
 		global ? 'g' : undefined,
 	);
 }
@@ -159,10 +161,11 @@ export async function removeAllEmbedsOfFileFromNote(
 	let content = await vault.read(note);
 
 	const escapedPath = svgFilePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const escapedPreviewPath = getInkPdfPreviewPath(svgFilePath).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const altText = embedType === 'inkWriting' ? 'InkWriting' : 'InkDrawing';
 	// Match the full embed line (everything up to and including the newline)
 	const lineRegex = new RegExp(
-		` !\\[${altText}\\]\\(<${escapedPath}>\\)[^\\n]*\\r?\\n?`,
+		` !\\[${altText}\\]\\(<(?:${escapedPath}|${escapedPreviewPath})>\\)[^\\n]*\\r?\\n?`,
 		'g',
 	);
 
@@ -232,10 +235,11 @@ export async function updateEmbedInNote(
 	let content = await vault.read(note);
 
 	const escapedOldPath = oldSvgPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const escapedOldPreviewPath = getInkPdfPreviewPath(oldSvgPath).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const fromAlt = toType === 'inkWriting' ? 'InkDrawing' : 'InkWriting';
 	// Match the full embed line (everything up to end of line)
 	const lineRegex = new RegExp(
-		` !\\[${fromAlt}\\]\\(<${escapedOldPath}>\\)[^\n]*`,
+		` !\\[${fromAlt}\\]\\(<(?:${escapedOldPath}|${escapedOldPreviewPath})>\\)[^\n]*`,
 		'g',
 	);
 

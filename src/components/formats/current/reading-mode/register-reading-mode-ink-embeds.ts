@@ -11,6 +11,7 @@ import { InkEmbedKind } from 'src/logic/utils/embed';
 import { EmbedSettings } from 'src/types/embed-settings';
 import { InkReadingEmbedHost, refreshReadingModeEmbedDimensionsInRoot } from './ink-reading-embed-host';
 import { refreshLivePreviewEmbedsWhenReady } from '../ink-embeds-extension/ink-embed-refresh';
+import { shouldUseNativeInkPdfPreviews } from 'src/logic/utils/ink-pdf-export';
 import '../drawing/drawing-embed/drawing-embed.scss';
 import '../drawing/drawing-embed-preview/drawing-embed-preview.scss';
 import '../writing/writing-embed/writing-embed.scss';
@@ -30,6 +31,10 @@ export function registerReadingModeInkEmbeds(plugin: InkPlugin) {
 	// Reading mode passes section elements (p, .el-p, …); PDF export passes the entire
 	// .markdown-preview-view — both roots must be accepted or export shows the full SVG.
 	plugin.registerMarkdownPostProcessor((element, context) => {
+		// The PDF-safe command deliberately leaves PNG companion markers native.
+		// Obsidian's exporter includes PNGs but drops the themed inline SVG host.
+		if (shouldUseNativeInkPdfPreviews()) return;
+
 		const matchesScanRoot = element.matches(READING_MODE_EMBED_SCAN_ROOT_SELECTOR);
 		const isFullPagePreviewRoot = element.matches(FULL_PAGE_PREVIEW_ROOT_SELECTOR);
 		if (!matchesScanRoot && !isFullPagePreviewRoot) return;

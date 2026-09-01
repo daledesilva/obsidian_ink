@@ -102,6 +102,12 @@ flowchart TD
 
 If something shows the SVG as a normal image (or you open the raw file in a browser), you see the **baked** black and gray. That is expected. Theme colours only apply when Ink’s preview CSS is active.
 
+### Dark-mode native image fallback (Reading mode)
+
+Before the Reading-mode post-processor mounts an inlined preview — or if that mount is delayed on a large SVG — Obsidian may still show a native `img` with `alt="InkWriting"` / `alt="InkDrawing"`. Those tags cannot restyle inner paths, so baked black strokes disappear on dark backgrounds.
+
+`ink-svg-preview-theme.scss` (imported once from `main.ts`) applies `filter: invert(1)` only to those native images under `.theme-dark .markdown-preview-view`. React preview hosts are excluded; they continue to use `--text-normal` on inlined paths. The invert assumes monochrome Ink exports.
+
 ## Technical details
 
 | Element | Baked in file | On screen in Ink preview |
@@ -125,7 +131,7 @@ Native-leaf layout (sizing, scroll, centered media) lives in `src/logic/utils/sv
 
 ## Technical gotchas
 
-1. **Image tags do not theme** — Reading mode, the native SVG leaf, and any other `img`/`object` path must swap to (or hide behind) an inlined SVG preview, or strokes stay black in dark mode.
+1. **Image tags do not theme** — Reading mode, the native SVG leaf, and any other `img`/`object` path must swap to (or hide behind) an inlined SVG preview for proper `--text-normal` theming. Dark mode temporarily inverts native Ink `img` markers as a readability fallback until (or unless) the inline host mounts — do not invert the React preview hosts.
 2. **Baked black wins without CSS** — SVG `fill="#000000"` on a path is strong. Preview CSS uses `!important` so theme colour can override it inside Ink previews.
 3. **Reuse embed host classes on the native leaf** — Native-view layout uses `ddc_ink_svg-native-view-preview`; colour comes from the same writing/drawing embed classes. Do not invent a parallel stroke-colour stylesheet for dedicated native views.
 4. **Hide native media before `vault.read`** — Ink marks the leaf with `ddc_ink_svg-view--awaiting-theme` synchronously on open so Obsidian’s `img`/`object` never paints baked-black strokes during the async read. Removing that early suppress brings back a dark-mode flash.
@@ -133,6 +139,7 @@ Native-leaf layout (sizing, scroll, centered media) lives in `src/logic/utils/sv
 6. **Editor vs file** — While editing, the canvas may still use live drawing colours. Only the **exported SVG** and **locked / native previews** follow the bake + theme rules described here.
 7. **Legacy files** — Older tldraw-era SVGs may use different stored colours. New ink-canvas exports follow black strokes and gray guide lines.
 8. **Print and share** — Exported files intentionally stay black/gray so hard copies stay legible.
+9. **Theme partial is global** — Import `ink-svg-preview-theme.scss` from `main.ts` rather than only `@use` from individual embed SCSS files, so dark-mode native-`img` rules apply even when a given preview SCSS chunk is not loaded.
 
 ## See also
 

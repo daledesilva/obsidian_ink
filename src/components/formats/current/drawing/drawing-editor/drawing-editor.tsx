@@ -358,6 +358,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	}
 
 	function handleCanvasInteractionChange(active: boolean) {
+		// Pause autosave while the pen is down so large SVG serialize cannot hitch mid-stroke.
 		canvasInteractionActiveRef.current = active;
 		if (active) {
 			resetTimers();
@@ -378,6 +379,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	function queueSaves() {
 		resetTimers();
+		// One quiet-period save only — ink-canvas incremental/complete bodies are identical;
+		// a second long-delay timer would re-serialize the full SVG for free.
 		if (canvasInteractionActiveRef.current) return;
 		const delayMs = resolveInkAutosaveDelayMs(Platform, DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS);
 		shortDelayTimerRef.current = window.setTimeout(() => {

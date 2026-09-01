@@ -125,6 +125,8 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 		});
 		this.resizeObserver.observe(resizeContainerEl);
 
+		// Also observe the reading/preview page so column width changes still
+		// reflow writing height without a separate window resize listener.
 		const pageEl = resizeContainerEl.closest('.markdown-preview-view')
 			?? resizeContainerEl.closest('.markdown-reading-view');
 		if (pageEl instanceof HTMLElement && pageEl !== resizeContainerEl) {

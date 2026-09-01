@@ -443,6 +443,7 @@ Troubleshooting:
 - [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd` 0.4.x, popout-safe DOM, trashFile, pen scroll-lock literal styles (no eslint-disable), Jest polyfills.
 - [Manifest minAppVersion and versions.json](manifest-and-versions.md) — valid `x.y.z` app floor, fallback map when minAppVersion changes.
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
+- [Ink canvas: large attachment performance](ink-canvas-large-attachment-performance.md) — Stroke geometry cache, mutation-aware invalidation, metadata-only saves, autosave quiet period.
 - [Ink canvas: stroke viewport culling](ink-canvas-stroke-viewport-culling.md) — Render-only skip of off-screen mounts + path `d` / approx maxY caches.
 - [Dedicated writing: tall HTML page scroll](dedicated-writing-html-scroll.md) — Native scroller instead of camera-Y pan for long writing pages.
 - [Ink canvas: capture-time point merge](ink-canvas-point-merge.md) — Hybrid append/replace-tip merge for fast smoothness and slow curves.

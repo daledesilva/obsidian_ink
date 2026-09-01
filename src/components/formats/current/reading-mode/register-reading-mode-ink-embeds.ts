@@ -48,6 +48,7 @@ export function registerReadingModeInkEmbeds(plugin: InkPlugin) {
 	// When returning to Live Preview, rebuild CM embed widgets (they only refresh on down-scroll otherwise).
 	let refreshScheduled = false;
 	const scheduleReadingModeOrLivePreviewEmbedRefresh = () => {
+		// Coalesce LP↔RM layout storms into one microtask remount/refresh.
 		if (refreshScheduled) return;
 		refreshScheduled = true;
 		queueMicrotask(() => {

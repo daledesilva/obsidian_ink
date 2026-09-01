@@ -350,6 +350,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, []);  
 
 	function invalidateStrokeCaches(change: StrokeStoreChange): void {
+		// Mutation events name touched ids so we avoid clearing every stroke's path on each add.
 		if (change.type === 'clear' || change.type === 'replaceAll') {
 			strokeBoundsCacheRef.current.clear();
 			strokePathDCacheRef.current.clear();

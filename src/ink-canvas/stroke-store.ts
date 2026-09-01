@@ -7,6 +7,7 @@ export type StrokeStoreChange =
 	| { type: 'add' | 'addMany' | 'remove' | 'updateOffsets'; ids: string[] }
 	| { type: 'clear' | 'replaceAll'; ids: [] };
 
+/** Listeners receive which strokes changed so caches can invalidate surgically. */
 export type StrokeStoreListener = (change: StrokeStoreChange) => void;
 
 /**

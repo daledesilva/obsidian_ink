@@ -76,6 +76,10 @@ Reading mode’s native image renderer would size the embed from the pipe dimens
 
 Embeds are non-interactive in reading mode (no click-to-edit).
 
+**Resize observation:** `InkReadingEmbedHost` uses one `ResizeObserver` on the embed resize container and, when distinct, on the nearest `.markdown-preview-view` / `.markdown-reading-view` ancestor. A separate window `resize` listener and second page-level observer were removed to cut embed overhead; both targets share `applyDimensions`.
+
+**Refresh coalescing:** Live Preview ↔ Reading toggles schedule at most one microtask refresh (`refreshScheduled`) so rapid layout events do not remount hosts repeatedly. Stale-host remount `requestAnimationFrame` uses the preview root’s `ownerDocument.defaultView` so popout windows are correct.
+
 ## PDF export
 
 Built-in **Export to PDF** uses the same reading-mode HTML pipeline, not Live Preview widgets. Obsidian renders the note into a temporary print DOM (under `.print`), then converts it with Electron’s `printToPDF`.
@@ -127,6 +131,7 @@ PDF export often requires rules under `@media print { .print … }`. Frontmatter
 6. **PDF export uses a full-page post-processor root** — See [PDF export](#pdf-export). Do not remove `FULL_PAGE_PREVIEW_ROOT_SELECTOR` or revert to section-only scan roots without testing reframed drawing exports.
 7. **Do not run stale-host remount synchronously after mounting on full-page roots** — Causes a React race and can hang the export progress bar; see [PDF export § Lifecycle constraints](#lifecycle-constraints-on-full-page-export).
 8. **Drawing embed centering is CSS, not inline literals** — `.ddc_ink_drawing-embed .ddc_ink_resize-container` owns `position` / `left: 50%` / `translate: -50%`. `applyReadingModeEmbedDimensions` only sets dynamic width/height/maxWidth (Obsidian `no-static-styles-assignment`). Writing width `100%` comes from writing-embed SCSS.
+9. **Dark native `img` before inline mount** — See [Ink colours and theming](ink-colours-and-theming.md#dark-mode-native-image-fallback-reading-mode). Do not remove the global theme import from `main.ts` without another path for that fallback.
 
 ## See also
 

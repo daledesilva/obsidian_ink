@@ -2,17 +2,6 @@
 // and native SVG leaf after ensureThemedNativeInkSvgView mounts a themed host).
 // SVG must be in the DOM (not img) for these rules to apply.
 
-// Reading mode initially renders Ink attachments as native images. Large SVGs can
-// remain in that state while the post-processor mounts a theme-aware inline SVG,
-// and a missed post-process should still be readable. Ink exports are monochrome,
-// so invert only the native image fallback in dark mode. The selector excludes
-// the React preview hosts below, which use Obsidian's exact text colour instead.
-.theme-dark .markdown-preview-view {
-	img:is([alt="InkWriting"], [alt="InkDrawing"]) {
-		filter: invert(1);
-	}
-}
-
 .ddc_ink_writing-embed-preview,
 .ddc_ink_drawing-embed-preview {
 	// !important beats baked fill="#000000" presentation attributes in saved SVGs.

@@ -1,6 +1,8 @@
 import './ink-svg-canvas.scss';
 import React, { useEffect, useLayoutEffect, useRef, useCallback, useState, memo } from 'react';
-import { StrokeStore, type StrokeStoreChange } from './stroke-store';
+import { getStroke } from 'perfect-freehand';
+import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
+import { StrokeStore } from './stroke-store';
 import { UndoManager } from './undo-manager';
 import { panByScreenDelta, zoomAtPoint, clampZoom, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { createPanMomentumController, createModifierWheelZoomDirectionResolver, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
@@ -26,13 +28,12 @@ import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-inpu
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
-import { DEFAULT_STROKE_STYLE } from './types';
+import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
 import { InkAdaptiveGrid, INK_GRID_BOOX_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
-import { getRenderedStrokeData } from './rendered-stroke-cache';
 
 type LastCanvasPointerState = {
 	clientX: number;
@@ -65,8 +66,6 @@ export interface InkSvgCanvasProps {
 	initialSnapshot?: InkCanvasSnapshot;
 	onEditorReady?: (editor: InkCanvasEditor) => void;
 	onChange?: () => void;
-	/** Pauses expensive persistence work while a pen/pointer interaction is active. */
-	onInteractionChange?: (active: boolean) => void;
 	/** Fired when a new undoable canvas command is executed (stroke, erase, move, etc.). */
 	onEmbedUndoStackPush?: () => void;
 	/** Emits whenever camera changes (pan/zoom/setCamera). */
@@ -112,7 +111,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const pageWidth = props.pageWidth ?? WRITING_PAGE_WIDTH;
 	const writingBufferLines = props.writingBufferLines ?? 3;
 	const writingLineHeight = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
-	const contentMaxYRef = useRef(0);
 
 	const canvasWrapperRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -126,7 +124,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const contentHeight = strokes.length > 0
 			? computeApproxContentMaxY(strokes)
 			: 0;
-		contentMaxYRef.current = contentHeight;
 		return cropWritingStrokeHeightInvitingly(contentHeight, writingBufferLines, writingLineHeight);
 	}
 
@@ -183,8 +180,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	gridEnabledRef.current = gridEnabled;
 	const onChangeRef = useRef(props.onChange);
 	onChangeRef.current = props.onChange;
-	const onInteractionChangeRef = useRef(props.onInteractionChange);
-	onInteractionChangeRef.current = props.onInteractionChange;
 	const onEmbedUndoStackPushRef = useRef(props.onEmbedUndoStackPush);
 	onEmbedUndoStackPushRef.current = props.onEmbedUndoStackPush;
 	const setGridEnabledHandlerRef = useRef<(enabled: boolean) => void>(() => {});
@@ -311,29 +306,21 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	// Subscribe to store changes to re-render strokes
 	useEffect(() => {
-		const unsubStore = storeRef.current.subscribe((change) => {
-			// Only invalidate cache entries touched by this mutation.
-			invalidateStrokeCaches(change);
+		const unsubStore = storeRef.current.subscribe(() => {
+			// Invalidate cull bounds + path `d` — points/style may have changed; store still holds every stroke.
+			strokeBoundsCacheRef.current.clear();
+			strokePathDCacheRef.current.clear();
 			forceRender(n => n + 1);
 			props.onChange?.();
 
 			if (writingMode) {
-				if (change.type === 'add' || change.type === 'addMany') {
-					for (const id of change.ids) {
-						const stroke = storeRef.current.getById(id);
-						if (!stroke) continue;
-						const bounds = computeApproxStrokePageBounds(stroke);
-						strokeBoundsCacheRef.current.set(id, bounds);
-						if (bounds.maxY > contentMaxYRef.current) contentMaxYRef.current = bounds.maxY;
-					}
-				} else if (change.type === 'clear') {
-					contentMaxYRef.current = 0;
-				} else {
-					contentMaxYRef.current = computeApproxContentMaxY(storeRef.current.getAll());
-				}
+				const allStrokes = storeRef.current.getAll();
 				const lh = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
+				const contentHeight = allStrokes.length > 0
+					? computeApproxContentMaxY(allStrokes)
+					: 0;
 				const candidateHeight = cropWritingStrokeHeightInvitingly(
-					contentMaxYRef.current,
+					contentHeight,
 					writingBufferLines,
 					lh,
 				);
@@ -348,20 +335,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		});
 		return () => { unsubStore(); unsubUndo(); };
 	}, []);  
-
-	function invalidateStrokeCaches(change: StrokeStoreChange): void {
-		if (change.type === 'clear' || change.type === 'replaceAll') {
-			strokeBoundsCacheRef.current.clear();
-			strokePathDCacheRef.current.clear();
-			return;
-		}
-
-		for (const id of change.ids) {
-			strokeBoundsCacheRef.current.delete(id);
-			// Moving a stroke only changes its transform; its path data stays valid.
-			if (change.type !== 'updateOffsets') strokePathDCacheRef.current.delete(id);
-		}
-	}
 
 	// Re-cull when the note scroller or window moves the canvas on/off screen (embeds + dedicated).
 	useEffect(() => {
@@ -752,7 +725,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		// Touch input: two-finger gestures are handled by the native touch listener.
 		// Single-finger touch is ignored unless finger drawing is active.
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
-		onInteractionChangeRef.current?.(true);
 
 		recordCanvasPointer(e);
 		isPointerOverCanvasRef.current = true;
@@ -875,7 +847,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
-		onInteractionChangeRef.current?.(false);
 
 		recordCanvasPointer(e);
 
@@ -907,7 +878,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
-		onInteractionChangeRef.current?.(false);
 
 		recordCanvasPointer(e);
 
@@ -1333,7 +1303,8 @@ const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.E
 	// cache clear + remount) reuse `d` when the id is still populated; offset is transform-only.
 	let d = pathDCache.get(stroke.id);
 	if (d === undefined) {
-		d = getRenderedStrokeData(stroke).pathD;
+		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
+		d = getSvgPathFromStroke(outlinePoints);
 		pathDCache.set(stroke.id, d);
 	}
 

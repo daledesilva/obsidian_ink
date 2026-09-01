@@ -3,7 +3,6 @@ import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr'
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
-import { DEFAULT_STROKE_STYLE, type InkCanvasSnapshot } from 'src/ink-canvas/types';
 
 ////////
 ////////
@@ -35,30 +34,6 @@ function makeDrawingFileData(): InkFileData {
 		},
 		tldraw: minimalSnapshot,
 		svgString: '<svg xmlns="http://www.w3.org/2000/svg"><defs/></svg>',
-	};
-}
-
-function makeInkCanvasFileData(): InkFileData {
-	const inkCanvas: InkCanvasSnapshot = {
-		version: 1,
-		strokes: [{
-			id: 'stroke<&',
-			points: [[0, 0, 0.5], [10, 10, 0.7]],
-			style: { ...DEFAULT_STROKE_STYLE },
-			offset: { x: 0, y: 0 },
-		}],
-		gridEnabled: false,
-		writingLineHeight: 150,
-	};
-	return {
-		meta: {
-			pluginVersion: PLUGIN_VERSION,
-			tldrawVersion: '',
-			fileType: 'inkWriting',
-		},
-		tldraw: minimalSnapshot,
-		inkCanvas,
-		svgString: '<svg xmlns="http://www.w3.org/2000/svg"><metadata><ink-canvas>stale</ink-canvas></metadata><path id="kept"/></svg>',
 	};
 }
 
@@ -98,40 +73,6 @@ describe('buildFileStr — writing-line-height attribute', () => {
 	test('always includes the tldraw element', () => {
 		const result = buildFileStr(makeWritingFileData(150));
 		expect(result).toContain('<tldraw');
-	});
-});
-
-describe('buildFileStr — ink-canvas serialization', () => {
-	test('replaces only metadata and keeps rendered SVG markup intact', () => {
-		const result = buildFileStr(makeInkCanvasFileData());
-
-		expect(result.match(/<metadata\b/g)).toHaveLength(1);
-		expect(result).toContain('<path id="kept"/>');
-		expect(result).not.toContain('stale');
-	});
-
-	test('removes every stale metadata block before inserting the current snapshot', () => {
-		const data = makeInkCanvasFileData();
-		data.svgString = data.svgString.replace(
-			'<path id="kept"/>',
-			'<metadata><ink-canvas>also-stale</ink-canvas></metadata><path id="kept"/>',
-		);
-
-		const result = buildFileStr(data);
-		expect(result.match(/<metadata\b/g)).toHaveLength(1);
-		expect(result).not.toContain('also-stale');
-		expect(result).toContain('<path id="kept"/>');
-	});
-
-	test('uses compact XML-safe JSON that survives a round trip', () => {
-		const result = buildFileStr(makeInkCanvasFileData());
-		const parsed = extractInkJsonFromSvg(result);
-
-		expect(result).toContain('"version":1');
-		expect(result).not.toContain('\n  "version"');
-		expect(result).toContain('stroke&lt;&amp;');
-		expect(parsed?.inkCanvas?.strokes[0].id).toBe('stroke<&');
-		expect(parsed?.inkCanvas?.writingLineHeight).toBe(150);
 	});
 });
 

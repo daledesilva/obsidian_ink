@@ -8,7 +8,6 @@ import { inkFileHasStrokes } from 'src/logic/utils/ink-file-has-strokes';
  */
 export function useInkFileHasStrokes(file: TFile | null, vault: Vault): boolean | null {
 	const [hasStrokes, setHasStrokes] = useState<boolean | null>(null);
-	const fileMtime = file?.stat.mtime;
 
 	useEffect(() => {
 		if (!file) {
@@ -21,7 +20,7 @@ export function useInkFileHasStrokes(file: TFile | null, vault: Vault): boolean 
 
 		async function refresh() {
 			try {
-				const svgString = await vault.cachedRead(inkFile);
+				const svgString = await vault.read(inkFile);
 				if (!cancelled) {
 					setHasStrokes(inkFileHasStrokes(svgString));
 				}
@@ -34,13 +33,18 @@ export function useInkFileHasStrokes(file: TFile | null, vault: Vault): boolean 
 
 		void refresh();
 
+		const onModify = (modifiedFile: TFile) => {
+			if (modifiedFile.path !== inkFile.path) return;
+			void refresh();
+		};
+		const eventRef = vault.on('modify', onModify);
+
 		return () => {
 			cancelled = true;
+			// @ts-ignore - offref exists in Obsidian API
+			vault.offref(eventRef);
 		};
-	// The preview component already subscribes to vault modifications and changes
-	// its mtime-busted source URL. Reuse that render instead of registering a
-	// second listener for every Ink embed.
-	}, [file, fileMtime, vault]);
+	}, [file, vault]);
 
 	return hasStrokes;
 }

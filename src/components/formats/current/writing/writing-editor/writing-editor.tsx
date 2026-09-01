@@ -1,7 +1,7 @@
 import './writing-editor.scss';
 import * as React from 'react';
 import { useRef } from 'react';
-import { Platform, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { useAtomValue } from 'jotai';
 import classNames from 'classnames';
 import InkPlugin from 'src/main';
@@ -39,7 +39,6 @@ import {
 } from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
-import { resolveInkAutosaveDelayMs } from 'src/ink-canvas/autosave-delay';
 import { computeApproxContentMaxY } from 'src/ink-canvas/stroke-viewport-culling';
 import { migrateWritingFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import type { PageBounds } from './page-bounds';
@@ -108,9 +107,7 @@ export function WritingEditor(props: WritingEditorProps) {
 	const [booxConnected, setBooxConnected] = React.useState(false);
 	const resizePostProcessTimeoutRef = useRef<number>();
 	const shortDelayTimerRef = useRef<number>();
-	const canvasInteractionActiveRef = useRef(false);
-	const hasUnsavedChangesRef = useRef(false);
-	const latestInvitingHeightRef = useRef(0);
+	const longDelayTimerRef = useRef<number>();
 	const editorRef = useRef<InkCanvasEditor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const websocketConnectedRef = useRef(false);
@@ -462,20 +459,10 @@ export function WritingEditor(props: WritingEditorProps) {
 	}
 
 	function handleStoreChange() {
-		hasUnsavedChangesRef.current = true;
 		queueSaves();
 		if (props.embedded) {
 			debouncedEmbedResizePostProcess();
 		}
-	}
-
-	function handleCanvasInteractionChange(active: boolean) {
-		canvasInteractionActiveRef.current = active;
-		if (active) {
-			resetTimers();
-			return;
-		}
-		if (hasUnsavedChangesRef.current) queueSaves();
 	}
 
 	function handleEmbedUndoStackPush() {
@@ -498,7 +485,7 @@ export function WritingEditor(props: WritingEditorProps) {
 			const editor = editorRef.current;
 			if (!editor || !props.embedded) return;
 			if (websocketConnectedRef.current && getBooxConnectionEnabled()) return;
-			const invitingHeight = latestInvitingHeightRef.current || getInvitingHeightFromEditor(editor);
+			const invitingHeight = getInvitingHeightFromEditor(editor);
 			if (!shouldResizeForNewHeight(
 				invitingHeight,
 				curHeightRef.current,
@@ -512,7 +499,6 @@ export function WritingEditor(props: WritingEditorProps) {
 	}
 
 	function handlePageHeightChange(candidateHeightPx: number) {
-		latestInvitingHeightRef.current = candidateHeightPx;
 		applyPageHeightChange(candidateHeightPx, false);
 	}
 
@@ -522,10 +508,7 @@ export function WritingEditor(props: WritingEditorProps) {
 
 		const lineHeight = writingLineHeightRef.current;
 		const bufferLines = props.plugin.settings.writingBufferLines;
-		const invitingFromContent = candidateHeightPx > 0
-			? candidateHeightPx
-			: getInvitingHeightFromEditor(editor);
-		latestInvitingHeightRef.current = invitingFromContent;
+		const invitingFromContent = getInvitingHeightFromEditor(editor);
 
 		if (props.embedded) {
 			const skipAutoResize = !forceNextPageHeightChangeRef.current
@@ -604,24 +587,20 @@ export function WritingEditor(props: WritingEditorProps) {
 
 	function queueSaves() {
 		resetTimers();
-		if (canvasInteractionActiveRef.current) return;
-		const delayMs = resolveInkAutosaveDelayMs(Platform, WRITE_SHORT_DELAY_MS, WRITE_LONG_DELAY_MS);
 		shortDelayTimerRef.current = window.setTimeout(() => {
 			void incrementalSave();
-		}, delayMs);
+		}, WRITE_SHORT_DELAY_MS);
+		longDelayTimerRef.current = window.setTimeout(() => {
+			void completeSave();
+		}, WRITE_LONG_DELAY_MS);
 	}
 
 	async function incrementalSave() {
-		if (canvasInteractionActiveRef.current) {
-			queueSaves();
-			return;
-		}
 		const editor = editorRef.current;
 		if (!editor) return;
 		verbose('incrementalSave (ink-canvas writing)');
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
-		hasUnsavedChangesRef.current = false;
 		props.save(buildInkCanvasWritingFileData({ inkCanvasSnapshot: snapshot, svgString }));
 	}
 
@@ -631,13 +610,13 @@ export function WritingEditor(props: WritingEditorProps) {
 		verbose('completeSave (ink-canvas writing)');
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
-		hasUnsavedChangesRef.current = false;
 		props.save(buildInkCanvasWritingFileData({ inkCanvasSnapshot: snapshot, svgString }));
 	}
 
 	function resetTimers() {
 		cancelDelayedBooxResizePostProcess();
 		window.clearTimeout(shortDelayTimerRef.current);
+		window.clearTimeout(longDelayTimerRef.current);
 	}
 
 	async function fetchFileData() {
@@ -950,7 +929,6 @@ export function WritingEditor(props: WritingEditorProps) {
 			writingBufferLines={props.plugin.settings.writingBufferLines}
 			onEditorReady={handleEditorReady}
 			onChange={handleStoreChange}
-			onInteractionChange={handleCanvasInteractionChange}
 			onEmbedUndoStackPush={handleEmbedUndoStackPush}
 			onPageHeightChange={handlePageHeightChange}
 			isEmbedded={props.embedded}

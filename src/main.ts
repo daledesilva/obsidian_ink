@@ -1,5 +1,4 @@
 import './ddc-library/settings-styles.scss';
-import './components/shared/ink-svg-preview-theme.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';

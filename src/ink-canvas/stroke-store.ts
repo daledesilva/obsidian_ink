@@ -3,11 +3,7 @@ import type { InkStroke } from './types';
 ///////////////////////////
 ///////////////////////////
 
-export type StrokeStoreChange =
-	| { type: 'add' | 'addMany' | 'remove' | 'updateOffsets'; ids: string[] }
-	| { type: 'clear' | 'replaceAll'; ids: [] };
-
-export type StrokeStoreListener = (change: StrokeStoreChange) => void;
+export type StrokeStoreListener = () => void;
 
 /**
  * Reactive store for ink strokes. Maintains an ordered list of strokes and
@@ -24,16 +20,16 @@ export class StrokeStore {
 		return () => { this.listeners.delete(listener); };
 	}
 
-	private notify(change: StrokeStoreChange): void {
+	private notify(): void {
 		for (const listener of this.listeners) {
-			listener(change);
+			listener();
 		}
 	}
 
 	add(stroke: InkStroke): void {
 		this.strokes.set(stroke.id, stroke);
 		this.insertionOrder.push(stroke.id);
-		this.notify({ type: 'add', ids: [stroke.id] });
+		this.notify();
 	}
 
 	addMany(strokesArr: InkStroke[]): void {
@@ -41,7 +37,7 @@ export class StrokeStore {
 			this.strokes.set(stroke.id, stroke);
 			this.insertionOrder.push(stroke.id);
 		}
-		this.notify({ type: 'addMany', ids: strokesArr.map((stroke) => stroke.id) });
+		this.notify();
 	}
 
 	remove(ids: string[]): void {
@@ -50,7 +46,7 @@ export class StrokeStore {
 			this.strokes.delete(id);
 		}
 		this.insertionOrder = this.insertionOrder.filter(id => !idSet.has(id));
-		this.notify({ type: 'remove', ids: [...ids] });
+		this.notify();
 	}
 
 	/** Update the offset of one or more strokes (used by the select-and-move tool). */
@@ -61,7 +57,7 @@ export class StrokeStore {
 				this.strokes.set(id, { ...stroke, offset });
 			}
 		}
-		this.notify({ type: 'updateOffsets', ids: Array.from(offsets.keys()) });
+		this.notify();
 	}
 
 	getById(id: string): InkStroke | undefined {
@@ -86,7 +82,7 @@ export class StrokeStore {
 	clear(): void {
 		this.strokes.clear();
 		this.insertionOrder = [];
-		this.notify({ type: 'clear', ids: [] });
+		this.notify();
 	}
 
 	/** Replace all content with the given strokes (used for snapshot restore). */
@@ -97,6 +93,6 @@ export class StrokeStore {
 			this.strokes.set(stroke.id, stroke);
 			this.insertionOrder.push(stroke.id);
 		}
-		this.notify({ type: 'replaceAll', ids: [] });
+		this.notify();
 	}
 }

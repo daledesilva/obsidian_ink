@@ -38,7 +38,7 @@ const makePlugin = (vaultRead: jest.Mock) => ({
 	app: {
 		vault: {
 			getResourcePath: jest.fn(() => '/vault/writing.svg'),
-			cachedRead: vaultRead,
+			read: vaultRead,
 			on: jest.fn(() => jest.fn()),
 			offref: jest.fn(),
 		},

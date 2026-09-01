@@ -1,13 +1,13 @@
 import './drawing-editor.scss';
 import * as React from 'react';
 import { useRef } from 'react';
-import { Platform, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { useAtomValue } from 'jotai';
 import classNames from 'classnames';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildInkCanvasDrawingFileData } from 'src/components/formats/current/utils/build-file-data';
 import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
-import { DRAW_LONG_DELAY_MS, DRAW_SHORT_DELAY_MS } from 'src/constants';
+import { DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS } from 'src/constants';
 import { PrimaryMenuBar } from 'src/components/jsx-components/primary-menu-bar/primary-menu-bar';
 import { InkCanvasDrawingMenu } from 'src/components/jsx-components/drawing-menu/ink-canvas-drawing-menu';
 import ExtendedDrawingMenu from 'src/components/jsx-components/extended-drawing-menu/extended-drawing-menu';
@@ -32,7 +32,6 @@ import {
 } from 'src/logic/undo-redo/embedded-unified-undo';
 import { InkSvgCanvas } from 'src/ink-canvas/ink-svg-canvas';
 import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
-import { resolveInkAutosaveDelayMs } from 'src/ink-canvas/autosave-delay';
 import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { Notice } from 'obsidian';
@@ -103,8 +102,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
 	const shortDelayTimerRef = useRef<number>();
-	const canvasInteractionActiveRef = useRef(false);
-	const hasUnsavedChangesRef = useRef(false);
+	const longDelayTimerRef = useRef<number>();
 	const editorRef = useRef<InkCanvasEditor>();
 	const editorWrapperRefEl = useRef<HTMLDivElement>(null);
 	const websocketConnectedRef = useRef(false);
@@ -353,17 +351,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	}
 
 	function handleStoreChange() {
-		hasUnsavedChangesRef.current = true;
 		queueSaves();
-	}
-
-	function handleCanvasInteractionChange(active: boolean) {
-		canvasInteractionActiveRef.current = active;
-		if (active) {
-			resetTimers();
-			return;
-		}
-		if (hasUnsavedChangesRef.current) queueSaves();
 	}
 
 	function handleEmbedUndoStackPush() {
@@ -378,18 +366,15 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	function queueSaves() {
 		resetTimers();
-		if (canvasInteractionActiveRef.current) return;
-		const delayMs = resolveInkAutosaveDelayMs(Platform, DRAW_SHORT_DELAY_MS, DRAW_LONG_DELAY_MS);
 		shortDelayTimerRef.current = window.setTimeout(() => {
 			void incrementalSave();
-		}, delayMs);
+		}, DRAW_SHORT_DELAY_MS);
+		longDelayTimerRef.current = window.setTimeout(() => {
+			void completeSave();
+		}, DRAW_LONG_DELAY_MS);
 	}
 
 	async function incrementalSave() {
-		if (canvasInteractionActiveRef.current) {
-			queueSaves();
-			return;
-		}
 		const editor = editorRef.current;
 		if (!editor) return;
 		verbose('incrementalSave (ink-canvas)');
@@ -397,7 +382,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 		const snapshot = editor.getSnapshot();
 		const svgString = renderStrokesToSvg(snapshot.strokes, snapshot);
-		hasUnsavedChangesRef.current = false;
 		const fileData = buildInkCanvasDrawingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
@@ -413,7 +397,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 		const snapshot = editor.getSnapshot();
 		const svgString = renderStrokesToSvg(snapshot.strokes, snapshot);
-		hasUnsavedChangesRef.current = false;
 		const fileData = buildInkCanvasDrawingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
@@ -423,6 +406,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	function resetTimers() {
 		window.clearTimeout(shortDelayTimerRef.current);
+		window.clearTimeout(longDelayTimerRef.current);
 	}
 
 
@@ -770,7 +754,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				initialSnapshot={initialSnapshot}
 				onEditorReady={handleEditorReady}
 				onChange={handleStoreChange}
-				onInteractionChange={handleCanvasInteractionChange}
 				onEmbedUndoStackPush={handleEmbedUndoStackPush}
 				onCameraChange={(camera, containerRect, meta) => {
 					if (meta.source === 'user') hasUserMovedCameraRef.current = true;

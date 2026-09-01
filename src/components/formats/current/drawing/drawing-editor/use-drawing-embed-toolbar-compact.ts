@@ -56,6 +56,7 @@ export function useDrawingEmbedToolbarCompact(
 			if (!menuBarEl) return;
 
 			const wasCompact = isCompactRef.current;
+			// Probe wide layout before measuring — compact CSS changes cluster positions.
 			if (wasCompact) {
 				editorEl.classList.remove(DRAWING_EMBED_TOOLBAR_COMPACT_CLASS);
 			}

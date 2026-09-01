@@ -44,6 +44,25 @@ Embedded drawing edit mode uses two toolbar layouts:
 
 `useDrawingEmbedToolbarCompact` in `drawing-editor.tsx` probes wide layout on each resize (including embed resize-handle drags), measures `getBoundingClientRect()` for `.ink_quick-menu`, `.ink_tool-menu`, and `.ink_extended-writing-menu`, and toggles `ddc_ink_toolbar-compact` before clusters collide. Enter uses 4px clearance; exit requires 12px clearance to avoid flicker while resizing.
 
+### Toolbar compact mode
+
+```mermaid
+flowchart TD
+    resize["ResizeObserver or layout deps change"]
+    probe["Strip compact class and measure wide-layout rects"]
+    overlap{"Centre overlaps left or right?"}
+    enter["Add ddc_ink_toolbar-compact"]
+    exitCheck{"Was compact and wide layout has 12px clearance?"}
+    exit["Remove ddc_ink_toolbar-compact"]
+    stay["Keep current mode"]
+
+    resize --> probe --> overlap
+    overlap -->|"yes, enter gap 4px"| enter
+    overlap -->|no| exitCheck
+    exitCheck -->|yes| exit
+    exitCheck -->|no| stay
+```
+
 ## Flows
 
 ### Detect unsaved framing changes

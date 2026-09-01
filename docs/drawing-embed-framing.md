@@ -39,10 +39,10 @@ Embedded drawing edit mode uses two toolbar layouts:
 
 | Mode | When | Appearance |
 |---|---|---|
-| **Wide** | Default on wider embeds | Three clusters: quick actions (left), draw tools (centre, absolutely positioned), extended menu (right — finish, save framing, overflow). |
-| **Compact** | Narrow embed (`@container` max-width `22rem` on the editor) | Single centred inline row; tool menu becomes static flow with dividers between groups. |
+| **Wide** | Default when clusters fit | Three clusters: quick actions (left), draw tools (centre, absolutely positioned), extended menu (right — finish, save framing, overflow). |
+| **Compact** | When centre cluster bounding boxes overlap left or right in wide layout | Single centred inline row; tool menu becomes static flow with dividers between groups. |
 
-The labelled save-framing button widens the right cluster in wide mode, so centre tools can collide with the right cluster on medium-width embeds before the compact breakpoint fires.
+`useDrawingEmbedToolbarCompact` in `drawing-editor.tsx` probes wide layout on each resize (including embed resize-handle drags), measures `getBoundingClientRect()` for `.ink_quick-menu`, `.ink_tool-menu`, and `.ink_extended-writing-menu`, and toggles `ddc_ink_toolbar-compact` before clusters collide. Enter uses 4px clearance; exit requires 12px clearance to avoid flicker while resizing.
 
 ## Flows
 
@@ -99,6 +99,7 @@ Resize-handle drags update embed width/aspect in local refs during the gesture; 
 | Camera → viewBox mapping | `viewBoxFromCameraAndContainerRect` in `drawing-editor.tsx` |
 | User camera commits + `onCameraChange` | `commitUserCameraState` in `ink-svg-canvas.tsx` |
 | Resize gesture gate for `api` camera events | `isEmbedResizeGestureActiveRef` in `drawing-editor.tsx` |
+| Toolbar compact mode | `use-drawing-embed-toolbar-compact.ts`, `toolbar-cluster-overlap.ts`, `drawing-editor.scss` (`ddc_ink_toolbar-compact`) |
 | Markdown persistence | `drawing-embed-extension.tsx` — `setEmbedPropsAndViewBox` |
 
 ### `onCameraChange` meta sources
@@ -122,6 +123,10 @@ Embed pan/zoom pointer events are often **forwarded** from `FingerBlocker` to th
 ### Tolerance before showing save framing
 
 `EMBED_VIEWBOX_DIRTY_EPS` (0.75 px) avoids flashing save framing immediately after unlock when `DOMRect` fractions differ slightly from saved URL integers. All four viewBox fields (`x`, `y`, `width`, `height`) are compared.
+
+### Toolbar compact probes wide layout synchronously
+
+`useDrawingEmbedToolbarCompact` temporarily removes `ddc_ink_toolbar-compact` inside `useLayoutEffect` before measuring cluster rects so overlap is evaluated against wide-mode positions, then reapplies the class in the same frame. Do not switch compact mode from a width-sum heuristic — the centre tool cluster is absolutely positioned and side clusters are asymmetric (especially when the labelled save-framing button is visible).
 
 ### Related docs
 

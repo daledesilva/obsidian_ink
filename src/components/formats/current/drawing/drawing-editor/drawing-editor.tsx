@@ -43,6 +43,7 @@ import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
 import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
+import { useDrawingEmbedToolbarCompact } from './use-drawing-embed-toolbar-compact';
 
 ///////////////////////////
 ///////////////////////////
@@ -132,6 +133,12 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	React.useEffect(() => {
 		if (!isFingerDrawingGloballyEnabled) setIsFingerDrawingActive(false);
 	}, [isFingerDrawingGloballyEnabled]);
+
+	useDrawingEmbedToolbarCompact(editorWrapperRefEl, {
+		enabled: !!props.embedded,
+		isSaveCameraEnabled,
+		showFingerDrawingToggle: isFingerDrawingGloballyEnabled,
+	});
 
 	React.useEffect(() => {
 		if (!initialSnapshot || !isLegacyInkFileRef.current) return;

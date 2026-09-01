@@ -1,4 +1,4 @@
-import { LockIcon } from "src/graphics/icons/lock-icon";
+import { CheckIcon } from "src/graphics/icons/check-icon";
 import "./extended-writing-menu.scss";
 import * as React from "react";
 import OverflowMenu, { type MenuOption } from "../overflow-menu/overflow-menu";
@@ -18,10 +18,10 @@ export const ExtendedWritingMenu: React.FC<{
         >
             {props.onLockClick && (
                 <TooltipButton
-                    tooltip='Lock'
+                    tooltip='Finish editing'
                     onClick={() => props.onLockClick?.()}
                 >
-                    <LockIcon/>
+                    <CheckIcon />
                 </TooltipButton>
             )}
             <OverflowMenu

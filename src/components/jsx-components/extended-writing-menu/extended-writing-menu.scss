@@ -40,6 +40,11 @@
         svg {
             width: 1.5em !important;
             height: 1.5em !important;
+
+            &[fill='none'] {
+                fill: none;
+                stroke: currentColor;
+            }
         }
     }
 }

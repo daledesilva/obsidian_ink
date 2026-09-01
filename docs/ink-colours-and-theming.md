@@ -68,7 +68,7 @@ The file on disk stays black and gray. The preview overrides those for display o
 
 ### Displaying in Live Preview or Reading mode
 
-1. Ink loads the SVG into the preview area as inline SVG.
+1. Ink loads the SVG with `vault.read` and passes **raw markup** into the embed preview (see [Embed preview SVG loading](embed-preview-svg-loading.md)) — not an `app://` resource URL and not a data URI.
 2. Theme CSS sets stroke and fill from Obsidian variables.
 3. Guide lines pick up the writing-line colour; pen paths pick up text colour.
 4. You change theme → variables change → preview colours change immediately.
@@ -123,7 +123,7 @@ Ink must **inline** the SVG for theme CSS to reach individual paths and lines. A
 
 | Surface | Entry | Mount helper | Theme host classes |
 |---------|-------|--------------|--------------------|
-| Note embeds | Embed preview components | `mountInlineSvgPreview` (or equivalent inline path) | `ddc_ink_writing-embed-preview` / `ddc_ink_drawing-embed-preview` |
+| Note embeds | Embed preview `refreshSrc` → `react-inlinesvg` | Raw SVG string from `vault.read` (see [Embed preview SVG loading](embed-preview-svg-loading.md)) | `ddc_ink_writing-embed-preview` / `ddc_ink_drawing-embed-preview` |
 | SVG picker | `svg-picker-modal.ts` | `mountInlineSvgPreview` | Same embed preview classes |
 | Native SVG leaf | `ensureThemedNativeInkSvgView` (writing/drawing registers) | `mountInlineSvgPreview` | `ddc_ink_svg-native-view-preview` **plus** the matching embed preview class |
 
@@ -131,7 +131,7 @@ Native-leaf layout (sizing, scroll, centered media) lives in `src/logic/utils/sv
 
 ## Technical gotchas
 
-1. **Image tags do not theme** — Reading mode, the native SVG leaf, and any other `img`/`object` path must swap to (or hide behind) an inlined SVG preview for proper `--text-normal` theming. Dark mode temporarily inverts native Ink `img` markers as a readability fallback until (or unless) the inline host mounts — do not invert the React preview hosts.
+1. **Image tags do not theme** — Reading mode, the native SVG leaf, and any other `img`/`object` path must swap to (or hide behind) an inlined SVG preview for proper `--text-normal` theming. Dark mode temporarily inverts native Ink `img` markers as a readability fallback until (or unless) the inline host mounts — do not invert the React preview hosts. Writing embed previews also treat `data:` `src` as `<img>` — keep locked writing on raw SVG markup for InlineSVG ([Embed preview SVG loading](embed-preview-svg-loading.md)).
 2. **Baked black wins without CSS** — SVG `fill="#000000"` on a path is strong. Preview CSS uses `!important` so theme colour can override it inside Ink previews.
 3. **Reuse embed host classes on the native leaf** — Native-view layout uses `ddc_ink_svg-native-view-preview`; colour comes from the same writing/drawing embed classes. Do not invent a parallel stroke-colour stylesheet for dedicated native views.
 4. **Hide native media before `vault.read`** — Ink marks the leaf with `ddc_ink_svg-view--awaiting-theme` synchronously on open so Obsidian’s `img`/`object` never paints baked-black strokes during the async read. Removing that early suppress brings back a dark-mode flash.
@@ -143,6 +143,7 @@ Native-leaf layout (sizing, scroll, centered media) lives in `src/logic/utils/sv
 
 ## See also
 
+- [Embed preview SVG loading](embed-preview-svg-loading.md) — Why locked previews use `vault.read` + raw SVG
 - [Reading mode](reading-mode.md) — How Reading mode loads and shows embed previews
 - [Reading mode embed rendering](reading-mode-embed-rendering.md) — Reading mode implementation
 - [Plugin memory and persistence](plugin-memory-and-persistence.md) — What lives in vault files vs settings

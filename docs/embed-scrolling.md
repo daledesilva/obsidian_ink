@@ -258,7 +258,7 @@ When programmatically focusing the tldraw `.tl-container` element, `{ preventScr
 
 **Source:** `src/components/formats/current/utils/createWidgetRootDomEventHandlers.ts` — `preventCodeMirrorHandlingWidgetsEvents()`
 
-CodeMirror attaches its own `mousedown`, `touchstart`, and `click` handlers to the editor DOM. If these fire on elements inside an embed widget, CodeMirror may move the cursor or trigger selection behaviour that interferes with drawing. This utility returns a CodeMirror `EditorView.domEventHandlers` extension that returns `true` (handled) for those events when they originate inside an element matching `.ddc_ink_widget-root`, preventing CodeMirror from acting on them.
+CodeMirror attaches its own `mousedown`, `touchstart`, `click`, and pointer event handlers to the editor DOM. If these fire on elements inside an embed widget, CodeMirror may move the cursor or trigger selection behaviour that interferes with drawing. This utility returns a CodeMirror `EditorView.domEventHandlers` extension that returns `true` (handled) for those events when they originate inside an element matching `.ddc_ink_widget-root`, preventing CodeMirror from acting on them. See also `docs/apple-pencil-scribble.md` for iPadOS Scribble-specific context.
 
 ### Scroller margin compensation
 

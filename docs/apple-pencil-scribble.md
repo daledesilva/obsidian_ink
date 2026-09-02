@@ -42,17 +42,25 @@ Dedicated view has no note `contenteditable` in the same pane, so Scribble has n
 
 We are tackling these in **C → A → B** order: smallest CM integration fix first, then focus management, then the strongest editable toggle if still needed.
 
-### Option C — CodeMirror ignores embed pointer events (implemented first)
+### Option C — CodeMirror ignores embed pointer events (**implemented**)
+
+**Status:** Shipped on branch `fix/ipad-scribble-cm-pointer-events` (commit `4982ed0`).
 
 **Goal:** Stop CodeMirror from treating pen/touch inside an embed as editor input (cursor move, selection change, refocus `.cm-content`).
 
-**Implementation:** `preventCodeMirrorHandlingWidgetsEvents()` in `src/components/formats/current/utils/createWidgetRootDomEventHandlers.ts` — extend `EditorView.domEventHandlers` to return `true` for `pointerdown`, `pointerup`, and `pointercancel` when the event target is inside `.ddc_ink_widget-root`, matching existing `mousedown` / `touchstart` / `click` behaviour.
-
-**Branch:** `fix/ipad-scribble-cm-pointer-events`
+**Implementation:** `preventCodeMirrorHandlingWidgetsEvents()` in `src/components/formats/current/utils/createWidgetRootDomEventHandlers.ts` — `EditorView.domEventHandlers` returns `true` for `pointerdown`, `pointerup`, and `pointercancel` when the event target is inside `.ddc_ink_widget-root`, matching existing `mousedown` / `touchstart` / `click` behaviour. Registered from both writing and drawing embed extensions.
 
 **Expected effect:** Cleaner separation between note editor and embed; may reduce cases where CM holds focus when the user draws. **Does not** disable Scribble by itself — iOS can still target nearby `contenteditable`.
 
 **Verify on iPad (Scribble on):** Unlock writing and drawing embeds; draw without text appearing in the note; tap note text then draw in embed; confirm note typing still works after locking the embed.
+
+---
+
+### Open issue — embed scroll lock after Scribble / outside tap (under investigation)
+
+**Reported behaviour:** In a **drawing embed**, after Scribble on note text then drawing in the embed, page scroll can jump and lock until the note is closed. Sometimes locking happens immediately when tapping outside the embed.
+
+**Leading hypothesis:** `FingerBlocker` scroll-pin state (`isPenDownRef`, `.ink-cm-scroller--scroll-pinned`) not cleared when `pointerup` is lost (capture transfer, Scribble, or focus leaving the embed). See `docs/embed-scrolling.md` and debug instrumentation in `finger-blocker.tsx`.
 
 ---
 

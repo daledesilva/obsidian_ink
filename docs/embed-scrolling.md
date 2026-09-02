@@ -99,6 +99,8 @@ On pen down, `lockScroll()` records the current `scrollLeft` / `scrollTop` of `.
 
 On pen up, `unlockScroll()` restores `overflow: auto`. The `scrollbarColor` restoration is delayed by 200 ms to avoid a visible flash of the scrollbar reappearing.
 
+**Stranded pin cleanup:** Opening Obsidian panels or backgrounding the app can leave `overflow: hidden` / the scroll-pin class with no matching `pointerup`. `clearAllInkCmScrollerScrollPins()` clears every `.cm-scroller` pin; it runs on `visibilitychange` / `pagehide` and before Live Preview force-rebuilds in `ink-embed-refresh.ts`.
+
 ### Layer 4 — Gesture and wheel suppression
 
 While the pen is held, `wheel` and `touchmove` events on the blocker are caught and cancelled via `preventDefault` + `stopImmediatePropagation`. This prevents secondary effects like browser history swipe gestures (on macOS/iOS) or pinch-zoom.
@@ -124,35 +126,65 @@ In addition to the DOM-level interception, `FingerBlocker` also wraps the `onPoi
 
 ---
 
-## 2. Scroll-based embed refresh — InkEmbedsExtension
+## 2. CodeMirror remount height (scroll jump prevention)
 
-**Source:** `src/components/formats/current/ink-embeds-extension/ink-embeds-extension.tsx`
+**Sources:**
+- `src/components/formats/current/writing/writing-embed-extension/writing-embed-extension.tsx`
+- `src/components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension.tsx`
+- `src/logic/utils/ink-embed-height-cache.ts`
+- `src/components/formats/current/ink-embeds-extension/ink-embeds-extension.tsx` (no longer refreshes on scroll)
 
-Ink embeds are CodeMirror widget extensions. CodeMirror can remount or update widgets as the document viewport changes. To keep embeds in sync, the extension listens for scroll events on `scrollDOM` and calls `refreshWritingEmbedsNow` / `refreshDrawingEmbedsNow`.
+Ink embeds are CodeMirror **block widgets**. CM virtualizes them: when a tall writing embed scrolls off-screen it calls `destroy`, then `toDOM` again when it re-enters the viewport. That remount path is the main source of Live Preview **scroll jumps** on iPad (especially scrolling **up**), even when every embed stays locked.
 
-### Downward-scroll-only refresh
+### Why remounts jump
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CM as CodeMirror height map
+    participant Widget as Writing/Drawing widget root
+
+    User->>CM: scroll up — tall writing re-enters viewport
+    CM->>Widget: destroy (offscreen) then toDOM (empty div)
+    Note over Widget: Without minHeight, first paint height is 0
+    CM->>CM: scrollHeight collapses then expands after React paint
+    CM->>User: scrollTop corrected — visible jump
+```
+
+Unlocked writing embeds amplify the problem: edit height (~2300px) is much taller than preview aspect (~676px). A remount that briefly paints preview height collapses `scrollHeight` and yanks `scrollTop`.
+
+### Fixes that stay in place
+
+1. **No scroll-triggered decoration refresh** — `inkEmbedsExtension()` is a no-op. Mid-scroll `refreshWritingEmbedsNow` / `refreshDrawingEmbedsNow` collapsed height maps when widgets virtualized. Embeds are still created on initial decoration build, document changes, and explicit `forceRebuild` (e.g. Reading → Live Preview via `refreshLivePreviewEmbedsWhenReady`).
+
+2. **`layoutReserveHeightPx` / `minHeight` on every `toDOM`** — Before React paints, the widget root sets `minHeight` from the last measured height (or `estimatedHeight`). Writing and drawing both do this so remount never starts at 0px.
+
+3. **Measured height cache** — `lastMeasuredHeightPx` on the widget instance, plus a filepath map in `ink-embed-height-cache.ts` so `forceRebuild` (new widget instance) still recalls height. `estimatedHeight` prefers the cached measurement. While unlocked, shrinks toward preview height are ignored so a remount flash cannot poison the cache.
+
+4. **Writing `remountReserveHeightPx`** — When unlocked, the React container also seeds its first layout height from the widget so it does not expand from preview aspect after mount.
+
+5. **`scrollSnapshot()` on explicit refresh** — `refreshWritingEmbedsNow` / `refreshDrawingEmbedsNow` dispatch CM’s scroll snapshot with the refresh effect so panel / Live Preview force-rebuilds keep scroll anchored.
+
+### Shared Jotai store (false “auto-lock”)
+
+**Sources:** writing/drawing widget `toDOM` Providers; edit-mode atoms in `writing-embed.tsx` / `drawing-embed.tsx`
+
+Unlock lives in in-memory Jotai sets (`embedsInEditModeAtom` / `_v2`). A bare `<JotaiProvider>` per widget created an **isolated store**. On CM remount the new Provider started empty, so the embed looked locked even though `saveAndSwitchToPreviewMode` never ran.
+
+Widgets wrap with `<JotaiProvider store={getDefaultStore()}>` so unlock survives destroy → `toDOM`. That is not scroll-distance auto-lock; Boox still closes the previous embed only via `replaceActiveInkEmbed` when a second embed unlocks.
 
 ```mermaid
 flowchart LR
-    scroll["scroll event fires"]
-    delta{"scrollDelta > 0?"}
-    refresh["refreshWritingEmbedsNow(viewportFrom)\nrefreshDrawingEmbedsNow(viewportFrom)"]
-    skip["skip — no refresh"]
-
-    scroll --> delta
-    delta -->|"yes (down)"| refresh
-    delta -->|"no (up or same)"| skip
+    unlock["User unlocks embed"] --> atom["embedsInEditModeAtom add id"]
+    atom --> remount["CM destroy + toDOM"]
+    remount --> shared["Same getDefaultStore()"]
+    shared --> still["Still unlocked"]
+    remount --> isolated["Bare Provider per widget"]
+    isolated --> fakeLock["Looks locked — atom gone"]
 ```
 
-Refreshes only fire on downward scroll. Upward-scroll refreshes were found to cause visible jank on iPad — the viewport jumps as embeds above the current view are remounted. Since embeds above the viewport are not visible, skipping upward-scroll refreshes has no user-facing cost.
-
-### Viewport-relative refresh
-
-`viewportFrom` (the character offset of the top of the CodeMirror viewport) is passed to the refresh functions. Only embeds at or below that position are refreshed, leaving already-rendered embeds above the viewport untouched.
-
-**Tradeoff:** If a user scrolls down, then immediately back up to an embed they previously passed, that embed may not reflect the latest data until the next downward scroll. This is considered acceptable given the smoothness benefit.
-
 ---
+
 
 ## 3. Menu bar scroll tracking — PrimaryMenuBar
 
@@ -270,6 +302,16 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 
 ---
 
+## Technical Gotchas
+
+- **Do not restore scroll-triggered `refresh*EmbedsNow`.** Initial build + doc changes + explicit forceRebuild are enough; scroll refresh regresses iPad up-scroll jumps.
+- **Always set widget-root `minHeight` before React paint** on writing *and* drawing `toDOM`, including locked embeds — `estimatedHeight` alone does not cover the empty-div gap between remount and first paint.
+- **Never wrap embed widgets in a bare `<JotaiProvider>`.** Unlock atoms must use `getDefaultStore()` or remounts look locked.
+- **Height cache while unlocked must not accept large shrinks** toward preview aspect — that was a prior scroll-jump source.
+- **Pen scroll-pin can outlive the stroke** across panels / visibility; clear pins on those boundaries and before Live Preview rebuilds.
+
+---
+
 ## Mechanism summary
 
 | Mechanism | Component / File | Problem solved |
@@ -282,9 +324,15 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 | Non-primary button guard | `FingerBlocker` | Scroll-pinning activated by middle/right-click embed pan/zoom gestures |
 | `lostpointercapture` scroll unlock | `FingerBlocker` | Safety net: unlock if real pointer capture is transferred elsewhere |
 | Pan/zoom gesture scroll restore | `InkSvgCanvas` + `FingerBlocker`; legacy: `tldraw-drawing-editor` | Overflow/scrollbar styles not restored after embed pan/zoom gestures |
-| Downward-only embed refresh | `InkEmbedsExtension` | Remount jank on iPad during upward scroll |
+| No scroll-triggered embed refresh | `ink-embeds-extension.tsx` | Mid-scroll forceRebuild collapsed scrollHeight / jumped scrollTop |
+| Remount `minHeight` + height cache | writing/drawing embed widgets + `ink-embed-height-cache.ts` | CM virtualize remount 0-height flash on up-scroll |
+| Shared `getDefaultStore()` Provider | writing/drawing widget `toDOM` | Remount looked “auto-locked” (isolated Jotai store) |
+| `scrollSnapshot` on refresh | `refresh*EmbedsNow` | Panel / LP forceRebuild scroll anchor |
+| Clear stranded scroll pins | `clearAllInkCmScrollerScrollPins` | Note freeze after panel / visibility without pointerup |
 | Menu bar scroll tracking | `PrimaryMenuBar` | Menu scrolls off-screen with embed |
 | Embed removal cursor reset | `embed.ts` | Scroll jumps when embed is deleted |
 | `preventScroll` on focus | `tldraw-helpers.ts` | Viewport jumps when tldraw is focused |
 | CodeMirror event interception | `createWidgetRootDomEventHandlers.ts` | CodeMirror cursor/selection interferes with drawing |
 | Scroller margin compensation | `embed.ts` | Theme padding reduces embed width unexpectedly |
+
+**Related:** [plugin-memory-and-persistence.md](plugin-memory-and-persistence.md) (in-memory Jotai / shared default store for unlock).

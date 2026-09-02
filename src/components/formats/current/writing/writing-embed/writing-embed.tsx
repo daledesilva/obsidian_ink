@@ -74,6 +74,11 @@ export function WritingEmbed (props: {
 	remove: () => void,
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
+	/**
+	 * When CM remounts an unlocked embed, the widget passes the last measured editor height
+	 * so first paint does not collapse to preview aspect-ratio height (scroll jump).
+	 */
+	remountReserveHeightPx?: number,
 	sourceMdFile?: TFile,
 	isPendingPaste?: boolean,
 	resolveAsReference?: () => void,
@@ -113,8 +118,18 @@ export function WritingEmbed (props: {
 		previousHeightRef.current = null;
 		resizeContainer.classList.remove('ddc_ink_smooth-transition');
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
+		// Remount while unlocked: keep last editor height. Preview-aspect first paint (~676)
+		// then expand to ~2347 is what collapses scrollHeight / jumps scrollTop.
+		if (isThisEmbedEditing && props.remountReserveHeightPx && props.remountReserveHeightPx > 0) {
+			resizeContainer.style.height = props.remountReserveHeightPx + 'px';
+			previousHeightRef.current = props.remountReserveHeightPx;
+			return;
+		}
+		if (isThisEmbedEditing) {
+			return;
+		}
 		resizeContainer.style.height = containerWidth / aspectRatio + 'px';
-	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio]);
+	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx]);
 
 	// SVG viewBox is authoritative for preview height.
 	// Do NOT rewrite note markdown here: mount-time setEmbedProps caused CM remount
@@ -480,6 +495,7 @@ export function WritingEmbed (props: {
 	async function saveAndSwitchToPreviewMode() {
 		verbose(['Remove writing embed from edit mode', props.embedId]);
 		logToVault('Writing embed → preview (saved): ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
+
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
 		}
@@ -506,6 +522,7 @@ export function WritingEmbed (props: {
 		if (props.setEmbedProps) {
 			props.setEmbedProps(embedAspectRatioRef.current);
 		}
+
 	}
 	
 };

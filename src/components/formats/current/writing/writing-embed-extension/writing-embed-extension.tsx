@@ -6,7 +6,7 @@ import InkPlugin from 'src/main';
 import * as React from 'react';
 import { createRoot } from 'react-dom/client';
 import { getGlobals } from 'src/stores/global-store';
-import { Provider as JotaiProvider } from 'jotai';
+import { Provider as JotaiProvider, getDefaultStore } from 'jotai';
 import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
@@ -15,6 +15,12 @@ import { buildDrawingEmbedLine, buildWritingEmbedLine } from '../../utils/build-
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateWritingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
+import {
+	inkEmbedIsInEditModeAtom,
+	inkEmbedRecallHeightForFilepath,
+	inkEmbedRememberMeasuredHeightPx,
+	inkEmbedStoreHeightForFilepath,
+} from 'src/logic/utils/ink-embed-height-cache';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
@@ -30,6 +36,7 @@ import {
 	patchWritingEmbedAspectRatioInEmbedSnippet,
 	readWritingFileAspectRatio,
 } from 'src/logic/utils/writing-embed-aspect-ratio';
+import { embedsInEditModeAtom } from '../writing-embed/writing-embed';
 
 
 // Parity with drawing v2, but simplified (no width/aspect updates for writing embeds)
@@ -46,6 +53,8 @@ export class WritingEmbedWidget extends WidgetType {
     isPendingPaste: boolean;
     isHighlighted: boolean = false;
     private rootEl?: HTMLElement; // Store reference for dynamic height updates
+    // Survives CM offscreen destroy→toDOM remounts (widget instance is reused via decoration eq).
+    private lastMeasuredHeightPx: number | null = null;
 
     constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
@@ -55,6 +64,8 @@ export class WritingEmbedWidget extends WidgetType {
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
         this.isPendingPaste = isPendingPaste;
+        // forceRebuild creates a new widget instance — restore height from filepath cache.
+        this.lastMeasuredHeightPx = inkEmbedRecallHeightForFilepath(partialEmbedFilepath);
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -74,8 +85,28 @@ export class WritingEmbedWidget extends WidgetType {
         // Update highlight state based on current selection
         this.updateHighlightState(view, rootEl);
 
+        const estimatedHeight = this.estimatedHeight;
+        const wasInEditMode = inkEmbedIsInEditModeAtom(embedsInEditModeAtom, this.id);
+        // Unlocked remounts still need the tall edit height passed into React.
+        const remountReserveHeightPx = wasInEditMode && this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0
+            ? this.lastMeasuredHeightPx
+            : undefined;
+        // Always reserve estimatedHeight on the widget root before React paints.
+        // Without this, CM remount replaces the offscreen estimate with a 0-height div and
+        // scrollTop jumps (~−200px on up-scroll when a tall writing embed re-enters view).
+        const layoutReserveHeightPx = (this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0)
+            ? this.lastMeasuredHeightPx
+            : estimatedHeight;
+        if (layoutReserveHeightPx > 0) {
+            rootEl.style.minHeight = `${layoutReserveHeightPx}px`;
+        } else {
+            rootEl.style.removeProperty('min-height');
+        }
+
         root.render(
-            <JotaiProvider>
+            // Share the app default store so unlock state survives CM widget remounts.
+            // A bare <Provider> creates an isolated store that is discarded on destroy → looks "locked".
+            <JotaiProvider store={getDefaultStore()}>
                 <WritingEmbed
                     plugin={plugin}
                     workspaceLeafId={workspaceLeafId}
@@ -83,6 +114,7 @@ export class WritingEmbedWidget extends WidgetType {
                     writingFileRef={this.embeddedFile}
                     partialEmbedFilepath={this.partialEmbedFilepath}
                     embedSettings={this.embedSettings}
+                    remountReserveHeightPx={remountReserveHeightPx}
                     save={(pageData) => {
                         void this.save(pageData);
                     }}
@@ -110,11 +142,21 @@ export class WritingEmbedWidget extends WidgetType {
                 />
             </JotaiProvider>
         );
+
+        this.rememberMeasuredHeight(rootEl);
         
         return rootEl;
     }
 
+    destroy(dom: HTMLElement): void {
+        this.rememberMeasuredHeight(dom);
+    }
+
     get estimatedHeight(): number {
+        // Prefer last real layout height so CM remounts do not collapse unlocked embeds (~3× taller than preview aspect).
+        if (this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0) {
+            return this.lastMeasuredHeightPx;
+        }
         // Return estimated height to prevent layout shifts when widget is mounted
         // Query actual content container width from CodeMirror DOM
         let height: number;
@@ -192,8 +234,18 @@ export class WritingEmbedWidget extends WidgetType {
     };
 
     private onRequestMeasure(view: EditorView) {
-        // Notify CodeMirror to re-measure when embed content changes
+        // Cache live height before CM remeasures so the next remount estimate matches unlocked layout.
+        this.rememberMeasuredHeight(this.rootEl);
         view.requestMeasure();
+    }
+
+    private rememberMeasuredHeight(dom: HTMLElement | null | undefined) {
+        this.lastMeasuredHeightPx = inkEmbedRememberMeasuredHeightPx({
+            previousHeightPx: this.lastMeasuredHeightPx,
+            nextHeightPx: dom?.offsetHeight ?? 0,
+            isInEditMode: inkEmbedIsInEditModeAtom(embedsInEditModeAtom, this.id),
+        });
+        inkEmbedStoreHeightForFilepath(this.partialEmbedFilepath, this.lastMeasuredHeightPx);
     }
 
     private getDecorationBounds(view: EditorView): { decFrom: number; decTo: number } | null {
@@ -548,7 +600,13 @@ export function refreshWritingEmbedsNow(
 		? { viewportFrom, forceRebuild: true }
 		: viewportFrom;
 
-    cmView.dispatch({ effects: refreshEmbedsEffectWriting.of(payload) });
+	// Keep note scroll anchored across decoration rebuilds (iPad jump / panel forceRebuild).
+    cmView.dispatch({
+		effects: [
+			refreshEmbedsEffectWriting.of(payload),
+			cmView.scrollSnapshot(),
+		],
+	});
 }
 
 export function registerWritingEmbed(plugin: InkPlugin) {

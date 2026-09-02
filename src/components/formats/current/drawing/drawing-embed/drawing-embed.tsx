@@ -537,6 +537,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			embedAspectRatioRef.current = props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO;
 			applyEmbedDimensions(embedWidthRef.current, embedAspectRatioRef.current);
 		}
+
 	}
 
 	function handleResize() {

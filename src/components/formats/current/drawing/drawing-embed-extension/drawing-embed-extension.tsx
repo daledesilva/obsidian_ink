@@ -18,7 +18,8 @@ import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
 import {
-    Provider as JotaiProvider
+    Provider as JotaiProvider,
+    getDefaultStore,
 } from "jotai";
 import { DrawingEmbed } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
@@ -33,6 +34,13 @@ import { buildDrawingEmbedLine, buildWritingEmbedLine } from '../../utils/build-
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
+import {
+	inkEmbedIsInEditModeAtom,
+	inkEmbedRecallHeightForFilepath,
+	inkEmbedRememberMeasuredHeightPx,
+	inkEmbedStoreHeightForFilepath,
+} from 'src/logic/utils/ink-embed-height-cache';
+import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
@@ -58,7 +66,9 @@ export class DrawingEmbedWidget extends WidgetType {
     partialEmbedFilepath: string;
     isPendingPaste: boolean;
     isHighlighted: boolean = false;
-    // mounted = false;
+    private rootEl?: HTMLElement;
+    // Survives CM offscreen destroy→toDOM remounts (widget instance is reused via decoration eq).
+    private lastMeasuredHeightPx: number | null = null;
 
     constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
         super();
@@ -68,11 +78,13 @@ export class DrawingEmbedWidget extends WidgetType {
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
         this.isPendingPaste = isPendingPaste;
+        this.lastMeasuredHeightPx = inkEmbedRecallHeightForFilepath(partialEmbedFilepath);
     }
 
     toDOM(view: EditorView): HTMLElement {
 
         const rootEl = activeDocument.createElement('div');
+        this.rootEl = rootEl;
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
 
@@ -83,6 +95,18 @@ export class DrawingEmbedWidget extends WidgetType {
 
         mountedDecorationIds.push(this.id);
 
+        const estimatedHeight = this.estimatedHeight;
+        // Same as writing: lock reserved height before React paint so CM remounts do not
+        // momentarily drop the widget to 0px and yank scrollTop.
+        const layoutReserveHeightPx = (this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0)
+            ? this.lastMeasuredHeightPx
+            : estimatedHeight;
+        if (layoutReserveHeightPx > 0) {
+            rootEl.style.minHeight = `${layoutReserveHeightPx}px`;
+        } else {
+            rootEl.style.removeProperty('min-height');
+        }
+
         const { plugin } = getGlobals();
         const hostLeaf = getWorkspaceLeafForEditorView(plugin, view);
         const workspaceLeafId = hostLeaf?.id ?? '';
@@ -91,7 +115,9 @@ export class DrawingEmbedWidget extends WidgetType {
         this.updateHighlightState(view, rootEl);
 
         root.render(
-            <JotaiProvider>
+            // Share the app default store so unlock state survives CM widget remounts.
+            // A bare <Provider> creates an isolated store that is discarded on destroy → looks "locked".
+            <JotaiProvider store={getDefaultStore()}>
                 <DrawingEmbed
                     workspaceLeafId={workspaceLeafId}
                     embedId={this.id}
@@ -127,10 +153,23 @@ export class DrawingEmbedWidget extends WidgetType {
                 />
             </JotaiProvider>
         );
+
+        this.rememberMeasuredHeight(rootEl);
+
         return rootEl;
     }
 
+    destroy(dom: HTMLElement): void {
+        this.rememberMeasuredHeight(dom);
+        const idx = mountedDecorationIds.indexOf(this.id);
+        if (idx >= 0) mountedDecorationIds.splice(idx, 1);
+    }
+
     get estimatedHeight(): number {
+        // Prefer last real layout height so CM remounts do not collapse unlocked embeds.
+        if (this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0) {
+            return this.lastMeasuredHeightPx;
+        }
         // Return estimated height to prevent layout shifts when widget is mounted
         // Calculate based on embed settings if available, otherwise use default
         let height: number;
@@ -358,8 +397,18 @@ export class DrawingEmbedWidget extends WidgetType {
     }
 
     private requestMeasure(view: EditorView) {
-        // Notify CodeMirror to re-measure the widget when height changes
+        // Cache live height before CM remeasures so the next remount estimate matches unlocked layout.
+        this.rememberMeasuredHeight(this.rootEl);
         view.requestMeasure();
+    }
+
+    private rememberMeasuredHeight(dom: HTMLElement | null | undefined) {
+        this.lastMeasuredHeightPx = inkEmbedRememberMeasuredHeightPx({
+            previousHeightPx: this.lastMeasuredHeightPx,
+            nextHeightPx: dom?.offsetHeight ?? 0,
+            isInEditMode: inkEmbedIsInEditModeAtom(embedsInEditModeAtom_v2, this.id),
+        });
+        inkEmbedStoreHeightForFilepath(this.partialEmbedFilepath, this.lastMeasuredHeightPx);
     }
 
     private updateEmbed(view: EditorView, newEmbedSettings: EmbedSettings) {
@@ -649,7 +698,13 @@ export function refreshDrawingEmbedsNow(
 		? { viewportFrom, forceRebuild: true }
 		: viewportFrom;
 
-    cmView.dispatch({ effects: refreshEmbedsEffectDrawing.of(payload) });
+	// Keep note scroll anchored across decoration rebuilds (iPad jump / panel forceRebuild).
+    cmView.dispatch({
+		effects: [
+			refreshEmbedsEffectDrawing.of(payload),
+			cmView.scrollSnapshot(),
+		],
+	});
 }
 
 export function registerDrawingEmbed(plugin: InkPlugin) {

@@ -3,6 +3,7 @@ import { editorLivePreviewField, MarkdownView } from 'obsidian';
 import InkPlugin from 'src/main';
 import { refreshDrawingEmbedsNow } from '../drawing/drawing-embed-extension/drawing-embed-extension';
 import { refreshWritingEmbedsNow } from '../writing/writing-embed-extension/writing-embed-extension';
+import { clearAllInkCmScrollerScrollPins } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 
 export type InkEmbedRefreshRequest = {
 	viewportFrom?: number;
@@ -52,6 +53,8 @@ export function refreshLivePreviewEmbedsWhenReady(plugin: InkPlugin) {
 			return;
 		}
 
+		// Workspace/panel changes often force-rebuild; clear any stranded pen scroll-pin first.
+		clearAllInkCmScrollerScrollPins('forceRebuild-live-preview-refresh');
 		refreshDrawingEmbedsNow(undefined, { forceRebuild: true });
 		refreshWritingEmbedsNow(undefined, { forceRebuild: true });
 	};

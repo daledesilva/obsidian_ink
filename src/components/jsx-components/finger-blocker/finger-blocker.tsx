@@ -13,29 +13,23 @@ import {
 	type InkTouchGestureMode,
 	type TouchAxisLock,
 } from 'src/logic/touch-gesture-policy';
-import { postCursorDebugIngest } from 'src/logic/utils/cursor-debug-ingest';
 import './finger-blocker.scss';
-
-/** Temporary scroll-lock investigation (remove after iPad Scribble repro is diagnosed). */
-function fingerBlockerScrollLockDebug(
-	hypothesisId: string,
-	message: string,
-	data: Record<string, unknown>,
-): void {
-	// #region agent log
-	postCursorDebugIngest({
-		hypothesisId,
-		location: 'finger-blocker.tsx:scroll-lock',
-		message,
-		data,
-		runId: 'scroll-lock-pre',
-	});
-	// #endregion
-}
 
 const INK_CM_SCROLLER_SCROLL_PINNED_CLASS = 'ink-cm-scroller--scroll-pinned';
 const INK_FINGER_BLOCKER_TOUCH_NONE_CLASS = 'ink-finger-blocker--touch-none';
 const INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS = 'ink-finger-blocker--touch-pan-xy';
+
+/** Clear sticky pen scroll-pin / overflow on every note scroller (panel / layout freeze safety). */
+export function clearAllInkCmScrollerScrollPins(_reason: string): void {
+	const scrollers = activeDocument.querySelectorAll<HTMLElement>('.cm-scroller');
+	scrollers.forEach((scroller) => {
+		const hadPin = scroller.classList.contains(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
+		if (!hadPin) return;
+		scroller.classList.remove(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
+		// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
+		scroller.style.overflow = 'auto';
+	});
+}
 
 function setFingerBlockerTouchMode(blockerElement: HTMLElement, mode: 'none' | 'pan-xy' | 'default') {
 	blockerElement.classList.remove(INK_FINGER_BLOCKER_TOUCH_NONE_CLASS, INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS);
@@ -251,6 +245,22 @@ export function FingerBlocker({
 		onPanGestureEndRef.current = onPanGestureEnd;
 	}, [onPanGestureEnd]);
 
+	// Panel / app background can strand pen scroll-pin (overflow:hidden) with no pointerup.
+	React.useEffect(() => {
+		const onVisibilityOrPageHide = () => {
+			clearAllInkCmScrollerScrollPins('visibilitychange-or-pagehide');
+			isPenDownRef.current = false;
+			activeScrollerRef.current = null;
+			lockedScrollPosRef.current = null;
+		};
+		activeDocument.addEventListener('visibilitychange', onVisibilityOrPageHide);
+		activeWindow.addEventListener('pagehide', onVisibilityOrPageHide);
+		return () => {
+			activeDocument.removeEventListener('visibilitychange', onVisibilityOrPageHide);
+			activeWindow.removeEventListener('pagehide', onVisibilityOrPageHide);
+		};
+	}, []);
+
 	// Helper functions
 	const getWrapper = (): HTMLDivElement | null => {
 		return (
@@ -282,14 +292,6 @@ export function FingerBlocker({
 			activeScrollerRef.current = scroller;
 			lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
 			scroller.classList.add(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
-			// #region agent log
-			fingerBlockerScrollLockDebug('H2', 'lockScroll applied', {
-				isPenDown: isPenDownRef.current,
-				scrollTop: scroller.scrollTop,
-				scrollLeft: scroller.scrollLeft,
-				hasPinnedClass: scroller.classList.contains(INK_CM_SCROLLER_SCROLL_PINNED_CLASS),
-			});
-			// #endregion
 		}
 	};
 
@@ -302,10 +304,7 @@ export function FingerBlocker({
 		}, 200);
 	};
 
-	const unlockScroll = (unlockSource: string) => {
-		const wasPenDown = isPenDownRef.current;
-		const hadActiveScroller = !!activeScrollerRef.current;
-		const hadLockedPos = !!lockedScrollPosRef.current;
+	const unlockScroll = () => {
 		if (isPenDownRef.current) {
 			isPenDownRef.current = false;
 			if (activeScrollerRef.current) {
@@ -319,15 +318,6 @@ export function FingerBlocker({
 				clearScrollerPin(scroller);
 			}
 		}
-		// #region agent log
-		fingerBlockerScrollLockDebug('H1', 'unlockScroll', {
-			unlockSource,
-			wasPenDown,
-			hadActiveScroller,
-			hadLockedPos,
-			isPenDownAfter: isPenDownRef.current,
-		});
-		// #endregion
 	};
 
 	const closeKeyboard = () => {
@@ -415,7 +405,7 @@ export function FingerBlocker({
 			}
 			if (fingerDrawingPointerIdsRef.current.size === 0) {
 				setFingerBlockerTouchMode(element, 'default');
-				unlockScroll('cancelActiveFingerDrawingPointers');
+				unlockScroll();
 			}
 		};
 
@@ -438,13 +428,6 @@ export function FingerBlocker({
 				if (isDrawingInput) {
 					lockScroll();
 					isPenDownRef.current = true;
-					// #region agent log
-					fingerBlockerScrollLockDebug('H1', 'handlePointerDown pen lock', {
-						pointerType: e.pointerType,
-						pointerId: e.pointerId,
-						button: e.button,
-					});
-					// #endregion
 				}
 
 				// Dynamically prevent touch gestures for Pen (keep this as backup)
@@ -630,13 +613,13 @@ export function FingerBlocker({
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				if (fingerDrawingPointerIdsRef.current.size === 0) {
 					setFingerBlockerTouchMode(element, 'default');
-					unlockScroll('endInkPenSession-fingerDrawing');
+					unlockScroll();
 				}
 				return;
 			}
 			if (!isDrawingPointer(e)) return;
 			setFingerBlockerTouchMode(element, 'default');
-			unlockScroll('endInkPenSession-pen');
+			unlockScroll();
 		};
 
 		const handlePointerMove = (e: PointerEvent) => {
@@ -881,7 +864,7 @@ export function FingerBlocker({
 				}
 
 				setFingerBlockerTouchMode(element, 'default');
-				unlockScroll('handlePointerUp-pen');
+				unlockScroll();
 				
 				e.preventDefault();
 				e.stopPropagation();
@@ -907,7 +890,7 @@ export function FingerBlocker({
 				}
 				if (fingerDrawingPointerIdsRef.current.size === 0) {
 					setFingerBlockerTouchMode(element, 'default');
-					unlockScroll('handlePointerUp-fingerDrawing');
+					unlockScroll();
 				}
 
 				e.preventDefault();
@@ -968,7 +951,7 @@ export function FingerBlocker({
 				activeTouchPointerDataRef.current.delete(e.pointerId);
 				if (fingerDrawingPointerIdsRef.current.size === 0) {
 					setFingerBlockerTouchMode(element, 'default');
-					unlockScroll('handlePointerCancel-fingerDrawing');
+					unlockScroll();
 				}
 				return;
 			}
@@ -994,7 +977,7 @@ export function FingerBlocker({
 					forwardPointerEvent(penTarget, 'pointercancel', e);
 					middleButtonPanPointerIdsRef.current.delete(e.pointerId);
 				}
-				unlockScroll('handlePointerCancel-pen');
+				unlockScroll();
 
 				const target = e.target as HTMLElement;
 				if (target.hasPointerCapture(e.pointerId)) {
@@ -1059,13 +1042,6 @@ export function FingerBlocker({
 
 		const handleTouchMove = (e: TouchEvent) => {
 			if (isPenDownRef.current || twoFingerModeActiveRef.current || fingerDrawingPointerIdsRef.current.size > 0) {
-				// #region agent log
-				fingerBlockerScrollLockDebug('H4', 'handleTouchMove blocked', {
-					isPenDown: isPenDownRef.current,
-					twoFingerModeActive: twoFingerModeActiveRef.current,
-					fingerDrawingCount: fingerDrawingPointerIdsRef.current.size,
-				});
-				// #endregion
 				blockObsidianTouchEvent(e);
 				return;
 			}
@@ -1106,7 +1082,7 @@ export function FingerBlocker({
 		// indefinitely, blocking all scroll attempts even after the gesture ends.
 		const handleLostPointerCapture = () => {
 			if (!isPenDownRef.current) return;
-			unlockScroll('handleLostPointerCapture');
+			unlockScroll();
 		};
 
 		// Re-lock tldraw camera when a two-finger gesture ends.
@@ -1191,7 +1167,7 @@ export function FingerBlocker({
 			fingerDrawingPointerIdsRef.current.clear();
 			touchGestureSessionActiveRef.current = false;
 			resetDedicatedWritingGestureState();
-			unlockScroll('effect-cleanup');
+			unlockScroll();
 			element.removeEventListener('pointerdown', handlePointerDown, { capture: true });
 			element.removeEventListener('pointermove', handlePointerMove, { capture: true });
 			element.removeEventListener('pointerup', handlePointerUp, { capture: true });
@@ -1214,19 +1190,11 @@ export function FingerBlocker({
 		const scroller = getScroller();
 		if (!scroller) return;
 
-		const handleScroll = (e: Event) => {
+		const handleScroll = () => {
 			if (isPenDownRef.current && lockedScrollPosRef.current) {
 				// Force restoration
 				if (Math.abs(scroller.scrollTop - lockedScrollPosRef.current.y) > 1 || 
 					Math.abs(scroller.scrollLeft - lockedScrollPosRef.current.x) > 1) {
-					// #region agent log
-					fingerBlockerScrollLockDebug('H3', 'handleScroll forced restore', {
-						scrollTop: scroller.scrollTop,
-						lockedY: lockedScrollPosRef.current.y,
-						scrollLeft: scroller.scrollLeft,
-						lockedX: lockedScrollPosRef.current.x,
-					});
-					// #endregion
 					scroller.scrollTo(lockedScrollPosRef.current.x, lockedScrollPosRef.current.y);
 				}
 			}
@@ -1272,7 +1240,7 @@ export function FingerBlocker({
 		};
 		tool.onPointerUp = (e: TLPointerEventInfo) => {
 			pointerDownRef.current = false;
-			unlockScroll('wrapToolWithScrollHandlers-pointerUp');
+			unlockScroll();
 			prevUp?.(e);
 		};
 		tool.onPointerMove = (e: TLPointerEventInfo) => {

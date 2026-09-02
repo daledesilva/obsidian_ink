@@ -75,8 +75,8 @@ export function WritingEmbed (props: {
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
 	/**
-	 * When CM remounts an unlocked embed, the widget passes the last measured editor height
-	 * so first paint does not collapse to preview aspect-ratio height (scroll jump).
+	 * When CM remounts an embed, the widget passes the last measured height so first paint
+	 * does not reset to URL aspect-ratio height (scroll jump on up-scroll remounts).
 	 */
 	remountReserveHeightPx?: number,
 	sourceMdFile?: TFile,
@@ -118,9 +118,9 @@ export function WritingEmbed (props: {
 		previousHeightRef.current = null;
 		resizeContainer.classList.remove('ddc_ink_smooth-transition');
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
-		// Remount while unlocked: keep last editor height. Preview-aspect first paint (~676)
-		// then expand to ~2347 is what collapses scrollHeight / jumps scrollTop.
-		if (isThisEmbedEditing && props.remountReserveHeightPx && props.remountReserveHeightPx > 0) {
+		// REGRESSION: apply remountReserve for locked embeds too — do not gate on isThisEmbedEditing.
+		// URL-aspect first paint on CM virtualize remount jumps scrollTop on iPad up-scroll.
+		if (props.remountReserveHeightPx && props.remountReserveHeightPx > 0) {
 			resizeContainer.style.height = props.remountReserveHeightPx + 'px';
 			previousHeightRef.current = props.remountReserveHeightPx;
 			return;

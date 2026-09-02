@@ -38,6 +38,7 @@ import {
 	inkEmbedIsInEditModeAtom,
 	inkEmbedRecallHeightForFilepath,
 	inkEmbedRememberMeasuredHeightPx,
+	inkEmbedScheduleAfterLayout,
 	inkEmbedStoreHeightForFilepath,
 } from 'src/logic/utils/ink-embed-height-cache';
 import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
@@ -154,7 +155,11 @@ export class DrawingEmbedWidget extends WidgetType {
             </JotaiProvider>
         );
 
-        this.rememberMeasuredHeight(rootEl);
+        // REGRESSION: do not measure sync after render — use after-layout (see ink-embed-height-cache.ts).
+        inkEmbedScheduleAfterLayout(() => {
+            this.rememberMeasuredHeight(rootEl);
+            view.requestMeasure();
+        });
 
         return rootEl;
     }

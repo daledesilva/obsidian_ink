@@ -2,6 +2,12 @@
  * Height cache for CM ink embed widgets.
  * Remembers measured layout height across widget remounts so estimatedHeight and
  * minHeight reserves stay stable and scroll position does not jump on up-scroll.
+ *
+ * REGRESSION (iPad Live Preview): never replace `inkEmbedScheduleAfterLayout` with a
+ * synchronous `offsetHeight` read inside `toDOM` right after `root.render()`. That
+ * measure often sees 0px / pre-paint and skips updating the cache; removing the
+ * after-layout path (while stripping debug logs) brought scroll jumps back.
+ * See docs/embed-scrolling.md — CodeMirror remount height.
  */
 import { getDefaultStore, type Atom } from 'jotai';
 
@@ -48,4 +54,17 @@ export function inkEmbedStoreHeightForFilepath(filepath: string | null | undefin
 export function inkEmbedRecallHeightForFilepath(filepath: string | null | undefined): number | null {
 	if (!filepath) return null;
 	return inkEmbedHeightByFilepathPx.get(filepath) ?? null;
+}
+
+/**
+ * Run after React + browser layout settle.
+ * Required for height cache / CM requestMeasure after widget `toDOM` — must see the
+ * painted widget, not the empty shell. Do not inline a sync measure in `toDOM` instead.
+ */
+export function inkEmbedScheduleAfterLayout(callback: () => void): void {
+	queueMicrotask(() => {
+		requestAnimationFrame(() => {
+			requestAnimationFrame(callback);
+		});
+	});
 }

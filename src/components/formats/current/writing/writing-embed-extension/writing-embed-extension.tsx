@@ -19,6 +19,7 @@ import {
 	inkEmbedIsInEditModeAtom,
 	inkEmbedRecallHeightForFilepath,
 	inkEmbedRememberMeasuredHeightPx,
+	inkEmbedScheduleAfterLayout,
 	inkEmbedStoreHeightForFilepath,
 } from 'src/logic/utils/ink-embed-height-cache';
 import './writing-embed-extension.scss';
@@ -86,17 +87,15 @@ export class WritingEmbedWidget extends WidgetType {
         this.updateHighlightState(view, rootEl);
 
         const estimatedHeight = this.estimatedHeight;
-        const wasInEditMode = inkEmbedIsInEditModeAtom(embedsInEditModeAtom, this.id);
-        // Unlocked remounts still need the tall edit height passed into React.
-        const remountReserveHeightPx = wasInEditMode && this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0
-            ? this.lastMeasuredHeightPx
-            : undefined;
         // Always reserve estimatedHeight on the widget root before React paints.
         // Without this, CM remount replaces the offscreen estimate with a 0-height div and
         // scrollTop jumps (~−200px on up-scroll when a tall writing embed re-enters view).
         const layoutReserveHeightPx = (this.lastMeasuredHeightPx && this.lastMeasuredHeightPx > 0)
             ? this.lastMeasuredHeightPx
             : estimatedHeight;
+        // REGRESSION: always pass reserve for locked remounts too. Gating this on
+        // wasInEditMode let useLayoutEffect reset to URL aspect and revived up-scroll jumps.
+        const remountReserveHeightPx = layoutReserveHeightPx > 0 ? layoutReserveHeightPx : undefined;
         if (layoutReserveHeightPx > 0) {
             rootEl.style.minHeight = `${layoutReserveHeightPx}px`;
         } else {
@@ -143,8 +142,13 @@ export class WritingEmbedWidget extends WidgetType {
             </JotaiProvider>
         );
 
-        this.rememberMeasuredHeight(rootEl);
-        
+        // REGRESSION: do not call rememberMeasuredHeight sync here after render — often 0px.
+        // Must use inkEmbedScheduleAfterLayout (debug double-rAF was doing this accidentally).
+        inkEmbedScheduleAfterLayout(() => {
+            this.rememberMeasuredHeight(rootEl);
+            view.requestMeasure();
+        });
+
         return rootEl;
     }
 

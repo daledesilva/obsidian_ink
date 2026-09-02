@@ -159,9 +159,9 @@ Unlocked writing embeds amplify the problem: edit height (~2300px) is much talle
 
 2. **`layoutReserveHeightPx` / `minHeight` on every `toDOM`** — Before React paints, the widget root sets `minHeight` from the last measured height (or `estimatedHeight`). Writing and drawing both do this so remount never starts at 0px.
 
-3. **Measured height cache** — `lastMeasuredHeightPx` on the widget instance, plus a filepath map in `ink-embed-height-cache.ts` so `forceRebuild` (new widget instance) still recalls height. `estimatedHeight` prefers the cached measurement. While unlocked, shrinks toward preview height are ignored so a remount flash cannot poison the cache.
+3. **Measured height cache** — `lastMeasuredHeightPx` on the widget instance, plus a filepath map in `ink-embed-height-cache.ts` so `forceRebuild` (new widget instance) still recalls height. `estimatedHeight` prefers the cached measurement. While unlocked, shrinks toward preview height are ignored so a remount flash cannot poison the cache. After `toDOM` + `root.render()`, the cache is updated only via **`inkEmbedScheduleAfterLayout`** (not a sync `offsetHeight` read).
 
-4. **Writing `remountReserveHeightPx`** — When unlocked, the React container also seeds its first layout height from the widget so it does not expand from preview aspect after mount.
+4. **Writing `remountReserveHeightPx`** — On remount (**locked or unlocked**), React seeds the container height from the last measurement so `useLayoutEffect` does not reset to URL aspect.
 
 5. **`scrollSnapshot()` on explicit refresh** — `refreshWritingEmbedsNow` / `refreshDrawingEmbedsNow` dispatch CM’s scroll snapshot with the refresh effect so panel / Live Preview force-rebuilds keep scroll anchored.
 
@@ -306,6 +306,8 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 
 - **Do not restore scroll-triggered `refresh*EmbedsNow`.** Initial build + doc changes + explicit forceRebuild are enough; scroll refresh regresses iPad up-scroll jumps.
 - **Always set widget-root `minHeight` before React paint** on writing *and* drawing `toDOM`, including locked embeds — `estimatedHeight` alone does not cover the empty-div gap between remount and first paint.
+- **Update the height cache after layout** (`inkEmbedScheduleAfterLayout`), not synchronously in `toDOM` — a sync measure often sees 0px and skips; the debug-session double-rAF logging was accidentally doing the real work.
+- **Pass `remountReserveHeightPx` for locked writing remounts too** so `useLayoutEffect` does not reset to URL aspect on every virtualize remount.
 - **Never wrap embed widgets in a bare `<JotaiProvider>`.** Unlock atoms must use `getDefaultStore()` or remounts look locked.
 - **Height cache while unlocked must not accept large shrinks** toward preview aspect — that was a prior scroll-jump source.
 - **Pen scroll-pin can outlive the stroke** across panels / visibility; clear pins on those boundaries and before Live Preview rebuilds.
@@ -326,6 +328,8 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 | Pan/zoom gesture scroll restore | `InkSvgCanvas` + `FingerBlocker`; legacy: `tldraw-drawing-editor` | Overflow/scrollbar styles not restored after embed pan/zoom gestures |
 | No scroll-triggered embed refresh | `ink-embeds-extension.tsx` | Mid-scroll forceRebuild collapsed scrollHeight / jumped scrollTop |
 | Remount `minHeight` + height cache | writing/drawing embed widgets + `ink-embed-height-cache.ts` | CM virtualize remount 0-height flash on up-scroll |
+| After-layout height measure | `inkEmbedScheduleAfterLayout` in writing/drawing `toDOM` | Sync toDOM measure skipped cache update (debug-strip regression) |
+| Writing `remountReserveHeightPx` (locked+unlocked) | `writing-embed.tsx` useLayoutEffect | URL-aspect reset on remount jumped scrollTop |
 | Shared `getDefaultStore()` Provider | writing/drawing widget `toDOM` | Remount looked “auto-locked” (isolated Jotai store) |
 | `scrollSnapshot` on refresh | `refresh*EmbedsNow` | Panel / LP forceRebuild scroll anchor |
 | Clear stranded scroll pins | `clearAllInkCmScrollerScrollPins` | Note freeze after panel / visibility without pointerup |

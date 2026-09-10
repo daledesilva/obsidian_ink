@@ -210,7 +210,7 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	// Keep product names and intentional tip-label casing below.
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText('Short videos demonstrating Ink\'s features.');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "Slash Commander".`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Drawing embed framing');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Two fingers or right mouse button to reframe. Cmd + right mouse button to zoom, or Cmd + scroll wheel.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Locked embeds');
@@ -705,7 +705,7 @@ function insertWritingSettings(
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
 		// Keep command-name casing as shown in the command palette.
-		.setDesc(`While editing a Markdown file, run the action 'New handwriting section' to embed a section for writing with a pen.`);
+		.setDesc(`While editing a Markdown file, run the action 'new handwriting section' to embed a section for writing with a pen.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 

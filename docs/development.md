@@ -222,12 +222,12 @@ npm run build:boox
 
 After a successful push, reload Ink on the tablet (toggle the plugin under **Settings → Community plugins**, or restart Obsidian).
 
-#### Deploy to iPad while debugging
+#### Deploy to iPad or Windows while debugging
 
-There is no `adb` push script for iPad. For **Cursor Debug** work, prefer copying a **local build** into the vault on the device:
+There is no `adb` push script for iPad or Windows. For **LAN ingest / Cursor Debug** work, copy a **local build** into the vault on that device (see [Debugging over Wi‑Fi (LAN ingest)](debugging-lan-ingest.md)):
 
-1. From `obsidian_ink/`, run `npm run build` (optionally with `INK_DEBUG_CURSOR_SESSION_ID` / `INK_DEBUG_INGEST_PATH` — see [Debugging on iPad](debugging-on-ipad.md)).
-2. Copy `dist/main.js`, `dist/styles.css`, and `dist/manifest-beta.json` (rename to `manifest.json`) into `<vault>/.obsidian/plugins/ink/`.
+1. From `obsidian_ink/`, run `npm run build` with `INK_DEBUG_CURSOR_SESSION_ID` / `INK_DEBUG_INGEST_PATH` (and a Mac LAN IP baked by esbuild).
+2. Copy `dist/main.js`, `dist/styles.css`, and `dist/manifest.json` (or `dist/manifest-beta.json` renamed to `manifest.json`) into `<vault>/.obsidian/plugins/ink/`.
 3. Quit and reopen Obsidian.
 
 **Do not assume `npm run internal-release` includes uncommitted debug code** — see [Internal release](#internal-release-github-actions) below.

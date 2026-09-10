@@ -6,6 +6,8 @@ Obsidian on iPad runs inside **WKWebView**. Plugin behaviour (stylus, touch rout
 
 This page covers **two ways** to get live logs from a **USB-connected iPad** on the same Wi‑Fi as your Mac. Prefer **structured NDJSON ingest** so the agent can read `.cursor/debug-<session>.log` directly.
 
+LAN ingest (iPad **and** Windows desktop, early bundle canaries, collector when Cursor is not listening) is documented in [Debugging over Wi‑Fi (LAN ingest)](debugging-lan-ingest.md).
+
 For Boox / Android, see [Debugging on device (Boox / Android)](debugging-on-device.md).
 
 ---
@@ -44,38 +46,15 @@ flowchart LR
 
 ### Preferred: structured NDJSON → Cursor
 
-1. Start a **Cursor Debug** agent session — note the **session ID**, **ingest path** (`/ingest/…`), and **log file path** from the system context (e.g. `.cursor/debug-e7cde3.log`).
-2. On the Mac, start the LAN relay (Cursor listens on **localhost only**):
+Follow [Debugging over Wi‑Fi (LAN ingest)](debugging-lan-ingest.md) (relay, bake session/path/LAN IP, copy `dist/`). The same pipeline is used for **Windows** on the LAN; do not post to `127.0.0.1` on the iPad.
 
-   ```bash
-   bash scripts/ingest-lan-relay.sh
-   ```
-
-   Requires **`socat`** (`brew install socat`). Allows inbound TCP **7662** if macOS Firewall prompts.
-
-3. Build with session values baked in (from `obsidian_ink/`):
-
-   ```bash
-   INK_DEBUG_CURSOR_SESSION_ID=<sessionId> \
-   INK_DEBUG_INGEST_PATH=/ingest/<uuid-from-cursor> \
-   npm run build
-   ```
-
-   esbuild also bakes **`INK_DEBUG_LAN_IPV4`** (Mac Wi‑Fi IP at build time) for mobile `requestUrl` posts.
-
-4. **Deploy the built plugin to the iPad** — see [Deploy while debugging](#deploy-while-debugging) below.
-
-5. Reproduce on iPad. The agent reads **`postCursorDebugIngest`** lines from the log file on the Mac.
-
-**Plugin API:** use **`postCursorDebugIngest`** from [`src/logic/utils/cursor-debug-ingest.ts`](../src/logic/utils/cursor-debug-ingest.ts). It uses **`requestUrl`** (required on Obsidian mobile — do **not** use `fetch`). It also mirrors to **`[InkDebug]`** console JSON and appends to **`.ink-cursor-debug.ndjson`** in the vault as a fallback.
+**Plugin API:** **`postCursorDebugIngest`** in [`src/logic/utils/cursor-debug-ingest.ts`](../src/logic/utils/cursor-debug-ingest.ts) (`requestUrl` on mobile — do **not** use `fetch`).
 
 **Override ingest URL without rebuild** (Safari console on iPad, one-shot):
 
 ```js
 localStorage.setItem('ink-debug-ingest-url', 'http://<mac-lan-ip>:7662/ingest/<uuid-from-cursor>')
 ```
-
-**LAN IP changed?** Re-run `npm run build` on the Mac (or set `ink-debug-ingest-url` as above).
 
 ### Secondary: Safari Web Inspector (USB)
 
@@ -130,14 +109,14 @@ Remove temporary **`postCursorDebugIngest`** calls after the investigation. Leav
 
 | Script | Purpose |
 |--------|---------|
-| `bash scripts/ingest-lan-relay.sh` | LAN relay `0.0.0.0:7662` → Cursor `127.0.0.1:7662` |
+| LAN ingest (relay, collector, banner) | [Debugging over Wi‑Fi (LAN ingest)](debugging-lan-ingest.md) |
 | Boox USB ingest | Sibling **`eink-bridge/.cursor/rules/boox-usb-debug-automation.mdc`** + `adb reverse tcp:7662 tcp:7662` |
 
 ---
 
 ## Technical Gotchas
 
-- **`127.0.0.1` on the iPad is the iPad**, not your Mac. Wi‑Fi ingest needs the **LAN relay** + baked Mac IP, or a full **`ink-debug-ingest-url`** in `localStorage`.
+- **`127.0.0.1` on the iPad is the iPad**, not your Mac. Full LAN ingest gotchas (Windows desktop, UI `isMobile`, duplicate lines) live in [Debugging over Wi‑Fi (LAN ingest)](debugging-lan-ingest.md).
 - **Do not use `fetch`** for ingest inside the plugin on mobile; **`postCursorDebugIngest`** uses **`requestUrl`**.
 - **Safari console filters** may hide plain `console.debug` lines — `[InkDebug]` and **`Ink verbose:`** (via `universal-dev-logging.ts`) are easier to spot.
 - **Simultaneous finger + Apple Pencil** in WKWebView is blocked by iPadOS (one pointer type at a time in the web layer). Native UIKit apps can do both; Obsidian mobile cannot. Do not assume desktop modifier-key behaviour on iPad without device logs.

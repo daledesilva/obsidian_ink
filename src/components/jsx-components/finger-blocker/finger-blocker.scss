@@ -4,7 +4,7 @@
 /**
  * Applied to `.cm-scroller` while pen scroll-lock is active (matches prior overflow: hidden behaviour).
  */
-.ink-cm-scroller--scroll-pinned {
+.ink-cm-scroller--scroll-locked {
 	overflow: hidden;
 	scrollbar-color: transparent transparent;
 }

@@ -1,9 +1,11 @@
 import * as React from 'react';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
+import {
+	clearInkCmScrollerScrollLock_debounced,
+	INK_CM_SCROLLER_SCROLL_LOCKED_CLASS,
+} from 'src/logic/utils/clear-ink-cm-scroller-scroll-lock';
 import './finger-blocker.scss';
-
-const INK_CM_SCROLLER_SCROLL_PINNED_CLASS = 'ink-cm-scroller--scroll-pinned';
 const INK_FINGER_BLOCKER_TOUCH_NONE_CLASS = 'ink-finger-blocker--touch-none';
 const INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS = 'ink-finger-blocker--touch-pan-xy';
 
@@ -45,7 +47,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 	const pointerDownRef = React.useRef<boolean>(false);
 	const recentPenInputRef = React.useRef<boolean>(false);
 
-	// Refs for scroll pinning strategy
+	// Refs for scroll-lock strategy
 	const isPenDownRef = React.useRef<boolean>(false);
 	const lockedScrollPosRef = React.useRef<{ x: number; y: number } | null>(null);
 	const activeScrollerRef = React.useRef<HTMLElement | null>(null);
@@ -105,7 +107,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 			// Ref-based state tracking for scroll restoration
 			activeScrollerRef.current = scroller;
 			lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
-			scroller.classList.add(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
+			scroller.classList.add(INK_CM_SCROLLER_SCROLL_LOCKED_CLASS);
 		}
 	};
 
@@ -113,29 +115,13 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		if (isPenDownRef.current) {
 			isPenDownRef.current = false;
 			if (activeScrollerRef.current) {
-				// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
-				// Delayed scrollbar restore in code to prevent flashing.
-				activeScrollerRef.current.style.overflow = 'auto';
-				window.setTimeout(() => {
-					if (activeScrollerRef.current) {
-						activeScrollerRef.current.style.scrollbarColor = 'auto';
-					}
-				}, 200);
-
-				// Clear refs
+				clearInkCmScrollerScrollLock_debounced(activeScrollerRef.current);
 				activeScrollerRef.current = null;
 			}
 			lockedScrollPosRef.current = null;
 		} else {
-			// Fallback: if not locked via refs, still handle visual styling
 			const scroller = getScroller();
-			if (scroller) {
-				// Functional scroll-lock teardown (not theme styling); delayed scrollbar to prevent flashing.
-				scroller.style.overflow = 'auto';
-				window.setTimeout(() => {
-					scroller.style.scrollbarColor = 'auto';
-				}, 200);
-			}
+			if (scroller) clearInkCmScrollerScrollLock_debounced(scroller);
 		}
 	};
 
@@ -476,7 +462,7 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		// When an embed pan/zoom gesture calls tlContainer.setPointerCapture(), pointer
 		// capture transfers away from this element. The browser fires lostpointercapture
 		// here, but pointerup never arrives — so unlockScroll() would never be called and
-		// the scroll-pinning mechanism (isPenDownRef + handleScroll) would stay active
+		// the scroll-lock mechanism (isPenDownRef + handleScroll) would stay active
 		// indefinitely, blocking all scroll attempts even after the gesture ends.
 		const handleLostPointerCapture = () => {
 			if (isPenDownRef.current) {

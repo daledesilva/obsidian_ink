@@ -60,7 +60,7 @@ We are tackling these in **C → A → B** order: smallest CM integration fix fi
 
 **Reported behaviour:** In a **drawing embed**, after Scribble on note text then drawing in the embed, page scroll can jump and lock until the note is closed. Sometimes locking happens immediately when tapping outside the embed.
 
-**Leading hypothesis:** `FingerBlocker` scroll-pin state (`isPenDownRef`, `.ink-cm-scroller--scroll-pinned`) not cleared when `pointerup` is lost (capture transfer, Scribble, or focus leaving the embed). See `docs/embed-scrolling.md` and debug instrumentation in `finger-blocker.tsx`.
+**Leading hypothesis:** `FingerBlocker` scroll-lock state (`isPenDownRef`, `.ink-cm-scroller--scroll-locked`) not cleared when `pointerup` is lost (capture transfer, Scribble, or focus leaving the embed). See `docs/embed-scrolling.md` and debug instrumentation in `finger-blocker.tsx`.
 
 ---
 

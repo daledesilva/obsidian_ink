@@ -13,23 +13,16 @@ import {
 	type InkTouchGestureMode,
 	type TouchAxisLock,
 } from 'src/logic/touch-gesture-policy';
+import {
+	clearAllInkCmScrollerScrollLocks,
+	clearInkCmScrollerScrollLock_debounced,
+	INK_CM_SCROLLER_SCROLL_LOCKED_CLASS,
+} from 'src/logic/utils/clear-ink-cm-scroller-scroll-lock';
 import './finger-blocker.scss';
-
-const INK_CM_SCROLLER_SCROLL_PINNED_CLASS = 'ink-cm-scroller--scroll-pinned';
 const INK_FINGER_BLOCKER_TOUCH_NONE_CLASS = 'ink-finger-blocker--touch-none';
 const INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS = 'ink-finger-blocker--touch-pan-xy';
 
-/** Clear sticky pen scroll-pin / overflow on every note scroller (panel / layout freeze safety). */
-export function clearAllInkCmScrollerScrollPins(_reason: string): void {
-	const scrollers = activeDocument.querySelectorAll<HTMLElement>('.cm-scroller');
-	scrollers.forEach((scroller) => {
-		const hadPin = scroller.classList.contains(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
-		if (!hadPin) return;
-		scroller.classList.remove(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
-		// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
-		scroller.style.overflow = 'auto';
-	});
-}
+export { clearAllInkCmScrollerScrollLocks } from 'src/logic/utils/clear-ink-cm-scroller-scroll-lock';
 
 function setFingerBlockerTouchMode(blockerElement: HTMLElement, mode: 'none' | 'pan-xy' | 'default') {
 	blockerElement.classList.remove(INK_FINGER_BLOCKER_TOUCH_NONE_CLASS, INK_FINGER_BLOCKER_TOUCH_PAN_XY_CLASS);
@@ -172,7 +165,7 @@ export function FingerBlocker({
 	const pointerDownRef = React.useRef<boolean>(false);
 	const recentPenInputRef = React.useRef<boolean>(false);
 
-	// Refs for scroll pinning strategy
+	// Refs for scroll-lock strategy
 	const isPenDownRef = React.useRef<boolean>(false);
 	const lockedScrollPosRef = React.useRef<{ x: number; y: number } | null>(null);
 	const activeScrollerRef = React.useRef<HTMLElement | null>(null);
@@ -245,10 +238,10 @@ export function FingerBlocker({
 		onPanGestureEndRef.current = onPanGestureEnd;
 	}, [onPanGestureEnd]);
 
-	// Panel / app background can strand pen scroll-pin (overflow:hidden) with no pointerup.
+	// Panel / app background can strand pen scroll-lock (overflow:hidden) with no pointerup.
 	React.useEffect(() => {
 		const onVisibilityOrPageHide = () => {
-			clearAllInkCmScrollerScrollPins('visibilitychange-or-pagehide');
+			clearAllInkCmScrollerScrollLocks('visibilitychange-or-pagehide');
 			isPenDownRef.current = false;
 			activeScrollerRef.current = null;
 			lockedScrollPosRef.current = null;
@@ -291,32 +284,21 @@ export function FingerBlocker({
 			// Ref-based state tracking for scroll restoration
 			activeScrollerRef.current = scroller;
 			lockedScrollPosRef.current = { x: scroller.scrollLeft, y: scroller.scrollTop };
-			scroller.classList.add(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
+			scroller.classList.add(INK_CM_SCROLLER_SCROLL_LOCKED_CLASS);
 		}
-	};
-
-	const clearScrollerPin = (scroller: HTMLElement) => {
-		scroller.classList.remove(INK_CM_SCROLLER_SCROLL_PINNED_CLASS);
-		// Functional scroll-lock teardown (not theme styling); kept inline to avoid flash on unpin.
-		scroller.style.overflow = 'auto';
-		window.setTimeout(() => {
-			scroller.style.scrollbarColor = 'auto';
-		}, 200);
 	};
 
 	const unlockScroll = () => {
 		if (isPenDownRef.current) {
 			isPenDownRef.current = false;
 			if (activeScrollerRef.current) {
-				clearScrollerPin(activeScrollerRef.current);
+				clearInkCmScrollerScrollLock_debounced(activeScrollerRef.current);
 				activeScrollerRef.current = null;
 			}
 			lockedScrollPosRef.current = null;
 		} else {
 			const scroller = getScroller();
-			if (scroller) {
-				clearScrollerPin(scroller);
-			}
+			if (scroller) clearInkCmScrollerScrollLock_debounced(scroller);
 		}
 	};
 
@@ -1078,7 +1060,7 @@ export function FingerBlocker({
 		// When an embed pan/zoom gesture calls tlContainer.setPointerCapture(), pointer
 		// capture transfers away from this element. The browser fires lostpointercapture
 		// here, but pointerup never arrives — so unlockScroll() would never be called and
-		// the scroll-pinning mechanism (isPenDownRef + handleScroll) would stay active
+		// the scroll-lock mechanism (isPenDownRef + handleScroll) would stay active
 		// indefinitely, blocking all scroll attempts even after the gesture ends.
 		const handleLostPointerCapture = () => {
 			if (!isPenDownRef.current) return;

@@ -95,11 +95,11 @@ stateDiagram-v2
     Locked --> Idle: pen pointerup / pointercancel\n(overflow: auto, clear refs)
 ```
 
-On pen down, `lockScroll()` records the current `scrollLeft` / `scrollTop` of `.cm-scroller` and sets `overflow: hidden` on it. A separate capture-phase `scroll` listener is attached to the scroller element. If a scroll event fires while the pen is held (meaning the browser ignored the CSS lock), the listener immediately calls `scrollTo()` to forcefully restore the saved position, frame by frame.
+On pen down, `lockScroll()` records the current `scrollLeft` / `scrollTop` of `.cm-scroller` and adds the `.ink-cm-scroller--scroll-locked` class (`overflow: hidden` in SCSS). A separate capture-phase `scroll` listener is attached to the scroller element. If a scroll event fires while the pen is held (meaning the browser ignored the CSS lock), the listener immediately calls `scrollTo()` to forcefully restore the saved position, frame by frame.
 
-On pen up, `unlockScroll()` restores `overflow: auto`. The `scrollbarColor` restoration is delayed by 200 ms to avoid a visible flash of the scrollbar reappearing.
+On pen up, `unlockScroll()` calls `clearInkCmScrollerScrollLock_debounced()` in `src/logic/utils/clear-ink-cm-scroller-scroll-lock.ts`, which removes the lock class, restores `overflow: auto` via Obsidian `setCssProps()`, and restores `scrollbarColor` after 200 ms to avoid a visible flash of the scrollbar reappearing.
 
-**Stranded pin cleanup:** Opening Obsidian panels or backgrounding the app can leave `overflow: hidden` / the scroll-pin class with no matching `pointerup`. `clearAllInkCmScrollerScrollPins()` clears every `.cm-scroller` pin; it runs on `visibilitychange` / `pagehide` and before Live Preview force-rebuilds in `ink-embed-refresh.ts`.
+**Stranded scroll-lock cleanup:** Opening Obsidian panels or backgrounding the app can leave `overflow: hidden` / the scroll-lock class with no matching `pointerup`. `clearAllInkCmScrollerScrollLocks()` clears every `.cm-scroller` lock (overflow-only, no debounced scrollbar restore); it runs on `visibilitychange` / `pagehide` and before Live Preview force-rebuilds in `ink-embed-refresh.ts`.
 
 ### Layer 4 — Gesture and wheel suppression
 
@@ -256,17 +256,14 @@ sequenceDiagram
 Two complementary fixes work together:
 
 **1. Non-primary button guard in `FingerBlocker`**  
-`FingerBlocker` only calls `lockScroll()` and sets `isPenDownRef.current = true` for pen input or left mouse button (`button === 0`). Middle (`button 1`) and right (`button 2`) clicks are never drawing actions — they are used by embed pan/zoom gestures on `InkSvgCanvas`. Skipping the lock for these buttons means the scroll-pinning state is never entered, so the `handleScroll` force-restoration listener is never active during pan/zoom gestures.
+`FingerBlocker` only calls `lockScroll()` and sets `isPenDownRef.current = true` for pen input or left mouse button (`button === 0`). Middle (`button 1`) and right (`button 2`) clicks are never drawing actions — they are used by embed pan/zoom gestures on `InkSvgCanvas`. Skipping the lock for these buttons means the scroll-lock state is never entered, so the `handleScroll` force-restoration listener is never active during pan/zoom gestures.
 
 > **Why not `lostpointercapture`?** An earlier attempt added a `lostpointercapture` listener to `FingerBlocker` to detect when another element stole pointer capture. However, `FingerBlocker` forwards events to `.tl-canvas` as synthetic `PointerEvent` objects via `dispatchEvent`. When `tldraw-drawing-editor` then calls `tlContainer.setPointerCapture(e.pointerId)` on the forwarded event, Electron/Chromium silently rejects it — `setPointerCapture` only works for pointer IDs that are registered from real hardware dispatch, not synthetic copies. As a result, FingerBlocker never actually loses capture, and `lostpointercapture` never fires. The `lostpointercapture` listener remains in the code as a safety net for any future scenario where real capture is taken.
 
 **2. Embed scroll restore after ink canvas gestures**  
 Legacy tldraw embeds call `restoreEmbedScroll()` from `tldraw-drawing-editor` gesture end handlers. Current-format `InkSvgCanvas` embeds rely on `FingerBlocker` not entering scroll lock for middle/right-button gestures; mod+scroll does not use `pointerup`. If note scrolling becomes stuck after pan/zoom, see [pan-zoom.md](pan-zoom.md) and the non-primary button guard above.
 
-When using legacy tldraw embeds, `restoreEmbedScroll()`:
-
-- Sets `overflow: 'auto'` immediately.
-- Restores `scrollbarColor: 'auto'` after a 200 ms delay — matching the same delay `FingerBlocker` uses to avoid a visible flash of the scrollbar reappearing.
+When using legacy tldraw embeds, `restoreEmbedScroll()` delegates to `restoreEmbedCmScrollerScroll()`, which calls the same `clearInkCmScrollerScrollLock_debounced()` helper as `FingerBlocker` (`setCssProps` + 200 ms delayed `scrollbarColor`).
 
 For mod+scroll zoom (which has no `pointerup`), `restoreEmbedScroll()` is called via a debounced timer that fires 150 ms after the last wheel event.
 
@@ -310,7 +307,8 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 - **Pass `remountReserveHeightPx` for locked writing remounts too** so `useLayoutEffect` does not reset to URL aspect on every virtualize remount.
 - **Never wrap embed widgets in a bare `<JotaiProvider>`.** Unlock atoms must use `getDefaultStore()` or remounts look locked.
 - **Height cache while unlocked must not accept large shrinks** toward preview aspect — that was a prior scroll-jump source.
-- **Pen scroll-pin can outlive the stroke** across panels / visibility; clear pins on those boundaries and before Live Preview rebuilds.
+- **Pen scroll-lock can outlive the stroke** across panels / visibility; call `clearAllInkCmScrollerScrollLocks` on those boundaries and before Live Preview rebuilds.
+- **Scroll-lock teardown must use `setCssProps`** — literal `element.style.*` assignments fail `obsidianmd/no-static-styles-assignment`; keep unlock logic in `clear-ink-cm-scroller-scroll-lock.ts`.
 
 ---
 
@@ -320,10 +318,10 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 |---|---|---|
 | Dynamic `touch-action` toggling | `FingerBlocker` | Pen stroke triggers browser scroll gesture |
 | Native capture-phase listeners | `FingerBlocker` | React synthetic events fire too late on Windows |
-| Scroll pinning | `FingerBlocker` | Browser ignores `overflow: hidden` lock |
+| Scroll lock (`.ink-cm-scroller--scroll-locked`) | `FingerBlocker` | Browser ignores `overflow: hidden` lock |
 | Transition edge case handling | `FingerBlocker` | Late lock / late unlock at pen-to-touch boundary |
 | Gesture suppression | `FingerBlocker` | Wheel / swipe gestures during pen input |
-| Non-primary button guard | `FingerBlocker` | Scroll-pinning activated by middle/right-click embed pan/zoom gestures |
+| Non-primary button guard | `FingerBlocker` | Scroll-lock activated by middle/right-click embed pan/zoom gestures |
 | `lostpointercapture` scroll unlock | `FingerBlocker` | Safety net: unlock if real pointer capture is transferred elsewhere |
 | Pan/zoom gesture scroll restore | `InkSvgCanvas` + `FingerBlocker`; legacy: `tldraw-drawing-editor` | Overflow/scrollbar styles not restored after embed pan/zoom gestures |
 | No scroll-triggered embed refresh | `ink-embeds-extension.tsx` | Mid-scroll forceRebuild collapsed scrollHeight / jumped scrollTop |
@@ -332,7 +330,7 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 | Writing `remountReserveHeightPx` (locked+unlocked) | `writing-embed.tsx` useLayoutEffect | URL-aspect reset on remount jumped scrollTop |
 | Shared `getDefaultStore()` Provider | writing/drawing widget `toDOM` | Remount looked “auto-locked” (isolated Jotai store) |
 | `scrollSnapshot` on refresh | `refresh*EmbedsNow` | Panel / LP forceRebuild scroll anchor |
-| Clear stranded scroll pins | `clearAllInkCmScrollerScrollPins` | Note freeze after panel / visibility without pointerup |
+| Clear stranded scroll locks | `clearAllInkCmScrollerScrollLocks` | Note freeze after panel / visibility without pointerup |
 | Menu bar scroll tracking | `PrimaryMenuBar` | Menu scrolls off-screen with embed |
 | Embed removal cursor reset | `embed.ts` | Scroll jumps when embed is deleted |
 | `preventScroll` on focus | `tldraw-helpers.ts` | Viewport jumps when tldraw is focused |

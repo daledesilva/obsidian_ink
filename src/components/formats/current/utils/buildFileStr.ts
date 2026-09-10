@@ -1,6 +1,4 @@
 import { INK_CANVAS_FORMAT_VERSION, TLDRAW_VERSION } from 'src/constants';
-// Maintained fork of xmldom — GHSA-crh6-fp67-6883 has no patch on the deprecated `xmldom` package.
-import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import format from 'xml-formatter';
 import { InkFileData } from '../types/file-data';
 import { isInkCanvasFile } from './ink-file-storage-engine';
@@ -62,47 +60,44 @@ function escapeXmlAttribute(value: string): string {
 //////////////////////////
 
 function buildTldrawFileStr(pageData: InkFileData): string {
-    // Prefer svgString for v2; fall back to previewUri for backward compatibility
-    let fileStr = pageData.svgString || '<svg></svg>';
-
-	// Create svg/xml document
-	const parser = new DOMParser();
-	const doc = parser.parseFromString(fileStr, 'image/svg+xml');
-	const svgElement = doc.documentElement;
-
-	// Prepare tldraw JSON only (no meta in JSON)
+	// Prefer svgString for v2; fall back to previewUri for backward compatibility
+	const fileStr = pageData.svgString || '<svg></svg>';
 	const tldrawJson = pageData.tldraw;
 
-	// Remove existing metadata to avoid duplicates when re-serializing
-	const existingMetadata = svgElement.getElementsByTagName('metadata');
-	while (existingMetadata.length > 0) {
-		existingMetadata[0].parentNode?.removeChild(existingMetadata[0]);
+	// String splice keeps xmldom off the hot save path and avoids raw createElement on parsed docs.
+	const metadataPattern = /<metadata\b[^>]*>[\s\S]*?<\/metadata>/gi;
+	const fileWithoutMetadata = fileStr.replace(metadataPattern, '');
+
+	const writingLineHeightAttr =
+		pageData.meta.writingLineHeight !== undefined
+			? ` writing-line-height="${escapeXmlAttribute(String(pageData.meta.writingLineHeight))}"`
+			: '';
+	const inkAttrs =
+		`plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}"` +
+		` file-type="${escapeXmlAttribute(pageData.meta.fileType)}"` +
+		writingLineHeightAttr;
+	const metadata = [
+		'<metadata>',
+		`<ink ${inkAttrs}/>`,
+		`<tldraw version="${escapeXmlAttribute(String(TLDRAW_VERSION))}">`,
+		escapeXmlText(JSON.stringify(tldrawJson, null, 2)),
+		'</tldraw>',
+		'</metadata>',
+	].join('\n');
+
+	const svgOpenPattern = /<svg\b[^>]*>/i;
+	let serializedSvg: string;
+	if (svgOpenPattern.test(fileWithoutMetadata)) {
+		serializedSvg = fileWithoutMetadata.replace(
+			svgOpenPattern,
+			(svgOpen) => `${svgOpen}\n${metadata}`,
+		);
+	} else {
+		serializedSvg = `<svg xmlns="http://www.w3.org/2000/svg">\n${metadata}\n${fileWithoutMetadata}`;
 	}
 
-	// Create settings in xml
-	const metadataElement = doc.createElement('metadata');
-
-	// <ink> meta with attributes
-	const inkMetaElement = doc.createElement('ink');
-	inkMetaElement.setAttribute('plugin-version', String(pageData.meta.pluginVersion));
-	inkMetaElement.setAttribute('file-type', pageData.meta.fileType);
-	if (pageData.meta.writingLineHeight !== undefined) {
-		inkMetaElement.setAttribute('writing-line-height', String(pageData.meta.writingLineHeight));
-	}
-	metadataElement.appendChild(inkMetaElement);
-
-	// <tldraw version="..."> JSON </tldraw>
-	const settingsElement = doc.createElement('tldraw');
-	settingsElement.setAttribute('version', String(TLDRAW_VERSION));
-	settingsElement.textContent = JSON.stringify(tldrawJson, null, 2);
-	metadataElement.appendChild(settingsElement);
-
-	svgElement.appendChild(metadataElement);
-
-	const serializedSvg = new XMLSerializer().serializeToString(svgElement);
-	// Export as formatted svg
 	return format(serializedSvg, {
 		indentation: '\t',
-		lineSeparator: '\n'
+		lineSeparator: '\n',
 	});
 }

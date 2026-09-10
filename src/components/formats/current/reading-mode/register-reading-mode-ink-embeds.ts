@@ -93,7 +93,7 @@ function processReadingModeInkEmbedsInRoot(
 			continue;
 		}
 
-		const hostEl = activeDocument.createElement('div');
+		const hostEl = createDiv();
 		hostEl.setAttribute(INK_READING_PROCESSED_ATTR, 'true');
 		hostEl.classList.add('ddc_ink_reading-embed-host');
 		stampReadingEmbedHostMetadata(hostEl, candidate, context.sourcePath);

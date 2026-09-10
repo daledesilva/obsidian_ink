@@ -8,7 +8,7 @@ Obsidian community plugins are reviewed against [plugin guidelines](https://docs
 
 Think of the linter as two layers:
 
-1. **Obsidian compatibility** — Code that runs in a popout window must not assume the main window’s globals (`document`, `HTMLImageElement`, bare `requestAnimationFrame`). Obsidian provides `activeDocument`, `activeWindow`, `element.instanceOf(...)`, and window-scoped timers for that.
+1. **Obsidian compatibility** — Code that runs in a popout window must not assume the main window’s globals (`document`, `HTMLImageElement`, bare `requestAnimationFrame`, raw `createElement`). Obsidian provides global DOM helpers (`createDiv`, `createEl`, `createFragment`, `createSvg`), parent-scoped helpers (`parent.createDiv()`), `activeDocument` / `activeWindow`, `element.instanceOf(...)`, and window-scoped timers for that.
 2. **Directory / UX conventions** — UI copy sentence case, prefer CSS classes over static inline styles, delete via `FileManager.trashFile()` so the user’s trash setting is respected, avoid putting the plugin id/name into command ids/names.
 
 Ink keeps a small set of intentional exceptions. Product-name UI strings (Ink, Boox, SVG) may warn under `ui/sentence-case` rather than using disables for every notice. Pen scroll-lock teardown uses Obsidian `setCssProps()` (not literal `element.style.*` assignments) via `clearInkCmScrollerScrollLock_debounced` in `src/logic/utils/clear-ink-cm-scroller-scroll-lock.ts` — see [embed-scrolling.md](embed-scrolling.md).
@@ -61,6 +61,8 @@ Config lives in `eslint.config.mjs`:
 
 | Rule / theme | What we do |
 |--------------|------------|
+| `prefer-create-el` | Prefer Obsidian DOM helpers over `activeDocument.createElement` / `createDocumentFragment` / `createElementNS`. Use global `createDiv()` / `createEl()` / `createFragment()` / `createSvg()` for detached nodes; use `parent.createDiv()` (or `parent.createSvg()`) when the element is appended to a known parent — Obsidian auto-appends, so drop redundant `appendChild` calls. |
+| `platform` | Use Obsidian `Platform` (`isWin`, `isMacOS`, `isLinux`, `isDesktop`, `isMobile`, …) for OS / UI-mode probes — not `navigator.userAgent` or `navigator.platform`. Debug ingest (`collectInkHostProbe`) keeps `Platform.*` fields only. |
 | `prefer-active-doc` | Use `activeDocument` instead of global `document` for UI DOM work. Off in recommended for schema keys named `document` (tldraw snapshots) — comment the field, do not disable a disabled rule. |
 | `prefer-window-timers` | Use `window.requestAnimationFrame` (and other window timers) so callbacks run on the correct window. |
 | `prefer-instanceof` | Use `element.instanceOf(HTMLImageElement)` (etc.) instead of `instanceof` for cross-window checks. |
@@ -93,3 +95,5 @@ Unit tests therefore exercise the same call sites as the plugin under Obsidian.
 - **Static vs dynamic styles** — The static-styles rule only flags **literal** assignments (`style.left = '50%'`). Template literals with expressions (dynamic width/height) are allowed; put fixed centering in CSS classes instead.
 - **Ignored paths** — `tests/` and root manifests are not linted by this config; production `src/` is. Keep polyfills in `setupTests.ts` aligned with new Obsidian APIs used in `src/`. See also [Manifest minAppVersion and versions.json](manifest-and-versions.md) for community manifest validation (separate from ESLint).
 - **`no-unsupported-api` vs local typings** — The hosted community scan compares call sites to `@since` tags using its Obsidian API typings. Project `obsidian` may lag that map, so a clean local lint can miss APIs newer than `minAppVersion`. Keep the manifest floor at or above the highest unguarded API (currently `Vault.copy` → `1.8.7`); details live in the manifest doc above.
+- **`prefer-create-el` and xmldom saves** — Parsed `@xmldom/xmldom` documents are not Obsidian windows; `doc.createElement` triggers the rule and is slow on large SVGs. Tldraw metadata in `buildTldrawFileStr` uses the same string-splice pattern as ink-canvas (`metadataPattern` strip + inject after `<svg>`), then `xml-formatter` for output.
+- **`settings-tab/prefer-setting-definitions` (warn only)** — Obsidian 1.13+ can index settings for global search when `PluginSettingTab` implements `getSettingDefinitions()`. Ink still uses imperative `display()` only (`minAppVersion` 1.8.7); adopting the declarative API is optional and would be a large migration (custom toggles, device-local prefs, migration cards). Returning `[]` from `getSettingDefinitions()` would silence ESLint without enabling search.

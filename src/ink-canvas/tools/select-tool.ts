@@ -218,13 +218,12 @@ function updateLassoVisual(ctx: SelectToolContext): void {
 
 	let lassoEl = svg.querySelector<SVGPolygonElement>('.ink-canvas-lasso');
 	if (!lassoEl) {
-		lassoEl = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+		lassoEl = svg.createSvg('polygon');
 		lassoEl.classList.add('ink-canvas-lasso');
 		lassoEl.setAttribute('fill', 'rgba(0, 123, 255, 0.08)');
 		lassoEl.setAttribute('stroke', 'rgba(0, 123, 255, 0.5)');
 		lassoEl.setAttribute('stroke-width', '1');
 		lassoEl.setAttribute('stroke-dasharray', '4 2');
-		svg.appendChild(lassoEl);
 	}
 
 	const camera = ctx.getCamera();

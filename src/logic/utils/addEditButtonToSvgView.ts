@@ -161,13 +161,13 @@ function addEditButtonToSvgView(
 				return;
 			}
 
-			const buttonContainer = activeDocument.createElement('div');
+			const buttonContainer = viewContent.createDiv();
 			buttonContainer.className = 'ddc_ink_svg-edit-button-container';
 
 			const isDrawing = viewType.includes('drawing');
 			const buttonText = isDrawing ? 'Edit drawing' : 'Edit writing';
 
-			const editButton = activeDocument.createElement('button');
+			const editButton = buttonContainer.createEl('button');
 			editButton.className = 'ddc_ink_btn-slim ddc_ink_svg-edit-button';
 			editButton.textContent = buttonText;
 			editButton.title = `Edit ${isDrawing ? 'drawing' : 'writing'} in custom view`;
@@ -182,9 +182,6 @@ function addEditButtonToSvgView(
 					active: true,
 				});
 			});
-
-			buttonContainer.appendChild(editButton);
-			viewContent.appendChild(buttonContainer);
 
 			// Themed SVG is visible; native media stays display:none via --hidden.
 			releaseNativeSvgFlashSuppression(leaf);
@@ -277,17 +274,18 @@ function mountThemedNativeViewPreview(
 		el.classList.add('ddc_ink_svg-native-media--hidden');
 	});
 
-	const previewHost = activeDocument.createElement('div');
+	const previewHost = viewContent.createDiv();
 	// Layout host + shared embed preview class: svg-edit-button.scss sizes the former;
 	// ink-svg-preview-theme.scss recolours paths via the latter (same as embeds/picker).
 	previewHost.className = `${THEMED_PREVIEW_HOST_CLASS} ${embedPreviewClassForFileType(fileType)}`;
 	if (!mountInlineSvgPreview(previewHost, svgString)) {
+		// viewContent.createDiv() auto-appends; remove failed host before restoring native media.
+		previewHost.remove();
 		nativeMedia.forEach((el) => {
 			el.classList.remove('ddc_ink_svg-native-media--hidden');
 		});
 		return false;
 	}
 
-	viewContent.appendChild(previewHost);
 	return true;
 }

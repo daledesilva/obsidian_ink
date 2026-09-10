@@ -128,12 +128,11 @@ export function serializeUnknownError(error: unknown): Record<string, unknown> {
  * `isDesktop` / `isMobile` are Obsidian **UI mode**, not OS; Windows Electron can be isMobile.
  */
 export function collectInkHostProbe(): Record<string, unknown> {
+	// OS / UI mode via Platform.* only — navigator.userAgent/platform trip obsidianmd/platform.
 	const probe: Record<string, unknown> = {
 		bakedLanIpv4,
 		bakedIngestPath,
 		ingestUrl: resolveIngestUrl(),
-		userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
-		navigatorPlatform: typeof navigator !== 'undefined' ? navigator.platform : null,
 		language: typeof navigator !== 'undefined' ? navigator.language : null,
 		isWin: Platform.isWin,
 		isMacOS: Platform.isMacOS,

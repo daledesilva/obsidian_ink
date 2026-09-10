@@ -95,9 +95,8 @@ export class WritingView extends TextFileView {
         if(this.root) this.clear();
 
         // Create a dedicated host for React to avoid conflicts with Obsidian lifecycle
-        const host = viewContent.ownerDocument.createElement('div');
+        const host = viewContent.createDiv();
         host.className = 'ink-writing-view-host';
-        viewContent.appendChild(host);
         this.hostEl = host;
 
         this.root = createRoot(host);

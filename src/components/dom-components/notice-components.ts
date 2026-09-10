@@ -11,7 +11,7 @@ export interface NoticeTemplate {
 }
 
 export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number): NoticeTemplate {
-    const noticeBody = activeDocument.createDocumentFragment();
+    const noticeBody = createFragment();
     const scrollAreaEl = noticeBody.createDiv('ddc_ink_notice-scroll');
     createNoticeLabel(scrollAreaEl, noticeNumber, noticeTotal);
     const footerEl = noticeBody.createDiv('ddc_ink_notice-footer');

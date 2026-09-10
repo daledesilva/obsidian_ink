@@ -63,8 +63,8 @@ export function inkEmbedRecallHeightForFilepath(filepath: string | null | undefi
  */
 export function inkEmbedScheduleAfterLayout(callback: () => void): void {
 	queueMicrotask(() => {
-		requestAnimationFrame(() => {
-			requestAnimationFrame(callback);
+		window.requestAnimationFrame(() => {
+			window.requestAnimationFrame(callback);
 		});
 	});
 }

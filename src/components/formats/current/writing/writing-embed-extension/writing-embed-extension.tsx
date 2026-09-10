@@ -70,7 +70,7 @@ export class WritingEmbedWidget extends WidgetType {
     }
 
     toDOM(view: EditorView): HTMLElement {
-        const rootEl = activeDocument.createElement('div');
+        const rootEl = createDiv();
         this.rootEl = rootEl; // Store reference for later height updates
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);

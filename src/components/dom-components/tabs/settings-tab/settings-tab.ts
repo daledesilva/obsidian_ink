@@ -576,25 +576,25 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 	const last = getLastDetectedStrokeInput();
 	const detectedLabel = last === 'pen' ? 'Pen' : last === 'mouse' ? 'Mouse' : 'None';
 
-	const frag = activeDocument.createDocumentFragment();
+	const frag = createFragment();
 
-	const intro = activeDocument.createElement('p');
+	const intro = createEl('p');
 	intro.textContent =
 		'Automatically detect pen or mouse from pressure (auto), use pen pressure and faithful smoothing (pen), or simulated pressure with higher smoothing (mouse).';
 	frag.appendChild(intro);
 
-	const detectedParagraph = activeDocument.createElement('p');
+	const detectedParagraph = createEl('p');
 	detectedParagraph.classList.add('ddc_ink_stroke-input-detected-paragraph');
 
-	const detectedLine = activeDocument.createElement('strong');
+	const detectedLine = createEl('strong');
 	detectedLine.append('Last detected input: ');
-	const detectedValue = activeDocument.createElement('span');
+	const detectedValue = createSpan();
 	detectedValue.className = 'ddc_ink_stroke-input-detected-value';
 	detectedValue.textContent = detectedLabel;
 	detectedLine.appendChild(detectedValue);
 	detectedParagraph.appendChild(detectedLine);
 
-	detectedParagraph.appendChild(activeDocument.createElement('br'));
+	detectedParagraph.appendChild(createEl('br'));
 	detectedParagraph.append('If detection is incorrect, choose Pen or Mouse manually.');
 
 	frag.appendChild(detectedParagraph);

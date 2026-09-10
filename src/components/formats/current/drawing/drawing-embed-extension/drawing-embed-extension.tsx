@@ -84,7 +84,7 @@ export class DrawingEmbedWidget extends WidgetType {
 
     toDOM(view: EditorView): HTMLElement {
 
-        const rootEl = activeDocument.createElement('div');
+        const rootEl = createDiv();
         this.rootEl = rootEl;
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);

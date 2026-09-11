@@ -171,7 +171,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	}, [isFingerDrawingGloballyEnabled]);
 
 	useDrawingEmbedToolbarCompact(editorWrapperRefEl, {
-		enabled: !!props.embedded,
+		// Wrapper + toolbar only exist after the SVG snapshot loads. Enabling earlier
+		// would run the overlap check against a null ref and never attach observers.
+		enabled: !!props.embedded && !!initialSnapshot,
 		isSaveCameraEnabled,
 		showFingerDrawingToggle: isFingerDrawingGloballyEnabled,
 	});

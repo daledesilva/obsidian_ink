@@ -30,6 +30,7 @@ import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notic
 import {
 	readWritingFileAspectRatio,
 } from "src/logic/utils/writing-embed-aspect-ratio";
+import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
 
 ///////
 ///////
@@ -118,17 +119,24 @@ export function WritingEmbed (props: {
 		previousHeightRef.current = null;
 		resizeContainer.classList.remove('ddc_ink_smooth-transition');
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
-		// REGRESSION: apply remountReserve for locked embeds too — do not gate on isThisEmbedEditing.
-		// URL-aspect first paint on CM virtualize remount jumps scrollTop on iPad up-scroll.
-		if (props.remountReserveHeightPx && props.remountReserveHeightPx > 0) {
-			resizeContainer.style.height = props.remountReserveHeightPx + 'px';
-			previousHeightRef.current = props.remountReserveHeightPx;
+		// Unlocked remounts keep the last editor height on the inner canvas so CM virtualize
+		// does not collapse toward preview aspect. After lock, that same reserve is the stale
+		// unlocked root and must not be reapplied here. Locked CM scroll is still protected
+		// by widget-root minHeight in toDOM.
+		const remountReserveHeightPx = props.remountReserveHeightPx;
+		const shouldApplyRemountReserveToInner = isThisEmbedEditing
+			&& !!remountReserveHeightPx
+			&& remountReserveHeightPx > 0;
+		if (shouldApplyRemountReserveToInner && remountReserveHeightPx) {
+			resizeContainer.style.height = remountReserveHeightPx + 'px';
+			previousHeightRef.current = remountReserveHeightPx;
 			return;
 		}
-		if (isThisEmbedEditing) {
-			return;
-		}
+		if (isThisEmbedEditing) return;
 		resizeContainer.style.height = containerWidth / aspectRatio + 'px';
+		inkEmbedSyncWidgetRootMinHeightToContent({
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null,
+		});
 	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx]);
 
 	// SVG viewBox is authoritative for preview height.
@@ -333,7 +341,7 @@ export function WritingEmbed (props: {
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: '1em',
-				paddingBottom: '0.5em',
+				paddingBottom: '1em',
 			}}
 		>
 			{props.isPendingPaste && props.writingFileRef && (
@@ -455,6 +463,9 @@ export function WritingEmbed (props: {
 	function applyEmbedHeight(height: number) {
 		if (!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
+		const widgetRootEl = embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null;
+		// Drop the remount minHeight floor to the new content so lock cannot leave a tall empty root.
+		inkEmbedSyncWidgetRootMinHeightToContent({ widgetRootEl });
 		const heightChanged = previousHeightRef.current === null
 			|| Math.abs(height - previousHeightRef.current) > 1;
 		if (heightChanged) props.onRequestMeasure?.();
@@ -499,15 +510,7 @@ export function WritingEmbed (props: {
 			await editorControlsRef.current.saveAndHalt();
 		}
 
-		// Apply preview height immediately based on tight aspectRatio before switching modes
-		if (resizeContainerElRef.current && embedAspectRatioRef.current) {
-			const containerWidth = resizeContainerElRef.current.getBoundingClientRect().width;
-			if (containerWidth) {
-				const previewHeight = containerWidth / embedAspectRatioRef.current;
-				applyEmbedHeight(previewHeight);
-			}
-		}
-
+		// Leave edit mode before measuring so the height cache can accept the locked shrink.
 		if (props.embedId) {
 			clearActiveInkEmbed(props.embedId);
 			setEmbedsInEditMode((prev: Set<string>) => {
@@ -515,6 +518,15 @@ export function WritingEmbed (props: {
 				next.delete(props.embedId!);
 				return next;
 			});
+		}
+
+		// Apply preview height immediately based on tight aspectRatio before switching modes
+		if (resizeContainerElRef.current && embedAspectRatioRef.current) {
+			const containerWidth = resizeContainerElRef.current.getBoundingClientRect().width;
+			if (containerWidth) {
+				const previewHeight = containerWidth / embedAspectRatioRef.current;
+				applyEmbedHeight(previewHeight);
+			}
 		}
 
 		// Persist the aspectRatio to markdown

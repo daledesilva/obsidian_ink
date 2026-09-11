@@ -21,6 +21,7 @@ import {
 	inkEmbedRememberMeasuredHeightPx,
 	inkEmbedScheduleAfterLayout,
 	inkEmbedStoreHeightForFilepath,
+	inkEmbedSyncWidgetRootMinHeightToContent,
 } from 'src/logic/utils/ink-embed-height-cache';
 import './writing-embed-extension.scss';
 import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootStealingFocus';
@@ -145,6 +146,7 @@ export class WritingEmbedWidget extends WidgetType {
         // REGRESSION: do not call rememberMeasuredHeight sync here after render — often 0px.
         // Must use inkEmbedScheduleAfterLayout (debug double-rAF was doing this accidentally).
         inkEmbedScheduleAfterLayout(() => {
+            inkEmbedSyncWidgetRootMinHeightToContent({ widgetRootEl: rootEl });
             this.rememberMeasuredHeight(rootEl);
             view.requestMeasure();
         });
@@ -178,8 +180,8 @@ export class WritingEmbedWidget extends WidgetType {
                 const contentWidth = cmEditorView.contentDOM?.clientWidth || cmEditorView.scrollDOM.clientWidth;
                 const aspectRatio = this.embedSettings.embedDisplay.aspectRatio;
                 const calculatedHeight = contentWidth / aspectRatio;
-                // Add padding (1em top + 0.5em bottom ≈ 24px)
-                height = calculatedHeight + 24;
+                // Add padding (1em top + 1em bottom ≈ 32px)
+                height = calculatedHeight + 32;
             } else {
                 height = 250;
             }

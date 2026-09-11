@@ -40,6 +40,7 @@ import {
 	inkEmbedRememberMeasuredHeightPx,
 	inkEmbedScheduleAfterLayout,
 	inkEmbedStoreHeightForFilepath,
+	inkEmbedSyncWidgetRootMinHeightToContent,
 } from 'src/logic/utils/ink-embed-height-cache';
 import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/drawing-embed/drawing-embed';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
@@ -157,6 +158,7 @@ export class DrawingEmbedWidget extends WidgetType {
 
         // REGRESSION: do not measure sync after render — use after-layout (see ink-embed-height-cache.ts).
         inkEmbedScheduleAfterLayout(() => {
+            inkEmbedSyncWidgetRootMinHeightToContent({ widgetRootEl: rootEl });
             this.rememberMeasuredHeight(rootEl);
             view.requestMeasure();
         });
@@ -181,8 +183,8 @@ export class DrawingEmbedWidget extends WidgetType {
         if (this.embedSettings?.embedDisplay) {
             const { width = 500, aspectRatio = 16/9 } = this.embedSettings.embedDisplay;
             const calculatedHeight = width / aspectRatio;
-            // Add padding (1em top + 0.5em bottom ≈ 24px)
-            height = calculatedHeight + 24;
+            // Add padding (1em top + 1em bottom ≈ 32px)
+            height = calculatedHeight + 32;
         } else {
             // Default: 500px width / (16/9) = ~281px + 24px padding ≈ 305px
             height = 305;
@@ -412,6 +414,9 @@ export class DrawingEmbedWidget extends WidgetType {
             previousHeightPx: this.lastMeasuredHeightPx,
             nextHeightPx: dom?.offsetHeight ?? 0,
             isInEditMode: inkEmbedIsInEditModeAtom(embedsInEditModeAtom_v2, this.id),
+            // Live corner-resize is a real shrink; the remount-flash guard would keep CM
+            // estimatedHeight at the pre-shrink size and leave a tall empty widget.
+            allowShrinkWhileEditing: true,
         });
         inkEmbedStoreHeightForFilepath(this.partialEmbedFilepath, this.lastMeasuredHeightPx);
     }

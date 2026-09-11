@@ -11,6 +11,8 @@
  */
 import { getDefaultStore, type Atom } from 'jotai';
 
+//////////
+
 /** Whether this embedId is currently marked unlocked in a jotai Set atom. */
 export function inkEmbedIsInEditModeAtom(editModeAtom: Atom<Set<string>>, embedId: string | null | undefined): boolean {
 	if (!embedId) return false;
@@ -24,16 +26,19 @@ export function inkEmbedIsInEditModeAtom(editModeAtom: Atom<Set<string>>, embedI
 /**
  * Cache widget layout height for CM estimatedHeight.
  * While unlocked, ignore remount flashes that shrink toward preview height (that caused scroll jumps).
+ * Drawing live-resize is a real shrink, so callers pass allowShrinkWhileEditing.
  */
 export function inkEmbedRememberMeasuredHeightPx(options: {
 	previousHeightPx: number | null;
 	nextHeightPx: number;
 	isInEditMode: boolean;
+	allowShrinkWhileEditing?: boolean;
 }): number | null {
-	const { previousHeightPx, nextHeightPx, isInEditMode } = options;
+	const { previousHeightPx, nextHeightPx, isInEditMode, allowShrinkWhileEditing } = options;
 	if (!(nextHeightPx > 0)) return previousHeightPx;
 	if (
 		isInEditMode
+		&& !allowShrinkWhileEditing
 		&& previousHeightPx
 		&& previousHeightPx > 0
 		&& nextHeightPx < previousHeightPx * 0.9
@@ -54,6 +59,26 @@ export function inkEmbedStoreHeightForFilepath(filepath: string | null | undefin
 export function inkEmbedRecallHeightForFilepath(filepath: string | null | undefined): number | null {
 	if (!filepath) return null;
 	return inkEmbedHeightByFilepathPx.get(filepath) ?? null;
+}
+
+export interface InkEmbedSyncWidgetRootMinHeightToContentProps {
+	widgetRootEl: HTMLElement | null | undefined;
+}
+
+/**
+ * Matches `.ddc_ink_widget-root` minHeight to the painted embed.
+ * The CM remount reserve is a first-paint floor; after lock the inner canvas shrinks
+ * but minHeight would otherwise keep a tall empty root (and poison lastMeasuredHeight).
+ */
+export function inkEmbedSyncWidgetRootMinHeightToContent(props: InkEmbedSyncWidgetRootMinHeightToContentProps): number | null {
+	const widgetRootEl = props.widgetRootEl;
+	if (!widgetRootEl) return null;
+	const embedEl = widgetRootEl.querySelector('.ddc_ink_writing-embed, .ddc_ink_drawing-embed') as HTMLElement | null;
+	if (!embedEl) return null;
+	const contentHeightPx = embedEl.offsetHeight;
+	if (!(contentHeightPx > 0)) return null;
+	widgetRootEl.style.minHeight = `${contentHeightPx}px`;
+	return contentHeightPx;
 }
 
 /**

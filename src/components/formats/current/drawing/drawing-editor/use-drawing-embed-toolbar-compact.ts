@@ -20,6 +20,7 @@ export interface UseDrawingEmbedToolbarCompactOptions {
 	showFingerDrawingToggle: boolean;
 }
 
+/** Reads wide-layout bounding boxes for the left, centre, and right toolbar clusters. */
 function readToolbarClusterRects(menuBarEl: Element) {
 	const leftEl = menuBarEl.querySelector('.ink_quick-menu');
 	const centerEl = menuBarEl.querySelector('.ink_tool-menu');
@@ -80,12 +81,22 @@ export function useDrawingEmbedToolbarCompact(
 			}
 		};
 
+		// Unlock and resize both need a check: unlock often never changes editor size,
+		// so ResizeObserver alone would miss an already-narrow embed.
 		measure();
 
 		const resizeObserver = new ResizeObserver(() => measure());
 		resizeObserver.observe(editorEl);
+		const menuBarEl = editorEl.querySelector('.ink_primary-menu-bar');
+		if (menuBarEl) resizeObserver.observe(menuBarEl);
+
+		const rafId = requestAnimationFrame(() => {
+			// CodeMirror may assign the widget width after this layout effect.
+			measure();
+		});
 
 		return () => {
+			cancelAnimationFrame(rafId);
 			resizeObserver.disconnect();
 			isCompactRef.current = false;
 			editorEl.classList.remove(DRAWING_EMBED_TOOLBAR_COMPACT_CLASS);

@@ -85,7 +85,7 @@ export interface CameraState {
 
 /** Default stroke style applied to new strokes. */
 export const DEFAULT_STROKE_STYLE: InkStrokeStyle = {
-	size: 8,
+	size: 4,
 	thinning: 0.5,
 	smoothing: 0.5,
 	streamline: 0.5,

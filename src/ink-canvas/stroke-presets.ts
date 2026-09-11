@@ -38,7 +38,7 @@ export const MOUSE_NUMERIC_STROKE_PARTIAL: Pick<
 /** Multiply editor stroke width when using mouse treat-as (simulated stroke reads narrower than pen). */
 // 1.6 matches optically to mouse in pen setting, but not necessarily pen in pen setting.
 // TODO: We should let pen as pen be 1, but mouse as pen should be 1.6 
-export const OPTICAL_MOUSE_TO_PEN_RATIO = 1;
+export const OPTICAL_MOUSE_TO_PEN_RATIO = 1.8;
 
 /**
  * Builds a full stroke style for persistence: merges pen/mouse numeric preset with

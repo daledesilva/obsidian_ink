@@ -42,13 +42,17 @@ Embedded drawing edit mode uses two toolbar layouts:
 | **Wide** | Default when clusters fit | Three clusters: quick actions (left), draw tools (centre, absolutely positioned), extended menu (right — finish, save framing, overflow). |
 | **Compact** | When centre cluster bounding boxes overlap left or right in wide layout | Single centred inline row; tool menu becomes static flow with dividers between groups. |
 
-`useDrawingEmbedToolbarCompact` in `drawing-editor.tsx` probes wide layout on each resize (including embed resize-handle drags), measures `getBoundingClientRect()` for `.ink_quick-menu`, `.ink_tool-menu`, and `.ink_extended-writing-menu`, and toggles `ddc_ink_toolbar-compact` before clusters collide. Enter uses 4px clearance; exit requires 12px clearance to avoid flicker while resizing.
+`useDrawingEmbedToolbarCompact` in `drawing-editor.tsx` measures `getBoundingClientRect()` for `.ink_quick-menu`, `.ink_tool-menu`, and `.ink_extended-writing-menu`, then toggles `ddc_ink_toolbar-compact` before clusters collide. Enter uses 4px clearance; exit requires 12px clearance to avoid flicker while resizing.
+
+The same overlap check must run **when the embed unlocks**, not only while the resize handle is dragged. Unlocking a drawing that is already narrower than the wide toolbar used to keep the split layout until the user resized. The hook stays disabled until `initialSnapshot` exists (the editor wrapper and menu bar are not in the DOM before that), then measures immediately, observes both the editor and the primary menu bar, and measures once more on the next animation frame in case CodeMirror assigns widget width after the layout effect.
 
 ### Toolbar compact mode
 
 ```mermaid
 flowchart TD
-    resize["ResizeObserver or layout deps change"]
+    unlock["Unlock after SVG snapshot loads"]
+    raf["requestAnimationFrame after first layout"]
+    resize["ResizeObserver on editor or menu bar"]
     probe["Strip compact class and measure wide-layout rects"]
     overlap{"Centre overlaps left or right?"}
     enter["Add ddc_ink_toolbar-compact"]
@@ -56,7 +60,10 @@ flowchart TD
     exit["Remove ddc_ink_toolbar-compact"]
     stay["Keep current mode"]
 
-    resize --> probe --> overlap
+    unlock --> probe
+    raf --> probe
+    resize --> probe
+    probe --> overlap
     overlap -->|"yes, enter gap 4px"| enter
     overlap -->|no| exitCheck
     exitCheck -->|yes| exit
@@ -119,6 +126,7 @@ Resize-handle drags update embed width/aspect in local refs during the gesture; 
 | User camera commits + `onCameraChange` | `commitUserCameraState` in `ink-svg-canvas.tsx` |
 | Resize gesture gate for `api` camera events | `isEmbedResizeGestureActiveRef` in `drawing-editor.tsx` |
 | Toolbar compact mode | `use-drawing-embed-toolbar-compact.ts`, `toolbar-cluster-overlap.ts`, `drawing-editor.scss` (`ddc_ink_toolbar-compact`) |
+| Compact-on-unlock tests | `tests/components/formats/current/drawing/use-drawing-embed-toolbar-compact.test.tsx` |
 | Markdown persistence | `drawing-embed-extension.tsx` — `setEmbedPropsAndViewBox` |
 
 ### `onCameraChange` meta sources
@@ -146,6 +154,10 @@ Embed pan/zoom pointer events are often **forwarded** from `FingerBlocker` to th
 ### Toolbar compact probes wide layout synchronously
 
 `useDrawingEmbedToolbarCompact` temporarily removes `ddc_ink_toolbar-compact` inside `useLayoutEffect` before measuring cluster rects so overlap is evaluated against wide-mode positions, then reapplies the class in the same frame. Do not switch compact mode from a width-sum heuristic — the centre tool cluster is absolutely positioned and side clusters are asymmetric (especially when the labelled save-framing button is visible).
+
+### Compact layout must measure on unlock, not only on resize
+
+`DrawingEditor` returns an empty fragment until the SVG snapshot loads, so the wrapper ref is null on the first layout effect. `enabled` is `!!props.embedded && !!initialSnapshot` so the effect re-runs when the toolbar actually mounts. Observing only the editor wrapper’s size is not enough: unlocking a small embed often does not change that size, so the hook also measures immediately, observes the menu bar, and remeasures on `requestAnimationFrame`.
 
 ### Related docs
 

@@ -87,6 +87,9 @@ export function useDrawingEmbedToolbarCompact(
 
 		const resizeObserver = new ResizeObserver(() => measure());
 		resizeObserver.observe(editorEl);
+		// Menu-bar / cluster width can change without the editor wrapper resizing
+		// (save-framing label, finger-draw toggle). Unlock of a small embed also
+		// often leaves editor size unchanged.
 		const menuBarEl = editorEl.querySelector('.ink_primary-menu-bar');
 		if (menuBarEl) resizeObserver.observe(menuBarEl);
 

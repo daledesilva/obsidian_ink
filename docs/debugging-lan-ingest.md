@@ -4,7 +4,7 @@
 
 Cursor’s debug ingest listens on **localhost only** (`127.0.0.1:7662`). Obsidian on another machine — an **iPad**, or a **Windows PC on the same Wi‑Fi** — cannot reach that socket. If the plugin posts to `127.0.0.1`, it talks to **itself**, not the Mac.
 
-Startup crashes can also happen **before** `Plugin.onload` (while tldraw, chalk, or other imports evaluate). Logs that wait until `onload` never leave the process.
+Startup crashes can also happen **before** `Plugin.onload` (while tldraw or other imports evaluate). Logs that wait until `onload` never leave the process.
 
 This pipeline exposes ingest on the LAN, bakes the Mac’s Wi‑Fi IP into a local `dist/` build, and posts a canary **before** the rest of the bundle runs.
 

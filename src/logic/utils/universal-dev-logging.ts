@@ -1,8 +1,31 @@
 /**
- * Development logging: coloured console output for the Obsidian devtools / host console.
+ * Development logging: coloured console output for the Obsidian DevTools console.
  * No network or external ingest — use `adb logcat` on Android/Boox when you need device logs.
+ * Chromium styles via `%c`, not ANSI (chalk) — the plugin runs in Electron, not a TTY.
  */
-import chalk from "chalk";
+
+type InkLogChannel = 'info' | 'warn' | 'error' | 'debug' | 'http' | 'verbose';
+
+const CHANNEL_LABEL: Record<InkLogChannel, string> = {
+	info: 'Ink info:',
+	warn: 'Ink warn:',
+	error: 'Ink error:',
+	debug: 'Ink debug:',
+	http: 'Ink http:',
+	verbose: 'Ink verbose:',
+};
+
+const CHANNEL_STYLE: Record<InkLogChannel, string> = {
+	info: 'color: #3b82f6; font-weight: bold',
+	warn: 'color: #ca8a04; font-weight: bold',
+	error: 'color: #dc2626; font-weight: bold',
+	debug: 'color: #16a34a; font-weight: bold',
+	http: 'color: #c026d3; font-weight: bold',
+	verbose: 'color: #0891b2; font-weight: bold',
+};
+
+const TIMESTAMP_STYLE = 'color: #9ca3af';
+const MESSAGE_STYLE = 'color: inherit; font-weight: normal';
 
 function getTimestamp() {
 	const now = new Date();
@@ -63,64 +86,76 @@ function stringifyForLogFragment(value: unknown): string {
 }
 
 export function info(_data: unknown, _options: LogOptions = {}) {
-	print(chalk.blue.bold('Ink info:'), _data, _options);
+	print('info', _data, _options);
 }
 export function warn(_data: unknown, _options: LogOptions = {}) {
-	print(chalk.yellow.bold('Ink warn:'), _data, _options);
+	print('warn', _data, _options);
 }
 export function error(_data: unknown, _options: LogOptions = {}) {
-	print(chalk.red.bold('Ink error:'), _data, _options);
+	print('error', _data, _options);
 }
 export function debug(_data: unknown, _options: LogOptions = {}) {
-	print(chalk.green.bold('Ink debug:'), _data, _options);
+	print('debug', _data, _options);
 }
 export function http(_data: unknown, _options: LogOptions = {}) {
-	print(chalk.magenta.bold('Ink http:'), _data, _options);
+	print('http', _data, _options);
 }
 export function verbose(_data: unknown, _options: LogOptions = {}) {
-	print(chalk.cyan.bold('Ink verbose:'), _data, _options);
+	print('verbose', _data, _options);
 }
 
-function print(_label: string, _data: unknown, _options: LogOptions = {}) {
+function print(channel: InkLogChannel, _data: unknown, _options: LogOptions = {}) {
 	if (Array.isArray(_data)) {
-		printArray(_label, _data, _options);
+		printArray(channel, _data, _options);
 	} else if (_data !== null && typeof _data === 'object') {
-		printTimestampAndLabel(_label);
+		printTimestampAndLabel(channel);
 		printObj(_data, _options);
 		printEmptyLine();
 	} else {
-		printStr(`${getTimestampAndLabel(_label)} ${stringifyForLogFragment(_data)}`);
+		debugWithPrefix(channel, stringifyForLogFragment(_data));
 	}
 }
 
-function printArray(_label: string, _data: unknown[], _options: LogOptions = {}) {
+function printArray(channel: InkLogChannel, _data: unknown[], _options: LogOptions = {}) {
 	let accString = '';
+	let accIncludesPrefix = false;
 
 	if (_data.length > 0 && _data[0] !== null && typeof _data[0] === 'object') {
-		printTimestampAndLabel(_label);
+		printTimestampAndLabel(channel);
 	}
 	for(let i=0; i<_data.length; i++) {
 
 		if(_data[i] !== null && typeof _data[i] === 'object') {
 			if(accString.length) {
-				printStr(accString);
+				if (accIncludesPrefix) {
+					debugWithPrefix(channel, accString);
+				} else {
+					printStr(accString);
+				}
 				accString = '';
+				accIncludesPrefix = false;
 			}
 			printObj(_data[i], _options);
 
 		} else {
 			if(i===0) {
-				accString = `${getTimestampAndLabel(_label)} ${stringifyForLogFragment(_data[i])}`;
+				accString = stringifyForLogFragment(_data[i]);
+				accIncludesPrefix = true;
 			} else {
 				if(accString.length) {
 					accString = `${accString} ${stringifyForLogFragment(_data[i])}`;
 				} else {
-					accString = `${_label} ${stringifyForLogFragment(_data[i])}`;
+					accString = stringifyForLogFragment(_data[i]);
+					accIncludesPrefix = true;
 				}
 			}
 
 			if(i===_data.length-1) {
-				printStr(accString);
+				if (accIncludesPrefix) {
+					debugWithPrefix(channel, accString);
+				} else {
+					printStr(accString);
+				}
 			}
 		}
 	}
@@ -128,6 +163,25 @@ function printArray(_label: string, _data: unknown[], _options: LogOptions = {})
 		printEmptyLine();
 	}
 
+}
+
+/** Chromium DevTools: timestamp (grey) + channel label (color) + optional message. */
+function debugWithPrefix(channel: InkLogChannel, rest?: string) {
+	const timestamp = getTimestamp();
+	const label = CHANNEL_LABEL[channel];
+	if (rest === undefined || rest.length === 0) {
+		console.debug('%c%s %c%s', TIMESTAMP_STYLE, timestamp, CHANNEL_STYLE[channel], label);
+		return;
+	}
+	console.debug(
+		'%c%s %c%s %c%s',
+		TIMESTAMP_STYLE,
+		timestamp,
+		CHANNEL_STYLE[channel],
+		label,
+		MESSAGE_STYLE,
+		rest,
+	);
 }
 
 function printStr(_str: string) {
@@ -147,14 +201,10 @@ function printObj(_data: unknown, _options: LogOptions) {
 	console.debug(data);
 }
 
-function printTimestampAndLabel(_label: string) {
-	console.debug(getTimestampAndLabel(_label));
+function printTimestampAndLabel(channel: InkLogChannel) {
+	debugWithPrefix(channel);
 }
 
 function printEmptyLine() {
 	console.debug('');
-}
-
-function getTimestampAndLabel(_label: string): string {
-	return `${chalk.grey(getTimestamp())} ${_label}`;
 }

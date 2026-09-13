@@ -58,7 +58,6 @@ See `jest.config.ts`:
     - `^src/main$` → `tests/__mocks__/mainMock.js` (prevents loading the real plugin runtime).
     - `^obsidian$` → `tests/__mocks__/obsidianMock.js` (stubs Obsidian types like `Menu`, `Notice`).
 - setupFilesAfterEnv: `tests/setupTests.ts` centralizes global mocks.
-- transformIgnorePatterns: transpiles modern ESM packages like `chalk` used by logging utilities.
 
 #### Global mocks and helpers
 

@@ -12,7 +12,10 @@ This file is the source of truth for the libraries, frameworks, and tools used i
 - **Language / platform:** TypeScript, Obsidian API, CodeMirror 6 (Live Preview widgets)
 - **Drawing / writing UI:** tldraw v2.x
 - **SVG metadata (parse/serialize):** `@xmldom/xmldom` (not deprecated `xmldom`)
+- **SVG rasterization:** `canvg` ^4.0.3 (prototype-pollution fix vs 4.0.1)
+- **Dev console coloring:** Chromium `%c` styles in `universal-dev-logging.ts` (no chalk)
 - **Testing:** Jest (unit/integration), WebdriverIO + wdio-obsidian-service (e2e)
+- **IDs:** `nanoid` ^5.1.6
 - **Build tooling:** esbuild (plugin bundling), npm scripts
 - **Linting:** ESLint flat config (`eslint.config.mjs`) + `eslint-plugin-obsidianmd` ^0.4.2
 - **Boox companion:** eInk Bridge Android app (`eink-bridge` repo) — loopback WebSocket on the same tablet

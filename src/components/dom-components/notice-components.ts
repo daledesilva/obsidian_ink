@@ -24,8 +24,9 @@ export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number
 
 export function launchPersistentNotice(noticeBody: DocumentFragment) {
     const notice = new Notice(noticeBody, 0);
-    notice.messageEl.classList.add('ddc_ink_notice');
-    wireNoticePointerHandling(notice.messageEl);
+    // Pinned `obsidian` typings still use noticeEl; messageEl is the 1.13 rename.
+    notice.noticeEl.classList.add('ddc_ink_notice');
+    wireNoticePointerHandling(notice.noticeEl);
     return notice;
 }
 

@@ -407,7 +407,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		resizeContainerElRef.current.style.height = destHeight + 'px';
 		inkEmbedSyncWidgetRootMinHeightToContent({
-			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null,
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 		});
 		props.onRequestMeasure?.();
 		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
@@ -443,7 +443,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			resizeContainerElRef.current.style.width = width + 'px';
 			resizeContainerElRef.current.style.height = width / aspectRatio + 'px';
 			inkEmbedSyncWidgetRootMinHeightToContent({
-				widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null,
+				widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 			});
 			props.onRequestMeasure?.();
 		}
@@ -459,7 +459,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 		resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
 		inkEmbedSyncWidgetRootMinHeightToContent({
-			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null,
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 		});
 		props.onRequestMeasure?.();
 	}
@@ -557,7 +557,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
 			inkEmbedSyncWidgetRootMinHeightToContent({
-				widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null,
+				widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 			});
 			props.onRequestMeasure?.();
 		}

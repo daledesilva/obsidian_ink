@@ -93,13 +93,13 @@ export function useDrawingEmbedToolbarCompact(
 		const menuBarEl = editorEl.querySelector('.ink_primary-menu-bar');
 		if (menuBarEl) resizeObserver.observe(menuBarEl);
 
-		const rafId = requestAnimationFrame(() => {
+		const rafId = window.requestAnimationFrame(() => {
 			// CodeMirror may assign the widget width after this layout effect.
 			measure();
 		});
 
 		return () => {
-			cancelAnimationFrame(rafId);
+			window.cancelAnimationFrame(rafId);
 			resizeObserver.disconnect();
 			isCompactRef.current = false;
 			editorEl.classList.remove(DRAWING_EMBED_TOOLBAR_COMPACT_CLASS);

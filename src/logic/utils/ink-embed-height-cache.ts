@@ -73,8 +73,9 @@ export interface InkEmbedSyncWidgetRootMinHeightToContentProps {
 export function inkEmbedSyncWidgetRootMinHeightToContent(props: InkEmbedSyncWidgetRootMinHeightToContentProps): number | null {
 	const widgetRootEl = props.widgetRootEl;
 	if (!widgetRootEl) return null;
-	const embedEl = widgetRootEl.querySelector('.ddc_ink_writing-embed, .ddc_ink_drawing-embed') as HTMLElement | null;
-	if (!embedEl) return null;
+	const embedEl = widgetRootEl.querySelector('.ddc_ink_writing-embed, .ddc_ink_drawing-embed');
+	// querySelector returns Element | null; offsetHeight needs HTMLElement — narrow without casts (eslint).
+	if (!(embedEl instanceof HTMLElement)) return null;
 	const contentHeightPx = embedEl.offsetHeight;
 	if (!(contentHeightPx > 0)) return null;
 	widgetRootEl.style.minHeight = `${contentHeightPx}px`;

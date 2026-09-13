@@ -46,7 +46,7 @@ export class ConfirmationModal extends Modal {
 		})
 		.addButton( confirmBtn => {
 			confirmBtn.setClass('uo_button');
-			confirmBtn.setWarning();
+			confirmBtn.setDestructive();
 			confirmBtn.setButtonText(this.confirmLabel);
 			confirmBtn.onClick( () => {
 				this.close();

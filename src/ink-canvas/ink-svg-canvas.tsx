@@ -15,7 +15,7 @@ import {
 import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/current/utils/tldraw-helpers';
 import { WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
-import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel, isDrawToolActive } from './tools/draw-tool';
+import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
 import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';

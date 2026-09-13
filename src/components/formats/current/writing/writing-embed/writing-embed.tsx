@@ -135,7 +135,7 @@ export function WritingEmbed (props: {
 		if (isThisEmbedEditing) return;
 		resizeContainer.style.height = containerWidth / aspectRatio + 'px';
 		inkEmbedSyncWidgetRootMinHeightToContent({
-			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null,
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 		});
 	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx]);
 

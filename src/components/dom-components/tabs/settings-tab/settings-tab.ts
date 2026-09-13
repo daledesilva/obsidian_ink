@@ -45,6 +45,11 @@ export class MySettingsTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.renderSettingsTab();
+	}
+
+	/** Imperative settings UI; called from display() and after reset without re-invoking deprecated display(). */
+	private renderSettingsTab(): void {
 		const {containerEl} = this;
 
 		this.unsubscribeDeviceSettings?.();
@@ -118,7 +123,7 @@ export class MySettingsTab extends PluginSettingTab {
 						confirmLabel: 'Reset settings',
 						confirmAction: () => {
 							void this.plugin.resetSettings().then(() => {
-								this.display();
+								this.renderSettingsTab();
 							});
 						}
 					}).open();

@@ -24,8 +24,8 @@ export function createNoticeTemplate(noticeNumber?: number, noticeTotal?: number
 
 export function launchPersistentNotice(noticeBody: DocumentFragment) {
     const notice = new Notice(noticeBody, 0);
-    notice.noticeEl.classList.add('ddc_ink_notice');
-    wireNoticePointerHandling(notice.noticeEl);
+    notice.messageEl.classList.add('ddc_ink_notice');
+    wireNoticePointerHandling(notice.messageEl);
     return notice;
 }
 

@@ -1,5 +1,5 @@
 import * as semVer from 'semver';
-import { createNoticeTemplate, createNoticeCtaBar, createNoticeInlineQuote, launchPersistentNotice } from 'src/components/dom-components/notice-components';
+import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
 import InkPlugin from "src/main";
 
 ///////////
@@ -29,74 +29,36 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Additions in Ink v0.5.6`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.7`);
 
-    const addedListEl = scrollAreaEl.createEl('ul');
-    addedListEl.createEl('li').setText(`Full screen writing and drawing is now fully supported.`);
-    addedListEl.createEl('li').setText(`Frame the same drawing differently across multiple embeds.`);
-    const undoLi = addedListEl.createEl('li');
-    undoLi.appendText(`Unified undo allows `);
-    createNoticeInlineQuote(undoLi, 'Cmd+Z');
-    undoLi.appendText(` across embeds and your Markdown note.`);
-    addedListEl.createEl('li').setText(`Manual smoothing & pressure selection.`);
-    const eraserHoldLi = addedListEl.createEl('li');
-    eraserHoldLi.appendText(`Hold `);
-    createNoticeInlineQuote(eraserHoldLi, 'Cmd');
-    eraserHoldLi.appendText(` to switch to eraser temporarily.`);
-    addedListEl.createEl('li').setText(`Ability to draw with fingers (activate in settings).`);
-    addedListEl.createEl('li').setText(`And more...`);
+    const changesListEl = scrollAreaEl.createEl('ul');
+    changesListEl.createEl('li').setText(`Fixed iPad Scribble functionality interfering with Ink.`);
+    changesListEl.createEl('li').setText(`Experimental fix to Wacom pen erasers.`);
+    changesListEl.createEl('li').setText(`Fixed spacing issues around embeds.`);
+    changesListEl.createEl('li').setText(`Redesigned toolbar UX for clarity.`);
+    changesListEl.createEl('li').setText(`Refined stroke sizes to match across writing, drawing, and different input types.`);
+    changesListEl.createEl('li').setText(`Fixed Ink previews not appearing on linux.`);
+    changesListEl.createEl('li').setText(`Fixed random scroll jumps bug.`);
+    changesListEl.createEl('li').setText(`Performance optimisations.`);
 
     const {
-        primaryBtnEl,
+        tertiaryBtnEl,
     } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/plrnx7J_Avc',
-            label: 'View feature demos',
-        },
-        primaryLabel: 'Continue',
-    })
-
-    const notice = launchPersistentNotice(noticeBody);
-
-    if (primaryBtnEl) {
-        primaryBtnEl.addEventListener('click', () => {
-            notice.hide();
-            showChangesPageTwo(plugin);
-        });
-    }
-}
-
-function showChangesPageTwo(plugin: InkPlugin) {
-    const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(2, 2);
-
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.6`);
-
-    scrollAreaEl.createEl('h2').setText(`Changed`);
-    const changedListEl = scrollAreaEl.createEl('ul');
-    changedListEl.createEl('li').setText(`Files now save in a new file format.`);
-    changedListEl.createEl('li').setText(`Reduced minimum drawing embed size.`);
-    const eraserShortcutLi = changedListEl.createEl('li');
-    eraserShortcutLi.appendText(`Eraser shortcut is now `);
-    createNoticeInlineQuote(eraserShortcutLi, 'Cmd');
-    eraserShortcutLi.appendText(` instead of middle mouse button.`);
-
-    scrollAreaEl.createEl('h2').setText(`Fixed`);
-    const fixedListEl = scrollAreaEl.createEl('ul');
-    fixedListEl.createEl('li').setText(`Colour theming in reading mode layout.`);
-    fixedListEl.createEl('li').setText(`Reading mode and PDF export sizing.`);
-    fixedListEl.createEl('li').setText(`Ability to draw slowly at high zoom levels.`);
-
-    const {
-        tertiaryBtnEl
-    } = createNoticeCtaBar(footerEl, {
-        footerLink: {
-            href: 'https://youtu.be/plrnx7J_Avc',
+            href: '????????????????????????????',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',
     })
 
     const notice = launchPersistentNotice(noticeBody);
+
+    // if (primaryBtnEl) {
+    //     primaryBtnEl.addEventListener('click', () => {
+    //         notice.hide();
+    //         // showChangesPageTwo(plugin);
+    //     });
+    // }
 
     if (tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {
@@ -106,3 +68,44 @@ function showChangesPageTwo(plugin: InkPlugin) {
         });
     }
 }
+
+// function showChangesPageTwo(plugin: InkPlugin) {
+//     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(2, 2);
+
+//     scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.7`);
+
+//     scrollAreaEl.createEl('h2').setText(`Changed`);
+//     const changedListEl = scrollAreaEl.createEl('ul');
+//     changedListEl.createEl('li').setText(`Files now save in a new file format.`);
+//     changedListEl.createEl('li').setText(`Reduced minimum drawing embed size.`);
+//     const eraserShortcutLi = changedListEl.createEl('li');
+//     eraserShortcutLi.appendText(`Eraser shortcut is now `);
+//     createNoticeInlineQuote(eraserShortcutLi, 'Cmd');
+//     eraserShortcutLi.appendText(` instead of middle mouse button.`);
+
+//     scrollAreaEl.createEl('h2').setText(`Fixed`);
+//     const fixedListEl = scrollAreaEl.createEl('ul');
+//     fixedListEl.createEl('li').setText(`Colour theming in reading mode layout.`);
+//     fixedListEl.createEl('li').setText(`Reading mode and PDF export sizing.`);
+//     fixedListEl.createEl('li').setText(`Ability to draw slowly at high zoom levels.`);
+
+//     const {
+//         tertiaryBtnEl
+//     } = createNoticeCtaBar(footerEl, {
+//         footerLink: {
+//             href: 'https://youtu.be/plrnx7J_Avc',
+//             label: 'View feature demos',
+//         },
+//         tertiaryLabel: 'Dismiss',
+//     })
+
+//     const notice = launchPersistentNotice(noticeBody);
+
+//     if (tertiaryBtnEl) {
+//         tertiaryBtnEl.addEventListener('click', () => {
+//             notice.hide();
+//             plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
+//             void plugin.saveSettings();
+//         });
+//     }
+// }

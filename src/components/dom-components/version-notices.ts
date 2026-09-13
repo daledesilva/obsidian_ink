@@ -45,7 +45,7 @@ function showChanges(plugin: InkPlugin) {
         tertiaryBtnEl,
     } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: '????????????????????????????',
+            href: 'https://youtu.be/htIMy9kQtww',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',

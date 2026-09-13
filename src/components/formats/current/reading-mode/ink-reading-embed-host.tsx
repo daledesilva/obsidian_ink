@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, TFile } from 'obsidian';
+import { EventRef, MarkdownRenderChild, TFile } from 'obsidian';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import classNames from 'classnames';
@@ -31,7 +31,9 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 	private reactRoot: Root | null = null;
 	private resizeObserver: ResizeObserver | null = null;
 	private resizeContainerEl: HTMLElement | null = null;
-	private writingFileModifyRef: ReturnType<InkPlugin['app']['vault']['on']> | null = null;
+	// Direct EventRef type, not ReturnType<...vault['on']>: the indexed-access form resolves to the
+	// last `Vault.on` overload and collapses to `any` under a degraded type-checker (hosted review).
+	private writingFileModifyRef: EventRef | null = null;
 
 	constructor(
 		containerEl: HTMLElement,

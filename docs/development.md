@@ -440,6 +440,7 @@ Troubleshooting:
 ### Related documentation
 
 - [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd` 0.4.x, popout-safe DOM, trashFile, pen scroll-lock literal styles (no eslint-disable), Jest polyfills.
+- [Community review warnings that are scanner-side](community-review-false-positives.md) — which hosted review type warnings are false positives (do not edit source) vs the one worth fixing.
 - [Manifest minAppVersion and versions.json](manifest-and-versions.md) — valid `x.y.z` app floor, fallback map when minAppVersion changes.
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
 - [Ink canvas: large attachment performance](ink-canvas-large-attachment-performance.md) — Stroke geometry cache, mutation-aware invalidation, metadata-only saves, autosave quiet period.

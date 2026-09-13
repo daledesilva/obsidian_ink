@@ -15,13 +15,11 @@ import { vaultNeedsInkFormatMigration } from 'src/logic/utils/tldraw-svg-migrati
 import type { StrokeInputEditorKind, StrokeInputTreatAs } from 'src/logic/device-settings/device-settings-types';
 import {
 	getBooxConnectionEnabled,
-	getDoubleTapToggleEraserEnabled,
 	getFingerDrawingEnabled,
 	getLastDetectedStrokeInput,
 	getStrokeInputTreatAs,
 	getStylusSideButtonTemporaryEraseEnabled,
 	setBooxConnectionEnabled,
-	setDoubleTapToggleEraserEnabled,
 	setFingerDrawingEnabled,
 	setStrokeInputTreatAs,
 	setStylusSideButtonTemporaryEraseEnabled,
@@ -71,7 +69,6 @@ export class MySettingsTab extends PluginSettingTab {
 		let drawingSectionEl!: HTMLElement;
 		let booxCompanionToggle: ToggleComponent | undefined;
 		let fingerDrawingToggle: ToggleComponent | undefined;
-		let doubleTapToggleEraserToggle: ToggleComponent | undefined;
 		let stylusSideButtonTemporaryEraseToggle: ToggleComponent | undefined;
 
 		insertHighLevelSettings(containerEl, this.plugin,
@@ -105,7 +102,6 @@ export class MySettingsTab extends PluginSettingTab {
 			}
 			booxCompanionToggle?.setValue(getBooxConnectionEnabled());
 			fingerDrawingToggle?.setValue(getFingerDrawingEnabled());
-			doubleTapToggleEraserToggle?.setValue(getDoubleTapToggleEraserEnabled());
 			stylusSideButtonTemporaryEraseToggle?.setValue(getStylusSideButtonTemporaryEraseEnabled());
 		});
 		insertFileOrganisationSection(containerEl, this.plugin);
@@ -132,8 +128,6 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertExperimentalChangesSection(containerEl, this.plugin, (toggle) => {
 			booxCompanionToggle = toggle;
-		}, (toggle) => {
-			doubleTapToggleEraserToggle = toggle;
 		}, (toggle) => {
 			stylusSideButtonTemporaryEraseToggle = toggle;
 		});
@@ -375,54 +369,53 @@ function insertExperimentalChangesSection(
 	containerEl: HTMLElement,
 	plugin: InkPlugin,
 	onBooxToggleReady?: (toggle: ToggleComponent) => void,
-	onDoubleTapToggleEraserReady?: (toggle: ToggleComponent) => void,
 	onStylusSideButtonTemporaryEraseReady?: (toggle: ToggleComponent) => void,
 ) {
-	new ToggleAccordionSetting(containerEl)
+	// Expand/collapse header only — same pattern as "This plugin is in beta". Inner toggles
+	// persist independently; do not use ToggleAccordionSetting (header toggle looked like a master switch).
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const controlsEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
+	const headerSetting = new Setting(controlsEl)
+		.setClass('ddc_ink_controls-header')
+		.setClass('ddc_ink_controls-header--clickable')
 		.setName('Experimental changes')
-		.setDesc('Features under active testing. They may not work on all devices and might be removed or changed in the next release.')
-		.setExpanded(false)
-		.onToggle(() => {
-			// Persist expand state only in the accordion UI for this session.
-		})
-		.setContent((sectionEl) => {
-			new Setting(sectionEl)
-				.setClass('ddc_ink_setting')
-				// Keep "Boox" as the product name.
-				.setName('Enable Boox companion app')
-				.setDesc('Connects to the Boox companion app for passing through smoother pen strokes on supported tablets.')
-				.addToggle((toggle) => {
-					toggle.setValue(getBooxConnectionEnabled());
-					onBooxToggleReady?.(toggle);
-					toggle.onChange((value: boolean) => {
-						setBooxConnectionEnabled(value);
-						plugin.booxConnection.onSettingsChanged();
-					});
-				});
+		.setDesc('Features under active testing. They may not work on all devices and might be removed or changed in the next release. Expand for details.');
 
-			new Setting(sectionEl)
-				.setClass('ddc_ink_setting')
-				.setName('Double-tap to toggle eraser')
-				.setDesc('Double-tap the canvas with your pen or finger to switch between draw and eraser. For styluses that do not send hardware eraser events.')
-				.addToggle((toggle) => {
-					toggle.setValue(getDoubleTapToggleEraserEnabled());
-					onDoubleTapToggleEraserReady?.(toggle);
-					toggle.onChange((value: boolean) => {
-						setDoubleTapToggleEraserEnabled(value);
-					});
-				});
+	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
+	arrowEl.setText('›');
 
-			new Setting(sectionEl)
-				.setClass('ddc_ink_setting')
-				.setName('Side button temporary eraser')
-				.setDesc('While held, the pen barrel button (button 2) erases instead of panning. May conflict with right-click pan on some setups.')
-				.addToggle((toggle) => {
-					toggle.setValue(getStylusSideButtonTemporaryEraseEnabled());
-					onStylusSideButtonTemporaryEraseReady?.(toggle);
-					toggle.onChange((value: boolean) => {
-						setStylusSideButtonTemporaryEraseEnabled(value);
-					});
-				});
+	headerSetting.settingEl.addEventListener('click', () => {
+		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
+		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
+	});
+
+	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		// Keep "Boox" as the product name.
+		.setName('Enable Boox companion app')
+		.setDesc('Connects to the Boox companion app for passing through smoother pen strokes on supported tablets.')
+		.addToggle((toggle) => {
+			toggle.setValue(getBooxConnectionEnabled());
+			onBooxToggleReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setBooxConnectionEnabled(value);
+				plugin.booxConnection.onSettingsChanged();
+			});
+		});
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Side button temporary eraser')
+		.setDesc('While held, the pen barrel button (button 2) erases instead of panning. May conflict with right-click pan on some setups.')
+		.addToggle((toggle) => {
+			toggle.setValue(getStylusSideButtonTemporaryEraseEnabled());
+			onStylusSideButtonTemporaryEraseReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setStylusSideButtonTemporaryEraseEnabled(value);
+			});
 		});
 }
 

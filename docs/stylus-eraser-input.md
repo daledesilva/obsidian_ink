@@ -15,7 +15,6 @@ Related reports: [GitHub #193](https://github.com/daledesilva/obsidian_ink/issue
 | **Hardware eraser tip** (Wacom, Surface) | `pointerdown` with `button === 5`; active contact often has `buttons & 32` | **Always on:** temporary erase while contact lasts, then restore prior tool (draw tool only) |
 | **Cmd/Ctrl** (desktop) | Keyboard modifier | Temporary erase (unchanged from 0.5.x) |
 | **Cmd/Ctrl + left-click** (mouse) | Modifier + primary button | Temporary erase |
-| **Double-tap** (experimental) | Two primary taps within 300 ms / 30 px | Toggle draw ↔ erase |
 | **Side button** (experimental) | Pen `pointerType: 'pen'`, `button === 2` | Temporary erase while held instead of right-drag pan |
 
 Temporary erase saves the active tool, switches to `erase`, runs the erase tool pointer handlers, then restores the saved tool on release. Only auto-switches when the current tool is **`draw`** (matches tldraw).
@@ -70,20 +69,19 @@ Stored in device-local `deviceSettings_v1` (not vault `data.json`):
 
 | Field | Default | Settings UI |
 |-------|---------|-------------|
-| `doubleTapToggleEraser` | `false` | **Experimental changes → Double-tap to toggle eraser** |
 | `stylusSideButtonTemporaryErase` | `false` | **Experimental changes → Side button temporary eraser** |
 
-The **Experimental changes** accordion (above **This plugin is in beta** in plugin settings) also holds **Enable Boox companion app**. See [Plugin memory and persistence](plugin-memory-and-persistence.md).
+The **Experimental changes** section (above **This plugin is in beta** in plugin settings) also holds **Enable Boox companion app**. See [Plugin memory and persistence](plugin-memory-and-persistence.md).
 
-Hooks: `useDoubleTapToggleEraserEnabled`, `useStylusSideButtonTemporaryEraseEnabled`. Reset via **Reset settings** calls `resetExperimentalDeviceSettingsToDefault()` (experimental flags only; Boox has its own reset).
+Hooks: `useStylusSideButtonTemporaryEraseEnabled`. Reset via **Reset settings** calls `resetExperimentalDeviceSettingsToDefault()` (side-button flag only; Boox has its own reset).
 
 ---
 
 ## Technical Gotchas
 
 - **Windows + Wacom + Windows Ink** is the well-supported case for button 5. Without Windows Ink, browsers may not emit eraser events at all (see Excalidraw discussion on driver settings).
-- **Linux Chromium** often cannot distinguish pen tip vs eraser; Firefox had incorrect button values on some distros. Experimental toggles are the intended fallback on those devices.
-- **Samsung S Pen** and similar often map the barrel button to **right-click (`button` 2`)**, not button 5 — use **Side button temporary eraser** (experimental) or **Double-tap to toggle eraser**.
+- **Linux Chromium** often cannot distinguish pen tip vs eraser; Firefox had incorrect button values on some distros. **Side button temporary eraser** (experimental) is the intended fallback when button 5 is unavailable — there is no double-tap draw/erase toggle anymore.
+- **Samsung S Pen** and similar often map the barrel button to **right-click (`button` 2`)**, not button 5 — use **Side button temporary eraser** (experimental).
 - **Do not** route button-5 through FingerBlocker’s normal draw-forward path (`isDrawingInput`); that would call `drawToolPointerDown` instead of erase.
 - **Right-drag pan** on button 2 is preserved when side-button temporary erase is **off**. When on, pen button 2 skips embed pan forwarding and uses temporary erase instead.
 - **Legacy tldraw embeds** (v1-code-blocks) still use tldraw’s built-in eraser handling; this document applies to **current-format** `InkSvgCanvas` editors only.

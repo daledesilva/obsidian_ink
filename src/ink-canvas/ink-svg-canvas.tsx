@@ -25,7 +25,6 @@ import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-set
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
-import { useDoubleTapToggleEraserEnabled } from 'src/logic/device-settings/use-double-tap-toggle-eraser';
 import { useStylusSideButtonTemporaryEraseEnabled } from 'src/logic/device-settings/use-stylus-side-button-temporary-erase';
 import {
 	isStylusEraserPointerActive,
@@ -48,10 +47,6 @@ type LastCanvasPointerState = {
 	pointerType: string;
 	buttons: number;
 };
-
-/** Double-tap window for experimental draw/erase toggle (Tier 3). */
-const DOUBLE_TAP_TOGGLE_ERASER_MS = 300;
-const DOUBLE_TAP_TOGGLE_ERASER_MAX_DISTANCE_PX = 30;
 
 type TemporaryEraseSource = 'mod' | 'stylusEraser' | 'sideButton';
 
@@ -121,10 +116,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
 	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
-	const isDoubleTapToggleEraserEnabled = useDoubleTapToggleEraserEnabled();
 	const isStylusSideButtonTemporaryEraseEnabled = useStylusSideButtonTemporaryEraseEnabled();
-	const isDoubleTapToggleEraserEnabledRef = useRef(isDoubleTapToggleEraserEnabled);
-	isDoubleTapToggleEraserEnabledRef.current = isDoubleTapToggleEraserEnabled;
 	const isStylusSideButtonTemporaryEraseEnabledRef = useRef(isStylusSideButtonTemporaryEraseEnabled);
 	isStylusSideButtonTemporaryEraseEnabledRef.current = isStylusSideButtonTemporaryEraseEnabled;
 
@@ -652,7 +644,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const isTemporaryEraseModeRef = useRef(false);
 	const temporaryEraseSourceRef = useRef<TemporaryEraseSource | null>(null);
 	const toolBeforeTemporaryEraseRef = useRef<InkTool | null>(null);
-	const lastPrimaryTapRef = useRef<{ timeStamp: number; clientX: number; clientY: number } | null>(null);
 	const lastCanvasPointerRef = useRef<LastCanvasPointerState | null>(null);
 	/** After mod release with mouse still down, ignore primary pointer until up. */
 	const suppressPrimaryPointerUntilUpRef = useRef(false);
@@ -972,35 +963,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			&& isStylusSideButtonPointerDown(e.nativeEvent)
 		) {
 			endTemporaryEraseMode('sideButton');
-		}
-
-		const canDoubleTapToggle =
-			isDoubleTapToggleEraserEnabledRef.current
-			&& e.button === 0
-			&& !isTemporaryEraseModeRef.current
-			&& !isPanning.current
-			&& !isRightDraggingRef.current
-			&& !isDrawToolActive();
-		const isDoubleTapPointer =
-			e.pointerType === 'pen'
-			|| (e.pointerType === 'touch' && isFingerDrawingActiveRef.current);
-		if (canDoubleTapToggle && isDoubleTapPointer) {
-			const lastTap = lastPrimaryTapRef.current;
-			const now = e.timeStamp;
-			if (lastTap) {
-				const elapsedMs = now - lastTap.timeStamp;
-				const distancePx = Math.hypot(e.clientX - lastTap.clientX, e.clientY - lastTap.clientY);
-				if (
-					elapsedMs <= DOUBLE_TAP_TOGGLE_ERASER_MS
-					&& distancePx <= DOUBLE_TAP_TOGGLE_ERASER_MAX_DISTANCE_PX
-				) {
-					if (toolRef.current === 'draw') applyToolChange('erase');
-					else if (toolRef.current === 'erase') applyToolChange('draw');
-					lastPrimaryTapRef.current = null;
-					return;
-				}
-			}
-			lastPrimaryTapRef.current = { timeStamp: now, clientX: e.clientX, clientY: e.clientY };
 		}
 	}, [tool, releasePanMomentum, applyToolChange]);  
 

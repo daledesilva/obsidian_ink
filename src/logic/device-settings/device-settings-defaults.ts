@@ -12,4 +12,5 @@ export const DEFAULT_DEVICE_SETTINGS_V1: DeviceSettingsV1 = {
 		inkDrawing: 'auto',
 	},
 	lastDetectedStrokeInput: null,
+	stylusSideButtonTemporaryErase: false,
 };

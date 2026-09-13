@@ -30,6 +30,7 @@ import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notic
 import {
 	readWritingFileAspectRatio,
 } from "src/logic/utils/writing-embed-aspect-ratio";
+import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
 
 ///////
 ///////
@@ -74,6 +75,11 @@ export function WritingEmbed (props: {
 	remove: () => void,
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,
+	/**
+	 * When CM remounts an embed, the widget passes the last measured height so first paint
+	 * does not reset to URL aspect-ratio height (scroll jump on up-scroll remounts).
+	 */
+	remountReserveHeightPx?: number,
 	sourceMdFile?: TFile,
 	isPendingPaste?: boolean,
 	resolveAsReference?: () => void,
@@ -113,8 +119,25 @@ export function WritingEmbed (props: {
 		previousHeightRef.current = null;
 		resizeContainer.classList.remove('ddc_ink_smooth-transition');
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
+		// Unlocked remounts keep the last editor height on the inner canvas so CM virtualize
+		// does not collapse toward preview aspect. After lock, that same reserve is the stale
+		// unlocked root and must not be reapplied here. Locked CM scroll is still protected
+		// by widget-root minHeight in toDOM.
+		const remountReserveHeightPx = props.remountReserveHeightPx;
+		const shouldApplyRemountReserveToInner = isThisEmbedEditing
+			&& !!remountReserveHeightPx
+			&& remountReserveHeightPx > 0;
+		if (shouldApplyRemountReserveToInner && remountReserveHeightPx) {
+			resizeContainer.style.height = remountReserveHeightPx + 'px';
+			previousHeightRef.current = remountReserveHeightPx;
+			return;
+		}
+		if (isThisEmbedEditing) return;
 		resizeContainer.style.height = containerWidth / aspectRatio + 'px';
-	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio]);
+		inkEmbedSyncWidgetRootMinHeightToContent({
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+		});
+	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx]);
 
 	// SVG viewBox is authoritative for preview height.
 	// Do NOT rewrite note markdown here: mount-time setEmbedProps caused CM remount
@@ -207,8 +230,7 @@ export function WritingEmbed (props: {
 	function handleCopyEmbed(_source: 'context-menu' | 'overflow-menu') {
 		const embedStr = props.getEmbedMarkdown?.() ?? null;
 		if (!embedStr) {
-			// Keep intentional lowercase "markdown" in this notice.
-			new Notice('Could not read embed markdown to copy');
+			new Notice('Could not read embed Markdown to copy');
 			return;
 		}
 		void copyEmbedMarkdownToClipboard(embedStr);
@@ -319,7 +341,7 @@ export function WritingEmbed (props: {
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: '1em',
-				paddingBottom: '0.5em',
+				paddingBottom: '1em',
 			}}
 		>
 			{props.isPendingPaste && props.writingFileRef && (
@@ -441,6 +463,9 @@ export function WritingEmbed (props: {
 	function applyEmbedHeight(height: number) {
 		if (!resizeContainerElRef.current) return;
 		resizeContainerElRef.current.style.height = height + 'px';
+		const widgetRootEl = embedContainerElRef.current?.closest('.ddc_ink_widget-root') as HTMLElement | null;
+		// Drop the remount minHeight floor to the new content so lock cannot leave a tall empty root.
+		inkEmbedSyncWidgetRootMinHeightToContent({ widgetRootEl });
 		const heightChanged = previousHeightRef.current === null
 			|| Math.abs(height - previousHeightRef.current) > 1;
 		if (heightChanged) props.onRequestMeasure?.();
@@ -480,8 +505,19 @@ export function WritingEmbed (props: {
 	async function saveAndSwitchToPreviewMode() {
 		verbose(['Remove writing embed from edit mode', props.embedId]);
 		logToVault('Writing embed → preview (saved): ' + (props.writingFileRef?.path ?? props.partialEmbedFilepath));
+
 		if(editorControlsRef.current) {
 			await editorControlsRef.current.saveAndHalt();
+		}
+
+		// Leave edit mode before measuring so the height cache can accept the locked shrink.
+		if (props.embedId) {
+			clearActiveInkEmbed(props.embedId);
+			setEmbedsInEditMode((prev: Set<string>) => {
+				const next = new Set(prev);
+				next.delete(props.embedId!);
+				return next;
+			});
 		}
 
 		// Apply preview height immediately based on tight aspectRatio before switching modes
@@ -493,19 +529,11 @@ export function WritingEmbed (props: {
 			}
 		}
 
-		if (props.embedId) {
-			clearActiveInkEmbed(props.embedId);
-			setEmbedsInEditMode((prev: Set<string>) => {
-				const next = new Set(prev);
-				next.delete(props.embedId!);
-				return next;
-			});
-		}
-
 		// Persist the aspectRatio to markdown
 		if (props.setEmbedProps) {
 			props.setEmbedProps(embedAspectRatioRef.current);
 		}
+
 	}
 	
 };

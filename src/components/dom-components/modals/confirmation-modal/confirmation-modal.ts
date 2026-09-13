@@ -46,6 +46,7 @@ export class ConfirmationModal extends Modal {
 		})
 		.addButton( confirmBtn => {
 			confirmBtn.setClass('uo_button');
+			// Pinned `obsidian` typings still expose setWarning, not setDestructive (1.13+).
 			confirmBtn.setWarning();
 			confirmBtn.setButtonText(this.confirmLabel);
 			confirmBtn.onClick( () => {

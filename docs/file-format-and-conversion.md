@@ -31,25 +31,32 @@ Embed **Edit** links in markdown carry display settings (`width`, `viewBox`, etc
 
 ## XML parse and serialize dependency
 
-Save and load of ink SVG metadata use Node-side DOM APIs from **`@xmldom/xmldom`** (not the deprecated npm package `xmldom`):
+**Load** of ink SVG metadata (and **legacy tldraw saves**) use Node-side DOM APIs from **`@xmldom/xmldom`** (not the deprecated npm package `xmldom`). **Current ink-canvas saves** avoid parsing the full SVG on every autosave — see below.
 
 | Path | Role |
 |------|------|
-| [`buildFileStr.ts`](../src/components/formats/current/utils/buildFileStr.ts) | `DOMParser` + `XMLSerializer` when rewriting `<metadata>` on save |
+| [`buildFileStr.ts`](../src/components/formats/current/utils/buildFileStr.ts) | **ink-canvas:** string-replace all `<metadata>` blocks, insert compact XML-safe JSON. **tldraw legacy:** `DOMParser` + `XMLSerializer` + pretty-print |
 | [`extractInkJsonFromSvg.ts`](../src/logic/utils/extractInkJsonFromSvg.ts) | `DOMParser` when reading `<ink>` / `<ink-canvas>` / `<tldraw>` on open |
 
 ```mermaid
 flowchart LR
   VaultSvg[Vault SVG string]
-  Extract[extractInkJsonFromSvg]
-  Build[buildFileStr]
+  Extract[extractInkJsonFromSvg DOMParser]
+  BuildInk[buildInkCanvasFileStr metadata splice]
+  BuildTl[buildTldrawFileStr DOM]
   VaultSvg --> Extract
   Extract --> InkData[InkFileData]
-  InkData --> Build
-  Build --> VaultSvg
+  InkData -->|ink-canvas| BuildInk
+  InkData -->|legacy tldraw| BuildTl
+  BuildInk --> VaultSvg
+  BuildTl --> VaultSvg
 ```
 
 The maintained fork ships its own TypeScript types; do not re-add `@types/xmldom`.
+
+### Why ink-canvas saves skip DOM parse
+
+`pageData.svgString` from `svg-export` is already a complete document. Re-parsing and pretty-printing multi-megabyte path markup on every quiet-period autosave blocked the input thread in proportion to stroke count. `buildInkCanvasFileStr` strips every existing `<metadata>…</metadata>` with a global regex, then inserts one fresh block (plugin `<ink>` attributes + compact `JSON.stringify` snapshot, XML-escaped) immediately after the opening `<svg>` tag. Rendered path markup is left untouched. Details and autosave timing: [ink-canvas-large-attachment-performance.md](ink-canvas-large-attachment-performance.md).
 
 ## Ink-canvas format version
 
@@ -194,5 +201,6 @@ Conversion between `inkDrawing` and `inkWriting` changes only the tldraw store (
 ### Technical gotchas
 
 - **`buildFileStr` expects full SVG content.** The `svgString` parameter must be the complete SVG file (including any existing metadata). When re-serializing an existing file (e.g. during conversion), pass the raw file content, not `data.svgString` — `extractInkJsonFromSvg` does not return `svgString`.
-- **`buildFileStr` strips existing metadata before appending.** When the input `svgString` already contains `<metadata>`, `buildFileStr` removes those elements before adding the new metadata. This avoids duplicate metadata and ensures `extractInkJsonFromSvg` reads the correct data on the next load.
-- **Use `@xmldom/xmldom`, never `xmldom`.** The old `xmldom` package (including `0.6.x`) has no fix for [GHSA-crh6-fp67-6883](https://github.com/advisories/GHSA-crh6-fp67-6883) (multi-root XML). The fork is API-compatible for normal single-root ink SVGs; malformed multi-root input is rejected/logged more strictly and may return `null` from extract instead of silently succeeding.
+- **`buildFileStr` strips existing metadata before appending.** When the input `svgString` already contains `<metadata>`, both ink-canvas and tldraw builders remove those blocks before adding the new metadata. Ink-canvas uses a **global** string replace so a stale first metadata block cannot win on the next load (`extractInkJsonFromSvg` reads `getElementsByTagName('metadata')[0]`).
+- **Ink-canvas metadata JSON is compact** — no pretty-print indentation. Snapshot text is XML-escaped (`&`, `<`, `>`). Do not reintroduce whole-file `xml-formatter` on the ink-canvas path; it recreates the large-attachment hitch.
+- **Use `@xmldom/xmldom`, never `xmldom`.** Still required for **extract** and **legacy tldraw** serialize. The old `xmldom` package (including `0.6.x`) has no fix for [GHSA-crh6-fp67-6883](https://github.com/advisories/GHSA-crh6-fp67-6883) (multi-root XML). The fork is API-compatible for normal single-root ink SVGs; malformed multi-root input is rejected/logged more strictly and may return `null` from extract instead of silently succeeding.

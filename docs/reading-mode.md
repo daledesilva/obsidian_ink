@@ -37,7 +37,7 @@ Reading mode embeds are **display only**. You cannot tap them to edit. Use Live 
 2. Obsidian renders markdown into HTML — image embed and Edit link appear together.
 3. Ink scans each paragraph (and similar blocks) for Ink embeds.
 4. Ink checks the Edit link to learn embed type, size, and framing.
-5. Ink loads the SVG file from your vault.
+5. Ink loads the SVG file from your vault via `vault.read` (same locked-preview path as Live Preview — see [Embed preview SVG loading](embed-preview-svg-loading.md)).
 6. Ink replaces the plain image block with its preview component.
 7. The preview inlines the SVG and applies theme colours (see [Ink colours and theming](ink-colours-and-theming.md)).
 
@@ -59,7 +59,7 @@ For implementation file paths and design alternatives, see [Reading mode embed r
 ## Technical gotchas
 
 1. **Two render paths** — CodeMirror widgets run in Live Preview only. Reading mode needs its own Ink step after Obsidian renders markdown.
-2. **Image tag vs inlined SVG** — A plain `<img>` tag cannot be recoloured by Ink’s theme CSS. Reading mode must swap to an inlined SVG preview.
+2. **Image tag vs inlined SVG** — A plain `<img>` tag cannot be recoloured by Ink’s theme CSS. Reading mode must swap to an inlined SVG preview. Do not load that preview through `getResourcePath` XHR or a writing `data:` URI — see [Embed preview SVG loading](embed-preview-svg-loading.md).
 3. **Edit link is required** — An image without the matching Edit link is treated as a normal attachment, not an Ink embed.
 4. **Timing** — Ink replaces embeds after the paragraph is complete. Partial renders during page build are skipped until the block is ready.
 5. **Same file, many notes** — Path resolution uses the note that contains the embed, not whichever file you have focused.
@@ -67,6 +67,7 @@ For implementation file paths and design alternatives, see [Reading mode embed r
 
 ## See also
 
+- [Embed preview SVG loading](embed-preview-svg-loading.md) — How locked previews read SVG without CORS / theming regressions
 - [Ink colours and theming](ink-colours-and-theming.md) — How stroke and line colours follow light/dark theme
 - [Reading mode embed rendering](reading-mode-embed-rendering.md) — Implementation detail and design choices
 - [Ink embeds: contexts and limitations](ink-embeds-contexts-and-limitations.md) — Where embeds work across Obsidian views

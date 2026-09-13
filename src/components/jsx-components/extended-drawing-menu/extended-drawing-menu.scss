@@ -42,6 +42,11 @@
             width: 1.5em !important;
             height: 1.5em !important;
             fill: currentColor;
+
+            &[fill='none'] {
+                fill: none;
+                stroke: currentColor;
+            }
         }
     }
 
@@ -77,10 +82,28 @@
 			fill: var(--text-on-accent);
 		}
 
+		.ddc_ink_btn-group__btn--frame {
+			width: auto;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35em;
+			padding-inline: 0.65em !important;
+		}
+
+		.ddc_ink_btn-group__btn-label {
+			font-size: var(--font-ui-small);
+			line-height: 1;
+		}
+
 		// Frame+lock artwork has more inset padding than Material icons; scale up slightly.
 		.ddc_ink_btn-group__btn--accent svg {
 			width: 1.65em !important;
 			height: 1.65em !important;
+		}
+
+		.ddc_ink_btn-group__btn--frame svg {
+			padding: 0.2em;
+			box-sizing: content-box;
 		}
 	}
 }

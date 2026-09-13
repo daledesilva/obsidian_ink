@@ -169,9 +169,6 @@ const config: Config = {
   transform: {
     "^.+\\.(t|j)sx?$": "babel-jest",
   },
-  transformIgnorePatterns: [
-    "/node_modules/(?!(chalk)/).*"
-  ],
 
   // Options that will be passed to the testEnvironment
   testEnvironmentOptions: {

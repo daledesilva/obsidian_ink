@@ -366,8 +366,7 @@ export class MigrationModal extends Modal {
 		const failed = [...(legacy?.failed ?? []), ...(tldraw?.failed ?? [])];
 
 		if (isTestRun) {
-			// Keep title-style completion heading.
-			this.titleEl.setText('Test Migration Complete');
+			this.titleEl.setText('Test migration complete');
 
 			const hasFailures = failed.length > 0;
 			const summary = hasFailures

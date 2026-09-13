@@ -17,19 +17,17 @@
 }
 
 // Embedded drawing: default toolbar uses global space-between + centered tools.
-// Narrow embeds only: bleed a compact inline toolbar past the resize box.
+// Compact inline row when cluster bounding boxes overlap (see use-drawing-embed-toolbar-compact).
 .ddc_ink_embed .ddc_ink_drawing-editor {
 	overflow: visible;
-	container-type: inline-size;
-	container-name: ink-drawing-embed-toolbar;
 
-	// No transition — layout snaps when crossing the narrow-toolbar breakpoint.
+	// No transition — layout snaps when crossing the compact threshold.
 	.ink_primary-menu-bar,
 	.ink_tool-menu {
 		transition: none;
 	}
 
-	@container ink-drawing-embed-toolbar (max-width: 22rem) {
+	&.ddc_ink_toolbar-compact {
 		.ink_primary-menu-bar {
 			left: 50%;
 			right: auto;

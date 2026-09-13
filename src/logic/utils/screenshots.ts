@@ -23,7 +23,7 @@ export async function svgToPngDataUri(svgObj: {	height: number,	width: number, s
 		} 
 		
 		// Set canvas dimensions
-		const canvas = activeDocument.createElement('canvas');
+		const canvas = createEl('canvas');
 		canvas.width = width;
 		canvas.height = height;
 		const ctx = canvas.getContext('2d');

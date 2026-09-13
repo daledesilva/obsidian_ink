@@ -97,7 +97,7 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
             {!isImg && (<>
                 <SVG
                     src={fileSrc}
-                    cacheRequests={false}
+                    cacheRequests={true}
                     key={fileSrc}
                     style={{
                         width: '100%',
@@ -118,16 +118,18 @@ export const WritingEmbedPreview: React.FC<WritingEmbedPreviewProps> = (props) =
     ///////////////////
 
     function onLoad() {
-        // Slight delay on transition because otherwise a flicker is sometimes seen
-        window.setTimeout(() => {}, 100);
+        // Kept as a callback for parity with drawing previews.
     }
 
     function refreshSrc() {
-        const basePath = props.plugin.app.vault.getResourcePath(props.writingFile);
-        if (!basePath) return;
-        const mtime = props.writingFile.stat.mtime;
-        const separator = basePath.includes('?') ? '&' : '?';
-        setFileSrc(`${basePath}${separator}t=${mtime}`);
+        if (!props.writingFile) return;
+        // Prefer vault.read over getResourcePath: react-inlinesvg XHRs app:// URLs, which Electron 39+
+        // blocks as cross-origin from app://obsidian.md. Pass raw SVG markup (not a data URI) so we
+        // stay on the InlineSVG branch — data: would flip isImg and break dark-theme path CSS.
+        void props.plugin.app.vault.read(props.writingFile).then((svgContent) => {
+            if (!svgContent) return;
+            setFileSrc(svgContent);
+        }).catch(() => {});
     }
 
 };

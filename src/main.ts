@@ -1,4 +1,6 @@
 import './ddc-library/settings-styles.scss';
+// Global so dark-mode native Ink img invert applies before embed SCSS chunks load.
+import './components/shared/ink-svg-preview-theme.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
@@ -33,17 +35,48 @@ import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteS
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import {
+	collectInkHostProbe,
+	postCursorDebugIngest,
+	serializeUnknownError,
+} from 'src/logic/utils/cursor-debug-ingest';
 import { setDominantHand } from 'src/stores/dominant-hand-store';
 import {
 	getBooxConnectionEnabled,
 	migrateBooxConnectionFromVaultToDevice,
 	resetBooxConnectionToDefault,
+	resetExperimentalDeviceSettingsToDefault,
 	resetFingerDrawingToDefault,
 	setBooxConnectionEnabled,
 } from 'src/logic/device-settings/device-settings';
 
 ////////
 ////////
+
+/** Posts start/ok/fail breadcrumbs around one onload step so a Windows crash has a last-known step. */
+async function runInkOnloadStep(stepName: string, runStep: () => void | Promise<void>): Promise<void> {
+	postCursorDebugIngest({
+		hypothesisId: 'H-win-onload-step',
+		location: `main.ts:onload:${stepName}:start`,
+		message: `onload step start: ${stepName}`,
+	});
+	try {
+		await runStep();
+	} catch (error) {
+		postCursorDebugIngest({
+			hypothesisId: 'H-win-onload-step-fail',
+			location: `main.ts:onload:${stepName}:fail`,
+			message: `onload step failed: ${stepName}`,
+			data: serializeUnknownError(error),
+		});
+		throw error;
+	}
+	postCursorDebugIngest({
+		hypothesisId: 'H-win-onload-step',
+		location: `main.ts:onload:${stepName}:ok`,
+		message: `onload step ok: ${stepName}`,
+	});
+}
 
 export default class InkPlugin extends Plugin {
 	settings: PluginSettings;
@@ -71,116 +104,160 @@ export default class InkPlugin extends Plugin {
 	}
 
 	async onload() {
-		await this.loadSettings();
-
-		this.booxConnection = new BooxConnection(() => ({
-			booxConnectionEnabled: getBooxConnectionEnabled(),
-		}));
-
-		setGlobals({
-			plugin: this,
+		postCursorDebugIngest({
+			hypothesisId: 'H-win-onload-enter',
+			location: 'main.ts:onload:enter',
+			message: 'onload entered',
+			data: collectInkHostProbe(),
 		});
+		try {
+			await runInkOnloadStep('loadSettings', async () => {
+				await this.loadSettings();
+			});
 
-		logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${getBooxConnectionEnabled()}`);
+			await runInkOnloadStep('booxConnection', () => {
+				this.booxConnection = new BooxConnection(() => ({
+					booxConnectionEnabled: getBooxConnectionEnabled(),
+				}));
+			});
 
-		addIcon('write_default', writeDefaultSvgStr);
-		addIcon('write_existing', writeExistingSvgStr);
-		addIcon('write_paste', writePasteSvgStr);
+			await runInkOnloadStep('setGlobals', () => {
+				setGlobals({
+					plugin: this,
+				});
+			});
 
-		addIcon('draw_default', drawDefaultSvgStr);
-		addIcon('draw_existing', drawExistingSvgStr);
-		addIcon('draw_paste', drawPasteSvgStr);
+			logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${getBooxConnectionEnabled()}`);
 
-		addIcon('bluesky', blueskySvgStr);
-		addIcon('mastodon', mastodonSvgStr);
-		addIcon('threads', threadsSvgStr);
-		addIcon('twitter', twitterSvgStr);
+			await runInkOnloadStep('addIcons', () => {
+				addIcon('write_default', writeDefaultSvgStr);
+				addIcon('write_existing', writeExistingSvgStr);
+				addIcon('write_paste', writePasteSvgStr);
 
-		//: NOTE: For testing only
-		// this.app.emulateMobile(true);	// Use this as true or false in console to switch
-		// implementHandwrittenNoteAction(this)
-		// implementHandDrawnNoteAction(this)
-		type InkWindowWithOptionalProcessEnv = Window & {
-			process?: { env?: Record<string, string | undefined> };
-		};
-		const inkProcessEnv = (window as InkWindowWithOptionalProcessEnv).process?.env;
-		const emulateMobileRequested = inkProcessEnv?.INK_EMULATE_MOBILE === 'true';
-		const mobileEmulationReloadGuardKey = '__inkMobileEmulationReloadInProgress';
-		type AppWithOptionalMobileEmulation = App & {
-			emulateMobile?: (enabled: boolean) => void;
-			isMobile?: boolean;
-		};
-		const appWithMobileEmulation = this.app as AppWithOptionalMobileEmulation;
-		const canEmulateMobile = typeof appWithMobileEmulation.emulateMobile === 'function';
-		const alreadyInMobileMode = !!(Platform.isMobile || Platform.isMobileApp || appWithMobileEmulation.isMobile);
-		const mobileEmulationReloadInProgress = window.localStorage.getItem(mobileEmulationReloadGuardKey) === 'true';
+				addIcon('draw_default', drawDefaultSvgStr);
+				addIcon('draw_existing', drawExistingSvgStr);
+				addIcon('draw_paste', drawPasteSvgStr);
 
-		if (emulateMobileRequested && canEmulateMobile && !alreadyInMobileMode && !mobileEmulationReloadInProgress) {
-			// emulateMobile(true) can reload the app; guard to avoid repeatedly requesting emulation on each reload.
-			window.localStorage.setItem(mobileEmulationReloadGuardKey, 'true');
-			const runEmulateMobile = appWithMobileEmulation.emulateMobile;
-			if (typeof runEmulateMobile === 'function') {
-				runEmulateMobile(true);
+				addIcon('bluesky', blueskySvgStr);
+				addIcon('mastodon', mastodonSvgStr);
+				addIcon('threads', threadsSvgStr);
+				addIcon('twitter', twitterSvgStr);
+			});
+
+			//: NOTE: For testing only
+			// this.app.emulateMobile(true);	// Use this as true or false in console to switch
+			// implementHandwrittenNoteAction(this)
+			// implementHandDrawnNoteAction(this)
+			type InkWindowWithOptionalProcessEnv = Window & {
+				process?: { env?: Record<string, string | undefined> };
+			};
+			const inkProcessEnv = (window as InkWindowWithOptionalProcessEnv).process?.env;
+			const emulateMobileRequested = inkProcessEnv?.INK_EMULATE_MOBILE === 'true';
+			const mobileEmulationReloadGuardKey = '__inkMobileEmulationReloadInProgress';
+			type AppWithOptionalMobileEmulation = App & {
+				emulateMobile?: (enabled: boolean) => void;
+				isMobile?: boolean;
+			};
+			const appWithMobileEmulation = this.app as AppWithOptionalMobileEmulation;
+			const canEmulateMobile = typeof appWithMobileEmulation.emulateMobile === 'function';
+			const alreadyInMobileMode = !!(Platform.isMobile || Platform.isMobileApp || appWithMobileEmulation.isMobile);
+			const mobileEmulationReloadInProgress = window.localStorage.getItem(mobileEmulationReloadGuardKey) === 'true';
+
+			if (emulateMobileRequested && canEmulateMobile && !alreadyInMobileMode && !mobileEmulationReloadInProgress) {
+				// emulateMobile(true) can reload the app; guard to avoid repeatedly requesting emulation on each reload.
+				window.localStorage.setItem(mobileEmulationReloadGuardKey, 'true');
+				postCursorDebugIngest({
+					hypothesisId: 'H-win-emulate-mobile',
+					location: 'main.ts:onload:emulateMobile',
+					message: 'requesting emulateMobile(true) and returning',
+				});
+				const runEmulateMobile = appWithMobileEmulation.emulateMobile;
+				if (typeof runEmulateMobile === 'function') {
+					runEmulateMobile(true);
+				}
+				return;
 			}
-			return;
+
+			// Once emulation is active (or not requested), clear the guard for future sessions.
+			if (!emulateMobileRequested || alreadyInMobileMode) {
+				window.localStorage.removeItem(mobileEmulationReloadGuardKey);
+			}
+
+			postCursorDebugIngest({
+				hypothesisId: 'H-win-onload-settings',
+				location: 'main.ts:onload:settings',
+				message: 'settings loaded',
+				data: {
+					writingEnabled: this.settings.writingEnabled,
+					drawingEnabled: this.settings.drawingEnabled,
+					booxConnectionEnabled: getBooxConnectionEnabled(),
+					debugLoggingEnabled: this.settings.debugLoggingEnabled,
+				},
+			});
+
+			if (this.settings.writingEnabled) {
+				await runInkOnloadStep('registerWriting', () => {
+					registerWritingView(this);
+					registerWritingEmbed(this);
+					registerUnifiedUndoRedo(this);
+					registerUnifiedUndoRedoCommands(this);
+					implementWritingEmbedCommands(this);
+					registerWritingView_v1(this);
+					registerWritingEmbed_v1(this);
+				});
+			}
+
+			if (this.settings.drawingEnabled) {
+				await runInkOnloadStep('registerDrawing', () => {
+					registerDrawingView(this);
+					registerDrawingEmbed(this);
+					if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
+					if (!this.settings.writingEnabled) registerUnifiedUndoRedoCommands(this);
+					implementDrawingEmbedCommands(this);
+					registerDrawingView_v1(this);
+					registerDrawingEmbed_v1(this);
+				});
+			}
+
+			if (this.settings.writingEnabled || this.settings.drawingEnabled) {
+				await runInkOnloadStep('registerEmbeds', async () => {
+					const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
+					this.registerEditorExtension([inkEmbedsExtension()]);
+					registerPasteEmbedHandler(this);
+					registerReadingModeInkEmbeds(this);
+				});
+			}
+
+			await runInkOnloadStep('registerSettingsTab', () => {
+				registerSettingsTab(this);
+			});
+
+			await runInkOnloadStep('showOnboardingTips', () => {
+				showOnboardingTips_maybe(this);
+			});
+
+			postCursorDebugIngest({
+				hypothesisId: 'H-win-onload-complete',
+				location: 'main.ts:onload:complete',
+				message: 'onload completed',
+			});
+		} catch (error) {
+			postCursorDebugIngest({
+				hypothesisId: 'H-win-onload-throw',
+				location: 'main.ts:onload:catch',
+				message: 'onload threw',
+				data: serializeUnknownError(error),
+			});
+			throw error;
 		}
-
-		// Once emulation is active (or not requested), clear the guard for future sessions.
-		if (!emulateMobileRequested || alreadyInMobileMode) {
-			window.localStorage.removeItem(mobileEmulationReloadGuardKey);
-		}
-
-		if (this.settings.writingEnabled) {
-
-			// Current
-			registerWritingView(this);
-			registerWritingEmbed(this);
-			registerUnifiedUndoRedo(this);
-			registerUnifiedUndoRedoCommands(this);
-			implementWritingEmbedCommands(this);
-			
-			// Legacy v1's are on to allow displaying, but not creating
-			registerWritingView_v1(this);
-			registerWritingEmbed_v1(this);
-			// implementWritingEmbedCommandimplementWritingEmbedCommands_v1(this); s_v1(this);
-		}
-		
-		if (this.settings.drawingEnabled) {
-
-			// Current
-			registerDrawingView(this);
-			registerDrawingEmbed(this);
-			if (!this.settings.writingEnabled) registerUnifiedUndoRedo(this);
-			if (!this.settings.writingEnabled) registerUnifiedUndoRedoCommands(this);
-			implementDrawingEmbedCommands(this);
-
-			// Legacy v1's are on to allow displaying, but not creating
-			registerDrawingView_v1(this);
-			registerDrawingEmbed_v1(this);
-			// implementDrawingEmbedCommands_v1(this);
-		}
-
-		// Register a single generic embed orchestrator if either format is enabled
-		if (this.settings.writingEnabled || this.settings.drawingEnabled) {
-			const { inkEmbedsExtension } = await import('./components/formats/current/ink-embeds-extension/ink-embeds-extension');
-			this.registerEditorExtension([inkEmbedsExtension()]);
-			registerPasteEmbedHandler(this);
-			registerReadingModeInkEmbeds(this);
-		}
-
-		registerSettingsTab(this);
-
-		// // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// // Using this function will automatically remove the event listener when this plugin is disabled.
-		// // this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-		// // 	console.log('click', evt);
-		// // });
-
-		showOnboardingTips_maybe(this);
-
 	}
 
 	onunload() {
+		postCursorDebugIngest({
+			hypothesisId: 'H-win-onunload',
+			location: 'main.ts:onunload',
+			message: 'plugin unloading',
+		});
 		logToVault('Plugin unloaded');
 		this.booxConnection?.dispose();
 	}
@@ -223,6 +300,7 @@ export default class InkPlugin extends Plugin {
 		setDominantHand(this.settings.dominantHand);
 		resetBooxConnectionToDefault();
 		resetFingerDrawingToDefault();
+		resetExperimentalDeviceSettingsToDefault();
 		this.booxConnection.onSettingsChanged();
 		await this.saveSettings();
 		new Notice('Ink plugin settings reset');

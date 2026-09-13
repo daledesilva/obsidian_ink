@@ -1,4 +1,4 @@
-import { MarkdownRenderChild, TFile } from 'obsidian';
+import { EventRef, MarkdownRenderChild, TFile } from 'obsidian';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import classNames from 'classnames';
@@ -30,9 +30,10 @@ export type InkReadingEmbedHostParams = {
 export class InkReadingEmbedHost extends MarkdownRenderChild {
 	private reactRoot: Root | null = null;
 	private resizeObserver: ResizeObserver | null = null;
-	private pageResizeObserver: ResizeObserver | null = null;
 	private resizeContainerEl: HTMLElement | null = null;
-	private writingFileModifyRef: ReturnType<InkPlugin['app']['vault']['on']> | null = null;
+	// Direct EventRef type, not ReturnType<...vault['on']>: the indexed-access form resolves to the
+	// last `Vault.on` overload and collapses to `any` under a degraded type-checker (hosted review).
+	private writingFileModifyRef: EventRef | null = null;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -40,10 +41,6 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 	) {
 		super(containerEl);
 	}
-
-	private handleWindowResize = () => {
-		this.applyDimensions();
-	};
 
 	onload(): void {
 		this.containerEl.removeAttribute(INK_READING_MOUNTING_ATTR);
@@ -63,14 +60,11 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 				onMount={(_embedEl, resizeContainerEl) => {
 					this.resizeContainerEl = resizeContainerEl;
 					this.attachResizeObserver(resizeContainerEl);
-					this.attachPageResizeObserver(resizeContainerEl);
 					this.applyDimensions();
 					void this.syncWritingAspectRatioFromFile();
 				}}
 			/>,
 		);
-
-		window.addEventListener('resize', this.handleWindowResize);
 
 		if (this.params.embedKind === 'writing' && this.params.embeddedFile) {
 			const writingFilePath = this.params.embeddedFile.path;
@@ -83,13 +77,10 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 	}
 
 	onunload(): void {
-		window.removeEventListener('resize', this.handleWindowResize);
 		if (this.writingFileModifyRef) {
 			this.params.plugin.app.vault.offref(this.writingFileModifyRef);
 			this.writingFileModifyRef = null;
 		}
-		this.pageResizeObserver?.disconnect();
-		this.pageResizeObserver = null;
 		this.resizeContainerEl = null;
 		this.containerEl.removeAttribute(INK_READING_ACTIVE_ATTR);
 		this.containerEl.removeAttribute(INK_READING_MOUNTING_ATTR);
@@ -135,20 +126,14 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 			this.applyDimensions();
 		});
 		this.resizeObserver.observe(resizeContainerEl);
-	}
 
-	private attachPageResizeObserver(resizeContainerEl: HTMLElement | null) {
-		if (!resizeContainerEl) return;
-
+		// Also observe the reading/preview page so column width changes still
+		// reflow writing height without a separate window resize listener.
 		const pageEl = resizeContainerEl.closest('.markdown-preview-view')
 			?? resizeContainerEl.closest('.markdown-reading-view');
-		if (!(pageEl instanceof HTMLElement)) return;
-
-		this.pageResizeObserver?.disconnect();
-		this.pageResizeObserver = new ResizeObserver(() => {
-			this.applyDimensions();
-		});
-		this.pageResizeObserver.observe(pageEl);
+		if (pageEl instanceof HTMLElement && pageEl !== resizeContainerEl) {
+			this.resizeObserver.observe(pageEl);
+		}
 	}
 }
 

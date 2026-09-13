@@ -2,6 +2,10 @@
 
 .ddc_ink_resize-container {
     width: 100%;
+    // Preview/editor are position:absolute; height:100%. Without a positioning
+    // context here, they size against the padded embed and paint ~1em below the
+    // widget root (next markdown line overlaps the locked card).
+    position: relative;
 }
 
 .ddc_ink_resize-container.ddc_ink_smooth-transition {

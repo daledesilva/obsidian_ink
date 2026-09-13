@@ -21,4 +21,6 @@ export interface DeviceSettingsV1 {
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;
 	/** Last detected input for this device (shared by writing and drawing). */
 	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;
+	/** Experimental: pen barrel button temporarily erases instead of panning. */
+	stylusSideButtonTemporaryErase: boolean;
 }

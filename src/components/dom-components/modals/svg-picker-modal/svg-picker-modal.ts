@@ -273,7 +273,7 @@ export class SvgFilePickerModal extends Modal {
 	}
 
 	private renderSectionHeader(container: HTMLElement, label: string): void {
-		const header = container.createEl("div", { cls: "ink-svg-picker-section-header" });
+		const header = container.createDiv({ cls: "ink-svg-picker-section-header" });
 		header.setText(label);
 	}
 

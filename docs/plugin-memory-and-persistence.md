@@ -74,9 +74,11 @@ sequenceDiagram
 
 - **Location:** [`src/logic/device-settings/`](../src/logic/device-settings/) (`readDeviceSettings`, `patchDeviceSettings`, `getStrokeInputTreatAs`, `setStrokeInputTreatAs`, `subscribeDeviceSettingsChanged`).
 - **Storage key:** `deviceSettings_v1` via `saveLocally` / `fetchLocally`.
-- **Fields:** `pluginVersion` (current Ink semver, updated on read/write), `booxConnectionEnabled` (default off), `strokeInputTreatAs` per editor kind, `lastDetectedStrokeInput`.
+- **Fields:** `pluginVersion` (current Ink semver, updated on read/write), `booxConnectionEnabled` (default off), `fingerDrawingEnabled`, `strokeInputTreatAs` per editor kind, `lastDetectedStrokeInput`, `stylusSideButtonTemporaryErase` (default off).
 - **Same-tab updates:** Writes dispatch a custom window event; readers (e.g. React hooks in the ink canvas) also listen for the native `storage` event for other tabs.
-- **UI:** “Enable Boox companion app” and “Smoothing and pressure” (pen vs mouse, separate for writing and drawing) read/write this blob, not `data.json`. Vault **Reset settings** also resets `booxConnectionEnabled` to off on this device.
+- **UI:** **Smoothing and pressure** (pen vs mouse, separate for writing and drawing) read/write this blob. **Experimental changes** (section above **This plugin is in beta**) holds Boox companion and side-button temporary eraser — all device-local. Vault **Reset settings** resets Boox to off, finger drawing to off, and experimental flags to defaults on this device.
+- **Experimental changes UI:** A clickable header with collapse arrow (same pattern as **This plugin is in beta**). It starts **collapsed** and only shows or hides the inner settings — it does **not** master-enable or disable Boox or side-button eraser. Each inner toggle persists independently in `deviceSettings_v1`. Do not reuse `ToggleAccordionSetting` here; that component’s header toggle looked like a master switch and confused users.
+- **Legacy field:** `doubleTapToggleEraser` may still exist in older device-storage JSON from a removed experimental feature; reads ignore it and the next write drops it.
 - **Migration:** On load, legacy `booxConnectionEnabled` / `einkBridgeEnabled` values in `data.json` are copied into device storage once, then removed from the vault file.
 
 ### 4. Jotai `atomWithStorage` (still `localStorage`, separate from `storage.ts`)
@@ -86,8 +88,9 @@ sequenceDiagram
 
 ### 5. In-memory Jotai (not persisted)
 
-- **Examples:** [`src/stores/global-store.ts`](../src/stores/global-store.ts) (`globalsAtom`), [`src/stores/dominant-hand-store.ts`](../src/stores/dominant-hand-store.ts) (`dominantHandAtom` — **hydrated from** `PluginSettings` on load; the atom itself is runtime convenience for React).
+- **Examples:** [`src/stores/global-store.ts`](../src/stores/global-store.ts) (`globalsAtom`), [`src/stores/dominant-hand-store.ts`](../src/stores/dominant-hand-store.ts) (`dominantHandAtom` — **hydrated from** `PluginSettings` on load; the atom itself is runtime convenience for React), writing/drawing **edit-mode sets** (`embedsInEditModeAtom` / `embedsInEditModeAtom_v2`).
 - **Use for:** Process-wide handles and UI state that should reset when the plugin reloads.
+- **Embed widgets:** Live Preview writing/drawing widgets must use `<JotaiProvider store={getDefaultStore()}>`. A bare Provider creates an isolated store that dies on CodeMirror remount and makes an unlocked embed look locked. See [embed-scrolling.md](embed-scrolling.md) (Shared Jotai store).
 
 ### 6. Ink document content (vault files)
 
@@ -107,6 +110,7 @@ sequenceDiagram
 - **Popout windows:** Always use `storage.ts` (active window storage) for new device-local keys so behaviour matches the focused Obsidian window.
 - **Corrupt JSON in device blobs:** Device settings readers should defensively parse and fall back to defaults (see `readDeviceSettings`); new blobs should stay versioned for future migrations.
 - **Do not store functions in any persisted JSON:** Stroke easing and similar behaviour are derived from serialisable fields (e.g. `inputKind`, `simulatePressure`) at render time — see ink canvas types and stroke presets.
+- **Embed unlock is in-memory only:** Edit-mode atom membership does not survive plugin reload; it must survive CM widget remount within a session via the shared default store.
 
 ---
 

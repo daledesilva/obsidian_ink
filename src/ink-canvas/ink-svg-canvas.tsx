@@ -1,8 +1,6 @@
 import './ink-svg-canvas.scss';
 import React, { useEffect, useLayoutEffect, useRef, useCallback, useState, memo } from 'react';
-import { getStroke } from 'perfect-freehand';
-import { getSvgPathFromStroke } from './utils/svg-path-from-stroke';
-import { StrokeStore } from './stroke-store';
+import { StrokeStore, type StrokeStoreChange } from './stroke-store';
 import { UndoManager } from './undo-manager';
 import { panByScreenDelta, zoomAtPoint, clampZoom, fitBoundsToViewport, adjustCameraToPreservePagePointAtScreenTargets, adjustCameraToPreserveViewportCenter, screenToPage as screenToPageFn, getRightDragZoomDelta } from './camera';
 import { createPanMomentumController, createModifierWheelZoomDirectionResolver, isTrackpadWheel, type PanMomentumController } from './pan-momentum';
@@ -27,13 +25,20 @@ import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-set
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
+import { useStylusSideButtonTemporaryEraseEnabled } from 'src/logic/device-settings/use-stylus-side-button-temporary-erase';
+import {
+	isStylusEraserPointerActive,
+	isStylusEraserPointerDown,
+	isStylusSideButtonPointerDown,
+} from './utils/stylus-eraser-pointer';
 import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
-import { toStrokeOptions, DEFAULT_STROKE_STYLE } from './types';
+import { DEFAULT_STROKE_STYLE } from './types';
 import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvasEditor, InkStroke } from './types';
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
 import { InkAdaptiveGrid, INK_GRID_BOOX_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
+import { getRenderedStrokeData } from './rendered-stroke-cache';
 
 type LastCanvasPointerState = {
 	clientX: number;
@@ -42,6 +47,8 @@ type LastCanvasPointerState = {
 	pointerType: string;
 	buttons: number;
 };
+
+type TemporaryEraseSource = 'mod' | 'stylusEraser' | 'sideButton';
 
 function isModKeyKeyboardEvent(e: KeyboardEvent): boolean {
 	return e.key === 'Control' || e.key === 'Meta';
@@ -66,6 +73,8 @@ export interface InkSvgCanvasProps {
 	initialSnapshot?: InkCanvasSnapshot;
 	onEditorReady?: (editor: InkCanvasEditor) => void;
 	onChange?: () => void;
+	/** Pauses expensive persistence work while a pen/pointer interaction is active. */
+	onInteractionChange?: (active: boolean) => void;
 	/** Fired when a new undoable canvas command is executed (stroke, erase, move, etc.). */
 	onEmbedUndoStackPush?: () => void;
 	/** Emits whenever camera changes (pan/zoom/setCamera). */
@@ -107,10 +116,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
 	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
+	const isStylusSideButtonTemporaryEraseEnabled = useStylusSideButtonTemporaryEraseEnabled();
+	const isStylusSideButtonTemporaryEraseEnabledRef = useRef(isStylusSideButtonTemporaryEraseEnabled);
+	isStylusSideButtonTemporaryEraseEnabledRef.current = isStylusSideButtonTemporaryEraseEnabled;
 
 	const pageWidth = props.pageWidth ?? WRITING_PAGE_WIDTH;
 	const writingBufferLines = props.writingBufferLines ?? 3;
 	const writingLineHeight = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
+	const contentMaxYRef = useRef(0);
 
 	const canvasWrapperRef = useRef<HTMLDivElement>(null);
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -124,6 +137,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const contentHeight = strokes.length > 0
 			? computeApproxContentMaxY(strokes)
 			: 0;
+		contentMaxYRef.current = contentHeight;
 		return cropWritingStrokeHeightInvitingly(contentHeight, writingBufferLines, writingLineHeight);
 	}
 
@@ -166,20 +180,19 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		onCameraChangeRef.current?.({ ...nextCamera }, rect, meta);
 	}, []);
 	const commitUserCameraState = useCallback((computeNext: (prev: CameraState) => CameraState) => {
-		let nextCamera: CameraState | null = null;
-		setCameraState((prev) => {
-			nextCamera = computeNext(prev);
-			cameraRef.current = nextCamera;
-			return nextCamera;
-		});
-		if (nextCamera) {
-			emitCameraChange(nextCamera, { source: 'user' });
-		}
+		// Compute synchronously from cameraRef — forwarded pointer events may not run the
+		// setState updater before this function returns, which would skip onCameraChange.
+		const nextCamera = computeNext(cameraRef.current);
+		cameraRef.current = nextCamera;
+		setCameraState(nextCamera);
+		emitCameraChange(nextCamera, { source: 'user' });
 	}, [emitCameraChange]);
 	const gridEnabledRef = useRef(gridEnabled);
 	gridEnabledRef.current = gridEnabled;
 	const onChangeRef = useRef(props.onChange);
 	onChangeRef.current = props.onChange;
+	const onInteractionChangeRef = useRef(props.onInteractionChange);
+	onInteractionChangeRef.current = props.onInteractionChange;
 	const onEmbedUndoStackPushRef = useRef(props.onEmbedUndoStackPush);
 	onEmbedUndoStackPushRef.current = props.onEmbedUndoStackPush;
 	const setGridEnabledHandlerRef = useRef<(enabled: boolean) => void>(() => {});
@@ -306,21 +319,29 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	// Subscribe to store changes to re-render strokes
 	useEffect(() => {
-		const unsubStore = storeRef.current.subscribe(() => {
-			// Invalidate cull bounds + path `d` — points/style may have changed; store still holds every stroke.
-			strokeBoundsCacheRef.current.clear();
-			strokePathDCacheRef.current.clear();
+		const unsubStore = storeRef.current.subscribe((change) => {
+			// Only invalidate cache entries touched by this mutation.
+			invalidateStrokeCaches(change);
 			forceRender(n => n + 1);
 			props.onChange?.();
 
 			if (writingMode) {
-				const allStrokes = storeRef.current.getAll();
+				if (change.type === 'add' || change.type === 'addMany') {
+					for (const id of change.ids) {
+						const stroke = storeRef.current.getById(id);
+						if (!stroke) continue;
+						const bounds = computeApproxStrokePageBounds(stroke);
+						strokeBoundsCacheRef.current.set(id, bounds);
+						if (bounds.maxY > contentMaxYRef.current) contentMaxYRef.current = bounds.maxY;
+					}
+				} else if (change.type === 'clear') {
+					contentMaxYRef.current = 0;
+				} else {
+					contentMaxYRef.current = computeApproxContentMaxY(storeRef.current.getAll());
+				}
 				const lh = props.initialSnapshot?.writingLineHeight ?? WRITING_LINE_HEIGHT;
-				const contentHeight = allStrokes.length > 0
-					? computeApproxContentMaxY(allStrokes)
-					: 0;
 				const candidateHeight = cropWritingStrokeHeightInvitingly(
-					contentHeight,
+					contentMaxYRef.current,
 					writingBufferLines,
 					lh,
 				);
@@ -335,6 +356,21 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		});
 		return () => { unsubStore(); unsubUndo(); };
 	}, []);  
+
+	function invalidateStrokeCaches(change: StrokeStoreChange): void {
+		// Mutation events name touched ids so we avoid clearing every stroke's path on each add.
+		if (change.type === 'clear' || change.type === 'replaceAll') {
+			strokeBoundsCacheRef.current.clear();
+			strokePathDCacheRef.current.clear();
+			return;
+		}
+
+		for (const id of change.ids) {
+			strokeBoundsCacheRef.current.delete(id);
+			// Moving a stroke only changes its transform; its path data stays valid.
+			if (change.type !== 'updateOffsets') strokePathDCacheRef.current.delete(id);
+		}
+	}
 
 	// Re-cull when the note scroller or window moves the canvas on/off screen (embeds + dedicated).
 	useEffect(() => {
@@ -603,10 +639,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Space+drag pan (Phase C)
 	const isSpaceHeldRef = useRef(false);
 	const isPointerOverCanvasRef = useRef(false);
-	/** While cmd/ctrl is held: temporarily switches tool to erase, then restores on release. */
+	/** While a modifier or stylus button is held: temporarily switches tool to erase, then restores on release. */
 	const isModKeyHeldRef = useRef(false);
-	const isModTemporaryEraseModeRef = useRef(false);
-	const toolBeforeModTemporaryEraseRef = useRef<InkTool | null>(null);
+	const isTemporaryEraseModeRef = useRef(false);
+	const temporaryEraseSourceRef = useRef<TemporaryEraseSource | null>(null);
+	const toolBeforeTemporaryEraseRef = useRef<InkTool | null>(null);
 	const lastCanvasPointerRef = useRef<LastCanvasPointerState | null>(null);
 	/** After mod release with mouse still down, ignore primary pointer until up. */
 	const suppressPrimaryPointerUntilUpRef = useRef(false);
@@ -619,12 +656,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	// Discard any in-progress local stroke when Boox takes over input (matches tldraw lockTldrawInput).
 	useEffect(() => {
 		if (!props.isBooxInputLocked) return;
-		if (isModTemporaryEraseModeRef.current) {
-			isModTemporaryEraseModeRef.current = false;
+		if (isTemporaryEraseModeRef.current) {
+			isTemporaryEraseModeRef.current = false;
 			isModKeyHeldRef.current = false;
+			temporaryEraseSourceRef.current = null;
 			suppressPrimaryPointerUntilUpRef.current = false;
-			const previousTool = toolBeforeModTemporaryEraseRef.current;
-			toolBeforeModTemporaryEraseRef.current = null;
+			const previousTool = toolBeforeTemporaryEraseRef.current;
+			toolBeforeTemporaryEraseRef.current = null;
 			if (previousTool) applyToolChange(previousTool);
 		}
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
@@ -646,23 +684,28 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		return isPointerOverCanvasRef.current || hasActiveCanvasPointer;
 	}, []);
 
-	const beginModTemporaryEraseMode = useCallback((opts?: {
+	// Unified temporary erase: mod key, hardware eraser (button 5), and experimental side
+	// button share one restore path. tldraw did this for Wacom/Surface; InkSvgCanvas must too
+	// after the 0.5 migration (see docs/stylus-eraser-input.md).
+	const beginTemporaryEraseMode = useCallback((opts: {
+		source: TemporaryEraseSource;
 		pointerDownEvent?: PointerEvent;
 		forceActivate?: boolean;
 	}) => {
-		if (isModTemporaryEraseModeRef.current) {
-			if (opts?.pointerDownEvent) {
+		if (isTemporaryEraseModeRef.current) {
+			if (opts.pointerDownEvent) {
 				eraseToolPointerDown(opts.pointerDownEvent, eraseCtx);
 			}
 			return;
 		}
 		if (isBooxInputLockedRef.current) return;
-		if (!opts?.forceActivate && !shouldModTemporaryEraseActivate()) {
+		if (opts.source === 'mod' && !opts.forceActivate && !shouldModTemporaryEraseActivate()) {
 			return;
 		}
 
-		isModTemporaryEraseModeRef.current = true;
-		toolBeforeModTemporaryEraseRef.current = toolRef.current;
+		isTemporaryEraseModeRef.current = true;
+		temporaryEraseSourceRef.current = opts.source;
+		toolBeforeTemporaryEraseRef.current = toolRef.current;
 
 		drawToolPointerCancel({} as PointerEvent, drawCtx);
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
@@ -670,7 +713,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		applyToolChange('erase');
 
-		if (opts?.pointerDownEvent) {
+		if (opts.pointerDownEvent) {
 			eraseToolPointerDown(opts.pointerDownEvent, eraseCtx);
 			return;
 		}
@@ -682,14 +725,16 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 	}, [shouldModTemporaryEraseActivate]);  
 
-	const endModTemporaryEraseMode = useCallback(() => {
-		if (!isModTemporaryEraseModeRef.current) return;
+	const endTemporaryEraseMode = useCallback((source: TemporaryEraseSource | null) => {
+		if (!isTemporaryEraseModeRef.current) return;
+		if (source !== null && temporaryEraseSourceRef.current !== source) return;
 
-		isModTemporaryEraseModeRef.current = false;
+		isTemporaryEraseModeRef.current = false;
+		temporaryEraseSourceRef.current = null;
 		eraseToolPointerCancel({} as PointerEvent, eraseCtx);
 
-		const previousTool = toolBeforeModTemporaryEraseRef.current;
-		toolBeforeModTemporaryEraseRef.current = null;
+		const previousTool = toolBeforeTemporaryEraseRef.current;
+		toolBeforeTemporaryEraseRef.current = null;
 		if (previousTool) applyToolChange(previousTool);
 
 		const last = lastCanvasPointerRef.current;
@@ -698,10 +743,10 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 	}, []);  
 
-	const beginModTemporaryEraseModeRef = useRef(beginModTemporaryEraseMode);
-	beginModTemporaryEraseModeRef.current = beginModTemporaryEraseMode;
-	const endModTemporaryEraseModeRef = useRef(endModTemporaryEraseMode);
-	endModTemporaryEraseModeRef.current = endModTemporaryEraseMode;
+	const beginTemporaryEraseModeRef = useRef(beginTemporaryEraseMode);
+	beginTemporaryEraseModeRef.current = beginTemporaryEraseMode;
+	const endTemporaryEraseModeRef = useRef(endTemporaryEraseMode);
+	endTemporaryEraseModeRef.current = endTemporaryEraseMode;
 
 	const recordCanvasPointer = (e: React.PointerEvent) => {
 		lastCanvasPointerRef.current = {
@@ -725,6 +770,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		// Touch input: two-finger gestures are handled by the native touch listener.
 		// Single-finger touch is ignored unless finger drawing is active.
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		onInteractionChangeRef.current?.(true);
 
 		recordCanvasPointer(e);
 		isPointerOverCanvasRef.current = true;
@@ -749,7 +795,30 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			&& e.button === 0
 			&& !isBooxInputLockedRef.current
 		) {
-			beginModTemporaryEraseMode({ pointerDownEvent: e.nativeEvent, forceActivate: true });
+			beginTemporaryEraseMode({ source: 'mod', pointerDownEvent: e.nativeEvent, forceActivate: true });
+			(e.target as HTMLElement).setPointerCapture(e.pointerId);
+			return;
+		}
+
+		// Hardware stylus eraser (button 5) — matches tldraw / Wacom + Surface behaviour.
+		if (
+			isStylusEraserPointerDown(e.nativeEvent)
+			&& toolRef.current === 'draw'
+			&& !isBooxInputLockedRef.current
+		) {
+			beginTemporaryEraseMode({ source: 'stylusEraser', pointerDownEvent: e.nativeEvent });
+			(e.target as HTMLElement).setPointerCapture(e.pointerId);
+			return;
+		}
+
+		// Experimental: pen barrel button erases while held instead of panning.
+		if (
+			isStylusSideButtonTemporaryEraseEnabledRef.current
+			&& isStylusSideButtonPointerDown(e.nativeEvent)
+			&& toolRef.current === 'draw'
+			&& !isBooxInputLockedRef.current
+		) {
+			beginTemporaryEraseMode({ source: 'sideButton', pointerDownEvent: e.nativeEvent });
 			(e.target as HTMLElement).setPointerCapture(e.pointerId);
 			return;
 		}
@@ -806,6 +875,16 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 		if (suppressPrimaryPointerUntilUpRef.current) return;
 
+		// Barrel-held eraser while tip is down: buttons bit 32 without a fresh pointerdown.
+		if (
+			toolRef.current === 'draw'
+			&& !isTemporaryEraseModeRef.current
+			&& isStylusEraserPointerActive(e.nativeEvent)
+			&& !isBooxInputLockedRef.current
+		) {
+			beginTemporaryEraseMode({ source: 'stylusEraser', pointerDownEvent: e.nativeEvent });
+		}
+
 		if (isPanning.current && lastPanPoint.current) {
 			const dx = e.clientX - lastPanPoint.current.x;
 			const dy = e.clientY - lastPanPoint.current.y;
@@ -823,18 +902,18 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			const dragZoomDelta = getRightDragZoomDelta(startPoint.x, startPoint.y, e.clientX, e.clientY);
 			const hasMoved = Math.abs(dragZoomDelta) > 2;
 			if (hasMoved) rightDragMovedRef.current = true;
-			const factor = Math.exp(dragZoomDelta * 0.005);
-			const initialCam = rightDragInitialCameraRef.current;
-			const newZoom = clampZoom(initialCam.zoom * factor);
-			const focal = rightDragFocalScreenRef.current;
-			const zoomDelta = 1 / newZoom - 1 / initialCam.zoom;
-			const next = {
-				x: initialCam.x + focal.x * zoomDelta,
-				y: initialCam.y + focal.y * zoomDelta,
-				zoom: newZoom,
-			};
-			setCameraState(next);
-			emitCameraChange(next, { source: 'user' });
+			commitUserCameraState(() => {
+				const factor = Math.exp(dragZoomDelta * 0.005);
+				const initialCam = rightDragInitialCameraRef.current;
+				const newZoom = clampZoom(initialCam.zoom * factor);
+				const focal = rightDragFocalScreenRef.current;
+				const zoomDelta = 1 / newZoom - 1 / initialCam.zoom;
+				return {
+					x: initialCam.x + focal.x * zoomDelta,
+					y: initialCam.y + focal.y * zoomDelta,
+					zoom: newZoom,
+				};
+			});
 			return;
 		}
 
@@ -847,6 +926,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		onInteractionChangeRef.current?.(false);
 
 		recordCanvasPointer(e);
 
@@ -874,10 +954,21 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerUp(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerUp(e.nativeEvent, selectCtx);
 		}
-	}, [tool, releasePanMomentum]);  
+
+		if (temporaryEraseSourceRef.current === 'stylusEraser' && isStylusEraserPointerDown(e.nativeEvent)) {
+			endTemporaryEraseMode('stylusEraser');
+		} else if (
+			isStylusSideButtonTemporaryEraseEnabledRef.current
+			&& temporaryEraseSourceRef.current === 'sideButton'
+			&& isStylusSideButtonPointerDown(e.nativeEvent)
+		) {
+			endTemporaryEraseMode('sideButton');
+		}
+	}, [tool, releasePanMomentum, applyToolChange]);  
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		onInteractionChangeRef.current?.(false);
 
 		recordCanvasPointer(e);
 
@@ -904,7 +995,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			if (toolRef.current === 'erase') eraseToolPointerCancel(e.nativeEvent, eraseCtx);
 			if (toolRef.current === 'select') selectToolPointerCancel(e.nativeEvent, selectCtx);
 		}
-	}, [tool]);  
+
+		if (isTemporaryEraseModeRef.current) {
+			endTemporaryEraseMode(temporaryEraseSourceRef.current);
+		}
+	}, [tool, endTemporaryEraseMode]);  
 
 	const handleDrawingEmbedTwoFingerGesture = useCallback(
 		(params: { deltaX: number; deltaY: number; anchorX: number; anchorY: number; distanceRatio: number }) => {
@@ -1074,7 +1169,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			isModKeyHeldRef.current = true;
 			// Activate for any mounted ink editor (dedicated or embed-in-edit). InkSvgCanvas
 			// is not mounted in preview mode, so mod+erase is scoped to open editors only.
-			beginModTemporaryEraseModeRef.current({ forceActivate: true });
+			beginTemporaryEraseModeRef.current({ source: 'mod', forceActivate: true });
 		};
 
 		const handleKeyUp = (e: KeyboardEvent) => {
@@ -1084,11 +1179,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				isModKeyHeldRef.current = false;
 			}
 			if (modStillHeld) return;
-			endModTemporaryEraseModeRef.current();
+			endTemporaryEraseModeRef.current('mod');
 		};
 
 		const handleWindowBlur = () => {
-			endModTemporaryEraseModeRef.current();
+			endTemporaryEraseModeRef.current('mod');
 		};
 
 		window.addEventListener('keydown', handleKeyDown, true);
@@ -1162,6 +1257,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				forwardFingerToCanvas={
 					!!props.isFingerDrawingActive && !props.isBooxInputLocked
 				}
+				enableStylusSideButtonTemporaryErase={isStylusSideButtonTemporaryEraseEnabled}
 				onDrawingEmbedTwoFingerGesture={
 					!writingMode ? handleDrawingEmbedTwoFingerGesture : undefined
 				}
@@ -1184,8 +1280,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 				}}
 				onMouseEnter={(e) => {
 					isPointerOverCanvasRef.current = true;
-					if ((e.metaKey || e.ctrlKey || isModKeyHeldRef.current) && !isModTemporaryEraseModeRef.current) {
-						beginModTemporaryEraseModeRef.current({ forceActivate: true });
+					if ((e.metaKey || e.ctrlKey || isModKeyHeldRef.current) && !isTemporaryEraseModeRef.current) {
+						beginTemporaryEraseModeRef.current({ source: 'mod', forceActivate: true });
 					}
 				}}
 				onMouseMove={() => { isPointerOverCanvasRef.current = true; }}
@@ -1303,8 +1399,7 @@ const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.E
 	// cache clear + remount) reuse `d` when the id is still populated; offset is transform-only.
 	let d = pathDCache.get(stroke.id);
 	if (d === undefined) {
-		const outlinePoints = getStroke(stroke.points, toStrokeOptions(stroke.style));
-		d = getSvgPathFromStroke(outlinePoints);
+		d = getRenderedStrokeData(stroke).pathD;
 		pathDCache.set(stroke.id, d);
 	}
 

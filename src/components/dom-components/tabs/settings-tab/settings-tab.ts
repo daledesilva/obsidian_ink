@@ -18,9 +18,11 @@ import {
 	getFingerDrawingEnabled,
 	getLastDetectedStrokeInput,
 	getStrokeInputTreatAs,
+	getStylusSideButtonTemporaryEraseEnabled,
 	setBooxConnectionEnabled,
 	setFingerDrawingEnabled,
 	setStrokeInputTreatAs,
+	setStylusSideButtonTemporaryEraseEnabled,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
@@ -43,6 +45,11 @@ export class MySettingsTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.renderSettingsTab();
+	}
+
+	/** Imperative settings UI; called from display() and after reset without re-invoking deprecated display(). */
+	private renderSettingsTab(): void {
 		const {containerEl} = this;
 
 		this.unsubscribeDeviceSettings?.();
@@ -67,6 +74,7 @@ export class MySettingsTab extends PluginSettingTab {
 		let drawingSectionEl!: HTMLElement;
 		let booxCompanionToggle: ToggleComponent | undefined;
 		let fingerDrawingToggle: ToggleComponent | undefined;
+		let stylusSideButtonTemporaryEraseToggle: ToggleComponent | undefined;
 
 		insertHighLevelSettings(containerEl, this.plugin,
 			(show) => {
@@ -76,9 +84,6 @@ export class MySettingsTab extends PluginSettingTab {
 			(show) => {
 				if (show) drawingSectionEl.classList.add('ddc_ink_expanded');
 				else drawingSectionEl.classList.remove('ddc_ink_expanded');
-			},
-			(toggle) => {
-				booxCompanionToggle = toggle;
 			},
 			(toggle) => {
 				fingerDrawingToggle = toggle;
@@ -102,6 +107,7 @@ export class MySettingsTab extends PluginSettingTab {
 			}
 			booxCompanionToggle?.setValue(getBooxConnectionEnabled());
 			fingerDrawingToggle?.setValue(getFingerDrawingEnabled());
+			stylusSideButtonTemporaryEraseToggle?.setValue(getStylusSideButtonTemporaryEraseEnabled());
 		});
 		insertFileOrganisationSection(containerEl, this.plugin);
 
@@ -117,7 +123,7 @@ export class MySettingsTab extends PluginSettingTab {
 						confirmLabel: 'Reset settings',
 						confirmAction: () => {
 							void this.plugin.resetSettings().then(() => {
-								this.display();
+								this.renderSettingsTab();
 							});
 						}
 					}).open();
@@ -125,6 +131,11 @@ export class MySettingsTab extends PluginSettingTab {
 			})
 
 		containerEl.createEl('hr');
+		insertExperimentalChangesSection(containerEl, this.plugin, (toggle) => {
+			booxCompanionToggle = toggle;
+		}, (toggle) => {
+			stylusSideButtonTemporaryEraseToggle = toggle;
+		});
 		insertPrereleaseWarning(containerEl, this.plugin);
 		insertPluginDevelopmentSection(containerEl);
 
@@ -198,7 +209,7 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	// Keep product names and intentional tip-label casing below.
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText('Short videos demonstrating Ink\'s features.');
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "slash commander".`);
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "Slash Commander".`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Drawing embed framing');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Two fingers or right mouse button to reframe. Cmd + right mouse button to zoom, or Cmd + scroll wheel.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Locked embeds');
@@ -303,7 +314,6 @@ function insertHighLevelSettings(
 	plugin: InkPlugin,
 	onToggleWriting: (show: boolean) => void,
 	onToggleDrawing: (show: boolean) => void,
-	onBooxToggleReady?: (toggle: ToggleComponent) => void,
 	onFingerDrawingToggleReady?: (toggle: ToggleComponent) => void,
 ) {
 
@@ -337,20 +347,6 @@ function insertHighLevelSettings(
 
 	new Setting(containerEl)
 		.setClass('ddc_ink_setting')
-		// Keep "Boox" as the product name.
-		.setName('Enable Boox companion app')
-		.setDesc('This enables connection to the Boox companion app for passing through smoother pen strokes. This is currently only available for a closed group of testers.')
-		.addToggle((toggle) => {
-			toggle.setValue(getBooxConnectionEnabled());
-			onBooxToggleReady?.(toggle);
-			toggle.onChange((value: boolean) => {
-				setBooxConnectionEnabled(value);
-				plugin.booxConnection.onSettingsChanged();
-			});
-		});
-
-	new Setting(containerEl)
-		.setClass('ddc_ink_setting')
 		.setName('Enable finger drawing')
 		.setDesc('Shows a toolbar toggle while editing so you can draw with your finger on touch devices. When off, fingers scroll the note as usual.')
 		.addToggle((toggle) => {
@@ -372,6 +368,60 @@ function insertHighLevelSettings(
 			await plugin.saveSettings();
 		});
 
+}
+
+function insertExperimentalChangesSection(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	onBooxToggleReady?: (toggle: ToggleComponent) => void,
+	onStylusSideButtonTemporaryEraseReady?: (toggle: ToggleComponent) => void,
+) {
+	// Expand/collapse header only — same pattern as "This plugin is in beta". Inner toggles
+	// persist independently; do not use ToggleAccordionSetting (header toggle looked like a master switch).
+	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	const controlsEl = wrapperEl.createDiv('ddc_ink_controls-section');
+
+	const headerSetting = new Setting(controlsEl)
+		.setClass('ddc_ink_controls-header')
+		.setClass('ddc_ink_controls-header--clickable')
+		.setName('Experimental changes')
+		.setDesc('Features under active testing. They may not work on all devices and might be removed or changed in the next release. Expand for details.');
+
+	const arrowEl = headerSetting.settingEl.createSpan('ddc_ink_collapse-arrow');
+	arrowEl.setText('›');
+
+	headerSetting.settingEl.addEventListener('click', () => {
+		const expanded = wrapperEl.classList.toggle('ddc_ink_expanded');
+		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
+	});
+
+	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		// Keep "Boox" as the product name.
+		.setName('Enable Boox companion app')
+		.setDesc('Connects to the Boox companion app for passing through smoother pen strokes on supported tablets.')
+		.addToggle((toggle) => {
+			toggle.setValue(getBooxConnectionEnabled());
+			onBooxToggleReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setBooxConnectionEnabled(value);
+				plugin.booxConnection.onSettingsChanged();
+			});
+		});
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Side button temporary eraser')
+		.setDesc('While held, the pen barrel button (button 2) erases instead of panning. May conflict with right-click pan on some setups.')
+		.addToggle((toggle) => {
+			toggle.setValue(getStylusSideButtonTemporaryEraseEnabled());
+			onStylusSideButtonTemporaryEraseReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setStylusSideButtonTemporaryEraseEnabled(value);
+			});
+		});
 }
 
 function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlugin) {
@@ -524,25 +574,25 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 	const last = getLastDetectedStrokeInput();
 	const detectedLabel = last === 'pen' ? 'Pen' : last === 'mouse' ? 'Mouse' : 'None';
 
-	const frag = activeDocument.createDocumentFragment();
+	const frag = createFragment();
 
-	const intro = activeDocument.createElement('p');
+	const intro = createEl('p');
 	intro.textContent =
 		'Automatically detect pen or mouse from pressure (auto), use pen pressure and faithful smoothing (pen), or simulated pressure with higher smoothing (mouse).';
 	frag.appendChild(intro);
 
-	const detectedParagraph = activeDocument.createElement('p');
+	const detectedParagraph = createEl('p');
 	detectedParagraph.classList.add('ddc_ink_stroke-input-detected-paragraph');
 
-	const detectedLine = activeDocument.createElement('strong');
+	const detectedLine = createEl('strong');
 	detectedLine.append('Last detected input: ');
-	const detectedValue = activeDocument.createElement('span');
+	const detectedValue = createSpan();
 	detectedValue.className = 'ddc_ink_stroke-input-detected-value';
 	detectedValue.textContent = detectedLabel;
 	detectedLine.appendChild(detectedValue);
 	detectedParagraph.appendChild(detectedLine);
 
-	detectedParagraph.appendChild(activeDocument.createElement('br'));
+	detectedParagraph.appendChild(createEl('br'));
 	detectedParagraph.append('If detection is incorrect, choose Pen or Mouse manually.');
 
 	frag.appendChild(detectedParagraph);
@@ -653,7 +703,7 @@ function insertWritingSettings(
 		.setClass('ddc_ink_controls-header')
 		.setName('Writing')
 		// Keep command-name casing as shown in the command palette.
-		.setDesc(`While editing a Markdown file, run the action 'New handwriting section' to embed a section for writing with a pen.`);
+		.setDesc(`While editing a Markdown file, run the action 'new handwriting section' to embed a section for writing with a pen.`);
 
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 

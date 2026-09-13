@@ -28,6 +28,7 @@ import { EmbedPreviewContextMenu } from "src/components/jsx-components/embed-pre
 import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-ink-embed-store";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
+import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
 
 ///////
 ///////
@@ -288,7 +289,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			style = {{
 				// Must be padding as margin creates codemirror calculation issues
 				paddingTop: '1em',
-				paddingBottom: '0.5em',
+				paddingBottom: '1em',
 			}}
 		>
 			{props.isPendingPaste && props.embeddedFile && (
@@ -405,6 +406,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		embedAspectRatioRef.current = destWidth / destHeight;
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		resizeContainerElRef.current.style.height = destHeight + 'px';
+		inkEmbedSyncWidgetRootMinHeightToContent({
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+		});
 		props.onRequestMeasure?.();
 		// props.setEmbedProps(embedHeightRef.current); // NOTE: Can't do this here because it causes the embed to reload
 	}
@@ -438,6 +442,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		if (resizeContainerElRef.current) {
 			resizeContainerElRef.current.style.width = width + 'px';
 			resizeContainerElRef.current.style.height = width / aspectRatio + 'px';
+			inkEmbedSyncWidgetRootMinHeightToContent({
+				widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+			});
 			props.onRequestMeasure?.();
 		}
 	}
@@ -451,6 +458,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		resizeContainerElRef.current.style.width = embedWidthRef.current + 'px';
 		const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 		resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
+		inkEmbedSyncWidgetRootMinHeightToContent({
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+		});
 		props.onRequestMeasure?.();
 	}
 
@@ -537,6 +547,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			embedAspectRatioRef.current = props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO;
 			applyEmbedDimensions(embedWidthRef.current, embedAspectRatioRef.current);
 		}
+
 	}
 
 	function handleResize() {
@@ -545,6 +556,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
+			inkEmbedSyncWidgetRootMinHeightToContent({
+				widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+			});
 			props.onRequestMeasure?.();
 		}
 	};

@@ -52,10 +52,15 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.fingerDrawingEnabled === 'boolean'
 			? partial.fingerDrawingEnabled
 			: base.fingerDrawingEnabled;
+	const stylusSideButtonTemporaryErase =
+		typeof partial.stylusSideButtonTemporaryErase === 'boolean'
+			? partial.stylusSideButtonTemporaryErase
+			: base.stylusSideButtonTemporaryErase;
 	return {
 		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
 		fingerDrawingEnabled,
+		stylusSideButtonTemporaryErase,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
 			inkDrawing: partial.strokeInputTreatAs.inkDrawing,
@@ -141,6 +146,21 @@ export function setFingerDrawingEnabled(enabled: boolean): void {
 /** Resets finger drawing to default (off). Used by vault "Reset settings". */
 export function resetFingerDrawingToDefault(): void {
 	setFingerDrawingEnabled(DEFAULT_DEVICE_SETTINGS_V1.fingerDrawingEnabled);
+}
+
+export function getStylusSideButtonTemporaryEraseEnabled(): boolean {
+	return readDeviceSettings().stylusSideButtonTemporaryErase;
+}
+
+export function setStylusSideButtonTemporaryEraseEnabled(enabled: boolean): void {
+	patchDeviceSettings({ stylusSideButtonTemporaryErase: enabled });
+}
+
+/** Resets experimental stylus side-button flag to default (off). Used by vault "Reset settings". */
+export function resetExperimentalDeviceSettingsToDefault(): void {
+	patchDeviceSettings({
+		stylusSideButtonTemporaryErase: DEFAULT_DEVICE_SETTINGS_V1.stylusSideButtonTemporaryErase,
+	});
 }
 
 /**

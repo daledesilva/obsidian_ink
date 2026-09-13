@@ -58,7 +58,6 @@ See `jest.config.ts`:
     - `^src/main$` → `tests/__mocks__/mainMock.js` (prevents loading the real plugin runtime).
     - `^obsidian$` → `tests/__mocks__/obsidianMock.js` (stubs Obsidian types like `Menu`, `Notice`).
 - setupFilesAfterEnv: `tests/setupTests.ts` centralizes global mocks.
-- transformIgnorePatterns: transpiles modern ESM packages like `chalk` used by logging utilities.
 
 #### Global mocks and helpers
 
@@ -222,12 +221,12 @@ npm run build:boox
 
 After a successful push, reload Ink on the tablet (toggle the plugin under **Settings → Community plugins**, or restart Obsidian).
 
-#### Deploy to iPad while debugging
+#### Deploy to iPad or Windows while debugging
 
-There is no `adb` push script for iPad. For **Cursor Debug** work, prefer copying a **local build** into the vault on the device:
+There is no `adb` push script for iPad or Windows. For **LAN ingest / Cursor Debug** work, copy a **local build** into the vault on that device (see [Debugging over Wi‑Fi (LAN ingest)](debugging-lan-ingest.md)):
 
-1. From `obsidian_ink/`, run `npm run build` (optionally with `INK_DEBUG_CURSOR_SESSION_ID` / `INK_DEBUG_INGEST_PATH` — see [Debugging on iPad](debugging-on-ipad.md)).
-2. Copy `dist/main.js`, `dist/styles.css`, and `dist/manifest-beta.json` (rename to `manifest.json`) into `<vault>/.obsidian/plugins/ink/`.
+1. From `obsidian_ink/`, run `npm run build` with `INK_DEBUG_CURSOR_SESSION_ID` / `INK_DEBUG_INGEST_PATH` (and a Mac LAN IP baked by esbuild).
+2. Copy `dist/main.js`, `dist/styles.css`, and `dist/manifest.json` (or `dist/manifest-beta.json` renamed to `manifest.json`) into `<vault>/.obsidian/plugins/ink/`.
 3. Quit and reopen Obsidian.
 
 **Do not assume `npm run internal-release` includes uncommitted debug code** — see [Internal release](#internal-release-github-actions) below.
@@ -441,8 +440,10 @@ Troubleshooting:
 ### Related documentation
 
 - [ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md) — `eslint-plugin-obsidianmd` 0.4.x, popout-safe DOM, trashFile, pen scroll-lock literal styles (no eslint-disable), Jest polyfills.
+- [Community review warnings that are scanner-side](community-review-false-positives.md) — which hosted review type warnings are false positives (do not edit source) vs the one worth fixing.
 - [Manifest minAppVersion and versions.json](manifest-and-versions.md) — valid `x.y.z` app floor, fallback map when minAppVersion changes.
 - [Ink canvas: live drawing vs committed strokes](ink-canvas-live-drawing.md) — Live preview path vs stored stroke on pointer up (`InkSvgCanvas`, `draw-tool`).
+- [Ink canvas: large attachment performance](ink-canvas-large-attachment-performance.md) — Stroke geometry cache, mutation-aware invalidation, metadata-only saves, autosave quiet period.
 - [Ink canvas: stroke viewport culling](ink-canvas-stroke-viewport-culling.md) — Render-only skip of off-screen mounts + path `d` / approx maxY caches.
 - [Dedicated writing: tall HTML page scroll](dedicated-writing-html-scroll.md) — Native scroller instead of camera-Y pan for long writing pages.
 - [Ink canvas: capture-time point merge](ink-canvas-point-merge.md) — Hybrid append/replace-tip merge for fast smoothness and slow curves.

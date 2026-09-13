@@ -17,7 +17,37 @@ export function getInkStrokesFromSvg(svgString: string): InkStroke[] {
 }
 
 export function inkFileHasStrokes(svgString: string): boolean {
+	const inkCanvasResult = sniffInkCanvasHasStrokes(svgString);
+	if (inkCanvasResult !== null) return inkCanvasResult;
+
 	return getInkStrokesFromSvg(svgString).length > 0;
+}
+
+/**
+ * Read only the `strokes` array opener from current ink-canvas metadata.
+ * This avoids XML parsing and JSON-decoding every point in multi-megabyte files
+ * when a locked preview only needs to distinguish an empty canvas.
+ */
+export function sniffInkCanvasHasStrokes(svgString: string): boolean | null {
+	const inkCanvasStart = svgString.search(/<ink-canvas\b/i);
+	if (inkCanvasStart === -1) return null;
+
+	const inkCanvasEnd = svgString.indexOf('</ink-canvas>', inkCanvasStart);
+	if (inkCanvasEnd === -1) return null;
+
+	const strokesKey = svgString.indexOf('"strokes"', inkCanvasStart);
+	if (strokesKey === -1 || strokesKey >= inkCanvasEnd) return null;
+
+	const arrayStart = svgString.indexOf('[', strokesKey + '"strokes"'.length);
+	if (arrayStart === -1 || arrayStart >= inkCanvasEnd) return null;
+
+	let firstValueIndex = arrayStart + 1;
+	while (firstValueIndex < inkCanvasEnd && /\s/.test(svgString[firstValueIndex])) {
+		firstValueIndex += 1;
+	}
+
+	if (firstValueIndex >= inkCanvasEnd) return null;
+	return svgString[firstValueIndex] !== ']';
 }
 
 /** When locked and empty, show frame/lines/background regardless of the matching setting. */

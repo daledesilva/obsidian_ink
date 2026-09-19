@@ -1,11 +1,12 @@
 import {
+	ALMOSTUSEFUL_APP_TOKEN_TYPE,
+	ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
+	ALMOSTUSEFUL_CLIENT_ID,
 	ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX,
 	ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX,
 	ALMOSTUSEFUL_PORTAL_ORIGIN,
 	ALMOSTUSEFUL_SESSION_CHANGED_EVENT,
 	ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX,
-	ALMOSTUSEFUL_SUPABASE_ANON_KEY,
-	ALMOSTUSEFUL_SUPABASE_URL,
 } from 'src/logic/almostuseful/almostuseful-constants';
 import { deleteLocally, fetchLocally, saveLocally } from 'src/logic/utils/storage';
 
@@ -13,12 +14,15 @@ import { deleteLocally, fetchLocally, saveLocally } from 'src/logic/utils/storag
 /////////
 
 export interface AlmostUsefulSession {
+	tokenType: typeof ALMOSTUSEFUL_APP_TOKEN_TYPE;
 	accessToken: string;
 	refreshToken: string;
 	expiresAtEpochSeconds: number;
+	grantId: string;
 	userId: string;
-	email: string | null;
-	displayName: string | null;
+	clientId: string;
+	displayName: string;
+	userEmail: string | null;
 }
 
 export interface AlmostUsefulHandoffPending {
@@ -28,39 +32,51 @@ export interface AlmostUsefulHandoffPending {
 
 export interface AlmostUsefulDebugConfig {
 	portalOrigin?: string;
-	supabaseUrl?: string;
-	supabaseAnonKey?: string;
 }
 
-/** Reads the device-local Almost Useful session, or null. */
+/** Reads a live app-token session. Plan 2 user JWTs are discarded. */
 export function readAlmostUsefulSession(): AlmostUsefulSession | null {
 	const raw = fetchLocally(ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX);
 	if (typeof raw !== 'string') return null;
 	try {
 		const parsedUnknown: unknown = JSON.parse(raw);
 		if (!parsedUnknown || typeof parsedUnknown !== 'object') return null;
-		const parsed = parsedUnknown as Partial<AlmostUsefulSession>;
+		const parsed = parsedUnknown as Partial<AlmostUsefulSession> & { tokenType?: string };
+		if (parsed.tokenType !== ALMOSTUSEFUL_APP_TOKEN_TYPE) {
+			deleteLocally(ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX);
+			return null;
+		}
 		if (typeof parsed.accessToken !== 'string') return null;
 		if (typeof parsed.refreshToken !== 'string') return null;
+		if (typeof parsed.grantId !== 'string') return null;
 		if (typeof parsed.userId !== 'string') return null;
 		let expiresAtEpochSeconds = 0;
 		if (typeof parsed.expiresAtEpochSeconds === 'number') {
 			expiresAtEpochSeconds = parsed.expiresAtEpochSeconds;
 		}
+		let clientId = ALMOSTUSEFUL_CLIENT_ID;
+		if (typeof parsed.clientId === 'string' && parsed.clientId) clientId = parsed.clientId;
+		let displayName = ALMOSTUSEFUL_CLIENT_DISPLAY_NAME;
+		if (typeof parsed.displayName === 'string' && parsed.displayName) {
+			displayName = parsed.displayName;
+		}
 		return {
+			tokenType: ALMOSTUSEFUL_APP_TOKEN_TYPE,
 			accessToken: parsed.accessToken,
 			refreshToken: parsed.refreshToken,
 			expiresAtEpochSeconds,
+			grantId: parsed.grantId,
 			userId: parsed.userId,
-			email: typeof parsed.email === 'string' ? parsed.email : null,
-			displayName: typeof parsed.displayName === 'string' ? parsed.displayName : null,
+			clientId,
+			displayName,
+			userEmail: typeof parsed.userEmail === 'string' ? parsed.userEmail : null,
 		};
 	} catch {
 		return null;
 	}
 }
 
-/** Persists the session in device-local storage (not data.json). */
+/** Persists the app-token session in device-local storage (not data.json). */
 export function writeAlmostUsefulSession(session: AlmostUsefulSession): void {
 	saveLocally(ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX, JSON.stringify(session));
 	window.dispatchEvent(new CustomEvent(ALMOSTUSEFUL_SESSION_CHANGED_EVENT));
@@ -77,7 +93,7 @@ export function writeAlmostUsefulHandoffPending(pending: AlmostUsefulHandoffPend
 	saveLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX, JSON.stringify(pending));
 }
 
-/** Reads in-flight handoff PKCE state. */
+/** Reads in-flight authorize PKCE state. */
 export function readAlmostUsefulHandoffPending(): AlmostUsefulHandoffPending | null {
 	const raw = fetchLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX);
 	if (typeof raw !== 'string') return null;
@@ -98,7 +114,7 @@ export function clearAlmostUsefulHandoffPending(): void {
 	deleteLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX);
 }
 
-/** Optional debug overrides for staging portal hosts. */
+/** Optional debug override for a staging portal host. */
 export function readAlmostUsefulDebugConfig(): AlmostUsefulDebugConfig {
 	const raw = fetchLocally(ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX);
 	if (typeof raw !== 'string') return {};
@@ -111,30 +127,16 @@ export function readAlmostUsefulDebugConfig(): AlmostUsefulDebugConfig {
 	}
 }
 
-/** Saves debug portal/supabase overrides (device-local). */
+/** Saves debug portal origin (device-local). */
 export function writeAlmostUsefulDebugConfig(config: AlmostUsefulDebugConfig): void {
 	saveLocally(ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX, JSON.stringify(config));
 }
 
-/** Portal origin used for handoff and usage APIs. */
+/** Portal origin used for authorize and usage APIs. */
 export function resolveAlmostUsefulPortalOrigin(): string {
 	const override = readAlmostUsefulDebugConfig().portalOrigin?.trim();
 	if (override) return override.replace(/\/$/, '');
 	return ALMOSTUSEFUL_PORTAL_ORIGIN;
-}
-
-/** Supabase URL for session refresh (anon key only). */
-export function resolveAlmostUsefulSupabaseUrl(): string {
-	const override = readAlmostUsefulDebugConfig().supabaseUrl?.trim();
-	if (override) return override.replace(/\/$/, '');
-	return ALMOSTUSEFUL_SUPABASE_URL;
-}
-
-/** Public anon key matching the resolved Supabase URL. */
-export function resolveAlmostUsefulSupabaseAnonKey(): string {
-	const override = readAlmostUsefulDebugConfig().supabaseAnonKey?.trim();
-	if (override) return override;
-	return ALMOSTUSEFUL_SUPABASE_ANON_KEY;
 }
 
 /** Subscribes settings UI to session changes. */

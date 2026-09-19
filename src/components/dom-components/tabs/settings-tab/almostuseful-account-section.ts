@@ -62,7 +62,7 @@ export function insertAlmostUsefulAccountSection(
 		// start a competing PKCE while the backup code is the recovery path.
 		if (isWaitingForHandoff) {
 			contentEl.createEl('p', {
-				text: 'Finish sign-in in your browser… If a new Obsidian window opened, come back to this window and paste the backup code.',
+				text: 'Confirm in your browser. If a new Obsidian window opened, come back to this window and paste the backup code.',
 			});
 			insertPasteHandoffCode(contentEl, onRerender);
 		} else {
@@ -120,7 +120,7 @@ export function insertAlmostUsefulAccountSection(
 
 function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): string {
 	if (!session) return 'Almost Useful account';
-	const identity = session.displayName || session.email;
+	const identity = session.userEmail;
 	if (identity) return `Almost Useful account: logged in as ${identity}`;
 	return 'Almost Useful account: logged in';
 }

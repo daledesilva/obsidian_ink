@@ -24,13 +24,34 @@ import {
 /////////
 /////////
 
-export type AlmostUsefulLoginPhase = 'idle' | 'pending';
+export type AlmostUsefulLoginPhase = 'idle' | 'opening' | 'pending';
+
+const PASTE_UI_DELAY_MS = 4000;
 
 let almostUsefulLoginPhase: AlmostUsefulLoginPhase = 'idle';
+let almostUsefulPasteUiTimer: number | null = null;
 
 /** Current UI phase for the settings account section. */
 export function getAlmostUsefulLoginPhase(): AlmostUsefulLoginPhase {
 	return almostUsefulLoginPhase;
+}
+
+function clearAlmostUsefulPasteUiTimer(): void {
+	if (almostUsefulPasteUiTimer === null) return;
+	window.clearTimeout(almostUsefulPasteUiTimer);
+	almostUsefulPasteUiTimer = null;
+}
+
+/** After Log in, wait so the paste field does not flash before the browser opens. */
+export function scheduleAlmostUsefulPasteUi(onShowPaste: () => void): void {
+	clearAlmostUsefulPasteUiTimer();
+	almostUsefulPasteUiTimer = window.setTimeout(() => {
+		almostUsefulPasteUiTimer = null;
+		if (almostUsefulLoginPhase !== 'opening') return;
+		if (!readAlmostUsefulHandoffPending()) return;
+		almostUsefulLoginPhase = 'pending';
+		onShowPaste();
+	}, PASTE_UI_DELAY_MS);
 }
 
 /** Opens the portal authorize URL in the system browser. */
@@ -57,7 +78,7 @@ export async function startAlmostUsefulBrowserLogin(): Promise<void> {
 		state,
 		codeVerifier: pkce.verifier,
 	});
-	almostUsefulLoginPhase = 'pending';
+	almostUsefulLoginPhase = 'opening';
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
 	const query = new URLSearchParams({
 		client_id: ALMOSTUSEFUL_CLIENT_ID,
@@ -93,6 +114,7 @@ export async function completeAlmostUsefulProtocolHandoff(params: {
 	if (!stored.ok) return stored;
 
 	clearAlmostUsefulHandoffPending();
+	clearAlmostUsefulPasteUiTimer();
 	almostUsefulLoginPhase = 'idle';
 	void startAlmostUsefulSessionRefresh();
 	return { ok: true };
@@ -101,6 +123,7 @@ export async function completeAlmostUsefulProtocolHandoff(params: {
 /** Drops in-flight PKCE so the user can start a fresh browser login. */
 export function cancelAlmostUsefulPendingLogin(): void {
 	clearAlmostUsefulHandoffPending();
+	clearAlmostUsefulPasteUiTimer();
 	almostUsefulLoginPhase = 'idle';
 }
 
@@ -142,6 +165,7 @@ export function logOutAlmostUseful(): void {
 	}
 	clearAlmostUsefulSession();
 	clearAlmostUsefulHandoffPending();
+	clearAlmostUsefulPasteUiTimer();
 	almostUsefulLoginPhase = 'idle';
 }
 

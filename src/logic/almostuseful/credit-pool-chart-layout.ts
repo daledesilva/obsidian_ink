@@ -214,9 +214,3 @@ export function usageChartTodayKey(timeZone: string): string {
 		return new Date().toISOString().slice(0, 10);
 	}
 }
-
-/** Two-decimal USD so remaining is not a raw numeric string from the usage API. */
-export function formatUsdRemaining(amount: number): string {
-	if (!Number.isFinite(amount)) return '$0.00';
-	return `$${amount.toFixed(2)}`;
-}

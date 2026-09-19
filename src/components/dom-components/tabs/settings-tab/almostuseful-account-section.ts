@@ -1,6 +1,10 @@
-import { Notice, Setting, type ButtonComponent, type TextComponent } from 'obsidian';
+import { Notice, setIcon, Setting, type ButtonComponent, type TextComponent } from 'obsidian';
 import InkPlugin from 'src/main';
 import { fetchAlmostUsefulBurndown } from 'src/logic/almostuseful/almostuseful-usage';
+import {
+	readAlmostUsefulUsageCache,
+	writeAlmostUsefulUsageCache,
+} from 'src/logic/almostuseful/almostuseful-usage-cache';
 import { renderAlmostUsefulPoolUsageCharts } from 'src/logic/almostuseful/almostuseful-usage-charts';
 import {
 	cancelAlmostUsefulPendingLogin,
@@ -58,11 +62,7 @@ export function insertAlmostUsefulAccountSection(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
 
 	if (!session) {
-		if (phase === 'opening') {
-			contentEl.createEl('p', {
-				text: 'Opening your browser… Ink never asks for your Almost Useful password.',
-			});
-		} else if (pending || phase === 'pending') {
+		if (pending || phase === 'pending') {
 			contentEl.createEl('p', {
 				text: 'Confirm in your browser. If a new Obsidian window opened, come back to this window and paste the backup code.',
 			});
@@ -76,9 +76,14 @@ export function insertAlmostUsefulAccountSection(
 				.setClass('ddc_ink_bare-setting--left')
 				.addButton((button) => {
 					button.setButtonText('Log in with Almost Useful').setCta();
+					if (phase === 'opening') {
+						// Same Log in row for four seconds: disable only, do not swap to paste UI.
+						button.setDisabled(true);
+					}
 					button.onClick(() => {
+						if (getAlmostUsefulLoginPhase() === 'opening') return;
+						button.setDisabled(true);
 						void startAlmostUsefulBrowserLogin().then(() => {
-							onRerender();
 							scheduleAlmostUsefulPasteUi(onRerender);
 						});
 					});
@@ -117,7 +122,6 @@ export function insertAlmostUsefulAccountSection(
 		});
 
 	const usageHostEl = contentEl.createDiv('ddc_ink_almostuseful-usage');
-	usageHostEl.createEl('p', { text: 'Loading credits…', cls: 'ddc_ink_almostuseful-muted' });
 	void loadUsageInto(usageHostEl, session, portalOrigin);
 }
 
@@ -179,7 +183,7 @@ function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void):
 		});
 }
 
-/** Fetches burndown and paints the same remaining / period / spend information as Project Post. */
+/** Paints cached charts immediately, then refreshes from the portal with a spinning icon. */
 async function loadUsageInto(
 	hostEl: HTMLElement,
 	session: ReturnType<typeof readAlmostUsefulSession>,
@@ -188,44 +192,77 @@ async function loadUsageInto(
 	if (!session) return;
 	usageChartsResizeObserver?.disconnect();
 	usageChartsResizeObserver = null;
-	const burndown = await fetchAlmostUsefulBurndown(session);
-	if ('unauthorized' in burndown) {
-		hostEl.empty();
-		hostEl.createEl('p', { text: 'Signed out.' });
-		return;
-	}
-	hostEl.empty();
-	if (burndown.length === 0) {
-		hostEl.createEl('p', {
-			text: 'No subscription activated',
-		});
-		new Setting(hostEl)
-			.setClass('ddc_ink_bare-setting')
-			.setClass('ddc_ink_bare-setting--left')
-			.addButton((button) => {
-			button.setButtonText('Open products').setCta();
-			button.onClick(() => {
-				openAlmostUsefulBrowserUrl(`${portalOrigin}/account/products`);
-			});
-		});
-		return;
-	}
 
+	const toolbarEl = hostEl.createDiv('ddc_ink_almostuseful-usage-toolbar');
+	const refreshButtonEl = toolbarEl.createEl('button', {
+		cls: 'clickable-icon ddc_ink_almostuseful-refresh',
+		attr: { type: 'button', 'aria-label': 'Refresh credit usage' },
+	});
+	setIcon(refreshButtonEl, 'refresh-cw');
 	const chartsHostEl = hostEl.createDiv('ddc_ink_almostuseful-usage-charts');
+
+	const cachedPools = readAlmostUsefulUsageCache(session.userId);
+	let paintedPools = cachedPools ?? [];
 	let lastPlotWidth = 0;
-	const paintCharts = () => {
+	const paintCharts = (pools: typeof paintedPools) => {
+		paintedPools = pools;
+		lastPlotWidth = 0;
 		const plotWidth = Math.max(chartsHostEl.clientWidth, 240);
-		if (plotWidth === lastPlotWidth && chartsHostEl.hasChildNodes()) return;
 		lastPlotWidth = plotWidth;
 		chartsHostEl.empty();
-		for (const pool of burndown) {
+		if (pools.length === 0) {
+			chartsHostEl.createEl('p', {
+				text: 'No subscription activated',
+			});
+			new Setting(chartsHostEl)
+				.setClass('ddc_ink_bare-setting')
+				.setClass('ddc_ink_bare-setting--left')
+				.addButton((button) => {
+					button.setButtonText('Open products').setCta();
+					button.onClick(() => {
+						openAlmostUsefulBrowserUrl(`${portalOrigin}/account/products`);
+					});
+				});
+			return;
+		}
+		for (const pool of pools) {
 			const poolEl = chartsHostEl.createDiv('ddc_ink_almostuseful-pool');
 			renderAlmostUsefulPoolUsageCharts(poolEl, pool, plotWidth);
 		}
 	};
-	paintCharts();
+
+	if (cachedPools) {
+		paintCharts(cachedPools);
+	} else {
+		chartsHostEl.createEl('p', { text: 'Loading credits…', cls: 'ddc_ink_almostuseful-muted' });
+	}
+
+	const refreshUsage = async () => {
+		refreshButtonEl.classList.add('is-refreshing');
+		refreshButtonEl.setAttr('disabled', 'true');
+		const burndown = await fetchAlmostUsefulBurndown(session);
+		refreshButtonEl.classList.remove('is-refreshing');
+		refreshButtonEl.removeAttribute('disabled');
+		if ('unauthorized' in burndown) {
+			hostEl.empty();
+			hostEl.createEl('p', { text: 'Signed out.' });
+			return;
+		}
+		writeAlmostUsefulUsageCache(session.userId, burndown);
+		paintCharts(burndown);
+	};
+
+	refreshButtonEl.addEventListener('click', () => {
+		void refreshUsage();
+	});
 	usageChartsResizeObserver = new ResizeObserver(() => {
-		paintCharts();
+		if (paintedPools.length === 0) return;
+		const plotWidth = Math.max(chartsHostEl.clientWidth, 240);
+		if (plotWidth === lastPlotWidth && chartsHostEl.querySelector('.ddc_ink_almostuseful-pool')) {
+			return;
+		}
+		paintCharts(paintedPools);
 	});
 	usageChartsResizeObserver.observe(chartsHostEl);
+	void refreshUsage();
 }

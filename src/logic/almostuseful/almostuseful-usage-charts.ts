@@ -17,7 +17,6 @@ import {
 	creditPoolFlatBarPath,
 	creditPoolTopRoundedBarPath,
 	creditPoolYForValue,
-	formatUsdRemaining,
 	usageChartTodayKey,
 	type CreditPoolXAxisGeometry,
 } from 'src/logic/almostuseful/credit-pool-chart-layout';
@@ -45,17 +44,10 @@ export function renderAlmostUsefulPoolUsageCharts(
 	if (!series || points.length === 0) return;
 
 	const todayKey = usageChartTodayKey(series.chartTimeZone || 'UTC');
-	// Last through-today remaining — same cutoff as Post, formatted $X.XX not ledger raw.
-	const throughTodayPoints = points.filter((point) => point.date <= todayKey);
-	const remainingPoint = throughTodayPoints[throughTodayPoints.length - 1] ?? points[0];
-	const remainingAmount = remainingPoint?.creditsRemaining ?? 0;
 
 	hostEl.createEl('p', {
 		cls: 'ddc_ink_almostuseful-pool-title',
 		text: pool.title || 'Credit usage',
-	});
-	hostEl.createEl('p', {
-		text: `Remaining this period: ${formatUsdRemaining(remainingAmount)}`,
 	});
 
 	appendBurndownSvg(hostEl, series, todayKey, plotWidth);

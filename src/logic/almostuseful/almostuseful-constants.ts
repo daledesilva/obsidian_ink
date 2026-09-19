@@ -18,3 +18,5 @@ export const ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX = 'almostuseful_handoff';
 export const ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX = 'almostuseful_debug';
 
 export const ALMOSTUSEFUL_SESSION_CHANGED_EVENT = 'ddc-ink-almostuseful-session-changed';
+/** Last successful burndown JSON so settings charts paint before the network returns. */
+export const ALMOSTUSEFUL_USAGE_CACHE_STORAGE_SUFFIX = 'almostuseful_usage_cache';

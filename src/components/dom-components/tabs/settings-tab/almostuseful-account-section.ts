@@ -1,4 +1,4 @@
-import { Setting } from 'obsidian';
+import { Notice, Setting } from 'obsidian';
 import InkPlugin from 'src/main';
 import {
 	fetchAlmostUsefulBurndown,
@@ -6,6 +6,7 @@ import {
 	type AlmostUsefulBurndownPool,
 } from 'src/logic/almostuseful/almostuseful-usage';
 import {
+	completeAlmostUsefulPastedHandoffCode,
 	getAlmostUsefulLoginPhase,
 	logOutAlmostUseful,
 	openAlmostUsefulBrowserUrl,
@@ -13,6 +14,7 @@ import {
 } from 'src/logic/almostuseful/almostuseful-login';
 import {
 	readAlmostUsefulDebugConfig,
+	readAlmostUsefulHandoffPending,
 	readAlmostUsefulSession,
 	resolveAlmostUsefulPortalOrigin,
 	writeAlmostUsefulDebugConfig,
@@ -36,15 +38,10 @@ export function insertAlmostUsefulAccountSection(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
 
 	const session = readAlmostUsefulSession();
+	const pending = readAlmostUsefulHandoffPending();
 	const phase = getAlmostUsefulLoginPhase();
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-
-	if (phase === 'pending' && !session) {
-		contentEl.createEl('p', {
-			text: 'Finish sign-in in your browser…',
-		});
-		return;
-	}
+	const isWaitingForHandoff = Boolean(pending) || phase === 'pending';
 
 	if (!session) {
 		contentEl.createEl('p', {
@@ -60,6 +57,12 @@ export function insertAlmostUsefulAccountSection(
 					});
 				});
 			});
+		if (isWaitingForHandoff) {
+			contentEl.createEl('p', {
+				text: 'Finish sign-in in your browser… If a new Obsidian window opened, come back to this window and paste the backup code.',
+			});
+		}
+		insertPasteHandoffCode(contentEl, onRerender);
 		const createEl = contentEl.createEl('p');
 		createEl.createEl('a', {
 			text: 'Create an account',
@@ -104,6 +107,35 @@ export function insertAlmostUsefulAccountSection(
 	void loadUsageInto(usageHostEl, session, portalOrigin);
 
 	insertDebugOverride(contentEl, onRerender);
+}
+
+/** Paste backup when the obsidian:// link opened a different Obsidian instance. */
+function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void): void {
+	let pastedCode = '';
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Paste backup code')
+		.setDesc(
+			'If Continue to Ink opened the wrong window, paste the code from the website into this Obsidian window.',
+		)
+		.addText((text) => {
+			text.setPlaceholder('Code from the website');
+			text.onChange((value) => {
+				pastedCode = value;
+			});
+		})
+		.addButton((button) => {
+			button.setButtonText('Connect');
+			button.onClick(() => {
+				void completeAlmostUsefulPastedHandoffCode(pastedCode).then((result) => {
+					if (!result.ok) {
+						new Notice(result.error);
+						return;
+					}
+					onRerender();
+				});
+			});
+		});
 }
 
 /** Fetches remaining credits and a simplified burndown SVG. */

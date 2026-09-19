@@ -452,6 +452,7 @@ Troubleshooting:
 - [Embed scrolling](embed-scrolling.md) — How `FingerBlocker` coordinates note scrolling with ink embed input and pan/zoom.
 - [Debugging on device (Boox / Android)](debugging-on-device.md) — USB remote DevTools for the Obsidian Android WebView, desktop vs Electron vs mobile, and links to native `logcat` + correlated ingest workflows in eInk Bridge docs.
 - [File format and conversion](file-format-and-conversion.md) — Ink SVG structure, drawing↔writing conversion flow, and preview preservation.
+- [Almost Useful account](almostuseful-account.md) — Settings login via the system browser; device-local user JWT; credit charts.
 - [Blocked features](blocked-features.md) — Features that are incomplete or non-functional and what's needed to unblock them.
 - [Undo/redo for ink embeds](undo-redo.md) — Conceptual approach and alternatives.
 - [Undo/redo implementation](undo-redo-implementation.md) — Technical details, data flow, and integration points.

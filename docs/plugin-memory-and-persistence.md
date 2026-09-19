@@ -68,6 +68,7 @@ sequenceDiagram
   - One-shot embed activation: `activateNextEmbed` (boolean; consumed after read). See [Activate next embed](activate-next-embed.md).
   - Recent picker paths: `recentDrawingFilePaths`, `recentWritingFilePaths` (JSON string arrays).
   - Versioned device settings blob: `deviceSettings_v1` (JSON; see below).
+  - Almost Useful session: suffix `almostuseful_session` → `au_ink_almostuseful_session` (JSON user JWT; **never** `data.json`). In-flight PKCE: `almostuseful_handoff`. Optional staging host: `almostuseful_debug`. See [Almost Useful account](almostuseful-account.md).
 - **Use for:** Per-device behaviour, session helpers, or data that must **not** be tied to vault sync (e.g. “Treat input as” pen vs mouse per editor kind).
 
 ### 3. Device settings module — versioned JSON blob
@@ -106,7 +107,7 @@ sequenceDiagram
 ## Technical Gotchas
 
 - **`data.json` vs vault-only files:** Plugin settings sync (or not) exactly however the user’s Obsidian setup syncs the `.obsidian/plugins` folder. Do not assume every install syncs `.obsidian`; some users only sync note content.
-- **`localStorage` is not in the vault:** Keys under `au_ink_*` do not move with a vault export that omits local app data. Treat them as **device- or profile-local**.
+- **`localStorage` is not in the vault:** Keys under `au_ink_*` do not move with a vault export that omits local app data. Treat them as **device- or profile-local**. Almost Useful login is per device on purpose; Reset settings does not need to wipe vault files to sign out.
 - **Popout windows:** Always use `storage.ts` (active window storage) for new device-local keys so behaviour matches the focused Obsidian window.
 - **Corrupt JSON in device blobs:** Device settings readers should defensively parse and fall back to defaults (see `readDeviceSettings`); new blobs should stay versioned for future migrations.
 - **Do not store functions in any persisted JSON:** Stroke easing and similar behaviour are derived from serialisable fields (e.g. `inputKind`, `simulatePressure`) at render time — see ink canvas types and stroke presets.
@@ -119,5 +120,6 @@ sequenceDiagram
 - [Plugin settings versioning](plugin-settings-versioning.md) — `data.json` shape and migrations.
 - [Copy / paste embeds](copy-paste-embeds.md) — mentions recent paths in `localStorage` for the file picker.
 - [Activate next embed](activate-next-embed.md) — one-shot auto-unlock after **New handwriting / drawing** commands.
+- [Almost Useful account](almostuseful-account.md) — browser login, device-local session, settings charts.
 
 When adding a new persisted field, update this page with the **key name**, **format**, and **bucket** (settings vs device-local vs file).

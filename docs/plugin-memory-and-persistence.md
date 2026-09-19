@@ -68,7 +68,7 @@ sequenceDiagram
   - One-shot embed activation: `activateNextEmbed` (boolean; consumed after read). See [Activate next embed](activate-next-embed.md).
   - Recent picker paths: `recentDrawingFilePaths`, `recentWritingFilePaths` (JSON string arrays).
   - Versioned device settings blob: `deviceSettings_v1` (JSON; see below).
-  - Almost Useful session: suffix `almostuseful_session` → `au_ink_almostuseful_session` (JSON user JWT; **never** `data.json`). In-flight PKCE: `almostuseful_handoff`. Optional staging host: `almostuseful_debug`. See [Almost Useful account](almostuseful-account.md).
+  - Almost Useful session: suffix `almostuseful_session` → `au_ink_almostuseful_session` (JSON user JWT; **never** `data.json`). In-flight PKCE: `almostuseful_handoff`. Optional staging host: `almostuseful_debug` (localStorage only; settings UI no longer edits it). See [Almost Useful account](almostuseful-account.md).
 - **Use for:** Per-device behaviour, session helpers, or data that must **not** be tied to vault sync (e.g. “Treat input as” pen vs mouse per editor kind).
 
 ### 3. Device settings module — versioned JSON blob

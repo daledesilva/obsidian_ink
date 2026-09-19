@@ -115,6 +115,12 @@ export async function completeAlmostUsefulProtocolHandoff(params: {
 	return { ok: true };
 }
 
+/** Drops in-flight PKCE so the user can start a fresh browser login. */
+export function cancelAlmostUsefulPendingLogin(): void {
+	clearAlmostUsefulHandoffPending();
+	almostUsefulLoginPhase = 'idle';
+}
+
 /**
  * Same HTTPS exchange as the protocol handler, for when a new Obsidian window
  * ate the deep link. Uses the PKCE verifier stored in this window.

@@ -8,6 +8,7 @@ import {
 	getAlmostUsefulLoginPhase,
 	logOutAlmostUseful,
 	openAlmostUsefulBrowserUrl,
+	scheduleAlmostUsefulPasteUi,
 	startAlmostUsefulBrowserLogin,
 } from 'src/logic/almostuseful/almostuseful-login';
 import {
@@ -35,7 +36,6 @@ export function insertAlmostUsefulAccountSection(
 	const pending = readAlmostUsefulHandoffPending();
 	const phase = getAlmostUsefulLoginPhase();
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const isWaitingForHandoff = Boolean(pending) || phase === 'pending';
 
 	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
 	if (isAlmostUsefulAccountSectionExpanded) wrapperEl.classList.add('ddc_ink_expanded');
@@ -58,9 +58,11 @@ export function insertAlmostUsefulAccountSection(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
 
 	if (!session) {
-		// Pending login replaces Log in with paste+cancel so a second CTA cannot
-		// start a competing PKCE while the backup code is the recovery path.
-		if (isWaitingForHandoff) {
+		if (phase === 'opening') {
+			contentEl.createEl('p', {
+				text: 'Opening your browser… Ink never asks for your Almost Useful password.',
+			});
+		} else if (pending || phase === 'pending') {
 			contentEl.createEl('p', {
 				text: 'Confirm in your browser. If a new Obsidian window opened, come back to this window and paste the backup code.',
 			});
@@ -77,6 +79,7 @@ export function insertAlmostUsefulAccountSection(
 					button.onClick(() => {
 						void startAlmostUsefulBrowserLogin().then(() => {
 							onRerender();
+							scheduleAlmostUsefulPasteUi(onRerender);
 						});
 					});
 				});
@@ -135,7 +138,7 @@ function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void):
 		.setClass('ddc_ink_setting')
 		.setName('Paste backup code')
 		.setDesc(
-			'If Continue to Ink opened the wrong window, paste the code from the website into this Obsidian window.',
+			'If Continue to Ink opened the wrong window, paste the backup code from the website into this Obsidian window.',
 		)
 		.addText((text) => {
 			codeText = text;

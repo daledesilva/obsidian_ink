@@ -93,12 +93,10 @@ export async function completeAlmostUsefulProtocolHandoff(params: {
 		},
 	});
 	if (response.status !== 200) {
-		almostUsefulLoginPhase = 'idle';
 		return { ok: false, error: 'Could not finish Almost Useful login' };
 	}
 	const json = response.json as Partial<AlmostUsefulSession> | null;
 	if (!json || typeof json.accessToken !== 'string' || typeof json.refreshToken !== 'string') {
-		almostUsefulLoginPhase = 'idle';
 		return { ok: false, error: 'Could not finish Almost Useful login' };
 	}
 
@@ -115,6 +113,30 @@ export async function completeAlmostUsefulProtocolHandoff(params: {
 	almostUsefulLoginPhase = 'idle';
 	void startAlmostUsefulSessionRefresh();
 	return { ok: true };
+}
+
+/**
+ * Same HTTPS exchange as the protocol handler, for when a new Obsidian window
+ * ate the deep link. Uses the PKCE verifier stored in this window.
+ */
+export async function completeAlmostUsefulPastedHandoffCode(
+	rawCode: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const pending = readAlmostUsefulHandoffPending();
+	if (!pending) {
+		return {
+			ok: false,
+			error: 'Start Log in from this Obsidian window first, then paste the code here.',
+		};
+	}
+	const code = rawCode.trim();
+	if (!code) {
+		return { ok: false, error: 'Paste the backup code from the website' };
+	}
+	return completeAlmostUsefulProtocolHandoff({
+		code,
+		state: pending.state,
+	});
 }
 
 /** Signs out locally; does not revoke the website cookie. */

@@ -1,62 +1,67 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { almostUsefulRequestJson } from 'src/logic/almostuseful/almostuseful-http';
+import { persistAlmostUsefulTokenResponse } from 'src/logic/almostuseful/almostuseful-token-persist';
 import {
+	clearAlmostUsefulSession,
 	readAlmostUsefulSession,
-	resolveAlmostUsefulSupabaseAnonKey,
-	resolveAlmostUsefulSupabaseUrl,
-	writeAlmostUsefulSession,
+	resolveAlmostUsefulPortalOrigin,
 } from 'src/logic/almostuseful/almostuseful-session';
 
 /////////
 /////////
 
-let almostUsefulSupabaseClient: SupabaseClient | null = null;
+const REFRESH_SKEW_SECONDS = 120;
+const POLL_INTERVAL_MS = 60_000;
+
+let almostUsefulRefreshTimer: number | null = null;
 
 /**
- * Attaches supabase-js refresh to the device-local session (anon key only).
- * persistSession is false so tokens never land in the default localStorage key.
- * Call again after login — onload may have run while signed out.
+ * Refreshes the portal app token before expiry. invalid_grant clears storage
+ * so Settings shows Log in again (including after website revoke).
  */
 export async function startAlmostUsefulSessionRefresh(): Promise<void> {
+	stopAlmostUsefulSessionRefresh();
 	const session = readAlmostUsefulSession();
-	if (!session) {
-		await stopAlmostUsefulSessionRefresh();
-		return;
-	}
-
-	if (!almostUsefulSupabaseClient) {
-		almostUsefulSupabaseClient = createClient(
-			resolveAlmostUsefulSupabaseUrl(),
-			resolveAlmostUsefulSupabaseAnonKey(),
-			{
-				auth: {
-					persistSession: false,
-					autoRefreshToken: true,
-				},
-			},
-		);
-
-		almostUsefulSupabaseClient.auth.onAuthStateChange((_event, nextSession) => {
-			if (!nextSession) return;
-			const existing = readAlmostUsefulSession();
-			if (!existing) return;
-			writeAlmostUsefulSession({
-				...existing,
-				accessToken: nextSession.access_token,
-				refreshToken: nextSession.refresh_token,
-				expiresAtEpochSeconds: nextSession.expires_at ?? existing.expiresAtEpochSeconds,
-			});
-		});
-	}
-
-	await almostUsefulSupabaseClient.auth.setSession({
-		access_token: session.accessToken,
-		refresh_token: session.refreshToken,
-	});
+	if (!session) return;
+	await refreshAlmostUsefulAppTokenIfNeeded();
+	almostUsefulRefreshTimer = window.setInterval(() => {
+		void refreshAlmostUsefulAppTokenIfNeeded();
+	}, POLL_INTERVAL_MS);
 }
 
-/** Drops the supabase-js client so Log out does not keep refreshing tokens. */
-export async function stopAlmostUsefulSessionRefresh(): Promise<void> {
-	if (!almostUsefulSupabaseClient) return;
-	await almostUsefulSupabaseClient.auth.signOut();
-	almostUsefulSupabaseClient = null;
+/** Stops the refresh timer on Log out. */
+export function stopAlmostUsefulSessionRefresh(): void {
+	if (almostUsefulRefreshTimer === null) return;
+	window.clearInterval(almostUsefulRefreshTimer);
+	almostUsefulRefreshTimer = null;
+}
+
+/** POSTs refresh_token when the access JWT is close to expiry. */
+export async function refreshAlmostUsefulAppTokenIfNeeded(): Promise<void> {
+	const session = readAlmostUsefulSession();
+	if (!session) {
+		stopAlmostUsefulSessionRefresh();
+		return;
+	}
+	const nowEpoch = Math.floor(Date.now() / 1000);
+	if (session.expiresAtEpochSeconds - nowEpoch > REFRESH_SKEW_SECONDS) return;
+
+	const portalOrigin = resolveAlmostUsefulPortalOrigin();
+	const response = await almostUsefulRequestJson({
+		url: `${portalOrigin}/api/oauth/token`,
+		method: 'POST',
+		body: {
+			grant_type: 'refresh_token',
+			refresh_token: session.refreshToken,
+		},
+	});
+	if (response.status === 400 || response.status === 401) {
+		clearAlmostUsefulSession();
+		stopAlmostUsefulSessionRefresh();
+		return;
+	}
+	const stored = await persistAlmostUsefulTokenResponse(response);
+	if (!stored.ok) {
+		clearAlmostUsefulSession();
+		stopAlmostUsefulSessionRefresh();
+	}
 }

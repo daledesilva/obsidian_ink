@@ -73,7 +73,6 @@
 		"@codemirror/view": "^6.38.6",
 		"@lezer/common": "^1.5.2",
 		"@reduxjs/toolkit": "^2.1.0",
-		"@supabase/supabase-js": "^2.116.0",
 		"@tippyjs/react": "^4.2.6",
 		"@tldraw/assets": "^2.4.3",
 		"@tldraw/tldraw": "^2.4.6",

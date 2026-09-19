@@ -9,11 +9,82 @@
 	font-size: var(--font-ui-small);
 }
 
+.ddc_ink_almostuseful-pool {
+	margin-top: 0.75em;
+}
+
+.ddc_ink_almostuseful-pool-title {
+	font-weight: var(--font-medium);
+	margin-bottom: 0.25em;
+}
+
+.ddc_ink_almostuseful-usage-heading {
+	margin-top: 0.75em;
+	padding-top: 0.5em;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
 .ddc_ink_almostuseful-chart {
 	display: block;
-	margin: 0.5em 0;
+	margin: 0.35em 0 0.15em;
 }
 
 .ddc_ink_almostuseful-chart-bar {
 	fill: var(--text-muted);
+}
+
+.ddc_ink_almostuseful-chart-ideal {
+	stroke: var(--interactive-accent);
+	stroke-width: 2;
+	fill: none;
+}
+
+.ddc_ink_almostuseful-chart-grid {
+	stroke: var(--background-modifier-border);
+	stroke-width: 1;
+}
+
+.ddc_ink_almostuseful-chart-axis {
+	stroke: var(--text-faint);
+	stroke-width: 1;
+}
+
+.ddc_ink_almostuseful-chart-axis-label {
+	fill: var(--text-muted);
+	font-size: 10px;
+}
+
+.ddc_ink_almostuseful-chart-ink {
+	fill: var(--interactive-accent);
+}
+
+.ddc_ink_almostuseful-chart-other {
+	fill: var(--text-faint);
+}
+
+.ddc_ink_almostuseful-legend-swatch.ddc_ink_almostuseful-chart-ink {
+	background: var(--interactive-accent);
+}
+
+.ddc_ink_almostuseful-legend-swatch.ddc_ink_almostuseful-chart-other {
+	background: var(--text-faint);
+}
+
+.ddc_ink_almostuseful-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75em;
+	margin-top: 0.35em;
+}
+
+.ddc_ink_almostuseful-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 0.35em;
+}
+
+.ddc_ink_almostuseful-legend-swatch {
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
 }

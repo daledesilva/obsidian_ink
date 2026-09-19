@@ -12,7 +12,7 @@ export interface AlmostUsefulPkcePair {
 	challenge: string;
 }
 
-/** Creates a PKCE verifier and S256 challenge for plugin-handoff. */
+/** Creates a PKCE verifier and S256 challenge for portal authorize. */
 export async function createAlmostUsefulPkcePair(): Promise<AlmostUsefulPkcePair> {
 	const randomBytes = crypto.getRandomValues(new Uint8Array(32));
 	const verifier = bytesToBase64Url(randomBytes);

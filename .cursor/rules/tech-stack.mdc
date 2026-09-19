@@ -16,7 +16,7 @@ This file is the source of truth for the libraries, frameworks, and tools used i
 - **Dev console coloring:** Chromium `%c` styles in `universal-dev-logging.ts` (no chalk)
 - **Testing:** Jest (unit/integration), WebdriverIO + wdio-obsidian-service (e2e)
 - **IDs:** `nanoid` ^5.1.6
-- **Almost Useful account (v1):** `@supabase/supabase-js` (anon key + `setSession` / refresh only; never service role). Website login via portal plugin-handoff. Tokens in device-local `saveLocally('almostuseful_session')` (`au_ink_almostuseful_session`).
+- **Almost Useful account:** portal `/oauth/authorize` + `POST /api/oauth/token` (app JWT `typ=almostuseful_app`). No `@supabase/supabase-js` / anon key in the plugin. Tokens in device-local `saveLocally('almostuseful_session')` (`au_ink_almostuseful_session`).
 - **Build tooling:** esbuild (plugin bundling), npm scripts
 - **Linting:** ESLint flat config (`eslint.config.mjs`) + `eslint-plugin-obsidianmd` ^0.4.2
 - **Boox companion:** eInk Bridge Android app (`eink-bridge` repo) — loopback WebSocket on the same tablet

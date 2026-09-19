@@ -1,9 +1,12 @@
 import { Platform } from 'obsidian';
 import { createAlmostUsefulPkcePair } from 'src/logic/almostuseful/almostuseful-pkce';
 import {
+	ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
+	ALMOSTUSEFUL_CLIENT_ID,
 	ALMOSTUSEFUL_PROTOCOL_ACTION,
 	ALMOSTUSEFUL_REDIRECT_URI,
 } from 'src/logic/almostuseful/almostuseful-constants';
+import { persistAlmostUsefulTokenResponse } from 'src/logic/almostuseful/almostuseful-token-persist';
 import { almostUsefulRequestJson } from 'src/logic/almostuseful/almostuseful-http';
 import {
 	startAlmostUsefulSessionRefresh,
@@ -13,10 +16,9 @@ import {
 	clearAlmostUsefulHandoffPending,
 	clearAlmostUsefulSession,
 	readAlmostUsefulHandoffPending,
+	readAlmostUsefulSession,
 	resolveAlmostUsefulPortalOrigin,
 	writeAlmostUsefulHandoffPending,
-	writeAlmostUsefulSession,
-	type AlmostUsefulSession,
 } from 'src/logic/almostuseful/almostuseful-session';
 
 /////////
@@ -31,7 +33,7 @@ export function getAlmostUsefulLoginPhase(): AlmostUsefulLoginPhase {
 	return almostUsefulLoginPhase;
 }
 
-/** Opens the portal handoff URL in the system browser. */
+/** Opens the portal authorize URL in the system browser. */
 export function openAlmostUsefulBrowserUrl(url: string): void {
 	if (Platform.isDesktop) {
 		const electron = require('electron') as {
@@ -43,7 +45,7 @@ export function openAlmostUsefulBrowserUrl(url: string): void {
 	window.open(url);
 }
 
-/** Starts website login: PKCE in device-local storage, then system browser. */
+/** Starts website authorize: PKCE in device-local storage, then system browser. */
 export async function startAlmostUsefulBrowserLogin(): Promise<void> {
 	const pkce = await createAlmostUsefulPkcePair();
 	const stateBytes = crypto.getRandomValues(new Uint8Array(16));
@@ -58,15 +60,17 @@ export async function startAlmostUsefulBrowserLogin(): Promise<void> {
 	almostUsefulLoginPhase = 'pending';
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
 	const query = new URLSearchParams({
+		client_id: ALMOSTUSEFUL_CLIENT_ID,
+		display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
 		redirect_uri: ALMOSTUSEFUL_REDIRECT_URI,
 		state,
 		code_challenge: pkce.challenge,
 		code_challenge_method: 'S256',
 	});
-	openAlmostUsefulBrowserUrl(`${portalOrigin}/auth/plugin-handoff?${query.toString()}`);
+	openAlmostUsefulBrowserUrl(`${portalOrigin}/oauth/authorize?${query.toString()}`);
 }
 
-/** Completes protocol return: HTTPS session exchange, never tokens from the URL. */
+/** Completes protocol return: HTTPS token exchange, never tokens from the URL. */
 export async function completeAlmostUsefulProtocolHandoff(params: {
 	code?: string;
 	state?: string;
@@ -76,43 +80,28 @@ export async function completeAlmostUsefulProtocolHandoff(params: {
 		return { ok: false, error: 'No in-progress Almost Useful login' };
 	}
 	if (!params.code || !params.state) {
-		return { ok: false, error: 'Missing handoff code' };
+		return { ok: false, error: 'Missing authorize code' };
 	}
 	if (params.state !== pending.state) {
 		return { ok: false, error: 'Login state did not match' };
 	}
 
-	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const response = await almostUsefulRequestJson({
-		url: `${portalOrigin}/api/auth/plugin-session`,
-		method: 'POST',
-		body: {
-			code: params.code,
-			codeVerifier: pending.codeVerifier,
-			redirectUri: ALMOSTUSEFUL_REDIRECT_URI,
-		},
+	const stored = await exchangeAlmostUsefulAuthorizationCode({
+		code: params.code,
+		codeVerifier: pending.codeVerifier,
 	});
-	if (response.status !== 200) {
-		return { ok: false, error: 'Could not finish Almost Useful login' };
-	}
-	const json = response.json as Partial<AlmostUsefulSession> | null;
-	if (!json || typeof json.accessToken !== 'string' || typeof json.refreshToken !== 'string') {
-		return { ok: false, error: 'Could not finish Almost Useful login' };
-	}
+	if (!stored.ok) return stored;
 
-	writeAlmostUsefulSession({
-		accessToken: json.accessToken,
-		refreshToken: json.refreshToken,
-		expiresAtEpochSeconds:
-			typeof json.expiresAtEpochSeconds === 'number' ? json.expiresAtEpochSeconds : 0,
-		userId: typeof json.userId === 'string' ? json.userId : '',
-		email: typeof json.email === 'string' ? json.email : null,
-		displayName: typeof json.displayName === 'string' ? json.displayName : null,
-	});
 	clearAlmostUsefulHandoffPending();
 	almostUsefulLoginPhase = 'idle';
 	void startAlmostUsefulSessionRefresh();
 	return { ok: true };
+}
+
+/** Drops in-flight PKCE so the user can start a fresh browser login. */
+export function cancelAlmostUsefulPendingLogin(): void {
+	clearAlmostUsefulHandoffPending();
+	almostUsefulLoginPhase = 'idle';
 }
 
 /**
@@ -131,7 +120,7 @@ export async function completeAlmostUsefulPastedHandoffCode(
 	}
 	const code = rawCode.trim();
 	if (!code) {
-		return { ok: false, error: 'Paste the backup code from the website' };
+		return { ok: false, error: 'Paste the code from the authorize redirect' };
 	}
 	return completeAlmostUsefulProtocolHandoff({
 		code,
@@ -139,12 +128,41 @@ export async function completeAlmostUsefulPastedHandoffCode(
 	});
 }
 
-/** Signs out locally; does not revoke the website cookie. */
+/** Revokes the grant when possible, then drops local tokens. */
 export function logOutAlmostUseful(): void {
+	const session = readAlmostUsefulSession();
 	void stopAlmostUsefulSessionRefresh();
+	if (session) {
+		const portalOrigin = resolveAlmostUsefulPortalOrigin();
+		void almostUsefulRequestJson({
+			url: `${portalOrigin}/api/oauth/grants/${session.grantId}/revoke`,
+			method: 'POST',
+			accessToken: session.accessToken,
+		});
+	}
 	clearAlmostUsefulSession();
 	clearAlmostUsefulHandoffPending();
 	almostUsefulLoginPhase = 'idle';
+}
+
+/** POSTs authorization_code to the portal token endpoint. */
+async function exchangeAlmostUsefulAuthorizationCode(params: {
+	code: string;
+	codeVerifier: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+	const portalOrigin = resolveAlmostUsefulPortalOrigin();
+	const response = await almostUsefulRequestJson({
+		url: `${portalOrigin}/api/oauth/token`,
+		method: 'POST',
+		body: {
+			grant_type: 'authorization_code',
+			code: params.code,
+			code_verifier: params.codeVerifier,
+			client_id: ALMOSTUSEFUL_CLIENT_ID,
+			redirect_uri: ALMOSTUSEFUL_REDIRECT_URI,
+		},
+	});
+	return persistAlmostUsefulTokenResponse(response);
 }
 
 export { ALMOSTUSEFUL_PROTOCOL_ACTION };

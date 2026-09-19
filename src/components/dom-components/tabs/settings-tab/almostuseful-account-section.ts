@@ -63,7 +63,7 @@ export function insertAlmostUsefulAccountSection(
 		const createEl = contentEl.createEl('p');
 		createEl.createEl('a', {
 			text: 'Create an account',
-			href: `${portalOrigin}/auth/login?tab=create`,
+			href: `${portalOrigin}/auth/sign-up`,
 			attr: { target: '_blank', rel: 'noopener' },
 		});
 		createEl.appendText(' · ');

@@ -36,6 +36,24 @@ export function registerSettingsTab(plugin: InkPlugin) {
 	plugin.addSettingTab(new MySettingsTab(plugin.app, plugin));
 }
 
+/**
+ * Reopens the Ink settings tab after protocol return.
+ * Obsidian closes Settings when the app is backgrounded for the browser login.
+ */
+export function openInkSettingsTab(plugin: InkPlugin): void {
+	const setting = (
+		plugin.app as App & {
+			setting?: {
+				open: () => void;
+				openTabById: (id: string) => void;
+			};
+		}
+	).setting;
+	if (!setting?.open || !setting.openTabById) return;
+	setting.open();
+	setting.openTabById(plugin.manifest.id);
+}
+
 export class MySettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
 	private unsubscribeDeviceSettings?: () => void;

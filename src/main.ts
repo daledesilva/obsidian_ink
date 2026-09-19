@@ -3,7 +3,7 @@ import './ddc-library/settings-styles.scss';
 import './components/shared/ink-svg-preview-theme.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
-import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
+import { openInkSettingsTab, registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
@@ -245,6 +245,10 @@ export default class InkPlugin extends Plugin {
 						}).then((result) => {
 							if (result.ok) {
 								new Notice('Signed in to Almost Useful');
+								// Protocol return often runs after Settings already closed.
+								window.setTimeout(() => {
+									openInkSettingsTab(this);
+								}, 150);
 								return;
 							}
 							new Notice(result.error);

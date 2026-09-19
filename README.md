@@ -99,6 +99,10 @@ BRAT is another community plugin that allows you to install a Beta version. New 
 - To force an update, run BRAT's Obsidian commnd `Choose a single plugin to update` and choose Ink.
 </details>
 
+## 🔧 Development
+
+Product tasks and release planning: [Ob: Ink (ClickUp)](https://app.clickup.com/36639212/v/f/90160118195/90167671953). Technical docs: [docs/development.md](docs/development.md).
+
 ## 🏛️ License
 >Please note that while this repository is public and can be browsed and modified for your personal use, it is not open source. It is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) — see the root [`LICENSE`](LICENSE) file for the full legal text. Contributions are accepted under the [Contributor License Agreement](docs/CLA.md).
 

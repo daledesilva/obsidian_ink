@@ -49,6 +49,9 @@ import {
 	resetFingerDrawingToDefault,
 	setBooxConnectionEnabled,
 } from 'src/logic/device-settings/device-settings';
+import { ALMOSTUSEFUL_PROTOCOL_ACTION } from 'src/logic/almostuseful/almostuseful-constants';
+import { completeAlmostUsefulProtocolHandoff } from 'src/logic/almostuseful/almostuseful-login';
+import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
 
 ////////
 ////////
@@ -230,6 +233,25 @@ export default class InkPlugin extends Plugin {
 
 			await runInkOnloadStep('registerSettingsTab', () => {
 				registerSettingsTab(this);
+			});
+
+			await runInkOnloadStep('almostUsefulAuth', () => {
+				this.registerObsidianProtocolHandler(
+					ALMOSTUSEFUL_PROTOCOL_ACTION,
+					(params) => {
+						void completeAlmostUsefulProtocolHandoff({
+							code: params.code,
+							state: params.state,
+						}).then((result) => {
+							if (result.ok) {
+								new Notice('Signed in to Almost Useful');
+								return;
+							}
+							new Notice(result.error);
+						});
+					},
+				);
+				void startAlmostUsefulSessionRefresh();
 			});
 
 			await runInkOnloadStep('showOnboardingTips', () => {

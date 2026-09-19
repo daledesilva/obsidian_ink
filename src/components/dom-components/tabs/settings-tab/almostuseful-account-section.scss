@@ -1,0 +1,19 @@
+.ddc_ink_almostuseful-account {
+	p {
+		color: var(--text-normal);
+	}
+}
+
+.ddc_ink_almostuseful-muted {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.ddc_ink_almostuseful-chart {
+	display: block;
+	margin: 0.5em 0;
+}
+
+.ddc_ink_almostuseful-chart-bar {
+	fill: var(--text-muted);
+}

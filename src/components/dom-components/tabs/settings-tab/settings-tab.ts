@@ -26,6 +26,8 @@ import {
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
+import { insertAlmostUsefulAccountSection } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
+import { subscribeAlmostUsefulSessionChanged } from 'src/logic/almostuseful/almostuseful-session';
 
 /////////
 /////////
@@ -37,6 +39,7 @@ export function registerSettingsTab(plugin: InkPlugin) {
 export class MySettingsTab extends PluginSettingTab {
 	plugin: MyPlugin;
 	private unsubscribeDeviceSettings?: () => void;
+	private unsubscribeAlmostUsefulSession?: () => void;
 	private legacyMigrateScanGeneration = 0;
 
 	constructor(app: App, plugin: MyPlugin) {
@@ -54,12 +57,20 @@ export class MySettingsTab extends PluginSettingTab {
 
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
+		this.unsubscribeAlmostUsefulSession?.();
+		this.unsubscribeAlmostUsefulSession = undefined;
 
 		containerEl.empty();
 		
 		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
 		
 		containerEl.createEl('hr');
+		insertAlmostUsefulAccountSection(containerEl, this.plugin, () => {
+			this.renderSettingsTab();
+		});
+		this.unsubscribeAlmostUsefulSession = subscribeAlmostUsefulSessionChanged(() => {
+			this.renderSettingsTab();
+		});
 		insertGettingStartedSection(containerEl, this.plugin);
 		// Refresh on permanent-migrate Done (not modal close) so the card animates shut behind the completion UI.
 		const migrateWrapper = insertMigrateSection(containerEl, this.plugin, () => {
@@ -148,6 +159,8 @@ export class MySettingsTab extends PluginSettingTab {
 		this.legacyMigrateScanGeneration++;
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
+		this.unsubscribeAlmostUsefulSession?.();
+		this.unsubscribeAlmostUsefulSession = undefined;
 	}
 
 	private async refreshLegacyMigrateSectionVisibility(wrapperEl: HTMLElement) {

@@ -64,7 +64,7 @@ export function insertAlmostUsefulAccountSection(
 	if (!session) {
 		if (pending || phase === 'pending') {
 			contentEl.createEl('p', {
-				text: 'Confirm in your browser. If a new Obsidian window opened, come back to this window and paste the backup code.',
+				text: 'Confirm in your browser, then paste the code from the website here.',
 			});
 			insertPasteHandoffCode(contentEl, onRerender);
 		} else {
@@ -132,7 +132,7 @@ function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): s
 	return 'Almost Useful account: logged in';
 }
 
-/** Paste backup when the obsidian:// link opened a different Obsidian instance. */
+/** Paste the continue-page code into the window that started Log in. */
 function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void): void {
 	let pastedCode = '';
 	let isConnecting = false;
@@ -140,9 +140,9 @@ function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void):
 	let connectButton: ButtonComponent | undefined;
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
-		.setName('Paste backup code')
+		.setName('Paste authorisation code')
 		.setDesc(
-			'If Continue to Ink opened the wrong window, paste the backup code from the website into this Obsidian window.',
+			'Copy the code from the website, then paste it here and tap Connect.',
 		)
 		.addText((text) => {
 			codeText = text;

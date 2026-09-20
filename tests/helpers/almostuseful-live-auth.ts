@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'crypto';
 import { exec } from 'child_process';
 
 import { ALMOSTUSEFUL_PORTAL_ORIGIN } from 'src/logic/almostuseful/almostuseful-constants';
@@ -7,18 +8,16 @@ import { ALMOSTUSEFUL_PORTAL_ORIGIN } from 'src/logic/almostuseful/almostuseful-
 
 /** Separate portal client for live eval — not the production Ink OAuth app. */
 export const ALMOSTUSEFUL_LIVE_TEST_CLIENT_ID = 'testing';
-export const ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME = 'testing';
+export const ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME = 'Testing';
 
-const DEVICE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
-
-export type AlmostUsefulLiveAuthMode = 'device' | 'paste' | 'env';
+export type AlmostUsefulLiveAuthMode = 'pkce' | 'paste' | 'env';
 
 /** How live eval obtains a portal app JWT before calling handwriting-transcription. */
 export function resolveAlmostUsefulLiveAuthMode(): AlmostUsefulLiveAuthMode {
 	const raw = process.env.ALMOSTUSEFUL_LIVE_AUTH?.trim().toLowerCase();
 	if (raw === 'paste') return 'paste';
 	if (raw === 'env' || process.env.ALMOSTUSEFUL_APP_ACCESS_TOKEN?.trim()) return 'env';
-	return 'device';
+	return 'pkce';
 }
 
 export function resolveAlmostUsefulPortalOriginForLiveTests(): string {
@@ -48,10 +47,6 @@ async function postPortalJson(
 	return { status: response.status, json };
 }
 
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function openBrowser(url: string): void {
 	const escapedUrl = url.replace(/"/g, '\\"');
 	const command =
@@ -72,8 +67,8 @@ function openBrowser(url: string): void {
 async function readPasteLine(prompt: string): Promise<string> {
 	if (!process.stdin.isTTY) {
 		throw new Error(
-			'ALMOSTUSEFUL_LIVE_AUTH=paste requires an interactive terminal. ' +
-				'Use device flow (default) or set ALMOSTUSEFUL_APP_ACCESS_TOKEN.',
+			'Live Almost Useful login needs an interactive terminal to paste the authorisation code. ' +
+				'Set ALMOSTUSEFUL_APP_ACCESS_TOKEN, or run with a TTY.',
 		);
 	}
 
@@ -87,122 +82,97 @@ async function readPasteLine(prompt: string): Promise<string> {
 	});
 }
 
-async function exchangeDeviceCode(params: {
+function createLivePkcePair(): { verifier: string; challenge: string } {
+	const verifier = randomBytes(32).toString('base64url');
+	const challenge = createHash('sha256').update(verifier).digest('base64url');
+	return { verifier, challenge };
+}
+
+function createLiveOauthState(): string {
+	return randomBytes(16).toString('hex');
+}
+
+export function buildAlmostUsefulLiveAuthorizeUrl(params: {
 	portalOrigin: string;
-	deviceCode: string;
+	state: string;
+	codeChallenge: string;
+}): string {
+	const query = new URLSearchParams({
+		client_id: ALMOSTUSEFUL_LIVE_TEST_CLIENT_ID,
+		display_name: ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME,
+		state: params.state,
+		code_challenge: params.codeChallenge,
+		code_challenge_method: 'S256',
+	});
+	return `${params.portalOrigin}/oauth/authorize?${query.toString()}`;
+}
+
+async function exchangeAuthorizationCode(params: {
+	portalOrigin: string;
+	code: string;
+	codeVerifier: string;
 }): Promise<string> {
 	const { status, json } = await postPortalJson(params.portalOrigin, '/api/oauth/token', {
-		grant_type: DEVICE_GRANT_TYPE,
-		device_code: params.deviceCode,
+		grant_type: 'authorization_code',
+		code: params.code,
+		code_verifier: params.codeVerifier,
 		client_id: ALMOSTUSEFUL_LIVE_TEST_CLIENT_ID,
 	});
-
 	const accessToken = typeof json.access_token === 'string' ? json.access_token : null;
 	if (status >= 200 && status < 300 && accessToken) {
 		return accessToken;
 	}
-
 	const error = typeof json.error === 'string' ? json.error : `HTTP ${status}`;
-	throw new Error(`Device token exchange failed: ${error}`);
+	throw new Error(`Authorization-code exchange failed: ${error}`);
 }
 
-async function pollDeviceCodeUntilAuthorized(params: {
-	portalOrigin: string;
-	deviceCode: string;
-	intervalSeconds: number;
-	expiresInSeconds: number;
-}): Promise<string> {
-	const deadline = Date.now() + params.expiresInSeconds * 1000;
-	let intervalMs = params.intervalSeconds * 1000;
-
-	while (Date.now() < deadline) {
-		const { status, json } = await postPortalJson(params.portalOrigin, '/api/oauth/token', {
-			grant_type: DEVICE_GRANT_TYPE,
-			device_code: params.deviceCode,
-			client_id: ALMOSTUSEFUL_LIVE_TEST_CLIENT_ID,
-		});
-
-		const accessToken = typeof json.access_token === 'string' ? json.access_token : null;
-		if (status >= 200 && status < 300 && accessToken) {
-			return accessToken;
-		}
-
-		const error = typeof json.error === 'string' ? json.error : '';
-		if (error === 'authorization_pending') {
-			await sleep(intervalMs);
-			continue;
-		}
-		if (error === 'slow_down') {
-			intervalMs += 5000;
-			await sleep(intervalMs);
-			continue;
-		}
-		if (error === 'expired_token' || error === 'access_denied') {
-			throw new Error(`Device authorization failed: ${error}`);
-		}
-
-		throw new Error(error || `Unexpected token response (${status})`);
-	}
-
-	throw new Error(
-		`Device authorization timed out before ${ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME} was approved in the browser.`,
+async function promptForAuthorizationCodeOrJwt(): Promise<string> {
+	return readPasteLine(
+		'Paste the authorisation code from /oauth/authorize/continue (or an eyJ… access token), then press Enter: ',
 	);
 }
 
-async function authenticateWithDeviceFlow(portalOrigin: string): Promise<string> {
-	const { status, json } = await postPortalJson(portalOrigin, '/api/oauth/device', {
-		client_id: ALMOSTUSEFUL_LIVE_TEST_CLIENT_ID,
-		display_name: ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME,
-	});
-
-	const deviceCode = typeof json.device_code === 'string' ? json.device_code : null;
-	if (!deviceCode) {
-		const error = typeof json.error === 'string' ? json.error : `HTTP ${status}`;
-		throw new Error(`Failed to start device login: ${error}`);
-	}
-
-	const userCode = typeof json.user_code === 'string' ? json.user_code : '(see browser)';
-	const openUrl =
-		(typeof json.verification_uri_complete === 'string' && json.verification_uri_complete) ||
-		(typeof json.verification_uri === 'string' && json.verification_uri) ||
-		`${portalOrigin}/oauth/device`;
-
-	console.log(
-		`\n[almostuseful-live-auth] Authorize ${ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME} for live eval:`,
-	);
-	console.log(`  User code: ${userCode}`);
-	console.log(`  URL: ${openUrl}\n`);
-
-	openBrowser(openUrl);
-
-	return pollDeviceCodeUntilAuthorized({
+async function authenticateWithPkceAndPaste(
+	portalOrigin: string,
+	shouldOpenBrowser: boolean,
+): Promise<string> {
+	const pkce = createLivePkcePair();
+	const state = createLiveOauthState();
+	const authorizeUrl = buildAlmostUsefulLiveAuthorizeUrl({
 		portalOrigin,
-		deviceCode,
-		intervalSeconds: typeof json.interval === 'number' ? json.interval : 5,
-		expiresInSeconds: typeof json.expires_in === 'number' ? json.expires_in : 900,
+		state,
+		codeChallenge: pkce.challenge,
 	});
-}
 
-async function authenticateWithPaste(portalOrigin: string): Promise<string> {
-	const pasted = await readPasteLine(
-		'Paste Almost Useful access token (eyJ…) or a fresh device_code, then press Enter: ',
-	);
+	if (shouldOpenBrowser) {
+		console.log(
+			`\n[almostuseful-live-auth] Authorize ${ALMOSTUSEFUL_LIVE_TEST_CLIENT_DISPLAY_NAME} for live eval:`,
+		);
+		console.log(`  ${authorizeUrl}\n`);
+		openBrowser(authorizeUrl);
+	} else {
+		console.log(
+			`\n[almostuseful-live-auth] Open this URL, then paste the continue-page code:\n  ${authorizeUrl}\n`,
+		);
+	}
+
+	const pasted = await promptForAuthorizationCodeOrJwt();
 	if (!pasted) {
-		throw new Error('No token pasted.');
+		throw new Error('No authorisation code pasted.');
 	}
 	if (isAlmostUsefulAccessTokenJwt(pasted)) {
 		return pasted;
 	}
-
-	console.log(
-		'[almostuseful-live-auth] Treating paste as device_code — approve on /oauth/device if needed.',
-	);
-	return exchangeDeviceCode({ portalOrigin, deviceCode: pasted });
+	return exchangeAuthorizationCode({
+		portalOrigin,
+		code: pasted,
+		codeVerifier: pkce.verifier,
+	});
 }
 
 /**
- * Resolves a portal app JWT for live eval: env token, interactive paste, or
- * device-code flow (opens the system browser, then polls until approved).
+ * Resolves a portal app JWT for live eval: env token, or PKCE plus pasted
+ * authorisation code (opens the system browser by default).
  */
 export async function resolveAlmostUsefulLiveAccessToken(): Promise<string> {
 	const portalOrigin = resolveAlmostUsefulPortalOriginForLiveTests();
@@ -216,9 +186,5 @@ export async function resolveAlmostUsefulLiveAccessToken(): Promise<string> {
 		return token;
 	}
 
-	if (mode === 'paste') {
-		return authenticateWithPaste(portalOrigin);
-	}
-
-	return authenticateWithDeviceFlow(portalOrigin);
+	return authenticateWithPkceAndPaste(portalOrigin, mode !== 'paste');
 }

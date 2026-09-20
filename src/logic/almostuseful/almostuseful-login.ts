@@ -1,11 +1,9 @@
 import { Platform } from 'obsidian';
 import { createAlmostUsefulPkcePair } from 'src/logic/almostuseful/almostuseful-pkce';
 import {
-	ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-	ALMOSTUSEFUL_CLIENT_ID,
-	ALMOSTUSEFUL_PROTOCOL_ACTION,
-	ALMOSTUSEFUL_REDIRECT_URI,
-} from 'src/logic/almostuseful/almostuseful-constants';
+	buildAlmostUsefulAuthorizationCodeTokenBody,
+	buildAlmostUsefulAuthorizeUrl,
+} from 'src/logic/almostuseful/almostuseful-authorize-url';
 import { persistAlmostUsefulTokenResponse } from 'src/logic/almostuseful/almostuseful-token-persist';
 import { almostUsefulRequestJson } from 'src/logic/almostuseful/almostuseful-http';
 import {
@@ -80,44 +78,13 @@ export async function startAlmostUsefulBrowserLogin(): Promise<void> {
 	});
 	almostUsefulLoginPhase = 'opening';
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const query = new URLSearchParams({
-		client_id: ALMOSTUSEFUL_CLIENT_ID,
-		display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-		redirect_uri: ALMOSTUSEFUL_REDIRECT_URI,
-		state,
-		code_challenge: pkce.challenge,
-		code_challenge_method: 'S256',
-	});
-	openAlmostUsefulBrowserUrl(`${portalOrigin}/oauth/authorize?${query.toString()}`);
-}
-
-/** Completes protocol return: HTTPS token exchange, never tokens from the URL. */
-export async function completeAlmostUsefulProtocolHandoff(params: {
-	code?: string;
-	state?: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-	const pending = readAlmostUsefulHandoffPending();
-	if (!pending) {
-		return { ok: false, error: 'No in-progress Almost Useful login' };
-	}
-	if (!params.code || !params.state) {
-		return { ok: false, error: 'Missing authorize code' };
-	}
-	if (params.state !== pending.state) {
-		return { ok: false, error: 'Login state did not match' };
-	}
-
-	const stored = await exchangeAlmostUsefulAuthorizationCode({
-		code: params.code,
-		codeVerifier: pending.codeVerifier,
-	});
-	if (!stored.ok) return stored;
-
-	clearAlmostUsefulHandoffPending();
-	clearAlmostUsefulPasteUiTimer();
-	almostUsefulLoginPhase = 'idle';
-	void startAlmostUsefulSessionRefresh();
-	return { ok: true };
+	openAlmostUsefulBrowserUrl(
+		buildAlmostUsefulAuthorizeUrl({
+			portalOrigin,
+			state,
+			codeChallenge: pkce.challenge,
+		}),
+	);
 }
 
 /** Drops in-flight PKCE so the user can start a fresh browser login. */
@@ -128,8 +95,8 @@ export function cancelAlmostUsefulPendingLogin(): void {
 }
 
 /**
- * Same HTTPS exchange as the protocol handler, for when a new Obsidian window
- * ate the deep link. Uses the PKCE verifier stored in this window.
+ * HTTPS token exchange for a pasted continue-page code. Uses the PKCE verifier
+ * stored in this window; portal does not need state on the token POST.
  */
 export async function completeAlmostUsefulPastedHandoffCode(
 	rawCode: string,
@@ -143,12 +110,20 @@ export async function completeAlmostUsefulPastedHandoffCode(
 	}
 	const code = rawCode.trim();
 	if (!code) {
-		return { ok: false, error: 'Paste the code from the authorize redirect' };
+		return { ok: false, error: 'Paste the code from the website' };
 	}
-	return completeAlmostUsefulProtocolHandoff({
+
+	const stored = await exchangeAlmostUsefulAuthorizationCode({
 		code,
-		state: pending.state,
+		codeVerifier: pending.codeVerifier,
 	});
+	if (!stored.ok) return stored;
+
+	clearAlmostUsefulHandoffPending();
+	clearAlmostUsefulPasteUiTimer();
+	almostUsefulLoginPhase = 'idle';
+	void startAlmostUsefulSessionRefresh();
+	return { ok: true };
 }
 
 /** Revokes the grant when possible, then drops local tokens. */
@@ -169,7 +144,6 @@ export function logOutAlmostUseful(): void {
 	almostUsefulLoginPhase = 'idle';
 }
 
-/** POSTs authorization_code to the portal token endpoint. */
 async function exchangeAlmostUsefulAuthorizationCode(params: {
 	code: string;
 	codeVerifier: string;
@@ -178,15 +152,7 @@ async function exchangeAlmostUsefulAuthorizationCode(params: {
 	const response = await almostUsefulRequestJson({
 		url: `${portalOrigin}/api/oauth/token`,
 		method: 'POST',
-		body: {
-			grant_type: 'authorization_code',
-			code: params.code,
-			code_verifier: params.codeVerifier,
-			client_id: ALMOSTUSEFUL_CLIENT_ID,
-			redirect_uri: ALMOSTUSEFUL_REDIRECT_URI,
-		},
+		body: buildAlmostUsefulAuthorizationCodeTokenBody(params),
 	});
 	return persistAlmostUsefulTokenResponse(response);
 }
-
-export { ALMOSTUSEFUL_PROTOCOL_ACTION };

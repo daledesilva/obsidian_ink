@@ -5,9 +5,6 @@ export const ALMOSTUSEFUL_CLIENT_DISPLAY_NAME = 'Ink';
 /** Production portal. Public client identifier, not a secret. */
 export const ALMOSTUSEFUL_PORTAL_ORIGIN = 'https://account.almostuseful.xyz';
 
-export const ALMOSTUSEFUL_REDIRECT_URI = 'obsidian://ink-almostuseful-auth';
-export const ALMOSTUSEFUL_PROTOCOL_ACTION = 'ink-almostuseful-auth';
-
 export const ALMOSTUSEFUL_APP_TOKEN_TYPE = 'almostuseful_app';
 
 /** Suffix for saveLocally — full key is au_ink_almostuseful_session. */

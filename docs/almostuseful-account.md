@@ -12,22 +12,17 @@ Ink needs a signed-in Almost Useful identity to show Pool A remaining credits an
 
 ## Conceptual understanding
 
-Ink never shows an email/password form. **Log in with Almost Useful** opens the system browser to `https://account.almostuseful.xyz/oauth/authorize` with `client_id=ink` and `display_name=Ink`. After the user signs in on the website (if needed) and taps **Authorize Ink**, the portal returns `obsidian://ink-almostuseful-auth?code=&state=` with a one-time code — **not** tokens. If that deep link opens a **new** Obsidian window, the original window still holds the PKCE verifier; the user pastes the website **backup code** there. Ink then `POST`s `/api/oauth/token` over HTTPS and stores a portal **app JWT** (`typ=almostuseful_app`) on this device only. Plan 2 user-JWT blobs without that `tokenType` are discarded so the user must consent again.
+Ink never shows an email/password form. **Log in with Almost Useful** opens the system browser to `https://account.almostuseful.xyz/oauth/authorize` with `client_id=ink` and `display_name=Ink` (no `redirect_uri`). After the user signs in on the website (if needed) and taps **Authorise Ink**, the portal stays on `/oauth/authorize/continue` with a copyable one-time **code**. The user pastes that code in the **same Obsidian window** that started Log in (that window holds the PKCE verifier). Ink then `POST`s `/api/oauth/token` over HTTPS and stores a portal **app JWT** (`typ=almostuseful_app`) on this device only. Plan 2 user-JWT blobs without that `tokenType` are discarded so the user must consent again.
 
 ```mermaid
 sequenceDiagram
   participant Settings as Ink settings
   participant Browser as System browser
   participant Portal as account.almostuseful.xyz
-  participant Obs as obsidian://ink-almostuseful-auth
-  Settings->>Browser: /oauth/authorize with PKCE
-  Browser->>Portal: Website login if needed, then Authorize Ink
-  Portal-->>Obs: code and state
-  alt protocol opened this window
-    Obs->>Settings: Protocol handler
-  else new Obsidian swallowed the link
-    Browser->>Settings: Paste backup code
-  end
+  Settings->>Browser: /oauth/authorize with PKCE, no redirect_uri
+  Browser->>Portal: Website login if needed, then Authorise Ink
+  Portal-->>Browser: /oauth/authorize/continue copyable code
+  Browser-->>Settings: User pastes code
   Settings->>Portal: POST /api/oauth/token
   Portal-->>Settings: App access_token plus refresh_token
 ```
@@ -68,11 +63,11 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 |-------|--------|---------|
 | Signed out | Almost Useful account | Browser-login copy; **Log in with Almost Useful**; Create account / Forgot password |
 | Opening (first ~4s after Log in) | Almost Useful account | **Same signed-out row**; Log in is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
-| Pending | Almost Useful account | **Confirm in your browser**; **Paste backup code** + Connect (disabled while Connecting…) + **Cancel pending login**. Log in is hidden so paste is not competing with a second CTA |
+| Pending | Almost Useful account | **Confirm in your browser**; **Paste authorisation code** + Connect (disabled while Connecting…) + **Cancel pending login**. Log in is hidden so paste is not competing with a second CTA |
 | Signed in | Almost Useful account: logged in (email when known) | **Manage account** / **Log out**; credit charts (or empty-pool products CTA) with a spinning **refresh-cw** while refetching |
 | 401 | Treated as signed out | Local session cleared |
 
-Obsidian often closes Settings when the app backgrounds for the browser. `openInkSettingsTab` reopens the Ink tab after protocol return.
+Obsidian often closes Settings when the app backgrounds for the browser. After pasting the code, reopen Ink settings if it closed.
 
 **Manage account** opens `/account` in the system browser (website cookie; a second website login is expected).
 
@@ -88,7 +83,7 @@ This settings UI does **not** call placeholder job routes.
 
 ### Protocol and storage
 
-- Handler: `registerObsidianProtocolHandler('ink-almostuseful-auth', …)` in `src/main.ts`.
+- There is **no** `obsidian://` protocol handler for app-token login. Finish by pasting the continue-page code.
 - Desktop opens the authorize URL with Electron `shell.openExternal`; mobile uses `window.open`.
 - Session suffix passed to `saveLocally`: `almostuseful_session` → full key `au_ink_almostuseful_session`. Do not double-prefix. Shape: `{ tokenType: 'almostuseful_app', accessToken, refreshToken, expiresAtEpochSeconds, grantId, userId, clientId, displayName, userEmail }`.
 - Usage cache suffix: `almostuseful_usage_cache` → `au_ink_almostuseful_usage_cache`.
@@ -106,11 +101,11 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 ## Technical Gotchas
 
 - **OAuth must return to authorize.** If Google users land on `/account` and Ink stays signed out, the portal `next` query was dropped — that is a portal bug, not a reason to add a password field in Ink.
-- **Tokens never belong in `obsidian://` URLs.** Only `code` and `state`.
+- **Tokens never belong in the continue URL as JWTs.** Only a one-time `code` (and `state` in the query). The app exchanges over HTTPS.
 - **Paste only works in the window that clicked Log in.** A new Obsidian instance has no verifier.
-- **Clones can reuse the same protocol action.** Accepted for a public plugin. Do not invent a secret plugin API key.
+- **Clones can complete the same OOB paste** if the user consents on the portal. Accepted for a public plugin. Do not invent a secret plugin API key.
 - **Per-device login:** localStorage does not sync with the vault. Sign in again on another computer.
-- **Portal authorize allow-list** includes `obsidian://ink-almostuseful-auth`. That URI does not need to be on the Supabase Auth redirect list.
+- **Portal app-token authorize does not use a redirect allow-list.** `obsidian://` is not required on the Supabase Auth redirect list for this grant.
 - **Do not iframe `/account` for charts.** Cookie session ≠ plugin app token.
 - **Do not add TanStack Charts** to match the portal renderer. Remaining/spend parity is the layout math and burndown JSON, not the chart library. The plugin bundle is already large.
 - **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 4000ms before `onRerender` to pending. Until then, only disable Log in in place — do not remove the button or change copy.

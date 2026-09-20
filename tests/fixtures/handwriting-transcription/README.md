@@ -19,14 +19,14 @@ Manifest: `fixtures.ts` (`HANDWRITING_TRANSCRIPTION_FIXTURE_IDS`).
 HANDWRITING_TRANSCRIPTION_LIVE=1 npm run test:unit -- tests/logic/handwriting-transcription-live.test.ts
 ```
 
-**Default auth (`device`):** starts OAuth device login, opens your browser to the portal, polls until you authorize Ink — no token copy/paste.
+**Default auth (`pkce`):** opens `/oauth/authorize` (no `redirect_uri`), then paste the **authorisation code** from `/oauth/authorize/continue`.
 
 Optional env:
 
 | Variable | Purpose |
 |---|---|
 | `ALMOSTUSEFUL_PORTAL_ORIGIN` | Staging host (default `https://account.almostuseful.xyz`) |
-| `ALMOSTUSEFUL_LIVE_AUTH` | `device` (default), `paste`, or `env` |
+| `ALMOSTUSEFUL_LIVE_AUTH` | `pkce` (default), `paste` (same flow, does not auto-open the browser), or `env` |
 | `ALMOSTUSEFUL_APP_ACCESS_TOKEN` | Skip login when set (`env` mode, or forces env mode) |
 
 **Paste mode** (interactive terminal):
@@ -36,6 +36,6 @@ HANDWRITING_TRANSCRIPTION_LIVE=1 ALMOSTUSEFUL_LIVE_AUTH=paste \
 npm run test:unit -- tests/logic/handwriting-transcription-live.test.ts
 ```
 
-Paste an `eyJ…` access token from Obsidian localStorage, or a fresh `device_code` after approving on `/oauth/device`.
+Paste the continue-page authorisation code (or an `eyJ…` access token).
 
 Runs **12 portal calls** (3 fixtures × 4 variants) and debits Pool A credits.

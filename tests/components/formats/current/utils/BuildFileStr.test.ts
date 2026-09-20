@@ -223,4 +223,20 @@ describe('buildFileStr — round-trip with extractInkJsonFromSvg', () => {
 		const parsed = extractInkJsonFromSvg(svgStr);
 		expect(parsed?.meta.transcript).toBe('legacy text');
 	});
+
+	test('omits transcript element when meta.transcript is empty', () => {
+		const original = makeWritingFileData(150);
+		original.meta.transcript = '';
+		const svgStr = buildFileStr(original);
+		expect(svgStr).not.toContain('<transcript>');
+		expect(svgStr).not.toContain('transcript="');
+	});
+
+	test('escapes ampersands in transcript element text', () => {
+		const original = makeInkCanvasFileData();
+		original.meta.transcript = 'rock & roll';
+		const svgStr = buildFileStr(original);
+		expect(svgStr).toContain('<transcript>rock &amp; roll</transcript>');
+		expect(extractInkJsonFromSvg(svgStr)?.meta.transcript).toBe('rock & roll');
+	});
 });

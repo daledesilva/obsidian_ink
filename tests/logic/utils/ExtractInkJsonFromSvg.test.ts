@@ -107,3 +107,59 @@ describe('extractInkJsonFromSvg — writingLineHeight parsing', () => {
 		expect(result!.meta.writingLineHeight).toBe(250);
 	});
 });
+
+describe('extractInkJsonFromSvg — transcript parsing', () => {
+
+	test('reads markdown from transcript element (tldraw)', () => {
+		const markdown = 'Line one\n\n**bold**';
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg">
+<metadata>
+<ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
+<transcript>${markdown}</transcript>
+<tldraw version="${TLDRAW_VERSION}">${TLDRAW_JSON}</tldraw>
+</metadata>
+</svg>`;
+		const result = extractInkJsonFromSvg(svg);
+		expect(result?.meta.transcript).toBe(markdown);
+	});
+
+	test('prefers transcript element over legacy ink attribute', () => {
+		const svg = makeSvg('transcript="legacy only"').replace(
+			'<tldraw',
+			'<transcript>from element</transcript>\n<tldraw',
+		);
+		expect(extractInkJsonFromSvg(svg)?.meta.transcript).toBe('from element');
+	});
+
+	test('falls back to legacy ink attribute when transcript element is empty', () => {
+		const svg = makeSvg('transcript="legacy fallback"').replace(
+			'<tldraw',
+			'<transcript></transcript>\n<tldraw',
+		);
+		expect(extractInkJsonFromSvg(svg)?.meta.transcript).toBe('legacy fallback');
+	});
+
+	test('unescapes XML entities in transcript element text', () => {
+		const svg = makeSvg('').replace(
+			'<tldraw',
+			'<transcript>a &amp; b &lt;c&gt;</transcript>\n<tldraw',
+		);
+		expect(extractInkJsonFromSvg(svg)?.meta.transcript).toBe('a & b <c>');
+	});
+
+	test('reads transcript from ink-canvas metadata', () => {
+		const inkCanvasJson = JSON.stringify({ version: 1, strokes: [], gridEnabled: false });
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg">
+<metadata>
+<ink plugin-version="${PLUGIN_VERSION}" file-type="inkWriting"/>
+<transcript>ink-canvas transcript</transcript>
+<ink-canvas version="0.5.0">${inkCanvasJson}</ink-canvas>
+</metadata>
+</svg>`;
+		expect(extractInkJsonFromSvg(svg)?.meta.transcript).toBe('ink-canvas transcript');
+	});
+
+	test('returns undefined transcript when neither element nor attribute is set', () => {
+		expect(extractInkJsonFromSvg(makeSvg(''))?.meta.transcript).toBeUndefined();
+	});
+});

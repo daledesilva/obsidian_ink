@@ -1,4 +1,9 @@
-import { buildDrawingFileData, buildWritingFileData, buildFileData } from 'src/components/formats/current/utils/build-file-data';
+import {
+  buildDrawingFileData,
+  buildWritingFileData,
+  buildFileData,
+  buildInkCanvasWritingFileData,
+} from 'src/components/formats/current/utils/build-file-data';
 import { PLUGIN_VERSION, TLDRAW_VERSION } from 'src/constants';
 
 const sampleSnapshot = {
@@ -79,6 +84,21 @@ describe('build-file-data utilities', () => {
     // buildFileData passes it through to meta regardless of fileType — assert the actual behaviour
     // so any future change that strips it from drawings is a deliberate, visible decision.
     expect(out.meta.writingLineHeight).toBe(200);
+  });
+
+  test('buildWritingFileData passes transcript into meta', () => {
+    const out = buildWritingFileData({ tlEditorSnapshot: sampleSnapshot, transcript: 'hello\nworld' });
+    expect(out.meta.transcript).toBe('hello\nworld');
+  });
+
+  test('buildInkCanvasWritingFileData passes transcript into meta', () => {
+    const out = buildInkCanvasWritingFileData({
+      inkCanvasSnapshot: { version: 1, strokes: [], gridEnabled: false },
+      svgString: '<svg></svg>',
+      transcript: 'canvas transcript',
+    });
+    expect(out.meta.transcript).toBe('canvas transcript');
+    expect(out.meta.fileType).toBe('inkWriting');
   });
 });
 

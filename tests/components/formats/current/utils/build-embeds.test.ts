@@ -4,6 +4,7 @@ import {
 	buildWritingEmbed,
 	buildWritingEmbedLine,
 	formatWritingEmbedAltText,
+	patchWritingEmbedTranscriptInEmbedSnippet,
 	WRITING_EMBED_ALT_PLACEHOLDER,
 } from 'src/components/formats/current/utils/build-embeds';
 
@@ -44,5 +45,31 @@ describe('build-embeds', () => {
 		});
 		expect(line).toContain('![Hello note(url)]');
 		expect(line).not.toContain('\n');
+	});
+
+	it('formatWritingEmbedAltText keeps emphasis and parentheses', () => {
+		expect(formatWritingEmbedAltText('*(note)* ~strike~')).toBe('*(note)* ~strike~');
+	});
+
+	it('formatWritingEmbedAltText removes backslashes and angle brackets', () => {
+		expect(formatWritingEmbedAltText('a\\b <tag>')).toBe('ab tag');
+	});
+
+	it('formatWritingEmbedAltText returns placeholder when only risky chars remain', () => {
+		expect(formatWritingEmbedAltText('[]|\\<>')).toBe(WRITING_EMBED_ALT_PLACEHOLDER);
+	});
+
+	it('patchWritingEmbedTranscriptInEmbedSnippet replaces InkWriting placeholder', () => {
+		const snippet = ' ![InkWriting](<Ink/Writing/test.svg>) [Edit Writing](obsidian://ink)';
+		const patched = patchWritingEmbedTranscriptInEmbedSnippet(snippet, 'Hello world');
+		expect(patched).toContain('![Hello world]');
+		expect(patched).not.toContain('InkWriting');
+	});
+
+	it('patchWritingEmbedTranscriptInEmbedSnippet overwrites an existing alt', () => {
+		const snippet = ' ![old alt](<Ink/Writing/test.svg>) [Edit Writing](obsidian://ink)';
+		const patched = patchWritingEmbedTranscriptInEmbedSnippet(snippet, '**new**\nalt');
+		expect(patched).toContain('![**new** alt]');
+		expect(patched).not.toContain('old alt');
 	});
 });

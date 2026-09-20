@@ -42,7 +42,7 @@ function clearAlmostUsefulPasteUiTimer(): void {
 	almostUsefulPasteUiTimer = null;
 }
 
-/** After Log in, wait so the paste field does not flash before the browser opens. */
+/** After Log in, wait so the paste field does not replace the Log in row until the browser has opened. */
 export function scheduleAlmostUsefulPasteUi(onShowPaste: () => void): void {
 	clearAlmostUsefulPasteUiTimer();
 	almostUsefulPasteUiTimer = window.setTimeout(() => {

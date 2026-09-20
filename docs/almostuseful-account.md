@@ -32,7 +32,7 @@ sequenceDiagram
   Portal-->>Settings: App access_token plus refresh_token
 ```
 
-Signed-in settings show credit **information** that matches Project Post (remaining through today, allotment-scaled burndown + ideal line, Ink vs other apps spend). Styling uses Obsidian CSS variables. Charts are hand-built SVG from burndown JSON — not TanStack, not an iframe of `/account`.
+Signed-in settings show credit **charts** that match Project Post (allotment-scaled burndown + ideal line, Ink vs other apps spend). There is **no** “Remaining this period: $…” line — remaining is the burndown bars only. Styling uses Obsidian CSS variables. Charts are hand-built SVG from burndown JSON — not TanStack, not an iframe of `/account`.
 
 The production portal URL shipped in the plugin is a public client identifier. It is not a company secret. Never add a service role, OpenRouter, Stripe key, or Supabase anon key here.
 
@@ -46,7 +46,8 @@ flowchart TD
   OpenSettings --> SignedIn{Device app token?}
   SignedIn -->|no| LoggedOut[Collapsible Almost Useful account]
   LoggedOut --> Idle[Log in CTA]
-  LoggedOut --> Pending[Paste XOR Log in plus Cancel]
+  Idle --> Opening[Log in disabled four seconds]
+  Opening --> Pending[Paste XOR Log in plus Cancel]
   Idle --> BrowserLogin[System browser authorize]
   Pending --> Exchange[HTTPS /api/oauth/token]
   BrowserLogin --> Exchange
@@ -66,8 +67,9 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 | State | Header | Content |
 |-------|--------|---------|
 | Signed out | Almost Useful account | Browser-login copy; **Log in with Almost Useful**; Create account / Forgot password |
+| Opening (first ~4s after Log in) | Almost Useful account | **Same signed-out row**; Log in is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
 | Pending | Almost Useful account | **Confirm in your browser**; **Paste backup code** + Connect (disabled while Connecting…) + **Cancel pending login**. Log in is hidden so paste is not competing with a second CTA |
-| Signed in | Almost Useful account: logged in (email when known) | **Manage account** / **Log out**; credit charts (or empty-pool products CTA) |
+| Signed in | Almost Useful account: logged in (email when known) | **Manage account** / **Log out**; credit charts (or empty-pool products CTA) with a spinning **refresh-cw** while refetching |
 | 401 | Treated as signed out | Local session cleared |
 
 Obsidian often closes Settings when the app backgrounds for the browser. `openInkSettingsTab` reopens the Ink tab after protocol return.
@@ -76,7 +78,9 @@ Obsidian often closes Settings when the app backgrounds for the browser. `openIn
 
 ### Charts
 
-`GET /api/me/usage/burndown?tz=` with the device IANA zone and `Authorization: Bearer` **app** token. Remaining is the last **through-today** point, formatted as `$X.XX` (not the raw usage-API numeric string). Bars use allotment as y-max. Future days have no remaining bars. Usage distribution stacks **Ink** (`client_id` `ink`) on top of **Other apps**, hidden when there is no spend through today. Geometry lives in `credit-pool-chart-layout.ts` (same slot math as Project Post). Portal chart contract: portal `docs/conceptual/CREDIT_POOL_USAGE_CHARTS.md`.
+`GET /api/me/usage/burndown?tz=` with the device IANA zone and `Authorization: Bearer` **app** token. Bars use allotment as y-max. Future days have no remaining bars. Do **not** print a remaining-dollar sentence above the chart. Usage distribution stacks **Ink** (`client_id` `ink`) on top of **Other apps**, hidden when there is no spend through today. Geometry lives in `credit-pool-chart-layout.ts` (same slot math as Project Post). Portal chart contract: portal `docs/conceptual/CREDIT_POOL_USAGE_CHARTS.md`.
+
+Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. A `refresh-cw` icon in the usage toolbar spins during that fetch (and on tap). Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
 This UI does **not** call placeholder job routes.
 
@@ -85,6 +89,7 @@ This UI does **not** call placeholder job routes.
 - Handler: `registerObsidianProtocolHandler('ink-almostuseful-auth', …)` in `src/main.ts`.
 - Desktop opens the authorize URL with Electron `shell.openExternal`; mobile uses `window.open`.
 - Session suffix passed to `saveLocally`: `almostuseful_session` → full key `au_ink_almostuseful_session`. Do not double-prefix. Shape: `{ tokenType: 'almostuseful_app', accessToken, refreshToken, expiresAtEpochSeconds, grantId, userId, clientId, displayName, userEmail }`.
+- Usage cache suffix: `almostuseful_usage_cache` → `au_ink_almostuseful_usage_cache`.
 - In-flight PKCE: `almostuseful_handoff`. **Cancel pending login** clears it.
 - Refresh: `POST /api/oauth/token` with `grant_type=refresh_token`. `invalid_grant` / 401 clears storage.
 - Log out: `POST /api/oauth/grants/:grantId/revoke` with the app Bearer, then delete the session key. Vault **Reset settings** does not need to wipe `data.json` to sign out.
@@ -106,4 +111,6 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 - **Portal authorize allow-list** includes `obsidian://ink-almostuseful-auth`. That URI does not need to be on the Supabase Auth redirect list.
 - **Do not iframe `/account` for charts.** Cookie session ≠ plugin app token.
 - **Do not add TanStack Charts** to match the portal renderer. Remaining/spend parity is the layout math and burndown JSON, not the chart library. The plugin bundle is already large.
+- **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 4000ms before `onRerender` to pending. Until then, only disable Log in in place — do not remove the button or change copy.
+- **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
 - **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Log in again so they can Authorize Ink.

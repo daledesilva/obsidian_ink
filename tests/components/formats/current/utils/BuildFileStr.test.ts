@@ -186,4 +186,41 @@ describe('buildFileStr — round-trip with extractInkJsonFromSvg', () => {
 
 		expect(secondParsed!.meta.writingLineHeight).toBe(300);
 	});
+
+	test('markdown transcript round-trips via transcript element (tldraw)', () => {
+		const markdown = '**bold**\n\n[line](https://example.com)\n<tag>';
+		const original = makeWritingFileData(150);
+		original.meta.transcript = markdown;
+		const svgStr = buildFileStr(original);
+
+		expect(svgStr).toContain('<transcript>');
+		expect(svgStr).not.toContain('transcript="');
+		expect(svgStr).toContain('&lt;tag&gt;');
+
+		const parsed = extractInkJsonFromSvg(svgStr);
+		expect(parsed?.meta.transcript).toBe(markdown);
+	});
+
+	test('markdown transcript round-trips via transcript element (ink-canvas)', () => {
+		const markdown = 'Line one\nLine two';
+		const original = makeInkCanvasFileData();
+		original.meta.transcript = markdown;
+		const svgStr = buildFileStr(original);
+
+		expect(svgStr).toContain('<transcript>Line one\nLine two</transcript>');
+
+		const parsed = extractInkJsonFromSvg(svgStr);
+		expect(parsed?.meta.transcript).toBe(markdown);
+	});
+
+	test('reads legacy ink transcript attribute when transcript element is absent', () => {
+		const svgStr = `<svg xmlns="http://www.w3.org/2000/svg">
+<metadata>
+<ink plugin-version="1" file-type="inkWriting" transcript="legacy text"/>
+<tldraw version="2">{}</tldraw>
+</metadata>
+</svg>`;
+		const parsed = extractInkJsonFromSvg(svgStr);
+		expect(parsed?.meta.transcript).toBe('legacy text');
+	});
 });

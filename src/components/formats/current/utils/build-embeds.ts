@@ -47,10 +47,39 @@ export const buildDrawingEmbed = (
 	return `\n${line}\n`;
 };
 
+/** Placeholder alt text when a writing embed has no transcript yet. */
+export const WRITING_EMBED_ALT_PLACEHOLDER = 'InkWriting';
+
+/**
+ * Plain-text alt for writing embeds: one line, no chars that break `![…](…)` or Obsidian `alt|width`.
+ */
+export function formatWritingEmbedAltText(transcript?: string): string {
+	if (!transcript) return WRITING_EMBED_ALT_PLACEHOLDER;
+	const collapsed = transcript
+		.replace(/[\r\n\t]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.replace(/[[\]\\|<>]/g, '')
+		.trim();
+	if (!collapsed) return WRITING_EMBED_ALT_PLACEHOLDER;
+	return collapsed;
+}
+
+/**
+ * Patch the image alt on a writing embed snippet (decoration range).
+ * Empty / missing transcript keeps the InkWriting placeholder.
+ */
+export function patchWritingEmbedTranscriptInEmbedSnippet(
+	embedSnippet: string,
+	transcript: string,
+): string {
+	const alt = formatWritingEmbedAltText(transcript);
+	return embedSnippet.replace(/!\[[^\]]*\]/, `![${alt}]`);
+}
+
 /** Single-line embed markdown with required leading space (no block newlines). */
 export function buildWritingEmbedLine(
 	filepath: string,
-	options?: { pendingPaste?: boolean; aspectRatio?: number },
+	options?: { pendingPaste?: boolean; aspectRatio?: number; transcript?: string },
 ): string {
 	const params = new URLSearchParams();
 	// Persist page aspect from the SVG viewBox when known so CM estimatedHeight matches preview.
@@ -63,12 +92,13 @@ export function buildWritingEmbedLine(
 	const url = query
 		? `${INK_EMBED_BASE_URL}?type=inkWriting&${query}`
 		: `${INK_EMBED_BASE_URL}?type=inkWriting`;
-	return ` ![InkWriting](<${filepath}>) [Edit Writing](${url})`;
+	const alt = formatWritingEmbedAltText(options?.transcript);
+	return ` ![${alt}](<${filepath}>) [Edit Writing](${url})`;
 }
 
 export const buildWritingEmbed = (
 	filepath: string,
-	options?: { pendingPaste?: boolean; aspectRatio?: number },
+	options?: { pendingPaste?: boolean; aspectRatio?: number; transcript?: string },
 ): string => {
 	const line = buildWritingEmbedLine(filepath, options);
 	return `\n${line}\n`;

@@ -13,16 +13,21 @@ Ink files are SVG files with embedded metadata. The visual content and metadata 
   <!-- Visual content: paths from ink-canvas export -->
   <metadata>
     <ink plugin-version="..." file-type="inkDrawing|inkWriting"/>
+    <!-- Optional on inkWriting only; full markdown, not embed alt -->
+    <transcript>escaped markdown text</transcript>
     <ink-canvas version="0.5.0">JSON InkCanvasSnapshot</ink-canvas>
   </metadata>
 </svg>
 ```
+
+Writing files may include an optional [`<transcript>`](writing-transcription.md) element (sibling of `<ink>`). The note embed’s image alt holds a stripped plain-text cousin — see [Writing transcription](writing-transcription.md).
 
 **Legacy engine (tldraw)** — still present on older files until the user edits and saves (lazy upgrade to ink-canvas):
 
 ```xml
 <metadata>
   <ink plugin-version="..." file-type="inkDrawing|inkWriting"/>
+  <transcript>optional markdown transcript</transcript>
   <tldraw version="2.4.3">JSON TLEditorSnapshot</tldraw>
 </metadata>
 ```

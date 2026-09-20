@@ -91,6 +91,7 @@ export function WritingEmbed (props: {
 	) => void | Promise<void>,
 	getEmbedMarkdown?: () => string | null,
 	deleteEmbed?: () => void,
+	updateEmbedTranscript?: (transcript: string) => void,
 }) {
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const embedContainerElRef = useRef<HTMLDivElement>(null);
@@ -397,6 +398,7 @@ export function WritingEmbed (props: {
 							closeEditor={() => void saveAndSwitchToPreviewMode()}
 							extendedMenu={commonExtendedOptions}
 							onOpenInDedicatedView={() => void openInDedicatedView()}
+							onTranscriptSaved={(transcript) => props.updateEmbedTranscript?.(transcript)}
 						/>
 					)}
 

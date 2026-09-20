@@ -138,7 +138,12 @@ export class WritingView extends TextFileView {
                         const aspectRatio = await readWritingFileAspectRatio(this.plugin, this.file);
                         const embedStr = buildWritingEmbedLine(
                             this.file.path,
-                            aspectRatio != null ? { aspectRatio } : undefined,
+                            {
+                                ...(aspectRatio != null ? { aspectRatio } : {}),
+                                ...(this.inkFileData?.meta.transcript
+                                    ? { transcript: this.inkFileData.meta.transcript }
+                                    : {}),
+                            },
                         );
                         void copyEmbedMarkdownToClipboard(embedStr);
                     })();

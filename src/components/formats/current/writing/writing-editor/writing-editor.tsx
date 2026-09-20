@@ -57,6 +57,7 @@ import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'sr
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
+import { transcribeWriting } from 'src/logic/transcribe-writing';
 
 ///////////////////////////
 ///////////////////////////
@@ -90,6 +91,8 @@ interface WritingEditorProps {
 	closeEditor?: () => void;
 	saveControlsReference?: (controls: WritingEditorControls) => void;
 	onOpenInDedicatedView?: () => void;
+	/** Embed only: also write the transcript into the note's image alt text. */
+	onTranscriptSaved?: (transcript: string) => void;
 }
 
 export const WritingEditorWrapper: React.FC<WritingEditorProps> = (props) => {
@@ -123,6 +126,9 @@ export function WritingEditor(props: WritingEditorProps) {
 	const isAndroidDrawingAreaResizingRef = useRef(false);
 	const queuedBooxStrokePayloadsRef = useRef<BooxStrokePayload[]>([]);
 	const writingLineHeightRef = useRef(WRITING_LINE_HEIGHT);
+	/** Survives canvas autosaves so a later transcribe is not wiped by stroke writes. */
+	const transcriptRef = useRef<string | undefined>(undefined);
+	const [hasTranscript, setHasTranscript] = React.useState(false);
 	/** Applied embed/page inviting height — drives shouldResizeForNewHeight. */
 	const curHeightRef = useRef<number | null>(null);
 	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
@@ -625,7 +631,11 @@ export function WritingEditor(props: WritingEditorProps) {
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
 		hasUnsavedChangesRef.current = false;
-		props.save(buildInkCanvasWritingFileData({ inkCanvasSnapshot: snapshot, svgString }));
+		props.save(buildInkCanvasWritingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+		}));
 	}
 
 	async function completeSave(): Promise<void> {
@@ -635,7 +645,11 @@ export function WritingEditor(props: WritingEditorProps) {
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
 		hasUnsavedChangesRef.current = false;
-		props.save(buildInkCanvasWritingFileData({ inkCanvasSnapshot: snapshot, svgString }));
+		props.save(buildInkCanvasWritingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+		}));
 	}
 
 	function resetTimers() {
@@ -661,7 +675,20 @@ export function WritingEditor(props: WritingEditorProps) {
 			);
 		}
 		writingLineHeightRef.current = snapshot.writingLineHeight ?? WRITING_LINE_HEIGHT;
+		transcriptRef.current = data.meta.transcript;
+		setHasTranscript(!!data.meta.transcript);
 		setInitialSnapshot(snapshot);
+	}
+
+	/**
+	 * Manual overflow action: stub-transcribe, persist on the SVG, then (for embeds) the note alt text.
+	 */
+	async function handleTranscribe() {
+		const transcript = await transcribeWriting();
+		transcriptRef.current = transcript;
+		setHasTranscript(true);
+		await completeSave();
+		props.onTranscriptSaved?.(transcript);
 	}
 
 	function getEditor(): InkCanvasEditor | undefined {
@@ -969,6 +996,15 @@ export function WritingEditor(props: WritingEditorProps) {
 		/>
 	);
 
+	const transcribeMenuOption: MenuOption = {
+		text: hasTranscript ? 'Update transcript' : 'Transcribe',
+		action: () => { void handleTranscribe(); },
+	};
+	const overflowMenuOptions: MenuOption[] = [
+		transcribeMenuOption,
+		...(props.extendedMenu ?? []),
+	];
+
 	return <>
 		<div
 			ref={editorWrapperRefEl}
@@ -1031,14 +1067,14 @@ export function WritingEditor(props: WritingEditorProps) {
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? props.plugin : undefined}
 				/>
-				{props.embedded && props.extendedMenu && (
+				{props.embedded && (
 					<ExtendedWritingMenu
 						onLockClick={() => props.closeEditor?.()}
-						menuOptions={props.extendedMenu}
+						menuOptions={overflowMenuOptions}
 					/>
 				)}
-				{!props.embedded && props.extendedMenu && (
-					<ExtendedWritingMenu menuOptions={props.extendedMenu} />
+				{!props.embedded && (
+					<ExtendedWritingMenu menuOptions={overflowMenuOptions} />
 				)}
 			</PrimaryMenuBar>
 

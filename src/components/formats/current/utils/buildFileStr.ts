@@ -26,10 +26,11 @@ function buildInkCanvasFileStr(pageData: InkFileData): string {
     const snapshotJson = escapeXmlText(JSON.stringify(pageData.inkCanvas));
     const metadata = [
         '<metadata>',
-        `<ink plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}" file-type="${escapeXmlAttribute(pageData.meta.fileType)}"/>`,
+        `<ink ${buildInkElementAttributes(pageData)}/>`,
+        buildTranscriptMetadataElement(pageData),
         `<ink-canvas version="${escapeXmlAttribute(INK_CANVAS_FORMAT_VERSION)}">${snapshotJson}</ink-canvas>`,
         '</metadata>',
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const metadataPattern = /<metadata\b[^>]*>[\s\S]*?<\/metadata>/gi;
     const fileWithoutMetadata = fileStr.replace(metadataPattern, '');
@@ -40,6 +41,31 @@ function buildInkCanvasFileStr(pageData: InkFileData): string {
     }
 
     return `<svg xmlns="http://www.w3.org/2000/svg">\n${metadata}\n</svg>`;
+}
+
+/**
+ * Shared `<ink>` scalar attributes (writing-line-height). Full markdown transcript
+ * lives in a sibling `<transcript>` element so newlines round-trip.
+ */
+function buildInkElementAttributes(pageData: InkFileData): string {
+    const writingLineHeightAttr =
+        pageData.meta.writingLineHeight !== undefined
+            ? ` writing-line-height="${escapeXmlAttribute(String(pageData.meta.writingLineHeight))}"`
+            : '';
+    return (
+        `plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}"` +
+        ` file-type="${escapeXmlAttribute(pageData.meta.fileType)}"` +
+        writingLineHeightAttr
+    );
+}
+
+/**
+ * Escaped element text preserves markdown newlines; omit the tag when empty.
+ */
+function buildTranscriptMetadataElement(pageData: InkFileData): string {
+    const transcript = pageData.meta.transcript;
+    if (!transcript) return '';
+    return `<transcript>${escapeXmlText(transcript)}</transcript>`;
 }
 
 function escapeXmlText(value: string): string {
@@ -68,17 +94,10 @@ function buildTldrawFileStr(pageData: InkFileData): string {
 	const metadataPattern = /<metadata\b[^>]*>[\s\S]*?<\/metadata>/gi;
 	const fileWithoutMetadata = fileStr.replace(metadataPattern, '');
 
-	const writingLineHeightAttr =
-		pageData.meta.writingLineHeight !== undefined
-			? ` writing-line-height="${escapeXmlAttribute(String(pageData.meta.writingLineHeight))}"`
-			: '';
-	const inkAttrs =
-		`plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}"` +
-		` file-type="${escapeXmlAttribute(pageData.meta.fileType)}"` +
-		writingLineHeightAttr;
+	const transcriptElement = buildTranscriptMetadataElement(pageData);
 	const metadata = [
 		'<metadata>',
-		`<ink ${inkAttrs}/>`,
+		`<ink ${buildInkElementAttributes(pageData)}/>`,
 		`<tldraw version="${escapeXmlAttribute(String(TLDRAW_VERSION))}">`,
 		escapeXmlText(JSON.stringify(tldrawJson, null, 2)),
 		'</tldraw>',
@@ -96,8 +115,15 @@ function buildTldrawFileStr(pageData: InkFileData): string {
 		serializedSvg = `<svg xmlns="http://www.w3.org/2000/svg">\n${metadata}\n${fileWithoutMetadata}`;
 	}
 
-	return format(serializedSvg, {
+	const formattedSvg = format(serializedSvg, {
 		indentation: '\t',
 		lineSeparator: '\n',
 	});
+
+	// xml-formatter rewrites element text; splice compact <transcript> after format.
+	if (!transcriptElement) return formattedSvg;
+	return formattedSvg.replace(
+		/(<ink\b[^>]*\/>)/,
+		`$1\n${transcriptElement}`,
+	);
 }

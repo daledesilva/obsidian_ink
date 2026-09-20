@@ -109,12 +109,14 @@ function extractInkCanvasFormat(
     const pluginVersionAttr = inkElements.length > 0
         ? (inkElements[0].getAttribute('plugin-version') || '')
         : '';
+    const transcript = readInkTranscript(metadataElement, inkElements[0]);
 
     return {
         meta: {
             pluginVersion: pluginVersionAttr,
             tldrawVersion: '',
             fileType: fileTypeText as 'inkDrawing' | 'inkWriting',
+            transcript,
         },
         tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas files
         inkCanvas: inkCanvasSnapshot,
@@ -171,6 +173,7 @@ function extractTldrawFormat(
     const writingLineHeight = writingLineHeightParsed !== undefined && !isNaN(writingLineHeightParsed)
         ? writingLineHeightParsed
         : undefined;
+    const transcript = readInkTranscript(metadataElement, inkElements[0]);
 
     return {
         meta: {
@@ -178,8 +181,28 @@ function extractTldrawFormat(
             tldrawVersion: tldrawVersionAttr || '',
             fileType: fileTypeText,
             writingLineHeight,
+            transcript,
         },
         tldraw: tldrawSnapshot,
         svgString,
     };
+}
+
+/**
+ * Reads optional transcript from `<transcript>` element text, falling back to the
+ * legacy `<ink transcript="…">` attribute on older files.
+ */
+function readInkTranscript(
+    metadataElement: Element,
+    inkElement: Element | undefined,
+): string | undefined {
+    const transcriptElements = metadataElement.getElementsByTagName('transcript');
+    if (transcriptElements.length > 0) {
+        const elementText = transcriptElements[0].textContent;
+        if (elementText !== null && elementText !== '') return elementText;
+    }
+    if (!inkElement) return undefined;
+    const legacyAttr = inkElement.getAttribute('transcript');
+    if (!legacyAttr) return undefined;
+    return legacyAttr;
 }

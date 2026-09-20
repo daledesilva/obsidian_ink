@@ -26,12 +26,14 @@ export const buildInkCanvasDrawingFileData = (props: {
 export const buildInkCanvasWritingFileData = (props: {
   inkCanvasSnapshot: InkCanvasSnapshot,
   svgString: string,
+  transcript?: string,
 }): InkFileData => {
   return {
     meta: {
       pluginVersion: PLUGIN_VERSION,
       tldrawVersion: '',
       fileType: 'inkWriting',
+      transcript: props.transcript,
     },
     tldraw: {} as TLEditorSnapshot,
     inkCanvas: props.inkCanvasSnapshot,
@@ -79,6 +81,7 @@ export const buildFileData = (props: {
       tldrawVersion: TLDRAW_VERSION,
       fileType: props.fileType,
       writingLineHeight: props.writingLineHeight,
+      transcript: props.transcript,
     },
     tldraw: props.tlEditorSnapshot,
     // Always set svgString to either provided svg or default empty svg

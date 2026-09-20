@@ -2,17 +2,20 @@
 	p {
 		color: var(--text-normal);
 	}
+
+	.ddc_ink_bare-setting--left.setting-item {
+		justify-content: flex-start;
+
+		.setting-item-control {
+			justify-content: flex-start;
+			padding-inline-start: 0;
+		}
+	}
 }
 
 .ddc_ink_almostuseful-muted {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
-}
-
-.ddc_ink_almostuseful-usage-toolbar {
-	display: flex;
-	justify-content: flex-end;
-	margin: 0.25em 0 0.15em;
 }
 
 .ddc_ink_almostuseful-refresh.is-refreshing svg {
@@ -29,9 +32,18 @@
 	margin-top: 0.75em;
 }
 
-.ddc_ink_almostuseful-pool-title {
-	font-weight: var(--font-medium);
+.ddc_ink_almostuseful-pool-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em;
 	margin-bottom: 0.25em;
+}
+
+.ddc_ink_almostuseful-pool-title {
+	flex: 1;
+	font-weight: var(--font-medium);
+	margin-bottom: 0;
 }
 
 .ddc_ink_almostuseful-usage-heading {
@@ -103,4 +115,61 @@
 	width: 10px;
 	height: 10px;
 	border-radius: 999px;
+}
+
+.ddc_ink_almostuseful-chart-hit {
+	fill: transparent;
+	cursor: pointer;
+}
+
+.ddc_ink_almostuseful-chart.is-chart-focused .ddc_ink_almostuseful-chart-bar,
+.ddc_ink_almostuseful-chart.is-chart-focused .ddc_ink_almostuseful-chart-ink,
+.ddc_ink_almostuseful-chart.is-chart-focused .ddc_ink_almostuseful-chart-other {
+	opacity: 0.55;
+}
+
+.ddc_ink_almostuseful-chart.is-chart-focused [data-credit-pool-key].is-focused {
+	opacity: 1;
+	stroke: var(--background-primary);
+	stroke-width: 2;
+	paint-order: stroke fill;
+	filter: brightness(1.15);
+}
+
+.tippy-box[data-theme~='ddc_ink_almostuseful-chart'] {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	box-shadow: var(--shadow-s);
+	font-size: var(--font-ui-small);
+	pointer-events: none;
+}
+
+.tippy-box[data-theme~='ddc_ink_almostuseful-chart'] .tippy-content {
+	padding: 0.45em 0.65em;
+}
+
+.tippy-box[data-theme~='ddc_ink_almostuseful-chart'] .tippy-arrow {
+	color: var(--background-primary);
+}
+
+.ddc_ink_almostuseful-chart-tooltip-title {
+	font-weight: var(--font-medium);
+	margin: 0 0 0.25em;
+}
+
+.ddc_ink_almostuseful-chart-tooltip-row {
+	display: flex;
+	gap: 0.75em;
+	justify-content: space-between;
+	margin: 0;
+}
+
+.ddc_ink_almostuseful-chart-tooltip-label {
+	color: var(--text-muted);
+}
+
+.ddc_ink_almostuseful-chart-tooltip-value {
+	color: var(--text-normal);
 }

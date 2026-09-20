@@ -6,13 +6,13 @@ Settings login for Almost Useful. Passwords stay on the website. Protocol and br
 
 ## Why it exists
 
-Ink needs a signed-in Almost Useful identity to show Pool A remaining credits and, later, to call portal AI jobs. A public plugin must not collect the website password or embed `/account` (that page is cookie-only). Browser **authorize** plus device-local **app tokens** plus burndown JSON keeps secrets on the portal and still shows the same remaining/spend information as Project Post.
+Ink needs a signed-in Almost Useful identity to show Pool A remaining credits and to call portal AI jobs (including handwriting transcription). A public plugin must not collect the website password or embed `/account` (that page is cookie-only). Browser **authorize** plus device-local **app tokens** plus burndown JSON keeps secrets on the portal and still shows the same remaining/spend information as Project Post.
 
 ---
 
 ## Conceptual understanding
 
-Ink never shows an email/password form. **Log in with Almost Useful** opens the system browser to `https://account.almostuseful.xyz/oauth/authorize` with `client_id=ink` and `display_name=Ink` (no `redirect_uri`). After the user signs in on the website (if needed) and taps **Authorise Ink**, the portal stays on `/oauth/authorize/continue` with a copyable one-time **code**. The user pastes that code in the **same Obsidian window** that started Log in (that window holds the PKCE verifier). Ink then `POST`s `/api/oauth/token` over HTTPS and stores a portal **app JWT** (`typ=almostuseful_app`) on this device only. Plan 2 user-JWT blobs without that `tokenType` are discarded so the user must consent again.
+Ink never shows an email/password form. **Link account** opens the system browser to `https://account.almostuseful.xyz/oauth/authorize` with `client_id=ink` and `display_name=Ink` (no `redirect_uri`). After the user signs in on the website (if needed) and taps **Authorise Ink**, the portal stays on `/oauth/authorize/continue` with a copyable one-time **code**. The user pastes that code in the **same Obsidian window** that started Link account (that window holds the PKCE verifier). Ink then `POST`s `/api/oauth/token` over HTTPS and stores a portal **app JWT** (`typ=almostuseful_app`) on this device only. Plan 2 user-JWT blobs without that `tokenType` are discarded so the user must consent again.
 
 ```mermaid
 sequenceDiagram
@@ -27,7 +27,7 @@ sequenceDiagram
   Portal-->>Settings: App access_token plus refresh_token
 ```
 
-Signed-in settings show credit **charts** that match Project Post (allotment-scaled burndown + ideal line, Ink vs other apps spend). There is **no** “Remaining this period: $…” line — remaining is the burndown bars only. Styling uses Obsidian CSS variables. Charts are hand-built SVG from burndown JSON — not TanStack, not an iframe of `/account`.
+Signed-in settings show credit **charts** that match Project Post (allotment-scaled burndown + ideal line, Ink vs other apps spend). There is **no** “Remaining this period: $…” line — remaining is the burndown bars only. Hover or tap a day for **Credits remaining** (% of monthly pool) on burndown, or **% of day’s use** plus **% of monthly credits** on the stack. Styling uses Obsidian CSS variables. Charts are hand-built SVG from burndown JSON — not TanStack, not an iframe of `/account`.
 
 The production portal URL shipped in the plugin is a public client identifier. It is not a company secret. Never add a service role, OpenRouter, Stripe key, or Supabase anon key here.
 
@@ -40,13 +40,13 @@ flowchart TD
   OpenSettings[Open Ink settings]
   OpenSettings --> SignedIn{Device app token?}
   SignedIn -->|no| LoggedOut[Collapsible Almost Useful account]
-  LoggedOut --> Idle[Log in CTA]
-  Idle --> Opening[Log in disabled four seconds]
-  Opening --> Pending[Paste XOR Log in plus Cancel]
+  LoggedOut --> Idle[Link account CTA]
+  Idle --> Opening[Link account disabled four seconds]
+  Opening --> Pending[Paste XOR Link account plus Cancel]
   Idle --> BrowserLogin[System browser authorize]
   Pending --> Exchange[HTTPS /api/oauth/token]
   BrowserLogin --> Exchange
-  SignedIn -->|yes| Header[Title includes logged in]
+  SignedIn -->|yes| Header[Title includes linked]
   Header --> Charts[Burndown SVG from GET burndown]
   Exchange --> Header
 ```
@@ -57,14 +57,14 @@ flowchart TD
 
 ### Settings UI
 
-Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts`), after the intro paragraph. The block is a **collapsible** `ddc_ink_section-wrapper` like Getting started. Expand/collapse is in-memory (`isAlmostUsefulAccountSectionExpanded`) so a session refresh does not snap it shut. Log in / Manage / Log out use `ddc_ink_bare-setting` so they are not nested in a second card.
+Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts`), after the intro paragraph. The block is a **collapsible** `ddc_ink_section-wrapper` like Getting started. Expand/collapse is in-memory (`isAlmostUsefulAccountSectionExpanded`) so a session refresh does not snap it shut. Link account / Manage / Log out use `ddc_ink_bare-setting` + `ddc_ink_button-set` so controls are **left-aligned** and not nested in a second card.
 
 | State | Header | Content |
 |-------|--------|---------|
-| Signed out | Almost Useful account | Browser-login copy; **Log in with Almost Useful**; Create account / Forgot password |
-| Opening (first ~4s after Log in) | Almost Useful account | **Same signed-out row**; Log in is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
-| Pending | Almost Useful account | **Confirm in your browser**; **Paste authorisation code** + Connect (disabled while Connecting…) + **Cancel pending login**. Log in is hidden so paste is not competing with a second CTA |
-| Signed in | Almost Useful account: logged in (email when known) | **Manage account** / **Log out**; credit charts (or empty-pool products CTA) with a spinning **refresh-cw** while refetching |
+| Signed out | Almost Useful account | **Create and link an Almost Useful account to utilise handwriting transcription.**; **Link account** only (no Create account / Forgot password links — those live on the portal login page after the browser opens) |
+| Opening (first ~4s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
+| Pending | Almost Useful account | **Confirm in your browser**; **Paste authorisation code** + Connect (disabled while Connecting…) + **Cancel pending login**. Link account is hidden so paste is not competing with a second CTA |
+| Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); credit charts (or empty-pool products CTA) |
 | 401 | Treated as signed out | Local session cleared |
 
 Obsidian often closes Settings when the app backgrounds for the browser. After pasting the code, reopen Ink settings if it closed.
@@ -73,9 +73,17 @@ Obsidian often closes Settings when the app backgrounds for the browser. After p
 
 ### Charts
 
-`GET /api/me/usage/burndown?tz=` with the device IANA zone and `Authorization: Bearer` **app** token. Bars use allotment as y-max. Future days have no remaining bars. Do **not** print a remaining-dollar sentence above the chart. Usage distribution stacks **Ink** (`client_id` `ink`) on top of **Other apps**, hidden when there is no spend through today. Geometry lives in `credit-pool-chart-layout.ts` (same slot math as Project Post). Portal chart contract: portal `docs/conceptual/CREDIT_POOL_USAGE_CHARTS.md`.
+`GET /api/me/usage/burndown?tz=` with the device IANA zone and `Authorization: Bearer` **app** token. Remaining series is computed on the portal (net hold/settle/release). Y-max is `max(allotment, remaining, ideal)`; bars are not capped at allotment. Non-zero burndown bars inflate to **2px**; stacked usage segments inflate to **4px**. Future days have no remaining bars. Do **not** print a remaining-dollar sentence above the chart.
 
-Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. A `refresh-cw` icon in the usage toolbar spins during that fetch (and on tap). Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
+**Period subtitle:** `Start of {date} → End of {date}` without weekday in brackets (e.g. `Start of 16 Sept → End of 15 Oct`). X-axis edge ticks keep weekday (`Wed 16 Sep`).
+
+**Usage distribution** stacks **Ink** (`client_id` `ink`) at the base with **Other apps** on top, clipped to one top-rounded silhouette per day. Hidden when there is no spend through today. **Other apps** fill uses a muted wash (`rgba(0, 0, 0, 0.18)`), not solid black.
+
+**Refresh** sits on the same row as the pool title (first pool only). The icon spins during refetch.
+
+Full-height day hit rects (and per-segment hits on the stack) drive vanilla **tippy.js** anchored to the chart’s `ownerDocument` (required when Settings is popped out to another Electron window). Placement to the right of the pointer (`offset: [0, 12]`, flip left). Hover/tap **dims** non-focused bars. On touch, tap again or tap outside to dismiss. Geometry lives in `credit-pool-chart-layout.ts` (same slot math as Project Post). Portal chart contract: portal `docs/conceptual/CREDIT_POOL_USAGE_CHARTS.md`.
+
+Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
 **Handwriting transcription** (writing editor overflow → Transcribe) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. See [writing-transcription.md](writing-transcription.md).
 
@@ -102,12 +110,14 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 
 - **OAuth must return to authorize.** If Google users land on `/account` and Ink stays signed out, the portal `next` query was dropped — that is a portal bug, not a reason to add a password field in Ink.
 - **Tokens never belong in the continue URL as JWTs.** Only a one-time `code` (and `state` in the query). The app exchanges over HTTPS.
-- **Paste only works in the window that clicked Log in.** A new Obsidian instance has no verifier.
+- **Paste only works in the window that clicked Link account.** A new Obsidian instance has no verifier.
 - **Clones can complete the same OOB paste** if the user consents on the portal. Accepted for a public plugin. Do not invent a secret plugin API key.
 - **Per-device login:** localStorage does not sync with the vault. Sign in again on another computer.
 - **Portal app-token authorize does not use a redirect allow-list.** `obsidian://` is not required on the Supabase Auth redirect list for this grant.
 - **Do not iframe `/account` for charts.** Cookie session ≠ plugin app token.
 - **Do not add TanStack Charts** to match the portal renderer. Remaining/spend parity is the layout math and burndown JSON, not the chart library. The plugin bundle is already large.
-- **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 4000ms before `onRerender` to pending. Until then, only disable Log in in place — do not remove the button or change copy.
+- **2px / 4px min-segment heights are visual only.** Tooltips use true remaining / spend. Vanilla tippy follows the pointer (`offset: [0, 12]`); the tooltip is non-interactive so it cannot steal hover.
+- **Popped-out Settings:** tippy `appendTo` and pointer listeners must use `svg.ownerDocument`, not the module `document`, or tooltips mount on the wrong Electron window.
+- **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 4000ms before `onRerender` to pending. Until then, only disable Link account in place — do not remove the button or change copy.
 - **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
-- **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Log in again so they can Authorize Ink.
+- **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Link account again so they can Authorize Ink.

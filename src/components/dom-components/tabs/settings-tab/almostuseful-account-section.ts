@@ -6,6 +6,7 @@ import {
 	writeAlmostUsefulUsageCache,
 } from 'src/logic/almostuseful/almostuseful-usage-cache';
 import { renderAlmostUsefulPoolUsageCharts } from 'src/logic/almostuseful/almostuseful-usage-charts';
+import { destroyCreditPoolChartTooltips } from 'src/logic/almostuseful/credit-pool-chart-tooltip';
 import {
 	cancelAlmostUsefulPendingLogin,
 	completeAlmostUsefulPastedHandoffCode,
@@ -69,13 +70,13 @@ export function insertAlmostUsefulAccountSection(
 			insertPasteHandoffCode(contentEl, onRerender);
 		} else {
 			contentEl.createEl('p', {
-				text: 'You’ll sign in in your browser. Ink never asks for your Almost Useful password.',
+				text: 'Create and link an Almost Useful account to utilise handwriting transcription.',
 			});
 			new Setting(contentEl)
 				.setClass('ddc_ink_bare-setting')
 				.setClass('ddc_ink_bare-setting--left')
 				.addButton((button) => {
-					button.setButtonText('Log in with Almost Useful').setCta();
+					button.setButtonText('Link account').setCta();
 					if (phase === 'opening') {
 						// Same Log in row for four seconds: disable only, do not swap to paste UI.
 						button.setDisabled(true);
@@ -89,24 +90,13 @@ export function insertAlmostUsefulAccountSection(
 					});
 				});
 		}
-		const createEl = contentEl.createEl('p');
-		createEl.createEl('a', {
-			text: 'Create an account',
-			href: `${portalOrigin}/auth/sign-up`,
-			attr: { target: '_blank', rel: 'noopener' },
-		});
-		createEl.appendText(' · ');
-		createEl.createEl('a', {
-			text: 'Forgot password',
-			href: `${portalOrigin}/auth/forgot-password`,
-			attr: { target: '_blank', rel: 'noopener' },
-		});
 		return;
 	}
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_bare-setting')
 		.setClass('ddc_ink_bare-setting--left')
+		.setClass('ddc_ink_button-set')
 		.addButton((button) => {
 			button.setButtonText('Manage account');
 			button.onClick(() => {
@@ -128,8 +118,8 @@ export function insertAlmostUsefulAccountSection(
 function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): string {
 	if (!session) return 'Almost Useful account';
 	const identity = session.userEmail;
-	if (identity) return `Almost Useful account: logged in as ${identity}`;
-	return 'Almost Useful account: logged in';
+	if (identity) return `Almost Useful account: linked as ${identity}`;
+	return 'Almost Useful account: linked';
 }
 
 /** Paste the continue-page code into the window that started Log in. */
@@ -192,12 +182,12 @@ async function loadUsageInto(
 	if (!session) return;
 	usageChartsResizeObserver?.disconnect();
 	usageChartsResizeObserver = null;
+	destroyCreditPoolChartTooltips();
 
-	const toolbarEl = hostEl.createDiv('ddc_ink_almostuseful-usage-toolbar');
-	const refreshButtonEl = toolbarEl.createEl('button', {
-		cls: 'clickable-icon ddc_ink_almostuseful-refresh',
-		attr: { type: 'button', 'aria-label': 'Refresh credit usage' },
-	});
+	const refreshButtonEl = document.createElement('button');
+	refreshButtonEl.type = 'button';
+	refreshButtonEl.className = 'clickable-icon ddc_ink_almostuseful-refresh';
+	refreshButtonEl.setAttribute('aria-label', 'Refresh credit usage');
 	setIcon(refreshButtonEl, 'refresh-cw');
 	const chartsHostEl = hostEl.createDiv('ddc_ink_almostuseful-usage-charts');
 
@@ -209,6 +199,7 @@ async function loadUsageInto(
 		lastPlotWidth = 0;
 		const plotWidth = Math.max(chartsHostEl.clientWidth, 240);
 		lastPlotWidth = plotWidth;
+		destroyCreditPoolChartTooltips();
 		chartsHostEl.empty();
 		if (pools.length === 0) {
 			chartsHostEl.createEl('p', {
@@ -225,10 +216,15 @@ async function loadUsageInto(
 				});
 			return;
 		}
-		for (const pool of pools) {
+		pools.forEach((pool, index) => {
 			const poolEl = chartsHostEl.createDiv('ddc_ink_almostuseful-pool');
-			renderAlmostUsefulPoolUsageCharts(poolEl, pool, plotWidth);
-		}
+			renderAlmostUsefulPoolUsageCharts(
+				poolEl,
+				pool,
+				plotWidth,
+				index === 0 ? refreshButtonEl : undefined,
+			);
+		});
 	};
 
 	if (cachedPools) {

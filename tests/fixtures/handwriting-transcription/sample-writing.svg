@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100">
-<metadata>
-<ink plugin-version="1" file-type="inkWriting"/>
-<transcript>fixture transcript</transcript>
-<ink-canvas version="0.5.0">{"version":1,"strokes":[]}</ink-canvas>
-</metadata>
-<path d="M10 10 L90 40" stroke="#000" fill="none" stroke-width="2"/>
-</svg>

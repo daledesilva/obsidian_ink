@@ -1,0 +1,9 @@
+LLMs tend to make random mistakes
+while humans more commonly make
+predictable or understandable ones.
+
+LLMs mistakes are random.
+
+Or rather, based on the way we think,
+we don't have good or intuitive models
+for why they make them.

@@ -1,5 +1,8 @@
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import {
+	getHandwritingTranscriptionFixture,
+	HANDWRITING_TRANSCRIPTION_DEFAULT_FIXTURE_ID,
+} from '../fixtures/handwriting-transcription/fixtures';
 import {
 	buildHandwritingTranscriptionJobRequest,
 	HANDWRITING_TRANSCRIPTION_JOB_PATH,
@@ -28,9 +31,8 @@ import { postHandwritingTranscriptionJob } from 'src/logic/almostuseful/almostus
 
 const postJob = jest.mocked(postHandwritingTranscriptionJob);
 
-const fixturePath = join(
-	__dirname,
-	'../fixtures/handwriting-transcription/sample-writing.svg',
+const defaultFixture = getHandwritingTranscriptionFixture(
+	HANDWRITING_TRANSCRIPTION_DEFAULT_FIXTURE_ID,
 );
 
 describe('handwriting-transcription variants', () => {
@@ -81,7 +83,7 @@ describe('handwriting-transcription variants', () => {
 	});
 
 	it('prepareHandwritingTranscriptionMedia strips metadata for svg variant', async () => {
-		const svg = readFileSync(fixturePath, 'utf8');
+		const svg = readFileSync(defaultFixture.svgPath, 'utf8');
 		const variant = getHandwritingTranscriptionVariant('svg-gemini-flash-lite');
 		const media = await prepareHandwritingTranscriptionMedia(variant, svg);
 		expect(media.mediaType).toBe('image/svg+xml');
@@ -91,7 +93,7 @@ describe('handwriting-transcription variants', () => {
 	});
 
 	it('prepareHandwritingTranscriptionMedia uses injected png for png variant', async () => {
-		const svg = readFileSync(fixturePath, 'utf8');
+		const svg = readFileSync(defaultFixture.svgPath, 'utf8');
 		const variant = getHandwritingTranscriptionVariant('png-gpt5-nano');
 		const media = await prepareHandwritingTranscriptionMedia(variant, svg, {
 			pngBase64: 'fakePngBase64',
@@ -103,7 +105,7 @@ describe('handwriting-transcription variants', () => {
 	});
 
 	it('transcribeHandwritingVariant posts model override for eval', async () => {
-		const svg = readFileSync(fixturePath, 'utf8');
+		const svg = readFileSync(defaultFixture.svgPath, 'utf8');
 		const result = await transcribeHandwritingVariant('svg-gpt5-nano', svg, {
 			accessToken: 'test-token',
 			idempotencyKey: 'eval-1',

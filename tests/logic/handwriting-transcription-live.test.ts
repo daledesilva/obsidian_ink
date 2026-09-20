@@ -1,32 +1,19 @@
-import { existsSync, readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'fs';
+import {
+	HANDWRITING_TRANSCRIPTION_FIXTURE_IDS,
+	listHandwritingTranscriptionFixtures,
+} from '../fixtures/handwriting-transcription/fixtures';
 import {
 	HANDWRITING_TRANSCRIPTION_VARIANTS,
 	transcribeHandwritingVariant,
 } from 'src/logic/handwriting-transcription-variants';
 
-const fixturesDir = join(__dirname, '../fixtures/handwriting-transcription');
 const liveEnabled = process.env.HANDWRITING_TRANSCRIPTION_LIVE === '1';
 const accessToken = process.env.ALMOSTUSEFUL_APP_ACCESS_TOKEN?.trim();
 const portalOrigin = process.env.ALMOSTUSEFUL_PORTAL_ORIGIN?.trim();
 
 function normalizeForComparison(text: string): string {
 	return text.replace(/\s+/g, ' ').trim().toLowerCase();
-}
-
-function listFixturePairs(): Array<{ svgPath: string; expectedPath: string; name: string }> {
-	if (!existsSync(fixturesDir)) return [];
-	return readdirSync(fixturesDir)
-		.filter((name) => name.endsWith('.svg'))
-		.map((name) => {
-			const base = name.replace(/\.svg$/, '');
-			return {
-				name: base,
-				svgPath: join(fixturesDir, name),
-				expectedPath: join(fixturesDir, `${base}.expected.txt`),
-			};
-		})
-		.filter((pair) => existsSync(pair.expectedPath));
 }
 
 const describeLive = liveEnabled && accessToken && portalOrigin ? describe : describe.skip;
@@ -39,30 +26,36 @@ describeLive('handwriting transcription live eval', () => {
 		writeAlmostUsefulDebugConfig({ portalOrigin });
 	});
 
-	const fixturePairs = listFixturePairs();
+	const fixturePairs = listHandwritingTranscriptionFixtures();
 
 	if (fixturePairs.length === 0) {
-		it('has at least one svg + expected.txt fixture pair', () => {
-			throw new Error('Add handwriting SVG fixtures with matching .expected.txt files');
+		it('has all registered svg + expected.txt fixture pairs', () => {
+			const missing = HANDWRITING_TRANSCRIPTION_FIXTURE_IDS.filter(
+				(id) => !fixturePairs.some((fixture) => fixture.id === id),
+			);
+			throw new Error(
+				`Missing handwriting transcription fixtures: ${missing.join(', ')}. ` +
+					'Add matching .svg and .expected.txt files under tests/fixtures/handwriting-transcription/.',
+			);
 		});
 		return;
 	}
 
 	for (const pair of fixturePairs) {
 		for (const variant of HANDWRITING_TRANSCRIPTION_VARIANTS) {
-			it(`${pair.name} — ${variant.id}`, async () => {
+			it(`${pair.id} — ${variant.id}`, async () => {
 				const svg = readFileSync(pair.svgPath, 'utf8');
 				const expected = readFileSync(pair.expectedPath, 'utf8');
 				const result = await transcribeHandwritingVariant(variant.id, svg, {
 					accessToken,
-					idempotencyKey: `live-${pair.name}-${variant.id}-${Date.now()}`,
+					idempotencyKey: `live-${pair.id}-${variant.id}-${Date.now()}`,
 				});
 
 				expect(result.text.trim().length).toBeGreaterThan(0);
 				// Log for manual cost/quality comparison — do not fail CI on OCR error rate.
 				console.log(
 					JSON.stringify({
-						fixture: pair.name,
+						fixture: pair.id,
 						variant: variant.id,
 						amountUsd: result.amountUsd,
 						creditsRemaining: result.creditsRemaining,

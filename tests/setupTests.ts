@@ -6,7 +6,10 @@ if (typeof globalThis.structuredClone === 'undefined') {
 
 // Obsidian adds Node.instanceOf for cross-window instanceof checks; jsdom does not.
 // Polyfill so unit tests exercise the same call path as the plugin in Obsidian.
-if (typeof (Node.prototype as { instanceOf?: unknown }).instanceOf !== 'function') {
+if (
+	typeof Node !== 'undefined' &&
+	typeof (Node.prototype as { instanceOf?: unknown }).instanceOf !== 'function'
+) {
 	Object.defineProperty(Node.prototype, 'instanceOf', {
 		configurable: true,
 		writable: true,
@@ -17,13 +20,19 @@ if (typeof (Node.prototype as { instanceOf?: unknown }).instanceOf !== 'function
 }
 
 // Obsidian globals for popout-safe DOM access; jsdom only provides `document` / `window`.
-if (typeof (globalThis as { activeDocument?: Document }).activeDocument === 'undefined') {
+if (
+	typeof document !== 'undefined' &&
+	typeof (globalThis as { activeDocument?: Document }).activeDocument === 'undefined'
+) {
 	Object.defineProperty(globalThis, 'activeDocument', {
 		configurable: true,
 		get: () => document,
 	});
 }
-if (typeof (globalThis as { activeWindow?: Window }).activeWindow === 'undefined') {
+if (
+	typeof window !== 'undefined' &&
+	typeof (globalThis as { activeWindow?: Window }).activeWindow === 'undefined'
+) {
 	Object.defineProperty(globalThis, 'activeWindow', {
 		configurable: true,
 		get: () => window,
@@ -35,6 +44,7 @@ class TFile {}
 (global as any).TFile = TFile;
 
 // Minimal global window.matchMedia mock used by some libs
+if (typeof window !== 'undefined') {
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
@@ -62,6 +72,7 @@ class MockIntersectionObserver {
   disconnect = () => {};
 }
 (window as any).IntersectionObserver = MockIntersectionObserver as any;
+}
 
 // Mock react-inlinesvg to a simple pass-through that calls onLoad immediately
 jest.mock('react-inlinesvg', () => {

@@ -54,6 +54,15 @@ module.exports = {
     unload() {}
   },
   normalizePath: (path) => path.replace(/\\/g, '/'),
+  // Live eval tests call portal jobs through almostUsefulRequestJson.
+  requestUrl: async ({ url, method = 'GET', headers = {}, body, throw: shouldThrow }) => {
+    const response = await fetch(url, { method, headers, body });
+    const text = await response.text();
+    if (shouldThrow && response.status >= 400) {
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+    return { status: response.status, text, headers: response.headers };
+  },
   Setting: class {
     constructor() {}
     setName() { return this; }

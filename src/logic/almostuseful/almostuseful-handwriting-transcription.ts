@@ -12,7 +12,10 @@ export const HANDWRITING_TRANSCRIPTION_JOB_PATH = '/api/jobs/handwriting-transcr
 
 export const HANDWRITING_TRANSCRIPTION_MODELS = {
 	geminiFlashLite: 'google/gemini-2.5-flash-lite',
+	geminiFlash: 'google/gemini-2.5-flash',
 	gpt5Nano: 'openai/gpt-5-nano',
+	gpt41Mini: 'openai/gpt-4.1-mini',
+	claudeHaiku45: 'anthropic/claude-haiku-4.5',
 } as const;
 
 export type HandwritingTranscriptionModel =

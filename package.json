@@ -36,6 +36,7 @@
 		"@babel/preset-typescript": "^7.24.7",
 		"@codemirror/commands": "^6.6.0",
 		"@jest/globals": "^29.7.0",
+		"@napi-rs/canvas": "^1.0.9",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/react": "^14.3.1",
 		"@types/jest": "^30.0.0",

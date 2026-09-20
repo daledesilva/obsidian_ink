@@ -10,7 +10,8 @@ import { transcribeWriting } from "src/logic/transcribe-writing";
 /** Dormant until needsTranscriptUpdate enables auto-transcribe; manual flow uses the editor overflow menu. */
 export const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData): void => {
 	if(needsTranscriptUpdate(pageData)) {
-		void transcribeWriting()
+		void plugin.app.vault.read(fileRef)
+			.then((writingSvgFileContent) => transcribeWriting(writingSvgFileContent))
 			.then((transcript) => {
 				void saveWriteFileTranscript(plugin, fileRef, transcript);
 			})

@@ -9,7 +9,8 @@ import { transcribeWriting } from "src/logic/transcribe-writing";
 
 export const fetchTranscriptIfNeeded = (plugin: InkPlugin, fileRef: TFile, pageData: InkFileData_v1): void => {
 	if(needsTranscriptUpdate(pageData)) {
-		void transcribeWriting()
+		void plugin.app.vault.read(fileRef)
+			.then((writingSvgFileContent) => transcribeWriting(writingSvgFileContent))
 			.then((transcript) => {
 				void saveWriteFileTranscript(plugin, fileRef, transcript);
 			})

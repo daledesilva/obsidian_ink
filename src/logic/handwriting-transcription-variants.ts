@@ -7,7 +7,12 @@ import {
 	postHandwritingTranscriptionJob,
 } from 'src/logic/almostuseful/almostuseful-handwriting-transcription';
 import { stripWritingSvgToVisualOnly } from 'src/logic/utils/strip-writing-svg-to-visual-only';
-import { writingSvgToPngBase64 } from 'src/logic/utils/writing-svg-to-png-base64';
+import {
+	bakeOpaqueWritingBackground,
+	resolveWritingSvgPageTheme,
+	transcriptionBackgroundForTheme,
+	writingSvgToPngBase64,
+} from 'src/logic/utils/writing-svg-to-png-base64';
 
 //////////
 //////////
@@ -15,14 +20,24 @@ import { writingSvgToPngBase64 } from 'src/logic/utils/writing-svg-to-png-base64
 export type HandwritingTranscriptionVariantId =
 	| 'svg-gemini-flash-lite'
 	| 'png-gemini-flash-lite'
+	| 'svg-gemini-flash'
+	| 'png-gemini-flash'
 	| 'svg-gpt5-nano'
-	| 'png-gpt5-nano';
+	| 'png-gpt5-nano'
+	| 'svg-gpt-4.1-mini'
+	| 'png-gpt-4.1-mini'
+	| 'svg-claude-haiku-4.5'
+	| 'png-claude-haiku-4.5';
 
 export interface HandwritingTranscriptionVariantConfig {
 	id: HandwritingTranscriptionVariantId;
 	mediaType: HandwritingTranscriptionMediaType;
 	model: HandwritingTranscriptionModel;
 }
+
+/** Ink production contract — eval matrix may override model/media in tests only. */
+export const HANDWRITING_TRANSCRIPTION_PRODUCTION_MODEL =
+	HANDWRITING_TRANSCRIPTION_MODELS.geminiFlashLite;
 
 export const HANDWRITING_TRANSCRIPTION_VARIANTS: HandwritingTranscriptionVariantConfig[] = [
 	{
@@ -36,6 +51,16 @@ export const HANDWRITING_TRANSCRIPTION_VARIANTS: HandwritingTranscriptionVariant
 		model: HANDWRITING_TRANSCRIPTION_MODELS.geminiFlashLite,
 	},
 	{
+		id: 'svg-gemini-flash',
+		mediaType: 'image/svg+xml',
+		model: HANDWRITING_TRANSCRIPTION_MODELS.geminiFlash,
+	},
+	{
+		id: 'png-gemini-flash',
+		mediaType: 'image/png',
+		model: HANDWRITING_TRANSCRIPTION_MODELS.geminiFlash,
+	},
+	{
 		id: 'svg-gpt5-nano',
 		mediaType: 'image/svg+xml',
 		model: HANDWRITING_TRANSCRIPTION_MODELS.gpt5Nano,
@@ -44,6 +69,26 @@ export const HANDWRITING_TRANSCRIPTION_VARIANTS: HandwritingTranscriptionVariant
 		id: 'png-gpt5-nano',
 		mediaType: 'image/png',
 		model: HANDWRITING_TRANSCRIPTION_MODELS.gpt5Nano,
+	},
+	{
+		id: 'svg-gpt-4.1-mini',
+		mediaType: 'image/svg+xml',
+		model: HANDWRITING_TRANSCRIPTION_MODELS.gpt41Mini,
+	},
+	{
+		id: 'png-gpt-4.1-mini',
+		mediaType: 'image/png',
+		model: HANDWRITING_TRANSCRIPTION_MODELS.gpt41Mini,
+	},
+	{
+		id: 'svg-claude-haiku-4.5',
+		mediaType: 'image/svg+xml',
+		model: HANDWRITING_TRANSCRIPTION_MODELS.claudeHaiku45,
+	},
+	{
+		id: 'png-claude-haiku-4.5',
+		mediaType: 'image/png',
+		model: HANDWRITING_TRANSCRIPTION_MODELS.claudeHaiku45,
 	},
 ];
 
@@ -77,18 +122,33 @@ export interface PrepareHandwritingTranscriptionMediaOptions {
 }
 
 /**
- * Builds portal media payload from a full writing SVG file string.
+ * Production payload: visual-only SVG with a theme-aware opaque page (white for dark
+ * ink, black for light ink) — same contrast rules as eval SVG/PNG rasterization.
  */
+export async function prepareProductionHandwritingTranscriptionMedia(
+	writingSvgFileContent: string,
+): Promise<{ mediaType: 'image/svg+xml'; mediaBase64: string }> {
+	const media = await prepareHandwritingTranscriptionMedia(
+		getHandwritingTranscriptionVariant('svg-gemini-flash-lite'),
+		writingSvgFileContent,
+	);
+	return { mediaType: 'image/svg+xml', mediaBase64: media.mediaBase64 };
+}
+
 export async function prepareHandwritingTranscriptionMedia(
 	variant: HandwritingTranscriptionVariantConfig,
 	writingSvgFileContent: string,
 	options?: PrepareHandwritingTranscriptionMediaOptions,
 ): Promise<{ mediaType: HandwritingTranscriptionMediaType; mediaBase64: string }> {
 	const visualSvg = stripWritingSvgToVisualOnly(writingSvgFileContent);
+	const pageTheme = resolveWritingSvgPageTheme(visualSvg);
+	const background = transcriptionBackgroundForTheme(pageTheme);
+	// Same opaque page as PNG rasterization so SVG vision jobs get ink/page contrast.
+	const visualSvgWithPage = bakeOpaqueWritingBackground(visualSvg, background);
 	if (variant.mediaType === 'image/svg+xml') {
 		return {
 			mediaType: 'image/svg+xml',
-			mediaBase64: encodeUtf8TextToBase64(visualSvg),
+			mediaBase64: encodeUtf8TextToBase64(visualSvgWithPage),
 		};
 	}
 
@@ -107,6 +167,8 @@ export async function prepareHandwritingTranscriptionMedia(
 export interface TranscribeHandwritingVariantOptions extends PrepareHandwritingTranscriptionMediaOptions {
 	accessToken?: string;
 	idempotencyKey?: string;
+	clientId?: string;
+	displayName?: string;
 }
 
 /**
@@ -128,6 +190,8 @@ export async function transcribeHandwritingVariant(
 		mediaBase64: media.mediaBase64,
 		model: variant.model,
 		idempotencyKey: options?.idempotencyKey,
+		clientId: options?.clientId,
+		displayName: options?.displayName,
 	});
 	const response = await postHandwritingTranscriptionJob(body, {
 		accessToken: options?.accessToken,

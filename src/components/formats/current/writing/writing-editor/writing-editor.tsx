@@ -7,6 +7,7 @@ import classNames from 'classnames';
 import InkPlugin from 'src/main';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildInkCanvasWritingFileData } from 'src/components/formats/current/utils/build-file-data';
+import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
 import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
 import {
 	WRITE_SHORT_DELAY_MS,
@@ -681,14 +682,29 @@ export function WritingEditor(props: WritingEditorProps) {
 	}
 
 	/**
-	 * Manual overflow action: stub-transcribe, persist on the SVG, then (for embeds) the note alt text.
+	 * Manual overflow action: build SVG from the live canvas (unsaved strokes included),
+	 * portal transcribe, persist on the SVG, then (for embeds) the note alt text.
 	 */
 	async function handleTranscribe() {
-		const transcript = await transcribeWriting();
-		transcriptRef.current = transcript;
-		setHasTranscript(true);
-		await completeSave();
-		props.onTranscriptSaved?.(transcript);
+		const editor = editorRef.current;
+		if (!editor) return;
+		try {
+			const snapshot = editor.getSnapshot();
+			const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
+			const writingSvgFileContent = buildFileStr(buildInkCanvasWritingFileData({
+				inkCanvasSnapshot: snapshot,
+				svgString,
+				transcript: transcriptRef.current,
+			}));
+			const transcript = await transcribeWriting(writingSvgFileContent);
+			transcriptRef.current = transcript;
+			setHasTranscript(true);
+			await completeSave();
+			props.onTranscriptSaved?.(transcript);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
+			new Notice(message);
+		}
 	}
 
 	function getEditor(): InkCanvasEditor | undefined {

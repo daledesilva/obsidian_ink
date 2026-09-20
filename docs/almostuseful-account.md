@@ -82,7 +82,9 @@ Obsidian often closes Settings when the app backgrounds for the browser. `openIn
 
 Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. A `refresh-cw` icon in the usage toolbar spins during that fetch (and on tap). Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
-This UI does **not** call placeholder job routes.
+**Handwriting transcription** (writing editor overflow → Transcribe) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. See [writing-transcription.md](writing-transcription.md).
+
+This settings UI does **not** call placeholder job routes.
 
 ### Protocol and storage
 

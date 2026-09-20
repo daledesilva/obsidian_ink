@@ -13,6 +13,7 @@ import {
 	getHandwritingTranscriptionVariant,
 	HANDWRITING_TRANSCRIPTION_VARIANTS,
 	prepareHandwritingTranscriptionMedia,
+	prepareProductionHandwritingTranscriptionMedia,
 	transcribeHandwritingVariant,
 } from 'src/logic/handwriting-transcription-variants';
 import { stripWritingSvgToVisualOnly } from 'src/logic/utils/strip-writing-svg-to-visual-only';
@@ -47,12 +48,18 @@ describe('handwriting-transcription variants', () => {
 		});
 	});
 
-	it('defines four eval variants', () => {
+	it('defines svg and png eval variants for each allowed model', () => {
 		expect(HANDWRITING_TRANSCRIPTION_VARIANTS.map((v) => v.id)).toEqual([
 			'svg-gemini-flash-lite',
 			'png-gemini-flash-lite',
+			'svg-gemini-flash',
+			'png-gemini-flash',
 			'svg-gpt5-nano',
 			'png-gpt5-nano',
+			'svg-gpt-4.1-mini',
+			'png-gpt-4.1-mini',
+			'svg-claude-haiku-4.5',
+			'png-claude-haiku-4.5',
 		]);
 	});
 
@@ -82,14 +89,24 @@ describe('handwriting-transcription variants', () => {
 		expect(body).not.toHaveProperty('model');
 	});
 
+	it('prepareProductionHandwritingTranscriptionMedia injects theme-aware opaque page', async () => {
+		const svg = readFileSync(defaultFixture.svgPath, 'utf8');
+		const media = await prepareProductionHandwritingTranscriptionMedia(svg);
+		expect(media.mediaType).toBe('image/svg+xml');
+		const decoded = Buffer.from(media.mediaBase64, 'base64').toString('utf8');
+		expect(decoded).not.toContain('<metadata');
+		expect(decoded).toContain('fill="#ffffff"');
+	});
+
 	it('prepareHandwritingTranscriptionMedia strips metadata for svg variant', async () => {
 		const svg = readFileSync(defaultFixture.svgPath, 'utf8');
 		const variant = getHandwritingTranscriptionVariant('svg-gemini-flash-lite');
 		const media = await prepareHandwritingTranscriptionMedia(variant, svg);
 		expect(media.mediaType).toBe('image/svg+xml');
 		const decoded = Buffer.from(media.mediaBase64, 'base64').toString('utf8');
-		expect(decoded).toBe(stripWritingSvgToVisualOnly(svg));
 		expect(decoded).not.toContain('<metadata');
+		expect(decoded).toContain('fill="#ffffff"');
+		expect(decoded).toContain(stripWritingSvgToVisualOnly(svg).replace(/<svg\b[^>]*>/i, ''));
 	});
 
 	it('prepareHandwritingTranscriptionMedia uses injected png for png variant', async () => {

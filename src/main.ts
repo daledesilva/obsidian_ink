@@ -50,6 +50,10 @@ import {
 	setBooxConnectionEnabled,
 } from 'src/logic/device-settings/device-settings';
 import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
+import {
+	initHandwritingTranscriptionQueue,
+	shutdownHandwritingTranscriptionQueue,
+} from 'src/logic/handwriting-transcription-queue';
 
 ////////
 ////////
@@ -126,6 +130,10 @@ export default class InkPlugin extends Plugin {
 				setGlobals({
 					plugin: this,
 				});
+			});
+
+			await runInkOnloadStep('handwritingTranscriptionQueue', () => {
+				initHandwritingTranscriptionQueue(this);
 			});
 
 			logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${getBooxConnectionEnabled()}`);
@@ -264,6 +272,7 @@ export default class InkPlugin extends Plugin {
 			message: 'plugin unloading',
 		});
 		logToVault('Plugin unloaded');
+		shutdownHandwritingTranscriptionQueue();
 		this.booxConnection?.dispose();
 	}
 

@@ -30,7 +30,7 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
-import { buildDrawingEmbedLine, buildWritingEmbedLine } from '../../utils/build-embeds';
+import { buildDrawingEmbedLine, buildWritingEmbedLine, patchDrawingEmbedTranscriptInEmbedSnippet } from '../../utils/build-embeds';
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
 import { openInkFilePicker } from 'src/logic/utils/open-ink-file-picker';
@@ -151,6 +151,9 @@ export class DrawingEmbedWidget extends WidgetType {
                     }}
                     replaceEmbedAfterConversion={(finalFile, toType) => {
                         void this.replaceEmbedAfterConversion(view, finalFile, toType);
+                    }}
+                    updateEmbedTranscript={(transcript) => {
+                        this.updateEmbedTranscript(view, transcript);
                     }}
                 />
             </JotaiProvider>
@@ -400,6 +403,20 @@ export class DrawingEmbedWidget extends WidgetType {
         const range = this.getEmbedMarkdownRangeInView(view);
         if (!range) return;
         const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: '' } });
+        view.dispatch(tr);
+    }
+
+    /**
+     * Writes the transcript into the image alt text (`![transcript](<file>)`).
+     * Placeholder InkDrawing is replaced; later updates overwrite the alt.
+     */
+    private updateEmbedTranscript(view: EditorView, transcript: string) {
+        const range = this.getEmbedMarkdownRangeInView(view);
+        if (!range) return;
+        const currentText = view.state.doc.sliceString(range.from, range.to);
+        const updated = patchDrawingEmbedTranscriptInEmbedSnippet(currentText, transcript);
+        if (updated === currentText) return;
+        const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: updated } });
         view.dispatch(tr);
     }
 

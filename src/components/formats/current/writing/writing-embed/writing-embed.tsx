@@ -15,6 +15,7 @@ import { getBooxConnectionEnabled } from "src/logic/device-settings/device-setti
 import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
 import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
+import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
 import classNames from "classnames";
@@ -512,7 +513,6 @@ export function WritingEmbed (props: {
 			await editorControlsRef.current.saveAndHalt();
 		}
 
-		// Leave edit mode before measuring so the height cache can accept the locked shrink.
 		if (props.embedId) {
 			clearActiveInkEmbed(props.embedId);
 			setEmbedsInEditMode((prev: Set<string>) => {
@@ -520,6 +520,10 @@ export function WritingEmbed (props: {
 				next.delete(props.embedId!);
 				return next;
 			});
+		}
+
+		if (props.writingFileRef) {
+			void enqueueAuto(props.writingFileRef.path);
 		}
 
 		// Apply preview height immediately based on tight aspectRatio before switching modes

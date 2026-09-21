@@ -29,6 +29,7 @@ import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-in
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
+import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 
 ///////
 ///////
@@ -92,6 +93,7 @@ interface DrawingEmbed_Props {
 	) => void | Promise<void>,
 	getEmbedMarkdown?: () => string | null,
 	deleteEmbed?: () => void,
+	updateEmbedTranscript?: (transcript: string) => void,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -361,6 +363,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						embedded
 						saveControlsReference = {registerEditorControls}
 						closeEditor = {() => void saveAndSwitchToPreviewMode()}
+						onTranscriptSaved={(transcript) => props.updateEmbedTranscript?.(transcript)}
 						resizeEmbed = {resizeEmbed}
 						onResizeStart = {onResizeStart}
 						onResizeEnd = {onResizeEnd}
@@ -539,6 +542,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				next.delete(props.embedId!);
 				return next;
 			});
+		}
+
+		if (props.embeddedFile) {
+			void enqueueAuto(props.embeddedFile.path);
 		}
 		// If the user did NOT explicitly save embed settings, revert any local resize to the
 		// last-saved embed settings so a lock/unlock doesn't appear to have persisted changes.

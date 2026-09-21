@@ -58,8 +58,11 @@ import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'sr
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
-import { transcribeWriting } from 'src/logic/transcribe-writing';
-
+import {
+	enqueueManualTranscription,
+	registerTranscriptionEditorSession,
+	unregisterTranscriptionEditorSession,
+} from 'src/logic/handwriting-transcription-queue';
 ///////////////////////////
 ///////////////////////////
 
@@ -129,6 +132,8 @@ export function WritingEditor(props: WritingEditorProps) {
 	const writingLineHeightRef = useRef(WRITING_LINE_HEIGHT);
 	/** Survives canvas autosaves so a later transcribe is not wiped by stroke writes. */
 	const transcriptRef = useRef<string | undefined>(undefined);
+	const svgContentHashRef = useRef<string | undefined>(undefined);
+	const svgContentHashedAtRef = useRef<string | undefined>(undefined);
 	const [hasTranscript, setHasTranscript] = React.useState(false);
 	/** Applied embed/page inviting height — drives shouldResizeForNewHeight. */
 	const curHeightRef = useRef<number | null>(null);
@@ -153,6 +158,7 @@ export function WritingEditor(props: WritingEditorProps) {
 		return () => {
 			verbose('INK CANVAS WRITING EDITOR unmounting');
 			logToVault('Ink canvas writing editor unmounted: ' + props.writingFile.path);
+			unregisterTranscriptionEditorSession(props.writingFile.path);
 		};
 	}, []);
 
@@ -380,30 +386,43 @@ export function WritingEditor(props: WritingEditorProps) {
 			editorWrapperRefEl.current.classList.remove('ddc_ink_editor-wrapper--loading');
 		}
 
+		const controls = {
+			save: () => void completeSave(),
+			saveAndHalt: async () => {
+				await completeSave();
+				unmountActions();
+			},
+			eraseAll: async () => {
+				editor.eraseAll();
+				await completeSave();
+			},
+			setBooxOverlayActive: (isActive: boolean) => {
+				isViewActiveRef.current = isActive;
+				if (!isActive) {
+					pendingNewOverlayRef.current = false;
+					props.plugin.booxConnection.sendCloseDrawingArea();
+				} else {
+					activateWritingSessionRef.current?.();
+					const sent = newAndroidDrawingArea();
+					if (!sent) pendingNewOverlayRef.current = true;
+				}
+			},
+		};
 		if (props.saveControlsReference) {
-			props.saveControlsReference({
-				save: () => void completeSave(),
-				saveAndHalt: async () => {
-					await completeSave();
-					unmountActions();
-				},
-				eraseAll: async () => {
-					editor.eraseAll();
-					await completeSave();
-				},
-				setBooxOverlayActive: (isActive) => {
-					isViewActiveRef.current = isActive;
-					if (!isActive) {
-						pendingNewOverlayRef.current = false;
-						props.plugin.booxConnection.sendCloseDrawingArea();
-					} else {
-						activateWritingSessionRef.current?.();
-						const sent = newAndroidDrawingArea();
-						if (!sent) pendingNewOverlayRef.current = true;
-					}
-				},
-			});
+			props.saveControlsReference(controls);
 		}
+		registerTranscriptionEditorSession({
+			filePath: props.writingFile.path,
+			fileType: 'inkWriting',
+			saveAndHalt: controls.saveAndHalt,
+			onTranscriptApplied: (transcript, svgContentHash, svgContentHashedAt) => {
+				transcriptRef.current = transcript;
+				svgContentHashRef.current = svgContentHash;
+				svgContentHashedAtRef.current = svgContentHashedAt;
+				setHasTranscript(true);
+				props.onTranscriptSaved?.(transcript);
+			},
+		});
 
 		if (getBooxConnectionEnabled() && props.plugin.booxConnection.isConnected()) {
 			websocketConnectedRef.current = true;
@@ -636,6 +655,8 @@ export function WritingEditor(props: WritingEditorProps) {
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
+			svgContentHash: svgContentHashRef.current,
+			svgContentHashedAt: svgContentHashedAtRef.current,
 		}));
 	}
 
@@ -650,6 +671,8 @@ export function WritingEditor(props: WritingEditorProps) {
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
+			svgContentHash: svgContentHashRef.current,
+			svgContentHashedAt: svgContentHashedAtRef.current,
 		}));
 	}
 
@@ -677,34 +700,32 @@ export function WritingEditor(props: WritingEditorProps) {
 		}
 		writingLineHeightRef.current = snapshot.writingLineHeight ?? WRITING_LINE_HEIGHT;
 		transcriptRef.current = data.meta.transcript;
+		svgContentHashRef.current = data.meta.svgContentHash;
+		svgContentHashedAtRef.current = data.meta.svgContentHashedAt;
 		setHasTranscript(!!data.meta.transcript);
 		setInitialSnapshot(snapshot);
 	}
 
 	/**
-	 * Manual overflow action: build SVG from the live canvas (unsaved strokes included),
-	 * portal transcribe, persist on the SVG, then (for embeds) the note alt text.
+	 * Manual overflow action: enqueue live-canvas SVG. Not gated by auto-transcribe settings.
 	 */
 	async function handleTranscribe() {
 		const editor = editorRef.current;
 		if (!editor) return;
-		try {
-			const snapshot = editor.getSnapshot();
-			const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
-			const writingSvgFileContent = buildFileStr(buildInkCanvasWritingFileData({
-				inkCanvasSnapshot: snapshot,
-				svgString,
-				transcript: transcriptRef.current,
-			}));
-			const transcript = await transcribeWriting(writingSvgFileContent);
-			transcriptRef.current = transcript;
-			setHasTranscript(true);
-			await completeSave();
-			props.onTranscriptSaved?.(transcript);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
-			new Notice(message);
-		}
+		const snapshot = editor.getSnapshot();
+		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
+		const writingSvgFileContent = buildFileStr(buildInkCanvasWritingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+			svgContentHash: svgContentHashRef.current,
+			svgContentHashedAt: svgContentHashedAtRef.current,
+		}));
+		await enqueueManualTranscription({
+			file: props.writingFile,
+			fileType: 'inkWriting',
+			svgFileContent: writingSvgFileContent,
+		});
 	}
 
 	function getEditor(): InkCanvasEditor | undefined {

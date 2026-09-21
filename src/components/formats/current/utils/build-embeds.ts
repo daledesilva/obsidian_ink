@@ -15,6 +15,7 @@ export function buildDrawingEmbedLine(
 		pendingPaste?: boolean;
 		writingAlignedViewBox?: boolean;
 		embedSettings?: EmbedSettings;
+		transcript?: string;
 	},
 ): string {
 	const s = options?.embedSettings
@@ -32,7 +33,36 @@ export function buildDrawingEmbedLine(
 	if (options?.pendingPaste) params.append('pendingPaste', 'true');
 
 	const url = `${INK_EMBED_BASE_URL}?type=inkDrawing&${params.toString()}`;
-	return ` ![InkDrawing](<${filepath}>) [Edit Drawing](${url})`;
+	const alt = formatDrawingEmbedAltText(options?.transcript);
+	return ` ![${alt}](<${filepath}>) [Edit Drawing](${url})`;
+}
+
+/** Placeholder alt text when a drawing embed has no transcript yet. */
+export const DRAWING_EMBED_ALT_PLACEHOLDER = 'InkDrawing';
+
+/**
+ * Plain-text alt for drawing embeds: one line, no chars that break `![…](…)` or Obsidian `alt|width`.
+ */
+export function formatDrawingEmbedAltText(transcript?: string): string {
+	if (!transcript) return DRAWING_EMBED_ALT_PLACEHOLDER;
+	const collapsed = transcript
+		.replace(/[\r\n\t]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.replace(/[[\]\\|<>]/g, '')
+		.trim();
+	if (!collapsed) return DRAWING_EMBED_ALT_PLACEHOLDER;
+	return collapsed;
+}
+
+/**
+ * Patch the image alt on a drawing embed snippet (decoration range).
+ */
+export function patchDrawingEmbedTranscriptInEmbedSnippet(
+	embedSnippet: string,
+	transcript: string,
+): string {
+	const alt = formatDrawingEmbedAltText(transcript);
+	return embedSnippet.replace(/!\[[^\]]*\]/, `![${alt}]`);
 }
 
 export const buildDrawingEmbed = (
@@ -41,6 +71,7 @@ export const buildDrawingEmbed = (
 		pendingPaste?: boolean;
 		writingAlignedViewBox?: boolean;
 		embedSettings?: EmbedSettings;
+		transcript?: string;
 	},
 ): string => {
 	const line = buildDrawingEmbedLine(filepath, options);

@@ -16,6 +16,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { buildWritingEmbedLine } from "../../utils/build-embeds";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 import { readWritingFileAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
+import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 
 ////////
 ////////
@@ -224,7 +225,11 @@ export class WritingView extends TextFileView {
         if (this.editorControls) {
             await this.editorControls.saveAndHalt();
         }
-        
+
+        if (this.file) {
+            void enqueueAuto(this.file.path);
+        }
+
         // Then cleanup
         this.clear();
         restoreSidebarsAfterInkView();

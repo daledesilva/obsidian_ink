@@ -44,6 +44,12 @@ import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-t
 import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDrawingEmbedToolbarCompact } from './use-drawing-embed-toolbar-compact';
+import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
+import {
+	enqueueManualTranscription,
+	registerTranscriptionEditorSession,
+	unregisterTranscriptionEditorSession,
+} from 'src/logic/handwriting-transcription-queue';
 
 ///////////////////////////
 ///////////////////////////
@@ -120,6 +126,7 @@ interface DrawingEditorProps {
 	closeEditor?: () => void;
 	saveControlsReference?: (controls: DrawingEditorControls) => void;
 	onOpenInDedicatedView?: () => void;
+	onTranscriptSaved?: (transcript: string) => void;
 }
 
 export const DrawingEditorWrapper: React.FC<DrawingEditorProps> = (props) => {
@@ -154,6 +161,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const hasHandledInitialCameraRef = useRef(false);
 	// Tracks first init only — later InkSvgCanvas remounts must not hide save framing mid-edit.
 	const isLegacyInkFileRef = useRef(false);
+	const transcriptRef = useRef<string | undefined>(undefined);
+	const svgContentHashRef = useRef<string | undefined>(undefined);
+	const svgContentHashedAtRef = useRef<string | undefined>(undefined);
+	const [hasTranscript, setHasTranscript] = React.useState(false);
 
 	// On mount
 	React.useEffect(() => {
@@ -163,6 +174,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		return () => {
 			verbose('INK CANVAS EDITOR unmounting');
 			logToVault('Ink canvas editor unmounted: ' + props.drawingFile.path);
+			unregisterTranscriptionEditorSession(props.drawingFile.path);
 		};
 	}, []);
 
@@ -342,33 +354,46 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}
 
 		// Register save controls
-		if (props.saveControlsReference) {
-			props.saveControlsReference({
-				save: () => completeSave(),
-				saveAndHalt: async (): Promise<void> => {
-					await completeSave();
-					unmountActions();
-				},
-				eraseAll: async (): Promise<void> => {
-					editor.eraseAll();
-					await completeSave();
-				},
-				setBooxOverlayActive: (isActive: boolean) => {
-					isViewActiveRef.current = isActive;
-					if (isActive && websocketConnectedRef.current) {
-						activateDrawingSessionRef.current?.();
-						const sent = newAndroidDrawingArea();
-						if (!sent) pendingNewOverlayRef.current = true;
-					} else if (!isActive) {
-						pendingNewOverlayRef.current = false;
-						const inkPlugin = getGlobals().plugin;
-						if (getBooxConnectionEnabled()) {
-							inkPlugin.booxConnection.sendCloseDrawingArea();
-						}
+		const controls = {
+			save: () => completeSave(),
+			saveAndHalt: async (): Promise<void> => {
+				await completeSave();
+				unmountActions();
+			},
+			eraseAll: async (): Promise<void> => {
+				editor.eraseAll();
+				await completeSave();
+			},
+			setBooxOverlayActive: (isActive: boolean) => {
+				isViewActiveRef.current = isActive;
+				if (isActive && websocketConnectedRef.current) {
+					activateDrawingSessionRef.current?.();
+					const sent = newAndroidDrawingArea();
+					if (!sent) pendingNewOverlayRef.current = true;
+				} else if (!isActive) {
+					pendingNewOverlayRef.current = false;
+					const inkPluginForOverlay = getGlobals().plugin;
+					if (getBooxConnectionEnabled()) {
+						inkPluginForOverlay.booxConnection.sendCloseDrawingArea();
 					}
-				},
-			});
+				}
+			},
+		};
+		if (props.saveControlsReference) {
+			props.saveControlsReference(controls);
 		}
+		registerTranscriptionEditorSession({
+			filePath: props.drawingFile.path,
+			fileType: 'inkDrawing',
+			saveAndHalt: controls.saveAndHalt,
+			onTranscriptApplied: (transcript, svgContentHash, svgContentHashedAt) => {
+				transcriptRef.current = transcript;
+				svgContentHashRef.current = svgContentHash;
+				svgContentHashedAtRef.current = svgContentHashedAt;
+				setHasTranscript(true);
+				props.onTranscriptSaved?.(transcript);
+			},
+		});
 
 		// Socket may have opened before the canvas mounted.
 		const inkPlugin = getGlobals().plugin;
@@ -449,6 +474,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		const fileData = buildInkCanvasDrawingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
+			transcript: transcriptRef.current,
+			svgContentHash: svgContentHashRef.current,
+			svgContentHashedAt: svgContentHashedAtRef.current,
 		});
 		props.save(fileData);
 	}
@@ -465,6 +493,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		const fileData = buildInkCanvasDrawingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
+			transcript: transcriptRef.current,
+			svgContentHash: svgContentHashRef.current,
+			svgContentHashedAt: svgContentHashedAtRef.current,
 		});
 		props.save(fileData);
 	}
@@ -491,6 +522,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}
 
 		isLegacyInkFileRef.current = !isInkCanvasFile(inkFileData);
+		transcriptRef.current = inkFileData.meta.transcript;
+		svgContentHashRef.current = inkFileData.meta.svgContentHash;
+		svgContentHashedAtRef.current = inkFileData.meta.svgContentHashedAt;
+		setHasTranscript(!!inkFileData.meta.transcript);
 
 		// If this is already an ink-canvas file, use its snapshot directly
 		if (isInkCanvasFile(inkFileData) && inkFileData.inkCanvas) {
@@ -541,7 +576,33 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		setIsSaveCameraEnabled(false);
 	}
 
+	/**
+	 * Manual overflow action: enqueue live-canvas SVG. Not gated by auto-transcribe settings.
+	 */
+	async function handleTranscribe() {
+		const editor = editorRef.current;
+		if (!editor) return;
+		const snapshot = editor.getSnapshot();
+		const svgString = renderStrokesToSvg(snapshot.strokes, snapshot);
+		const drawingSvgFileContent = buildFileStr(buildInkCanvasDrawingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+			svgContentHash: svgContentHashRef.current,
+			svgContentHashedAt: svgContentHashedAtRef.current,
+		}));
+		await enqueueManualTranscription({
+			file: props.drawingFile,
+			fileType: 'inkDrawing',
+			svgFileContent: drawingSvgFileContent,
+		});
+	}
+
 	const customExtendedMenu = [
+		{
+			text: hasTranscript ? 'Update transcript' : 'Transcribe',
+			action: () => { void handleTranscribe(); },
+		},
 		{
 			text: 'Grid on/off',
 			action: () => {

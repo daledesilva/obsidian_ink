@@ -110,6 +110,7 @@ function extractInkCanvasFormat(
         ? (inkElements[0].getAttribute('plugin-version') || '')
         : '';
     const transcript = readInkTranscript(metadataElement, inkElements[0]);
+    const hashMeta = readSvgContentHashAttrs(inkElements[0]);
 
     return {
         meta: {
@@ -117,6 +118,7 @@ function extractInkCanvasFormat(
             tldrawVersion: '',
             fileType: fileTypeText as 'inkDrawing' | 'inkWriting',
             transcript,
+            ...hashMeta,
         },
         tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas files
         inkCanvas: inkCanvasSnapshot,
@@ -174,6 +176,7 @@ function extractTldrawFormat(
         ? writingLineHeightParsed
         : undefined;
     const transcript = readInkTranscript(metadataElement, inkElements[0]);
+    const hashMeta = readSvgContentHashAttrs(inkElements[0]);
 
     return {
         meta: {
@@ -182,6 +185,7 @@ function extractTldrawFormat(
             fileType: fileTypeText,
             writingLineHeight,
             transcript,
+            ...hashMeta,
         },
         tldraw: tldrawSnapshot,
         svgString,
@@ -205,4 +209,20 @@ function readInkTranscript(
     const legacyAttr = inkElement.getAttribute('transcript');
     if (!legacyAttr) return undefined;
     return legacyAttr;
+}
+
+/**
+ * Reads optional SimHash + timestamp from `<ink>` attributes.
+ */
+function readSvgContentHashAttrs(inkElement: Element | undefined): {
+    svgContentHash?: string;
+    svgContentHashedAt?: string;
+} {
+    if (!inkElement) return {};
+    const svgContentHash = inkElement.getAttribute('svg-content-hash') || undefined;
+    const svgContentHashedAt = inkElement.getAttribute('svg-content-hashed-at') || undefined;
+    return {
+        ...(svgContentHash ? { svgContentHash } : {}),
+        ...(svgContentHashedAt ? { svgContentHashedAt } : {}),
+    };
 }

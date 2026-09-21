@@ -28,6 +28,7 @@ import {
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import { insertAlmostUsefulAccountSection } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
 import { subscribeAlmostUsefulSessionChanged } from 'src/logic/almostuseful/almostuseful-session';
+import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
 
 /////////
 /////////
@@ -667,6 +668,21 @@ function insertDrawingSettings(
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
+		.setName('Transcribe handwriting when closing')
+		.setDesc('When you lock a drawing embed or close the dedicated drawing view, send handwriting to Almost Useful. Manual Transcribe in the overflow menu always stays available.')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.drawingAutoTranscribeOnClose);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.drawingAutoTranscribeOnClose = value;
+				await plugin.saveSettings();
+				if (!value) {
+					dropWaitingAutoTranscriptionJobsForFileType('inkDrawing');
+				}
+			});
+		});
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
 		.setName('Show grid in new drawings')
 		.addToggle((toggle) => {
 			toggle.setValue(plugin.settings.drawingGridEnabledByDefault);
@@ -739,6 +755,21 @@ function insertWritingSettings(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkWriting'));
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Transcribe handwriting when closing')
+		.setDesc('When you lock a writing embed or close the dedicated writing view, send handwriting to Almost Useful. Manual Transcribe in the overflow menu always stays available.')
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.writingAutoTranscribeOnClose);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.writingAutoTranscribeOnClose = value;
+				await plugin.saveSettings();
+				if (!value) {
+					dropWaitingAutoTranscriptionJobsForFileType('inkWriting');
+				}
+			});
+		});
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')

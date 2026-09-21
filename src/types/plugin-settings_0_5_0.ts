@@ -17,8 +17,12 @@ export interface PluginSettings_0_5_0 extends PluginSettings_0_4_0 {
 	// Writing specific (new in 0.5.0)
 	writingBufferLines: number,
 	writingLineHeight: number,
+	/** Auto-enqueue handwriting transcription when a writing embed locks or dedicated view closes. */
+	writingAutoTranscribeOnClose: boolean,
 	// Drawing specific (new in 0.5.0)
 	drawingGridEnabledByDefault: boolean,
+	/** Auto-enqueue handwriting transcription when a drawing embed locks or dedicated view closes. */
+	drawingAutoTranscribeOnClose: boolean,
 }
 
 export const DEFAULT_PLUGIN_SETTINGS_0_5_0: PluginSettings_0_5_0 = {
@@ -47,9 +51,11 @@ export const DEFAULT_PLUGIN_SETTINGS_0_5_0: PluginSettings_0_5_0 = {
 	writingSmoothing: false,
 	writingLinesWhenLocked: true,
 	writingBackgroundWhenLocked: true,
+	writingAutoTranscribeOnClose: true,
 	// Drawing specific
 	drawingEnabled: true,
 	drawingGridEnabledByDefault: true,
+	drawingAutoTranscribeOnClose: false,
 	drawingFrameWhenLocked: false,
 	drawingBackgroundWhenLocked: false,
 }

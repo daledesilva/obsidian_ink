@@ -19,6 +19,7 @@ import { type MenuOption } from "src/components/jsx-components/overflow-menu/ove
 import { buildDrawingEmbedLine } from "../../utils/build-embeds";
 import { buildDrawingEmbedSettingsFromFile } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
+import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 
 ////////
 ////////
@@ -34,7 +35,14 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile): MenuOption[] {
                 if (!fileRef) return;
                 void (async () => {
                     const embedSettings = await buildDrawingEmbedSettingsFromFile(plugin, fileRef);
-                    const embedStr = buildDrawingEmbedLine(fileRef.path, { embedSettings });
+                    const svgFileContent = await plugin.app.vault.read(fileRef);
+                    const inkFileData = extractInkJsonFromSvg(svgFileContent);
+                    const embedStr = buildDrawingEmbedLine(fileRef.path, {
+                        embedSettings,
+                        ...(inkFileData?.meta.transcript
+                            ? { transcript: inkFileData.meta.transcript }
+                            : {}),
+                    });
                     void copyEmbedMarkdownToClipboard(embedStr);
                 })();
             },
@@ -221,7 +229,11 @@ export class DrawingView extends TextFileView {
         if (this.root && this.editorControls) {
             await this.editorControls.saveAndHalt();
         }
-        
+
+        if (this.file) {
+            void enqueueAuto(this.file.path);
+        }
+
         // Then cleanup
         this.clear();
         restoreSidebarsAfterInkView();

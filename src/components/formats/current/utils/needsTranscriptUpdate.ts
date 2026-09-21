@@ -17,16 +17,26 @@ export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
 };
 
 /**
- * Writes a transcript onto current-format writing SVG metadata (`<transcript>…</transcript>`).
+ * Writes a transcript onto current-format ink SVG metadata (`<transcript>…</transcript>`).
+ * Optionally stores svgContentHash / svgContentHashedAt on `<ink>`.
  * Preserves the file mtime so transcript updates do not look like a content edit.
  */
-export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile, transcript: string) => {
+export const saveWriteFileTranscript = async (
+    plugin: InkPlugin,
+    fileRef: TFile,
+    transcript: string,
+    hashFields?: { svgContentHash: string; svgContentHashedAt: string },
+) => {
     const v = plugin.app.vault;
     const pageDataStr = await v.read(fileRef);
     const pageData = extractInkJsonFromSvg(pageDataStr);
     if (!pageData) return;
 
     pageData.meta.transcript = transcript;
+    if (hashFields) {
+        pageData.meta.svgContentHash = hashFields.svgContentHash;
+        pageData.meta.svgContentHashedAt = hashFields.svgContentHashedAt;
+    }
     const newPageDataStr = buildFileStr(pageData);
 
     await v.modify(fileRef, newPageDataStr, { mtime: fileRef.stat.mtime });

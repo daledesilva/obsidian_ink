@@ -11,8 +11,6 @@ export const buildInkCanvasDrawingFileData = (props: {
   inkCanvasSnapshot: InkCanvasSnapshot,
   svgString: string,
   transcript?: string,
-  svgContentHash?: string,
-  svgContentHashedAt?: string,
 }): InkFileData => {
   return {
     meta: {
@@ -20,8 +18,6 @@ export const buildInkCanvasDrawingFileData = (props: {
       tldrawVersion: '',
       fileType: 'inkDrawing',
       transcript: props.transcript,
-      svgContentHash: props.svgContentHash,
-      svgContentHashedAt: props.svgContentHashedAt,
     },
     tldraw: {} as TLEditorSnapshot,
     inkCanvas: props.inkCanvasSnapshot,
@@ -33,8 +29,6 @@ export const buildInkCanvasWritingFileData = (props: {
   inkCanvasSnapshot: InkCanvasSnapshot,
   svgString: string,
   transcript?: string,
-  svgContentHash?: string,
-  svgContentHashedAt?: string,
 }): InkFileData => {
   return {
     meta: {
@@ -42,8 +36,6 @@ export const buildInkCanvasWritingFileData = (props: {
       tldrawVersion: '',
       fileType: 'inkWriting',
       transcript: props.transcript,
-      svgContentHash: props.svgContentHash,
-      svgContentHashedAt: props.svgContentHashedAt,
     },
     tldraw: {} as TLEditorSnapshot,
     inkCanvas: props.inkCanvasSnapshot,

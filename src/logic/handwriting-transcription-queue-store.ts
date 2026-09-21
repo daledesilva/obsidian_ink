@@ -3,10 +3,11 @@ import { fetchLocally, saveLocally } from 'src/logic/utils/storage';
 //////////
 //////////
 
-export const HANDWRITING_TRANSCRIPTION_QUEUE_STORAGE_SUFFIX = 'handwritingTranscriptionQueue_v1';
+export const HANDWRITING_TRANSCRIPTION_QUEUE_STORAGE_SUFFIX = 'handwritingTranscriptionQueue_v2';
 
 // Pending jobs and open editor sessions stay device-local (au_ink_*), not data.json,
 // so Obsidian Sync does not replay transcription work on every device.
+// v2 drops SimHash job snapshots; occupancy is bbox cell strings.
 
 export type HandwritingTranscriptionFileType = 'inkWriting' | 'inkDrawing';
 export type HandwritingTranscriptionJobReason = 'auto' | 'manual';
@@ -15,7 +16,8 @@ export interface HandwritingTranscriptionPendingJob {
 	filePath: string;
 	fileType: HandwritingTranscriptionFileType;
 	reason: HandwritingTranscriptionJobReason;
-	svgContentHash: string;
+	/** Live bbox occupancy at enqueue; empty on quit-promote until prune. */
+	bboxCellsAtLastTranscription: string;
 	enqueuedAt: string;
 }
 
@@ -24,8 +26,8 @@ export interface HandwritingTranscriptionOpenSession {
 	fileType: HandwritingTranscriptionFileType;
 }
 
-export interface HandwritingTranscriptionQueueBlobV1 {
-	version: 1;
+export interface HandwritingTranscriptionQueueBlobV2 {
+	version: 2;
 	pending: HandwritingTranscriptionPendingJob[];
 	openSessions: HandwritingTranscriptionOpenSession[];
 }
@@ -33,7 +35,7 @@ export interface HandwritingTranscriptionQueueBlobV1 {
 /**
  * Reads the device-local transcription queue. Corrupt JSON yields an empty blob.
  */
-export function readHandwritingTranscriptionQueueBlob(): HandwritingTranscriptionQueueBlobV1 {
+export function readHandwritingTranscriptionQueueBlob(): HandwritingTranscriptionQueueBlobV2 {
 	const raw = fetchLocally(HANDWRITING_TRANSCRIPTION_QUEUE_STORAGE_SUFFIX);
 	if (typeof raw !== 'string') return emptyQueueBlob();
 	try {
@@ -49,23 +51,23 @@ export function readHandwritingTranscriptionQueueBlob(): HandwritingTranscriptio
  * Writes the device-local transcription queue (sync — safe on quit).
  */
 export function writeHandwritingTranscriptionQueueBlob(
-	blob: HandwritingTranscriptionQueueBlobV1,
+	blob: HandwritingTranscriptionQueueBlobV2,
 ): void {
 	saveLocally(HANDWRITING_TRANSCRIPTION_QUEUE_STORAGE_SUFFIX, JSON.stringify(blob));
 }
 
-function emptyQueueBlob(): HandwritingTranscriptionQueueBlobV1 {
+function emptyQueueBlob(): HandwritingTranscriptionQueueBlobV2 {
 	return {
-		version: 1,
+		version: 2,
 		pending: [],
 		openSessions: [],
 	};
 }
 
-function isQueueBlob(value: unknown): value is HandwritingTranscriptionQueueBlobV1 {
+function isQueueBlob(value: unknown): value is HandwritingTranscriptionQueueBlobV2 {
 	if (!value || typeof value !== 'object') return false;
 	const record = value as Record<string, unknown>;
-	if (record.version !== 1) return false;
+	if (record.version !== 2) return false;
 	if (!Array.isArray(record.pending) || !Array.isArray(record.openSessions)) return false;
 	return record.pending.every(isPendingJob) && record.openSessions.every(isOpenSession);
 }
@@ -79,7 +81,7 @@ function isPendingJob(value: unknown): value is HandwritingTranscriptionPendingJ
 		typeof record.filePath === 'string'
 		&& isFileType
 		&& isReason
-		&& typeof record.svgContentHash === 'string'
+		&& typeof record.bboxCellsAtLastTranscription === 'string'
 		&& typeof record.enqueuedAt === 'string'
 	);
 }

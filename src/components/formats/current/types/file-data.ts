@@ -11,13 +11,10 @@ export type InkFileMetadata = {
     previewIsOutdated?: boolean;
     /** Handwriting transcript (markdown) stored in SVG `<metadata><transcript>…</transcript>`. */
     transcript?: string;
-    /**
-     * SimHash of stroke geometry at last successful transcription (`v1:simhash64:…`).
-     * Compared with Hamming distance; not a hash of the transcript text.
-     */
-    svgContentHash?: string;
-    /** ISO-8601 time when svgContentHash was written (debug / retry policy; not for similarity). */
-    svgContentHashedAt?: string;
+    /** Sorted unique bbox-relative 32px occupancy cells at last successful transcription. */
+    bboxCellsAtLastTranscription?: string;
+    /** ISO-8601 time when bboxCellsAtLastTranscription was written. */
+    lastTranscriptionAt?: string;
     /** Height in pixels of each ruled line. Stored per-file so existing embeds are unaffected by the global setting. */
     writingLineHeight?: number;
 };

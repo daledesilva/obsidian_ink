@@ -33,6 +33,14 @@ export function migrateOutdatedSettings(raw: Record<string, unknown>): PluginSet
 	if (settings.drawingAutoTranscribeOnClose === undefined) {
 		settings.drawingAutoTranscribeOnClose = DEFAULT_PLUGIN_SETTINGS_0_5_0.drawingAutoTranscribeOnClose;
 	}
+	if (settings.writingAutoTranscribeChangeThresholdPercent === undefined) {
+		settings.writingAutoTranscribeChangeThresholdPercent =
+			DEFAULT_PLUGIN_SETTINGS_0_5_0.writingAutoTranscribeChangeThresholdPercent;
+	}
+	if (settings.drawingAutoTranscribeChangeThresholdPercent === undefined) {
+		settings.drawingAutoTranscribeChangeThresholdPercent =
+			DEFAULT_PLUGIN_SETTINGS_0_5_0.drawingAutoTranscribeChangeThresholdPercent;
+	}
 
 	// Undo mistaken 0.6.0 settingsVersion bump from an earlier build
 	if (settings.settingsVersion === '0.6.0') {

@@ -29,6 +29,11 @@ import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import { insertAlmostUsefulAccountSection } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
 import { subscribeAlmostUsefulSessionChanged } from 'src/logic/almostuseful/almostuseful-session';
 import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
+import {
+	AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT,
+	clampAutoTranscribeChangeThresholdPercent,
+} from 'src/logic/stroke-bbox-cells';
+import type { HandwritingTranscriptionFileType } from 'src/logic/handwriting-transcription-queue-store';
 
 /////////
 /////////
@@ -666,6 +671,8 @@ function insertDrawingSettings(
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkDrawing'));
 
+	let setDrawingThresholdVisible = (_visible: boolean) => {};
+
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Transcribe handwriting when closing')
@@ -678,8 +685,16 @@ function insertDrawingSettings(
 				if (!value) {
 					dropWaitingAutoTranscriptionJobsForFileType('inkDrawing');
 				}
+				setDrawingThresholdVisible(value);
 			});
 		});
+
+	setDrawingThresholdVisible = insertAutoTranscribeChangeThresholdSetting(
+		contentEl,
+		plugin,
+		'inkDrawing',
+		plugin.settings.drawingAutoTranscribeOnClose,
+	);
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
@@ -756,6 +771,8 @@ function insertWritingSettings(
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkWriting'));
 
+	let setWritingThresholdVisible = (_visible: boolean) => {};
+
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Transcribe handwriting when closing')
@@ -768,8 +785,16 @@ function insertWritingSettings(
 				if (!value) {
 					dropWaitingAutoTranscriptionJobsForFileType('inkWriting');
 				}
+				setWritingThresholdVisible(value);
 			});
 		});
+
+	setWritingThresholdVisible = insertAutoTranscribeChangeThresholdSetting(
+		contentEl,
+		plugin,
+		'inkWriting',
+		plugin.settings.writingAutoTranscribeOnClose,
+	);
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
@@ -894,4 +919,52 @@ function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 				await plugin.saveSettings();
 			});
 		});
+}
+
+/**
+ * Per-type occupancy-change threshold slider (0–95%). Hidden when auto-transcribe on close is off.
+ */
+function insertAutoTranscribeChangeThresholdSetting(
+	containerEl: HTMLElement,
+	plugin: InkPlugin,
+	fileType: HandwritingTranscriptionFileType,
+	isAutoEnabled: boolean,
+): (visible: boolean) => void {
+	const settingsKey = fileType === 'inkWriting'
+		? 'writingAutoTranscribeChangeThresholdPercent'
+		: 'drawingAutoTranscribeChangeThresholdPercent';
+
+	let percentTextComponent: TextComponent;
+	const thresholdSetting = new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('Re-transcribe when ink changed by at least')
+		.setDesc('Minimum occupied-cell change before auto-transcribe runs again. 0% always transcribes on close or sync; 95% only when ink occupancy is almost entirely different. Manual Transcribe ignores this.')
+		.addSlider((slider) => {
+			const currentValue = clampAutoTranscribeChangeThresholdPercent(plugin.settings[settingsKey]);
+			slider
+				.setLimits(0, AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT, 1)
+				.setValue(currentValue);
+			slider.sliderEl.addEventListener('input', () => {
+				percentTextComponent.setValue(`${slider.getValue()}%`);
+			});
+			slider.onChange(async (value: number) => {
+				const clampedValue = clampAutoTranscribeChangeThresholdPercent(value);
+				plugin.settings[settingsKey] = clampedValue;
+				percentTextComponent.setValue(`${clampedValue}%`);
+				await plugin.saveSettings();
+			});
+		})
+		.addText((textItem) => {
+			percentTextComponent = textItem;
+			const currentValue = clampAutoTranscribeChangeThresholdPercent(plugin.settings[settingsKey]);
+			textItem.setValue(`${currentValue}%`);
+			textItem.inputEl.classList.add('ddc_ink_line-height-input');
+			textItem.setDisabled(true);
+		});
+
+	const setVisible = (visible: boolean) => {
+		thresholdSetting.settingEl.style.display = visible ? '' : 'none';
+	};
+	setVisible(isAutoEnabled);
+	return setVisible;
 }

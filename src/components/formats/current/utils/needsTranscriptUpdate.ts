@@ -3,6 +3,7 @@ import { InkFileData } from "../types/file-data";
 import InkPlugin from "src/main";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { buildFileStr } from "./buildFileStr";
+import { serializeBboxCellsAtLastTranscription } from "src/logic/stroke-bbox-cells";
 
 ////////
 ////////
@@ -18,14 +19,14 @@ export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
 
 /**
  * Writes a transcript onto current-format ink SVG metadata (`<transcript>…</transcript>`).
- * Optionally stores svgContentHash / svgContentHashedAt on `<ink>`.
+ * Optionally stores bbox occupancy snapshot on `<ink>` after a successful apply.
  * Preserves the file mtime so transcript updates do not look like a content edit.
  */
 export const saveWriteFileTranscript = async (
     plugin: InkPlugin,
     fileRef: TFile,
     transcript: string,
-    hashFields?: { svgContentHash: string; svgContentHashedAt: string },
+    transcriptionFingerprint?: { lastTranscriptionAt: string },
 ) => {
     const v = plugin.app.vault;
     const pageDataStr = await v.read(fileRef);
@@ -33,9 +34,10 @@ export const saveWriteFileTranscript = async (
     if (!pageData) return;
 
     pageData.meta.transcript = transcript;
-    if (hashFields) {
-        pageData.meta.svgContentHash = hashFields.svgContentHash;
-        pageData.meta.svgContentHashedAt = hashFields.svgContentHashedAt;
+    if (transcriptionFingerprint) {
+        // Occupancy fingerprint only on successful apply — from stroke geometry now on disk.
+        pageData.meta.bboxCellsAtLastTranscription = serializeBboxCellsAtLastTranscription(pageData);
+        pageData.meta.lastTranscriptionAt = transcriptionFingerprint.lastTranscriptionAt;
     }
     const newPageDataStr = buildFileStr(pageData);
 

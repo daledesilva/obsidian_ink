@@ -81,6 +81,22 @@ describe('saveWriteFileTranscript', () => {
 			{ mtime },
 		);
 		expect(extractInkJsonFromSvg(getStoredContent())?.meta.transcript).toBe('saved transcript');
+		expect(getStoredContent()).not.toContain('bbox-cells-at-last-transcription');
+		expect(getStoredContent()).not.toContain('last-transcription-at');
+	});
+
+	test('writes bbox occupancy snapshot only when fingerprint fields are passed', async () => {
+		const initialSvg = makeWritingSvg();
+		const { plugin, fileRef, getStoredContent } = makePlugin(initialSvg);
+
+		await saveWriteFileTranscript(plugin, fileRef, 'saved transcript', {
+			lastTranscriptionAt: '2026-09-21T13:00:00.000Z',
+		});
+
+		expect(getStoredContent()).toContain('last-transcription-at="2026-09-21T13:00:00.000Z"');
+		expect(extractInkJsonFromSvg(getStoredContent())?.meta.lastTranscriptionAt).toBe(
+			'2026-09-21T13:00:00.000Z',
+		);
 	});
 
 	test('does nothing when SVG metadata cannot be parsed', async () => {

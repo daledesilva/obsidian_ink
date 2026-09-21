@@ -69,7 +69,7 @@ sequenceDiagram
   - Recent picker paths: `recentDrawingFilePaths`, `recentWritingFilePaths` (JSON string arrays).
   - Versioned device settings blob: `deviceSettings_v1` (JSON; see below).
   - Almost Useful session: suffix `almostuseful_session` → `au_ink_almostuseful_session` (JSON user JWT; **never** `data.json`). In-flight PKCE: `almostuseful_handoff`. Optional staging host: `almostuseful_debug` (localStorage only; settings UI no longer edits it). See [Almost Useful account](almostuseful-account.md).
-  - Handwriting transcription queue: suffix `handwritingTranscriptionQueue_v1` → `au_ink_handwritingTranscriptionQueue_v1` (JSON `{ pending, openSessions }`; **never** `data.json` — avoids multi-device double billing). Auto-transcribe **toggles** for writing/drawing live in `data.json`; only job state is device-local. See [Handwriting transcription](writing-transcription.md).
+  - Handwriting transcription queue: suffix `handwritingTranscriptionQueue_v2` → `au_ink_handwritingTranscriptionQueue_v2` (JSON `{ version: 2, pending, openSessions }`; **never** `data.json` — avoids multi-device double billing). Auto-transcribe **toggles and occupancy thresholds** for writing/drawing live in `data.json`; only job state is device-local. See [Handwriting transcription](writing-transcription.md).
 - **Use for:** Per-device behaviour, session helpers, job queues that must **not** sync with the vault (transcription pending list), or data that must **not** be tied to vault sync (e.g. “Treat input as” pen vs mouse per editor kind).
 
 ### 3. Device settings module — versioned JSON blob

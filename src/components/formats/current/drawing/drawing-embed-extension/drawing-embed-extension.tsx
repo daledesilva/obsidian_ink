@@ -15,7 +15,7 @@ import {
 import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, Root } from "react-dom/client";
 import { getGlobals } from 'src/stores/global-store';
 import {
     Provider as JotaiProvider,
@@ -30,6 +30,7 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import { buildFileStr } from '../../utils/buildFileStr';
+import { preserveBboxCellsOnStrokeSave } from '../../utils/preserve-bbox-cells-on-stroke-save';
 import { buildDrawingEmbedLine, buildWritingEmbedLine, patchDrawingEmbedTranscriptInEmbedSnippet } from '../../utils/build-embeds';
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateDrawingFile } from '../../utils/duplicate-files';
@@ -69,6 +70,7 @@ export class DrawingEmbedWidget extends WidgetType {
     isPendingPaste: boolean;
     isHighlighted: boolean = false;
     private rootEl?: HTMLElement;
+    private reactRoot: Root | null = null;
     // Survives CM offscreen destroy→toDOM remounts (widget instance is reused via decoration eq).
     private lastMeasuredHeightPx: number | null = null;
 
@@ -93,7 +95,9 @@ export class DrawingEmbedWidget extends WidgetType {
         preventWidgetRootStealingFocus(rootEl);
         applyCommonAncestorStyling(rootEl);
 
+        this.unmountReactRoot();
         const root = createRoot(rootEl);
+        this.reactRoot = root;
 
         mountedDecorationIds.push(this.id);
 
@@ -173,6 +177,14 @@ export class DrawingEmbedWidget extends WidgetType {
         this.rememberMeasuredHeight(dom);
         const idx = mountedDecorationIds.indexOf(this.id);
         if (idx >= 0) mountedDecorationIds.splice(idx, 1);
+        // Closing the markdown tab only calls WidgetType.destroy. Without unmount the
+        // transcription session stays open and enqueueAuto never runs.
+        this.unmountReactRoot();
+    }
+
+    private unmountReactRoot(): void {
+        this.reactRoot?.unmount();
+        this.reactRoot = null;
     }
 
     get estimatedHeight(): number {
@@ -238,6 +250,7 @@ export class DrawingEmbedWidget extends WidgetType {
 	save = async (inkFileData: InkFileData) => {
 		if(!this.embeddedFile) return;
 		const plugin = getGlobals().plugin;
+		await preserveBboxCellsOnStrokeSave(plugin, this.embeddedFile, inkFileData);
 		const inkFileContents = buildFileStr(inkFileData);
 		await plugin.app.vault.modify(this.embeddedFile, inkFileContents);
 	}

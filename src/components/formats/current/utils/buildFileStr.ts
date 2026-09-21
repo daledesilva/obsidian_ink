@@ -52,18 +52,18 @@ function buildInkElementAttributes(pageData: InkFileData): string {
         pageData.meta.writingLineHeight !== undefined
             ? ` writing-line-height="${escapeXmlAttribute(String(pageData.meta.writingLineHeight))}"`
             : '';
-    const svgContentHashAttr = pageData.meta.svgContentHash
-        ? ` svg-content-hash="${escapeXmlAttribute(pageData.meta.svgContentHash)}"`
+    const bboxCellsAtLastTranscriptionAttr = pageData.meta.bboxCellsAtLastTranscription
+        ? ` bbox-cells-at-last-transcription="${escapeXmlAttribute(pageData.meta.bboxCellsAtLastTranscription)}"`
         : '';
-    const svgContentHashedAtAttr = pageData.meta.svgContentHashedAt
-        ? ` svg-content-hashed-at="${escapeXmlAttribute(pageData.meta.svgContentHashedAt)}"`
+    const lastTranscriptionAtAttr = pageData.meta.lastTranscriptionAt
+        ? ` last-transcription-at="${escapeXmlAttribute(pageData.meta.lastTranscriptionAt)}"`
         : '';
     return (
         `plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}"` +
         ` file-type="${escapeXmlAttribute(pageData.meta.fileType)}"` +
         writingLineHeightAttr +
-        svgContentHashAttr +
-        svgContentHashedAtAttr
+        bboxCellsAtLastTranscriptionAttr +
+        lastTranscriptionAtAttr
     );
 }
 

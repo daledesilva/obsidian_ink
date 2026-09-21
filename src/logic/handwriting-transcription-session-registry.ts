@@ -7,7 +7,7 @@ export interface HandwritingTranscriptionSession {
 	filePath: string;
 	fileType: HandwritingTranscriptionFileType;
 	saveAndHalt: () => void | Promise<void>;
-	onTranscriptApplied?: (transcript: string, svgContentHash: string, svgContentHashedAt: string) => void;
+	onTranscriptApplied?: (transcript: string) => void;
 }
 
 interface SessionSlot {
@@ -32,6 +32,20 @@ export function registerHandwritingTranscriptionSession(
 	}
 	sessionsByFilePath.set(session.filePath, { refcount: 1, session });
 	return 1;
+}
+
+/**
+ * Updates session callbacks without bumping refcount (e.g. ink canvas re-ready).
+ */
+export function replaceHandwritingTranscriptionSession(
+	session: HandwritingTranscriptionSession,
+): void {
+	const existing = sessionsByFilePath.get(session.filePath);
+	if (existing) {
+		existing.session = session;
+		return;
+	}
+	sessionsByFilePath.set(session.filePath, { refcount: 1, session });
 }
 
 /**

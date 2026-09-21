@@ -72,7 +72,7 @@ export function WritingEmbed (props: {
 	partialEmbedFilepath: string,
     pageData?: InkFileData,
 	embedSettings?: EmbedSettings,
-    save: (pageData: InkFileData) => void,
+    save: (pageData: InkFileData) => void | Promise<void>,
 	remove: () => void,
 	setEmbedProps?: (aspectRatio: number) => void,
 	onRequestMeasure?: () => void,

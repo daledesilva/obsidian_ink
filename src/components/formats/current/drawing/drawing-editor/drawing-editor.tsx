@@ -48,6 +48,7 @@ import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr'
 import {
 	enqueueManualTranscription,
 	registerTranscriptionEditorSession,
+	replaceTranscriptionEditorSession,
 	unregisterTranscriptionEditorSession,
 } from 'src/logic/handwriting-transcription-queue';
 
@@ -111,7 +112,7 @@ interface DrawingEditorProps {
 	workspaceLeafId: string;
 	embedId?: string;
 	drawingFile: TFile;
-	save: (pageData: InkFileData) => void;
+	save: (pageData: InkFileData) => void | Promise<void>;
 	extendedMenu?: MenuOption[];
 	embedSettings?: EmbedSettings;
 	onSaveCameraPosition?: (viewBox: { x: number; y: number; width: number; height: number }) => void;
@@ -162,8 +163,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	// Tracks first init only — later InkSvgCanvas remounts must not hide save framing mid-edit.
 	const isLegacyInkFileRef = useRef(false);
 	const transcriptRef = useRef<string | undefined>(undefined);
-	const svgContentHashRef = useRef<string | undefined>(undefined);
-	const svgContentHashedAtRef = useRef<string | undefined>(undefined);
+	const transcriptionSessionRegisteredRef = useRef(false);
 	const [hasTranscript, setHasTranscript] = React.useState(false);
 
 	// On mount
@@ -174,7 +174,12 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		return () => {
 			verbose('INK CANVAS EDITOR unmounting');
 			logToVault('Ink canvas editor unmounted: ' + props.drawingFile.path);
-			unregisterTranscriptionEditorSession(props.drawingFile.path);
+			transcriptionSessionRegisteredRef.current = false;
+			// Note/tab close never calls saveAndHalt. Finish the last save then unregister
+			// so enqueueAuto on last session drop sees disk strokes.
+			void Promise.resolve(completeSave()).finally(() => {
+				unregisterTranscriptionEditorSession(props.drawingFile.path);
+			});
 		};
 	}, []);
 
@@ -359,6 +364,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			saveAndHalt: async (): Promise<void> => {
 				await completeSave();
 				unmountActions();
+				// Close the transcription session before embed lock calls enqueueAuto.
+				// React unmount is async; leaving the session open makes kick skip the job.
+				transcriptionSessionRegisteredRef.current = false;
+				unregisterTranscriptionEditorSession(props.drawingFile.path);
 			},
 			eraseAll: async (): Promise<void> => {
 				editor.eraseAll();
@@ -382,18 +391,22 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		if (props.saveControlsReference) {
 			props.saveControlsReference(controls);
 		}
-		registerTranscriptionEditorSession({
+		const transcriptionSession = {
 			filePath: props.drawingFile.path,
-			fileType: 'inkDrawing',
+			fileType: 'inkDrawing' as const,
 			saveAndHalt: controls.saveAndHalt,
-			onTranscriptApplied: (transcript, svgContentHash, svgContentHashedAt) => {
+			onTranscriptApplied: (transcript: string) => {
 				transcriptRef.current = transcript;
-				svgContentHashRef.current = svgContentHash;
-				svgContentHashedAtRef.current = svgContentHashedAt;
 				setHasTranscript(true);
 				props.onTranscriptSaved?.(transcript);
 			},
-		});
+		};
+		if (transcriptionSessionRegisteredRef.current) {
+			replaceTranscriptionEditorSession(transcriptionSession);
+		} else {
+			registerTranscriptionEditorSession(transcriptionSession);
+			transcriptionSessionRegisteredRef.current = true;
+		}
 
 		// Socket may have opened before the canvas mounted.
 		const inkPlugin = getGlobals().plugin;
@@ -475,10 +488,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
-			svgContentHash: svgContentHashRef.current,
-			svgContentHashedAt: svgContentHashedAtRef.current,
 		});
-		props.save(fileData);
+		await props.save(fileData);
 	}
 
 	async function completeSave(): Promise<void> {
@@ -494,10 +505,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
-			svgContentHash: svgContentHashRef.current,
-			svgContentHashedAt: svgContentHashedAtRef.current,
 		});
-		props.save(fileData);
+		await props.save(fileData);
 	}
 
 	function resetTimers() {
@@ -523,8 +532,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 		isLegacyInkFileRef.current = !isInkCanvasFile(inkFileData);
 		transcriptRef.current = inkFileData.meta.transcript;
-		svgContentHashRef.current = inkFileData.meta.svgContentHash;
-		svgContentHashedAtRef.current = inkFileData.meta.svgContentHashedAt;
 		setHasTranscript(!!inkFileData.meta.transcript);
 
 		// If this is already an ink-canvas file, use its snapshot directly
@@ -588,8 +595,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
-			svgContentHash: svgContentHashRef.current,
-			svgContentHashedAt: svgContentHashedAtRef.current,
 		}));
 		await enqueueManualTranscription({
 			file: props.drawingFile,

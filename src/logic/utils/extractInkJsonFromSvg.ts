@@ -110,7 +110,7 @@ function extractInkCanvasFormat(
         ? (inkElements[0].getAttribute('plugin-version') || '')
         : '';
     const transcript = readInkTranscript(metadataElement, inkElements[0]);
-    const hashMeta = readSvgContentHashAttrs(inkElements[0]);
+    const transcriptionFingerprintMeta = readBboxCellsAtLastTranscriptionAttrs(inkElements[0]);
 
     return {
         meta: {
@@ -118,7 +118,7 @@ function extractInkCanvasFormat(
             tldrawVersion: '',
             fileType: fileTypeText as 'inkDrawing' | 'inkWriting',
             transcript,
-            ...hashMeta,
+            ...transcriptionFingerprintMeta,
         },
         tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas files
         inkCanvas: inkCanvasSnapshot,
@@ -176,7 +176,7 @@ function extractTldrawFormat(
         ? writingLineHeightParsed
         : undefined;
     const transcript = readInkTranscript(metadataElement, inkElements[0]);
-    const hashMeta = readSvgContentHashAttrs(inkElements[0]);
+    const transcriptionFingerprintMeta = readBboxCellsAtLastTranscriptionAttrs(inkElements[0]);
 
     return {
         meta: {
@@ -185,7 +185,7 @@ function extractTldrawFormat(
             fileType: fileTypeText,
             writingLineHeight,
             transcript,
-            ...hashMeta,
+            ...transcriptionFingerprintMeta,
         },
         tldraw: tldrawSnapshot,
         svgString,
@@ -212,17 +212,18 @@ function readInkTranscript(
 }
 
 /**
- * Reads optional SimHash + timestamp from `<ink>` attributes.
+ * Reads last-success bbox occupancy snapshot from `<ink>` attributes.
+ * Ignores legacy svg-content-hash / grid-cells (different metric and origin).
  */
-function readSvgContentHashAttrs(inkElement: Element | undefined): {
-    svgContentHash?: string;
-    svgContentHashedAt?: string;
+function readBboxCellsAtLastTranscriptionAttrs(inkElement: Element | undefined): {
+    bboxCellsAtLastTranscription?: string;
+    lastTranscriptionAt?: string;
 } {
     if (!inkElement) return {};
-    const svgContentHash = inkElement.getAttribute('svg-content-hash') || undefined;
-    const svgContentHashedAt = inkElement.getAttribute('svg-content-hashed-at') || undefined;
+    const bboxCellsAtLastTranscription = inkElement.getAttribute('bbox-cells-at-last-transcription') || undefined;
+    const lastTranscriptionAt = inkElement.getAttribute('last-transcription-at') || undefined;
     return {
-        ...(svgContentHash ? { svgContentHash } : {}),
-        ...(svgContentHashedAt ? { svgContentHashedAt } : {}),
+        ...(bboxCellsAtLastTranscription ? { bboxCellsAtLastTranscription } : {}),
+        ...(lastTranscriptionAt ? { lastTranscriptionAt } : {}),
     };
 }

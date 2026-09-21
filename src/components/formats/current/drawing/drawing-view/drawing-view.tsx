@@ -20,6 +20,7 @@ import { buildDrawingEmbedLine } from "../../utils/build-embeds";
 import { buildDrawingEmbedSettingsFromFile } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
+import { preserveBboxCellsOnStrokeSave } from "../../utils/preserve-bbox-cells-on-stroke-save";
 
 ////////
 ////////
@@ -189,9 +190,14 @@ export class DrawingView extends TextFileView {
 		}
     }
 
-    saveFile = (inkFileData: InkFileData) => {
-        this.inkFileData = inkFileData;
-        void this.save(false);   // Obsidian will call getViewData during this method
+    saveFile = (inkFileData: InkFileData): void | Promise<void> => {
+        return (async () => {
+            if (this.file) {
+                await preserveBboxCellsOnStrokeSave(this.plugin, this.file, inkFileData);
+            }
+            this.inkFileData = inkFileData;
+            await this.save(false);
+        })();
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)

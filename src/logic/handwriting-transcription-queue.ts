@@ -3,14 +3,20 @@ import InkPlugin from 'src/main';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { transcribeWriting } from 'src/logic/transcribe-writing';
 import { saveWriteFileTranscript } from 'src/components/formats/current/utils/needsTranscriptUpdate';
-import { computeSvgContentHash, inkFileHasStrokes, svgContentHashHammingRatio } from 'src/logic/svg-content-hash';
+import {
+	inkChangeMeetsAutoTranscribeThreshold,
+	inkFileHasStrokes,
+	serializeBboxCellsAtLastTranscription,
+} from 'src/logic/stroke-bbox-cells';
 import { patchInkEmbedTranscriptAltsInVault } from 'src/logic/handwriting-transcription-apply';
 import { subscribeAlmostUsefulSessionChanged, readAlmostUsefulSession } from 'src/logic/almostuseful/almostuseful-session';
 import {
 	listHandwritingTranscriptionSessions,
 	getHandwritingTranscriptionSession,
+	isHandwritingTranscriptionSessionOpen,
 	registerHandwritingTranscriptionSession,
 	unregisterHandwritingTranscriptionSession,
+	replaceHandwritingTranscriptionSession,
 	type HandwritingTranscriptionSession,
 } from 'src/logic/handwriting-transcription-session-registry';
 import {
@@ -55,6 +61,15 @@ export function initHandwritingTranscriptionQueue(plugin: InkPlugin): void {
 	plugin.registerDomEvent(window, 'beforeunload', () => {
 		promoteOpenSessionsToPendingOnQuit();
 	});
+	plugin.registerEvent(
+		// Sync/external edits: enqueueAuto respects openSessions so embed autosave does not loop.
+		plugin.app.vault.on('modify', (file) => {
+			if (!(file instanceof TFile)) return;
+			if (!file.path.toLowerCase().endsWith('.svg')) return;
+			if (isHandwritingTranscriptionSessionOpen(file.path)) return;
+			void enqueueAuto(file.path);
+		}),
+	);
 	resumeHandwritingTranscriptionQueueOnLaunch();
 }
 
@@ -116,13 +131,27 @@ export function registerTranscriptionEditorSession(
  * Unregisters an open writing/drawing editor and persists openSessions.
  */
 export function unregisterTranscriptionEditorSession(filePath: string): void {
-	unregisterHandwritingTranscriptionSession(filePath);
+	const remainingRefcount = unregisterHandwritingTranscriptionSession(filePath);
 	syncPersistedOpenTranscriptionSessions();
 	kickHandwritingTranscriptionQueue();
+	// Last editor for this file is gone (lock, note close, or dedicated close). Lock also
+	// calls enqueueAuto; note close does not — enqueue here so unlocked embeds still queue.
+	if (remainingRefcount === 0) {
+		void enqueueAuto(filePath);
+	}
 }
 
 /**
- * Auto-enqueue after lock/close/quit. Honours per-type toggle, empty canvas, and Hamming-0 skip.
+ * Refreshes session callbacks when the same editor re-initializes without bumping refcount.
+ */
+export function replaceTranscriptionEditorSession(
+	session: HandwritingTranscriptionSession,
+): void {
+	replaceHandwritingTranscriptionSession(session);
+}
+
+/**
+ * Auto-enqueue after lock/close/quit/sync. Honours per-type toggle, empty canvas, and change threshold.
  */
 export async function enqueueAuto(filePath: string): Promise<void> {
 	const plugin = queuePlugin;
@@ -136,17 +165,27 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 	if (fileType !== 'inkWriting' && fileType !== 'inkDrawing') return;
 	if (!isAutoTranscribeEnabled(plugin, fileType)) return;
 	if (!inkFileHasStrokes(pageData)) return;
-	const svgContentHash = computeSvgContentHash(pageData);
-	const storedHash = pageData.meta.svgContentHash;
-	if (storedHash && svgContentHashHammingRatio(storedHash, svgContentHash) === 0) return;
+	const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
+	const storedBboxCells = pageData.meta.bboxCellsAtLastTranscription;
+	const thresholdPercent = getAutoTranscribeChangeThresholdPercent(plugin, fileType);
+	const meetsThreshold = inkChangeMeetsAutoTranscribeThreshold(
+		thresholdPercent,
+		storedBboxCells,
+		pageData,
+	);
+	if (!meetsThreshold) {
+		return;
+	}
 	const pendingJob: HandwritingTranscriptionPendingJob = {
 		filePath,
 		fileType,
 		reason: 'auto',
-		svgContentHash,
+		bboxCellsAtLastTranscription: liveBboxCells,
 		enqueuedAt: new Date().toISOString(),
 	};
-	if (shouldSkipEnqueueBecauseInflightUnchanged(pendingJob)) return;
+	if (shouldSkipEnqueueBecauseInflightUnchanged(pendingJob)) {
+		return;
+	}
 	upsertPendingJob(pendingJob);
 	kickHandwritingTranscriptionQueue();
 }
@@ -166,12 +205,11 @@ export async function enqueueManualTranscription(
 		new Notice('Nothing to transcribe');
 		return;
 	}
-	const svgContentHash = computeSvgContentHash(pageData);
 	const pendingJob: HandwritingTranscriptionPendingJob = {
 		filePath: options.file.path,
 		fileType: options.fileType,
 		reason: 'manual',
-		svgContentHash,
+		bboxCellsAtLastTranscription: serializeBboxCellsAtLastTranscription(pageData),
 		enqueuedAt: new Date().toISOString(),
 	};
 	if (shouldSkipEnqueueBecauseInflightUnchanged(pendingJob)) {
@@ -250,7 +288,7 @@ function promoteOpenSessionsToPendingOnQuit(): void {
 			filePath: session.filePath,
 			fileType: session.fileType,
 			reason: 'auto',
-			svgContentHash: '',
+			bboxCellsAtLastTranscription: '',
 			enqueuedAt: new Date().toISOString(),
 		});
 	}
@@ -270,7 +308,7 @@ function resumeHandwritingTranscriptionQueueOnLaunch(): void {
 			filePath: session.filePath,
 			fileType: session.fileType,
 			reason: 'auto',
-			svgContentHash: '',
+			bboxCellsAtLastTranscription: '',
 			enqueuedAt: new Date().toISOString(),
 		});
 	}
@@ -309,18 +347,20 @@ async function pruneUnrunnablePendingJobs(): Promise<void> {
 			const pageData = extractInkJsonFromSvg(svgFileContent);
 			if (!pageData) continue;
 			if (!inkFileHasStrokes(pageData)) continue;
-			const liveHash = computeSvgContentHash(pageData);
-			const storedHash = pageData.meta.svgContentHash;
+			const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
 			if (
 				job.reason === 'auto'
-				&& storedHash
-				&& svgContentHashHammingRatio(storedHash, liveHash) === 0
+				&& !inkChangeMeetsAutoTranscribeThreshold(
+					getAutoTranscribeChangeThresholdPercent(plugin, job.fileType),
+					pageData.meta.bboxCellsAtLastTranscription,
+					pageData,
+				)
 			) {
 				continue;
 			}
 			kept.push({
 				...job,
-				svgContentHash: liveHash,
+				bboxCellsAtLastTranscription: liveBboxCells,
 				fileType: pageData.meta.fileType === 'inkDrawing' ? 'inkDrawing' : 'inkWriting',
 			});
 		} catch {
@@ -343,7 +383,9 @@ export function kickHandwritingTranscriptionQueue(): void {
 		if (job.reason !== 'auto') return true;
 		return !getHandwritingTranscriptionSession(job.filePath);
 	});
-	if (nextJobIndex < 0) return;
+	if (nextJobIndex < 0) {
+		return;
+	}
 	const nextJob = blob.pending[nextJobIndex];
 	blob.pending.splice(nextJobIndex, 1);
 	writeHandwritingTranscriptionQueueBlob(blob);
@@ -351,14 +393,14 @@ export function kickHandwritingTranscriptionQueue(): void {
 }
 
 /**
- * Same file already POSTing: skip a follow-up unless stroke SimHash changed.
+ * Same file already POSTing: skip a follow-up unless bbox occupancy changed.
  */
 function shouldSkipEnqueueBecauseInflightUnchanged(
 	job: HandwritingTranscriptionPendingJob,
 ): boolean {
 	if (!inflightJob || inflightJob.filePath !== job.filePath) return false;
-	if (!inflightJob.svgContentHash || !job.svgContentHash) return false;
-	return svgContentHashHammingRatio(inflightJob.svgContentHash, job.svgContentHash) === 0;
+	if (!inflightJob.bboxCellsAtLastTranscription || !job.bboxCellsAtLastTranscription) return false;
+	return inflightJob.bboxCellsAtLastTranscription === job.bboxCellsAtLastTranscription;
 }
 
 function isAutoTranscribeEnabled(
@@ -367,6 +409,16 @@ function isAutoTranscribeEnabled(
 ): boolean {
 	if (fileType === 'inkWriting') return plugin.settings.writingAutoTranscribeOnClose;
 	return plugin.settings.drawingAutoTranscribeOnClose;
+}
+
+function getAutoTranscribeChangeThresholdPercent(
+	plugin: InkPlugin,
+	fileType: HandwritingTranscriptionFileType,
+): number {
+	if (fileType === 'inkWriting') {
+		return plugin.settings.writingAutoTranscribeChangeThresholdPercent;
+	}
+	return plugin.settings.drawingAutoTranscribeChangeThresholdPercent;
 }
 
 async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Promise<void> {
@@ -401,18 +453,20 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		const pageData = extractInkJsonFromSvg(svgFileContent);
 		if (!pageData) return;
 		if (!inkFileHasStrokes(pageData)) return;
-		const liveHash = computeSvgContentHash(pageData);
-		if (job.svgContentHash && svgContentHashHammingRatio(job.svgContentHash, liveHash) > 0) {
+		const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
+		if (job.bboxCellsAtLastTranscription && job.bboxCellsAtLastTranscription !== liveBboxCells) {
 			if (job.reason === 'auto') {
 				await enqueueAuto(job.filePath);
 			}
 			return;
 		}
-		const storedHash = pageData.meta.svgContentHash;
 		if (
 			job.reason === 'auto'
-			&& storedHash
-			&& svgContentHashHammingRatio(storedHash, liveHash) === 0
+			&& !inkChangeMeetsAutoTranscribeThreshold(
+				getAutoTranscribeChangeThresholdPercent(plugin, job.fileType),
+				pageData.meta.bboxCellsAtLastTranscription,
+				pageData,
+			)
 		) {
 			return;
 		}
@@ -422,20 +476,20 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		if (!(fileAfter instanceof TFile)) return;
 		const svgAfter = await plugin.app.vault.read(fileAfter);
 		const pageAfter = extractInkJsonFromSvg(svgAfter);
-		if (pageAfter && svgContentHashHammingRatio(liveHash, computeSvgContentHash(pageAfter)) > 0) {
+		if (pageAfter && serializeBboxCellsAtLastTranscription(pageAfter) !== liveBboxCells) {
+			if (job.reason === 'auto') {
+				await enqueueAuto(job.filePath);
+			}
 			return;
 		}
-		const svgContentHashedAt = new Date().toISOString();
+		const lastTranscriptionAt = new Date().toISOString();
 		await saveWriteFileTranscript(plugin, fileAfter, transcript, {
-			svgContentHash: liveHash,
-			svgContentHashedAt,
+			lastTranscriptionAt,
 		});
-		getHandwritingTranscriptionSession(job.filePath)?.onTranscriptApplied?.(
-			transcript,
-			liveHash,
-			svgContentHashedAt,
-		);
+		getHandwritingTranscriptionSession(job.filePath)?.onTranscriptApplied?.(transcript);
 		await patchInkEmbedTranscriptAltsInVault(plugin, job.filePath, job.fileType, transcript);
+		const typeLabel = job.fileType === 'inkWriting' ? 'Writing' : 'Drawing';
+		new Notice(`${typeLabel} transcription finished: ${fileAfter.basename}`);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
 		new Notice(message);

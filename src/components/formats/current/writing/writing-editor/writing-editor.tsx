@@ -61,6 +61,7 @@ import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-t
 import {
 	enqueueManualTranscription,
 	registerTranscriptionEditorSession,
+	replaceTranscriptionEditorSession,
 	unregisterTranscriptionEditorSession,
 } from 'src/logic/handwriting-transcription-queue';
 ///////////////////////////
@@ -89,7 +90,7 @@ interface WritingEditorProps {
 	workspaceLeafId: string;
 	embedId?: string;
 	writingFile: TFile;
-	save: (inkFileData: InkFileData) => void;
+	save: (inkFileData: InkFileData) => void | Promise<void>;
 	extendedMenu?: MenuOption[];
 	embedded?: boolean;
 	closeEditor?: () => void;
@@ -132,8 +133,7 @@ export function WritingEditor(props: WritingEditorProps) {
 	const writingLineHeightRef = useRef(WRITING_LINE_HEIGHT);
 	/** Survives canvas autosaves so a later transcribe is not wiped by stroke writes. */
 	const transcriptRef = useRef<string | undefined>(undefined);
-	const svgContentHashRef = useRef<string | undefined>(undefined);
-	const svgContentHashedAtRef = useRef<string | undefined>(undefined);
+	const transcriptionSessionRegisteredRef = useRef(false);
 	const [hasTranscript, setHasTranscript] = React.useState(false);
 	/** Applied embed/page inviting height — drives shouldResizeForNewHeight. */
 	const curHeightRef = useRef<number | null>(null);
@@ -158,7 +158,12 @@ export function WritingEditor(props: WritingEditorProps) {
 		return () => {
 			verbose('INK CANVAS WRITING EDITOR unmounting');
 			logToVault('Ink canvas writing editor unmounted: ' + props.writingFile.path);
-			unregisterTranscriptionEditorSession(props.writingFile.path);
+			transcriptionSessionRegisteredRef.current = false;
+			// Note/tab close never calls saveAndHalt. Finish the last save then unregister
+			// so enqueueAuto on last session drop sees disk strokes.
+			void Promise.resolve(completeSave()).finally(() => {
+				unregisterTranscriptionEditorSession(props.writingFile.path);
+			});
 		};
 	}, []);
 
@@ -391,6 +396,10 @@ export function WritingEditor(props: WritingEditorProps) {
 			saveAndHalt: async () => {
 				await completeSave();
 				unmountActions();
+				// Close the transcription session before embed lock calls enqueueAuto.
+				// React unmount is async; leaving the session open makes kick skip the job.
+				transcriptionSessionRegisteredRef.current = false;
+				unregisterTranscriptionEditorSession(props.writingFile.path);
 			},
 			eraseAll: async () => {
 				editor.eraseAll();
@@ -411,18 +420,22 @@ export function WritingEditor(props: WritingEditorProps) {
 		if (props.saveControlsReference) {
 			props.saveControlsReference(controls);
 		}
-		registerTranscriptionEditorSession({
+		const transcriptionSession = {
 			filePath: props.writingFile.path,
-			fileType: 'inkWriting',
+			fileType: 'inkWriting' as const,
 			saveAndHalt: controls.saveAndHalt,
-			onTranscriptApplied: (transcript, svgContentHash, svgContentHashedAt) => {
+			onTranscriptApplied: (transcript: string) => {
 				transcriptRef.current = transcript;
-				svgContentHashRef.current = svgContentHash;
-				svgContentHashedAtRef.current = svgContentHashedAt;
 				setHasTranscript(true);
 				props.onTranscriptSaved?.(transcript);
 			},
-		});
+		};
+		if (transcriptionSessionRegisteredRef.current) {
+			replaceTranscriptionEditorSession(transcriptionSession);
+		} else {
+			registerTranscriptionEditorSession(transcriptionSession);
+			transcriptionSessionRegisteredRef.current = true;
+		}
 
 		if (getBooxConnectionEnabled() && props.plugin.booxConnection.isConnected()) {
 			websocketConnectedRef.current = true;
@@ -651,12 +664,10 @@ export function WritingEditor(props: WritingEditorProps) {
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
 		hasUnsavedChangesRef.current = false;
-		props.save(buildInkCanvasWritingFileData({
+		await props.save(buildInkCanvasWritingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
-			svgContentHash: svgContentHashRef.current,
-			svgContentHashedAt: svgContentHashedAtRef.current,
 		}));
 	}
 
@@ -667,12 +678,10 @@ export function WritingEditor(props: WritingEditorProps) {
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
 		hasUnsavedChangesRef.current = false;
-		props.save(buildInkCanvasWritingFileData({
+		await props.save(buildInkCanvasWritingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
-			svgContentHash: svgContentHashRef.current,
-			svgContentHashedAt: svgContentHashedAtRef.current,
 		}));
 	}
 
@@ -700,8 +709,6 @@ export function WritingEditor(props: WritingEditorProps) {
 		}
 		writingLineHeightRef.current = snapshot.writingLineHeight ?? WRITING_LINE_HEIGHT;
 		transcriptRef.current = data.meta.transcript;
-		svgContentHashRef.current = data.meta.svgContentHash;
-		svgContentHashedAtRef.current = data.meta.svgContentHashedAt;
 		setHasTranscript(!!data.meta.transcript);
 		setInitialSnapshot(snapshot);
 	}
@@ -718,8 +725,6 @@ export function WritingEditor(props: WritingEditorProps) {
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
-			svgContentHash: svgContentHashRef.current,
-			svgContentHashedAt: svgContentHashedAtRef.current,
 		}));
 		await enqueueManualTranscription({
 			file: props.writingFile,

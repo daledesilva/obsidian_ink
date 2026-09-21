@@ -4,13 +4,14 @@ import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/v
 import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, Root } from 'react-dom/client';
 import { getGlobals } from 'src/stores/global-store';
 import { Provider as JotaiProvider, getDefaultStore } from 'jotai';
 import { WritingEmbed } from '../writing-embed/writing-embed';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { SyntaxNodeRef } from '@lezer/common';
 import { buildFileStr } from '../../utils/buildFileStr';
+import { preserveBboxCellsOnStrokeSave } from '../../utils/preserve-bbox-cells-on-stroke-save';
 import { buildDrawingEmbedLine, buildWritingEmbedLine, patchWritingEmbedTranscriptInEmbedSnippet } from '../../utils/build-embeds';
 import { buildDrawingEmbedSettingsFromFile } from 'src/logic/utils/build-drawing-embed-settings-from-file';
 import { duplicateWritingFile } from '../../utils/duplicate-files';
@@ -55,6 +56,7 @@ export class WritingEmbedWidget extends WidgetType {
     isPendingPaste: boolean;
     isHighlighted: boolean = false;
     private rootEl?: HTMLElement; // Store reference for dynamic height updates
+    private reactRoot: Root | null = null;
     // Survives CM offscreen destroy→toDOM remounts (widget instance is reused via decoration eq).
     private lastMeasuredHeightPx: number | null = null;
 
@@ -76,7 +78,9 @@ export class WritingEmbedWidget extends WidgetType {
         rootEl.className = 'ddc_ink_widget-root';
         rootEl.setAttribute('data-widget-id', this.id);
         
+        this.unmountReactRoot();
         const root = createRoot(rootEl);
+        this.reactRoot = root;
 
         const { plugin } = getGlobals();
         const hostLeaf = getWorkspaceLeafForEditorView(plugin, view);
@@ -159,6 +163,14 @@ export class WritingEmbedWidget extends WidgetType {
 
     destroy(dom: HTMLElement): void {
         this.rememberMeasuredHeight(dom);
+        // Closing the markdown tab only calls WidgetType.destroy. Without unmount the
+        // transcription session stays open and enqueueAuto never runs.
+        this.unmountReactRoot();
+    }
+
+    private unmountReactRoot(): void {
+        this.reactRoot?.unmount();
+        this.reactRoot = null;
     }
 
     get estimatedHeight(): number {
@@ -238,6 +250,7 @@ export class WritingEmbedWidget extends WidgetType {
     save = async (pageData: InkFileData) => {
         if (!this.embeddedFile) return;
         const plugin = getGlobals().plugin;
+        await preserveBboxCellsOnStrokeSave(plugin, this.embeddedFile, pageData);
         const pageDataStr = buildFileStr(pageData);
         await plugin.app.vault.modify(this.embeddedFile, pageDataStr);
     };

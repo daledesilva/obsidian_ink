@@ -163,7 +163,12 @@ export class WritingEmbedWidget extends WidgetType {
     }
 
     destroy(dom: HTMLElement): void {
+        // CM redraws a reused block widget as toDOM(new node) then destroy(old node).
+        // toDOM has already moved this.reactRoot onto the new node. Unmounting it here
+        // blanks the embed until the editor view is recreated.
+        const replacementAlreadyMounted = this.rootEl !== undefined && this.rootEl !== dom;
         this.rememberMeasuredHeight(dom);
+        if (replacementAlreadyMounted) return;
         // Closing the markdown tab only calls WidgetType.destroy. Without unmount the
         // transcription session stays open and enqueueAuto never runs.
         this.unmountReactRoot();

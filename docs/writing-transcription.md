@@ -297,7 +297,7 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Do not replace the whole open note when patching alts.** A full-document change overlaps every ink widget and remounts the embed being edited. Dispatch one alt-token change per match.
 - **Hold the result while that file’s session is open.** Writing the SVG mid-edit lets the next stroke save preserve a fingerprint for ink the transcript does not describe. Apply the held cells after `completeSave`, then run the threshold check.
 - **Unregister before lock `enqueueAuto`.** An open session makes `kick` skip auto jobs. The last drop must apply a held transcript before that check.
-- **Unmount React in widget `destroy`.** Markdown tab close does not lock embeds; without unmount the session stays open and auto never runs.
+- **Unmount React in widget `destroy` only for the node still mounted.** Markdown tab close does not lock embeds; without unmount the session stays open and auto never runs. Typing under an embed calls `toDOM` then `destroy` on the same widget — unmounting the root in that `destroy` blanks the new node. See [Embed scrolling](embed-scrolling.md).
 - [`needsTranscriptUpdate`](../src/components/formats/current/utils/needsTranscriptUpdate.ts) still returns `false` — do not revive dormant React `fetchTranscriptIfNeeded` effects.
 - **Quit may miss the last unsaved stroke.** Transcribe what is on disk after best-effort `saveAndHalt`.
 - **Expand-to-dedicated does not auto-enqueue.** Dedicated registration dequeues; user continues editing the same file.

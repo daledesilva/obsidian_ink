@@ -173,6 +173,24 @@ Unlock lives in in-memory Jotai sets (`embedsInEditModeAtom` / `_v2`). A bare `<
 
 Widgets wrap with `<JotaiProvider store={getDefaultStore()}>` so unlock survives destroy → `toDOM`. That is not scroll-distance auto-lock; Boox still closes the previous embed only via `replaceActiveInkEmbed` when a second embed unlocks.
 
+### Adjacent typing redraws `toDOM` before `destroy`
+
+Pressing Enter or typing on the line under a writing or drawing embed does not drop the decoration. CodeMirror keeps the same widget instance and redraws it as **`toDOM` (new node) then `destroy` (old node)**.
+
+`toDOM` assigns `this.rootEl` and `this.reactRoot` to the new node before `destroy` runs. `destroy` must unmount React only when `dom` is still `this.rootEl`. Unmounting `this.reactRoot` on the old node blanks the embed until the note is closed and reopened (a new editor builds new widgets). Closing the markdown tab still passes the current node, so that path unmounts and the transcription session can end.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CM as CodeMirror
+    participant Widget as Writing/Drawing widget
+
+    User->>CM: Enter or type under the embed
+    CM->>Widget: toDOM (new node, new React root)
+    CM->>Widget: destroy (old node)
+    Note over Widget: Skip unmount — root belongs to the new node
+```
+
 ```mermaid
 flowchart LR
     unlock["User unlocks embed"] --> atom["embedsInEditModeAtom add id"]
@@ -306,6 +324,7 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 - **Update the height cache after layout** (`inkEmbedScheduleAfterLayout`), not synchronously in `toDOM` — a sync measure often sees 0px and skips; the debug-session double-rAF logging was accidentally doing the real work.
 - **Pass `remountReserveHeightPx` for locked writing remounts too** so `useLayoutEffect` does not reset to URL aspect on every virtualize remount.
 - **Never wrap embed widgets in a bare `<JotaiProvider>`.** Unlock atoms must use `getDefaultStore()` or remounts look locked.
+- **`destroy` must not unmount after a same-instance `toDOM`.** Typing under an embed redraws `toDOM` then `destroy`. Unmount `this.reactRoot` only when the destroyed node is still `this.rootEl`; otherwise the new embed paints blank until the note is reopened. Tab close still unmounts.
 - **Height cache while unlocked must not accept large shrinks** toward preview aspect — that was a prior scroll-jump source.
 - **Pen scroll-lock can outlive the stroke** across panels / visibility; call `clearAllInkCmScrollerScrollLocks` on those boundaries and before Live Preview rebuilds.
 - **Scroll-lock teardown must use `setCssProps`** — literal `element.style.*` assignments fail `obsidianmd/no-static-styles-assignment`; keep unlock logic in `clear-ink-cm-scroller-scroll-lock.ts`.
@@ -329,6 +348,7 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 | After-layout height measure | `inkEmbedScheduleAfterLayout` in writing/drawing `toDOM` | Sync toDOM measure skipped cache update (debug-strip regression) |
 | Writing `remountReserveHeightPx` (locked+unlocked) | `writing-embed.tsx` useLayoutEffect | URL-aspect reset on remount jumped scrollTop |
 | Shared `getDefaultStore()` Provider | writing/drawing widget `toDOM` | Remount looked “auto-locked” (isolated Jotai store) |
+| Skip React unmount when `destroy` is the old node | writing/drawing widget `destroy` | Typing under an embed blanked the widget until the note was reopened |
 | `scrollSnapshot` on refresh | `refresh*EmbedsNow` | Panel / LP forceRebuild scroll anchor |
 | Clear stranded scroll locks | `clearAllInkCmScrollerScrollLocks` | Note freeze after panel / visibility without pointerup |
 | Menu bar scroll tracking | `PrimaryMenuBar` | Menu scrolls off-screen with embed |

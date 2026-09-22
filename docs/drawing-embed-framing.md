@@ -147,6 +147,14 @@ Embed pan/zoom pointer events are often **forwarded** from `FingerBlocker` to th
 
 `InkSvgCanvas` can remount during an edit session (e.g. after layout-driven remounts). Each remount emits `init`. Clearing `isSaveCameraEnabled` on every `init` hid the purple lock right after a successful zoom/pan. Only the **first** `init` after opening the editor suppresses the affordance (unlock fractional mismatch).
 
+### Transcript alts must not hide the edit link
+
+`getEmbedMarkdownRange` finds this widget’s own embed line before a framing write. It matches any image alt on an `Edit Drawing` or `Edit Writing` link, not only the `InkDrawing` / `InkWriting` placeholders. After a transcript, a placeholder-only match cannot see the line, so save framing clears the button and leaves the previous view box in the note.
+
+The search stays inside that widget’s decoration slice. It does not scan the rest of the note.
+
+An alt-only markdown edit overlaps the widget. The drawing and writing extensions reuse the existing widget when the rest of the line is unchanged, so the live view box is not replaced by a freshly parsed one. A change to `width`, `aspectRatio`, or `viewBox*` still builds a new widget.
+
 ### Tolerance before showing save framing
 
 `EMBED_VIEWBOX_DIRTY_EPS` (0.75 px) avoids flashing save framing immediately after unlock when `DOMRect` fractions differ slightly from saved URL integers. All four viewBox fields (`x`, `y`, `width`, `height`) are compared.

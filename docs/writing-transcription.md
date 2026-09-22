@@ -236,13 +236,39 @@ Vault-wide alt patch: [`patchInkEmbedTranscriptAltsInVault`](../src/logic/handwr
 
 While an embed is unlocked or a dedicated view is open, [`registerTranscriptionEditorSession`](../src/logic/handwriting-transcription-queue.ts) registers `saveAndHalt` by file path (refcount if the same SVG is open in two places), **dequeues** pending work for that path, and persists `openSessions`.
 
-The serial worker **skips auto jobs** while that file still has an open session. Lock therefore unregisters in `saveAndHalt` **before** `enqueueAuto`, because React unmount is async.
+The serial worker **skips auto jobs** while that file still has an open session. A request that has already been sent is not cancelled. Lock therefore unregisters in `saveAndHalt` **before** `enqueueAuto`, because React unmount is async.
 
-Closing a **markdown note without locking** does not call the embed lock path. CodeMirror `WidgetType.destroy` must **unmount the React root**; the editor cleanup finishes `completeSave` then unregisters. The last session drop calls `enqueueAuto` (same gates as lock). Destroy without unmount leaked sessions and skipped transcription.
+Closing a **markdown note without locking** does not call the embed lock path. CodeMirror `WidgetType.destroy` must **unmount the React root**; the editor cleanup finishes `completeSave` then unregisters. The last session drop applies any held transcript, then calls `enqueueAuto` (same gates as lock). Destroy without unmount leaked sessions and skipped transcription.
 
 Editors do **not** write occupancy on stroke save. [`preserveBboxCellsOnStrokeSave`](../src/components/formats/current/utils/preserve-bbox-cells-on-stroke-save.ts) copies `bboxCellsAtLastTranscription` / `lastTranscriptionAt` from disk. [`buildInkCanvasWritingFileData`](../src/components/formats/current/utils/build-file-data.ts) / [`buildInkCanvasDrawingFileData`](../src/components/formats/current/utils/build-file-data.ts) pass transcript (and preserved occupancy) on each save.
 
-On successful queue apply, `onTranscriptApplied` updates editor refs and embed widgets patch note alts via `updateEmbedTranscript` on the CM6 extension. If the note is already closed, [`patchInkEmbedTranscriptAltsInVault`](../src/logic/handwriting-transcription-apply.ts) writes the closed markdown file.
+When a result arrives and that file’s editor session is still open (embed or dedicated view, including a second leaf), the queue stores one held result and does not call `onTranscriptApplied`, write the SVG, or patch note alts. Calling `onTranscriptApplied` would run `updateEmbedTranscript` and edit the open embed’s own line. The held record is the transcript, file type, `lastTranscriptionAt`, and the bbox cells of the ink that was sent. It lives on the device-local queue blob (`heldTranscripts`; older blobs without the field read as empty).
+
+The last `unregisterTranscriptionEditorSession` for that path runs after `completeSave`. It writes the held transcript onto the current strokes using those stored cells, patches alts, then runs `enqueueAuto`. `saveAndHalt` awaits that sequence so the lock path’s extra `enqueueAuto` sees the saved fingerprint. Launch applies held transcripts before prune, so a quit during an open session does not drop a finished result.
+
+A result for a different file, or for a file with no open session, writes the SVG immediately and patches alts. If strokes changed during the request and no session is open, the result is still discarded and an auto job is re-queued.
+
+```mermaid
+flowchart LR
+  jobDone[Transcript ready]
+  sessionOpen{Session open for this file?}
+  hold[Store held transcript]
+  surgical[Alt-only note edits]
+  sessionEnd[Last session ends]
+  saveHeld[Write held transcript onto current SVG]
+  assess[enqueueAuto threshold check]
+  jobDone --> sessionOpen
+  sessionOpen -->|yes| hold
+  sessionOpen -->|no| surgical
+  hold --> sessionEnd
+  sessionEnd --> saveHeld
+  saveHeld --> surgical
+  surgical --> assess
+```
+
+Open notes get one CodeMirror change per matching `![alt]`, in a single transaction, with `Transaction.addToHistory` false. Each hunk is only the alt token, so two copies of the same SVG stay two edits and the line break shared with the next embed is left alone. Closed notes still use `vault.process` and a full-string replace.
+
+An alt-only edit overlaps the transcribed embed’s widget. Writing and drawing extensions reuse that widget when the rest of the embed line is unchanged, so the edit link’s size and view box stay on the live instance. See [Drawing embed framing](drawing-embed-framing.md).
 
 ## Eval and live tests
 
@@ -268,7 +294,9 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Occupancy is bbox cells, not Hamming.** SimHash understated large handwriting edits (similar bit patterns while cells changed a lot). The slider is Jaccard of 32px cells relative to stroke min X/Y.
 - **Do not fingerprint SVG markup.** Grid lines and `<ink>` attribute churn would dominate.
 - **Fingerprint only after success.** Stroke save must preserve on-disk cells; writing live occupancy on autosave made later locks look “already transcribed.”
-- **Unregister before lock `enqueueAuto`.** An open session makes `kick` skip auto jobs.
+- **Do not replace the whole open note when patching alts.** A full-document change overlaps every ink widget and remounts the embed being edited. Dispatch one alt-token change per match.
+- **Hold the result while that file’s session is open.** Writing the SVG mid-edit lets the next stroke save preserve a fingerprint for ink the transcript does not describe. Apply the held cells after `completeSave`, then run the threshold check.
+- **Unregister before lock `enqueueAuto`.** An open session makes `kick` skip auto jobs. The last drop must apply a held transcript before that check.
 - **Unmount React in widget `destroy`.** Markdown tab close does not lock embeds; without unmount the session stays open and auto never runs.
 - [`needsTranscriptUpdate`](../src/components/formats/current/utils/needsTranscriptUpdate.ts) still returns `false` — do not revive dormant React `fetchTranscriptIfNeeded` effects.
 - **Quit may miss the last unsaved stroke.** Transcribe what is on disk after best-effort `saveAndHalt`.

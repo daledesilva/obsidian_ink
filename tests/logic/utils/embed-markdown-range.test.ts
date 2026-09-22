@@ -69,6 +69,14 @@ describe('getEmbedMarkdownRange', () => {
 		expect(doc.sliceString(range!.from, range!.to)).toBe(drawingEmbed);
 	});
 
+	it('finds a drawing embed after the alt is a transcript', () => {
+		const drawingEmbed = ' ![a saved transcript](<Ink/Drawing/test.svg>) [Edit Drawing](ink?type=inkDrawing&width=700&aspectRatio=1.333&viewBoxX=10&viewBoxY=20&viewBoxW=400&viewBoxH=300)';
+		const doc = docFromString(`\n${drawingEmbed}\n`);
+		const range = getEmbedMarkdownRange(doc, 0, doc.length, 'inkDrawing');
+		expect(range).not.toBeNull();
+		expect(doc.sliceString(range!.from, range!.to)).toBe(drawingEmbed);
+	});
+
 	it('returns null when no embed markdown is present', () => {
 		const doc = docFromString('abc');
 		const range = getEmbedMarkdownRange(doc, 0, 3, 'inkWriting');

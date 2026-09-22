@@ -160,9 +160,9 @@ export function WritingEditor(props: WritingEditorProps) {
 			logToVault('Ink canvas writing editor unmounted: ' + props.writingFile.path);
 			transcriptionSessionRegisteredRef.current = false;
 			// Note/tab close never calls saveAndHalt. Finish the last save then unregister
-			// so enqueueAuto on last session drop sees disk strokes.
+			// so a held transcript is written before enqueueAuto reads disk strokes.
 			void Promise.resolve(completeSave()).finally(() => {
-				unregisterTranscriptionEditorSession(props.writingFile.path);
+				return unregisterTranscriptionEditorSession(props.writingFile.path);
 			});
 		};
 	}, []);
@@ -399,7 +399,7 @@ export function WritingEditor(props: WritingEditorProps) {
 				// Close the transcription session before embed lock calls enqueueAuto.
 				// React unmount is async; leaving the session open makes kick skip the job.
 				transcriptionSessionRegisteredRef.current = false;
-				unregisterTranscriptionEditorSession(props.writingFile.path);
+				await unregisterTranscriptionEditorSession(props.writingFile.path);
 			},
 			eraseAll: async () => {
 				editor.eraseAll();

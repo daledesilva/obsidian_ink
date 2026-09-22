@@ -51,6 +51,7 @@ import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect
 import {
 	getEmbedDecorationRange,
 	getEmbedMarkdownRange,
+	inkEmbedMarkdownOnlyAltChanged,
 } from 'src/logic/utils/embed-markdown-range';
 
 /////////////////////
@@ -601,6 +602,13 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                             });
                         }
                         decorationAlreadyExists = !rangeWasModified;
+                        if (!decorationAlreadyExists) {
+                            // Transcript alt edits sit inside this widget. Rebuilding it
+                            // re-reads the edit link and snaps preview framing back.
+                            const beforeSnippet = transaction.startState.doc.sliceString(oldDecoration.from, oldDecoration.to);
+                            const afterSnippet = transaction.state.doc.sliceString(oldDecFrom, oldDecTo);
+                            decorationAlreadyExists = inkEmbedMarkdownOnlyAltChanged(beforeSnippet, afterSnippet);
+                        }
                         if (decorationAlreadyExists) break;
                     }
                     oldDecoration.next();

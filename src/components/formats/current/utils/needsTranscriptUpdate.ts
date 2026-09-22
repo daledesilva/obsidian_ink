@@ -26,7 +26,11 @@ export const saveWriteFileTranscript = async (
     plugin: InkPlugin,
     fileRef: TFile,
     transcript: string,
-    transcriptionFingerprint?: { lastTranscriptionAt: string },
+    transcriptionFingerprint?: {
+        lastTranscriptionAt: string;
+        /** Ink that this transcript describes. Omit to fingerprint strokes now on disk. */
+        bboxCellsAtLastTranscription?: string;
+    },
 ) => {
     const v = plugin.app.vault;
     const pageDataStr = await v.read(fileRef);
@@ -35,8 +39,15 @@ export const saveWriteFileTranscript = async (
 
     pageData.meta.transcript = transcript;
     if (transcriptionFingerprint) {
-        // Occupancy fingerprint only on successful apply — from stroke geometry now on disk.
-        pageData.meta.bboxCellsAtLastTranscription = serializeBboxCellsAtLastTranscription(pageData);
+        const transcribedBboxCells = transcriptionFingerprint.bboxCellsAtLastTranscription;
+        if (transcribedBboxCells) {
+            // Held results describe the ink that was sent. Re-fingerprinting strokes
+            // saved while the editor stayed open would hide that later change.
+            pageData.meta.bboxCellsAtLastTranscription = transcribedBboxCells;
+        } else {
+            // Occupancy fingerprint only on successful apply — from stroke geometry now on disk.
+            pageData.meta.bboxCellsAtLastTranscription = serializeBboxCellsAtLastTranscription(pageData);
+        }
         pageData.meta.lastTranscriptionAt = transcriptionFingerprint.lastTranscriptionAt;
     }
     const newPageDataStr = buildFileStr(pageData);

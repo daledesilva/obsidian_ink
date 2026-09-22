@@ -1,4 +1,5 @@
-import { MarkdownView, TFile } from 'obsidian';
+import { Editor, MarkdownView, TFile } from 'obsidian';
+import { Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import InkPlugin from 'src/main';
 import {
@@ -73,6 +74,54 @@ export function patchInkEmbedTranscriptAltsInMarkdown(
 	});
 }
 
+/**
+ * One `![alt]` replacement. Offsets are in the note text before any of these edits.
+ */
+interface InkEmbedAltChange {
+	from: number;
+	to: number;
+	insert: string;
+}
+
+/**
+ * Alt-only hunks for each matching embed. Separate hunks so text between two copies
+ * of the same SVG is not part of the change, and so the edit stops at `![…]`.
+ */
+function listInkEmbedTranscriptAltChanges(
+	markdown: string,
+	svgFilePath: string,
+	fileType: HandwritingTranscriptionFileType,
+	transcript: string,
+): InkEmbedAltChange[] {
+	const pattern = buildInkEmbedAnyAltPattern(svgFilePath, fileType, true);
+	const changes: InkEmbedAltChange[] = [];
+	for (const match of markdown.matchAll(pattern)) {
+		const snippet = match[0];
+		const matchIndex = match.index;
+		if (matchIndex === undefined) continue;
+		let patchedSnippet: string;
+		if (fileType === 'inkWriting') {
+			patchedSnippet = patchWritingEmbedTranscriptInEmbedSnippet(snippet, transcript);
+		} else {
+			patchedSnippet = patchDrawingEmbedTranscriptInEmbedSnippet(snippet, transcript);
+		}
+		if (patchedSnippet === snippet) continue;
+		const altInSnippet = /!\[[^\]]*\]/.exec(snippet);
+		const altInPatched = /!\[[^\]]*\]/.exec(patchedSnippet);
+		if (!altInSnippet || altInSnippet.index === undefined || !altInPatched) continue;
+		changes.push({
+			from: matchIndex + altInSnippet.index,
+			to: matchIndex + altInSnippet.index + altInSnippet[0].length,
+			insert: altInPatched[0],
+		});
+	}
+	return changes;
+}
+
+/**
+ * Writes transcript alts in an open note without replacing the whole document.
+ * A full-document change overlaps every ink widget and remounts the embed being edited.
+ */
 function patchInkEmbedTranscriptAltsInOpenMarkdownEditor(
 	plugin: InkPlugin,
 	note: TFile,
@@ -81,40 +130,78 @@ function patchInkEmbedTranscriptAltsInOpenMarkdownEditor(
 	transcript: string,
 ): boolean {
 	const leaves = plugin.app.workspace.getLeavesOfType('markdown');
+	let didFindOpenEditor = false;
 	for (const leaf of leaves) {
 		const view = leaf.view;
 		if (!(view instanceof MarkdownView)) continue;
 		if (view.file?.path !== note.path) continue;
 		const editor = view.editor;
 		if (!editor) continue;
+		didFindOpenEditor = true;
 		const cmUnknown: unknown = Reflect.get(editor, 'cm');
 		if (!cmUnknown || typeof cmUnknown !== 'object' || !('state' in cmUnknown)) {
-			const currentText = editor.getValue();
-			const updated = patchInkEmbedTranscriptAltsInMarkdown(
-				currentText,
-				svgFilePath,
-				fileType,
-				transcript,
-			);
-			if (updated === currentText) return true;
-			editor.setValue(updated);
-			return true;
+			patchInkEmbedTranscriptAltsWithEditorReplaceRange(editor, svgFilePath, fileType, transcript);
+			continue;
 		}
 		const cmEditorView = cmUnknown as EditorView;
 		const currentText = cmEditorView.state.doc.toString();
-		const updated = patchInkEmbedTranscriptAltsInMarkdown(
+		const changes = listInkEmbedTranscriptAltChanges(
 			currentText,
 			svgFilePath,
 			fileType,
 			transcript,
 		);
-		if (updated === currentText) return true;
+		if (changes.length === 0) continue;
+		// Background alt write must not become an undo step that rebuilds widgets later.
 		cmEditorView.dispatch({
-			changes: { from: 0, to: currentText.length, insert: updated },
+			changes,
+			annotations: [Transaction.addToHistory.of(false)],
 		});
-		return true;
 	}
-	return false;
+	return didFindOpenEditor;
+}
+
+/**
+ * Applies alt hunks through the Obsidian editor when CodeMirror is unavailable.
+ * Later hunks go first so earlier offsets stay valid.
+ */
+function patchInkEmbedTranscriptAltsWithEditorReplaceRange(
+	editor: Editor,
+	svgFilePath: string,
+	fileType: HandwritingTranscriptionFileType,
+	transcript: string,
+): void {
+	const currentText = editor.getValue();
+	const changes = listInkEmbedTranscriptAltChanges(
+		currentText,
+		svgFilePath,
+		fileType,
+		transcript,
+	);
+	const changesFromEnd = [...changes].sort((left, right) => right.from - left.from);
+	for (const change of changesFromEnd) {
+		editor.replaceRange(
+			change.insert,
+			editorPositionAtOffset(currentText, change.from),
+			editorPositionAtOffset(currentText, change.to),
+		);
+	}
+}
+
+/**
+ * Maps a character offset to an Obsidian editor position.
+ */
+function editorPositionAtOffset(markdown: string, offset: number): { line: number; ch: number } {
+	let line = 0;
+	let lineStart = 0;
+	const boundedOffset = Math.min(offset, markdown.length);
+	for (let index = 0; index < boundedOffset; index += 1) {
+		if (markdown.charCodeAt(index) === 10) {
+			line += 1;
+			lineStart = index + 1;
+		}
+	}
+	return { line, ch: boundedOffset - lineStart };
 }
 
 async function patchInkEmbedTranscriptAltsInClosedNote(

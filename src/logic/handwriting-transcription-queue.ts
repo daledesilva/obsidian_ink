@@ -25,6 +25,7 @@ import {
 	type HandwritingTranscriptionFileType,
 	type HandwritingTranscriptionPendingJob,
 	type HandwritingTranscriptionOpenSession,
+	type HandwritingTranscriptionHeldResult,
 } from 'src/logic/handwriting-transcription-queue-store';
 
 //////////
@@ -129,16 +130,18 @@ export function registerTranscriptionEditorSession(
 
 /**
  * Unregisters an open writing/drawing editor and persists openSessions.
+ * The last drop writes any held transcript before the usual threshold check.
  */
-export function unregisterTranscriptionEditorSession(filePath: string): void {
+export async function unregisterTranscriptionEditorSession(filePath: string): Promise<void> {
 	const remainingRefcount = unregisterHandwritingTranscriptionSession(filePath);
 	syncPersistedOpenTranscriptionSessions();
-	kickHandwritingTranscriptionQueue();
-	// Last editor for this file is gone (lock, note close, or dedicated close). Lock also
-	// calls enqueueAuto; note close does not — enqueue here so unlocked embeds still queue.
 	if (remainingRefcount === 0) {
-		void enqueueAuto(filePath);
+		// completeSave has already run. Land the in-flight result before enqueueAuto
+		// fingerprints disk, so strokes added while editing can still queue a new job.
+		await applyHeldTranscriptIfPresent(filePath);
+		await enqueueAuto(filePath);
 	}
+	kickHandwritingTranscriptionQueue();
 }
 
 /**
@@ -299,6 +302,17 @@ function promoteOpenSessionsToPendingOnQuit(): void {
 function resumeHandwritingTranscriptionQueueOnLaunch(): void {
 	const plugin = queuePlugin;
 	if (!plugin) return;
+	// Finished results held across quit must be on disk before prune's threshold check.
+	void applyReadyHeldTranscripts().then(() => {
+		if (isStopped) return;
+		resumePendingJobsAfterHeldTranscripts(plugin);
+	});
+}
+
+/**
+ * Turns leftover open sessions into pending jobs, then prunes and kicks.
+ */
+function resumePendingJobsAfterHeldTranscripts(plugin: InkPlugin): void {
 	const blob = readHandwritingTranscriptionQueueBlob();
 	for (const session of blob.openSessions) {
 		if (!isAutoTranscribeEnabled(plugin, session.fileType)) continue;
@@ -471,22 +485,46 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			return;
 		}
 		const transcript = await transcribeWriting(svgFileContent);
-		if (isStopped) return;
+		const lastTranscriptionAt = new Date().toISOString();
+		const heldResult: HandwritingTranscriptionHeldResult = {
+			filePath: job.filePath,
+			fileType: job.fileType,
+			transcript,
+			bboxCellsAtLastTranscription: liveBboxCells,
+			lastTranscriptionAt,
+		};
+		if (isStopped) {
+			// Quit cannot finish the note edit. Keep the paid result for the next launch.
+			if (getHandwritingTranscriptionSession(job.filePath)) {
+				rememberHeldTranscript(heldResult);
+			}
+			return;
+		}
 		const fileAfter = plugin.app.vault.getAbstractFileByPath(job.filePath);
 		if (!(fileAfter instanceof TFile)) return;
 		const svgAfter = await plugin.app.vault.read(fileAfter);
 		const pageAfter = extractInkJsonFromSvg(svgAfter);
+		const sessionOpen = !!getHandwritingTranscriptionSession(job.filePath);
 		if (pageAfter && serializeBboxCellsAtLastTranscription(pageAfter) !== liveBboxCells) {
+			if (sessionOpen) {
+				// Editor is open, so keep this result and let session end assess a newer job.
+				rememberHeldTranscript(heldResult);
+				return;
+			}
 			if (job.reason === 'auto') {
 				await enqueueAuto(job.filePath);
 			}
 			return;
 		}
-		const lastTranscriptionAt = new Date().toISOString();
+		if (sessionOpen) {
+			// onTranscriptApplied would patch this embed's own line and remount it.
+			rememberHeldTranscript(heldResult);
+			return;
+		}
 		await saveWriteFileTranscript(plugin, fileAfter, transcript, {
 			lastTranscriptionAt,
+			bboxCellsAtLastTranscription: liveBboxCells,
 		});
-		getHandwritingTranscriptionSession(job.filePath)?.onTranscriptApplied?.(transcript);
 		await patchInkEmbedTranscriptAltsInVault(plugin, job.filePath, job.fileType, transcript);
 		const typeLabel = job.fileType === 'inkWriting' ? 'Writing' : 'Drawing';
 		new Notice(`${typeLabel} transcription finished: ${fileAfter.basename}`);
@@ -506,4 +544,78 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			kickHandwritingTranscriptionQueue();
 		}
 	}
+}
+
+/**
+ * Stores one finished transcript for a file whose editor is still open.
+ */
+function rememberHeldTranscript(held: HandwritingTranscriptionHeldResult): void {
+	const blob = readHandwritingTranscriptionQueueBlob();
+	const existingIndex = blob.heldTranscripts.findIndex((item) => item.filePath === held.filePath);
+	if (existingIndex >= 0) {
+		blob.heldTranscripts[existingIndex] = held;
+	} else {
+		blob.heldTranscripts.push(held);
+	}
+	writeHandwritingTranscriptionQueueBlob(blob);
+}
+
+/**
+ * Drops a held transcript after it has been written, or when the SVG is gone.
+ */
+function removeHeldTranscript(filePath: string): void {
+	const blob = readHandwritingTranscriptionQueueBlob();
+	blob.heldTranscripts = blob.heldTranscripts.filter((item) => item.filePath !== filePath);
+	writeHandwritingTranscriptionQueueBlob(blob);
+}
+
+/**
+ * Writes the held transcript for one file, if the editor session has already closed.
+ */
+async function applyHeldTranscriptIfPresent(filePath: string): Promise<void> {
+	const held = readHandwritingTranscriptionQueueBlob().heldTranscripts.find((item) => item.filePath === filePath);
+	if (!held) return;
+	try {
+		const didApply = await publishHeldTranscript(held);
+		if (!didApply) return;
+		removeHeldTranscript(filePath);
+	} catch {
+		// Keep the held result for the next lock or launch.
+	}
+}
+
+/**
+ * Writes every held transcript whose editor is not open. Used on launch, before prune.
+ */
+async function applyReadyHeldTranscripts(): Promise<void> {
+	const ready = readHandwritingTranscriptionQueueBlob().heldTranscripts.filter(
+		(held) => !getHandwritingTranscriptionSession(held.filePath),
+	);
+	for (const held of ready) {
+		try {
+			const didApply = await publishHeldTranscript(held);
+			if (didApply) removeHeldTranscript(held.filePath);
+		} catch {
+			// Keep the held result for the next lock or launch.
+		}
+	}
+}
+
+/**
+ * Saves a held transcript onto the current SVG strokes, then patches note alts.
+ * Returns false when the plugin is gone so the held result can be retried.
+ */
+async function publishHeldTranscript(held: HandwritingTranscriptionHeldResult): Promise<boolean> {
+	const plugin = queuePlugin;
+	if (!plugin) return false;
+	const file = plugin.app.vault.getAbstractFileByPath(held.filePath);
+	if (!(file instanceof TFile)) return true;
+	await saveWriteFileTranscript(plugin, file, held.transcript, {
+		lastTranscriptionAt: held.lastTranscriptionAt,
+		bboxCellsAtLastTranscription: held.bboxCellsAtLastTranscription,
+	});
+	await patchInkEmbedTranscriptAltsInVault(plugin, held.filePath, held.fileType, held.transcript);
+	const typeLabel = held.fileType === 'inkWriting' ? 'Writing' : 'Drawing';
+	new Notice(`${typeLabel} transcription finished: ${file.basename}`);
+	return true;
 }

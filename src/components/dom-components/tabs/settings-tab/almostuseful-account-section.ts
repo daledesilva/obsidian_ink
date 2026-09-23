@@ -8,6 +8,9 @@ import {
 import { renderAlmostUsefulPoolUsageCharts } from 'src/logic/almostuseful/almostuseful-usage-charts';
 import { destroyCreditPoolChartTooltips } from 'src/logic/almostuseful/credit-pool-chart-tooltip';
 import {
+	ALMOSTUSEFUL_AUTHORIZATION_CODE_PLACEHOLDER,
+} from 'src/logic/almostuseful/almostuseful-authorization-code-format';
+import {
 	cancelAlmostUsefulPendingLogin,
 	completeAlmostUsefulPastedHandoffCode,
 	getAlmostUsefulLoginPhase,
@@ -136,7 +139,7 @@ function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void):
 		)
 		.addText((text) => {
 			codeText = text;
-			text.setPlaceholder('Code from the website');
+			text.setPlaceholder(ALMOSTUSEFUL_AUTHORIZATION_CODE_PLACEHOLDER);
 			text.onChange((value) => {
 				pastedCode = value;
 			});

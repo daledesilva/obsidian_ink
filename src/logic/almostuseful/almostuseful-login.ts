@@ -1,4 +1,5 @@
 import { Platform } from 'obsidian';
+import { normalizeAlmostUsefulAuthorizationCode } from 'src/logic/almostuseful/almostuseful-authorization-code-format';
 import { createAlmostUsefulPkcePair } from 'src/logic/almostuseful/almostuseful-pkce';
 import {
 	buildAlmostUsefulAuthorizationCodeTokenBody,
@@ -108,7 +109,7 @@ export async function completeAlmostUsefulPastedHandoffCode(
 			error: 'Start Log in from this Obsidian window first, then paste the code here.',
 		};
 	}
-	const code = rawCode.trim();
+	const code = normalizeAlmostUsefulAuthorizationCode(rawCode);
 	if (!code) {
 		return { ok: false, error: 'Paste the code from the website' };
 	}

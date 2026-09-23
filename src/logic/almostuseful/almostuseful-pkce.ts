@@ -12,7 +12,10 @@ export interface AlmostUsefulPkcePair {
 	challenge: string;
 }
 
-/** Creates a PKCE verifier and S256 challenge for portal authorize. */
+/**
+ * Creates a PKCE verifier and S256 challenge for portal authorize.
+ * 32 fresh random bytes per login: publishing this plugin does not publish a live verifier.
+ */
 export async function createAlmostUsefulPkcePair(): Promise<AlmostUsefulPkcePair> {
 	const randomBytes = crypto.getRandomValues(new Uint8Array(32));
 	const verifier = bytesToBase64Url(randomBytes);

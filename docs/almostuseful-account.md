@@ -110,7 +110,8 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 
 - **OAuth must return to authorize.** If Google users land on `/account` and Ink stays signed out, the portal `next` query was dropped — that is a portal bug, not a reason to add a password field in Ink.
 - **Tokens never belong in the continue URL as JWTs.** Only a one-time `code` (and `state` in the query). The app exchanges over HTTPS.
-- **Paste only works in the window that clicked Link account.** A new Obsidian instance has no verifier.
+- **Paste only works in the window that clicked Link account.** A new Obsidian instance has no verifier. The continue code is six characters (`AB2-CD3`); this window normalises hyphens and case before exchange. Repeated wrong pastes are not locked out because this process already holds the verifier — guessing the short code from outside Obsidian still cannot exchange it.
+- **Open source does not reveal the PKCE verifier.** `createAlmostUsefulPkcePair` draws 32 random bytes into device-local `almostuseful_handoff` for that login only, then deletes them after exchange or cancel.
 - **Clones can complete the same OOB paste** if the user consents on the portal. Accepted for a public plugin. Do not invent a secret plugin API key.
 - **Per-device login:** localStorage does not sync with the vault. Sign in again on another computer.
 - **Portal app-token authorize does not use a redirect allow-list.** `obsidian://` is not required on the Supabase Auth redirect list for this grant.

@@ -31,7 +31,7 @@ import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
 import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
-import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+import { drawDefaultSvgStr, drawExistingSvgStr, drawPasteSvgStr, linkAccountUserSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr } from './graphics/icons/command-icons';
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
@@ -151,6 +151,7 @@ export default class InkPlugin extends Plugin {
 				addIcon('mastodon', mastodonSvgStr);
 				addIcon('threads', threadsSvgStr);
 				addIcon('twitter', twitterSvgStr);
+				addIcon('ddc_ink_link_account_user', linkAccountUserSvgStr);
 			});
 
 			//: NOTE: For testing only

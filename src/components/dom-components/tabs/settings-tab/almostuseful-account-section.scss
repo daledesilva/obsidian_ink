@@ -13,6 +13,150 @@
 	}
 }
 
+.ddc_ink_almostuseful-link-account-setting {
+	.setting-item-control {
+		align-items: center;
+	}
+
+	.ddc_ink_almostuseful-link-account-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55em;
+		padding: 0.7em 1.4em;
+		font-size: var(--font-ui-medium);
+		height: auto;
+		min-height: 2.75em;
+		color: var(--text-on-accent);
+	}
+
+	.ddc_ink_almostuseful-link-account-btn-icon {
+		display: inline-flex;
+		align-items: center;
+		--icon-size: 1.15em;
+
+		svg {
+			width: var(--icon-size);
+			height: var(--icon-size);
+		}
+
+		circle,
+		path {
+			stroke: currentColor;
+		}
+	}
+}
+
+.ddc_ink_almostuseful-handoff-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	background-color: rgba(var(--background-modifier-hover-rgb, 128, 128, 128), 0.2);
+	border-radius: var(--radius-m);
+	padding: 1.1em 1.15em 1.2em;
+}
+
+.ddc_ink_almostuseful-handoff-instruction {
+	width: 100%;
+	margin: 0 0 1.05em;
+	color: var(--text-normal);
+	line-height: 1.45;
+	text-align: center;
+}
+
+.ddc_ink_almostuseful-handoff-code-input {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+	margin-bottom: 1.15em;
+}
+
+.ddc_ink_almostuseful-handoff-code-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.55em;
+}
+
+// Obsidian's settings input rules set height/background on all text inputs; scope overrides here.
+.ddc_ink_almostuseful-handoff-card input[type='text'].ddc_ink_almostuseful-handoff-code-cell {
+	box-sizing: border-box;
+	width: 3.5rem;
+	height: 5.25rem !important;
+	min-height: 5.25rem !important;
+	max-height: 5.25rem !important;
+	padding: 0 !important;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary) !important;
+	background-color: var(--background-primary) !important;
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: 2.15rem;
+	font-weight: var(--font-semibold);
+	line-height: 1;
+	text-align: center;
+	text-transform: uppercase;
+	-webkit-appearance: none;
+	appearance: none;
+
+	&:focus {
+		border-color: var(--interactive-accent);
+		box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.25);
+		outline: none;
+		background: var(--background-primary);
+		background-color: var(--background-primary);
+	}
+
+	&:disabled {
+		opacity: 0.65;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-code-separator {
+	font-size: 1.15rem;
+	font-weight: var(--font-normal);
+	line-height: 1;
+	color: var(--text-muted);
+	padding-inline: 0.08em;
+	user-select: none;
+}
+
+.ddc_ink_almostuseful-handoff-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.7em;
+	width: 100%;
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-connect-btn,
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-cancel-btn {
+	min-height: 2.75em;
+	height: auto;
+	padding: 0.55em 1.35em;
+	font-size: var(--font-ui-medium);
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-cancel-btn {
+	background: var(--background-primary) !important;
+	background-color: var(--background-primary) !important;
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	box-shadow: none;
+
+	&:hover {
+		background: var(--background-modifier-hover) !important;
+		background-color: var(--background-modifier-hover) !important;
+	}
+
+	&:disabled {
+		opacity: 0.65;
+	}
+}
+
 .ddc_ink_almostuseful-muted {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);

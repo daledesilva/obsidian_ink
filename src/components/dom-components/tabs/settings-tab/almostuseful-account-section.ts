@@ -1,4 +1,4 @@
-import { Notice, setIcon, Setting, type ButtonComponent, type TextComponent } from 'obsidian';
+import { Notice, setIcon, Setting, type ButtonComponent } from 'obsidian';
 import InkPlugin from 'src/main';
 import { fetchAlmostUsefulBurndown } from 'src/logic/almostuseful/almostuseful-usage';
 import {
@@ -8,7 +8,9 @@ import {
 import { renderAlmostUsefulPoolUsageCharts } from 'src/logic/almostuseful/almostuseful-usage-charts';
 import { destroyCreditPoolChartTooltips } from 'src/logic/almostuseful/credit-pool-chart-tooltip';
 import {
-	ALMOSTUSEFUL_AUTHORIZATION_CODE_PLACEHOLDER,
+	ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH,
+	extractAlmostUsefulAuthorizationCodeInputCharacters,
+	normalizeAlmostUsefulAuthorizationCode,
 } from 'src/logic/almostuseful/almostuseful-authorization-code-format';
 import {
 	cancelAlmostUsefulPendingLogin,
@@ -67,19 +69,17 @@ export function insertAlmostUsefulAccountSection(
 
 	if (!session) {
 		if (pending || phase === 'pending') {
-			contentEl.createEl('p', {
-				text: 'Confirm in your browser, then paste the code from the website here.',
-			});
 			insertPasteHandoffCode(contentEl, onRerender);
 		} else {
-			contentEl.createEl('p', {
-				text: 'Create and link an Almost Useful account to utilise handwriting transcription.',
-			});
 			new Setting(contentEl)
-				.setClass('ddc_ink_bare-setting')
-				.setClass('ddc_ink_bare-setting--left')
+				.setClass('ddc_ink_setting')
+				.setClass('ddc_ink_almostuseful-link-account-setting')
+				.setName('Link account')
+				.setDesc(
+					'Create and link an Almost Useful account to utilise handwriting transcription.',
+				)
 				.addButton((button) => {
-					button.setButtonText('Link account').setCta();
+					decorateAlmostUsefulLinkAccountButton(button);
 					if (phase === 'opening') {
 						// Same Log in row for four seconds: disable only, do not swap to paste UI.
 						button.setDisabled(true);
@@ -118,6 +118,19 @@ export function insertAlmostUsefulAccountSection(
 	void loadUsageInto(usageHostEl, session, portalOrigin);
 }
 
+/** Outline head/shoulders icon plus label; ButtonComponent#setIcon does not reliably pair with text on CTA buttons. */
+function decorateAlmostUsefulLinkAccountButton(button: ButtonComponent): void {
+	button.setCta();
+	button.buttonEl.addClass('ddc_ink_almostuseful-link-account-btn');
+	button.buttonEl.empty();
+	const iconEl = button.buttonEl.createSpan({ cls: 'ddc_ink_almostuseful-link-account-btn-icon' });
+	setIcon(iconEl, 'ddc_ink_link_account_user');
+	button.buttonEl.createSpan({
+		cls: 'ddc_ink_almostuseful-link-account-btn-label',
+		text: 'Link account',
+	});
+}
+
 function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): string {
 	if (!session) return 'Almost Useful account';
 	const identity = session.userEmail;
@@ -125,55 +138,164 @@ function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): s
 	return 'Almost Useful account: linked';
 }
 
+interface AlmostUsefulAuthorizationCodeOtpInput {
+	getCode: () => string;
+	setDisabled: (isDisabled: boolean) => void;
+	focus: () => void;
+}
+
+/** Six-box authorisation code entry; paste strips separators and fills every cell. */
+function insertAlmostUsefulAuthorizationCodeOtpInput(
+	hostEl: HTMLElement,
+): AlmostUsefulAuthorizationCodeOtpInput {
+	const rowEl = hostEl.createDiv('ddc_ink_almostuseful-handoff-code-row');
+	rowEl.setAttribute('role', 'group');
+	rowEl.setAttribute('aria-label', 'Authorisation code');
+
+	const cellInputs: HTMLInputElement[] = [];
+
+	const applyCharacters = (characters: string[]): void => {
+		for (let index = 0; index < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH; index++) {
+			cellInputs[index].value = characters[index] ?? '';
+		}
+		let focusIndex = characters.length;
+		if (focusIndex >= ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH) {
+			focusIndex = ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH - 1;
+		}
+		cellInputs[focusIndex].focus();
+	};
+
+	const handlePaste = (event: ClipboardEvent): void => {
+		event.preventDefault();
+		const pastedText = event.clipboardData?.getData('text') ?? '';
+		applyCharacters(extractAlmostUsefulAuthorizationCodeInputCharacters(pastedText));
+	};
+
+	for (let index = 0; index < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH; index++) {
+		if (index === 3) {
+			rowEl.createSpan({
+				cls: 'ddc_ink_almostuseful-handoff-code-separator',
+				text: '-',
+				attr: { 'aria-hidden': 'true' },
+			});
+		}
+
+		const cellInput = rowEl.createEl('input', {
+			cls: 'ddc_ink_almostuseful-handoff-code-cell',
+			type: 'text',
+			attr: {
+				'inputmode': 'text',
+				'autocomplete': 'one-time-code',
+				'autocapitalize': 'characters',
+				'autocorrect': 'off',
+				'spellcheck': 'false',
+				'maxlength': '1',
+				'aria-label': `Authorisation code character ${index + 1}`,
+			},
+		});
+
+		cellInput.addEventListener('paste', handlePaste);
+		cellInput.addEventListener('input', () => {
+			const typedCharacters = extractAlmostUsefulAuthorizationCodeInputCharacters(cellInput.value);
+			if (typedCharacters.length > 1) {
+				const mergedCharacters = cellInputs.map((input) => input.value);
+				for (
+					let offset = 0;
+					offset < typedCharacters.length && index + offset < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH;
+					offset++
+				) {
+					mergedCharacters[index + offset] = typedCharacters[offset];
+				}
+				applyCharacters(mergedCharacters);
+				return;
+			}
+
+			cellInput.value = typedCharacters[0] ?? '';
+			if (cellInput.value && index < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH - 1) {
+				cellInputs[index + 1].focus();
+			}
+		});
+		cellInput.addEventListener('keydown', (event) => {
+			if (event.key !== 'Backspace') return;
+			if (cellInput.value) return;
+			if (index === 0) return;
+			event.preventDefault();
+			cellInputs[index - 1].focus();
+			cellInputs[index - 1].value = '';
+		});
+
+		cellInputs.push(cellInput);
+	}
+
+	rowEl.addEventListener('paste', handlePaste);
+
+	return {
+		getCode: () => cellInputs.map((input) => input.value).join(''),
+		setDisabled: (isDisabled: boolean) => {
+			for (const cellInput of cellInputs) {
+				cellInput.disabled = isDisabled;
+			}
+		},
+		focus: () => {
+			cellInputs[0].focus();
+		},
+	};
+}
+
 /** Paste the continue-page code into the window that started Log in. */
 function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void): void {
-	let pastedCode = '';
+	const cardEl = contentEl.createDiv('ddc_ink_almostuseful-handoff-card');
+	cardEl.createEl('p', {
+		cls: 'ddc_ink_almostuseful-handoff-instruction',
+		text: 'Confirm in your browser, then paste the code from the website here.',
+	});
+
+	const codeInputEl = cardEl.createDiv('ddc_ink_almostuseful-handoff-code-input');
+	const otpInput = insertAlmostUsefulAuthorizationCodeOtpInput(codeInputEl);
+
+	const actionsEl = cardEl.createDiv('ddc_ink_almostuseful-handoff-actions');
+	const cancelButtonEl = actionsEl.createEl('button', {
+		cls: 'ddc_ink_almostuseful-handoff-cancel-btn',
+		text: 'Cancel pending login',
+		type: 'button',
+	});
+	const connectButtonEl = actionsEl.createEl('button', {
+		cls: 'mod-cta ddc_ink_almostuseful-handoff-connect-btn',
+		text: 'Connect',
+		type: 'button',
+	});
+
 	let isConnecting = false;
-	let codeText: TextComponent | undefined;
-	let connectButton: ButtonComponent | undefined;
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setName('Paste authorisation code')
-		.setDesc(
-			'Copy the code from the website, then paste it here and tap Connect.',
-		)
-		.addText((text) => {
-			codeText = text;
-			text.setPlaceholder(ALMOSTUSEFUL_AUTHORIZATION_CODE_PLACEHOLDER);
-			text.onChange((value) => {
-				pastedCode = value;
-			});
-		})
-		.addButton((button) => {
-			connectButton = button;
-			button.setButtonText('Connect');
-			button.setCta();
-			button.onClick(() => {
-				if (isConnecting) return;
-				isConnecting = true;
-				codeText?.setDisabled(true);
-				connectButton?.setDisabled(true);
-				connectButton?.setButtonText('Connecting…');
-				void completeAlmostUsefulPastedHandoffCode(pastedCode).then((result) => {
-					if (!result.ok) {
-						isConnecting = false;
-						codeText?.setDisabled(false);
-						connectButton?.setDisabled(false);
-						connectButton?.setButtonText('Connect');
-						new Notice(result.error);
-						return;
-					}
-					onRerender();
-				});
-			});
-		})
-		.addButton((button) => {
-			button.setButtonText('Cancel pending login');
-			button.onClick(() => {
-				cancelAlmostUsefulPendingLogin();
-				onRerender();
-			});
+
+	connectButtonEl.addEventListener('click', () => {
+		if (isConnecting) return;
+		isConnecting = true;
+		otpInput.setDisabled(true);
+		connectButtonEl.disabled = true;
+		cancelButtonEl.disabled = true;
+		connectButtonEl.setText('Connecting…');
+		const pastedCode = normalizeAlmostUsefulAuthorizationCode(otpInput.getCode());
+		void completeAlmostUsefulPastedHandoffCode(pastedCode).then((result) => {
+			if (!result.ok) {
+				isConnecting = false;
+				otpInput.setDisabled(false);
+				connectButtonEl.disabled = false;
+				cancelButtonEl.disabled = false;
+				connectButtonEl.setText('Connect');
+				new Notice(result.error);
+				otpInput.focus();
+				return;
+			}
+			onRerender();
 		});
+	});
+
+	cancelButtonEl.addEventListener('click', () => {
+		cancelAlmostUsefulPendingLogin();
+		onRerender();
+	});
+
+	otpInput.focus();
 }
 
 /** Paints cached charts immediately, then refreshes from the portal with a spinning icon. */

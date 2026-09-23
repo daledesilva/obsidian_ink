@@ -42,7 +42,7 @@ flowchart TD
   SignedIn -->|no| LoggedOut[Collapsible Almost Useful account]
   LoggedOut --> Idle[Link account CTA]
   Idle --> Opening[Link account disabled four seconds]
-  Opening --> Pending[Paste XOR Link account plus Cancel]
+  Opening --> Pending[Centred six-box paste card plus Connect and Cancel]
   Idle --> BrowserLogin[System browser authorize]
   Pending --> Exchange[HTTPS /api/oauth/token]
   BrowserLogin --> Exchange
@@ -61,9 +61,9 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 
 | State | Header | Content |
 |-------|--------|---------|
-| Signed out | Almost Useful account | **Create and link an Almost Useful account to utilise handwriting transcription.**; **Link account** only (no Create account / Forgot password links — those live on the portal login page after the browser opens) |
+| Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description **Create and link an Almost Useful account to utilise handwriting transcription.** Control is a larger CTA with an outline head-and-shoulders icon left of the label (`ddc_ink_link_account_user`, registered in `onload` because `ButtonComponent#setIcon` plus CTA text does not paint reliably). No Create account / Forgot password links — those live on the portal login page after the browser opens |
 | Opening (first ~4s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
-| Pending | Almost Useful account | **Confirm in your browser**; **Paste authorisation code** + Connect (disabled while Connecting…) + **Cancel pending login**. Link account is hidden so paste is not competing with a second CTA |
+| Pending | Almost Useful account | Centred grey card. Full-width instruction **Confirm in your browser, then paste the code from the website here.** Then six tall rounded character boxes (`XXX-XXX`; hyphen is smaller and not bold). **Cancel pending login** then **Connect** (Connect on the right). Boxes and Cancel use `var(--background-primary)` so they stay darker than the card wash. Link account is hidden so paste is not competing with a second CTA |
 | Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); credit charts (or empty-pool products CTA) |
 | 401 | Treated as signed out | Local session cleared |
 
@@ -120,5 +120,6 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 - **2px / 4px min-segment heights are visual only.** Tooltips use true remaining / spend. Vanilla tippy follows the pointer (`offset: [0, 12]`); the tooltip is non-interactive so it cannot steal hover.
 - **Popped-out Settings:** tippy `appendTo` and pointer listeners must use `svg.ownerDocument`, not the module `document`, or tooltips mount on the wrong Electron window.
 - **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 4000ms before `onRerender` to pending. Until then, only disable Link account in place — do not remove the button or change copy.
+- **Paste boxes are not a single text field.** Paste (including Cmd+V) strips hyphens and spaces and fills all six cells. The hyphen is display-only. Obsidian’s global settings `input` rules set height and background; the handoff cells override those with a scoped selector and `!important`, or the boxes stay short and the same colour as the card. Cancel uses the same `background-primary` fill so it does not disappear into the card wash.
 - **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
 - **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Link account again so they can Authorize Ink.

@@ -24,8 +24,31 @@
 }
 
 .ddc_ink_almostuseful-account {
+	display: flex;
+	flex-direction: column;
+	gap: 0.65em;
+
 	p {
 		color: var(--text-normal);
+	}
+
+	// Match section padding top/bottom; no extra Obsidian setting-item chrome on the action row.
+	.ddc_ink_almostuseful-account-actions.setting-item {
+		margin: 0;
+		padding: 0;
+		border: none;
+		flex-wrap: nowrap;
+		min-height: 0;
+
+		// ddc_ink_button-set forces info to full width; hide the empty row above the buttons.
+		.setting-item-info {
+			display: none;
+		}
+
+		.setting-item-control {
+			padding-block: 0;
+			width: 100%;
+		}
 	}
 
 	.ddc_ink_bare-setting--left.setting-item {
@@ -182,6 +205,33 @@
 	}
 }
 
+.ddc_ink_almostuseful-settings-card {
+	background-color: var(--setting-items-background);
+	border-radius: var(--radius-l);
+	padding: 0.8em;
+	padding-inline-start: 1em;
+}
+
+.ddc_ink_almostuseful-settings-card-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em;
+	margin-bottom: 0.25em;
+}
+
+.ddc_ink_almostuseful-settings-card-title {
+	flex: 1;
+	font-weight: var(--font-medium);
+	margin-bottom: 0;
+}
+
+.ddc_ink_almostuseful-settings-card-actions {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+}
+
 .ddc_ink_almostuseful-muted {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
@@ -199,6 +249,10 @@
 
 .ddc_ink_almostuseful-pool {
 	margin-top: 0.75em;
+}
+
+.ddc_ink_almostuseful-settings-card .ddc_ink_almostuseful-pool:first-child {
+	margin-top: 0;
 }
 
 .ddc_ink_almostuseful-pool-title-row {
@@ -272,12 +326,16 @@
 	flex-wrap: wrap;
 	gap: 0.75em;
 	margin-top: 0.35em;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
 }
 
 .ddc_ink_almostuseful-legend-item {
 	display: flex;
 	align-items: center;
 	gap: 0.35em;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
 }
 
 .ddc_ink_almostuseful-legend-swatch {
@@ -341,4 +399,52 @@
 
 .ddc_ink_almostuseful-chart-tooltip-value {
 	color: var(--text-normal);
+}
+
+.ddc_ink_almostuseful-transcription-queue-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35em;
+}
+
+.ddc_ink_almostuseful-transcription-queue-row {
+	display: flex;
+	align-items: center;
+	gap: 0.45em;
+	min-height: 1.75em;
+}
+
+.ddc_ink_almostuseful-transcription-queue-spinner {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-muted);
+
+	svg {
+		animation: ddc_ink_almostuseful-refresh-spin 0.8s linear infinite;
+	}
+}
+
+.ddc_ink_almostuseful-transcription-queue-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+.ddc_ink_almostuseful-transcription-queue-clear {
+	font-size: var(--font-ui-small);
+	padding: 0.2em 0.65em;
+}
+
+.ddc_ink_almostuseful-transcription-queue-remove {
+	flex-shrink: 0;
+	color: var(--text-muted);
+
+	&:hover {
+		color: var(--text-normal);
+	}
 }

@@ -32,6 +32,7 @@ import {
 //////////
 
 const LAUNCH_RESUME_GRACE_MS = 5000;
+const HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT = 'ddc-ink-handwriting-transcription-queue-changed';
 
 // Plugin-owned serial worker: survives embed unmount and Obsidian quit. React/widgets
 // only register sessions and call enqueueAuto / enqueueManualTranscription.
@@ -42,6 +43,79 @@ let isWorkerRunning = false;
 let isStopped = false;
 let launchGraceTimerId: number | null = null;
 let unsubscribeSessionChanged: (() => void) | null = null;
+/** User removed an in-flight job from the queue; discard its result when the POST returns. */
+const userCancelledInflightPaths = new Set<string>();
+
+export interface HandwritingTranscriptionQueueSnapshotItem {
+	filePath: string;
+	fileType: HandwritingTranscriptionFileType;
+	reason: HandwritingTranscriptionPendingJob['reason'];
+	isProcessing: boolean;
+}
+
+// Settings Transcription Queue card repaints from this event; localStorage has no cross-tab listener.
+function notifyHandwritingTranscriptionQueueChanged(): void {
+	window.dispatchEvent(new CustomEvent(HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT));
+}
+
+/**
+ * Pending jobs plus the active worker job, in run order (processing first).
+ */
+export function readHandwritingTranscriptionQueueSnapshot(): HandwritingTranscriptionQueueSnapshotItem[] {
+	const pending = readHandwritingTranscriptionQueueBlob().pending;
+	const snapshot: HandwritingTranscriptionQueueSnapshotItem[] = [];
+	if (inflightJob) {
+		snapshot.push({
+			filePath: inflightJob.filePath,
+			fileType: inflightJob.fileType,
+			reason: inflightJob.reason,
+			isProcessing: true,
+		});
+	}
+	for (const job of pending) {
+		if (inflightJob && inflightJob.filePath === job.filePath) continue;
+		snapshot.push({
+			filePath: job.filePath,
+			fileType: job.fileType,
+			reason: job.reason,
+			isProcessing: false,
+		});
+	}
+	return snapshot;
+}
+
+/** Same-tab queue updates; storage listeners are not needed (queue is in-memory + localStorage writes). */
+export function subscribeHandwritingTranscriptionQueueChanged(onChange: () => void): () => void {
+	const handler = () => {
+		onChange();
+	};
+	window.addEventListener(HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT, handler);
+	return () => {
+		window.removeEventListener(HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT, handler);
+	};
+}
+
+/**
+ * Removes one file from the waiting list, or marks the in-flight job to discard its result.
+ */
+export function removeHandwritingTranscriptionFromQueue(filePath: string): void {
+	dequeueHandwritingTranscriptionJob(filePath);
+	if (inflightJob?.filePath === filePath) {
+		userCancelledInflightPaths.add(filePath);
+	}
+	notifyHandwritingTranscriptionQueueChanged();
+}
+
+/** Clears every waiting job and discards any in-flight transcription result. */
+export function clearHandwritingTranscriptionQueue(): void {
+	const blob = readHandwritingTranscriptionQueueBlob();
+	blob.pending = [];
+	writeHandwritingTranscriptionQueueBlob(blob);
+	if (inflightJob) {
+		userCancelledInflightPaths.add(inflightJob.filePath);
+	}
+	notifyHandwritingTranscriptionQueueChanged();
+}
 
 export interface EnqueueManualTranscriptionOptions {
 	file: TFile;
@@ -99,8 +173,10 @@ export function shutdownHandwritingTranscriptionQueue(): void {
  */
 export function dequeueHandwritingTranscriptionJob(filePath: string): void {
 	const blob = readHandwritingTranscriptionQueueBlob();
+	const hadJob = blob.pending.some((job) => job.filePath === filePath);
 	blob.pending = blob.pending.filter((job) => job.filePath !== filePath);
 	writeHandwritingTranscriptionQueueBlob(blob);
+	if (hadJob) notifyHandwritingTranscriptionQueueChanged();
 }
 
 /**
@@ -110,11 +186,13 @@ export function dropWaitingAutoTranscriptionJobsForFileType(
 	fileType: HandwritingTranscriptionFileType,
 ): void {
 	const blob = readHandwritingTranscriptionQueueBlob();
+	const previousCount = blob.pending.length;
 	blob.pending = blob.pending.filter((job) => {
 		if (job.reason !== 'auto') return true;
 		return job.fileType !== fileType;
 	});
 	writeHandwritingTranscriptionQueueBlob(blob);
+	if (blob.pending.length !== previousCount) notifyHandwritingTranscriptionQueueChanged();
 }
 
 /**
@@ -260,6 +338,7 @@ function upsertPendingJob(
 		blob.pending.push(job);
 	}
 	writeHandwritingTranscriptionQueueBlob(blob);
+	notifyHandwritingTranscriptionQueueChanged();
 }
 
 function persistOpenSessionsList(openSessions: HandwritingTranscriptionOpenSession[]): void {
@@ -403,6 +482,7 @@ export function kickHandwritingTranscriptionQueue(): void {
 	const nextJob = blob.pending[nextJobIndex];
 	blob.pending.splice(nextJobIndex, 1);
 	writeHandwritingTranscriptionQueueBlob(blob);
+	notifyHandwritingTranscriptionQueueChanged();
 	void runTranscriptionJob(nextJob);
 }
 
@@ -438,8 +518,10 @@ function getAutoTranscribeChangeThresholdPercent(
 async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Promise<void> {
 	isWorkerRunning = true;
 	inflightJob = job;
+	notifyHandwritingTranscriptionQueueChanged();
 	let shouldDeferKickBecauseEditorOpen = false;
 	try {
+		if (userCancelledInflightPaths.has(job.filePath)) return;
 		const plugin = queuePlugin;
 		if (!plugin) {
 			const blob = readHandwritingTranscriptionQueueBlob();
@@ -485,6 +567,7 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			return;
 		}
 		const transcript = await transcribeWriting(svgFileContent);
+		if (userCancelledInflightPaths.has(job.filePath)) return;
 		const lastTranscriptionAt = new Date().toISOString();
 		const heldResult: HandwritingTranscriptionHeldResult = {
 			filePath: job.filePath,
@@ -529,17 +612,22 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		const typeLabel = job.fileType === 'inkWriting' ? 'Writing' : 'Drawing';
 		new Notice(`${typeLabel} transcription finished: ${fileAfter.basename}`);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
-		new Notice(message);
-		const blob = readHandwritingTranscriptionQueueBlob();
-		const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
-		if (!alreadyQueued) {
-			blob.pending.push(job);
-			writeHandwritingTranscriptionQueueBlob(blob);
+		if (!userCancelledInflightPaths.has(job.filePath)) {
+			const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
+			new Notice(message);
+			const blob = readHandwritingTranscriptionQueueBlob();
+			const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
+			if (!alreadyQueued) {
+				blob.pending.push(job);
+				writeHandwritingTranscriptionQueueBlob(blob);
+				notifyHandwritingTranscriptionQueueChanged();
+			}
 		}
 	} finally {
+		userCancelledInflightPaths.delete(job.filePath);
 		inflightJob = null;
 		isWorkerRunning = false;
+		notifyHandwritingTranscriptionQueueChanged();
 		if (!isStopped && !shouldDeferKickBecauseEditorOpen) {
 			kickHandwritingTranscriptionQueue();
 		}

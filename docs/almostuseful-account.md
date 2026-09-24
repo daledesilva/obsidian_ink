@@ -64,7 +64,8 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 | Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description **Create and link an Almost Useful account to utilise handwriting transcription.** Control is a larger CTA with an outline head-and-shoulders icon left of the label (`ddc_ink_link_account_user`, registered in `onload` because `ButtonComponent#setIcon` plus CTA text does not paint reliably). No Create account / Forgot password links — those live on the portal login page after the browser opens |
 | Opening (first ~4s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
 | Pending | Almost Useful account | Centred grey card. Full-width instruction **Confirm in your browser, then paste the code from the website here.** Then six tall rounded character boxes (`XXX-XXX`; hyphen is smaller and not bold). **Cancel pending login** then **Connect** (Connect on the right). Boxes and Cancel use `var(--background-primary)` so they stay darker than the card wash. Link account is hidden so paste is not competing with a second CTA |
-| Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); credit charts (or empty-pool products CTA) |
+| Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); **AI Credit Pool** settings card (burndown + usage distribution, or empty-pool products CTA); **Transcription Queue** card when the device-local queue is non-empty |
+| Signed out (queue non-empty) | Almost Useful account | Link-account or paste UI as above; **Transcription Queue** card when waiting jobs exist |
 | 401 | Treated as signed out | Local session cleared |
 
 Obsidian often closes Settings when the app backgrounds for the browser. After pasting the code, reopen Ink settings if it closed.
@@ -86,6 +87,19 @@ Full-height day hit rects (and per-segment hits on the stack) drive vanilla **ti
 Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
 **Handwriting transcription** (writing or drawing editor overflow → Transcribe, plus optional auto on close) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. See [writing-transcription.md](writing-transcription.md).
+
+### Settings cards
+
+Signed-in (and signed-out when the queue has jobs) content below the action row uses nested **settings cards** (`ddc_ink_almostuseful-settings-card`): `background-color: var(--setting-items-background)`, `border-radius: var(--radius-l)`, and the same inset padding as other Ink collapsible sections. Cards are stacked with `0.65em` gap — matching spacing between setting rows in Writing / Drawing.
+
+| Card | Visibility | Contents |
+|------|------------|----------|
+| **AI Credit Pool** | Signed in only | Pool title row + refresh; period subtitle; burndown SVG; **Usage distribution** subtitle + stacked spend SVG; Ink / Other apps legend at `font-ui-small` muted size |
+| **Transcription Queue** | When `readHandwritingTranscriptionQueueSnapshot()` is non-empty | Title row with **Clear** (no confirmation); file rows in run order with basename label, full path on hover, spinner on the in-flight job, per-row **×** remove |
+
+**Clear** and per-row **×** call `clearHandwritingTranscriptionQueue` / `removeHandwritingTranscriptionFromQueue`. Waiting jobs are deleted from `pending`; an in-flight POST is not aborted but its result is discarded when it returns. The card is removed from the DOM when the queue empties (no empty-state copy). Live updates use `subscribeHandwritingTranscriptionQueueChanged` while settings stay open.
+
+The Manage / Log out row uses `ddc_ink_almostuseful-account-actions` so Obsidian’s empty `setting-item-info` row (forced full-width by `ddc_ink_button-set`) does not add extra top padding above the buttons.
 
 This settings UI does **not** call placeholder job routes.
 

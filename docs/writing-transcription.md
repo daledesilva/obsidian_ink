@@ -124,7 +124,7 @@ flowchart TD
 - **Launch resume:** after merge/prune, if runnable jobs remain, Obsidian shows e.g. `Resuming handwriting transcription (3 files)`, waits **5 seconds**, then kicks. Unlock/open during grace still **dequeues** that file.
 - **Not signed in:** pending jobs stay until sign-in (`ALMOSTUSEFUL_SESSION_CHANGED_EVENT` kicks the worker).
 
-Drawing files and v1 code-block embeds remain out of scope for the queue UI paths.
+Drawing files and v1 code-block embeds remain out of scope for the **enqueue** paths; the settings **Transcription Queue** card lists any pending or in-flight `inkWriting` / `inkDrawing` job already on the device-local queue.
 
 ```mermaid
 sequenceDiagram
@@ -155,7 +155,7 @@ sequenceDiagram
 Implementation:
 
 - [`transcribeWriting`](../src/logic/transcribe-writing.ts) — production HTTP entry (full SVG string; used for **both** writing and drawing)
-- [`handwriting-transcription-queue.ts`](../src/logic/handwriting-transcription-queue.ts) — serial worker, enqueue/dequeue, launch grace, quit promote
+- [`handwriting-transcription-queue.ts`](../src/logic/handwriting-transcription-queue.ts) — serial worker, enqueue/dequeue, launch grace, quit promote, settings snapshot/remove/clear
 - [`handwriting-transcription-apply.ts`](../src/logic/handwriting-transcription-apply.ts) — vault-wide embed alt patch (open editor or `vault.process`)
 - [`postHandwritingTranscriptionJob`](../src/logic/almostuseful/almostuseful-handwriting-transcription.ts) — HTTP client
 
@@ -180,6 +180,32 @@ v1 blobs (`handwritingTranscriptionQueue_v1` with SimHash snapshots) are **not m
 See [Plugin memory and persistence](plugin-memory-and-persistence.md).
 
 Auto-transcribe **preferences** (`writingAutoTranscribeOnClose`, `drawingAutoTranscribeOnClose`, and the matching `*ChangeThresholdPercent` sliders) **do** live in vault-synced `data.json` — they are user preferences, not job state.
+
+## Settings UI: Transcription Queue card
+
+Ink settings → collapsible **Almost Useful account** block ([`almostuseful-account-section.ts`](../src/components/dom-components/tabs/settings-tab/almostuseful-account-section.ts)). Full account UX: [almostuseful-account.md](almostuseful-account.md).
+
+```mermaid
+flowchart TD
+  open[Settings open]
+  snap[readHandwritingTranscriptionQueueSnapshot]
+  open --> snap
+  snap --> empty{length > 0?}
+  empty -->|no| hidden[No queue card]
+  empty -->|yes| card[Transcription Queue card]
+  card --> row[Rows: spinner if processing, basename, remove X]
+  card --> clear[Clear removes all pending + cancels inflight result]
+  subscribe[subscribeHandwritingTranscriptionQueueChanged] --> snap
+```
+
+| API | Role |
+|-----|------|
+| `readHandwritingTranscriptionQueueSnapshot()` | In-flight job first (`isProcessing: true`), then `pending` in order; skips duplicate path while deferred back to pending |
+| `subscribeHandwritingTranscriptionQueueChanged(onChange)` | Same-tab `CustomEvent`; repaint settings list without polling |
+| `removeHandwritingTranscriptionFromQueue(filePath)` | Drop one waiting job; if that path is in-flight, add to `userCancelledInflightPaths` so the POST result is not saved or re-queued |
+| `clearHandwritingTranscriptionQueue()` | Empty `pending` and cancel inflight the same way |
+
+No confirmation modals. Removing or clearing does not cancel the HTTP request; it only prevents apply on completion and suppresses error re-queue for cancelled paths.
 
 ## Occupancy fingerprint (`bboxCellsAtLastTranscription`)
 

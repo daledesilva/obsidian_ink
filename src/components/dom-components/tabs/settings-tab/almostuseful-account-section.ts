@@ -27,12 +27,19 @@ import {
 	resolveAlmostUsefulPortalOrigin,
 	type AlmostUsefulSession,
 } from 'src/logic/almostuseful/almostuseful-session';
+import {
+	clearHandwritingTranscriptionQueue,
+	readHandwritingTranscriptionQueueSnapshot,
+	removeHandwritingTranscriptionFromQueue,
+	subscribeHandwritingTranscriptionQueueChanged,
+} from 'src/logic/handwriting-transcription-queue';
 import './almostuseful-account-section.scss';
 
 /////////
 /////////
 
 let usageChartsResizeObserver: ResizeObserver | null = null;
+let transcriptionQueueUnsubscribe: (() => void) | null = null;
 /** Keep expand/collapse across settings re-renders (login, session refresh). */
 let isAlmostUsefulAccountSectionExpanded = true;
 
@@ -96,6 +103,7 @@ export function insertAlmostUsefulAccountSection(
 					});
 				});
 		}
+		insertTranscriptionQueueSection(contentEl);
 		return;
 	}
 
@@ -103,6 +111,7 @@ export function insertAlmostUsefulAccountSection(
 		.setClass('ddc_ink_bare-setting')
 		.setClass('ddc_ink_bare-setting--left')
 		.setClass('ddc_ink_button-set')
+		.setClass('ddc_ink_almostuseful-account-actions')
 		.addButton((button) => {
 			button.setButtonText('Manage account');
 			button.onClick(() => {
@@ -117,8 +126,74 @@ export function insertAlmostUsefulAccountSection(
 			});
 		});
 
-	const usageHostEl = contentEl.createDiv('ddc_ink_almostuseful-usage');
+	const usageCardEl = contentEl.createDiv('ddc_ink_almostuseful-settings-card');
+	const usageHostEl = usageCardEl.createDiv('ddc_ink_almostuseful-usage');
 	void loadUsageInto(usageHostEl, session, portalOrigin);
+	insertTranscriptionQueueSection(contentEl);
+}
+
+/** Device-local transcription queue card; hidden when the queue is empty. */
+function insertTranscriptionQueueSection(contentEl: HTMLElement): void {
+	transcriptionQueueUnsubscribe?.();
+	transcriptionQueueUnsubscribe = null;
+
+	let cardEl: HTMLElement | null = null;
+	let listEl: HTMLElement | null = null;
+
+	const paintQueueList = (): void => {
+		const queueItems = readHandwritingTranscriptionQueueSnapshot();
+		if (queueItems.length === 0) {
+			cardEl?.remove();
+			cardEl = null;
+			listEl = null;
+			return;
+		}
+		if (!cardEl) {
+			cardEl = contentEl.createDiv('ddc_ink_almostuseful-settings-card ddc_ink_almostuseful-transcription-queue');
+			const titleRowEl = cardEl.createDiv('ddc_ink_almostuseful-settings-card-title-row');
+			titleRowEl.createDiv({
+				cls: 'ddc_ink_almostuseful-settings-card-title',
+				text: 'Transcription Queue',
+			});
+			const actionsEl = titleRowEl.createDiv('ddc_ink_almostuseful-settings-card-actions');
+			const clearButtonEl = actionsEl.createEl('button', {
+				cls: 'ddc_ink_almostuseful-transcription-queue-clear',
+				text: 'Clear',
+				type: 'button',
+			});
+			clearButtonEl.addEventListener('click', (event) => {
+				event.stopPropagation();
+				clearHandwritingTranscriptionQueue();
+			});
+			listEl = cardEl.createDiv('ddc_ink_almostuseful-transcription-queue-list');
+		}
+		if (!listEl) return;
+		listEl.empty();
+		for (const queueItem of queueItems) {
+			const rowEl = listEl.createDiv('ddc_ink_almostuseful-transcription-queue-row');
+			if (queueItem.isProcessing) {
+				const spinnerEl = rowEl.createSpan('ddc_ink_almostuseful-transcription-queue-spinner');
+				setIcon(spinnerEl, 'loader-2');
+			}
+			const labelEl = rowEl.createSpan('ddc_ink_almostuseful-transcription-queue-label');
+			const fileName = queueItem.filePath.split('/').pop() ?? queueItem.filePath;
+			labelEl.setText(fileName);
+			labelEl.setAttr('title', queueItem.filePath);
+			const removeButtonEl = rowEl.createEl('button', {
+				cls: 'clickable-icon ddc_ink_almostuseful-transcription-queue-remove',
+				type: 'button',
+				attr: { 'aria-label': `Remove ${fileName} from transcription queue` },
+			});
+			setIcon(removeButtonEl, 'cross');
+			removeButtonEl.addEventListener('click', (event) => {
+				event.stopPropagation();
+				removeHandwritingTranscriptionFromQueue(queueItem.filePath);
+			});
+		}
+	};
+
+	paintQueueList();
+	transcriptionQueueUnsubscribe = subscribeHandwritingTranscriptionQueueChanged(paintQueueList);
 }
 
 /** Outline head/shoulders icon plus label; ButtonComponent#setIcon does not reliably pair with text on CTA buttons. */

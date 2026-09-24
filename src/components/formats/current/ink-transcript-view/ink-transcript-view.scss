@@ -1,0 +1,50 @@
+// Match drawing locked-frame chrome (always on in transcript mode).
+.ddc_ink_transcript-view {
+	box-sizing: border-box;
+	user-select: text;
+	-webkit-user-select: text;
+	cursor: auto;
+	padding: 2.2em 0.75em 0.75em;
+	color: var(--text-normal);
+	font-size: var(--font-text-size);
+
+	// Rendered markdown should scroll with the note, not inside the embed.
+	overflow: visible;
+
+	&.ddc_ink_transcript-view--framed {
+		border: 2px solid var(--color-base-30);
+		border-radius: 20px;
+	}
+}
+
+.ddc_ink_display-mode-toggle {
+	position: absolute;
+	top: 0.45em;
+	right: 0.45em;
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 2.1em;
+	height: 2.1em;
+	padding: 0;
+	pointer-events: auto;
+	cursor: pointer;
+	border: none;
+	border-radius: 50%;
+	background-color: var(--interactive-normal);
+	color: var(--color-base-60);
+	fill: currentColor;
+
+	svg {
+		width: 1.35em !important;
+		height: 1.35em !important;
+		fill: currentColor;
+	}
+
+	&:hover {
+		background-color: var(--interactive-accent);
+		color: var(--text-on-accent);
+		fill: var(--text-on-accent);
+	}
+}

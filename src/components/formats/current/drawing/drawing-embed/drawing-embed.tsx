@@ -16,7 +16,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import classNames from "classnames";
-import { atom, useSetAtom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
@@ -31,6 +31,9 @@ import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notic
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
 import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
+import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
+import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
+import { InkEmbedDisplayModeSwitch, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
 
 ///////
 ///////
@@ -109,8 +112,26 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const resizeStartWidthRef = useRef<number>(0);
 	const resizeStartAspectRatioRef = useRef<number>(0);
 	const [drawingFormat, setDrawingFormat] = React.useState<DrawingFormat>('unknown');
+	const [transcriptHeightPx, setTranscriptHeightPx] = React.useState(0);
 
 	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
+	const embedsInEditMode = useAtomValue(embedsInEditModeAtom_v2);
+	const isThisEmbedEditing = !!(props.embedId && embedsInEditMode.has(props.embedId));
+	const transcript = useInkFileTranscript(props.embeddedFile);
+	const { hasTranscript, showTranscript } = useLockedInkTranscriptMode(
+		props.embeddedFile?.path,
+		transcript,
+		isThisEmbedEditing,
+	);
+	// Window resize handler is registered once; it must not squash Text-mode height.
+	const showTranscriptRef = useRef(false);
+	showTranscriptRef.current = showTranscript;
+
+	let resizeHeightPx = embedWidthRef.current / embedAspectRatioRef.current;
+	const transcriptHeightIsReady = showTranscript && transcriptHeightPx > 0;
+	if (transcriptHeightIsReady) {
+		resizeHeightPx = transcriptHeightPx;
+	}
 
 	// Detect file format on mount
 	React.useEffect(() => {
@@ -325,22 +346,38 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					ref = {resizeContainerElRef}
 					style = {{
 						width: embedWidthRef.current + 'px',
-						height: embedWidthRef.current / embedAspectRatioRef.current + 'px',
+						height: resizeHeightPx + 'px',
 						position: 'relative', // For absolute positioning inside
 						left: '50%',
 						translate: '-50%',
 					}}
 				>
 				
-				<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
-					<DrawingEmbedPreviewWrapper
-						embedId = {props.embedId}
-						embeddedFile = {props.embeddedFile}
-						embedSettings = {props.embedSettings}
-						onReady = {() => {}}
-						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+				{showTranscript && transcript && (
+					<InkTranscriptView
+						app={getGlobals().plugin.app}
+						markdown={transcript}
+						sourcePath={props.sourceMdFile?.path ?? ''}
+						onHeightChange={applyTranscriptHeight}
 					/>
-				</EmbedPreviewContextMenu>
+				)}
+				{!showTranscript && (
+					<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
+						<DrawingEmbedPreviewWrapper
+							embedId = {props.embedId}
+							embeddedFile = {props.embeddedFile}
+							embedSettings = {props.embedSettings}
+							onReady = {() => {}}
+							onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+						/>
+					</EmbedPreviewContextMenu>
+				)}
+				{hasTranscript && !isThisEmbedEditing && (
+					<InkEmbedDisplayModeSwitch
+						filePath={props.embeddedFile.path}
+						inkIconKind='drawing'
+					/>
+				)}
 
 				{(drawingFormat === 'ink-canvas' || drawingFormat === 'legacyInk') && (
 					<DrawingEditorWrapper
@@ -438,6 +475,21 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				toAspectRatio,
 			});
 		}
+	}
+
+	function applyTranscriptHeight(heightPx: number) {
+		if (heightPx <= 0) return;
+		setTranscriptHeightPx((currentHeightPx) => {
+			const heightIsUnchanged = Math.abs(currentHeightPx - heightPx) <= 1;
+			if (heightIsUnchanged) return currentHeightPx;
+			return heightPx;
+		});
+		if (!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.style.height = heightPx + 'px';
+		inkEmbedSyncWidgetRootMinHeightToContent({
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+		});
+		props.onRequestMeasure?.();
 	}
 
 	function applyEmbedDimensions(width: number, aspectRatio: number) {
@@ -566,6 +618,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		const maxWidth = getFullPageWidth(embedContainerElRef.current);
 		if (resizeContainerElRef.current) {
 			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
+			if (showTranscriptRef.current) return;
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
 			inkEmbedSyncWidgetRootMinHeightToContent({

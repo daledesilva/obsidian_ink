@@ -1,4 +1,4 @@
-import { EventRef, MarkdownRenderChild, TFile } from 'obsidian';
+import { Component, EventRef, MarkdownRenderChild, TFile } from 'obsidian';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import classNames from 'classnames';
@@ -13,6 +13,9 @@ import InkPlugin from 'src/main';
 import {
 	readWritingFileAspectRatio,
 } from 'src/logic/utils/writing-embed-aspect-ratio';
+import { useInkFileTranscript } from 'src/logic/use-ink-file-transcript';
+import { useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
+import { InkEmbedDisplayModeSwitch, InkTranscriptView } from 'src/components/formats/current/ink-transcript-view/ink-transcript-view';
 
 //////////
 //////////
@@ -57,6 +60,7 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 				partialEmbedFilepath={this.params.partialEmbedFilepath}
 				embedSettings={this.params.embedSettings}
 				sourcePath={this.params.sourcePath}
+				markdownComponent={this}
 				onMount={(_embedEl, resizeContainerEl) => {
 					this.resizeContainerEl = resizeContainerEl;
 					this.attachResizeObserver(resizeContainerEl);
@@ -139,15 +143,44 @@ export class InkReadingEmbedHost extends MarkdownRenderChild {
 
 type InkReadingEmbedContentProps = InkReadingEmbedHostParams & {
 	onMount: (embedEl: HTMLElement, resizeContainerEl: HTMLElement | null) => void;
+	markdownComponent: Component;
 };
 
 const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) => {
 	const embedContainerElRef = React.useRef<HTMLDivElement>(null);
 	const resizeContainerElRef = React.useRef<HTMLDivElement>(null);
+	const [transcriptHeightPx, setTranscriptHeightPx] = React.useState(0);
 
 	const embedWidth = props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH;
 	const embedAspectRatio = props.embedSettings.embedDisplay.aspectRatio
 		|| DEFAULT_EMBED_SETTINGS.embedDisplay.aspectRatio;
+	const transcript = useInkFileTranscript(props.embeddedFile);
+	const { hasTranscript, showTranscript } = useLockedInkTranscriptMode(
+		props.embeddedFile?.path,
+		transcript,
+		false,
+	);
+
+	let drawingHeightPx = embedWidth / embedAspectRatio;
+	const transcriptHeightIsReady = showTranscript && transcriptHeightPx > 0;
+	if (transcriptHeightIsReady) {
+		drawingHeightPx = transcriptHeightPx;
+	}
+
+	// Until the markdown has been measured, keep the SVG aspect height so the card
+	// does not collapse. After that, the attribute tells dimension refresh to leave it.
+	let resizeStyle: React.CSSProperties = { position: 'relative' };
+	if (props.embedKind === 'drawing') {
+		resizeStyle = {
+			width: `${embedWidth}px`,
+			height: `${drawingHeightPx}px`,
+		};
+	} else if (transcriptHeightIsReady) {
+		resizeStyle = {
+			position: 'relative',
+			height: `${transcriptHeightPx}px`,
+		};
+	}
 
 	React.useLayoutEffect(() => {
 		const embedEl = embedContainerElRef.current;
@@ -161,6 +194,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		props.embedSettings.embedDisplay.width,
 		props.embedSettings.embedDisplay.aspectRatio,
 		props.embeddedFile?.path,
+		showTranscript,
 	]);
 
 	if (!props.embeddedFile) {
@@ -188,17 +222,20 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 			<div
 				ref={resizeContainerElRef}
 				className='ddc_ink_resize-container'
+				data-ink-display-mode={transcriptHeightIsReady ? 'text' : undefined}
 				// Static centering/width live in SCSS; only dynamic size stays inline.
-				style={props.embedKind === 'drawing'
-					? {
-						width: `${embedWidth}px`,
-						height: `${embedWidth / embedAspectRatio}px`,
-					}
-					: {
-						position: 'relative',
-					}}
+				style={resizeStyle}
 			>
-				{props.embedKind === 'drawing' ? (
+				{showTranscript && transcript && (
+					<InkTranscriptView
+						app={props.plugin.app}
+						markdown={transcript}
+						sourcePath={props.sourcePath ?? ''}
+						parentComponent={props.markdownComponent}
+						onHeightChange={applyTranscriptHeight}
+					/>
+				)}
+				{!showTranscript && props.embedKind === 'drawing' && (
 					<DrawingEmbedPreview
 						key={props.embeddedFile.path}
 						embeddedFile={props.embeddedFile}
@@ -206,7 +243,8 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						onReady={() => {}}
 						onClick={() => {}}
 					/>
-				) : (
+				)}
+				{!showTranscript && props.embedKind !== 'drawing' && (
 					<WritingEmbedPreview
 						plugin={props.plugin}
 						writingFile={props.embeddedFile}
@@ -214,9 +252,29 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						onClick={() => {}}
 					/>
 				)}
+				{hasTranscript && props.embeddedFile && (
+					<InkEmbedDisplayModeSwitch
+						filePath={props.embeddedFile.path}
+						inkIconKind={props.embedKind === 'drawing' ? 'drawing' : 'writing'}
+					/>
+				)}
 			</div>
 		</div>
 	);
+
+	function applyTranscriptHeight(heightPx: number) {
+		if (heightPx <= 0) return;
+		setTranscriptHeightPx((currentHeightPx) => {
+			const heightIsUnchanged = Math.abs(currentHeightPx - heightPx) <= 1;
+			if (heightIsUnchanged) return currentHeightPx;
+			return heightPx;
+		});
+		const resizeContainerEl = resizeContainerElRef.current;
+		if (!resizeContainerEl) return;
+		// Set before the height write so a ResizeObserver pass does not restore aspect ratio.
+		resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
+		resizeContainerEl.style.height = `${heightPx}px`;
+	}
 };
 
 function embedOuterClass(embedKind: InkEmbedKind): string {
@@ -236,6 +294,8 @@ export function applyReadingModeEmbedDimensions(
 	const configuredWidth = embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH;
 	const pageWidth = getFullPageWidth(resizeContainerEl);
 	const containerWidth = resizeContainerEl.getBoundingClientRect().width;
+	// Text mode height follows rendered markdown. Aspect-ratio height would clip it.
+	const isTranscriptMode = resizeContainerEl.getAttribute('data-ink-display-mode') === 'text';
 
 	if (embedKind === 'drawing') {
 		// Match Live Preview locked preview: saved pixel width, maxWidth caps to page when window shrinks.
@@ -249,9 +309,13 @@ export function applyReadingModeEmbedDimensions(
 		const renderedWidth = containerWidth > 0
 			? containerWidth
 			: (pageWidth > 0 ? Math.min(configuredWidth, pageWidth) : configuredWidth);
-		resizeContainerEl.style.height = `${renderedWidth / aspectRatio}px`;
+		if (!isTranscriptMode) {
+			resizeContainerEl.style.height = `${renderedWidth / aspectRatio}px`;
+		}
 		return;
 	}
+
+	if (isTranscriptMode) return;
 
 	// Width 100% comes from `.ddc_ink_resize-container` in writing-embed.scss.
 	const writingWidth = containerWidth || pageWidth || maxFallbackWidth(resizeContainerEl);

@@ -33,6 +33,9 @@ import {
 	readWritingFileAspectRatio,
 } from "src/logic/utils/writing-embed-aspect-ratio";
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
+import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
+import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
+import { InkEmbedDisplayModeSwitch, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
 
 ///////
 ///////
@@ -110,6 +113,15 @@ export function WritingEmbed (props: {
 	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom);
 	const embedsInEditMode = useAtomValue(embedsInEditModeAtom);
 	const isThisEmbedEditing = !!(props.embedId && embedsInEditMode.has(props.embedId));
+	const transcript = useInkFileTranscript(props.writingFileRef);
+	const { hasTranscript, showTranscript } = useLockedInkTranscriptMode(
+		props.writingFileRef?.path,
+		transcript,
+		isThisEmbedEditing,
+	);
+	// Aspect-ratio sync is async; it must not overwrite Text-mode content height.
+	const showTranscriptRef = useRef(false);
+	showTranscriptRef.current = showTranscript;
 	type WritingFormat = 'tldraw' | 'ink-canvas' | 'unknown';
 	const [writingFormat, setWritingFormat] = React.useState<WritingFormat>('unknown');
 
@@ -119,6 +131,8 @@ export function WritingEmbed (props: {
 		const aspectRatio = props.embedSettings?.embedDisplay?.aspectRatio
 			|| DEFAULT_EMBED_SETTINGS.embedDisplay.aspectRatio;
 		embedAspectRatioRef.current = aspectRatio;
+		// Text height comes from the rendered markdown, not the SVG aspect ratio.
+		if (showTranscript) return;
 		previousHeightRef.current = null;
 		resizeContainer.classList.remove('ddc_ink_smooth-transition');
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
@@ -140,7 +154,7 @@ export function WritingEmbed (props: {
 		inkEmbedSyncWidgetRootMinHeightToContent({
 			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 		});
-	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx]);
+	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx, showTranscript]);
 
 	// SVG viewBox is authoritative for preview height.
 	// Do NOT rewrite note markdown here: mount-time setEmbedProps caused CM remount
@@ -159,7 +173,7 @@ export function WritingEmbed (props: {
 
 				embedAspectRatioRef.current = derivedAspectRatio;
 				const resizeContainer = resizeContainerElRef.current;
-				if (resizeContainer) {
+				if (resizeContainer && !showTranscriptRef.current) {
 					const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;
 					applyEmbedHeight(containerWidth / derivedAspectRatio);
 				}
@@ -377,15 +391,31 @@ export function WritingEmbed (props: {
 					ref = {resizeContainerElRef}
 				>
 				
-					<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
-						<WritingEmbedPreviewWrapper
-							embedId = {props.embedId}
-							plugin = {props.plugin}
-							onResize = {(height: number) => applySizingWhilePreviewing(height)}
-							writingFile = {props.writingFileRef}
-							onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+					{showTranscript && transcript && (
+						<InkTranscriptView
+							app={props.plugin.app}
+							markdown={transcript}
+							sourcePath={props.sourceMdFile?.path ?? ''}
+							onHeightChange={applyTranscriptHeight}
 						/>
-					</EmbedPreviewContextMenu>
+					)}
+					{!showTranscript && (
+						<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
+							<WritingEmbedPreviewWrapper
+								embedId = {props.embedId}
+								plugin = {props.plugin}
+								onResize = {(height: number) => applySizingWhilePreviewing(height)}
+								writingFile = {props.writingFileRef}
+								onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+							/>
+						</EmbedPreviewContextMenu>
+					)}
+					{hasTranscript && !isThisEmbedEditing && (
+						<InkEmbedDisplayModeSwitch
+							filePath={props.writingFileRef.path}
+							inkIconKind='writing'
+						/>
+					)}
 
 					{(writingFormat === 'ink-canvas' || writingFormat === 'tldraw') && props.writingFileRef && (
 						<WritingEditorWrapper
@@ -462,6 +492,11 @@ export function WritingEmbed (props: {
 		if (previewRatio && isFinite(previewRatio) && previewRatio > 0) {
 			embedAspectRatioRef.current = previewRatio;
 		}
+	}
+
+	function applyTranscriptHeight(heightPx: number) {
+		if (heightPx <= 0) return;
+		applyEmbedHeight(heightPx);
 	}
 
 	function applyEmbedHeight(height: number) {

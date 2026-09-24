@@ -277,6 +277,38 @@ Full markdown is written as a sibling of `<ink>` inside `<metadata>`:
 
 Vault-wide alt patch: [`patchInkEmbedTranscriptAltsInVault`](../src/logic/handwriting-transcription-apply.ts) matches `![any alt](<path>)` plus `type=inkWriting` or `type=inkDrawing` in the edit URL.
 
+## Locked embed transcript view (Ink / Text)
+
+When a writing or drawing SVG has a non-empty `<transcript>`, locked embeds in **Live Preview** and **reading mode** show a circular toggle in the top-right corner. The control appears only while the embed is locked (not in the ink editor).
+
+| Mode | What the user sees | Interaction |
+|------|-------------------|-------------|
+| **Ink** (default) | SVG preview | Click the preview to unlock and edit (unchanged). Toggle shows **Aa** (grey; purple on hover) to switch to text. |
+| **Text** | Full markdown from SVG metadata | Non-editable, selectable copy via Obsidian `MarkdownRenderer`. Always framed like a locked drawing embed (`2px` border, `20px` radius). Toggle shows the writing or drawing ink icon to return to the SVG. |
+
+The image embed **alt** is still a one-line plain summary — text mode reads the canonical `<transcript>` element via [`readInkTranscript`](../src/logic/utils/extractInkJsonFromSvg.ts), not the alt.
+
+```mermaid
+flowchart LR
+  Svg["SVG meta.transcript"]
+  Hook["useInkFileTranscript"]
+  Mode["Session map by file path"]
+  InkPreview["SVG preview"]
+  TextView["InkTranscriptView"]
+  Svg --> Hook
+  Hook --> Mode
+  Mode --> InkPreview
+  Mode --> TextView
+```
+
+**Persistence:** The Ink vs Text choice is **session-only** ([`ink-embed-display-mode.ts`](../src/logic/ink-embed-display-mode.ts)), keyed by SVG path. It is not written into the note URL, does not sync, and is shared by every embed of that file in the same Obsidian session (Live Preview remounts and reading mode). If the transcript is cleared on disk, the embed falls back to ink and hides the toggle.
+
+**Rendering:** [`InkTranscriptView`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) calls `MarkdownRenderer.render` with `sourcePath` set to the note that contains the embed (wikilink resolution). Live Preview mounts a standalone `Component`; reading mode passes the [`InkReadingEmbedHost`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx) `MarkdownRenderChild` as parent so rendered children unload with the host. `mousedown` on the transcript host stops propagation so Live Preview does not steal text selection.
+
+**Height:** Text mode sizes the embed from rendered markdown height (`ResizeObserver` + `onRequestMeasure` in Live Preview). Aspect-ratio height from the SVG viewBox is skipped while text mode is active so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
+
+**Mount points:** [`writing-embed.tsx`](../src/components/formats/current/writing/writing-embed/writing-embed.tsx), [`drawing-embed.tsx`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx), and [`ink-reading-embed-host.tsx`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx).
+
 ## Editor lifecycle: session registry
 
 While an embed is unlocked or a dedicated view is open, [`registerTranscriptionEditorSession`](../src/logic/handwriting-transcription-queue.ts) registers `saveAndHalt` by file path (refcount if the same SVG is open in two places), **dequeues** pending work for that path, and persists `openSessions`.
@@ -347,7 +379,7 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Quit may miss the last unsaved stroke.** Transcribe what is on disk after best-effort `saveAndHalt`.
 - **Expand-to-dedicated does not auto-enqueue.** Dedicated registration dequeues; user continues editing the same file.
 - **Re-save to migrate.** Files that still have `transcript="…"` on `<ink>` load correctly; the next transcribe or transcript save rewrites the `<transcript>` element.
-- **Transcript is not rendered as markdown in the note UI** — only stored and reflected as plain alt text.
+- **Do not put full markdown in the embed alt** — locked embeds can show the SVG `<transcript>` via **Ink / Text** toggle ([Locked embed transcript view](#locked-embed-transcript-view-ink--text)); the alt stays a one-line plain summary.
 - **Sign-in required to enqueue.** Transcription debits Pool A credits through the portal; unsigned devices do not accumulate pending jobs.
 - **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates.
 

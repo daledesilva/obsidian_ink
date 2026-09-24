@@ -95,6 +95,25 @@
     translate: -50%;
 }
 
+// Transcript on a drawing embed: match writing column width and note margins.
+.ddc_ink_drawing-embed.ddc_ink_drawing-text-layout .ddc_ink_resize-container,
+.ddc_ink_resize-container[data-ink-display-mode="text"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    left: auto !important;
+    translate: none !important;
+}
+
+// Undo drawing full-bleed while transcript is shown (LP ancestor inline margins).
+.cm-embed-block.ddc_ink_drawing-text-layout {
+    margin-inline-start: 0 !important;
+    margin-inline-end: 0 !important;
+}
+
+.ddc_ink_reading-embed-host.ddc_ink_drawing-text-layout {
+    margin: 0 !important;
+}
+
 // Hide "Edit Drawing" anchor tags
 a[href*="type=inkDrawing"] {
     visibility: hidden;

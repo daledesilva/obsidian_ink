@@ -169,8 +169,15 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// Until the markdown has been measured, keep the SVG aspect height so the card
 	// does not collapse. After that, the attribute tells dimension refresh to leave it.
+	const drawingShowsTranscript = props.embedKind === 'drawing' && showTranscript;
+
 	let resizeStyle: React.CSSProperties = { position: 'relative' };
-	if (props.embedKind === 'drawing') {
+	if (drawingShowsTranscript) {
+		resizeStyle = {
+			position: 'relative',
+			height: `${drawingHeightPx}px`,
+		};
+	} else if (props.embedKind === 'drawing') {
 		resizeStyle = {
 			width: `${embedWidth}px`,
 			height: `${drawingHeightPx}px`,
@@ -187,6 +194,11 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		const resizeContainerEl = resizeContainerElRef.current;
 		if (!embedEl) return;
 
+		const readingHostEl = embedEl.closest('.ddc_ink_reading-embed-host');
+		if (readingHostEl instanceof HTMLElement) {
+			readingHostEl.classList.toggle('ddc_ink_drawing-text-layout', drawingShowsTranscript);
+		}
+
 		applyReadingModeEmbedDimensions(props.embedKind, resizeContainerEl, props.embedSettings);
 		props.onMount(embedEl, resizeContainerEl);
 	}, [
@@ -195,6 +207,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		props.embedSettings.embedDisplay.aspectRatio,
 		props.embeddedFile?.path,
 		showTranscript,
+		drawingShowsTranscript,
 	]);
 
 	if (!props.embeddedFile) {
@@ -222,7 +235,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 			<div
 				ref={resizeContainerElRef}
 				className='ddc_ink_resize-container'
-				data-ink-display-mode={transcriptHeightIsReady ? 'text' : undefined}
+				data-ink-display-mode={showTranscript ? 'text' : undefined}
 				// Static centering/width live in SCSS; only dynamic size stays inline.
 				style={resizeStyle}
 			>
@@ -298,18 +311,18 @@ export function applyReadingModeEmbedDimensions(
 	const isTranscriptMode = resizeContainerEl.getAttribute('data-ink-display-mode') === 'text';
 
 	if (embedKind === 'drawing') {
-		// Match Live Preview locked preview: saved pixel width, maxWidth caps to page when window shrinks.
-		// Centering (position/left/translate) is in `.ddc_ink_drawing-embed .ddc_ink_resize-container` SCSS.
-		resizeContainerEl.style.width = `${configuredWidth}px`;
-
-		if (pageWidth > 0) {
-			resizeContainerEl.style.maxWidth = `${pageWidth}px`;
-		}
-
-		const renderedWidth = containerWidth > 0
-			? containerWidth
-			: (pageWidth > 0 ? Math.min(configuredWidth, pageWidth) : configuredWidth);
 		if (!isTranscriptMode) {
+			// Match Live Preview locked preview: saved pixel width, maxWidth caps to page when window shrinks.
+			// Centering (position/left/translate) is in `.ddc_ink_drawing-embed .ddc_ink_resize-container` SCSS.
+			resizeContainerEl.style.width = `${configuredWidth}px`;
+
+			if (pageWidth > 0) {
+				resizeContainerEl.style.maxWidth = `${pageWidth}px`;
+			}
+
+			const renderedWidth = containerWidth > 0
+				? containerWidth
+				: (pageWidth > 0 ? Math.min(configuredWidth, pageWidth) : configuredWidth);
 			resizeContainerEl.style.height = `${renderedWidth / aspectRatio}px`;
 		}
 		return;

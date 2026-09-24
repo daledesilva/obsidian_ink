@@ -133,6 +133,41 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		resizeHeightPx = transcriptHeightPx;
 	}
 
+	let resizeContainerStyle: React.CSSProperties = {
+		width: embedWidthRef.current + 'px',
+		height: resizeHeightPx + 'px',
+		position: 'relative',
+		left: '50%',
+		translate: '-50%',
+	};
+	if (showTranscript) {
+		resizeContainerStyle = {
+			position: 'relative',
+			height: resizeHeightPx + 'px',
+		};
+	}
+
+	// Transcript on a drawing embed uses writing column width; undo LP full-bleed margins.
+	React.useLayoutEffect(() => {
+		const embedEl = embedContainerElRef.current;
+		const resizeContainerEl = resizeContainerElRef.current;
+		if (!embedEl) return;
+
+		embedEl.classList.toggle('ddc_ink_drawing-text-layout', showTranscript);
+		const embedBlockEl = embedEl.closest('.cm-embed-block');
+		if (embedBlockEl instanceof HTMLElement) {
+			embedBlockEl.classList.toggle('ddc_ink_drawing-text-layout', showTranscript);
+		}
+
+		if (!resizeContainerEl) return;
+		if (showTranscript) {
+			resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
+			resizeContainerEl.style.maxWidth = '';
+		} else {
+			resizeContainerEl.removeAttribute('data-ink-display-mode');
+		}
+	}, [showTranscript]);
+
 	// Detect file format on mount
 	React.useEffect(() => {
 		if (!props.embeddedFile) return;
@@ -308,6 +343,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			className = {classNames([
 				'ddc_ink_embed',
 				'ddc_ink_drawing-embed',
+				showTranscript && 'ddc_ink_drawing-text-layout',
 				props.isPendingPaste && 'ddc_ink_embed--pending',
 			])}
 			style = {{
@@ -344,13 +380,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						isBooxConnectionEnabled && 'ddc_ink_resize-container--boox',
 					])}
 					ref = {resizeContainerElRef}
-					style = {{
-						width: embedWidthRef.current + 'px',
-						height: resizeHeightPx + 'px',
-						position: 'relative', // For absolute positioning inside
-						left: '50%',
-						translate: '-50%',
-					}}
+					data-ink-display-mode={showTranscript ? 'text' : undefined}
+					style = {resizeContainerStyle}
 				>
 				
 				{showTranscript && transcript && (
@@ -617,8 +648,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function handleResize() {
 		const maxWidth = getFullPageWidth(embedContainerElRef.current);
 		if (resizeContainerElRef.current) {
+			if (showTranscriptRef.current) {
+				resizeContainerElRef.current.style.maxWidth = '';
+				return;
+			}
 			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
-			if (showTranscriptRef.current) return;
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';
 			inkEmbedSyncWidgetRootMinHeightToContent({

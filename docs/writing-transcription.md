@@ -307,6 +307,8 @@ flowchart LR
 
 **Height:** Text mode sizes the embed from rendered markdown height (`ResizeObserver` + `onRequestMeasure` in Live Preview). Aspect-ratio height from the SVG viewBox is skipped while text mode is active so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
 
+**Drawing layout in text mode:** A locked **drawing** embed in text mode adopts the same **column width and note margins** as a writing embed (`width: 100%`, no centre offset, no full-bleed into page margins). Toggling back to **Ink** restores the drawing embed’s saved pixel width, centre alignment, and full-bleed margins. Writing embeds are unchanged.
+
 **Mount points:** [`writing-embed.tsx`](../src/components/formats/current/writing/writing-embed/writing-embed.tsx), [`drawing-embed.tsx`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx), and [`ink-reading-embed-host.tsx`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx).
 
 ## Editor lifecycle: session registry

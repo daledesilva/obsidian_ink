@@ -56,6 +56,14 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.stylusSideButtonTemporaryErase === 'boolean'
 			? partial.stylusSideButtonTemporaryErase
 			: base.stylusSideButtonTemporaryErase;
+	const inkCloseCount =
+		typeof partial.inkCloseCount === 'number' && partial.inkCloseCount >= 0
+			? partial.inkCloseCount
+			: base.inkCloseCount;
+	const autoTranscribeAccountNoticeDismissed =
+		typeof partial.autoTranscribeAccountNoticeDismissed === 'boolean'
+			? partial.autoTranscribeAccountNoticeDismissed
+			: base.autoTranscribeAccountNoticeDismissed;
 	return {
 		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
@@ -66,6 +74,8 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 			inkDrawing: partial.strokeInputTreatAs.inkDrawing,
 		},
 		lastDetectedStrokeInput: lastDetected,
+		inkCloseCount,
+		autoTranscribeAccountNoticeDismissed,
 	};
 }
 
@@ -226,6 +236,23 @@ export function resolveStrokeInputTreatAs(
 	if (preference === 'pen') return 'pen';
 	if (preference === 'mouse') return 'mouse';
 	return lastDetected ?? 'mouse';
+}
+
+/** Saved ink closes before the auto-transcribe account notice is shown (embed lock or dedicated view close). */
+export const AUTO_TRANSCRIBE_ACCOUNT_NOTICE_INK_CLOSE_THRESHOLD = 20;
+
+export function incrementInkCloseCount(): number {
+	const nextCount = readDeviceSettings().inkCloseCount + 1;
+	patchDeviceSettings({ inkCloseCount: nextCount });
+	return nextCount;
+}
+
+export function isAutoTranscribeAccountNoticeDismissed(): boolean {
+	return readDeviceSettings().autoTranscribeAccountNoticeDismissed;
+}
+
+export function markAutoTranscribeAccountNoticeDismissed(): void {
+	patchDeviceSettings({ autoTranscribeAccountNoticeDismissed: true });
 }
 
 /** Same-tab updates use a custom event; `storage` covers other windows/tabs for the same vault host. */

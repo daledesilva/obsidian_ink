@@ -58,7 +58,9 @@ Settings → **Writing** / **Drawing** — **Automatically transcribe writing** 
 
 When the device is not signed in to Almost Useful, the auto-transcribe toggle description adds **Transcription requires an Almost Useful account. Link your account above.**
 
-Auto enqueue runs only when the per-type toggle is on **and** ink change meets the threshold. Turning a toggle **off** drops **waiting auto** jobs of that type from the device-local queue; it does **not** cancel an in-flight portal POST. Manual pending jobs stay.
+**No linked account → no queue entries.** `enqueueAuto` returns without adding a job. **Transcribe** from the overflow menu shows a notice and does not enqueue. Quit-promote, launch resume, and failed-job retry also skip (or clear) pending work while unsigned. Signing out or session expiry clears the device-local pending list.
+
+Auto enqueue runs only when the device is signed in, the per-type toggle is on, **and** ink change meets the threshold. Turning a toggle **off** drops **waiting auto** jobs of that type from the device-local queue; it does **not** cancel an in-flight portal POST. Manual pending jobs stay while signed in.
 
 ### Change threshold (occupied-cell Jaccard %)
 
@@ -87,9 +89,9 @@ When an ink SVG changes outside an open editor (Obsidian Sync, external edit, an
 
 Transcript-only writes from a successful job preserve stroke geometry → at default **1%**, the modify event after apply does **not** re-enqueue. At **0%**, it may.
 
-### Success notification
+### Completion (silent)
 
-When a job completes (manual or auto), Obsidian shows e.g. `Writing transcription finished: MyNote.writing`.
+Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Errors still surface as notices (portal failures, insufficient credits, manual enqueue blocked while unsigned).
 
 **Not auto-enqueued:** expand embed → dedicated view (save on expand, dequeue when dedicated editor opens), empty canvas, or when ink change is **below** the per-type occupancy threshold. Sync/modify while the file is open in an embed or dedicated view is also skipped.
 
@@ -121,10 +123,25 @@ flowchart TD
 
 - **One serial worker** for both file types, unique by file path.
 - **Manual** jobs sit at the front of **waiting**; never abort an in-flight POST.
-- **Launch resume:** after merge/prune, if runnable jobs remain, Obsidian shows e.g. `Resuming handwriting transcription (3 files)`, waits **5 seconds**, then kicks. Unlock/open during grace still **dequeues** that file.
-- **Not signed in:** pending jobs stay until sign-in (`ALMOSTUSEFUL_SESSION_CHANGED_EVENT` kicks the worker).
+- **Launch resume:** after merge/prune, if runnable jobs remain **and** the device is signed in, Obsidian shows e.g. `Resuming handwriting transcription (3 files)`, waits **5 seconds**, then kicks. Unlock/open during grace still **dequeues** that file.
+- **Not signed in:** nothing is enqueued; launch prune clears any stale `pending`. Sign-in (`ALMOSTUSEFUL_SESSION_CHANGED_EVENT`) kicks the worker when jobs exist.
 
-Drawing files and v1 code-block embeds remain out of scope for the **enqueue** paths; the settings **Transcription Queue** card lists any pending or in-flight `inkWriting` / `inkDrawing` job already on the device-local queue.
+Drawing files and v1 code-block embeds remain out of scope for the **enqueue** paths; the settings **Transcription Queue** card lists any pending or in-flight `inkWriting` / `inkDrawing` job already on the device-local queue (signed-in devices only).
+
+### Auto-transcribe account notice (20 ink closes)
+
+After **20 saved ink closes** on a device with **no** linked Almost Useful account, Ink shows a one-time welcome-style notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) promoting auto-transcription via `almostuseful.xyz`. **Open Ink settings** or **Dismiss** permanently suppresses it on that device (`autoTranscribeAccountNoticeDismissed` in `deviceSettings_v1`).
+
+Counted closes (writing + drawing combined):
+
+| Event | Hook |
+|-------|------|
+| Writing embed save-and-lock | `writing-embed` → `saveAndSwitchToPreviewMode` |
+| Drawing embed save-and-lock | `drawing-embed` → `saveAndSwitchToPreviewMode` |
+| Dedicated writing view close | `writing-view` → `onClose` |
+| Dedicated drawing view close | `drawing-view` → `onClose` |
+
+Discard-without-save and v1 code-block embeds do not increment the counter. Linked accounts never see the notice.
 
 ```mermaid
 sequenceDiagram
@@ -331,7 +348,8 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Expand-to-dedicated does not auto-enqueue.** Dedicated registration dequeues; user continues editing the same file.
 - **Re-save to migrate.** Files that still have `transcript="…"` on `<ink>` load correctly; the next transcribe or transcript save rewrites the `<transcript>` element.
 - **Transcript is not rendered as markdown in the note UI** — only stored and reflected as plain alt text.
-- **Sign-in required.** Transcription debits Pool A credits through the portal; unsigned users keep pending until sign-in.
+- **Sign-in required to enqueue.** Transcription debits Pool A credits through the portal; unsigned devices do not accumulate pending jobs.
+- **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates.
 
 ## Related docs
 

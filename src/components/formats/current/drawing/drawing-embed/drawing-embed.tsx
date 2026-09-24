@@ -29,6 +29,7 @@ import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-in
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 
 ///////
@@ -547,6 +548,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		if (props.embeddedFile) {
 			void enqueueAuto(props.embeddedFile.path);
 		}
+
+		const plugin = getGlobals().plugin;
+		if (plugin) recordInkCloseAndMaybeShowAccountNotice(plugin);
+
 		// If the user did NOT explicitly save embed settings, revert any local resize to the
 		// last-saved embed settings so a lock/unlock doesn't appear to have persisted changes.
 		if (!didExplicitSaveEmbedSettingsRef.current) {

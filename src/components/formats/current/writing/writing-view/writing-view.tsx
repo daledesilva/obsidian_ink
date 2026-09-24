@@ -16,6 +16,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { buildWritingEmbedLine } from "../../utils/build-embeds";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 import { readWritingFileAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 import { preserveBboxCellsOnStrokeSave } from "../../utils/preserve-bbox-cells-on-stroke-save";
 
@@ -235,6 +236,8 @@ export class WritingView extends TextFileView {
         if (this.file) {
             void enqueueAuto(this.file.path);
         }
+
+        recordInkCloseAndMaybeShowAccountNotice(this.plugin);
 
         // Then cleanup
         this.clear();

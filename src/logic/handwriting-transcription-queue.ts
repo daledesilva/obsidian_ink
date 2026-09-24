@@ -131,6 +131,11 @@ export function initHandwritingTranscriptionQueue(plugin: InkPlugin): void {
 	isStopped = false;
 	unsubscribeSessionChanged?.();
 	unsubscribeSessionChanged = subscribeAlmostUsefulSessionChanged(() => {
+		if (!hasLinkedAlmostUsefulAccount()) {
+			// Unsigned devices must not retain pending jobs — enqueue paths are gated too.
+			clearHandwritingTranscriptionQueue();
+			return;
+		}
 		kickHandwritingTranscriptionQueue();
 	});
 	plugin.registerDomEvent(window, 'beforeunload', () => {
@@ -237,6 +242,8 @@ export function replaceTranscriptionEditorSession(
 export async function enqueueAuto(filePath: string): Promise<void> {
 	const plugin = queuePlugin;
 	if (!plugin) return;
+	// Auto paths are silent when unsigned; manual enqueue shows a notice in its own entry point.
+	if (!hasLinkedAlmostUsefulAccount()) return;
 	const file = plugin.app.vault.getAbstractFileByPath(filePath);
 	if (!(file instanceof TFile)) return;
 	const svgFileContent = await plugin.app.vault.read(file);
@@ -277,6 +284,10 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 export async function enqueueManualTranscription(
 	options: EnqueueManualTranscriptionOptions,
 ): Promise<void> {
+	if (!hasLinkedAlmostUsefulAccount()) {
+		new Notice('Transcription requires an Almost Useful account. Link your account in Ink\'s settings.');
+		return;
+	}
 	const pageData = extractInkJsonFromSvg(options.svgFileContent);
 	if (!pageData) {
 		new Notice('Could not read ink file for transcription');
@@ -360,6 +371,7 @@ export function syncPersistedOpenTranscriptionSessions(): void {
 
 function promoteOpenSessionsToPendingOnQuit(): void {
 	const plugin = queuePlugin;
+	if (!hasLinkedAlmostUsefulAccount()) return;
 	const blob = readHandwritingTranscriptionQueueBlob();
 	const seen = new Set(blob.pending.map((job) => job.filePath));
 	for (const session of blob.openSessions) {
@@ -392,6 +404,7 @@ function resumeHandwritingTranscriptionQueueOnLaunch(): void {
  * Turns leftover open sessions into pending jobs, then prunes and kicks.
  */
 function resumePendingJobsAfterHeldTranscripts(plugin: InkPlugin): void {
+	if (!hasLinkedAlmostUsefulAccount()) return;
 	const blob = readHandwritingTranscriptionQueueBlob();
 	for (const session of blob.openSessions) {
 		if (!isAutoTranscribeEnabled(plugin, session.fileType)) continue;
@@ -429,6 +442,15 @@ function resumePendingJobsAfterHeldTranscripts(plugin: InkPlugin): void {
 async function pruneUnrunnablePendingJobs(): Promise<void> {
 	const plugin = queuePlugin;
 	if (!plugin) return;
+	if (!hasLinkedAlmostUsefulAccount()) {
+		const blob = readHandwritingTranscriptionQueueBlob();
+		if (blob.pending.length > 0) {
+			blob.pending = [];
+			writeHandwritingTranscriptionQueueBlob(blob);
+			notifyHandwritingTranscriptionQueueChanged();
+		}
+		return;
+	}
 	const blob = readHandwritingTranscriptionQueueBlob();
 	const kept: HandwritingTranscriptionPendingJob[] = [];
 	for (const job of blob.pending) {
@@ -470,7 +492,7 @@ async function pruneUnrunnablePendingJobs(): Promise<void> {
 export function kickHandwritingTranscriptionQueue(): void {
 	if (isStopped || isWorkerRunning) return;
 	if (launchGraceTimerId !== null) return;
-	if (!readAlmostUsefulSession()?.accessToken) return;
+	if (!hasLinkedAlmostUsefulAccount()) return;
 	const blob = readHandwritingTranscriptionQueueBlob();
 	const nextJobIndex = blob.pending.findIndex((job) => {
 		if (job.reason !== 'auto') return true;
@@ -495,6 +517,11 @@ function shouldSkipEnqueueBecauseInflightUnchanged(
 	if (!inflightJob || inflightJob.filePath !== job.filePath) return false;
 	if (!inflightJob.bboxCellsAtLastTranscription || !job.bboxCellsAtLastTranscription) return false;
 	return inflightJob.bboxCellsAtLastTranscription === job.bboxCellsAtLastTranscription;
+}
+
+/** Transcription jobs require a linked Almost Useful app-token session on this device. */
+function hasLinkedAlmostUsefulAccount(): boolean {
+	return !!readAlmostUsefulSession()?.accessToken;
 }
 
 function isAutoTranscribeEnabled(
@@ -609,18 +636,18 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			bboxCellsAtLastTranscription: liveBboxCells,
 		});
 		await patchInkEmbedTranscriptAltsInVault(plugin, job.filePath, job.fileType, transcript);
-		const typeLabel = job.fileType === 'inkWriting' ? 'Writing' : 'Drawing';
-		new Notice(`${typeLabel} transcription finished: ${fileAfter.basename}`);
 	} catch (error) {
 		if (!userCancelledInflightPaths.has(job.filePath)) {
 			const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
 			new Notice(message);
-			const blob = readHandwritingTranscriptionQueueBlob();
-			const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
-			if (!alreadyQueued) {
-				blob.pending.push(job);
-				writeHandwritingTranscriptionQueueBlob(blob);
-				notifyHandwritingTranscriptionQueueChanged();
+			if (hasLinkedAlmostUsefulAccount()) {
+				const blob = readHandwritingTranscriptionQueueBlob();
+				const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
+				if (!alreadyQueued) {
+					blob.pending.push(job);
+					writeHandwritingTranscriptionQueueBlob(blob);
+					notifyHandwritingTranscriptionQueueChanged();
+				}
 			}
 		}
 	} finally {
@@ -703,7 +730,5 @@ async function publishHeldTranscript(held: HandwritingTranscriptionHeldResult): 
 		bboxCellsAtLastTranscription: held.bboxCellsAtLastTranscription,
 	});
 	await patchInkEmbedTranscriptAltsInVault(plugin, held.filePath, held.fileType, held.transcript);
-	const typeLabel = held.fileType === 'inkWriting' ? 'Writing' : 'Drawing';
-	new Notice(`${typeLabel} transcription finished: ${file.basename}`);
 	return true;
 }

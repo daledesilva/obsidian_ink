@@ -13,4 +13,6 @@ export const DEFAULT_DEVICE_SETTINGS_V1: DeviceSettingsV1 = {
 	},
 	lastDetectedStrokeInput: null,
 	stylusSideButtonTemporaryErase: false,
+	inkCloseCount: 0,
+	autoTranscribeAccountNoticeDismissed: false,
 };

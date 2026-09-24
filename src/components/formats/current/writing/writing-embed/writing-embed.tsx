@@ -15,6 +15,7 @@ import { getBooxConnectionEnabled } from "src/logic/device-settings/device-setti
 import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
 import { verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import { WritingEmbedPreviewWrapper } from "../writing-embed-preview/writing-embed-preview";
@@ -525,6 +526,8 @@ export function WritingEmbed (props: {
 		if (props.writingFileRef) {
 			void enqueueAuto(props.writingFileRef.path);
 		}
+
+		recordInkCloseAndMaybeShowAccountNotice(props.plugin);
 
 		// Apply preview height immediately based on tight aspectRatio before switching modes
 		if (resizeContainerElRef.current && embedAspectRatioRef.current) {

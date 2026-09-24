@@ -65,7 +65,7 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 | Opening (first ~4s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
 | Pending | Almost Useful account | Centred grey card. Full-width instruction **Confirm in your browser, then paste the code from the website here.** Then six tall rounded character boxes (`XXX-XXX`; hyphen is smaller and not bold). **Cancel pending login** then **Connect** (Connect on the right). Boxes and Cancel use `var(--background-primary)` so they stay darker than the card wash. Link account is hidden so paste is not competing with a second CTA |
 | Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); **AI Credit Pool** settings card (burndown + usage distribution, or empty-pool products CTA); **Transcription Queue** card when the device-local queue is non-empty |
-| Signed out (queue non-empty) | Almost Useful account | Link-account or paste UI as above; **Transcription Queue** card when waiting jobs exist |
+| Signed out | — | **Transcription Queue** card hidden — unsigned devices do not enqueue jobs |
 | 401 | Treated as signed out | Local session cleared |
 
 Obsidian often closes Settings when the app backgrounds for the browser. After pasting the code, reopen Ink settings if it closed.
@@ -86,11 +86,13 @@ Full-height day hit rects (and per-segment hits on the stack) drive vanilla **ti
 
 Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
-**Handwriting transcription** (writing or drawing editor overflow → Transcribe, plus optional auto on close) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. See [writing-transcription.md](writing-transcription.md).
+**Handwriting transcription** (writing or drawing editor overflow → Transcribe, plus optional auto on close) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. Unsigned devices do not add jobs to the queue; manual **Transcribe** shows a notice instead. See [writing-transcription.md](writing-transcription.md).
+
+After **20 saved ink closes** without a linked account, Ink may show a one-time notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) explaining auto-transcription and offering **Open Ink settings** or **Dismiss** (device-local; never shown again after either action, or after linking).
 
 ### Settings cards
 
-Signed-in (and signed-out when the queue has jobs) content below the action row uses nested **settings cards** (`ddc_ink_almostuseful-settings-card`): `background-color: var(--setting-items-background)`, `border-radius: var(--radius-l)`, and the same inset padding as other Ink collapsible sections. Cards are stacked with `0.65em` gap — matching spacing between setting rows in Writing / Drawing.
+Signed-in content below the action row uses nested **settings cards** (`ddc_ink_almostuseful-settings-card`): `background-color: var(--setting-items-background)`, `border-radius: var(--radius-l)`, and the same inset padding as other Ink collapsible sections. Cards are stacked with `0.65em` gap — matching spacing between setting rows in Writing / Drawing.
 
 | Card | Visibility | Contents |
 |------|------------|----------|

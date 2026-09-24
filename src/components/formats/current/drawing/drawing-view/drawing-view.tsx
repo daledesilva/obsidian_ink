@@ -19,6 +19,7 @@ import { type MenuOption } from "src/components/jsx-components/overflow-menu/ove
 import { buildDrawingEmbedLine } from "../../utils/build-embeds";
 import { buildDrawingEmbedSettingsFromFile } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 import { preserveBboxCellsOnStrokeSave } from "../../utils/preserve-bbox-cells-on-stroke-save";
 
@@ -239,6 +240,8 @@ export class DrawingView extends TextFileView {
         if (this.file) {
             void enqueueAuto(this.file.path);
         }
+
+        recordInkCloseAndMaybeShowAccountNotice(this.plugin);
 
         // Then cleanup
         this.clear();

@@ -27,7 +27,10 @@ import {
 } from 'src/logic/device-settings/device-settings';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import { insertAlmostUsefulAccountSection } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
-import { subscribeAlmostUsefulSessionChanged } from 'src/logic/almostuseful/almostuseful-session';
+import {
+	readAlmostUsefulSession,
+	subscribeAlmostUsefulSessionChanged,
+} from 'src/logic/almostuseful/almostuseful-session';
 import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
 import {
 	AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT,
@@ -245,17 +248,13 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	featureDemosLinkEl.setAttribute('rel', 'noopener');
 	// Keep product names and intentional tip-label casing below.
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText('Short videos demonstrating Ink\'s features.');
-	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Slash Commands');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`For a more intuitive experience, turn on "Slash commands" in "Obsidian settings" / "core plugins" or install and set up the community plugin "Slash Commander".`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Drawing embed framing');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Two fingers or right mouse button to reframe. Cmd + right mouse button to zoom, or Cmd + scroll wheel.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Locked embeds');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Right click on a locked embed to copy or delete it.`);
+	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Right click or tap and hold on a locked embed to copy or delete it.`);
 	// Same tip as the version notice — keep discoverable after onboarding tips are dismissed.
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Temporary eraser');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`Hold cmd/ctrl to switch to eraser temporarily.`);
-	tipsGridEl.createDiv('ddc_ink_tips-label').setText('iPadOS pencil scribble');
-	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using an iPad, the Apple pencil "Scribble" setting can interfere with input in Ink sections. Disable it in iPadOS settings for a better experience.`);
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "sync all other types" in the Obsidian Sync settings.`);
 
@@ -636,6 +635,28 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 	return frag;
 }
 
+/** Auto-transcribe toggle copy; account requirement is shown only when not linked. */
+function autoTranscribeOnCloseSettingDesc(fileType: HandwritingTranscriptionFileType): DocumentFragment {
+	const embedKind = fileType === 'inkWriting' ? 'writing' : 'drawing';
+
+	const frag = createFragment();
+
+	const intro = createEl('p');
+	intro.textContent =
+		`When you lock a ${embedKind} embed or close a dedicated ${embedKind} view, queue the ${embedKind} file to be transcribed automatically. Manual Transcribing in the ink file's menu always stays available.`;
+	frag.appendChild(intro);
+
+	if (!readAlmostUsefulSession()) {
+		const accountParagraph = createEl('p');
+		const accountLine = createEl('strong');
+		accountLine.textContent = 'Transcription requires an Almost Useful account. Link your account above.';
+		accountParagraph.appendChild(accountLine);
+		frag.appendChild(accountParagraph);
+	}
+
+	return frag;
+}
+
 function insertStrokeInputTreatAsSetting(
 	contentEl: HTMLElement,
 	editorKind: StrokeInputEditorKind,
@@ -671,31 +692,6 @@ function insertDrawingSettings(
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkDrawing'));
 
-	let setDrawingThresholdVisible = (_visible: boolean) => {};
-
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setName('Transcribe handwriting when closing')
-		.setDesc('When you lock a drawing embed or close the dedicated drawing view, send handwriting to Almost Useful. Manual Transcribe in the overflow menu always stays available.')
-		.addToggle((toggle) => {
-			toggle.setValue(plugin.settings.drawingAutoTranscribeOnClose);
-			toggle.onChange(async (value: boolean) => {
-				plugin.settings.drawingAutoTranscribeOnClose = value;
-				await plugin.saveSettings();
-				if (!value) {
-					dropWaitingAutoTranscriptionJobsForFileType('inkDrawing');
-				}
-				setDrawingThresholdVisible(value);
-			});
-		});
-
-	setDrawingThresholdVisible = insertAutoTranscribeChangeThresholdSetting(
-		contentEl,
-		plugin,
-		'inkDrawing',
-		plugin.settings.drawingAutoTranscribeOnClose,
-	);
-
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setName('Show grid in new drawings')
@@ -730,6 +726,31 @@ function insertDrawingSettings(
 				await plugin.saveSettings();
 			})
 		});
+
+	let setDrawingThresholdVisible = (_visible: boolean) => {};
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Automatically transcribe drawings')
+		.setDesc(autoTranscribeOnCloseSettingDesc('inkDrawing'))
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.drawingAutoTranscribeOnClose);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.drawingAutoTranscribeOnClose = value;
+				await plugin.saveSettings();
+				if (!value) {
+					dropWaitingAutoTranscriptionJobsForFileType('inkDrawing');
+				}
+				setDrawingThresholdVisible(value);
+			});
+		});
+
+	setDrawingThresholdVisible = insertAutoTranscribeChangeThresholdSetting(
+		contentEl,
+		plugin,
+		'inkDrawing',
+		plugin.settings.drawingAutoTranscribeOnClose,
+	);
 
 	return wrapperEl;
 }
@@ -770,31 +791,6 @@ function insertWritingSettings(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkWriting'));
-
-	let setWritingThresholdVisible = (_visible: boolean) => {};
-
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setName('Transcribe handwriting when closing')
-		.setDesc('When you lock a writing embed or close the dedicated writing view, send handwriting to Almost Useful. Manual Transcribe in the overflow menu always stays available.')
-		.addToggle((toggle) => {
-			toggle.setValue(plugin.settings.writingAutoTranscribeOnClose);
-			toggle.onChange(async (value: boolean) => {
-				plugin.settings.writingAutoTranscribeOnClose = value;
-				await plugin.saveSettings();
-				if (!value) {
-					dropWaitingAutoTranscriptionJobsForFileType('inkWriting');
-				}
-				setWritingThresholdVisible(value);
-			});
-		});
-
-	setWritingThresholdVisible = insertAutoTranscribeChangeThresholdSetting(
-		contentEl,
-		plugin,
-		'inkWriting',
-		plugin.settings.writingAutoTranscribeOnClose,
-	);
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
@@ -875,6 +871,31 @@ function insertWritingSettings(
 			});
 		});
 
+	let setWritingThresholdVisible = (_visible: boolean) => {};
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setName('Automatically transcribe writing')
+		.setDesc(autoTranscribeOnCloseSettingDesc('inkWriting'))
+		.addToggle((toggle) => {
+			toggle.setValue(plugin.settings.writingAutoTranscribeOnClose);
+			toggle.onChange(async (value: boolean) => {
+				plugin.settings.writingAutoTranscribeOnClose = value;
+				await plugin.saveSettings();
+				if (!value) {
+					dropWaitingAutoTranscriptionJobsForFileType('inkWriting');
+				}
+				setWritingThresholdVisible(value);
+			});
+		});
+
+	setWritingThresholdVisible = insertAutoTranscribeChangeThresholdSetting(
+		contentEl,
+		plugin,
+		'inkWriting',
+		plugin.settings.writingAutoTranscribeOnClose,
+	);
+
 	insertWritingLimitations(contentEl);
 	return wrapperEl;
 }
@@ -937,8 +958,8 @@ function insertAutoTranscribeChangeThresholdSetting(
 	let percentTextComponent: TextComponent;
 	const thresholdSetting = new Setting(containerEl)
 		.setClass('ddc_ink_setting')
-		.setName('Re-transcribe when ink changed by at least')
-		.setDesc('Minimum occupied-cell change before auto-transcribe runs again. 0% always transcribes on close or sync; 95% only when ink occupancy is almost entirely different. Manual Transcribe ignores this.')
+		.setName('Re-transcribe when ink file changes significantly')
+		.setDesc('0% always transcribes on close or sync; 95% only when ink is almost entirely different. Manual triggered  transcriptions ignore this.')
 		.addSlider((slider) => {
 			const currentValue = clampAutoTranscribeChangeThresholdPercent(plugin.settings[settingsKey]);
 			slider

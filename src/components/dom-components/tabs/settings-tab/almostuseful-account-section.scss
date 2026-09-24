@@ -1,3 +1,28 @@
+// Match Obsidian accent CTAs/links (--interactive-accent) for this featured settings block.
+.ddc_ink_almostuseful-account-section {
+	.ddc_ink_controls-section {
+		box-shadow: 0 0 0 2px var(--interactive-accent) inset;
+	}
+
+	.ddc_ink_controls-header--clickable {
+		color: var(--text-on-accent);
+		background-color: var(--interactive-accent);
+
+		.setting-item-name {
+			color: var(--text-on-accent);
+		}
+
+		&:hover {
+			opacity: 1;
+			background-color: var(--interactive-accent-hover);
+		}
+	}
+
+	.ddc_ink_collapse-arrow {
+		color: var(--text-on-accent);
+	}
+}
+
 .ddc_ink_almostuseful-account {
 	p {
 		color: var(--text-normal);

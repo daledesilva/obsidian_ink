@@ -91,11 +91,11 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
             notice.hide();
-            if(isIpad()) {
-                showiPadWelcomeTip(plugin);
-            } else {
+            // if(isIpad()) {
+            //     showiPadWelcomeTip(plugin);
+            // } else {
                 showSyncingWelcomeTip(plugin);
-            }
+            // }
         });
     }
     
@@ -103,9 +103,8 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
 
 function showiPadWelcomeTip(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
-    scrollAreaEl.createEl('h1').setText(`If you're using an ipad...`);
-    scrollAreaEl.createEl('p').setText(`The 'scribble' feature of the apple pencil can interfere with the ability to write in ink embeds.`);
-    scrollAreaEl.createEl('p').setText(`To use ink you will need to turn off scribble in your device settings.`);
+    scrollAreaEl.createEl('h1').setText(`Placeholder...`);
+    scrollAreaEl.createEl('p').setText(`Placeholder.`);
 
     const {
         primaryBtnEl,

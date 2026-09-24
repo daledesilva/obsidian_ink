@@ -47,20 +47,22 @@ Manual jobs use the **live canvas** SVG (including unsaved strokes) when enqueue
 
 ### Auto-transcribe on close (vault-synced toggles)
 
-Settings → **Writing** / **Drawing** → **Transcribe handwriting when closing**:
+Settings → **Writing** / **Drawing** — **Automatically transcribe writing** / **Automatically transcribe drawings** (last controls in each section, after display/layout options):
 
 | Setting | Default | Scope |
 |---------|---------|--------|
 | `writingAutoTranscribeOnClose` | **on** | Writing embed lock, **markdown note/tab close** (unlocked embeds), dedicated writing view close, quit-as-lock, vault modify |
 | `drawingAutoTranscribeOnClose` | **off** | Drawing embed lock, **markdown note/tab close** (unlocked embeds), dedicated drawing view close, quit-as-lock, vault modify |
-| `writingAutoTranscribeChangeThresholdPercent` | **1** | Writing minimum ink change (0–95%) before auto runs again |
-| `drawingAutoTranscribeChangeThresholdPercent` | **1** | Drawing minimum ink change (0–95%) before auto runs again |
+| `writingAutoTranscribeChangeThresholdPercent` | **20** | Writing minimum ink change (0–95%) before auto runs again |
+| `drawingAutoTranscribeChangeThresholdPercent` | **20** | Drawing minimum ink change (0–95%) before auto runs again |
+
+When the device is not signed in to Almost Useful, the auto-transcribe toggle description adds **Transcription requires an Almost Useful account. Link your account above.**
 
 Auto enqueue runs only when the per-type toggle is on **and** ink change meets the threshold. Turning a toggle **off** drops **waiting auto** jobs of that type from the device-local queue; it does **not** cancel an in-flight portal POST. Manual pending jobs stay.
 
 ### Change threshold (occupied-cell Jaccard %)
 
-Settings → **Writing** / **Drawing** → **Re-transcribe when ink changed by at least** (slider **0–95%**, shown when auto-transcribe on close is on):
+Settings → **Writing** / **Drawing** → **Re-transcribe when ink file changes significantly** (slider **0–95%**, shown when auto-transcribe on close is on):
 
 The slider is **percent of occupied 32px cells that changed** (Jaccard symmetric-difference / union of bbox-relative cells), not SimHash Hamming bits and not a hash of SVG markup. Page template / ruled-line pixels are not in the cell set — only stroke points.
 
@@ -70,7 +72,7 @@ The slider is **percent of occupied 32px cells that changed** (Jaccard symmetric
 | **1–95%** | Jaccard change ratio ≥ slider/100, **or** no stored `bboxCellsAtLastTranscription` yet (never successfully transcribed with this fingerprint) |
 | Below threshold | Skip auto enqueue |
 
-Default **1%** skips only identical occupancy. **Manual Transcribe** ignores the threshold.
+Default **20%** skips small edits; **0%** always re-transcribes when other gates pass. **Manual Transcribe** ignores the threshold.
 
 [`inkChangeMeetsAutoTranscribeThreshold`](../src/logic/stroke-bbox-cells.ts) centralises the check in `enqueueAuto`, launch prune, and the worker.
 

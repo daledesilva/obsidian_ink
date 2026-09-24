@@ -47,7 +47,10 @@ export function insertAlmostUsefulAccountSection(
 	const phase = getAlmostUsefulLoginPhase();
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
 
-	const wrapperEl = containerEl.createDiv('ddc_ink_section-wrapper');
+	// Accent header/outline styling is scoped to ddc_ink_almostuseful-account-section in SCSS.
+	const wrapperEl = containerEl.createDiv(
+		'ddc_ink_section-wrapper ddc_ink_almostuseful-account-section',
+	);
 	if (isAlmostUsefulAccountSectionExpanded) wrapperEl.classList.add('ddc_ink_expanded');
 	const sectionEl = wrapperEl.createDiv('ddc_ink_controls-section');
 

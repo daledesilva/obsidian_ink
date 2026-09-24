@@ -56,12 +56,12 @@ export const DEFAULT_PLUGIN_SETTINGS_0_5_0: PluginSettings_0_5_0 = {
 	writingLinesWhenLocked: true,
 	writingBackgroundWhenLocked: true,
 	writingAutoTranscribeOnClose: true,
-	writingAutoTranscribeChangeThresholdPercent: 1,
+	writingAutoTranscribeChangeThresholdPercent: 20,
 	// Drawing specific
 	drawingEnabled: true,
 	drawingGridEnabledByDefault: true,
 	drawingAutoTranscribeOnClose: false,
-	drawingAutoTranscribeChangeThresholdPercent: 1,
+	drawingAutoTranscribeChangeThresholdPercent: 20,
 	drawingFrameWhenLocked: false,
 	drawingBackgroundWhenLocked: false,
 }

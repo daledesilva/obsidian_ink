@@ -307,7 +307,14 @@ flowchart LR
 
 **Height:** Text mode sizes the embed from rendered markdown height (`ResizeObserver` + `onRequestMeasure` in Live Preview). Aspect-ratio height from the SVG viewBox is skipped while text mode is active so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
 
-**Drawing layout in text mode:** A locked **drawing** embed in text mode adopts the same **column width and note margins** as a writing embed (`width: 100%`, no centre offset, no full-bleed into page margins). Toggling back to **Ink** restores the drawing embed’s saved pixel width, centre alignment, and full-bleed margins. Writing embeds are unchanged.
+**Drawing layout in text mode:** Locked **drawing** embeds normally use a saved pixel width, centre alignment, and full-bleed into page margins (Live Preview via [`applyCommonAncestorStyling`](../src/logic/utils/embed.ts) on `.cm-embed-block`; reading mode via negative margins on `.ddc_ink_reading-embed-host`). In **text** mode only, the embed adopts the same **column width and note margins** as a writing embed. Toggling back to **Ink** restores drawing ink layout. Writing embeds are unchanged.
+
+| Signal | Purpose |
+|--------|---------|
+| `data-ink-display-mode="text"` on `.ddc_ink_resize-container` | CSS + dimension helpers skip drawing pixel width / aspect height |
+| `ddc_ink_drawing-text-layout` on embed root, `.cm-embed-block`, or reading host | Neutralises full-bleed margins; forces `width: 100%` via [`drawing-embed.scss`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.scss) |
+
+[`applyReadingModeEmbedDimensions`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx) skips drawing width/height while `data-ink-display-mode="text"`. Live Preview [`handleResize`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx) clears `maxWidth` in text mode so window resize does not snap back to pixel width.
 
 **Mount points:** [`writing-embed.tsx`](../src/components/formats/current/writing/writing-embed/writing-embed.tsx), [`drawing-embed.tsx`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx), and [`ink-reading-embed-host.tsx`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx).
 
@@ -382,6 +389,7 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Expand-to-dedicated does not auto-enqueue.** Dedicated registration dequeues; user continues editing the same file.
 - **Re-save to migrate.** Files that still have `transcript="…"` on `<ink>` load correctly; the next transcribe or transcript save rewrites the `<transcript>` element.
 - **Do not put full markdown in the embed alt** — locked embeds can show the SVG `<transcript>` via **Ink / Text** toggle ([Locked embed transcript view](#locked-embed-transcript-view-ink--text)); the alt stays a one-line plain summary.
+- **Drawing text mode is not full-bleed.** Reuse `ddc_ink_drawing-text-layout` and `data-ink-display-mode="text"` together — toggling only inline width without neutralising `.cm-embed-block` / reading-host margins leaves the transcript wider than writing embeds.
 - **Sign-in required to enqueue.** Transcription debits Pool A credits through the portal; unsigned devices do not accumulate pending jobs.
 - **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates.
 

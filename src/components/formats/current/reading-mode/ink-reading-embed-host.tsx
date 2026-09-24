@@ -169,6 +169,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// Until the markdown has been measured, keep the SVG aspect height so the card
 	// does not collapse. After that, the attribute tells dimension refresh to leave it.
+	// Drawing ink mode uses saved pixel width + full-bleed; text mode matches writing column width.
 	const drawingShowsTranscript = props.embedKind === 'drawing' && showTranscript;
 
 	let resizeStyle: React.CSSProperties = { position: 'relative' };

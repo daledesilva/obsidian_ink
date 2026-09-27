@@ -93,7 +93,7 @@ interface WritingEditorProps {
 	save: (inkFileData: InkFileData) => void | Promise<void>;
 	extendedMenu?: MenuOption[];
 	embedded?: boolean;
-	closeEditor?: () => void;
+	closeEditor?: () => void | Promise<void>;
 	saveControlsReference?: (controls: WritingEditorControls) => void;
 	onOpenInDedicatedView?: () => void;
 	/** Embed only: also write the transcript into the note's image alt text. */
@@ -726,6 +726,10 @@ export function WritingEditor(props: WritingEditorProps) {
 			svgString,
 			transcript: transcriptRef.current,
 		}));
+		// Capture live canvas before lock unmounts the editor; lock so preview + queue UI show while transcribing.
+		if (props.embedded && props.closeEditor) {
+			await props.closeEditor();
+		}
 		await enqueueManualTranscription({
 			file: props.writingFile,
 			fileType: 'inkWriting',

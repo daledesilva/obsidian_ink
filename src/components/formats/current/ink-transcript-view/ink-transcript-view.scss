@@ -11,17 +11,65 @@
 	// Rendered markdown should scroll with the note, not inside the embed.
 	overflow: visible;
 
+	// The CM6 editor host sets `white-space: break-spaces`, which would render the
+	// newline text nodes MarkdownRenderer leaves between <p>/<ul>/<li> as extra lines.
+	white-space: normal;
+
+	> :first-child {
+		margin-block-start: 0;
+	}
+
+	> :last-child {
+		margin-block-end: 0;
+	}
+
 	&.ddc_ink_transcript-view--framed {
 		border: 2px solid var(--color-base-30);
 		border-radius: 20px;
 	}
 }
 
-.ddc_ink_display-mode-toggle {
+.ddc_ink_display-mode-controls {
 	position: absolute;
 	top: 0.45em;
 	right: 0.45em;
 	z-index: 5;
+	display: flex;
+	align-items: center;
+	gap: 0.35em;
+	// Status icon sits over the preview; only the toggle takes clicks so taps still unlock the embed.
+	pointer-events: none;
+}
+
+.ddc_ink_transcript-queue-status {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 1.35em;
+	height: 1.35em;
+	color: var(--text-muted);
+
+	svg {
+		width: 1.35em !important;
+		height: 1.35em !important;
+	}
+
+	&.ddc_ink_transcript-queue-status--processing svg {
+		animation: ddc_ink_transcript-queue-spin 0.8s linear infinite;
+	}
+}
+
+@keyframes ddc_ink_transcript-queue-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.ddc_ink_display-mode-toggle {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -34,12 +82,17 @@
 	border-radius: 50%;
 	background-color: var(--interactive-normal);
 	color: var(--color-base-60);
-	fill: currentColor;
+	fill: var(--color-base-60);
 
 	svg {
 		width: 1.35em !important;
 		height: 1.35em !important;
-		fill: currentColor;
+
+		// Write/Draw icons are filled paths; the Lucide text icon is stroke-only and would fill solid.
+		&[fill='none'] {
+			fill: none;
+			stroke: currentColor;
+		}
 	}
 
 	&:hover {

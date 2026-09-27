@@ -124,7 +124,7 @@ interface DrawingEditorProps {
 	onResizeEnd?: () => void;
 	onEmbedResizeEnd?: () => void;
 	applyEmbedDimensions?: (width: number, aspectRatio: number) => void;
-	closeEditor?: () => void;
+	closeEditor?: () => void | Promise<void>;
 	saveControlsReference?: (controls: DrawingEditorControls) => void;
 	onOpenInDedicatedView?: () => void;
 	onTranscriptSaved?: (transcript: string) => void;
@@ -596,6 +596,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			svgString,
 			transcript: transcriptRef.current,
 		}));
+		// Capture live canvas before lock unmounts the editor; lock so preview + queue UI show while transcribing.
+		if (props.embedded && props.closeEditor) {
+			await props.closeEditor();
+		}
 		await enqueueManualTranscription({
 			file: props.drawingFile,
 			fileType: 'inkDrawing',

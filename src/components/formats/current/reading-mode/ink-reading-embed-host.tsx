@@ -15,7 +15,7 @@ import {
 } from 'src/logic/utils/writing-embed-aspect-ratio';
 import { useInkFileTranscript } from 'src/logic/use-ink-file-transcript';
 import { useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
-import { InkEmbedDisplayModeSwitch, InkTranscriptView } from 'src/components/formats/current/ink-transcript-view/ink-transcript-view';
+import { InkEmbedTranscriptControls, InkTranscriptView } from 'src/components/formats/current/ink-transcript-view/ink-transcript-view';
 
 //////////
 //////////
@@ -267,7 +267,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 					/>
 				)}
 				{hasTranscript && props.embeddedFile && (
-					<InkEmbedDisplayModeSwitch
+					<InkEmbedTranscriptControls
 						filePath={props.embeddedFile.path}
 						inkIconKind={props.embedKind === 'drawing' ? 'drawing' : 'writing'}
 					/>

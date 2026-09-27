@@ -35,7 +35,7 @@ import {
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
 import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
 import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
-import { InkEmbedDisplayModeSwitch, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
+import { InkEmbedTranscriptControls, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
 
 ///////
 ///////
@@ -411,7 +411,7 @@ export function WritingEmbed (props: {
 						</EmbedPreviewContextMenu>
 					)}
 					{hasTranscript && !isThisEmbedEditing && (
-						<InkEmbedDisplayModeSwitch
+						<InkEmbedTranscriptControls
 							filePath={props.writingFileRef.path}
 							inkIconKind='writing'
 						/>
@@ -427,7 +427,7 @@ export function WritingEmbed (props: {
 							save={props.save}
 							embedded
 							saveControlsReference={registerEditorControls}
-							closeEditor={() => void saveAndSwitchToPreviewMode()}
+							closeEditor={() => saveAndSwitchToPreviewMode()}
 							extendedMenu={commonExtendedOptions}
 							onOpenInDedicatedView={() => void openInDedicatedView()}
 							onTranscriptSaved={(transcript) => props.updateEmbedTranscript?.(transcript)}

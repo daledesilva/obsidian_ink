@@ -4,6 +4,7 @@ import InkPlugin from "src/main";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { buildFileStr } from "./buildFileStr";
 import { serializeBboxCellsAtLastTranscription } from "src/logic/stroke-bbox-cells";
+import { normalizeInkTranscriptMarkdown } from "src/logic/normalize-ink-transcript-markdown";
 
 ////////
 ////////
@@ -37,7 +38,8 @@ export const saveWriteFileTranscript = async (
     const pageData = extractInkJsonFromSvg(pageDataStr);
     if (!pageData) return;
 
-    pageData.meta.transcript = transcript;
+    // Flourish glyphs only. Blank lines stay, because they are real markdown breaks.
+    pageData.meta.transcript = normalizeInkTranscriptMarkdown(transcript);
     if (transcriptionFingerprint) {
         const transcribedBboxCells = transcriptionFingerprint.bboxCellsAtLastTranscription;
         if (transcribedBboxCells) {

@@ -33,7 +33,7 @@ import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-comp
 import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
 import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
 import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
-import { InkEmbedDisplayModeSwitch, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
+import { InkEmbedTranscriptControls, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
 
 ///////
 ///////
@@ -404,7 +404,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					</EmbedPreviewContextMenu>
 				)}
 				{hasTranscript && !isThisEmbedEditing && (
-					<InkEmbedDisplayModeSwitch
+					<InkEmbedTranscriptControls
 						filePath={props.embeddedFile.path}
 						inkIconKind='drawing'
 					/>
@@ -431,7 +431,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						}}
 						embedded
 						saveControlsReference = {registerEditorControls}
-						closeEditor = {() => void saveAndSwitchToPreviewMode()}
+						closeEditor = {() => saveAndSwitchToPreviewMode()}
 						onTranscriptSaved={(transcript) => props.updateEmbedTranscript?.(transcript)}
 						resizeEmbed = {resizeEmbed}
 						onResizeStart = {onResizeStart}

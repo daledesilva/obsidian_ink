@@ -20,6 +20,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VAULT_ROOT = path.resolve(__dirname);
 const FIXTURES = path.resolve(__dirname, 'fixtures');
+const HANDWRITING_TRANSCRIPTION_FIXTURES = path.resolve(__dirname, '../tests/fixtures/handwriting-transcription');
 const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 const PLUGIN_VERSION = '0.4.0';
 const TLDRAW_VERSION = '2.1.0';
@@ -453,6 +454,30 @@ function generateAllNotes() {
   writeFile('11 - CodeMirror and Editor Behavior/Native Print Export.md', `# Print\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
 }
 
+/** Copies eval handwriting SVGs into the vault and embeds each one in one note. */
+function generateHandwritingTranscriptionNote() {
+  const svgNames = fs.readdirSync(HANDWRITING_TRANSCRIPTION_FIXTURES)
+    .filter((name) => name.endsWith('.svg'))
+    .sort();
+  const destDir = path.join(VAULT_ROOT, 'Ink/Writing/transcription');
+  ensureDir(destDir);
+  for (const name of svgNames) {
+    fs.copyFileSync(path.join(HANDWRITING_TRANSCRIPTION_FIXTURES, name), path.join(destDir, name));
+  }
+  const sections = svgNames.map((name) => {
+    const title = name.replace(/\.svg$/, '');
+    return `## ${title}\n${buildWritingEmbed(`Ink/Writing/transcription/${name}`)}`;
+  }).join('\n');
+  writeFile(
+    '21 - Handwriting Transcription/Transcript fixtures.md',
+    `# Handwriting transcription fixtures
+
+These SVGs are copied from \`tests/fixtures/handwriting-transcription/\` when the vault is generated. Expected transcripts, when a fixture has one, are the matching \`.expected.txt\` files in that same folder.
+
+${sections}`,
+  );
+}
+
 function main() {
   console.log('Generating QA test vault...');
   generateSvgAssets();
@@ -503,6 +528,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
 - **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
 - **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
+- **21 – Handwriting Transcription**: Eval SVGs from \`tests/fixtures/handwriting-transcription/\`, embedded for manual transcribe checks
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
@@ -513,6 +539,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   generateCapturedLegacyMigrationAssets();
   generateMigrationProgressDensityAssets();
   generatePickerStressAssets();
+  generateHandwritingTranscriptionNote();
 
   ensureDir('.obsidian');
   // Enable community plugins needed for column layout e2e tests.

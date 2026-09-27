@@ -45,6 +45,21 @@ flowchart LR
 
 Manual jobs use the **live canvas** SVG (including unsaved strokes) when enqueued from the editor overflow menu.
 
+In an **embed**, Transcribe / Update transcript also **locks the embed immediately**: the editor captures the live SVG, awaits `closeEditor` (save and switch to preview), then enqueues. The user sees the locked preview (with the queue status icon if the file already has a transcript) while the job runs. Dedicated views stay open.
+
+```mermaid
+sequenceDiagram
+  participant Menu as Overflow menu
+  participant Editor as Writing / drawing editor
+  participant Embed as Embed saveAndSwitchToPreviewMode
+  participant Queue as enqueueManualTranscription
+  Menu->>Editor: handleTranscribe
+  Editor->>Editor: Build live SVG string
+  Editor->>Embed: await closeEditor()
+  Editor->>Queue: enqueue manual job
+  Queue-->>Embed: Status icon on locked preview (transcript files only)
+```
+
 ### Auto-transcribe on close (vault-synced toggles)
 
 Settings → **Writing** / **Drawing** — **Automatically transcribe writing** / **Automatically transcribe drawings** (last controls in each section, after display/layout options):
@@ -283,7 +298,7 @@ When a writing or drawing SVG has a non-empty `<transcript>`, locked embeds in *
 
 | Mode | What the user sees | Interaction |
 |------|-------------------|-------------|
-| **Ink** (default) | SVG preview | Click the preview to unlock and edit (unchanged). Toggle shows **Aa** (grey; purple on hover) to switch to text. |
+| **Ink** (default) | SVG preview | Click the preview to unlock and edit (unchanged). Toggle shows the Lucide [case-sensitive](https://lucide.dev/icons/case-sensitive) icon (grey; accent on hover) to switch to text. |
 | **Text** | Full markdown from SVG metadata | Non-editable, selectable copy via Obsidian `MarkdownRenderer`. Always framed like a locked drawing embed (`2px` border, `20px` radius). Toggle shows the writing or drawing ink icon to return to the SVG. |
 
 The image embed **alt** is still a one-line plain summary — text mode reads the canonical `<transcript>` element via [`readInkTranscript`](../src/logic/utils/extractInkJsonFromSvg.ts), not the alt.
@@ -304,6 +319,27 @@ flowchart LR
 **Persistence:** The Ink vs Text choice is **session-only** ([`ink-embed-display-mode.ts`](../src/logic/ink-embed-display-mode.ts)), keyed by SVG path. It is not written into the note URL, does not sync, and is shared by every embed of that file in the same Obsidian session (Live Preview remounts and reading mode). If the transcript is cleared on disk, the embed falls back to ink and hides the toggle.
 
 **Rendering:** [`InkTranscriptView`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) calls `MarkdownRenderer.render` with `sourcePath` set to the note that contains the embed (wikilink resolution). Live Preview mounts a standalone `Component`; reading mode passes the [`InkReadingEmbedHost`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx) `MarkdownRenderChild` as parent so rendered children unload with the host. `mousedown` on the transcript host stops propagation so Live Preview does not steal text selection.
+
+**Queue status indicator:** [`InkEmbedTranscriptControls`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) renders a small status icon immediately left of the toggle while that file is on the device-local queue — a spinning loader when the job is **processing**, a clock when it is **queued**. It shows in both Ink and Text modes, and disappears when the job finishes or is removed. The controls cluster only mounts when the file already has a transcript, so a file's **first** transcription shows no status icon. [`useHandwritingTranscriptionQueueStatus`](../src/logic/use-handwriting-transcription-queue-status.ts) re-reads [`getHandwritingTranscriptionQueueStatusForFile`](../src/logic/handwriting-transcription-queue.ts) on each `subscribeHandwritingTranscriptionQueueChanged` event, so no polling is needed.
+
+```mermaid
+flowchart LR
+  QueueEvent[Queue changed event]
+  Status["getHandwritingTranscriptionQueueStatusForFile"]
+  Processing[Spinner]
+  Queued[Clock]
+  None[No icon]
+  QueueEvent --> Status
+  Status -->|processing| Processing
+  Status -->|queued| Queued
+  Status -->|null| None
+```
+
+**Icons:** All toggle and status icons are path-based SVGs. The Write/Draw icons use `fill="currentColor"`; the Lucide text, loader, and clock icons are stroke-only (`fill="none"`) and the toggle SCSS keeps them unfilled. iPad WKWebView did not reliably draw the old SVG `<text>` "Aa" glyph with a CSS-variable font.
+
+**Transcript markdown normalization:** [`normalizeInkTranscriptMarkdown`](../src/logic/normalize-ink-transcript-markdown.ts) runs on save (`saveWriteFileTranscript`) and again before render, so older transcripts get the same treatment. It only rewrites handwritten list flourishes — arrows (`->`, `→`), dots (`•`), stars (`★`), boxes (`☐`), and `*`/`+` bullets — into `- ` bullets. Numbered items, indentation, and **blank lines are left unchanged**: whether a blank line separates two lists or paragraphs is decided by the portal prompt, which can see the handwriting. The portal applies the same flourish rewrite to its response.
+
+**Spacing:** The transcript view sets `white-space: normal`. It is mounted inside the CodeMirror editor, which sets `white-space: break-spaces`; inherited, that renders the newline text nodes `MarkdownRenderer` leaves between `<p>`, `<ul>`, and `<li>` as extra blank lines. Obsidian's own `--p-spacing` paragraph and list margins are kept; only the first and last child's outer margins are zeroed so they do not stack on the embed padding.
 
 **Height:** Text mode sizes the embed from rendered markdown height (`ResizeObserver` + `onRequestMeasure` in Live Preview). Aspect-ratio height from the SVG viewBox is skipped while text mode is active so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
 
@@ -358,7 +394,9 @@ An alt-only edit overlaps the transcribed embed’s widget. Writing and drawing 
 
 ## Eval and live tests
 
-Fixtures: `tests/fixtures/handwriting-transcription/` (three real writing SVGs + expected transcripts).
+Fixtures: `tests/fixtures/handwriting-transcription/` (real writing SVGs + expected transcripts).
+
+**Manual QA:** `qa-test-vault/generate.mjs` copies every fixture `.svg` into `Ink/Writing/transcription/` and writes `21 - Handwriting Transcription/Transcript fixtures.md`, which embeds each one. Adding a new SVG to the fixtures folder is enough for it to appear in the regenerated QA vault.
 
 Eval matrix: 5 models × 2 media (SVG / PNG) = 10 variants via [`transcribeHandwritingVariant`](../src/logic/handwriting-transcription-variants.ts). Live auth defaults to the `testing` OAuth client (not production `ink`).
 
@@ -392,6 +430,10 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Drawing text mode is not full-bleed.** Reuse `ddc_ink_drawing-text-layout` and `data-ink-display-mode="text"` together — toggling only inline width without neutralising `.cm-embed-block` / reading-host margins leaves the transcript wider than writing embeds.
 - **Sign-in required to enqueue.** Transcription debits Pool A credits through the portal; unsigned devices do not accumulate pending jobs.
 - **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates.
+- **Transcript spacing comes from `white-space`, not margins.** Removing `white-space: normal` from `.ddc_ink_transcript-view` brings back a blank line between every paragraph and bullet. A flex container with `gap: 0` hides it too, but only because flex drops whitespace text nodes.
+- **Do not fix list layout by rewriting blank lines.** The renderer cannot know what the user wrote; list grouping and paragraph breaks belong in the portal prompt. The normalizer only maps flourish glyphs to `- `.
+- **Capture the live SVG before locking on manual Transcribe.** `closeEditor` unmounts the editor; build the SVG string first, then await the lock, then enqueue.
+- **No SVG `<text>` in icons.** iPad WKWebView renders it unreliably; use path-based icons.
 
 ## Related docs
 

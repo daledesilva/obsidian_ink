@@ -7,9 +7,13 @@ import {
 	type InkEmbedDisplayMode,
 } from 'src/logic/ink-embed-display-mode';
 import { useInkEmbedDisplayMode } from 'src/logic/use-ink-embed-display-mode';
+import { useHandwritingTranscriptionQueueStatus } from 'src/logic/use-handwriting-transcription-queue-status';
 import { WriteIcon } from 'src/graphics/icons/write-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
 import { TextModeIcon } from 'src/graphics/icons/text-mode-icon';
+import { Loader2Icon } from 'src/graphics/icons/loader-2-icon';
+import { ClockIcon } from 'src/graphics/icons/clock-icon';
+import { normalizeInkTranscriptMarkdown } from 'src/logic/normalize-ink-transcript-markdown';
 
 //////////
 //////////
@@ -52,9 +56,11 @@ export function InkTranscriptView(props: InkTranscriptViewProps) {
 			onHeightChangeRef.current?.(hostEl.offsetHeight);
 		};
 
+		// Flourish glyphs only. Blank lines stay: they are real list and paragraph breaks.
+		const markdown = normalizeInkTranscriptMarkdown(props.markdown);
 		void MarkdownRenderer.render(
 			props.app,
-			props.markdown,
+			markdown,
 			hostEl,
 			props.sourcePath,
 			mount,
@@ -95,6 +101,37 @@ export function InkTranscriptView(props: InkTranscriptViewProps) {
 export interface InkEmbedDisplayModeSwitchProps {
 	filePath: string;
 	inkIconKind: 'writing' | 'drawing';
+}
+
+export interface InkEmbedTranscriptControlsProps {
+	filePath: string;
+	inkIconKind: 'writing' | 'drawing';
+}
+
+/** Top-right cluster: transcription queue status (when active) plus ink/transcript toggle. */
+export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProps) {
+	const queueStatus = useHandwritingTranscriptionQueueStatus(props.filePath);
+
+	let statusAriaLabel: string | undefined;
+	if (queueStatus === 'processing') statusAriaLabel = 'Transcribing…';
+	if (queueStatus === 'queued') statusAriaLabel = 'Transcription queued';
+
+	return (
+		<div className='ddc_ink_display-mode-controls'>
+			{queueStatus && (
+				<span
+					className={`ddc_ink_transcript-queue-status ddc_ink_transcript-queue-status--${queueStatus}`}
+					aria-label={statusAriaLabel}
+				>
+					{queueStatus === 'processing' ? <Loader2Icon /> : <ClockIcon />}
+				</span>
+			)}
+			<InkEmbedDisplayModeSwitch
+				filePath={props.filePath}
+				inkIconKind={props.inkIconKind}
+			/>
+		</div>
+	);
 }
 
 /** Circular toggle between ink preview and transcript on a locked embed. */

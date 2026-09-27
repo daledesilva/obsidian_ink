@@ -42,3 +42,4 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
 - **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
 - **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
+- **21 – Handwriting Transcription**: Eval SVGs from `tests/fixtures/handwriting-transcription/`, embedded for manual transcribe checks

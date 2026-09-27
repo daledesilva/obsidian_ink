@@ -53,6 +53,8 @@ export interface HandwritingTranscriptionQueueSnapshotItem {
 	isProcessing: boolean;
 }
 
+export type HandwritingTranscriptionQueueFileStatus = 'processing' | 'queued';
+
 // Settings Transcription Queue card repaints from this event; localStorage has no cross-tab listener.
 function notifyHandwritingTranscriptionQueueChanged(): void {
 	window.dispatchEvent(new CustomEvent(HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT));
@@ -82,6 +84,18 @@ export function readHandwritingTranscriptionQueueSnapshot(): HandwritingTranscri
 		});
 	}
 	return snapshot;
+}
+
+/** Whether one ink file is actively transcribing or waiting in the serial queue. */
+export function getHandwritingTranscriptionQueueStatusForFile(
+	filePath: string,
+): HandwritingTranscriptionQueueFileStatus | null {
+	const queueItem = readHandwritingTranscriptionQueueSnapshot().find(
+		(item) => item.filePath === filePath,
+	);
+	if (!queueItem) return null;
+	if (queueItem.isProcessing) return 'processing';
+	return 'queued';
 }
 
 /** Same-tab queue updates; storage listeners are not needed (queue is in-memory + localStorage writes). */

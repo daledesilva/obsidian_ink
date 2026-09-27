@@ -15,6 +15,7 @@ import { Loader2Icon } from 'src/graphics/icons/loader-2-icon';
 import { ClockIcon } from 'src/graphics/icons/clock-icon';
 import { normalizeInkTranscriptMarkdown } from 'src/logic/normalize-ink-transcript-markdown';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
+import { inkEmbedScheduleAfterLayout } from 'src/logic/utils/ink-embed-height-cache';
 
 //////////
 //////////
@@ -54,7 +55,9 @@ export function InkTranscriptView(props: InkTranscriptViewProps) {
 
 		const reportHeight = () => {
 			if (cancelled) return;
-			onHeightChangeRef.current?.(hostEl.offsetHeight);
+			// scrollHeight still grows when a leftover aspect-ratio height constrains the box.
+			// offsetHeight would report that box and the first toggle would never remeasure.
+			onHeightChangeRef.current?.(hostEl.scrollHeight);
 		};
 
 		// Flourish glyphs only. Blank lines stay: they are real list and paragraph breaks.
@@ -66,7 +69,11 @@ export function InkTranscriptView(props: InkTranscriptViewProps) {
 			props.sourcePath,
 			mount,
 		).then(() => {
-			reportHeight();
+			// The promise resolves before layout. A sync measure matches the ink box and
+			// CodeMirror keeps that height until the user toggles away and back.
+			inkEmbedScheduleAfterLayout(() => {
+				reportHeight();
+			});
 		});
 
 		// Images and post-processors can change height after the first paint.

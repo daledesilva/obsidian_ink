@@ -30,7 +30,7 @@ import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
 import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
-import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
+import { enqueueAuto, enqueueManualTranscription } from "src/logic/handwriting-transcription-queue";
 import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
 import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
 import { InkEmbedTranscriptControls, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
@@ -141,9 +141,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		translate: '-50%',
 	};
 	if (showTranscript) {
+		// Auto until the markdown has been measured. An aspect-ratio height makes the
+		// first toggle report the ink box, and CodeMirror never remeasures.
 		resizeContainerStyle = {
 			position: 'relative',
-			height: resizeHeightPx + 'px',
+			height: transcriptHeightIsReady ? resizeHeightPx + 'px' : 'auto',
 		};
 	}
 
@@ -163,6 +165,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		if (showTranscript) {
 			resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
 			resizeContainerEl.style.maxWidth = '';
+			resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
 		} else {
 			resizeContainerEl.removeAttribute('data-ink-display-mode');
 		}
@@ -269,6 +272,53 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			action: () => { handleDeleteEmbed(); },
 		},
 	];
+
+	function handleCopyTranscript() {
+		const text = transcript?.trim() ?? '';
+		if (!text) {
+			new Notice('No transcript to copy');
+			return;
+		}
+		void navigator.clipboard.writeText(text).then(() => {
+			new Notice('Transcript copied to clipboard');
+		}).catch(() => {
+			new Notice('Failed to copy transcript to clipboard');
+		});
+	}
+
+	// Locked editor is unmounted, so this reads the saved SVG instead of the live canvas.
+	async function updateTranscriptFromLockedEmbed() {
+		if (!props.embeddedFile) return;
+		const svgFileContent = await props.embeddedFile.vault.read(props.embeddedFile);
+		await enqueueManualTranscription({
+			file: props.embeddedFile,
+			fileType: 'inkDrawing',
+			svgFileContent,
+		});
+	}
+
+	// includeCopyTranscript: transcript view always; ink view only once a transcript exists.
+	function lockedEmbedMenuOptions(includeCopyTranscript: boolean): MenuOption[] {
+		const options: MenuOption[] = [
+			{
+				text: hasTranscript ? 'Update transcript' : 'Transcribe',
+				action: () => { void updateTranscriptFromLockedEmbed(); },
+			},
+			{
+				text: 'Open drawing',
+				action: () => { void openInDedicatedView(); },
+			},
+			{ separator: true },
+		];
+		if (includeCopyTranscript) {
+			options.push({
+				text: 'Copy transcript',
+				action: () => { handleCopyTranscript(); },
+			});
+		}
+		options.push(...embedClipboardMenuOptions);
+		return options;
+	}
 
 	const commonExtendedOptions = [
 		{
@@ -385,15 +435,20 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				>
 				
 				{showTranscript && transcript && (
-					<InkTranscriptView
-						app={getGlobals().plugin.app}
-						markdown={transcript}
-						sourcePath={props.sourceMdFile?.path ?? ''}
-						onHeightChange={applyTranscriptHeight}
-					/>
+					<EmbedPreviewContextMenu
+						menuOptions={lockedEmbedMenuOptions(true)}
+						layout='content'
+					>
+						<InkTranscriptView
+							app={getGlobals().plugin.app}
+							markdown={transcript}
+							sourcePath={props.sourceMdFile?.path ?? ''}
+							onHeightChange={applyTranscriptHeight}
+						/>
+					</EmbedPreviewContextMenu>
 				)}
 				{!showTranscript && (
-					<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
+					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 						<DrawingEmbedPreviewWrapper
 							embedId = {props.embedId}
 							embeddedFile = {props.embeddedFile}
@@ -517,10 +572,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			return heightPx;
 		});
 		if (!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.classList.remove('ddc_ink_smooth-transition');
 		resizeContainerElRef.current.style.height = heightPx + 'px';
 		inkEmbedSyncWidgetRootMinHeightToContent({
 			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 		});
+		// Always remeasure. Skipping when the pixel height matches the ink box left
+		// the first toggle stuck until the user switched away and back.
 		props.onRequestMeasure?.();
 	}
 

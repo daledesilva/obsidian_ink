@@ -1,4 +1,4 @@
-import { Component, EventRef, MarkdownRenderChild, TFile } from 'obsidian';
+import { Component, EventRef, MarkdownRenderChild, Notice, TFile } from 'obsidian';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import classNames from 'classnames';
@@ -16,6 +16,12 @@ import {
 import { useInkFileTranscript } from 'src/logic/use-ink-file-transcript';
 import { useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
 import { InkEmbedTranscriptControls, InkTranscriptView } from 'src/components/formats/current/ink-transcript-view/ink-transcript-view';
+import { EmbedPreviewContextMenu } from 'src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu';
+import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
+import { copyEmbedMarkdownToClipboard } from 'src/logic/utils/copy-embed-to-clipboard';
+import { enqueueManualTranscription } from 'src/logic/handwriting-transcription-queue';
+import { openInkFileInView } from 'src/logic/utils/open-file';
+import { openRemoveEmbedFlow } from 'src/logic/utils/remove-embed-flow';
 
 //////////
 //////////
@@ -176,7 +182,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 	if (drawingShowsTranscript) {
 		resizeStyle = {
 			position: 'relative',
-			height: `${drawingHeightPx}px`,
+			height: transcriptHeightIsReady ? `${drawingHeightPx}px` : 'auto',
 		};
 	} else if (props.embedKind === 'drawing') {
 		resizeStyle = {
@@ -198,6 +204,20 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		const readingHostEl = embedEl.closest('.ddc_ink_reading-embed-host');
 		if (readingHostEl instanceof HTMLElement) {
 			readingHostEl.classList.toggle('ddc_ink_drawing-text-layout', drawingShowsTranscript);
+		}
+
+		// Set text mode before applyReadingModeEmbedDimensions. Otherwise the first
+		// toggle writes the SVG aspect height back over the transcript.
+		if (resizeContainerEl) {
+			if (showTranscript) {
+				resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
+				resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
+				if (!transcriptHeightIsReady) {
+					resizeContainerEl.style.height = 'auto';
+				}
+			} else {
+				resizeContainerEl.removeAttribute('data-ink-display-mode');
+			}
 		}
 
 		applyReadingModeEmbedDimensions(props.embedKind, resizeContainerEl, props.embedSettings);
@@ -224,6 +244,117 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		);
 	}
 
+	const embeddedFile = props.embeddedFile;
+	const isDrawing = props.embedKind === 'drawing';
+	const embedType = isDrawing ? 'inkDrawing' : 'inkWriting';
+
+	function sourceNoteFile(): TFile | null {
+		if (!props.sourcePath) return null;
+		const file = props.plugin.app.vault.getAbstractFileByPath(props.sourcePath);
+		if (file instanceof TFile) return file;
+		return null;
+	}
+
+	async function embedLineFromNote(): Promise<string | null> {
+		const sourceFile = sourceNoteFile();
+		if (!sourceFile) return null;
+		const noteContent = await props.plugin.app.vault.read(sourceFile);
+		const needle = `(<${embeddedFile.path}>)`;
+		const line = noteContent.split('\n').find((entry) => entry.includes(needle));
+		return line ?? null;
+	}
+
+	function handleCopyTranscript() {
+		const text = transcript?.trim() ?? '';
+		if (!text) {
+			new Notice('No transcript to copy');
+			return;
+		}
+		void navigator.clipboard.writeText(text).then(() => {
+			new Notice('Transcript copied to clipboard');
+		}).catch(() => {
+			new Notice('Failed to copy transcript to clipboard');
+		});
+	}
+
+	async function updateTranscriptFromLockedEmbed() {
+		const svgFileContent = await embeddedFile.vault.read(embeddedFile);
+		await enqueueManualTranscription({
+			file: embeddedFile,
+			fileType: embedType,
+			svgFileContent,
+		});
+	}
+
+	async function handleCopyEmbed() {
+		const line = await embedLineFromNote();
+		if (!line) {
+			new Notice('Could not read embed Markdown to copy');
+			return;
+		}
+		await copyEmbedMarkdownToClipboard(line);
+	}
+
+	function handleDeleteEmbed() {
+		const sourceFile = sourceNoteFile();
+		if (!sourceFile) {
+			new Notice('Could not find the note for this embed');
+			return;
+		}
+		openRemoveEmbedFlow(
+			props.plugin,
+			embeddedFile,
+			sourceFile,
+			embedType,
+			() => {
+				void removeEmbedLineFromNote(sourceFile);
+			},
+		);
+	}
+
+	async function removeEmbedLineFromNote(sourceFile: TFile) {
+		const noteContent = await props.plugin.app.vault.read(sourceFile);
+		const needle = `(<${embeddedFile.path}>)`;
+		const lines = noteContent.split('\n');
+		const lineIndex = lines.findIndex((entry) => entry.includes(needle));
+		if (lineIndex < 0) return;
+		lines.splice(lineIndex, 1);
+		await props.plugin.app.vault.modify(sourceFile, lines.join('\n'));
+	}
+
+	// includeCopyTranscript: transcript view always; ink view only once a transcript exists.
+	function lockedEmbedMenuOptions(includeCopyTranscript: boolean): MenuOption[] {
+		const options: MenuOption[] = [
+			{
+				text: hasTranscript ? 'Update transcript' : 'Transcribe',
+				action: () => { void updateTranscriptFromLockedEmbed(); },
+			},
+			{
+				text: isDrawing ? 'Open drawing' : 'Open writing',
+				action: () => { void openInkFileInView(embeddedFile, embedType); },
+			},
+			{ separator: true },
+		];
+		if (includeCopyTranscript) {
+			options.push({
+				text: 'Copy transcript',
+				action: () => { handleCopyTranscript(); },
+			});
+		}
+		options.push(
+			{
+				text: 'Copy embed',
+				action: () => { void handleCopyEmbed(); },
+			},
+			{
+				text: 'Delete embed',
+				warning: true,
+				action: () => { handleDeleteEmbed(); },
+			},
+		);
+		return options;
+	}
+
 	return (
 		<div
 			ref={embedContainerElRef}
@@ -241,30 +372,39 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 				style={resizeStyle}
 			>
 				{showTranscript && transcript && (
-					<InkTranscriptView
-						app={props.plugin.app}
-						markdown={transcript}
-						sourcePath={props.sourcePath ?? ''}
-						parentComponent={props.markdownComponent}
-						onHeightChange={applyTranscriptHeight}
-					/>
+					<EmbedPreviewContextMenu
+						menuOptions={lockedEmbedMenuOptions(true)}
+						layout='content'
+					>
+						<InkTranscriptView
+							app={props.plugin.app}
+							markdown={transcript}
+							sourcePath={props.sourcePath ?? ''}
+							parentComponent={props.markdownComponent}
+							onHeightChange={applyTranscriptHeight}
+						/>
+					</EmbedPreviewContextMenu>
 				)}
 				{!showTranscript && props.embedKind === 'drawing' && (
-					<DrawingEmbedPreview
-						key={props.embeddedFile.path}
-						embeddedFile={props.embeddedFile}
-						embedSettings={props.embedSettings}
-						onReady={() => {}}
-						onClick={() => {}}
-					/>
+					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
+						<DrawingEmbedPreview
+							key={props.embeddedFile.path}
+							embeddedFile={props.embeddedFile}
+							embedSettings={props.embedSettings}
+							onReady={() => {}}
+							onClick={() => {}}
+						/>
+					</EmbedPreviewContextMenu>
 				)}
 				{!showTranscript && props.embedKind !== 'drawing' && (
-					<WritingEmbedPreview
-						plugin={props.plugin}
-						writingFile={props.embeddedFile}
-						onResize={() => {}}
-						onClick={() => {}}
-					/>
+					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
+						<WritingEmbedPreview
+							plugin={props.plugin}
+							writingFile={props.embeddedFile}
+							onResize={() => {}}
+							onClick={() => {}}
+						/>
+					</EmbedPreviewContextMenu>
 				)}
 				{props.embeddedFile && (
 					<InkEmbedTranscriptControls

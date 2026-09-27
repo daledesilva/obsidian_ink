@@ -341,7 +341,32 @@ flowchart LR
 
 **Spacing:** The transcript view sets `white-space: normal`. It is mounted inside the CodeMirror editor, which sets `white-space: break-spaces`; inherited, that renders the newline text nodes `MarkdownRenderer` leaves between `<p>`, `<ul>`, and `<li>` as extra blank lines. Obsidian's own `--p-spacing` paragraph and list margins are kept; only the first and last child's outer margins are zeroed so they do not stack on the embed padding.
 
-**Height:** Text mode sizes the embed from rendered markdown height (`ResizeObserver` + `onRequestMeasure` in Live Preview). Aspect-ratio height from the SVG viewBox is skipped while text mode is active so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
+**Height:** Text mode sizes the embed from the rendered markdown, not the SVG viewBox, so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
+
+The first toggle used to leave the ink box's inline height in place. `MarkdownRenderer.render` resolves before layout, so a sync `offsetHeight` matched that box, `onRequestMeasure` was skipped, and CodeMirror kept the ink height until the user toggled away and back. Entering text mode now clears that inline height and the smooth-height class, sets `data-ink-display-mode="text"` before any measure (so reading mode cannot write the SVG height back), then measures `scrollHeight` inside [`inkEmbedScheduleAfterLayout`](../src/logic/utils/ink-embed-height-cache.ts) and always requests a CodeMirror measure.
+
+```mermaid
+flowchart LR
+  enter[Enter text mode]
+  clear[Clear aspect-ratio height]
+  render[MarkdownRenderer]
+  after[Measure scrollHeight after layout]
+  cm[requestMeasure]
+  enter --> clear --> render --> after --> cm
+```
+
+**Context menu:** Right-click on a locked embed, in Live Preview and reading mode, uses the ink menu instead of Obsidian's markdown edit menu. The transcript is read-only, so those edit actions do nothing.
+
+| Order | Item | When |
+|-------|------|------|
+| 1 | Update transcript, or Transcribe | Always. Transcribe when the file has no transcript yet |
+| 2 | Open writing, or Open drawing | Always |
+| — | separator | |
+| 3 | Copy transcript | Ink view and transcript view, when a transcript exists. Copies the SVG markdown |
+| 4 | Copy embed | Always |
+| 5 | Delete embed | Always |
+
+Update transcript reads the saved SVG and calls `enqueueManualTranscription`. The editor is unmounted while the embed is locked. The transcript wrapper uses `layout="content"` so it stays in normal flow. The ink preview keeps the absolute fill wrapper.
 
 **Drawing layout in text mode:** Locked **drawing** embeds normally use a saved pixel width, centre alignment, and full-bleed into page margins (Live Preview via [`applyCommonAncestorStyling`](../src/logic/utils/embed.ts) on `.cm-embed-block`; reading mode via negative margins on `.ddc_ink_reading-embed-host`). In **text** mode only, the embed adopts the same **column width and note margins** as a writing embed. Toggling back to **Ink** restores drawing ink layout. Writing embeds are unchanged.
 
@@ -434,6 +459,8 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Do not fix list layout by rewriting blank lines.** The renderer cannot know what the user wrote; list grouping and paragraph breaks belong in the portal prompt. The normalizer only maps flourish glyphs to `- `.
 - **Capture the live SVG before locking on manual Transcribe.** `closeEditor` unmounts the editor; build the SVG string first, then await the lock, then enqueue.
 - **No SVG `<text>` in icons.** iPad WKWebView renders it unreliably; use path-based icons.
+- **Do not measure transcript height before layout.** A sync `offsetHeight` on the first toggle matches the leftover ink box, and skipping `onRequestMeasure` leaves CodeMirror at that height until the user toggles away and back. Clear the aspect-ratio height, measure `scrollHeight` after layout, and always request a measure.
+- **Do not wrap the transcript in the absolute context-menu fill.** That wrapper is for the ink preview. On the transcript it takes the markdown out of flow and the embed collapses. Use `layout="content"`.
 - **Do not notify between leaving `pending` and setting `inflightJob`.** `kickHandwritingTranscriptionQueue` removes the job from `pending` and `runTranscriptionJob` assigns `inflightJob` before the only notify. A notify in the gap makes a visible embed read "not in the queue" and skip the spinner. The status cluster must stay mounted on locked embeds that have no transcript yet, or a first transcription never shows the icon.
 
 ## Related docs

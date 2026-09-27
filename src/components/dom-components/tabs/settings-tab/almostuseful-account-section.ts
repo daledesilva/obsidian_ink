@@ -12,6 +12,7 @@ import {
 	extractAlmostUsefulAuthorizationCodeInputCharacters,
 	normalizeAlmostUsefulAuthorizationCode,
 } from 'src/logic/almostuseful/almostuseful-authorization-code-format';
+import { buildAlmostUsefulAuthorizeUrl } from 'src/logic/almostuseful/almostuseful-authorize-url';
 import {
 	cancelAlmostUsefulPendingLogin,
 	completeAlmostUsefulPastedHandoffCode,
@@ -91,7 +92,7 @@ export function insertAlmostUsefulAccountSection(
 				.addButton((button) => {
 					decorateAlmostUsefulLinkAccountButton(button);
 					if (phase === 'opening') {
-						// Same Log in row for four seconds: disable only, do not swap to paste UI.
+						// Same Log in row for two seconds: disable only, do not swap to paste UI.
 						button.setDisabled(true);
 					}
 					button.onClick(() => {
@@ -323,6 +324,22 @@ function insertAlmostUsefulAuthorizationCodeOtpInput(
 /** Paste the continue-page code into the window that started Log in. */
 function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void): void {
 	const cardEl = contentEl.createDiv('ddc_ink_almostuseful-handoff-card');
+	// Fallback link when shell.openExternal / window.open fails on some devices.
+	const pendingHandoff = readAlmostUsefulHandoffPending();
+	if (pendingHandoff?.codeChallenge) {
+		const authorizeUrl = buildAlmostUsefulAuthorizeUrl({
+			portalOrigin: resolveAlmostUsefulPortalOrigin(),
+			state: pendingHandoff.state,
+			codeChallenge: pendingHandoff.codeChallenge,
+		});
+		const fallbackEl = cardEl.createEl('p', { cls: 'ddc_ink_almostuseful-handoff-fallback' });
+		fallbackEl.appendText("If the authorisation didn't open in a browser, ");
+		const openAuthorizeLinkEl = fallbackEl.createEl('a', { text: 'click here to open it' });
+		openAuthorizeLinkEl.addEventListener('click', (event) => {
+			event.preventDefault();
+			openAlmostUsefulBrowserUrl(authorizeUrl);
+		});
+	}
 	cardEl.createEl('p', {
 		cls: 'ddc_ink_almostuseful-handoff-instruction',
 		text: 'Confirm in your browser, then paste the code from the website here.',

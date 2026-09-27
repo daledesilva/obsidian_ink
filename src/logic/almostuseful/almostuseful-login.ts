@@ -25,7 +25,8 @@ import {
 
 export type AlmostUsefulLoginPhase = 'idle' | 'opening' | 'pending';
 
-const PASTE_UI_DELAY_MS = 4000;
+// Brief delay before swapping Link account for the paste card so the system browser can open first.
+const PASTE_UI_DELAY_MS = 2000;
 
 let almostUsefulLoginPhase: AlmostUsefulLoginPhase = 'idle';
 let almostUsefulPasteUiTimer: number | null = null;
@@ -76,6 +77,7 @@ export async function startAlmostUsefulBrowserLogin(): Promise<void> {
 	writeAlmostUsefulHandoffPending({
 		state,
 		codeVerifier: pkce.verifier,
+		codeChallenge: pkce.challenge,
 	});
 	almostUsefulLoginPhase = 'opening';
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();

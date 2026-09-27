@@ -41,7 +41,7 @@ flowchart TD
   OpenSettings --> SignedIn{Device app token?}
   SignedIn -->|no| LoggedOut[Collapsible Almost Useful account]
   LoggedOut --> Idle[Link account CTA]
-  Idle --> Opening[Link account disabled four seconds]
+  Idle --> Opening[Link account disabled two seconds]
   Opening --> Pending[Centred six-box paste card plus Connect and Cancel]
   Idle --> BrowserLogin[System browser authorize]
   Pending --> Exchange[HTTPS /api/oauth/token]
@@ -62,8 +62,8 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 | State | Header | Content |
 |-------|--------|---------|
 | Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description **Create and link an Almost Useful account to utilise handwriting transcription.** Control is a larger CTA with an outline head-and-shoulders icon left of the label (`ddc_ink_link_account_user`, registered in `onload` because `ButtonComponent#setIcon` plus CTA text does not paint reliably). No Create account / Forgot password links — those live on the portal login page after the browser opens |
-| Opening (first ~4s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
-| Pending | Almost Useful account | Centred grey card. Full-width instruction **Confirm in your browser, then paste the code from the website here.** Then six tall rounded character boxes (`XXX-XXX`; hyphen is smaller and not bold). **Cancel pending login** then **Connect** (Connect on the right). Boxes and Cancel use `var(--background-primary)` so they stay darker than the card wash. Link account is hidden so paste is not competing with a second CTA |
+| Opening (first ~2s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
+| Pending | Almost Useful account | Centred grey card. Top line: **If the authorisation didn't open in a browser, click here to open it** (reopens the same authorize URL via `openAlmostUsefulBrowserUrl`, not `href` + `target=_blank`, so desktop Electron uses `shell.openExternal`). Then full-width instruction **Confirm in your browser, then paste the code from the website here.** Then six tall rounded character boxes (`XXX-XXX`; hyphen is smaller and not bold). **Cancel pending login** then **Connect** (Connect on the right). Boxes and Cancel use `var(--background-primary)` so they stay darker than the card wash. Link account is hidden so paste is not competing with a second CTA |
 | Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); **AI Credit Pool** settings card (burndown + usage distribution, or empty-pool products CTA); **Transcription Queue** card when the device-local queue is non-empty |
 | Signed out | — | **Transcription Queue** card hidden — unsigned devices do not enqueue jobs |
 | 401 | Treated as signed out | Local session cleared |
@@ -111,7 +111,7 @@ This settings UI does **not** call placeholder job routes.
 - Desktop opens the authorize URL with Electron `shell.openExternal`; mobile uses `window.open`.
 - Session suffix passed to `saveLocally`: `almostuseful_session` → full key `au_ink_almostuseful_session`. Do not double-prefix. Shape: `{ tokenType: 'almostuseful_app', accessToken, refreshToken, expiresAtEpochSeconds, grantId, userId, clientId, displayName, userEmail }`.
 - Usage cache suffix: `almostuseful_usage_cache` → `au_ink_almostuseful_usage_cache`.
-- In-flight PKCE: `almostuseful_handoff`. **Cancel pending login** clears it.
+- In-flight PKCE: `almostuseful_handoff` (`state`, `codeVerifier`, `codeChallenge`). **Cancel pending login** clears it. `codeChallenge` lets the paste card rebuild the authorize URL for the fallback link after settings re-render; handoffs saved before this field existed are treated as invalid (user cancels and starts again).
 - Refresh: `POST /api/oauth/token` with `grant_type=refresh_token`. `invalid_grant` / 401 clears storage.
 - Log out: `POST /api/oauth/grants/:grantId/revoke` with the app Bearer, then delete the session key. Vault **Reset settings** does not need to wipe `data.json` to sign out.
 - Website **Revoke** on Connected apps makes the next burndown call 401 → signed-out UI.
@@ -135,7 +135,8 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 - **Do not add TanStack Charts** to match the portal renderer. Remaining/spend parity is the layout math and burndown JSON, not the chart library. The plugin bundle is already large.
 - **2px / 4px min-segment heights are visual only.** Tooltips use true remaining / spend. Vanilla tippy follows the pointer (`offset: [0, 12]`); the tooltip is non-interactive so it cannot steal hover.
 - **Popped-out Settings:** tippy `appendTo` and pointer listeners must use `svg.ownerDocument`, not the module `document`, or tooltips mount on the wrong Electron window.
-- **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 4000ms before `onRerender` to pending. Until then, only disable Link account in place — do not remove the button or change copy.
+- **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 2000ms before `onRerender` to pending. Until then, only disable Link account in place — do not remove the button or change copy.
+- **Fallback authorize link.** Some devices do not open the system browser when Link account is clicked. The paste card includes a manual reopen link at the top; it uses the same `openAlmostUsefulBrowserUrl` path as Manage account. The link is omitted when handoff state has no `codeChallenge` (e.g. mid-update in-flight login).
 - **Paste boxes are not a single text field.** Paste (including Cmd+V) strips hyphens and spaces and fills all six cells. The hyphen is display-only. Obsidian’s global settings `input` rules set height and background; the handoff cells override those with a scoped selector and `!important`, or the boxes stay short and the same colour as the card. Cancel uses the same `background-primary` fill so it does not disappear into the card wash.
 - **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
 - **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Link account again so they can Authorize Ink.

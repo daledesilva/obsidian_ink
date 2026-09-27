@@ -28,6 +28,8 @@ export interface AlmostUsefulSession {
 export interface AlmostUsefulHandoffPending {
 	state: string;
 	codeVerifier: string;
+	/** S256 challenge for rebuilding the authorize URL on the paste-card fallback link. */
+	codeChallenge: string;
 }
 
 export interface AlmostUsefulDebugConfig {
@@ -103,7 +105,12 @@ export function readAlmostUsefulHandoffPending(): AlmostUsefulHandoffPending | n
 		const parsed = parsedUnknown as Partial<AlmostUsefulHandoffPending>;
 		if (typeof parsed.state !== 'string') return null;
 		if (typeof parsed.codeVerifier !== 'string') return null;
-		return { state: parsed.state, codeVerifier: parsed.codeVerifier };
+		if (typeof parsed.codeChallenge !== 'string') return null;
+		return {
+			state: parsed.state,
+			codeVerifier: parsed.codeVerifier,
+			codeChallenge: parsed.codeChallenge,
+		};
 	} catch {
 		return null;
 	}

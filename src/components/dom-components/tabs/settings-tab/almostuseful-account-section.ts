@@ -87,7 +87,7 @@ export function insertAlmostUsefulAccountSection(
 				.setClass('ddc_ink_almostuseful-link-account-setting')
 				.setName('Link account')
 				.setDesc(
-					'Create and link an Almost Useful account to utilise handwriting transcription.',
+					'Create and link an Almost Useful account to utilise handwriting transcription. Almost Useful is an accounts portal created by Dale de Silva, the developer of Ink.',
 				)
 				.addButton((button) => {
 					decorateAlmostUsefulLinkAccountButton(button);
@@ -104,6 +104,7 @@ export function insertAlmostUsefulAccountSection(
 					});
 				});
 		}
+		insertHandwritingTranscriptionPrivacyDisclosure(contentEl);
 		insertTranscriptionQueueSection(contentEl);
 		return;
 	}
@@ -130,7 +131,43 @@ export function insertAlmostUsefulAccountSection(
 	const usageCardEl = contentEl.createDiv('ddc_ink_almostuseful-settings-card');
 	const usageHostEl = usageCardEl.createDiv('ddc_ink_almostuseful-usage');
 	void loadUsageInto(usageHostEl, session, portalOrigin);
+	insertHandwritingTranscriptionPrivacyDisclosure(contentEl);
 	insertTranscriptionQueueSection(contentEl);
+}
+
+/** Transcription data-flow and retention disclosure; shown signed out and under usage when linked. */
+function insertHandwritingTranscriptionPrivacyDisclosure(contentEl: HTMLElement): void {
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setClass('ddc_ink_almostuseful-processing-data-setting')
+		.setName('Processing your data')
+		.setDesc(handwritingTranscriptionProcessingDataSettingDesc());
+}
+
+function handwritingTranscriptionProcessingDataSettingDesc(): DocumentFragment {
+	const frag = createFragment();
+	// Plain flow in .setting-item-description (no <p>) so colour/spacing match Link account setDesc text.
+	const descEl = createDiv();
+
+	descEl.appendText(
+		"When Ink transcribes handwriting, your Ink SVG is sent over ",
+	);
+	descEl.createEl('strong').setText('HTTPS');
+	descEl.appendText(' from your app to ');
+	descEl.createEl('strong').setText('Almost Useful');
+	descEl.appendText("'s servers, then to ");
+	descEl.createEl('strong').setText('OpenRouter');
+	descEl.appendText(', which passes it to ');
+	descEl.createEl('strong').setText("Google's Gemini");
+	descEl.appendText(
+		' model to read it. The transcript is returned to your app via the same route and stored in the SVG file as metadata and in all Markdown notes it is embedded in.',
+	);
+	const retentionEl = descEl.createSpan({ cls: 'ddc_ink_almostuseful-processing-data-retention' });
+	retentionEl.createEl('strong').setText('Almost Useful does not store the SVG or transcript');
+	retentionEl.appendText(' on its servers after processing.');
+
+	frag.appendChild(descEl);
+	return frag;
 }
 
 /** Device-local transcription queue card; hidden when the queue is empty. */

@@ -346,7 +346,7 @@ flowchart LR
   Status -->|null| None
 ```
 
-**Icons:** All toggle and status icons are path-based SVGs. The Write/Draw icons use `fill="currentColor"`; the Lucide text, loader, and clock icons are stroke-only (`fill="none"`) and the toggle SCSS keeps them unfilled. iPad WKWebView did not reliably draw the old SVG `<text>` "Aa" glyph with a CSS-variable font.
+**Icons:** All toggle and status icons are path-based SVGs. Write/Draw omit `fill="currentColor"` on the SVG root so parent SCSS can set `fill: var(--color-base-60)` (WKWebView on iPad did not reliably paint Material paths when the root used `fill="currentColor"`). The Lucide text, loader, and clock icons are stroke-only (`fill="none"`); shared SCSS on `.ddc_ink_transcript-queue-status` and `.ddc_ink_display-mode-toggle` keeps stroke icons unfilled and sizes SVGs like embed toolbar buttons. iPad WKWebView did not reliably draw the old SVG `<text>` "Aa" glyph with a CSS-variable font.
 
 **Transcript markdown normalization:** [`normalizeInkTranscriptMarkdown`](../src/logic/normalize-ink-transcript-markdown.ts) runs on save (`saveWriteFileTranscript`) and again before render, so older transcripts get the same treatment. It only rewrites handwritten list flourishes — arrows (`->`, `→`), dots (`•`), stars (`★`), boxes (`☐`), and `*`/`+` bullets — into `- ` bullets. Numbered items, indentation, and **blank lines are left unchanged**: whether a blank line separates two lists or paragraphs is decided by the portal prompt, which can see the handwriting. The portal applies the same flourish rewrite to its response.
 

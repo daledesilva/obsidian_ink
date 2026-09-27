@@ -1,5 +1,11 @@
 import * as semVer from 'semver';
-import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
+import {
+    createNoticeBodyCtaButton,
+    createNoticeCtaBar,
+    createNoticeTemplate,
+    launchPersistentNotice,
+} from 'src/components/dom-components/notice-components';
+import { openInkSettingsTab } from 'src/components/dom-components/tabs/settings-tab/settings-tab';
 import InkPlugin from "src/main";
 
 ///////////
@@ -29,36 +35,27 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.7`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6`);
 
-    const changesListEl = scrollAreaEl.createEl('ul');
-    changesListEl.createEl('li').setText(`Fixed iPad Scribble functionality interfering with Ink.`);
-    changesListEl.createEl('li').setText(`Experimental fix to Wacom pen erasers.`);
-    changesListEl.createEl('li').setText(`Fixed spacing issues around embeds.`);
-    changesListEl.createEl('li').setText(`Redesigned toolbar UX for clarity.`);
-    changesListEl.createEl('li').setText(`Refined stroke sizes to match across writing, drawing, and different input types.`);
-    changesListEl.createEl('li').setText(`Fixed Ink previews not appearing on linux.`);
-    changesListEl.createEl('li').setText(`Fixed random scroll jumps bug.`);
-    changesListEl.createEl('li').setText(`Performance optimisations.`);
+    scrollAreaEl.createEl('p').createEl('strong').setText(`Handwriting transcriptions (OCR)`);
+    scrollAreaEl.createEl('p').setText(`Added the ability to transcribe handwriting into markdown text.`);
 
-    const {
-        tertiaryBtnEl,
-    } = createNoticeCtaBar(footerEl, {
+    const moreInfoBtnEl = createNoticeBodyCtaButton(scrollAreaEl, 'Begin transcriptions setup');
+
+    const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
             href: 'https://youtu.be/htIMy9kQtww',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',
-    })
+    });
 
     const notice = launchPersistentNotice(noticeBody);
 
-    // if (primaryBtnEl) {
-    //     primaryBtnEl.addEventListener('click', () => {
-    //         notice.hide();
-    //         // showChangesPageTwo(plugin);
-    //     });
-    // }
+    moreInfoBtnEl.addEventListener('click', () => {
+        notice.hide();
+        openInkSettingsTab(plugin);
+    });
 
     if (tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {

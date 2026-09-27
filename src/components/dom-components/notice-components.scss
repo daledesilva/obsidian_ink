@@ -124,6 +124,23 @@
         }        
     }
 
+    .ddc_ink_notice-body-cta {
+        margin-block: 0.85em 0.35em;
+
+        button.ddc_ink_primary-btn {
+            pointer-events: all;
+        }
+    }
+
+    button.ddc_ink_primary-btn {
+        color: var(--text-on-accent);
+        background-color: var(--interactive-accent);
+
+        &:hover {
+            background-color: var(--interactive-accent-hover);
+        }
+    }
+
     .ddc_ink_notice-footer:not(:has(.ddc_ink_notice-footer-links)) .ddc_ink_notice-cta-bar {
         width: 100%;
     }
@@ -154,18 +171,6 @@
                     text-decoration: underline;
                 }
             }
-
-            &.ddc_ink_primary-btn {
-                color: var(--text-on-accent);
-                background-color: var(--interactive-accent);
-                
-                &:hover {
-                    background-color: var(--interactive-accent-hover);
-                }
-            }
-
         }
-        
-
     }
 }

@@ -28,8 +28,38 @@
 	flex-direction: column;
 	gap: 0.65em;
 
-	p {
-		color: var(--text-normal);
+	// Match Obsidian default description colour/spacing for featured account rows.
+	.ddc_ink_almostuseful-link-account-setting,
+	.ddc_ink_almostuseful-processing-data-setting {
+		.setting-item-description {
+			color: var(--text-muted);
+
+			strong {
+				font-weight: var(--font-semibold);
+			}
+		}
+	}
+
+	.ddc_ink_almostuseful-processing-data-setting {
+		// Info-only row: no empty control column beside the description.
+		.setting-item-control {
+			display: none;
+		}
+
+		.setting-item-info {
+			width: 100%;
+		}
+
+		.setting-item-description {
+			strong {
+				color: var(--text-normal);
+			}
+
+			.ddc_ink_almostuseful-processing-data-retention {
+				display: block;
+				margin-top: 0.75em;
+			}
+		}
 	}
 
 	// Match section padding top/bottom; no extra Obsidian setting-item chrome on the action row.
@@ -130,6 +160,8 @@
 }
 
 .ddc_ink_almostuseful-handoff-code-input {
+	// Shrink OTP cells from the card width on narrow settings panes (never wrap to a second line).
+	container-type: inline-size;
 	display: flex;
 	justify-content: center;
 	width: 100%;
@@ -138,19 +170,25 @@
 
 .ddc_ink_almostuseful-handoff-code-row {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	align-items: center;
 	justify-content: center;
-	gap: 0.55em;
+	gap: clamp(0.2em, 2cqi, 0.55em);
+	width: 100%;
+	max-width: calc((3.5rem * 6) + 1.5em);
 }
 
 // Obsidian's settings input rules set height/background on all text inputs; scope overrides here.
 .ddc_ink_almostuseful-handoff-card input[type='text'].ddc_ink_almostuseful-handoff-code-cell {
 	box-sizing: border-box;
-	width: 3.5rem;
-	height: 5.25rem !important;
-	min-height: 5.25rem !important;
-	max-height: 5.25rem !important;
+	flex: 1 1 0;
+	min-width: 0;
+	max-width: 3.5rem;
+	width: auto;
+	aspect-ratio: 2 / 3;
+	height: auto !important;
+	min-height: 0 !important;
+	max-height: none !important;
 	padding: 0 !important;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
@@ -158,7 +196,7 @@
 	background-color: var(--background-primary) !important;
 	color: var(--text-normal);
 	font-family: var(--font-monospace);
-	font-size: 2.15rem;
+	font-size: clamp(1rem, 11cqi, 2.15rem);
 	font-weight: var(--font-semibold);
 	line-height: 1;
 	text-align: center;
@@ -180,7 +218,8 @@
 }
 
 .ddc_ink_almostuseful-handoff-code-separator {
-	font-size: 1.15rem;
+	flex-shrink: 0;
+	font-size: clamp(0.85rem, 6cqi, 1.15rem);
 	font-weight: var(--font-normal);
 	line-height: 1;
 	color: var(--text-muted);

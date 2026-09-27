@@ -41,24 +41,39 @@
 	pointer-events: none;
 }
 
-.ddc_ink_transcript-queue-status {
+// Locked-embed control buttons — same fill / svg sizing as embed toolbars
+// (writing-menu.scss, extended-writing-menu.scss). WKWebView on iPad does not
+// reliably paint Material paths when the SVG root uses fill="currentColor".
+.ddc_ink_transcript-queue-status,
+.ddc_ink_display-mode-toggle {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	width: 1.35em;
-	height: 1.35em;
-	padding: 0;
+	padding: 0 !important;
 	pointer-events: auto;
 	border: none;
-	background: none;
-	color: var(--text-muted);
-	cursor: default;
+	color: var(--color-base-60);
+	fill: var(--color-base-60);
 
 	svg {
-		width: 1.35em !important;
-		height: 1.35em !important;
+		width: 1.5em !important;
+		height: 1.5em !important;
+
+		&[fill='none'] {
+			fill: none;
+			stroke: currentColor;
+		}
 	}
+}
+
+.ddc_ink_transcript-queue-status {
+	width: 2.1em;
+	height: 2.1em;
+	background: none;
+	color: var(--text-muted);
+	fill: var(--text-muted);
+	cursor: default;
 
 	&.ddc_ink_transcript-queue-status--processing svg {
 		animation: ddc_ink_transcript-queue-spin 0.8s linear infinite;
@@ -75,30 +90,11 @@
 }
 
 .ddc_ink_display-mode-toggle {
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	width: 2.1em;
 	height: 2.1em;
-	padding: 0;
-	pointer-events: auto;
 	cursor: pointer;
-	border: none;
 	border-radius: 50%;
 	background-color: var(--interactive-normal);
-	color: var(--color-base-60);
-	fill: var(--color-base-60);
-
-	svg {
-		width: 1.35em !important;
-		height: 1.35em !important;
-
-		// Write/Draw icons are filled paths; the Lucide text icon is stroke-only and would fill solid.
-		&[fill='none'] {
-			fill: none;
-			stroke: currentColor;
-		}
-	}
 
 	&:hover {
 		background-color: var(--interactive-accent);

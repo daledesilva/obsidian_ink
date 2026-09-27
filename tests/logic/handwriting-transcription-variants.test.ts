@@ -41,8 +41,6 @@ describe('handwriting-transcription variants', () => {
 		postJob.mockReset();
 		postJob.mockResolvedValue({
 			text: 'Hello world',
-			creditsRemaining: '9.00',
-			amountUsd: '0.001',
 			model: HANDWRITING_TRANSCRIPTION_MODELS.geminiFlashLite,
 			mediaType: 'image/svg+xml',
 		});

@@ -90,10 +90,12 @@ function appendBurndownSvg(
 	plotWidth: number,
 ): void {
 	const todayKey = usageChartTodayKey(series.chartTimeZone);
-	let yAxisMax = series.creditsAllotted;
+	// Full pool is always 100%. The portal no longer sends an allotment amount.
+	const poolPercentCeiling = 100;
+	let yAxisMax = poolPercentCeiling;
 	for (const point of series.points) {
-		if (point.creditsRemaining > yAxisMax) yAxisMax = point.creditsRemaining;
-		if (point.idealRemaining > yAxisMax) yAxisMax = point.idealRemaining;
+		if (point.remainingPercent > yAxisMax) yAxisMax = point.remainingPercent;
+		if (point.idealRemainingPercent > yAxisMax) yAxisMax = point.idealRemainingPercent;
 	}
 	const plotHeight = CREDIT_POOL_PLOT_HEIGHT;
 	const plotTop = CREDIT_POOL_PLOT_PADDING_TOP;
@@ -105,7 +107,7 @@ function appendBurndownSvg(
 	const svg = createSvg(plotWidth, svgHeight);
 	appendBurndownGridLines(
 		svg,
-		series.creditsAllotted,
+		poolPercentCeiling,
 		yAxisMax,
 		plotLeft,
 		plotTop,
@@ -118,14 +120,14 @@ function appendBurndownSvg(
 
 	series.points.forEach((point, index) => {
 		const lineX = creditPoolBurndownLineXForDayIndex(index, pointCount, plotWidth, plotLeft);
-		const idealY = creditPoolYForValue(point.idealRemaining, yAxisMax, plotTop, plotHeight);
+		const idealY = creditPoolYForValue(point.idealRemainingPercent, yAxisMax, plotTop, plotHeight);
 		idealPoints.push(`${lineX},${idealY}`);
 
 		if (point.date > todayKey) return;
 
 		const barLayout = creditPoolBarLayoutForDayIndex(index, pointCount, plotWidth, plotLeft);
 		// Paint remaining from the series; y-max expands if remaining exceeds allotment.
-		const paintedRemaining = point.creditsRemaining;
+		const paintedRemaining = point.remainingPercent;
 		const naturalTop = creditPoolYForValue(paintedRemaining, yAxisMax, plotTop, plotHeight);
 		const painted = layoutCreditPoolSingleBarWithMinimumHeight(
 			naturalTop,
@@ -144,8 +146,7 @@ function appendBurndownSvg(
 			appendPath(svg, path, 'ddc_ink_almostuseful-chart-bar', `burndown:${point.date}`);
 		}
 
-		const percentOfPoolRemaining =
-			series.creditsAllotted > 0 ? (point.creditsRemaining / series.creditsAllotted) * 100 : 0;
+		const percentOfPoolRemaining = point.remainingPercent;
 		const hit = appendHitRect(svg, {
 			x: barLayout.barX,
 			y: plotTop,
@@ -227,7 +228,7 @@ function appendClientUsageSvg(
 				tooltipHtml: clientUsageTooltipHtml({
 					clientLabel: 'Ink',
 					percentOfDay: (row.highlightCreditsUsed / row.dailyTotal) * 100,
-					percentOfPool: percentOfMonthlyPool(row.highlightCreditsUsed, series.creditsAllotted),
+					percentOfPool: row.highlightCreditsUsed,
 				}),
 			});
 		}
@@ -244,7 +245,7 @@ function appendClientUsageSvg(
 				tooltipHtml: clientUsageTooltipHtml({
 					clientLabel: 'Other apps',
 					percentOfDay: (row.otherCreditsUsed / row.dailyTotal) * 100,
-					percentOfPool: percentOfMonthlyPool(row.otherCreditsUsed, series.creditsAllotted),
+					percentOfPool: row.otherCreditsUsed,
 				}),
 			});
 		}
@@ -351,15 +352,15 @@ function buildDailyClientStacks(
 	const stacksByDate = new Map<string, { otherCreditsUsed: number; highlightCreditsUsed: number }>();
 	for (const point of clientDailyUsage) {
 		if (point.date > todayKey) continue;
-		if (point.creditsUsed <= 0) continue;
+		if (point.usedPercent <= 0) continue;
 		const prior = stacksByDate.get(point.date) ?? {
 			otherCreditsUsed: 0,
 			highlightCreditsUsed: 0,
 		};
 		if (point.clientId === highlightClientId) {
-			prior.highlightCreditsUsed += point.creditsUsed;
+			prior.highlightCreditsUsed += point.usedPercent;
 		} else {
-			prior.otherCreditsUsed += point.creditsUsed;
+			prior.otherCreditsUsed += point.usedPercent;
 		}
 		stacksByDate.set(point.date, prior);
 	}
@@ -396,12 +397,6 @@ function clientDailyUsageYAxisMax(rows: DailyClientStackRow[], plotHeight: numbe
 	const baseMax = maxDailyTotal * 1.08;
 	const extraDataUnits = ((busiestSegmentCount * CREDIT_POOL_STACK_MIN_SEGMENT_PX) / plotHeight) * baseMax;
 	return baseMax + extraDataUnits;
-}
-
-/** Share of the monthly allotment for a stacked segment (tooltip, not paint). */
-function percentOfMonthlyPool(creditsUsed: number, creditsAllotted: number): number {
-	if (creditsAllotted <= 0) return 0;
-	return (creditsUsed / creditsAllotted) * 100;
 }
 
 /** Burndown tooltip: period date and remaining % of the monthly pool (uncapped). */

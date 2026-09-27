@@ -95,13 +95,12 @@ describeLive('handwriting transcription live eval', () => {
 				);
 
 				expect(result.text.trim().length).toBeGreaterThan(0);
-				// Log for manual cost/quality comparison — do not fail CI on OCR error rate.
+				// Cost comparison is unavailable: the portal no longer returns USD.
+				// See docs/writing-transcription.md (Cost evaluation).
 				console.log(
 					JSON.stringify({
 						fixture: pair.id,
 						variant: variant.id,
-						amountUsd: result.amountUsd,
-						creditsRemaining: result.creditsRemaining,
 						model: result.model,
 						mediaType: result.mediaType,
 						expectedNormalized: normalizeForComparison(expected),

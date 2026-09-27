@@ -35,10 +35,12 @@ export interface HandwritingTranscriptionJobRequest {
 
 export interface HandwritingTranscriptionJobResponse {
 	text: string;
-	creditsRemaining: string;
-	amountUsd: string;
 	model: string;
 	mediaType: HandwritingTranscriptionMediaType;
+	/** Optional pool share left after the job. Not required for a valid response. */
+	remainingPercent?: number;
+	/** Optional job cost as a share of the pool. Not required for a valid response. */
+	costPercent?: number;
 }
 
 export function buildHandwritingTranscriptionJobRequest(params: {
@@ -68,17 +70,20 @@ function parseHandwritingTranscriptionJobResponse(
 	if (!json || typeof json !== 'object') return null;
 	const record = json as Record<string, unknown>;
 	if (typeof record.text !== 'string') return null;
-	if (typeof record.creditsRemaining !== 'string') return null;
-	if (typeof record.amountUsd !== 'string') return null;
 	if (typeof record.model !== 'string') return null;
 	if (record.mediaType !== 'image/svg+xml' && record.mediaType !== 'image/png') return null;
-	return {
+	const parsed: HandwritingTranscriptionJobResponse = {
 		text: record.text,
-		creditsRemaining: record.creditsRemaining,
-		amountUsd: record.amountUsd,
 		model: record.model,
 		mediaType: record.mediaType,
 	};
+	if (typeof record.remainingPercent === 'number') {
+		parsed.remainingPercent = record.remainingPercent;
+	}
+	if (typeof record.costPercent === 'number') {
+		parsed.costPercent = record.costPercent;
+	}
+	return parsed;
 }
 
 /**

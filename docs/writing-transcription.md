@@ -193,7 +193,18 @@ Implementation:
 
 Errors surface as Obsidian notices: not signed in, `402` insufficient credits, portal error messages.
 
-Eval matrix and live tests remain in the repo for model comparison — not exposed in the UI. See [Eval and live tests](#eval-and-live-tests).
+Eval matrix and live tests remain in the repo for model comparison — not exposed in the UI. See [Eval and live tests](#eval-and-live-tests). Per-model dollar cost is not available; see [Cost evaluation (currently unavailable)](#cost-evaluation-currently-unavailable).
+
+## Cost evaluation (currently unavailable)
+
+The portal no longer returns any USD values on job or burndown responses, deliberately, so a subscriber cannot infer their allowance. `handwriting-transcription-live.test.ts` therefore no longer logs `amountUsd` or `creditsRemaining`.
+
+Until a portal-side evaluation report exists, compare model cost outside the plugin:
+
+- OpenRouter dashboard activity, filtered by model.
+- A service-role query summing `usage_ledger` deltas by `client_id` (and generation id, when present) on the portal database.
+
+Quality comparison in the live test is unchanged.
 
 ClickUp decision log (routes, cost table): [Portal AI job routes](https://app.clickup.com/36639212/docs/12y4fc-6596/12y4fc-7656) · Ink summary: [Handwriting transcription](https://app.clickup.com/36639212/docs/12y4fc-7576/12y4fc-7676).
 

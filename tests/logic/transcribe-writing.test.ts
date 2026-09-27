@@ -35,8 +35,6 @@ describe('transcribeWriting', () => {
 		postJob.mockReset();
 		postJob.mockResolvedValue({
 			text: 'Hello world',
-			creditsRemaining: '9.00',
-			amountUsd: '0.000058',
 			model: HANDWRITING_TRANSCRIPTION_MODELS.geminiFlashLite,
 			mediaType: 'image/svg+xml',
 		});

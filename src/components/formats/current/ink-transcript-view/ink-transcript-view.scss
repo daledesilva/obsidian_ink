@@ -48,7 +48,12 @@
 	flex-shrink: 0;
 	width: 1.35em;
 	height: 1.35em;
+	padding: 0;
+	pointer-events: auto;
+	border: none;
+	background: none;
 	color: var(--text-muted);
+	cursor: default;
 
 	svg {
 		width: 1.35em !important;

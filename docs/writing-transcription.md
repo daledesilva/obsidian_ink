@@ -45,7 +45,7 @@ flowchart LR
 
 Manual jobs use the **live canvas** SVG (including unsaved strokes) when enqueued from the editor overflow menu.
 
-In an **embed**, Transcribe / Update transcript also **locks the embed immediately**: the editor captures the live SVG, awaits `closeEditor` (save and switch to preview), then enqueues. The user sees the locked preview (with the queue status icon if the file already has a transcript) while the job runs. Dedicated views stay open.
+In an **embed**, Transcribe / Update transcript also **locks the embed immediately**: the editor captures the live SVG, awaits `closeEditor` (save and switch to preview), then enqueues. The user sees the locked preview, including the queue status icon while the job runs, even when the file has no transcript yet. Dedicated views stay open.
 
 ```mermaid
 sequenceDiagram
@@ -57,7 +57,7 @@ sequenceDiagram
   Editor->>Editor: Build live SVG string
   Editor->>Embed: await closeEditor()
   Editor->>Queue: enqueue manual job
-  Queue-->>Embed: Status icon on locked preview (transcript files only)
+  Queue-->>Embed: Status icon on locked preview
 ```
 
 ### Auto-transcribe on close (vault-synced toggles)
@@ -320,7 +320,7 @@ flowchart LR
 
 **Rendering:** [`InkTranscriptView`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) calls `MarkdownRenderer.render` with `sourcePath` set to the note that contains the embed (wikilink resolution). Live Preview mounts a standalone `Component`; reading mode passes the [`InkReadingEmbedHost`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx) `MarkdownRenderChild` as parent so rendered children unload with the host. `mousedown` on the transcript host stops propagation so Live Preview does not steal text selection.
 
-**Queue status indicator:** [`InkEmbedTranscriptControls`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) renders a small status icon immediately left of the toggle while that file is on the device-local queue — a spinning loader when the job is **processing**, a clock when it is **queued**. It shows in both Ink and Text modes, and disappears when the job finishes or is removed. The controls cluster only mounts when the file already has a transcript, so a file's **first** transcription shows no status icon. [`useHandwritingTranscriptionQueueStatus`](../src/logic/use-handwriting-transcription-queue-status.ts) re-reads [`getHandwritingTranscriptionQueueStatusForFile`](../src/logic/handwriting-transcription-queue.ts) on each `subscribeHandwritingTranscriptionQueueChanged` event, so no polling is needed.
+**Queue status indicator:** [`InkEmbedTranscriptControls`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) subscribes on every locked embed, including files with no transcript yet, so a visible embed shows a spinning loader while its job is **processing** and a clock while it is **queued** behind another job. The Ink/Text toggle still waits for a transcript. Both the status icon and the toggle use [`TooltipButton`](../src/components/jsx-components/tooltip-button/tooltip-button.tsx) (hold one second, tooltip above), the same control as the ink toolbar. [`useHandwritingTranscriptionQueueStatus`](../src/logic/use-handwriting-transcription-queue-status.ts) re-reads [`getHandwritingTranscriptionQueueStatusForFile`](../src/logic/handwriting-transcription-queue.ts) on each `subscribeHandwritingTranscriptionQueueChanged` event, so no polling is needed. CodeMirror only mounts embeds in view; scrolling one into view reads the current queue status on mount.
 
 ```mermaid
 flowchart LR
@@ -434,6 +434,7 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Do not fix list layout by rewriting blank lines.** The renderer cannot know what the user wrote; list grouping and paragraph breaks belong in the portal prompt. The normalizer only maps flourish glyphs to `- `.
 - **Capture the live SVG before locking on manual Transcribe.** `closeEditor` unmounts the editor; build the SVG string first, then await the lock, then enqueue.
 - **No SVG `<text>` in icons.** iPad WKWebView renders it unreliably; use path-based icons.
+- **Do not notify between leaving `pending` and setting `inflightJob`.** `kickHandwritingTranscriptionQueue` removes the job from `pending` and `runTranscriptionJob` assigns `inflightJob` before the only notify. A notify in the gap makes a visible embed read "not in the queue" and skip the spinner. The status cluster must stay mounted on locked embeds that have no transcript yet, or a first transcription never shows the icon.
 
 ## Related docs
 

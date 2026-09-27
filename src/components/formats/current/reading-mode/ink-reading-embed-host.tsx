@@ -266,10 +266,11 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						onClick={() => {}}
 					/>
 				)}
-				{hasTranscript && props.embeddedFile && (
+				{props.embeddedFile && (
 					<InkEmbedTranscriptControls
 						filePath={props.embeddedFile.path}
 						inkIconKind={props.embedKind === 'drawing' ? 'drawing' : 'writing'}
+						hasTranscript={hasTranscript}
 					/>
 				)}
 			</div>

@@ -518,7 +518,9 @@ export function kickHandwritingTranscriptionQueue(): void {
 	const nextJob = blob.pending[nextJobIndex];
 	blob.pending.splice(nextJobIndex, 1);
 	writeHandwritingTranscriptionQueueBlob(blob);
-	notifyHandwritingTranscriptionQueueChanged();
+	// Notify only after runTranscriptionJob marks this file in-flight. A notify here
+	// would drop it from pending before inflightJob is set, so a visible embed would
+	// read "not in the queue" and never show the spinner.
 	void runTranscriptionJob(nextJob);
 }
 

@@ -410,10 +410,11 @@ export function WritingEmbed (props: {
 							/>
 						</EmbedPreviewContextMenu>
 					)}
-					{hasTranscript && !isThisEmbedEditing && (
+					{!isThisEmbedEditing && (
 						<InkEmbedTranscriptControls
 							filePath={props.writingFileRef.path}
 							inkIconKind='writing'
+							hasTranscript={hasTranscript}
 						/>
 					)}
 

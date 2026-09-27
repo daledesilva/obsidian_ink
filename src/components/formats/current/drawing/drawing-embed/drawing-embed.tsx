@@ -403,10 +403,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						/>
 					</EmbedPreviewContextMenu>
 				)}
-				{hasTranscript && !isThisEmbedEditing && (
+				{!isThisEmbedEditing && (
 					<InkEmbedTranscriptControls
 						filePath={props.embeddedFile.path}
 						inkIconKind='drawing'
+						hasTranscript={hasTranscript}
 					/>
 				)}
 

@@ -14,6 +14,7 @@ import { TextModeIcon } from 'src/graphics/icons/text-mode-icon';
 import { Loader2Icon } from 'src/graphics/icons/loader-2-icon';
 import { ClockIcon } from 'src/graphics/icons/clock-icon';
 import { normalizeInkTranscriptMarkdown } from 'src/logic/normalize-ink-transcript-markdown';
+import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
 
 //////////
 //////////
@@ -106,30 +107,42 @@ export interface InkEmbedDisplayModeSwitchProps {
 export interface InkEmbedTranscriptControlsProps {
 	filePath: string;
 	inkIconKind: 'writing' | 'drawing';
+	hasTranscript: boolean;
 }
 
-/** Top-right cluster: transcription queue status (when active) plus ink/transcript toggle. */
+/**
+ * Top-right cluster on a locked embed. Queue status mounts even when this file has no
+ * transcript yet: the first transcription is the case that must show the spinner or clock.
+ * The toggle waits for a transcript, because there is nothing to switch to before then.
+ */
 export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProps) {
 	const queueStatus = useHandwritingTranscriptionQueueStatus(props.filePath);
 
-	let statusAriaLabel: string | undefined;
-	if (queueStatus === 'processing') statusAriaLabel = 'Transcribing…';
-	if (queueStatus === 'queued') statusAriaLabel = 'Transcription queued';
+	if (!queueStatus && !props.hasTranscript) return null;
+
+	let statusTooltip = 'Transcription queued';
+	if (queueStatus === 'processing') statusTooltip = 'Transcribing…';
 
 	return (
 		<div className='ddc_ink_display-mode-controls'>
 			{queueStatus && (
-				<span
+				<TooltipButton
+					tooltip={statusTooltip}
 					className={`ddc_ink_transcript-queue-status ddc_ink_transcript-queue-status--${queueStatus}`}
-					aria-label={statusAriaLabel}
+					onMouseDown={(event) => {
+						// Holding the status icon must not unlock the embed under it.
+						event.stopPropagation();
+					}}
 				>
 					{queueStatus === 'processing' ? <Loader2Icon /> : <ClockIcon />}
-				</span>
+				</TooltipButton>
 			)}
-			<InkEmbedDisplayModeSwitch
-				filePath={props.filePath}
-				inkIconKind={props.inkIconKind}
-			/>
+			{props.hasTranscript && (
+				<InkEmbedDisplayModeSwitch
+					filePath={props.filePath}
+					inkIconKind={props.inkIconKind}
+				/>
+			)}
 		</div>
 	);
 }
@@ -149,11 +162,11 @@ export function InkEmbedDisplayModeSwitch(props: InkEmbedDisplayModeSwitchProps)
 	}
 
 	return (
-		<button
-			type='button'
+		<TooltipButton
+			tooltip={ariaLabel}
 			className='ddc_ink_display-mode-toggle'
-			aria-label={ariaLabel}
 			onMouseDown={(event) => {
+				// Live Preview treats mousedown on the widget as an edit gesture.
 				event.stopPropagation();
 			}}
 			onClick={() => {
@@ -165,6 +178,6 @@ export function InkEmbedDisplayModeSwitch(props: InkEmbedDisplayModeSwitchProps)
 			) : (
 				<TextModeIcon />
 			)}
-		</button>
+		</TooltipButton>
 	);
 }

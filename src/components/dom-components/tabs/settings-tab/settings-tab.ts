@@ -26,7 +26,10 @@ import {
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
-import { insertAlmostUsefulAccountSection } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
+import {
+	insertAlmostUsefulAccountSection,
+	stopAlmostUsefulAccountSectionDevicePolling,
+} from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
 import {
 	readAlmostUsefulSession,
 	subscribeAlmostUsefulSessionChanged,
@@ -184,6 +187,7 @@ export class MySettingsTab extends PluginSettingTab {
 
 	hide(): void {
 		this.legacyMigrateScanGeneration++;
+		stopAlmostUsefulAccountSectionDevicePolling();
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
 		this.unsubscribeAlmostUsefulSession?.();

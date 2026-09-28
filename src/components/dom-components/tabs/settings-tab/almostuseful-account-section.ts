@@ -8,24 +8,19 @@ import {
 import { renderAlmostUsefulPoolUsageCharts } from 'src/logic/almostuseful/almostuseful-usage-charts';
 import { destroyCreditPoolChartTooltips } from 'src/logic/almostuseful/credit-pool-chart-tooltip';
 import {
-	ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH,
-	extractAlmostUsefulAuthorizationCodeInputCharacters,
-	normalizeAlmostUsefulAuthorizationCode,
-} from 'src/logic/almostuseful/almostuseful-authorization-code-format';
-import { buildAlmostUsefulAuthorizeUrl } from 'src/logic/almostuseful/almostuseful-authorize-url';
-import {
 	cancelAlmostUsefulPendingLogin,
-	completeAlmostUsefulPastedHandoffCode,
-	getAlmostUsefulLoginPhase,
 	logOutAlmostUseful,
 	openAlmostUsefulBrowserUrl,
-	scheduleAlmostUsefulPasteUi,
+	requestAlmostUsefulDeviceCode,
 	startAlmostUsefulBrowserLogin,
+	startAlmostUsefulDevicePolling,
+	type AlmostUsefulDevicePoller,
 } from 'src/logic/almostuseful/almostuseful-login';
 import {
 	readAlmostUsefulHandoffPending,
 	readAlmostUsefulSession,
 	resolveAlmostUsefulPortalOrigin,
+	type AlmostUsefulHandoffPending,
 	type AlmostUsefulSession,
 } from 'src/logic/almostuseful/almostuseful-session';
 import {
@@ -43,6 +38,21 @@ let usageChartsResizeObserver: ResizeObserver | null = null;
 let transcriptionQueueUnsubscribe: (() => void) | null = null;
 /** Keep expand/collapse across settings re-renders (login, session refresh). */
 let isAlmostUsefulAccountSectionExpanded = true;
+let deviceCodePoller: AlmostUsefulDevicePoller | null = null;
+let deviceCodeCountdownTimer: number | null = null;
+
+/**
+ * Polling only runs while the code card is on screen. Called on every section
+ * re-render and from the settings tab hide() so a closed settings pane stops polling.
+ */
+export function stopAlmostUsefulAccountSectionDevicePolling(): void {
+	deviceCodePoller?.stop();
+	deviceCodePoller = null;
+	if (deviceCodeCountdownTimer !== null) {
+		window.clearInterval(deviceCodeCountdownTimer);
+		deviceCodeCountdownTimer = null;
+	}
+}
 
 /** Almost Useful account block at the top of Ink settings (no password fields). */
 export function insertAlmostUsefulAccountSection(
@@ -50,9 +60,9 @@ export function insertAlmostUsefulAccountSection(
 	_plugin: InkPlugin,
 	onRerender: () => void,
 ): void {
+	stopAlmostUsefulAccountSectionDevicePolling();
 	const session = readAlmostUsefulSession();
 	const pending = readAlmostUsefulHandoffPending();
-	const phase = getAlmostUsefulLoginPhase();
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
 
 	// Accent header/outline styling is scoped to ddc_ink_almostuseful-account-section in SCSS.
@@ -79,8 +89,8 @@ export function insertAlmostUsefulAccountSection(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
 
 	if (!session) {
-		if (pending || phase === 'pending') {
-			insertPasteHandoffCode(contentEl, onRerender);
+		if (pending) {
+			insertDeviceSignInCodeCard(contentEl, pending, onRerender);
 		} else {
 			new Setting(contentEl)
 				.setClass('ddc_ink_setting')
@@ -91,15 +101,15 @@ export function insertAlmostUsefulAccountSection(
 				)
 				.addButton((button) => {
 					decorateAlmostUsefulLinkAccountButton(button);
-					if (phase === 'opening') {
-						// Same Log in row for two seconds: disable only, do not swap to paste UI.
-						button.setDisabled(true);
-					}
 					button.onClick(() => {
-						if (getAlmostUsefulLoginPhase() === 'opening') return;
 						button.setDisabled(true);
-						void startAlmostUsefulBrowserLogin().then(() => {
-							scheduleAlmostUsefulPasteUi(onRerender);
+						void startAlmostUsefulBrowserLogin().then((result) => {
+							if (!result.ok) {
+								button.setDisabled(false);
+								new Notice(result.error);
+								return;
+							}
+							onRerender();
 						});
 					});
 				});
@@ -254,180 +264,145 @@ function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): s
 	return 'Almost Useful account: linked';
 }
 
-interface AlmostUsefulAuthorizationCodeOtpInput {
-	getCode: () => string;
-	setDisabled: (isDisabled: boolean) => void;
-	focus: () => void;
+const COPIED_LABEL_DURATION_MS = 1500;
+
+/** m:ss until the displayed code expires. */
+function formatDeviceCodeTimeRemaining(expiresAt: number): string {
+	const remainingSeconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+	const minutes = Math.floor(remainingSeconds / 60);
+	const seconds = remainingSeconds % 60;
+	return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-/** Six-box authorisation code entry; paste strips separators and fills every cell. */
-function insertAlmostUsefulAuthorizationCodeOtpInput(
-	hostEl: HTMLElement,
-): AlmostUsefulAuthorizationCodeOtpInput {
-	const rowEl = hostEl.createDiv('ddc_ink_almostuseful-handoff-code-row');
-	rowEl.setAttribute('role', 'group');
-	rowEl.setAttribute('aria-label', 'Authorisation code');
+/**
+ * Device-code sign-in: the app shows the code and the user types it on the
+ * website (the website has no code to copy back). Polls while this card is on
+ * screen. An expired code stays visible until the user chooses Renew.
+ */
+function insertDeviceSignInCodeCard(
+	contentEl: HTMLElement,
+	initialPending: AlmostUsefulHandoffPending,
+	onRerender: () => void,
+): void {
+	let displayedPending = initialPending;
+	let isCodeExpired = Date.now() >= displayedPending.expiresAt;
 
-	const cellInputs: HTMLInputElement[] = [];
-
-	const applyCharacters = (characters: string[]): void => {
-		for (let index = 0; index < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH; index++) {
-			cellInputs[index].value = characters[index] ?? '';
-		}
-		let focusIndex = characters.length;
-		if (focusIndex >= ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH) {
-			focusIndex = ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH - 1;
-		}
-		cellInputs[focusIndex].focus();
-	};
-
-	const handlePaste = (event: ClipboardEvent): void => {
-		event.preventDefault();
-		const pastedText = event.clipboardData?.getData('text') ?? '';
-		applyCharacters(extractAlmostUsefulAuthorizationCodeInputCharacters(pastedText));
-	};
-
-	for (let index = 0; index < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH; index++) {
-		if (index === 3) {
-			rowEl.createSpan({
-				cls: 'ddc_ink_almostuseful-handoff-code-separator',
-				text: '-',
-				attr: { 'aria-hidden': 'true' },
-			});
-		}
-
-		const cellInput = rowEl.createEl('input', {
-			cls: 'ddc_ink_almostuseful-handoff-code-cell',
-			type: 'text',
-			attr: {
-				'inputmode': 'text',
-				'autocomplete': 'one-time-code',
-				'autocapitalize': 'characters',
-				'autocorrect': 'off',
-				'spellcheck': 'false',
-				'maxlength': '1',
-				'aria-label': `Authorisation code character ${index + 1}`,
-			},
-		});
-
-		cellInput.addEventListener('paste', handlePaste);
-		cellInput.addEventListener('input', () => {
-			const typedCharacters = extractAlmostUsefulAuthorizationCodeInputCharacters(cellInput.value);
-			if (typedCharacters.length > 1) {
-				const mergedCharacters = cellInputs.map((input) => input.value);
-				for (
-					let offset = 0;
-					offset < typedCharacters.length && index + offset < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH;
-					offset++
-				) {
-					mergedCharacters[index + offset] = typedCharacters[offset];
-				}
-				applyCharacters(mergedCharacters);
-				return;
-			}
-
-			cellInput.value = typedCharacters[0] ?? '';
-			if (cellInput.value && index < ALMOSTUSEFUL_AUTHORIZATION_CODE_LENGTH - 1) {
-				cellInputs[index + 1].focus();
-			}
-		});
-		cellInput.addEventListener('keydown', (event) => {
-			if (event.key !== 'Backspace') return;
-			if (cellInput.value) return;
-			if (index === 0) return;
-			event.preventDefault();
-			cellInputs[index - 1].focus();
-			cellInputs[index - 1].value = '';
-		});
-
-		cellInputs.push(cellInput);
-	}
-
-	rowEl.addEventListener('paste', handlePaste);
-
-	return {
-		getCode: () => cellInputs.map((input) => input.value).join(''),
-		setDisabled: (isDisabled: boolean) => {
-			for (const cellInput of cellInputs) {
-				cellInput.disabled = isDisabled;
-			}
-		},
-		focus: () => {
-			cellInputs[0].focus();
-		},
-	};
-}
-
-/** Paste the continue-page code into the window that started Log in. */
-function insertPasteHandoffCode(contentEl: HTMLElement, onRerender: () => void): void {
 	const cardEl = contentEl.createDiv('ddc_ink_almostuseful-handoff-card');
-	// Fallback link when shell.openExternal / window.open fails on some devices.
-	const pendingHandoff = readAlmostUsefulHandoffPending();
-	if (pendingHandoff?.codeChallenge) {
-		const authorizeUrl = buildAlmostUsefulAuthorizeUrl({
-			portalOrigin: resolveAlmostUsefulPortalOrigin(),
-			state: pendingHandoff.state,
-			codeChallenge: pendingHandoff.codeChallenge,
-		});
-		const fallbackEl = cardEl.createEl('p', { cls: 'ddc_ink_almostuseful-handoff-fallback' });
-		fallbackEl.appendText("If the authorisation didn't open in a browser, ");
-		const openAuthorizeLinkEl = fallbackEl.createEl('a', { text: 'click here to open it' });
-		openAuthorizeLinkEl.addEventListener('click', (event) => {
-			event.preventDefault();
-			openAlmostUsefulBrowserUrl(authorizeUrl);
-		});
-	}
 	cardEl.createEl('p', {
 		cls: 'ddc_ink_almostuseful-handoff-instruction',
-		text: 'Confirm in your browser, then paste the code from the website here.',
+		text: 'Enter this code on the Almost Useful website to authorise Ink.',
 	});
-
-	const codeInputEl = cardEl.createDiv('ddc_ink_almostuseful-handoff-code-input');
-	const otpInput = insertAlmostUsefulAuthorizationCodeOtpInput(codeInputEl);
-
+	const userCodeEl = cardEl.createDiv({
+		cls: 'ddc_ink_almostuseful-handoff-user-code',
+		text: displayedPending.userCode,
+		attr: { 'aria-label': 'Sign-in code' },
+	});
+	const copyButtonEl = cardEl.createEl('button', {
+		cls: 'mod-cta ddc_ink_almostuseful-handoff-copy-btn',
+		text: 'Copy code',
+		type: 'button',
+	});
+	const expiryRowEl = cardEl.createDiv('ddc_ink_almostuseful-handoff-expiry-row');
+	const expiryEl = expiryRowEl.createEl('p', { cls: 'ddc_ink_almostuseful-handoff-expiry' });
+	const renewEl = expiryRowEl.createEl('button', {
+		cls: 'ddc_ink_almostuseful-handoff-renew',
+		text: 'Renew the code',
+		type: 'button',
+	});
 	const actionsEl = cardEl.createDiv('ddc_ink_almostuseful-handoff-actions');
+	const openWebsiteButtonEl = actionsEl.createEl('button', {
+		cls: 'ddc_ink_almostuseful-handoff-secondary-btn',
+		text: 'Open website',
+		type: 'button',
+	});
 	const cancelButtonEl = actionsEl.createEl('button', {
-		cls: 'ddc_ink_almostuseful-handoff-cancel-btn',
-		text: 'Cancel pending login',
-		type: 'button',
-	});
-	const connectButtonEl = actionsEl.createEl('button', {
-		cls: 'mod-cta ddc_ink_almostuseful-handoff-connect-btn',
-		text: 'Connect',
+		cls: 'ddc_ink_almostuseful-handoff-secondary-btn',
+		text: 'Cancel',
 		type: 'button',
 	});
 
-	let isConnecting = false;
+	const paintExpiry = (): void => {
+		if (!isCodeExpired && Date.now() >= displayedPending.expiresAt) isCodeExpired = true;
+		userCodeEl.toggleClass('is-expired', isCodeExpired);
+		// A dead code must not be copied or opened. Renew and Cancel stay.
+		copyButtonEl.toggleClass('is-hidden', isCodeExpired);
+		openWebsiteButtonEl.toggleClass('is-hidden', isCodeExpired);
+		renewEl.toggleClass('is-hidden', !isCodeExpired);
+		if (isCodeExpired) {
+			expiryEl.setText('Code expired');
+			return;
+		}
+		expiryEl.setText(`Code expires in ${formatDeviceCodeTimeRemaining(displayedPending.expiresAt)}`);
+	};
+	paintExpiry();
+	deviceCodeCountdownTimer = window.setInterval(paintExpiry, 1000);
 
-	connectButtonEl.addEventListener('click', () => {
-		if (isConnecting) return;
-		isConnecting = true;
-		otpInput.setDisabled(true);
-		connectButtonEl.disabled = true;
-		cancelButtonEl.disabled = true;
-		connectButtonEl.setText('Connecting…');
-		const pastedCode = normalizeAlmostUsefulAuthorizationCode(otpInput.getCode());
-		void completeAlmostUsefulPastedHandoffCode(pastedCode).then((result) => {
+	let copiedLabelTimer: number | null = null;
+	copyButtonEl.addEventListener('click', () => {
+		void navigator.clipboard.writeText(displayedPending.userCode).then(
+			() => {
+				copyButtonEl.setText('Copied');
+				openAlmostUsefulBrowserUrl(displayedPending.verificationUri);
+				if (copiedLabelTimer !== null) window.clearTimeout(copiedLabelTimer);
+				copiedLabelTimer = window.setTimeout(() => {
+					copiedLabelTimer = null;
+					copyButtonEl.setText('Copy code');
+				}, COPIED_LABEL_DURATION_MS);
+			},
+			() => {
+				new Notice('Could not copy the code. Type it on the website instead.');
+			},
+		);
+	});
+
+	openWebsiteButtonEl.addEventListener('click', () => {
+		openAlmostUsefulBrowserUrl(displayedPending.verificationUri);
+	});
+
+	const beginPolling = (): void => {
+		deviceCodePoller?.stop();
+		deviceCodePoller = startAlmostUsefulDevicePolling({
+			onExpired: () => {
+				isCodeExpired = true;
+				paintExpiry();
+			},
+			onSignedIn: () => {
+				onRerender();
+			},
+			onSignedOut: () => {
+				onRerender();
+			},
+			onError: (message) => {
+				new Notice(message);
+			},
+		});
+	};
+	beginPolling();
+
+	let isRenewing = false;
+	renewEl.addEventListener('click', () => {
+		if (isRenewing) return;
+		isRenewing = true;
+		void requestAlmostUsefulDeviceCode().then((result) => {
+			isRenewing = false;
 			if (!result.ok) {
-				isConnecting = false;
-				otpInput.setDisabled(false);
-				connectButtonEl.disabled = false;
-				cancelButtonEl.disabled = false;
-				connectButtonEl.setText('Connect');
 				new Notice(result.error);
-				otpInput.focus();
 				return;
 			}
-			onRerender();
+			displayedPending = result.pending;
+			isCodeExpired = false;
+			userCodeEl.setText(result.pending.userCode);
+			copyButtonEl.setText('Copy code');
+			paintExpiry();
+			beginPolling();
 		});
 	});
 
 	cancelButtonEl.addEventListener('click', () => {
+		stopAlmostUsefulAccountSectionDevicePolling();
 		cancelAlmostUsefulPendingLogin();
 		onRerender();
 	});
-
-	otpInput.focus();
 }
 
 /** Paints cached charts immediately, then refreshes from the portal with a spinning icon. */

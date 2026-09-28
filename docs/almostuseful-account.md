@@ -6,24 +6,35 @@ Settings login for Almost Useful. Passwords stay on the website. Protocol and br
 
 ## Why it exists
 
-Ink needs a signed-in Almost Useful identity to show Pool A remaining credits and to call portal AI jobs (including handwriting transcription). A public plugin must not collect the website password or embed `/account` (that page is cookie-only). Browser **authorize** plus device-local **app tokens** plus burndown JSON keeps secrets on the portal and still shows the same remaining/spend information as Project Post.
+Ink needs a signed-in Almost Useful identity to show Pool A remaining credits and to call portal AI jobs (including handwriting transcription). A public plugin must not collect the website password or embed `/account` (that page is cookie-only). A browser **device-code** sign-in plus device-local **app tokens** plus burndown JSON keeps secrets on the portal and still shows the same remaining/spend information as Project Post.
 
 ---
 
 ## Conceptual understanding
 
-Ink never shows an email/password form. **Link account** opens the system browser to `https://account.almostuseful.xyz/oauth/authorize` with `client_id=ink` and `display_name=Ink` (no `redirect_uri`). After the user signs in on the website (if needed) and taps **Authorise Ink**, the portal stays on `/oauth/authorize/continue` with a copyable one-time **code**. The user pastes that code in the **same Obsidian window** that started Link account (that window holds the PKCE verifier). Ink then `POST`s `/api/oauth/token` over HTTPS and stores a portal **app JWT** (`typ=almostuseful_app`) on this device only. Plan 2 user-JWT blobs without that `tokenType` are discarded so the user must consent again.
+Ink never shows an email/password form. Sign-in uses the OAuth **device-code grant**: the **app shows the code** and the user types it on the website — never the other way round.
+
+1. **Link account** `POST`s `https://account.almostuseful.xyz/api/oauth/device` with `client_id=ink` and `display_name=Ink` (unauthenticated, no Bearer). The portal returns a `device_code`, a short `user_code` (`XXXX-XXXX`), `verification_uri`, `expires_in` and a poll `interval`.
+2. Ink stores the device code on this device and shows the user code in a card. **Link account** does not open the browser.
+3. **Copy code** copies the code and then opens `verification_uri`. **Open website** opens that same URI. On the website the user signs in (if needed), enters the code on `/oauth/device`, and approves Ink. The website has **no copy button** and no code to bring back to Ink.
+4. Meanwhile Ink polls `POST /api/oauth/token` with `grant_type=urn:ietf:params:oauth:grant-type:device_code`. Once approved, the response carries a portal **app JWT** (`typ=almostuseful_app`) plus refresh token, stored on this device only.
+
+A code lasts **2 minutes** (portal `expires_in`). When it expires, Ink stops polling and leaves that code on screen, struck through. **Copy code** and **Open website** hide. **Renew the code** (on the same line as **Code expired**) requests a fresh code. Ink does not mint a replacement by itself. Plan 2 user-JWT blobs without the app `tokenType` are discarded so the user must consent again.
 
 ```mermaid
 sequenceDiagram
   participant Settings as Ink settings
   participant Browser as System browser
   participant Portal as account.almostuseful.xyz
-  Settings->>Browser: /oauth/authorize with PKCE, no redirect_uri
-  Browser->>Portal: Website login if needed, then Authorise Ink
-  Portal-->>Browser: /oauth/authorize/continue copyable code
-  Browser-->>Settings: User pastes code
-  Settings->>Portal: POST /api/oauth/token
+  Settings->>Portal: POST /api/oauth/device (client_id, display_name)
+  Portal-->>Settings: device_code, user_code, verification_uri, expires_in, interval
+  Note over Settings: show user_code; browser stays closed
+  Settings->>Browser: Copy code or Open website opens verification_uri
+  Browser->>Portal: Website login if needed, enter code, approve Ink
+  loop Every interval or on focus, until the code expires
+    Settings->>Portal: POST /api/oauth/token (device_code grant)
+    Portal-->>Settings: authorization_pending / slow_down / expired_token
+  end
   Portal-->>Settings: App access_token plus refresh_token
 ```
 
@@ -41,14 +52,18 @@ flowchart TD
   OpenSettings --> SignedIn{Device app token?}
   SignedIn -->|no| LoggedOut[Collapsible Almost Useful account]
   LoggedOut --> Idle[Link account CTA]
-  Idle --> Opening[Link account disabled two seconds]
-  Opening --> Pending[Centred six-box paste card plus Connect and Cancel]
-  Idle --> BrowserLogin[System browser authorize]
-  Pending --> Exchange[HTTPS /api/oauth/token]
-  BrowserLogin --> Exchange
+  Idle --> DeviceCode[POST /api/oauth/device]
+  DeviceCode --> Pending[Code card: Copy code, Open website, Cancel]
+  Pending -->|Copy code or Open website| BrowserLogin[System browser verification_uri]
+  Pending --> Poll[Poll /api/oauth/token]
+  Poll -->|authorization_pending or slow_down| Poll
+  Poll -->|expired| Expired[Struck-through code, Renew the code]
+  Expired -->|Renew the code| DeviceCode
+  Poll -->|access_denied| LoggedOut
+  Pending -->|Cancel| LoggedOut
   SignedIn -->|yes| Header[Title includes linked]
   Header --> Charts[Burndown SVG from GET burndown]
-  Exchange --> Header
+  Poll -->|tokens| Header
 ```
 
 ---
@@ -61,14 +76,14 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 
 | State | Header | Content |
 |-------|--------|---------|
-| Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description explains handwriting transcription and that Almost Useful is Dale de Silva’s accounts portal for Ink. Control is a larger CTA with an outline head-and-shoulders icon left of the label (`ddc_ink_link_account_user`, registered in `onload` because `ButtonComponent#setIcon` plus CTA text does not paint reliably). No Create account / Forgot password links — those live on the portal login page after the browser opens. Below that (signed out and signed in): **Processing your data** — info-only row describing HTTPS → Almost Useful → OpenRouter → Gemini and that SVG/transcript are not stored on portal servers after processing |
-| Opening (first ~2s after Link account) | Almost Useful account | **Same signed-out row**; Link account is **disabled**. Paste UI is not shown yet so the browser can open without a layout jump |
-| Pending | Almost Useful account | Centred grey card. Top line: **If the authorisation didn't open in a browser, click here to open it** (reopens the same authorize URL via `openAlmostUsefulBrowserUrl`, not `href` + `target=_blank`, so desktop Electron uses `shell.openExternal`). Then full-width instruction **Confirm in your browser, then paste the code from the website here.** Then six tall rounded character boxes (`XXX-XXX`; hyphen is smaller and not bold) on **one row** — they shrink on narrow settings panes instead of wrapping. **Cancel pending login** then **Connect** (Connect on the right). Boxes and Cancel use `var(--background-primary)` so they stay darker than the card wash. Link account is hidden so paste is not competing with a second CTA |
+| Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description explains handwriting transcription and that Almost Useful is Dale de Silva’s accounts portal for Ink. Control is a larger CTA with an outline head-and-shoulders icon left of the label (`ddc_ink_link_account_user`, registered in `onload` because `ButtonComponent#setIcon` plus CTA text does not paint reliably). No Create account / Forgot password links — those live on the portal once the user opens the website. Below that (signed out and signed in): **Processing your data** — info-only row describing HTTPS → Almost Useful → OpenRouter → Gemini and that SVG/transcript are not stored on portal servers after processing |
+| Requesting code | Almost Useful account | **Same signed-out row**; Link account is **disabled** while `POST /api/oauth/device` is in flight. On failure a notice appears and the button re-enables |
+| Pending | Almost Useful account | Centred card: instruction **Enter this code on the Almost Useful website to authorise Ink.**, the user code in a box that hugs the text (`XXXX-XXXX`, display-only, not an input), then **Copy code** under it with a small gap. **Code expires in m:ss** sits close under Copy code, with a larger gap before **Open website** and **Cancel** on one row. **Copy code** writes the code (hyphen included) and then opens `verification_uri`; the label shows **Copied** for 1.5s. There is **no** **I've approved it** and **no paste field**. When the code expires it turns red with a strikethrough, **Copy code** and **Open website** hide, and **Code expired** shares a line with **Renew the code**. **Cancel** stays |
 | Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); **AI Credit Pool** settings card (burndown + usage distribution, or empty-pool products CTA); **Transcription Queue** card when the device-local queue is non-empty |
 | Signed out | — | **Transcription Queue** card hidden — unsigned devices do not enqueue jobs |
 | 401 | Treated as signed out | Local session cleared |
 
-Obsidian often closes Settings when the app backgrounds for the browser. After pasting the code, reopen Ink settings if it closed.
+Obsidian often closes Settings when the app backgrounds for the browser. The device code survives in device-local storage, so reopening Ink settings shows the same card and resumes polling. If sign-in finished while Settings was closed, the next poll after reopening completes it.
 
 **Manage account** opens `/account` in the system browser (website cookie; a second website login is expected).
 
@@ -107,11 +122,12 @@ This settings UI does **not** call placeholder job routes.
 
 ### Protocol and storage
 
-- There is **no** `obsidian://` protocol handler for app-token login. Finish by pasting the continue-page code.
-- Desktop opens the authorize URL with Electron `shell.openExternal`; mobile uses `window.open`.
+- There is **no** `obsidian://` protocol handler and no paste step for app-token login. Sign-in finishes when the token poll returns tokens.
+- Desktop opens `verification_uri` with Electron `shell.openExternal`; mobile uses `window.open`. The portal does not send `verification_uri_complete`, so the code is never put in the URL.
 - Session suffix passed to `saveLocally`: `almostuseful_session` → full key `au_ink_almostuseful_session`. Do not double-prefix. Shape: `{ tokenType: 'almostuseful_app', accessToken, refreshToken, expiresAtEpochSeconds, grantId, userId, clientId, displayName, userEmail }`.
 - Usage cache suffix: `almostuseful_usage_cache` → `au_ink_almostuseful_usage_cache`.
-- In-flight PKCE: `almostuseful_handoff` (`state`, `codeVerifier`, `codeChallenge`). **Cancel pending login** clears it. `codeChallenge` lets the paste card rebuild the authorize URL for the fallback link after settings re-render; handoffs saved before this field existed are treated as invalid (user cancels and starts again).
+- In-flight device code: `almostuseful_handoff` (`deviceCode`, `userCode`, `expiresAt` epoch ms, `intervalSeconds`, `verificationUri`). Replaced when a fresh code is requested; cleared on success, `access_denied`, or **Cancel**. Older PKCE-shaped handoffs read as absent, so the user just sees Link account again.
+- Token poll (`startAlmostUsefulDevicePolling`): runs only while the code card is on screen (stopped on section re-render and in the settings tab `hide()`). Polls every `intervalSeconds`, on window `focus`, and on `visibilitychange` to visible. `authorization_pending` keeps waiting; `slow_down` adds 5 seconds to the interval for the rest of that code; `expired_token` or a passed `expiresAt` stops the poller and leaves the stored code for **Renew the code**; `access_denied` clears the handoff; success persists tokens via `persistAlmostUsefulTokenResponse`, clears the handoff, and starts session refresh.
 - Refresh: `POST /api/oauth/token` with `grant_type=refresh_token`. `invalid_grant` / 401 clears storage.
 - Log out: `POST /api/oauth/grants/:grantId/revoke` with the app Bearer, then delete the session key. Vault **Reset settings** does not need to wipe `data.json` to sign out.
 - Website **Revoke** on Connected apps makes the next burndown call 401 → signed-out UI.
@@ -124,20 +140,18 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 
 ## Technical Gotchas
 
-- **OAuth must return to authorize.** If Google users land on `/account` and Ink stays signed out, the portal `next` query was dropped — that is a portal bug, not a reason to add a password field in Ink.
-- **Tokens never belong in the continue URL as JWTs.** Only a one-time `code` (and `state` in the query). The app exchanges over HTTPS.
-- **Paste only works in the window that clicked Link account.** A new Obsidian instance has no verifier. The continue code is six characters (`AB2-CD3`); this window normalises hyphens and case before exchange. Repeated wrong pastes are not locked out because this process already holds the verifier — guessing the short code from outside Obsidian still cannot exchange it.
-- **Open source does not reveal the PKCE verifier.** `createAlmostUsefulPkcePair` draws 32 random bytes into device-local `almostuseful_handoff` for that login only, then deletes them after exchange or cancel.
-- **Clones can complete the same OOB paste** if the user consents on the portal. Accepted for a public plugin. Do not invent a secret plugin API key.
+- **OAuth must return to the device page.** If Google users land on `/account` instead of back on `/oauth/device`, the portal `next` query was dropped — that is a portal bug, not a reason to add a password field in Ink.
+- **The code goes app → website only.** Do not add a paste field in Ink or expect a copy button on the website. The user reads or copies the code from Ink and types it on `/oauth/device`.
+- **Never replace an expired code automatically.** The struck-through code stays until **Renew the code**. The old `device_code` is abandoned only then.
+- **Only the window holding the device code can finish.** The `device_code` is device-local; the user code alone cannot claim tokens. A different Obsidian install shows Link account.
+- **Clones can complete the same device sign-in** if the user approves them on the portal. Accepted for a public plugin. Do not invent a secret plugin API key.
 - **Per-device login:** localStorage does not sync with the vault. Sign in again on another computer.
 - **Portal app-token authorize does not use a redirect allow-list.** `obsidian://` is not required on the Supabase Auth redirect list for this grant.
 - **Do not iframe `/account` for charts.** Cookie session ≠ plugin app token.
 - **Do not add TanStack Charts** to match the portal renderer. Remaining/spend parity is the layout math and burndown JSON, not the chart library. The plugin bundle is already large.
 - **2px / 4px min-segment heights are visual only.** Tooltips use true remaining / spend. Vanilla tippy follows the pointer (`offset: [0, 12]`); the tooltip is non-interactive so it cannot steal hover.
 - **Popped-out Settings:** tippy `appendTo` and pointer listeners must use `svg.ownerDocument`, not the module `document`, or tooltips mount on the wrong Electron window.
-- **Opening vs pending.** `scheduleAlmostUsefulPasteUi` waits 2000ms before `onRerender` to pending. Until then, only disable Link account in place — do not remove the button or change copy.
-- **Fallback authorize link.** Some devices do not open the system browser when Link account is clicked. The paste card includes a manual reopen link at the top; it uses the same `openAlmostUsefulBrowserUrl` path as Manage account. The link is omitted when handoff state has no `codeChallenge` (e.g. mid-update in-flight login).
-- **Paste boxes are not a single text field.** Paste (including Cmd+V) strips hyphens and spaces and fills all six cells. The hyphen is display-only. Obsidian’s global settings `input` rules set height and background; the handoff cells override those with a scoped selector and `!important`, or the boxes stay short and the same colour as the card. Cancel uses the same `background-primary` fill so it does not disappear into the card wash.
-- **Paste row must stay on one line.** The code row uses `flex-wrap: nowrap`, `flex: 1 1 0` cells with `max-width: 3.5rem`, `aspect-ratio: 2 / 3`, and `container-type: inline-size` on the wrapper so font size and gaps scale down on narrow panes (mobile, popped-out settings). Do not reintroduce `flex-wrap: wrap` or fixed `width`/`height` on cells — that breaks the paste UX on small screens.
+- **Link account does not open the browser.** **Copy code** (after a successful clipboard write) and **Open website** open the stored `verificationUri` through `openAlmostUsefulBrowserUrl`.
+- **Focus polls can trigger slow_down.** Focus and visibility poll outside the interval. If the portal answers `slow_down`, the interval grows by 5 seconds for that code; this is expected, not an error.
 - **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
 - **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Link account again so they can Authorize Ink.

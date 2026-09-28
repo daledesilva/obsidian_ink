@@ -134,97 +134,101 @@
 	padding: 1.1em 1.15em 1.2em;
 }
 
-.ddc_ink_almostuseful-handoff-fallback {
+.ddc_ink_almostuseful-handoff-instruction {
 	width: 100%;
 	margin: 0 0 0.85em;
 	color: var(--text-normal);
 	line-height: 1.45;
 	text-align: center;
-
-	a {
-		color: var(--interactive-accent);
-		text-decoration: none;
-
-		&:hover {
-			text-decoration: underline;
-		}
-	}
 }
 
-.ddc_ink_almostuseful-handoff-instruction {
-	width: 100%;
-	margin: 0 0 1.05em;
-	color: var(--text-normal);
-	line-height: 1.45;
-	text-align: center;
-}
-
-.ddc_ink_almostuseful-handoff-code-input {
-	// Shrink OTP cells from the card width on narrow settings panes (never wrap to a second line).
-	container-type: inline-size;
-	display: flex;
-	justify-content: center;
-	width: 100%;
-	margin-bottom: 1.15em;
-}
-
-.ddc_ink_almostuseful-handoff-code-row {
-	display: flex;
-	flex-wrap: nowrap;
+.ddc_ink_almostuseful-handoff-user-code {
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: clamp(0.2em, 2cqi, 0.55em);
-	width: 100%;
-	max-width: calc((3.5rem * 6) + 1.5em);
-}
-
-// Obsidian's settings input rules set height/background on all text inputs; scope overrides here.
-.ddc_ink_almostuseful-handoff-card input[type='text'].ddc_ink_almostuseful-handoff-code-cell {
-	box-sizing: border-box;
-	flex: 1 1 0;
-	min-width: 0;
-	max-width: 3.5rem;
-	width: auto;
-	aspect-ratio: 2 / 3;
-	height: auto !important;
-	min-height: 0 !important;
-	max-height: none !important;
-	padding: 0 !important;
+	width: fit-content;
+	max-width: 100%;
+	margin-bottom: 0.3em;
+	padding: 0.55em 0.75em;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
-	background: var(--background-primary) !important;
-	background-color: var(--background-primary) !important;
+	background-color: var(--background-primary);
 	color: var(--text-normal);
 	font-family: var(--font-monospace);
-	font-size: clamp(1rem, 11cqi, 2.15rem);
+	font-size: clamp(1.35rem, 5vw, 2rem);
 	font-weight: var(--font-semibold);
-	line-height: 1;
-	text-align: center;
-	text-transform: uppercase;
-	-webkit-appearance: none;
-	appearance: none;
+	letter-spacing: 0.12em;
+	line-height: 1.2;
+	user-select: all;
+	white-space: nowrap;
 
-	&:focus {
-		border-color: var(--interactive-accent);
-		box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.25);
-		outline: none;
-		background: var(--background-primary);
-		background-color: var(--background-primary);
-	}
-
-	&:disabled {
-		opacity: 0.65;
+	&.is-expired {
+		color: var(--text-error);
+		text-decoration: line-through;
 	}
 }
 
-.ddc_ink_almostuseful-handoff-code-separator {
-	flex-shrink: 0;
-	font-size: clamp(0.85rem, 6cqi, 1.15rem);
-	font-weight: var(--font-normal);
-	line-height: 1;
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-copy-btn {
+	min-height: 2.75em;
+	height: auto;
+	margin: 0;
+	padding: 0.55em 1.35em;
+	font-size: var(--font-ui-medium);
+	color: var(--text-on-accent);
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-secondary-btn {
+	min-height: 2.75em;
+	height: auto;
+	padding: 0.55em 1.35em;
+	font-size: var(--font-ui-medium);
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-expiry-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: 0.45em;
+	margin: 0.45em 0 0.85em;
+}
+
+.ddc_ink_almostuseful-handoff-expiry {
+	margin: 0;
 	color: var(--text-muted);
-	padding-inline: 0.08em;
-	user-select: none;
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-renew {
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	box-shadow: none;
+	height: auto;
+	min-height: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-accent);
+	}
+
+	&.is-hidden {
+		display: none;
+	}
 }
 
 .ddc_ink_almostuseful-handoff-actions {
@@ -236,15 +240,8 @@
 	width: 100%;
 }
 
-.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-connect-btn,
-.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-cancel-btn {
-	min-height: 2.75em;
-	height: auto;
-	padding: 0.55em 1.35em;
-	font-size: var(--font-ui-medium);
-}
-
-.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-cancel-btn {
+// Secondary buttons use background-primary so they stay darker than the card wash.
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-secondary-btn {
 	background: var(--background-primary) !important;
 	background-color: var(--background-primary) !important;
 	border: 1px solid var(--background-modifier-border);

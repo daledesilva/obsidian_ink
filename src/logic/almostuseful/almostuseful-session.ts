@@ -25,11 +25,15 @@ export interface AlmostUsefulSession {
 	userEmail: string | null;
 }
 
+/** In-flight device-code grant; the app shows userCode and polls with deviceCode. */
 export interface AlmostUsefulHandoffPending {
-	state: string;
-	codeVerifier: string;
-	/** S256 challenge for rebuilding the authorize URL on the paste-card fallback link. */
-	codeChallenge: string;
+	deviceCode: string;
+	userCode: string;
+	/** Epoch ms after which the portal rejects this device code with expired_token. */
+	expiresAt: number;
+	intervalSeconds: number;
+	/** Portal page where the user types userCode; reopened by Open website after re-render. */
+	verificationUri: string;
 }
 
 export interface AlmostUsefulDebugConfig {
@@ -90,12 +94,12 @@ export function clearAlmostUsefulSession(): void {
 	window.dispatchEvent(new CustomEvent(ALMOSTUSEFUL_SESSION_CHANGED_EVENT));
 }
 
-/** Stores PKCE verifier until the protocol handler exchanges the code. */
+/** Stores the device code until the token poll succeeds, is denied, or is cancelled. */
 export function writeAlmostUsefulHandoffPending(pending: AlmostUsefulHandoffPending): void {
 	saveLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX, JSON.stringify(pending));
 }
 
-/** Reads in-flight authorize PKCE state. */
+/** Reads the in-flight device code. Older PKCE-shaped handoffs read as null (signed out). */
 export function readAlmostUsefulHandoffPending(): AlmostUsefulHandoffPending | null {
 	const raw = fetchLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX);
 	if (typeof raw !== 'string') return null;
@@ -103,20 +107,24 @@ export function readAlmostUsefulHandoffPending(): AlmostUsefulHandoffPending | n
 		const parsedUnknown: unknown = JSON.parse(raw);
 		if (!parsedUnknown || typeof parsedUnknown !== 'object') return null;
 		const parsed = parsedUnknown as Partial<AlmostUsefulHandoffPending>;
-		if (typeof parsed.state !== 'string') return null;
-		if (typeof parsed.codeVerifier !== 'string') return null;
-		if (typeof parsed.codeChallenge !== 'string') return null;
+		if (typeof parsed.deviceCode !== 'string') return null;
+		if (typeof parsed.userCode !== 'string') return null;
+		if (typeof parsed.expiresAt !== 'number') return null;
+		if (typeof parsed.intervalSeconds !== 'number') return null;
+		if (typeof parsed.verificationUri !== 'string') return null;
 		return {
-			state: parsed.state,
-			codeVerifier: parsed.codeVerifier,
-			codeChallenge: parsed.codeChallenge,
+			deviceCode: parsed.deviceCode,
+			userCode: parsed.userCode,
+			expiresAt: parsed.expiresAt,
+			intervalSeconds: parsed.intervalSeconds,
+			verificationUri: parsed.verificationUri,
 		};
 	} catch {
 		return null;
 	}
 }
 
-/** Drops the in-flight PKCE verifier after exchange or cancel. */
+/** Drops the in-flight device code after sign-in, denial, or cancel. */
 export function clearAlmostUsefulHandoffPending(): void {
 	deleteLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX);
 }

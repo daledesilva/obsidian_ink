@@ -9,7 +9,7 @@ export const ALMOSTUSEFUL_APP_TOKEN_TYPE = 'almostuseful_app';
 
 /** Suffix for saveLocally — full key is au_ink_almostuseful_session. */
 export const ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX = 'almostuseful_session';
-/** In-flight PKCE verifier + state until HTTPS exchange completes. */
+/** In-flight device code + user code until the token poll completes. */
 export const ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX = 'almostuseful_handoff';
 /** Optional staging portal origin (device-local). */
 export const ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX = 'almostuseful_debug';

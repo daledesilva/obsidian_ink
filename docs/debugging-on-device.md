@@ -121,7 +121,7 @@ This captures **whatever the page logs to the console** — not network traffic.
 
   (Documented in Obsidian’s [Mobile development](https://github.com/obsidianmd/obsidian-developer-docs/blob/main/en/Plugins/Getting%20started/Mobile%20development.md) page.)
 
-- **Verbose desktop builds:** `npm run open-qa-verbose` / `npm run open-qa-verbose-mobile` (see [Development](development.md)).
+- **Development desktop builds:** `npm run open-qa`. Mobile layout with the same development logging: `npm run open-qa-mobile` (see [Development](development.md)).
 
 ### Structured logs + HTTP ingest (Ink Suite)
 

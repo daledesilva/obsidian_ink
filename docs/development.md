@@ -171,31 +171,28 @@ Both Ink and Excalidraw are pre-seeded so their welcome popups do not appear:
 
 - **Manual vault inspection** (open Obsidian without running tests):
 
+| Script | Build | Purpose |
+|--------|-------|---------|
+| `open-qa` | `tsc` + esbuild **development** | Desktop QA vault; `verbose` / `debug` / `http` logs in DevTools |
+| `open-qa-mobile` | same + `INK_EMULATE_MOBILE=true` | Same as `open-qa` with mobile UI emulation (`app.emulateMobile(true)`) |
+
 ```bash
 npm run open-qa
 ```
 
-This builds the plugin, regenerates the vault from scratch (clearing all plugin data), and launches Obsidian with the vault loaded. Obsidian stays open until you close it manually. Changes made during the session are discarded — the vault is copied to a temporary directory first, so the source `qa-test-vault/` folder is not modified.
+This type-checks, builds the plugin in **development** mode (so `verbose`, `debug`, and `http` logs appear in the DevTools console), regenerates the vault from scratch (clearing all plugin data), and launches Obsidian with the vault loaded. Obsidian stays open until you close it manually. Changes made during the session are discarded — the vault is copied to a temporary directory first, so the source `qa-test-vault/` folder is not modified.
 
 Use this when you want to manually inspect the plugin's behaviour against specific test scenarios, try out new features, or debug issues interactively.
 
 **Legacy migration progress UI:** Section **19 – Migration Progress Density** (see [qa-test-vault/README.md](../qa-test-vault/README.md)) seeds many unique `.writing` / `.drawing` files so **Migrate legacy ink embeds** scan/migrate progress bars and counters update visibly mid-run. Details: [file-format-and-conversion.md](./file-format-and-conversion.md#vault-migration-v1-code-blocks).
 
-For debugging with verbose logs (e.g. embed state transitions, activity tracking), use `npm run open-qa-verbose` instead. It builds in development mode so `verbose`, `debug`, and `http` logs appear in the DevTools console.
-
-For mobile UI emulation on desktop, use:
+For mobile UI emulation on desktop (same development build and verbose logging as `open-qa`):
 
 ```bash
 npm run open-qa-mobile
 ```
 
-And the verbose variant:
-
-```bash
-npm run open-qa-verbose-mobile
-```
-
-These scripts set `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
+This sets `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
 
 #### Deploy to a Boox device (USB)
 

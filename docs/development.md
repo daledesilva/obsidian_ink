@@ -194,6 +194,8 @@ npm run open-qa-mobile
 
 This sets `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
 
+**Gotcha:** `open-qa-verbose` and `open-qa-verbose-mobile` were removed — their development builds are now the only `open-qa` / `open-qa-mobile` scripts. Use `npm run build` (production esbuild) for release artifacts, E2E, and Boox deploy; do not expect production minification or release defines from `open-qa`.
+
 #### Deploy to a Boox device (USB)
 
 When testing on a physical Boox (or any Android device running Obsidian), you can build and push `dist/` straight into vault plugin folders over USB with `adb`. The script does **not** overwrite `data.json` (plugin settings are preserved).

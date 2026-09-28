@@ -101,6 +101,19 @@ export function inkEmbedMarkdownOnlyAltChanged(beforeSnippet: string, afterSnipp
 	return withoutAlt(beforeSnippet) === withoutAlt(afterSnippet);
 }
 
+/**
+ * True when two embed lines differ only in `![alt]` and/or the Edit link query.
+ * Save framing rewrites width/aspectRatio/viewBox there. Rebuilding the widget
+ * assigns a new embedId, drops edit mode, and empty-drawing preview can measure 0px.
+ */
+export function inkEmbedMarkdownOnlyAltOrEditQueryChanged(beforeSnippet: string, afterSnippet: string): boolean {
+	const normalize = (snippet: string): string => {
+		const withoutAlt = snippet.replace(/!\[[^\]]*\]/, '![alt]');
+		return withoutAlt.replace(/(\[Edit (?:Drawing|Writing)\]\([^)?]*)(?:\?[^)]*)?(\))/, '$1$2');
+	};
+	return normalize(beforeSnippet) === normalize(afterSnippet);
+}
+
 export function getEmbedMarkdownFromDecoration(
 	view: EditorView,
 	decFrom: number,

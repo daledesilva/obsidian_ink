@@ -109,6 +109,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 	const didExplicitSaveEmbedSettingsRef = useRef(false);
+	// Widget reuse after save framing does not remount React, so props.embedSettings
+	// stay at unlock-time values. Keep the last persisted framing here for preview/lock.
+	const [savedEmbedSettings, setSavedEmbedSettings] = React.useState<EmbedSettings>(props.embedSettings);
 	const resizeStartWidthRef = useRef<number>(0);
 	const resizeStartAspectRatioRef = useRef<number>(0);
 	const [drawingFormat, setDrawingFormat] = React.useState<DrawingFormat>('unknown');
@@ -452,7 +455,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						<DrawingEmbedPreviewWrapper
 							embedId = {props.embedId}
 							embeddedFile = {props.embeddedFile}
-							embedSettings = {props.embedSettings}
+							embedSettings = {savedEmbedSettings}
 							onReady = {() => {}}
 							onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 						/>
@@ -474,9 +477,17 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						drawingFile = {props.embeddedFile}
 						save = {props.saveSrcFile}
 						extendedMenu = {commonExtendedOptions}
-						embedSettings = {props.embedSettings}
+						embedSettings = {savedEmbedSettings}
 						onSaveCameraPosition = {(viewBox) => {
 							didExplicitSaveEmbedSettingsRef.current = true;
+							const nextEmbedSettings: EmbedSettings = {
+								embedDisplay: {
+									width: embedWidthRef.current,
+									aspectRatio: embedAspectRatioRef.current,
+								},
+								viewBox,
+							};
+							setSavedEmbedSettings(nextEmbedSettings);
 							// Single rewrite: updating width/aspectRatio first can invalidate the widget
 							// range, causing a subsequent viewBox rewrite to silently no-op.
 							props.setEmbedPropsAndViewBox?.({
@@ -697,8 +708,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		// If the user did NOT explicitly save embed settings, revert any local resize to the
 		// last-saved embed settings so a lock/unlock doesn't appear to have persisted changes.
 		if (!didExplicitSaveEmbedSettingsRef.current) {
-			embedWidthRef.current = props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH;
-			embedAspectRatioRef.current = props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO;
+			embedWidthRef.current = savedEmbedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH;
+			embedAspectRatioRef.current = savedEmbedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO;
 			applyEmbedDimensions(embedWidthRef.current, embedAspectRatioRef.current);
 		}
 

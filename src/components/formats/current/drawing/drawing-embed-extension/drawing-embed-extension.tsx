@@ -51,7 +51,7 @@ import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect
 import {
 	getEmbedDecorationRange,
 	getEmbedMarkdownRange,
-	inkEmbedMarkdownOnlyAltChanged,
+	inkEmbedMarkdownOnlyAltOrEditQueryChanged,
 } from 'src/logic/utils/embed-markdown-range';
 
 /////////////////////
@@ -614,7 +614,9 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                             // re-reads the edit link and snaps preview framing back.
                             const beforeSnippet = transaction.startState.doc.sliceString(oldDecoration.from, oldDecoration.to);
                             const afterSnippet = transaction.state.doc.sliceString(oldDecFrom, oldDecTo);
-                            decorationAlreadyExists = inkEmbedMarkdownOnlyAltChanged(beforeSnippet, afterSnippet);
+                            // Alt-only or Edit-link query-only (save framing). A rebuild
+                            // mints a new embedId, so edit mode is lost and preview can collapse.
+                            decorationAlreadyExists = inkEmbedMarkdownOnlyAltOrEditQueryChanged(beforeSnippet, afterSnippet);
                         }
                         if (decorationAlreadyExists) break;
                     }

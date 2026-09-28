@@ -18,7 +18,7 @@ In edit mode, `InkSvgCanvas` holds a **camera** (`x`, `y`, `zoom`). The live vie
 - `viewBox.width = containerWidth / camera.zoom`
 - `viewBox.height = containerHeight / camera.zoom`
 
-Saved framing comes from `embedSettings.viewBox` parsed when the widget mounted (the Edit link URL). It does **not** update live while the user pans; only an explicit save rewrites the markdown.
+Saved framing in the note is the Edit link URL. While the embed stays mounted after **Save framing**, React does not receive a new `props.embedSettings` (the CodeMirror widget is reused). `DrawingEmbed` keeps `savedEmbedSettings` in state so preview, dirty-check, and lock use the last persisted crop and box size.
 
 ### Toolbar controls
 
@@ -104,18 +104,25 @@ sequenceDiagram
     participant User
     participant Menu as ExtendedDrawingMenu
     participant Editor as DrawingEditor
-    participant Embed as DrawingEmbedWidget
+    participant Embed as DrawingEmbed
+    participant Widget as DrawingEmbedWidget
+    participant CM as CodeMirror decorations
 
     User->>Menu: Tap purple save framing
     Menu->>Editor: handleSaveCameraPosition()
     Editor->>Editor: computeCurrentViewBox()
     Editor->>Embed: onSaveCameraPosition(viewBox)
-    Embed->>Embed: setEmbedPropsAndViewBox(width, aspectRatio, viewBox)
-    Note over Embed: Rewrites Edit link URL in markdown
+    Embed->>Embed: setSavedEmbedSettings(display + viewBox)
+    Embed->>Widget: setEmbedPropsAndViewBox(width, aspectRatio, viewBox)
+    Note over Widget: Rewrites Edit link query in markdown
+    Widget->>CM: document change in widget range
+    Note over CM: Reuses same widget when only alt or Edit-link query changed
     Editor->>Editor: setIsSaveCameraEnabled(false)
 ```
 
 Resize-handle drags update embed width/aspect in local refs during the gesture; save framing persists those values together with the viewBox so a single markdown rewrite avoids widget range invalidation bugs.
+
+Locking after a save uses `savedEmbedSettings` for the preview crop and for reverting unsaved resizes. Finish editing without save framing still restores the last saved display size from that state, not the stale mount-time props.
 
 ## Technical details
 
@@ -128,6 +135,8 @@ Resize-handle drags update embed width/aspect in local refs during the gesture; 
 | Toolbar compact mode | `use-drawing-embed-toolbar-compact.ts`, `toolbar-cluster-overlap.ts`, `drawing-editor.scss` (`ddc_ink_toolbar-compact`) |
 | Compact-on-unlock tests | `tests/components/formats/current/drawing/use-drawing-embed-toolbar-compact.test.tsx` |
 | Markdown persistence | `drawing-embed-extension.tsx` — `setEmbedPropsAndViewBox` |
+| Widget reuse after framing write | `inkEmbedMarkdownOnlyAltOrEditQueryChanged` in `embed-markdown-range.ts` |
+| Live saved framing after reuse | `savedEmbedSettings` in `drawing-embed.tsx` |
 
 ### `onCameraChange` meta sources
 
@@ -153,7 +162,15 @@ Embed pan/zoom pointer events are often **forwarded** from `FingerBlocker` to th
 
 The search stays inside that widget’s decoration slice. It does not scan the rest of the note.
 
-An alt-only markdown edit overlaps the widget. The drawing and writing extensions reuse the existing widget when the rest of the line is unchanged, so the live view box is not replaced by a freshly parsed one. A change to `width`, `aspectRatio`, or `viewBox*` still builds a new widget.
+### Save framing must reuse the widget
+
+An alt-only markdown edit overlaps the widget. The drawing extension also reuses the widget when **only the Edit link query** changed (`width`, `aspectRatio`, `viewBox*`). Save framing writes those params; rebuilding would mint a new `embedId`, drop edit mode, and let an empty-drawing preview measure ~0–4px (then poison the height cache). Filepath or embed-type changes still build a new widget.
+
+Writing embeds still reuse only on alt-only edits (`inkEmbedMarkdownOnlyAltChanged`).
+
+### Reused widget must keep live saved framing
+
+Reusing the widget after save framing does not remount React, so `props.embedSettings` stay at unlock-time values. Preview `viewBox` and lock revert must read `savedEmbedSettings` updated in `onSaveCameraPosition`. Otherwise the tick to lock shows the old crop and can restore the original box size.
 
 ### Tolerance before showing save framing
 

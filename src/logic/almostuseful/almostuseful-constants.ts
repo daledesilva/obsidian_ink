@@ -9,6 +9,8 @@ export const ALMOSTUSEFUL_APP_TOKEN_TYPE = 'almostuseful_app';
 
 /** Suffix for saveLocally — full key is au_ink_almostuseful_session. */
 export const ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX = 'almostuseful_session';
+/** Per-install id so a second vault does not replace this grant. Device-local only. */
+export const ALMOSTUSEFUL_DEVICE_STORAGE_SUFFIX = 'almostuseful_device';
 /** In-flight device code + user code until the token poll completes. */
 export const ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX = 'almostuseful_handoff';
 /** Optional staging portal origin (device-local). */

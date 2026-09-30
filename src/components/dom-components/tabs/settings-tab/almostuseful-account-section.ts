@@ -102,15 +102,22 @@ export function insertAlmostUsefulAccountSection(
 				.addButton((button) => {
 					decorateAlmostUsefulLinkAccountButton(button);
 					button.onClick(() => {
-						button.setDisabled(true);
-						void startAlmostUsefulBrowserLogin().then((result) => {
-							if (!result.ok) {
-								button.setDisabled(false);
-								new Notice(result.error);
-								return;
-							}
-							onRerender();
-						});
+						if (button.buttonEl.disabled) return;
+						// The label is a custom span, so setButtonText would not show the wait state.
+						setAlmostUsefulLinkAccountButtonBusy(button, true);
+						void startAlmostUsefulBrowserLogin()
+							.then((result) => {
+								if (!result.ok) {
+									setAlmostUsefulLinkAccountButtonBusy(button, false);
+									new Notice(result.error);
+									return;
+								}
+								onRerender();
+							})
+							.catch(() => {
+								setAlmostUsefulLinkAccountButtonBusy(button, false);
+								new Notice('Could not start Almost Useful sign-in. Try again.');
+							});
 					});
 				});
 		}
@@ -257,6 +264,15 @@ function decorateAlmostUsefulLinkAccountButton(button: ButtonComponent): void {
 	});
 }
 
+/** Disables the control and swaps the label so a click is visible before the code card replaces it. */
+function setAlmostUsefulLinkAccountButtonBusy(button: ButtonComponent, isBusy: boolean): void {
+	button.setDisabled(isBusy);
+	button.buttonEl.toggleClass('is-busy', isBusy);
+	const labelEl = button.buttonEl.querySelector('.ddc_ink_almostuseful-link-account-btn-label');
+	if (!labelEl) return;
+	labelEl.textContent = isBusy ? 'Getting code…' : 'Link account';
+}
+
 function almostUsefulAccountSectionTitle(session: AlmostUsefulSession | null): string {
 	if (!session) return 'Almost Useful account';
 	const identity = session.userEmail;
@@ -304,6 +320,10 @@ function insertDeviceSignInCodeCard(
 	});
 	const expiryRowEl = cardEl.createDiv('ddc_ink_almostuseful-handoff-expiry-row');
 	const expiryEl = expiryRowEl.createEl('p', { cls: 'ddc_ink_almostuseful-handoff-expiry' });
+	const checkingEl = cardEl.createEl('p', {
+		cls: 'ddc_ink_almostuseful-handoff-checking',
+		text: "Waiting for your authorisation on the website.\nThis screen will update automatically a few seconds after that's given.",
+	});
 	const renewEl = expiryRowEl.createEl('button', {
 		cls: 'ddc_ink_almostuseful-handoff-renew',
 		text: 'Renew the code',
@@ -328,6 +348,7 @@ function insertDeviceSignInCodeCard(
 		copyButtonEl.toggleClass('is-hidden', isCodeExpired);
 		openWebsiteButtonEl.toggleClass('is-hidden', isCodeExpired);
 		renewEl.toggleClass('is-hidden', !isCodeExpired);
+		checkingEl.toggleClass('is-hidden', isCodeExpired);
 		if (isCodeExpired) {
 			expiryEl.setText('Code expired');
 			return;
@@ -383,19 +404,30 @@ function insertDeviceSignInCodeCard(
 	renewEl.addEventListener('click', () => {
 		if (isRenewing) return;
 		isRenewing = true;
-		void requestAlmostUsefulDeviceCode().then((result) => {
-			isRenewing = false;
-			if (!result.ok) {
-				new Notice(result.error);
-				return;
-			}
-			displayedPending = result.pending;
-			isCodeExpired = false;
-			userCodeEl.setText(result.pending.userCode);
-			copyButtonEl.setText('Copy code');
-			paintExpiry();
-			beginPolling();
-		});
+		renewEl.disabled = true;
+		renewEl.addClass('is-busy');
+		void requestAlmostUsefulDeviceCode()
+			.then((result) => {
+				isRenewing = false;
+				renewEl.disabled = false;
+				renewEl.removeClass('is-busy');
+				if (!result.ok) {
+					new Notice(result.error);
+					return;
+				}
+				displayedPending = result.pending;
+				isCodeExpired = false;
+				userCodeEl.setText(result.pending.userCode);
+				copyButtonEl.setText('Copy code');
+				paintExpiry();
+				beginPolling();
+			})
+			.catch(() => {
+				isRenewing = false;
+				renewEl.disabled = false;
+				renewEl.removeClass('is-busy');
+				new Notice('Could not start Almost Useful sign-in. Try again.');
+			});
 	});
 
 	cancelButtonEl.addEventListener('click', () => {

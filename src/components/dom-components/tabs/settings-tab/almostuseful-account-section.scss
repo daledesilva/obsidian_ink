@@ -105,6 +105,14 @@
 		height: auto;
 		min-height: 2.75em;
 		color: var(--text-on-accent);
+
+		// Grey the accent out, and ignore the pointer so the cursor stays the arrow.
+		&.is-busy {
+			pointer-events: none;
+			background-color: var(--background-modifier-border) !important;
+			color: var(--text-muted) !important;
+			box-shadow: none !important;
+		}
 	}
 
 	.ddc_ink_almostuseful-link-account-btn-icon {
@@ -208,6 +216,21 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.ddc_ink_almostuseful-handoff-checking {
+	width: 100%;
+	margin: 0.35em 0 0.85em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: 1.4;
+	text-align: center;
+	// The copy includes a newline after the first sentence.
+	white-space: pre-line;
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
 .ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-renew {
 	margin: 0;
 	padding: 0;
@@ -224,6 +247,12 @@
 
 	&:hover {
 		color: var(--text-accent);
+	}
+
+	&.is-busy {
+		pointer-events: none;
+		color: var(--text-faint);
+		text-decoration: none;
 	}
 
 	&.is-hidden {

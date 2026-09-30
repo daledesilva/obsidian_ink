@@ -124,10 +124,15 @@ describe('startAlmostUsefulBrowserLogin', () => {
 		expect(url).toBe(`${ALMOSTUSEFUL_PORTAL_ORIGIN}/api/oauth/device`);
 		expect(init.method).toBe('POST');
 		expect(init.headers.Authorization).toBeUndefined();
-		expect(requestBodyOfCall(0)).toEqual({
-			client_id: ALMOSTUSEFUL_CLIENT_ID,
-			display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-		});
+		expect(requestBodyOfCall(0)).toEqual(
+			expect.objectContaining({
+				client_id: ALMOSTUSEFUL_CLIENT_ID,
+				display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
+				device_label: expect.any(String),
+			}),
+		);
+		const posted = requestBodyOfCall(0) as { device_id?: string };
+		expect(posted.device_id).toMatch(/^[A-Za-z0-9_-]{16,128}$/);
 
 		const pending = readAlmostUsefulHandoffPending();
 		expect(pending).toMatchObject({
@@ -225,7 +230,7 @@ describe('startAlmostUsefulDevicePolling', () => {
 		queuePortalResponses(tokenError('authorization_pending'), tokenError('authorization_pending'));
 		poller = startAlmostUsefulDevicePolling(callbacks);
 
-		await jest.advanceTimersByTimeAsync(4999);
+		await jest.advanceTimersByTimeAsync(9_999);
 		expect(fetchMock).toHaveBeenCalledTimes(0);
 		await jest.advanceTimersByTimeAsync(1);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -238,7 +243,7 @@ describe('startAlmostUsefulDevicePolling', () => {
 		queuePortalResponses(tokenError('slow_down'), tokenError('authorization_pending'));
 		poller = startAlmostUsefulDevicePolling(callbacks);
 
-		await jest.advanceTimersByTimeAsync(5000);
+		await jest.advanceTimersByTimeAsync(10_000);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		await jest.advanceTimersByTimeAsync(9999);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -246,18 +251,44 @@ describe('startAlmostUsefulDevicePolling', () => {
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});
 
-	it('polls on window focus and when the document becomes visible', async () => {
+	it('does not poll in the background, then polls immediately on focus', async () => {
 		seedPending();
 		queuePortalResponses(tokenError('authorization_pending'), tokenError('authorization_pending'));
 		poller = startAlmostUsefulDevicePolling(callbacks);
 
+		window.dispatchEvent(new Event('blur'));
+		await jest.advanceTimersByTimeAsync(30_000);
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+
 		window.dispatchEvent(new Event('focus'));
 		await jest.advanceTimersByTimeAsync(0);
+		await Promise.resolve();
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+		await jest.advanceTimersByTimeAsync(5000);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
 
+	it('polls immediately when the document becomes visible again', async () => {
+		seedPending();
+		queuePortalResponses(tokenError('authorization_pending'));
+		poller = startAlmostUsefulDevicePolling(callbacks);
+
+		Object.defineProperty(document, 'visibilityState', {
+			configurable: true,
+			get: () => 'hidden',
+		});
+		document.dispatchEvent(new Event('visibilitychange'));
+		await jest.advanceTimersByTimeAsync(30_000);
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+
+		Object.defineProperty(document, 'visibilityState', {
+			configurable: true,
+			get: () => 'visible',
+		});
 		document.dispatchEvent(new Event('visibilitychange'));
 		await jest.advanceTimersByTimeAsync(0);
-		expect(fetchMock).toHaveBeenCalledTimes(2);
+		await Promise.resolve();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 
 	it('polls immediately on pollNow and stops after success', async () => {

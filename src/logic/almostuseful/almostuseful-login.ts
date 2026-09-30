@@ -1,5 +1,6 @@
 import { Platform } from 'obsidian';
 import { ALMOSTUSEFUL_CLIENT_DISPLAY_NAME, ALMOSTUSEFUL_CLIENT_ID } from 'src/logic/almostuseful/almostuseful-constants';
+import { readOrCreateAlmostUsefulDeviceInstall } from 'src/logic/almostuseful/almostuseful-device';
 import { persistAlmostUsefulTokenResponse } from 'src/logic/almostuseful/almostuseful-token-persist';
 import { almostUsefulRequestJson } from 'src/logic/almostuseful/almostuseful-http';
 import {
@@ -21,7 +22,15 @@ import {
 
 export const ALMOSTUSEFUL_DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
 
-const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS = 5;
+/** Used only when the portal omits interval. Live codes use the portal's value. */
+const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS = 3;
+/**
+ * The code has only just appeared, so the website cannot have approved it yet.
+ * Returning from another app skips this and polls immediately.
+ */
+const INITIAL_FOREGROUND_POLL_DELAY_MS = 10_000;
+/** A hung device-code request must fail so Link account can be tried again. */
+const DEVICE_CODE_ISSUE_TIMEOUT_MS = 20_000;
 // RFC 8628 §3.5: each slow_down adds 5 seconds to the poll interval for the rest of this code.
 const SLOW_DOWN_EXTRA_MS = 5000;
 
@@ -60,18 +69,31 @@ export async function requestAlmostUsefulDeviceCode(): Promise<
 > {
 	const failure = { ok: false as const, error: 'Could not start Almost Useful sign-in. Try again.' };
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
+	const deviceInstall = readOrCreateAlmostUsefulDeviceInstall();
 	let response: { status: number; json: unknown };
+	// requestUrl has no abort. Racing a timer lets the button recover if the portal never answers.
+	let timeoutId = 0;
+	const timeout = new Promise<never>((_resolve, reject) => {
+		timeoutId = window.setTimeout(() => reject(new Error('timeout')), DEVICE_CODE_ISSUE_TIMEOUT_MS);
+	});
 	try {
-		response = await almostUsefulRequestJson({
-			url: `${portalOrigin}/api/oauth/device`,
-			method: 'POST',
-			body: {
-				client_id: ALMOSTUSEFUL_CLIENT_ID,
-				display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-			},
-		});
+		response = await Promise.race([
+			almostUsefulRequestJson({
+				url: `${portalOrigin}/api/oauth/device`,
+				method: 'POST',
+				body: {
+					client_id: ALMOSTUSEFUL_CLIENT_ID,
+					display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
+					device_id: deviceInstall.deviceId,
+					device_label: deviceInstall.deviceLabel,
+				},
+			}),
+			timeout,
+		]);
 	} catch {
 		return failure;
+	} finally {
+		window.clearTimeout(timeoutId);
 	}
 	if (response.status !== 200) return failure;
 	const json = response.json as {
@@ -154,9 +176,10 @@ export async function pollAlmostUsefulDeviceToken(
 }
 
 /**
- * Polls the token endpoint while settings shows the code: every interval and on
- * window focus / visible. An expired code stays on screen until the user chooses
- * Renew; this poller does not mint a replacement.
+ * Polls the token endpoint while settings shows the code and this app is in
+ * front. The first check waits, because the code has only just been shown.
+ * Leaving the app cancels that wait. Coming back polls once, then on the
+ * portal interval. An expired code stays on screen until Renew.
  */
 export function startAlmostUsefulDevicePolling(callbacks: {
 	onExpired: () => void;
@@ -167,9 +190,10 @@ export function startAlmostUsefulDevicePolling(callbacks: {
 	const hostWindow = window;
 	const hostDocument = document;
 	let isStopped = false;
-	let isBusy = false;
+	let isPausedForBackground = hostDocument.visibilityState === 'hidden';
 	let slowDownExtraMs = 0;
 	let pollTimer: number | null = null;
+	let pollInFlight: Promise<void> | null = null;
 
 	const clearPollTimer = (): void => {
 		if (pollTimer === null) return;
@@ -177,22 +201,38 @@ export function startAlmostUsefulDevicePolling(callbacks: {
 		pollTimer = null;
 	};
 
-	const scheduleNextPoll = (): void => {
+	const scheduleNextPoll = (delayMs?: number): void => {
 		clearPollTimer();
-		if (isStopped) return;
+		if (isStopped || isPausedForBackground) return;
 		const pending = readAlmostUsefulHandoffPending();
 		let intervalSeconds = DEFAULT_DEVICE_POLL_INTERVAL_SECONDS;
 		if (pending) intervalSeconds = pending.intervalSeconds;
+		const waitMs = delayMs ?? intervalSeconds * 1000 + slowDownExtraMs;
 		pollTimer = hostWindow.setTimeout(() => {
 			pollTimer = null;
+			if (isPausedForBackground) return;
 			void runPoll();
-		}, intervalSeconds * 1000 + slowDownExtraMs);
+		}, waitMs);
 	};
+
+	/** Drop the timer. A poll must not run while Obsidian is not the front app. */
+	function pauseForBackground(): void {
+		isPausedForBackground = true;
+		clearPollTimer();
+	}
+
+	/** The user is back. Ask now, then the interval starts again from this poll. */
+	function resumeFromBackground(): void {
+		if (isStopped || !isPausedForBackground) return;
+		isPausedForBackground = false;
+		void runPoll();
+	}
 
 	const stop = (): void => {
 		if (isStopped) return;
 		isStopped = true;
 		clearPollTimer();
+		hostWindow.removeEventListener('blur', handleBlur);
 		hostWindow.removeEventListener('focus', handleFocus);
 		hostDocument.removeEventListener('visibilitychange', handleVisibilityChange);
 	};
@@ -203,8 +243,8 @@ export function startAlmostUsefulDevicePolling(callbacks: {
 		callbacks.onExpired();
 	};
 
-	const runPoll = async (): Promise<void> => {
-		if (isStopped || isBusy) return;
+	const executePoll = async (): Promise<void> => {
+		if (isStopped) return;
 		const pending = readAlmostUsefulHandoffPending();
 		if (!pending) {
 			stop();
@@ -212,47 +252,62 @@ export function startAlmostUsefulDevicePolling(callbacks: {
 			return;
 		}
 		clearPollTimer();
-		isBusy = true;
-		try {
-			if (Date.now() >= pending.expiresAt) {
-				reportExpired();
-				return;
-			}
-			const outcome = await pollAlmostUsefulDeviceToken(pending.deviceCode);
-			if (isStopped) return;
-			if (outcome === 'success') {
-				stop();
-				callbacks.onSignedIn();
-				return;
-			}
-			if (outcome === 'denied') {
-				stop();
-				callbacks.onSignedOut();
-				return;
-			}
-			if (outcome === 'expired') {
-				reportExpired();
-				return;
-			}
-			if (outcome === 'slow_down') slowDownExtraMs += SLOW_DOWN_EXTRA_MS;
-			scheduleNextPoll();
-		} finally {
-			isBusy = false;
+		if (Date.now() >= pending.expiresAt) {
+			reportExpired();
+			return;
 		}
+		const outcome = await pollAlmostUsefulDeviceToken(pending.deviceCode);
+		if (isStopped) return;
+		if (outcome === 'success') {
+			stop();
+			callbacks.onSignedIn();
+			return;
+		}
+		if (outcome === 'denied') {
+			stop();
+			callbacks.onSignedOut();
+			return;
+		}
+		if (outcome === 'expired') {
+			reportExpired();
+			return;
+		}
+		if (outcome === 'slow_down') slowDownExtraMs += SLOW_DOWN_EXTRA_MS;
+		scheduleNextPoll();
 	};
 
+	/** One poll at a time. A focus event during a poll waits for that result. */
+	const runPoll = (): Promise<void> => {
+		if (isStopped) return Promise.resolve();
+		if (pollInFlight) return pollInFlight;
+		pollInFlight = executePoll().finally(() => {
+			pollInFlight = null;
+		});
+		return pollInFlight;
+	};
+
+	function handleBlur(): void {
+		pauseForBackground();
+	}
+
 	function handleFocus(): void {
-		void runPoll();
+		resumeFromBackground();
 	}
 
 	function handleVisibilityChange(): void {
-		if (hostDocument.visibilityState !== 'visible') return;
-		void runPoll();
+		if (hostDocument.visibilityState === 'hidden') {
+			pauseForBackground();
+			return;
+		}
+		resumeFromBackground();
 	}
 
+	hostWindow.addEventListener('blur', handleBlur);
 	hostWindow.addEventListener('focus', handleFocus);
 	hostDocument.addEventListener('visibilitychange', handleVisibilityChange);
-	scheduleNextPoll();
+	// Already in front: wait before the first ask. Already hidden: stay quiet
+	// until focus, which polls immediately.
+	if (!isPausedForBackground) scheduleNextPoll(INITIAL_FOREGROUND_POLL_DELAY_MS);
 
 	return { pollNow: runPoll, stop };
 }

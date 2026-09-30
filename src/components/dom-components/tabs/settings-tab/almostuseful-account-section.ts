@@ -360,6 +360,7 @@ function insertDeviceSignInCodeCard(
 
 	let copiedLabelTimer: number | null = null;
 	copyButtonEl.addEventListener('click', () => {
+		// Open the portal only after clipboard success so the code is on the pasteboard before the browser steals focus.
 		void navigator.clipboard.writeText(displayedPending.userCode).then(
 			() => {
 				copyButtonEl.setText('Copied');

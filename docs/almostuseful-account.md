@@ -153,7 +153,7 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 - **Do not add TanStack Charts** to match the portal renderer. Remaining/spend parity is the layout math and burndown JSON, not the chart library. The plugin bundle is already large.
 - **2px / 4px min-segment heights are visual only.** Tooltips use true remaining / spend. Vanilla tippy follows the pointer (`offset: [0, 12]`); the tooltip is non-interactive so it cannot steal hover.
 - **Popped-out Settings:** tippy `appendTo` and pointer listeners must use `svg.ownerDocument`, not the module `document`, or tooltips mount on the wrong Electron window.
-- **Link account does not open the browser.** **Copy code** (after a successful clipboard write) and **Open website** open the stored `verificationUri` through `openAlmostUsefulBrowserUrl`.
+- **Link account does not open the browser.** **Open website** always opens the stored `verificationUri`. **Copy code** opens it only after a successful clipboard write so the user has the code before the browser takes focus; a failed copy shows a notice and leaves the browser closed.
 - **Do not poll faster than the stored interval.** The portal answers `slow_down` and Ink adds 5 seconds for the rest of that code. A return from the background is one immediate poll, then the interval. Polling on every click inside Settings would trip that cap.
 - **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
 - **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Link account again so they can Authorize Ink.

@@ -7,6 +7,7 @@
 	// Edit outline (overrides v1/legacy 8px base-10 leak)
 	.ddc_ink_writing-editor,
 	.ddc_ink_drawing-editor {
+		// Clips rounded embed canvas; writing embed overrides to visible so translated primary menu is not clipped (see writing-editor.scss).
 		overflow: hidden;
 		outline-color: color-mix(in srgb, var(--text-normal) 20%, transparent);
 	}

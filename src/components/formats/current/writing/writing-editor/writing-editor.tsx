@@ -837,10 +837,14 @@ export function WritingEditor(props: WritingEditorProps) {
 			canvasHeight: visible.height,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
-			cornerMarkers: buildBooxCornerMarkers({
-				wrapper: editorWrapperRefEl.current,
-				isDedicatedView: !props.embedded,
-			}),
+			cornerMarkers: {
+				...buildBooxCornerMarkers({
+					wrapper: editorWrapperRefEl.current,
+					isDedicatedView: !props.embedded,
+				}),
+				// TEMP: thicker markers for writing-embed visibility test
+				...(props.embedded ? { width: 6 } : {}),
+			},
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
 		return true;
@@ -912,10 +916,14 @@ export function WritingEditor(props: WritingEditorProps) {
 			canvasHeight: visible.height,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
-			cornerMarkers: buildBooxCornerMarkers({
-				wrapper: editorWrapperRefEl.current,
-				isDedicatedView: !props.embedded,
-			}),
+			cornerMarkers: {
+				...buildBooxCornerMarkers({
+					wrapper: editorWrapperRefEl.current,
+					isDedicatedView: !props.embedded,
+				}),
+				// TEMP: thicker markers for writing-embed visibility test
+				...(props.embedded ? { width: 6 } : {}),
+			},
 			immediate,
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});

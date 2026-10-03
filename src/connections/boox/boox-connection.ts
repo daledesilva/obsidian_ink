@@ -1,4 +1,5 @@
 import { Platform } from 'obsidian';
+import type { BooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { inkDebugLog, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 
@@ -480,7 +481,7 @@ export class BooxConnection {
 		canvasHeight: number;
 		appWidth: number;
 		appHeight: number;
-		cornerRadiusCssPx?: number;
+		cornerMarkers?: BooxCornerMarkers;
 		excludeRects?: Array<{ x: number; y: number; width: number; height: number }>;
 	}): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -508,7 +509,8 @@ export class BooxConnection {
 					canvasHeight: dimensions.canvasHeight,
 					appWidth: dimensions.appWidth,
 					appHeight: dimensions.appHeight,
-					cornerRadiusCssPx: dimensions.cornerRadiusCssPx,
+					// Nested cornerMarkers (not legacy cornerRadiusCssPx) — see eink-bridge overlay-corner-alignment-markers.md
+					cornerMarkers: dimensions.cornerMarkers,
 					excludeRects: dimensions.excludeRects ?? [],
 				},
 			}),
@@ -522,7 +524,7 @@ export class BooxConnection {
 		canvasHeight: number;
 		appWidth: number;
 		appHeight: number;
-		cornerRadiusCssPx?: number;
+		cornerMarkers?: BooxCornerMarkers;
 		immediate?: boolean;
 		excludeRects?: Array<{ x: number; y: number; width: number; height: number }>;
 	}): void {
@@ -551,7 +553,7 @@ export class BooxConnection {
 					canvasHeight: dimensions.canvasHeight,
 					appWidth: dimensions.appWidth,
 					appHeight: dimensions.appHeight,
-					cornerRadiusCssPx: dimensions.cornerRadiusCssPx,
+					cornerMarkers: dimensions.cornerMarkers,
 					immediate: dimensions.immediate ?? false,
 					excludeRects: dimensions.excludeRects ?? [],
 				},

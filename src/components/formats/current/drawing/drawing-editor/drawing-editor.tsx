@@ -18,7 +18,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
-import { getBooxEmbedCornerRadiusCssPx } from 'src/connections/boox/boox-embed-corner-radius';
+import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
@@ -700,7 +700,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				canvasHeight: number;
 				appWidth: number;
 				appHeight: number;
-				cornerRadiusCssPx?: number;
+				cornerMarkers: ReturnType<typeof buildBooxCornerMarkers>;
 		  }
 		| null {
 		const surfaceRect = getBooxClientAreaRect();
@@ -709,6 +709,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		const canvasHeight = Math.round(surfaceRect.height);
 		if (canvasWidth === 0 || canvasHeight === 0) return null;
 		const wrapper = editorWrapperRefEl.current;
+		if (!wrapper) return null;
 		return {
 			x: Math.round(surfaceRect.x),
 			y: Math.round(surfaceRect.y),
@@ -716,7 +717,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			canvasHeight,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
-			cornerRadiusCssPx: wrapper ? getBooxEmbedCornerRadiusCssPx(wrapper) : undefined,
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper,
+				isDedicatedView: !props.embedded,
+				hideBottomRightCorner: props.embedded,
+			}),
 		};
 	}
 

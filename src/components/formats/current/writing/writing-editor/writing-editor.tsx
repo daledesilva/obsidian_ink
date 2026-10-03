@@ -27,7 +27,7 @@ import { ExpandLinesButton } from 'src/components/jsx-components/expand-lines-bu
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
-import { getBooxEmbedCornerRadiusCssPx } from 'src/connections/boox/boox-embed-corner-radius';
+import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
@@ -837,7 +837,10 @@ export function WritingEditor(props: WritingEditorProps) {
 			canvasHeight: visible.height,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
-			cornerRadiusCssPx: getBooxEmbedCornerRadiusCssPx(editorWrapperRefEl.current),
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper: editorWrapperRefEl.current,
+				isDedicatedView: !props.embedded,
+			}),
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
 		return true;
@@ -909,7 +912,10 @@ export function WritingEditor(props: WritingEditorProps) {
 			canvasHeight: visible.height,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
-			cornerRadiusCssPx: getBooxEmbedCornerRadiusCssPx(editorWrapperRefEl.current),
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper: editorWrapperRefEl.current,
+				isDedicatedView: !props.embedded,
+			}),
 			immediate,
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});

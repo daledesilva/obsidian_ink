@@ -1,11 +1,14 @@
 // High-contrast embed chrome when Boox Companion is enabled (e-ink visibility).
 // Applied via .ddc_ink_resize-container--boox (embedded) or .ddc_ink_boox-eink (dedicated editor).
+// 20px radius matches embed preview frames and is sent to Bridge as cornerRadiusCssPx for overlay markers.
 
 .ddc_ink_resize-container--boox,
 .ddc_ink_boox-eink {
 	// Edit embed outline (overrides v1/legacy 8px base-10 leak)
 	.ddc_ink_writing-editor,
 	.ddc_ink_drawing-editor {
+		border-radius: 20px;
+		overflow: hidden;
 		outline-color: color-mix(in srgb, var(--text-normal) 20%, transparent);
 	}
 

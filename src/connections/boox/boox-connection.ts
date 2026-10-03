@@ -480,6 +480,7 @@ export class BooxConnection {
 		canvasHeight: number;
 		appWidth: number;
 		appHeight: number;
+		cornerRadiusCssPx?: number;
 		excludeRects?: Array<{ x: number; y: number; width: number; height: number }>;
 	}): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -507,6 +508,7 @@ export class BooxConnection {
 					canvasHeight: dimensions.canvasHeight,
 					appWidth: dimensions.appWidth,
 					appHeight: dimensions.appHeight,
+					cornerRadiusCssPx: dimensions.cornerRadiusCssPx,
 					excludeRects: dimensions.excludeRects ?? [],
 				},
 			}),
@@ -520,6 +522,7 @@ export class BooxConnection {
 		canvasHeight: number;
 		appWidth: number;
 		appHeight: number;
+		cornerRadiusCssPx?: number;
 		immediate?: boolean;
 		excludeRects?: Array<{ x: number; y: number; width: number; height: number }>;
 	}): void {
@@ -548,6 +551,7 @@ export class BooxConnection {
 					canvasHeight: dimensions.canvasHeight,
 					appWidth: dimensions.appWidth,
 					appHeight: dimensions.appHeight,
+					cornerRadiusCssPx: dimensions.cornerRadiusCssPx,
 					immediate: dimensions.immediate ?? false,
 					excludeRects: dimensions.excludeRects ?? [],
 				},

@@ -286,7 +286,7 @@ If discovery finds nothing (no adb shell access), it falls back to these paths:
 - `/storage/emulated/0/Documents/Design  and Development/.obsidian/plugins/ink`
 - `/storage/emulated/0/Documents/Projects/.obsidian/plugins/ink`
 
-**Gotcha:** Bridge overlay corner markers read nested **`cornerMarkers`** on drawing-area WebSocket messages. An older plugin build omits that field; Bridge then defaults to radius 20 and all four corners. After `build:boox`, confirm the vault you are testing actually received the new `main.js` (timestamp/size) or restart Obsidian so the WebView reloads the plugin.
+**Gotcha:** Bridge overlay corner markers read nested **`cornerMarkers`** on drawing-area WebSocket messages. An older plugin build omits that field; Bridge then defaults to width 2, radius 20, and all four corners. Embeds should send `width: 3` and embed radius; dedicated views should send all corner flags `false`. After `build:boox`, confirm the vault you are testing actually received the new `main.js` (timestamp/size) or restart Obsidian so the WebView reloads the plugin.
 
 **Custom vaults**
 

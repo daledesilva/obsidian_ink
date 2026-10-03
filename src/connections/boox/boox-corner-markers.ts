@@ -1,5 +1,8 @@
 import { getBooxEmbedCornerRadiusCssPx } from 'src/connections/boox/boox-embed-corner-radius';
 
+/** Bracket stroke width (client CSS px) for writing and drawing embeds on Boox. */
+export const BOOX_EMBED_CORNER_MARKER_WIDTH = 3;
+
 export type BooxCornerMarkers = {
 	width?: number;
 	radius?: number;
@@ -13,7 +16,7 @@ export type BooxCornerMarkers = {
 
 /**
  * Builds nested cornerMarkers for Boox drawing-area WebSocket payloads.
- * Embed uses computed border-radius; dedicated views use radius 0 (square chrome).
+ * Embeds send bracket width + computed border-radius; dedicated views hide all corners.
  * Drawing embed hides bottomRight (resize handle). Crop pair omitted — Bridge defaults apply.
  */
 export function buildBooxCornerMarkers(options: {
@@ -22,10 +25,17 @@ export function buildBooxCornerMarkers(options: {
 	hideBottomRightCorner?: boolean;
 }): BooxCornerMarkers {
 	if (options.isDedicatedView) {
-		return { radius: 0 };
+		// Full-screen editors have no embed frame to align — hide brackets so they do not clutter the canvas.
+		return {
+			topLeft: false,
+			topRight: false,
+			bottomLeft: false,
+			bottomRight: false,
+		};
 	}
 
 	const cornerMarkers: BooxCornerMarkers = {
+		width: BOOX_EMBED_CORNER_MARKER_WIDTH,
 		radius: getBooxEmbedCornerRadiusCssPx(options.wrapper),
 	};
 

@@ -36,7 +36,7 @@
 	}
 }
 
-// Embeds only — dedicated Boox editors stay square (see buildBooxCornerMarkers radius 0).
+// Embeds only — dedicated Boox editors stay square and omit overlay corner markers.
 .ddc_ink_resize-container--boox {
 	.ddc_ink_writing-editor,
 	.ddc_ink_drawing-editor {

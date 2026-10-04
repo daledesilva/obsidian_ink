@@ -143,6 +143,10 @@ flowchart TD
 
 Drawing files and v1 code-block embeds remain out of scope for the **enqueue** paths; the settings **Transcription Queue** card lists any pending or in-flight `inkWriting` / `inkDrawing` job already on the device-local queue (signed-in devices only).
 
+### v0.6 version notice (upgrade tip)
+
+When `manifest.version` is newer than `onboardingTips.lastVersionTipRead`, Ink shows a single-page **Changes in Ink v0.6** notice promoting handwriting OCR and Almost Useful sign-in. **Join the waitlist** opens the portal; **Log in** opens Ink settings. Those body buttons do not dismiss the notice — only **Dismiss** marks the tip read. See [version-and-welcome-notices.md](version-and-welcome-notices.md).
+
 ### Auto-transcribe account notice (20 ink closes)
 
 After **20 saved ink closes** on a device with **no** linked Almost Useful account, Ink shows a one-time welcome-style notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) promoting auto-transcription via `almostuseful.xyz`. **Open Ink settings** or **Dismiss** permanently suppresses it on that device (`autoTranscribeAccountNoticeDismissed` in `deviceSettings_v1`).

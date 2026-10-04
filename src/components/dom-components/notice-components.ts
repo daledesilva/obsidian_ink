@@ -55,13 +55,17 @@ function createNoticeLabel(noticeParent: HTMLElement | DocumentFragment, noticeN
     return labelEl;
 }
 
-/** Primary CTA placed in notice scroll content (not the footer bar). */
+/** Row for one or more primary CTAs in notice scroll content (not the footer bar). */
+export function createNoticeBodyCtaRow(scrollAreaEl: HTMLElement): HTMLDivElement {
+	return scrollAreaEl.createDiv('ddc_ink_notice-body-cta-row');
+}
+
+/** Primary CTA button inside a notice body CTA row. */
 export function createNoticeBodyCtaButton(
-	scrollAreaEl: HTMLElement,
+	parentEl: HTMLElement,
 	label: string,
 ): HTMLButtonElement {
-	const bodyCtaEl = scrollAreaEl.createDiv('ddc_ink_notice-body-cta');
-	const buttonEl = bodyCtaEl.createEl('button');
+	const buttonEl = parentEl.createEl('button');
 	buttonEl.setText(label);
 	buttonEl.classList.add('ddc_ink_primary-btn');
 	return buttonEl;

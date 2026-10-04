@@ -124,8 +124,12 @@
         }        
     }
 
-    .ddc_ink_notice-body-cta {
+    .ddc_ink_notice-body-cta-row {
         margin-block: 0.85em 0.35em;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: var(--size-4-2);
 
         button.ddc_ink_primary-btn {
             pointer-events: all;

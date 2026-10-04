@@ -89,6 +89,7 @@ export function insertAlmostUsefulAccountSection(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
 
 	if (!session) {
+		insertAlmostUsefulEarlyAccessCard(contentEl, portalOrigin);
 		if (pending) {
 			insertDeviceSignInCodeCard(contentEl, pending, onRerender);
 		} else {
@@ -150,6 +151,25 @@ export function insertAlmostUsefulAccountSection(
 	void loadUsageInto(usageHostEl, session, portalOrigin);
 	insertHandwritingTranscriptionPrivacyDisclosure(contentEl);
 	insertTranscriptionQueueSection(contentEl);
+}
+
+/** Invite-only notice at the top of the account block; hidden once a session exists on this device. */
+function insertAlmostUsefulEarlyAccessCard(contentEl: HTMLElement, portalOrigin: string): void {
+	const cardEl = contentEl.createDiv(
+		'ddc_ink_legacy-migrate-card ddc_ink_almostuseful-early-access-card',
+	);
+	cardEl.createDiv({
+		cls: 'ddc_ink_legacy-migrate-card-title',
+		text: 'Early access',
+	});
+	const bodyEl = cardEl.createDiv({ cls: 'ddc_ink_legacy-migrate-card-desc' });
+	bodyEl.appendText(
+		'Almost Useful is currently in early access and is invite-only. If you have an account, sign in, or apply for an invite ',
+	);
+	const portalLinkEl = bodyEl.createEl('a', { href: portalOrigin, text: 'here' });
+	portalLinkEl.setAttr('target', '_blank');
+	portalLinkEl.setAttr('rel', 'noopener');
+	bodyEl.appendText('.');
 }
 
 /** Transcription data-flow and retention disclosure; shown signed out and under usage when linked. */

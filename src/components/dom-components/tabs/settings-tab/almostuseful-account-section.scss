@@ -294,6 +294,26 @@
 	padding-inline-start: 1em;
 }
 
+.ddc_ink_almostuseful-early-access-card {
+	margin-bottom: 0;
+
+	.ddc_ink_legacy-migrate-card-desc {
+		margin-bottom: 0;
+
+		a {
+			text-decoration: underline;
+		}
+	}
+}
+
+.theme-dark .ddc_ink_almostuseful-early-access-card .ddc_ink_legacy-migrate-card-desc a {
+	color: hsl(220, 65%, 38%);
+}
+
+.theme-light .ddc_ink_almostuseful-early-access-card .ddc_ink_legacy-migrate-card-desc a {
+	color: hsl(220, 85%, 78%);
+}
+
 .ddc_ink_almostuseful-settings-card-title-row {
 	display: flex;
 	align-items: center;

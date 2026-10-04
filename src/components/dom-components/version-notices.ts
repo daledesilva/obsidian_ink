@@ -1,12 +1,15 @@
 import * as semVer from 'semver';
 import {
     createNoticeBodyCtaButton,
+    createNoticeBodyCtaRow,
     createNoticeCtaBar,
     createNoticeTemplate,
     launchPersistentNotice,
 } from 'src/components/dom-components/notice-components';
-import { openInkSettingsTab } from 'src/components/dom-components/tabs/settings-tab/settings-tab';
+import { ALMOSTUSEFUL_PORTAL_ORIGIN } from 'src/logic/almostuseful/almostuseful-constants';
+import { openAlmostUsefulBrowserUrl } from 'src/logic/almostuseful/almostuseful-login';
 import InkPlugin from "src/main";
+import { openInkSettingsTab } from './tabs/settings-tab/settings-tab';
 
 ///////////
 ///////////
@@ -37,10 +40,15 @@ function showChanges(plugin: InkPlugin) {
 
     scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6`);
 
-    scrollAreaEl.createEl('p').createEl('strong').setText(`Handwriting transcriptions (OCR)`);
-    scrollAreaEl.createEl('p').setText(`Added the ability to transcribe handwriting into markdown text.`);
+    scrollAreaEl.createEl('h2').setText('Handwriting transcriptions (OCR)');
+    const inviteOnlyParagraphEl = scrollAreaEl.createEl('p');
+    inviteOnlyParagraphEl.appendText('This requires an ');
+    inviteOnlyParagraphEl.createEl('strong').setText('Almost Useful');
+    inviteOnlyParagraphEl.appendText(' account for processing and is currently invite only.');
 
-    const moreInfoBtnEl = createNoticeBodyCtaButton(scrollAreaEl, 'Begin transcriptions setup');
+    const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
+    const joinWaitlistBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Join the waitlist');
+    const logInBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Log in');
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
@@ -52,8 +60,12 @@ function showChanges(plugin: InkPlugin) {
 
     const notice = launchPersistentNotice(noticeBody);
 
-    moreInfoBtnEl.addEventListener('click', () => {
-        notice.hide();
+    // Body CTAs stay open so invite copy remains after the browser or Settings backgrounds Obsidian.
+    joinWaitlistBtnEl.addEventListener('click', () => {
+        openAlmostUsefulBrowserUrl(ALMOSTUSEFUL_PORTAL_ORIGIN);
+    });
+
+    logInBtnEl.addEventListener('click', () => {
         openInkSettingsTab(plugin);
     });
 

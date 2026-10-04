@@ -106,7 +106,7 @@ Transcript-only writes from a successful job preserve stroke geometry → at def
 
 ### Completion (silent)
 
-Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Failures show one notice. Whether the job is tried again depends on the portal `retryable` flag, not the English sentence.
+Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Portal failures show one notice. Whether the job is tried again depends on the portal `retryable` flag, not the English sentence. A missing network does not fail the job — see [Offline and unreachable network](#offline-and-unreachable-network).
 
 **Not auto-enqueued:** expand embed → dedicated view (save on expand, dequeue when dedicated editor opens), empty canvas, or when ink change is **below** the per-type occupancy threshold. Sync/modify while the file is open in an embed or dedicated view is also skipped.
 
@@ -203,7 +203,28 @@ Implementation:
 | `code: media_too_large` or status 413 | Notice: “This file can't be transcribed currently because it is too long. This will be fixed in a future update to Ink.” |
 | 402 | Notice: “Insufficient Almost Useful credits”. Not stored against the strokes, so a later close can try again after credits are added. |
 | 401 / not signed in | One notice. Not stored against the strokes. |
-| `retryable: true` | One notice for that file until a later attempt succeeds. Requeued after about 30 seconds so other files can run first. |
+| `navigator.onLine === false` | No POST. No notice. The job stays pending. If it was already taken off the list, it goes back to the front with no `retryAfter`. The window `online` event kicks the worker. |
+| Status 0 and no portal code (online, but the request threw) | Stays pending. Requeued after about 30 seconds. Silent for the first four consecutive throws on that job; from the fifth, one notice for that file until a later attempt succeeds. |
+| Other `retryable: true` (429, 5xx, and similar) | One notice for that file until a later attempt succeeds. Requeued after about 30 seconds so other files can run first. |
+
+### Offline and unreachable network
+
+Connectivity problems never remove the job. Terminal refusals still do.
+
+```mermaid
+flowchart TD
+  Kick[kickHandwritingTranscriptionQueue] --> Link{navigator.onLine?}
+  Link -->|no| Stay[Leave pending, no notice, no retry timer]
+  Stay --> OnlineEvent[window online event kicks]
+  Link -->|yes| Post[POST transcription job]
+  Post -->|threw, status 0| Count{networkFailureCount at least 5?}
+  Count -->|no| SilentRetry[Requeue about 30s, no notice]
+  Count -->|yes| LoudRetry[One notice, requeue about 30s]
+  Post -->|other retryable| OtherRetry[One notice, requeue about 30s]
+  Post -->|not retryable| Drop[One notice, do not requeue]
+```
+
+`networkFailureCount` lives on the pending job. A fresh enqueue clears it. A successful transcription removes the job, so the count goes with it.
 
 A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds. Ink does not hardcode the 1.5MB portal cap.
 
@@ -230,7 +251,7 @@ ClickUp decision log (routes, cost table): [Portal AI job routes](https://app.cl
 |-----|---------|---------|
 | `au_ink_handwritingTranscriptionQueue_v2` | `localStorage` via [`storage.ts`](../src/logic/utils/storage.ts) | `pending[]` + `openSessions[]` + `terminalRejections[]` |
 
-Pending job fields: `filePath`, `fileType` (`inkWriting` \| `inkDrawing`), `reason` (`auto` \| `manual`), `bboxCellsAtLastTranscription` (live occupancy at enqueue; empty on quit-promote until prune), `enqueuedAt`, optional `retryAfter` (ISO time; the worker skips the job until then).
+Pending job fields: `filePath`, `fileType` (`inkWriting` \| `inkDrawing`), `reason` (`auto` \| `manual`), `bboxCellsAtLastTranscription` (live occupancy at enqueue; empty on quit-promote until prune), `enqueuedAt`, optional `retryAfter` (ISO time; the worker skips the job until then), optional `networkFailureCount` (consecutive status-0 throws while the browser still reports online).
 
 `terminalRejections` may be missing on older v2 blobs; readers treat that as empty. Each entry is `filePath`, `bboxCellsAtLastTranscription`, `code`, and `notice`. It is not synced.
 
@@ -488,6 +509,9 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **No SVG `<text>` in icons.** iPad WKWebView renders it unreliably; use path-based icons.
 - **Do not measure transcript height before layout.** A sync `offsetHeight` on the first toggle matches the leftover ink box, and skipping `onRequestMeasure` leaves CodeMirror at that height until the user toggles away and back. Clear the aspect-ratio height, measure `scrollHeight` after layout, and always request a measure.
 - **Do not wrap the transcript in the absolute context-menu fill.** That wrapper is for the ink preview. On the transcript it takes the markdown out of flow and the embed collapses. Use `layout="content"`.
+- **Do not drop a job because the device is offline.** `navigator.onLine === false` skips the POST and leaves the job pending. A retry timer while offline would keep waking the worker with nothing to send. Resume is the window `online` event, not a countdown.
+- **`navigator.onLine` is only the local link.** A captive portal or a dead route still looks online. Those throws are status 0 with `code: null`. Count them on the job and stay silent until the fifth consecutive throw, then show the usual retryable notice once. Do not treat the first throw as a user-facing failure.
+- **Offline requeue has no `retryAfter`.** The job goes to the front so coming back online runs it next. The 30 second delay is for attempts that already reached the network.
 - **Do not notify between leaving `pending` and setting `inflightJob`.** `kickHandwritingTranscriptionQueue` removes the job from `pending` and `runTranscriptionJob` assigns `inflightJob` before the only notify. A notify in the gap makes a visible embed read "not in the queue" and skip the spinner. The status cluster must stay mounted on locked embeds that have no transcript yet, or a first transcription never shows the icon.
 
 ## Related docs

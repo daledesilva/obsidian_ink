@@ -19,6 +19,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VAULT_ROOT = path.resolve(__dirname);
+const REPO_ROOT = path.resolve(__dirname, '..');
+const INK_PLUGIN_DIST_DIR = path.join(REPO_ROOT, 'dist');
 const FIXTURES = path.resolve(__dirname, 'fixtures');
 const HANDWRITING_TRANSCRIPTION_FIXTURES = path.resolve(__dirname, '../tests/fixtures/handwriting-transcription');
 const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
@@ -28,6 +30,19 @@ const INK_CANVAS_FORMAT_VERSION = '0.5.0';
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+/** Copies built Ink artifacts into the QA vault so open-qa always has a loadable plugin folder. */
+function syncInkPluginFromDist(inkPluginDir) {
+  ensureDir(inkPluginDir);
+  for (const fileName of ['main.js', 'manifest.json', 'styles.css']) {
+    const sourcePath = path.join(INK_PLUGIN_DIST_DIR, fileName);
+    if (!fs.existsSync(sourcePath)) {
+      console.warn(`Warning: ${sourcePath} missing — run esbuild (npm run open-qa) before generate.mjs`);
+      continue;
+    }
+    fs.copyFileSync(sourcePath, path.join(inkPluginDir, fileName));
+  }
 }
 
 function writeFile(relPath, content) {
@@ -547,6 +562,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   // and cannot be listed here. The [!multi-column] and #mcl/list-grid pages will render
   // via standard callout/list fallback unless the MCL CSS snippet is also installed.
   writeFile('.obsidian/community-plugins.json', JSON.stringify([
+    'ink',
     'obsidian-columns',
     'multi-column-markdown',
     'obsidian-admonition',
@@ -562,7 +578,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   // Pre-seed Ink plugin data so the welcome popup does not show during e2e tests.
   // The onboarding test explicitly resets welcomeTipRead and reloads the plugin to test first-run flow.
   const inkPluginDir = path.join(VAULT_ROOT, '.obsidian', 'plugins', 'ink');
-  ensureDir(inkPluginDir);
+  syncInkPluginFromDist(inkPluginDir);
   const inkPluginData = {
     onboardingTips: { welcomeTipRead: true, strokeLimitTipRead: false, lastVersionTipRead: PLUGIN_VERSION },
     customAttachmentFolders: false,

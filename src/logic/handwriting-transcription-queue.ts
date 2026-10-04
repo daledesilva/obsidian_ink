@@ -38,6 +38,7 @@ import {
 
 const LAUNCH_RESUME_GRACE_MS = 5000;
 const RETRY_DELAY_MS = 30_000;
+const NETWORK_FAILURE_NOTICE_THRESHOLD = 5;
 const HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT = 'ddc-ink-handwriting-transcription-queue-changed';
 
 // Plugin-owned serial worker: survives embed unmount and Obsidian quit. React/widgets
@@ -163,6 +164,9 @@ export function initHandwritingTranscriptionQueue(plugin: InkPlugin): void {
 	});
 	plugin.registerDomEvent(window, 'beforeunload', () => {
 		promoteOpenSessionsToPendingOnQuit();
+	});
+	plugin.registerDomEvent(window, 'online', () => {
+		kickHandwritingTranscriptionQueue();
 	});
 	plugin.registerEvent(
 		// Sync/external edits: enqueueAuto respects openSessions so embed autosave does not loop.
@@ -377,8 +381,9 @@ function upsertPendingJob(
 			...job,
 			reason,
 		};
-		// A fresh enqueue should run now, not wait out a previous retry delay.
+		// A fresh enqueue should run now, not wait out a previous retry delay or failure streak.
 		delete merged.retryAfter;
+		delete merged.networkFailureCount;
 		if (reason === 'manual') {
 			blob.pending.unshift(merged);
 		} else {
@@ -569,6 +574,21 @@ function scheduleDelayedRetryKick(
 }
 
 /**
+ * True when the browser reports no local network link (Wi‑Fi/cellular off).
+ */
+function isDeviceNetworkOnline(): boolean {
+	if (typeof navigator === 'undefined') return true;
+	return navigator.onLine;
+}
+
+/**
+ * True for requestUrl throws — no HTTP status or portal code.
+ */
+function isTransientNetworkJobError(error: HandwritingTranscriptionJobError): boolean {
+	return error.status === 0 && error.code === null;
+}
+
+/**
  * Network throws have no portal code. Those stay retryable so a blip does not drop the file.
  */
 function asHandwritingTranscriptionJobError(error: unknown): HandwritingTranscriptionJobError {
@@ -592,19 +612,33 @@ function showRetryableNoticeOnce(filePath: string, message: string): void {
 }
 
 /**
- * Puts a retryable job back with a delay so the worker can run other files first.
+ * Puts a job back in the waiting list. Used for offline deferral and retryable failures.
  */
-function requeueRetryableJob(job: HandwritingTranscriptionPendingJob): void {
+function requeuePendingJob(
+	job: HandwritingTranscriptionPendingJob,
+	options?: { retryAfterMs?: number; atFront?: boolean },
+): void {
 	if (!hasLinkedAlmostUsefulAccount()) return;
 	const blob = readHandwritingTranscriptionQueueBlob();
 	const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
 	if (alreadyQueued) return;
-	blob.pending.push({
-		...job,
-		retryAfter: new Date(Date.now() + RETRY_DELAY_MS).toISOString(),
-	});
+	const requeued: HandwritingTranscriptionPendingJob = { ...job };
+	if (options?.retryAfterMs !== undefined) {
+		requeued.retryAfter = new Date(Date.now() + options.retryAfterMs).toISOString();
+	} else {
+		delete requeued.retryAfter;
+	}
+	if (options?.atFront) blob.pending.unshift(requeued);
+	else blob.pending.push(requeued);
 	writeHandwritingTranscriptionQueueBlob(blob);
 	notifyHandwritingTranscriptionQueueChanged();
+}
+
+/**
+ * Puts a retryable job back with a delay so the worker can run other files first.
+ */
+function requeueRetryableJob(job: HandwritingTranscriptionPendingJob): void {
+	requeuePendingJob(job, { retryAfterMs: RETRY_DELAY_MS });
 }
 
 /**
@@ -692,6 +726,10 @@ export function kickHandwritingTranscriptionQueue(): void {
 	if (isStopped || isWorkerRunning) return;
 	if (launchGraceTimerId !== null) return;
 	if (!hasLinkedAlmostUsefulAccount()) return;
+	if (!isDeviceNetworkOnline()) {
+		// Jobs stay pending with no retry timer. The window "online" listener kicks again.
+		return;
+	}
 	const blob = readHandwritingTranscriptionQueueBlob();
 	const nowMs = Date.now();
 	const nextJobIndex = blob.pending.findIndex((job) => {
@@ -800,6 +838,11 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		) {
 			return;
 		}
+		if (!isDeviceNetworkOnline()) {
+			// Already dequeued. Front of the list, no retryAfter, so coming online runs it next.
+			requeuePendingJob(job, { atFront: true });
+			return;
+		}
 		const transcript = await transcribeWriting(svgFileContent);
 		if (userCancelledInflightPaths.has(job.filePath)) return;
 		const lastTranscriptionAt = new Date().toISOString();
@@ -851,6 +894,19 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 				const notice = handwritingTranscriptionNoticeForError(jobError);
 				new Notice(notice);
 				rememberTerminalRejection(job.filePath, rejectionBboxCells, jobError, notice);
+			} else if (!isDeviceNetworkOnline()) {
+				// Link dropped after the POST started. No delay and no notice.
+				requeuePendingJob(job, { atFront: true });
+			} else if (isTransientNetworkJobError(jobError)) {
+				// onLine can still be true with no route. Stay silent until several throws.
+				const nextCount = (job.networkFailureCount ?? 0) + 1;
+				if (nextCount >= NETWORK_FAILURE_NOTICE_THRESHOLD) {
+					showRetryableNoticeOnce(
+						job.filePath,
+						handwritingTranscriptionNoticeForError(jobError),
+					);
+				}
+				requeueRetryableJob({ ...job, networkFailureCount: nextCount });
 			} else {
 				showRetryableNoticeOnce(job.filePath, handwritingTranscriptionNoticeForError(jobError));
 				requeueRetryableJob(job);

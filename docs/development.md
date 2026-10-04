@@ -162,7 +162,7 @@ npm run test:e2e:spec -- tests/e2e/undo-redo.e2e.ts
 
 Both Ink and Excalidraw are pre-seeded so their welcome popups do not appear:
 
-1. **Ink** — `generate.mjs` pre-seeds `.obsidian/plugins/ink/data.json` with `welcomeTipRead: true` and `lastVersionTipRead` set. The onboarding spec explicitly resets these flags and reloads the plugin to test the first-run flow.
+1. **Ink** — `generate.mjs` pre-seeds `.obsidian/plugins/ink/data.json` with `welcomeTipRead: true` and `lastVersionTipRead` set to the fixture constant `PLUGIN_VERSION` (`0.4.0`, ink-file metadata — not the plugin semver). The onboarding spec explicitly resets these flags and reloads the plugin to test the first-run flow. Generate also copies `main.js`, `manifest.json`, and `styles.css` from `dist/` into that plugin folder and lists `ink` in `community-plugins.json`, so the QA vault has a loadable plugin before Obsidian starts. `open-qa` runs esbuild before generate; a missing `dist/` only warns and skips the copy.
 2. **Excalidraw** — `generate.mjs` pre-seeds `.obsidian/plugins/obsidian-excalidraw-plugin/data.json` with `previousRelease` set to the installed plugin version, so the release notes modal does not show.
 
 `tests/e2e/helpers/dismiss-popups.ts` provides `dismissBlockingPopups()` as a fallback (e.g. Ink notice if pre-seed ever fails). Every E2E spec’s `before` hook (except onboarding) calls it after `reloadObsidian` and `waitForPluginReady`.

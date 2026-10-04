@@ -21,6 +21,8 @@ export interface HandwritingTranscriptionPendingJob {
 	enqueuedAt: string;
 	/** ISO time before which the worker must skip this job. Absent on first enqueue. */
 	retryAfter?: string;
+	/** Consecutive status-0 network failures while online. A fresh enqueue clears it; success drops the job, so the count leaves with it. */
+	networkFailureCount?: number;
 }
 
 /**
@@ -115,9 +117,10 @@ function isPendingJob(value: unknown): value is HandwritingTranscriptionPendingJ
 		typeof record.filePath === 'string'
 		&& isFileType
 		&& isReason
-		&& 		typeof record.bboxCellsAtLastTranscription === 'string'
+		&& typeof record.bboxCellsAtLastTranscription === 'string'
 		&& typeof record.enqueuedAt === 'string'
 		&& (record.retryAfter === undefined || typeof record.retryAfter === 'string')
+		&& (record.networkFailureCount === undefined || typeof record.networkFailureCount === 'number')
 	);
 }
 

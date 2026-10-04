@@ -9,11 +9,10 @@
 /** Matches portal `parse-device-install.ts` — keep in sync across repos. */
 export const PORTAL_DEVICE_LABEL_MAX_LENGTH = 80;
 
-export const PORTAL_DEVICE_LABEL_FALLBACK = 'This device';
+export const PORTAL_DEVICE_LABEL_FALLBACK = 'Unlabelled Device';
 
 export interface PortalDeviceLabelHints {
 	modelName?: string | null;
-	deviceName?: string | null;
 	formFactor?: string | null;
 	osFamily?: string | null;
 }
@@ -27,18 +26,14 @@ export function normalizePortalDeviceLabel(raw: string): string {
 }
 
 /**
- * Merge client-supplied hints into one Connected Apps label.
- * Priority: model → user/device name → form factor → OS family → fallback.
+ * Merge hardware hints into one Connected Apps label.
+ * Priority: model → form factor → OS family → Unlabelled Device.
+ * A user-assigned name is omitted on purpose: it often contains a personal name.
  */
 export function resolvePortalDeviceLabelFromHints(
 	hints: PortalDeviceLabelHints,
 ): string {
-	for (const candidate of [
-		hints.modelName,
-		hints.deviceName,
-		hints.formFactor,
-		hints.osFamily,
-	]) {
+	for (const candidate of [hints.modelName, hints.formFactor, hints.osFamily]) {
 		if (typeof candidate === 'string' && candidate.trim()) {
 			return normalizePortalDeviceLabel(candidate);
 		}
@@ -46,10 +41,19 @@ export function resolvePortalDeviceLabelFromHints(
 	return PORTAL_DEVICE_LABEL_FALLBACK;
 }
 
-const GENERIC_HOSTNAMES = new Set(['localhost', 'localhost.localdomain']);
-
-/** Desktop hostname values that should not replace a form-factor label. */
-export function isGenericPortalDeviceHostname(hostname: string): boolean {
-	const normalized = hostname.trim().toLowerCase();
-	return !normalized || GENERIC_HOSTNAMES.has(normalized);
+/**
+ * Product line from an Apple hardware identifier (`MacBookPro18,2`).
+ * Apple silicon ids (`Mac15,3`) do not encode the line and return null.
+ */
+export function appleHardwareMarketingName(modelIdentifier: string): string | null {
+	const identifier = modelIdentifier.trim();
+	if (!identifier) return null;
+	if (/^MacBookPro/i.test(identifier)) return 'MacBook Pro';
+	if (/^MacBookAir/i.test(identifier)) return 'MacBook Air';
+	if (/^MacBook/i.test(identifier)) return 'MacBook';
+	if (/^Macmini/i.test(identifier)) return 'Mac mini';
+	if (/^MacPro/i.test(identifier)) return 'Mac Pro';
+	if (/^MacStudio/i.test(identifier)) return 'Mac Studio';
+	if (/^iMac/i.test(identifier)) return 'iMac';
+	return null;
 }

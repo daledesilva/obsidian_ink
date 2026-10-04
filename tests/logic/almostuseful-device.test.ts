@@ -17,9 +17,16 @@ jest.mock('obsidian', () => ({
 }));
 
 jest.mock('os', () => ({
-	hostname: jest.fn(() => 'localhost'),
+	hostname: jest.fn(() => 'Dales-MacBook-Pro.local'),
 }));
 
+jest.mock('child_process', () => ({
+	execFileSync: jest.fn(() => {
+		throw new Error('hardware probe unavailable');
+	}),
+}));
+
+import { execFileSync } from 'child_process';
 import { hostname as mockedHostname } from 'os';
 
 describe('almostUsefulDeviceLabel', () => {
@@ -32,7 +39,10 @@ describe('almostUsefulDeviceLabel', () => {
 		platformState.isIosApp = false;
 		platformState.isMobileApp = false;
 		platformState.isDesktop = false;
-		(mockedHostname as jest.Mock).mockReturnValue('localhost');
+		(mockedHostname as jest.Mock).mockReturnValue('Dales-MacBook-Pro.local');
+		(execFileSync as jest.Mock).mockImplementation(() => {
+			throw new Error('hardware probe unavailable');
+		});
 	});
 
 	afterEach(() => {
@@ -42,7 +52,7 @@ describe('almostUsefulDeviceLabel', () => {
 		});
 	});
 
-	it('labels iPad desktop mode as iPad instead of Mac', () => {
+	it('labels iPad desktop mode as iPad instead of a Mac product line', () => {
 		platformState.isMacOS = true;
 		platformState.isDesktop = true;
 		Object.defineProperty(global, 'navigator', {
@@ -57,8 +67,11 @@ describe('almostUsefulDeviceLabel', () => {
 		expect(almostUsefulDeviceLabel()).toBe('iPad');
 	});
 
-	it('uses desktop hostname when available', () => {
-		(mockedHostname as jest.Mock).mockReturnValue('Dales-MacBook-Pro');
+	it('uses the Mac product line and ignores the Bonjour hostname', () => {
+		(execFileSync as jest.Mock).mockImplementation((file: string) => {
+			if (String(file).endsWith('sysctl')) return 'MacBookAir10,1\n';
+			throw new Error('profiler not needed');
+		});
 		platformState.isMacOS = true;
 		platformState.isDesktop = true;
 		Object.defineProperty(global, 'navigator', {
@@ -69,7 +82,40 @@ describe('almostUsefulDeviceLabel', () => {
 			},
 		});
 
-		expect(almostUsefulDeviceLabel()).toBe('Dales-MacBook-Pro');
+		expect(almostUsefulDeviceLabel()).toBe('MacBook Air');
+		expect(mockedHostname).not.toHaveBeenCalled();
+	});
+
+	it('reads Apple silicon model names from system_profiler', () => {
+		(execFileSync as jest.Mock).mockImplementation((file: string) => {
+			if (String(file).endsWith('sysctl')) return 'Mac15,3\n';
+			return '      Model Name: MacBook Pro (14-inch, 2023)\n';
+		});
+		platformState.isMacOS = true;
+		platformState.isDesktop = true;
+		Object.defineProperty(global, 'navigator', {
+			configurable: true,
+			value: {
+				userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X)',
+				maxTouchPoints: 0,
+			},
+		});
+
+		expect(almostUsefulDeviceLabel()).toBe('MacBook Pro');
+	});
+
+	it('uses Unlabelled Device when a Mac model cannot be read', () => {
+		platformState.isMacOS = true;
+		platformState.isDesktop = true;
+		Object.defineProperty(global, 'navigator', {
+			configurable: true,
+			value: {
+				userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X)',
+				maxTouchPoints: 0,
+			},
+		});
+
+		expect(almostUsefulDeviceLabel()).toBe('Unlabelled Device');
 	});
 
 	it('parses Boox model tokens from Android user agent', () => {

@@ -4,6 +4,9 @@ import 'tippy.js/dist/tippy.css';
 /////////
 /////////
 
+/** After touch, ignore synthetic mouse pointer events on hybrid devices. */
+const TOUCH_SUPPRESS_MOUSE_MS = 700;
+
 const liveTooltipSessions: CreditPoolChartTooltipSession[] = [];
 
 interface CreditPoolChartTooltipSession {
@@ -15,6 +18,7 @@ interface CreditPoolChartTooltipSession {
 	focusedKey: string | null;
 	hideTimeout: number | null;
 	isTouchPointer: boolean;
+	touchSuppressMouseUntil: number;
 	onPointerMove: (event: PointerEvent) => void;
 	onPointerEnter: (event: PointerEvent) => void;
 	onPointerDown: (event: PointerEvent) => void;
@@ -79,6 +83,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 		focusedKey: null,
 		hideTimeout: null,
 		isTouchPointer: false,
+		touchSuppressMouseUntil: 0,
 		onPointerMove: () => undefined,
 		onPointerEnter: () => undefined,
 		onPointerDown: () => undefined,
@@ -119,8 +124,17 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 	const hideTooltip = () => {
 		clearHideTimeout();
 		session.focusedKey = null;
+		session.isTouchPointer = false;
+		session.touchSuppressMouseUntil = 0;
 		applyPaintedBarFocus(session.svg, null);
 		instance.hide();
+	};
+
+	// iOS and hybrid laptops fire synthetic mouse move/leave after touch; skipping them
+	// keeps the sticky tap tooltip from flashing closed.
+	const shouldIgnoreMousePointerEvent = (event: PointerEvent): boolean => {
+		if (event.pointerType !== 'mouse') return false;
+		return Date.now() < session.touchSuppressMouseUntil;
 	};
 
 	const scheduleHide = () => {
@@ -166,6 +180,10 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 		pointer.y = event.clientY;
 		const isTouch = event.pointerType === 'touch';
 		if (isTouch) return;
+		if (shouldIgnoreMousePointerEvent(event)) return;
+		if (Date.now() >= session.touchSuppressMouseUntil) {
+			session.isTouchPointer = false;
+		}
 		const target = targetFromEvent(event);
 		if (!target) {
 			scheduleHide();
@@ -177,6 +195,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 	session.onPointerEnter = (event: PointerEvent) => {
 		const isTouch = event.pointerType === 'touch';
 		if (isTouch) return;
+		if (shouldIgnoreMousePointerEvent(event)) return;
 		const target = targetFromEvent(event);
 		if (!target) return;
 		showForTarget(target, event.clientX, event.clientY);
@@ -185,6 +204,9 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 	session.onPointerDown = (event: PointerEvent) => {
 		const isTouch = event.pointerType === 'touch';
 		session.isTouchPointer = isTouch;
+		if (isTouch) {
+			session.touchSuppressMouseUntil = Date.now() + TOUCH_SUPPRESS_MOUSE_MS;
+		}
 		const target = targetFromEvent(event);
 		if (!target) return;
 		if (isTouch && session.focusedKey === target.key) {
@@ -196,6 +218,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 
 	session.onPointerLeave = (event: PointerEvent) => {
 		if (event.pointerType === 'touch') return;
+		if (shouldIgnoreMousePointerEvent(event)) return;
 		scheduleHide();
 	};
 

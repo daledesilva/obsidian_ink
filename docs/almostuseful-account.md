@@ -98,7 +98,9 @@ Obsidian often closes Settings when the app backgrounds for the browser. The dev
 
 **Refresh** sits on the same row as the pool title (first pool only). The icon spins during refetch.
 
-Full-height day hit rects (and per-segment hits on the stack) drive vanilla **tippy.js** anchored to the chart’s `ownerDocument` (required when Settings is popped out to another Electron window). Placement to the right of the pointer (`offset: [0, 12]`, flip left). Hover/tap **dims** non-focused bars. On touch, tap again or tap outside to dismiss. Geometry lives in `credit-pool-chart-layout.ts` (same slot math as Project Post). Portal chart contract: portal `docs/conceptual/CREDIT_POOL_USAGE_CHARTS.md`.
+Full-height day hit rects (and per-segment hits on the stack) drive vanilla **tippy.js** anchored to the chart’s `ownerDocument` (required when Settings is popped out to another Electron window). Placement to the right of the pointer (`offset: [0, 12]`, flip left). Hover/tap **dims** non-focused bars.
+
+**Tooltip interaction:** Desktop hover follows the pointer and hides ~80ms after leave. Touch tap shows a **sticky** tooltip; tap the same bar or outside the chart dismisses. Hybrid devices may emit ghost `mouse` `pointerleave` after tap — `credit-pool-chart-tooltip.ts` ignores synthetic mouse events for ~700ms after touch. Cross-client contract: `almostuseful-auth/contract/CLIENT_INTEGRATION.md` (tooltip rows). Geometry lives in `credit-pool-chart-layout.ts` (same slot math as Project Post). Portal chart contract: portal `docs/conceptual/CREDIT_POOL_USAGE_CHARTS.md`.
 
 Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 

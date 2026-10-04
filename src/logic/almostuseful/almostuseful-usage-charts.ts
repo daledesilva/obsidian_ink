@@ -65,7 +65,7 @@ export function renderAlmostUsefulPoolUsageCharts(
 	const series = pool.series;
 	if (!series) return;
 
-	const title = pool.title ?? 'AI Access';
+	const title = pool.title ?? 'AI Usage';
 	const titleRowEl = hostEl.createDiv({ cls: 'ddc_ink_almostuseful-pool-title-row' });
 	titleRowEl.createDiv({ cls: 'ddc_ink_almostuseful-pool-title', text: title });
 	if (refreshButtonEl) {

@@ -18,5 +18,5 @@ export const ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX = 'almostuseful_debug';
 
 export const ALMOSTUSEFUL_SESSION_CHANGED_EVENT = 'ddc-ink-almostuseful-session-changed';
 /** Last successful burndown JSON so settings charts paint before the network returns. */
-/** v2 stores pool percentages. Older dollar payloads are left unread. */
-export const ALMOSTUSEFUL_USAGE_CACHE_STORAGE_SUFFIX = 'almostuseful_usage_cache_v2';
+/** v3 stores usage chart titles (AI Usage / Testing Usage). */
+export const ALMOSTUSEFUL_USAGE_CACHE_STORAGE_SUFFIX = 'almostuseful_usage_cache_v3';

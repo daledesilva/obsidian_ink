@@ -41,6 +41,15 @@ jest.mock('src/logic/almostuseful/almostuseful-refresh', () => ({
 	stopAlmostUsefulSessionRefresh: jest.fn(),
 }));
 
+jest.mock('src/logic/almostuseful/almostuseful-device', () => ({
+	__esModule: true,
+	almostUsefulDeviceLabel: jest.fn(() => 'Test MacBook Pro'),
+	readOrCreateAlmostUsefulDeviceInstall: jest.fn(() => ({
+		deviceId: '0123456789abcdef0123456789abcdef',
+		deviceLabel: 'Test MacBook Pro',
+	})),
+}));
+
 interface MockPortalResponse {
 	status: number;
 	body: unknown;
@@ -128,7 +137,7 @@ describe('startAlmostUsefulBrowserLogin', () => {
 			expect.objectContaining({
 				client_id: ALMOSTUSEFUL_CLIENT_ID,
 				display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-				device_label: expect.any(String),
+				device_label: 'Test MacBook Pro',
 			}),
 		);
 		const posted = requestBodyOfCall(0) as { device_id?: string };

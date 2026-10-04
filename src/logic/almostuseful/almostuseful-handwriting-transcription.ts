@@ -43,6 +43,107 @@ export interface HandwritingTranscriptionJobResponse {
 	costPercent?: number;
 }
 
+/** Portal code for an SVG/PNG the route will not accept. */
+export const HANDWRITING_TRANSCRIPTION_MEDIA_TOO_LARGE_CODE = 'media_too_large';
+
+export const HANDWRITING_TRANSCRIPTION_TOO_LONG_NOTICE =
+	'This file can\'t be transcribed currently because it is too long. This will be fixed in a future update to Ink.';
+
+/**
+ * Portal job failure. `retryable` is the signal for the queue, not the English message.
+ */
+export class HandwritingTranscriptionJobError extends Error {
+	readonly status: number;
+	readonly code: string | null;
+	readonly retryable: boolean;
+
+	constructor(params: {
+		message: string;
+		status: number;
+		code: string | null;
+		retryable: boolean;
+	}) {
+		super(params.message);
+		this.name = 'HandwritingTranscriptionJobError';
+		this.status = params.status;
+		this.code = params.code;
+		this.retryable = params.retryable;
+	}
+}
+
+/**
+ * Notice text for one job failure. Too-long copy is Ink's; other messages come from the error.
+ */
+export function handwritingTranscriptionNoticeForError(
+	error: HandwritingTranscriptionJobError,
+): string {
+	const isTooLong = error.code === HANDWRITING_TRANSCRIPTION_MEDIA_TOO_LARGE_CODE
+		|| error.status === 413;
+	if (isTooLong) return HANDWRITING_TRANSCRIPTION_TOO_LONG_NOTICE;
+	return error.message;
+}
+
+/**
+ * 408, 429, and 5xx can succeed later. Other 4xx will not, when the body omits `retryable`.
+ */
+function isRetryableJobStatus(status: number): boolean {
+	return status === 408 || status === 429 || status >= 500;
+}
+
+function readJobErrorCode(json: unknown): string | null {
+	if (!json || typeof json !== 'object') return null;
+	const code = (json as { code?: unknown }).code;
+	if (typeof code !== 'string' || !code) return null;
+	return code;
+}
+
+function readJobErrorRetryable(json: unknown, status: number): boolean {
+	if (!json || typeof json !== 'object') return isRetryableJobStatus(status);
+	const retryable = (json as { retryable?: unknown }).retryable;
+	if (typeof retryable === 'boolean') return retryable;
+	return isRetryableJobStatus(status);
+}
+
+function readJobErrorMessage(json: unknown, status: number): string {
+	if (json && typeof json === 'object' && typeof (json as { error?: unknown }).error === 'string') {
+		return (json as { error: string }).error;
+	}
+	return `Handwriting transcription failed (${status})`;
+}
+
+/**
+ * Maps a portal response to a typed job error. 413 is too-large even when the body is empty.
+ */
+function handwritingTranscriptionJobErrorFromResponse(
+	status: number,
+	json: unknown,
+): HandwritingTranscriptionJobError {
+	if (status === 413) {
+		return new HandwritingTranscriptionJobError({
+			message: 'media payload is too large',
+			status,
+			code: HANDWRITING_TRANSCRIPTION_MEDIA_TOO_LARGE_CODE,
+			retryable: false,
+		});
+	}
+	const code = readJobErrorCode(json);
+	const retryable = readJobErrorRetryable(json, status);
+	if (status === 402) {
+		return new HandwritingTranscriptionJobError({
+			message: 'Insufficient Almost Useful credits',
+			status,
+			code: code ?? 'payment_required',
+			retryable,
+		});
+	}
+	return new HandwritingTranscriptionJobError({
+		message: readJobErrorMessage(json, status),
+		status,
+		code,
+		retryable,
+	});
+}
+
 export function buildHandwritingTranscriptionJobRequest(params: {
 	mediaType: HandwritingTranscriptionMediaType;
 	mediaBase64: string;
@@ -96,31 +197,48 @@ export async function postHandwritingTranscriptionJob(
 ): Promise<HandwritingTranscriptionJobResponse> {
 	const accessToken = options?.accessToken ?? readAlmostUsefulSession()?.accessToken;
 	if (!accessToken) {
-		throw new Error('Almost Useful account is not signed in');
+		throw new HandwritingTranscriptionJobError({
+			message: 'Almost Useful account is not signed in',
+			status: 401,
+			code: 'unauthorized',
+			retryable: false,
+		});
 	}
 
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const { status, json } = await almostUsefulRequestJson({
-		url: `${portalOrigin}${HANDWRITING_TRANSCRIPTION_JOB_PATH}`,
-		method: 'POST',
-		accessToken,
-		body,
-	});
-
-	if (status === 402) {
-		throw new Error('Insufficient Almost Useful credits');
+	let status: number;
+	let json: unknown;
+	try {
+		const response = await almostUsefulRequestJson({
+			url: `${portalOrigin}${HANDWRITING_TRANSCRIPTION_JOB_PATH}`,
+			method: 'POST',
+			accessToken,
+			body,
+		});
+		status = response.status;
+		json = response.json;
+	} catch {
+		// requestUrl throws on network failure. The same SVG can succeed later.
+		throw new HandwritingTranscriptionJobError({
+			message: 'Handwriting transcription failed',
+			status: 0,
+			code: null,
+			retryable: true,
+		});
 	}
+
 	if (status < 200 || status >= 300) {
-		const errorMessage =
-			json && typeof json === 'object' && typeof (json as { error?: unknown }).error === 'string'
-				? (json as { error: string }).error
-				: `Handwriting transcription failed (${status})`;
-		throw new Error(errorMessage);
+		throw handwritingTranscriptionJobErrorFromResponse(status, json);
 	}
 
 	const parsed = parseHandwritingTranscriptionJobResponse(json);
 	if (!parsed) {
-		throw new Error('Invalid handwriting transcription response');
+		throw new HandwritingTranscriptionJobError({
+			message: 'Invalid handwriting transcription response',
+			status,
+			code: null,
+			retryable: true,
+		});
 	}
 	return parsed;
 }

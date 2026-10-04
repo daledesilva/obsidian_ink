@@ -11,6 +11,10 @@ import {
 import { patchInkEmbedTranscriptAltsInVault } from 'src/logic/handwriting-transcription-apply';
 import { subscribeAlmostUsefulSessionChanged, readAlmostUsefulSession } from 'src/logic/almostuseful/almostuseful-session';
 import {
+	HandwritingTranscriptionJobError,
+	handwritingTranscriptionNoticeForError,
+} from 'src/logic/almostuseful/almostuseful-handwriting-transcription';
+import {
 	listHandwritingTranscriptionSessions,
 	getHandwritingTranscriptionSession,
 	isHandwritingTranscriptionSessionOpen,
@@ -26,12 +30,14 @@ import {
 	type HandwritingTranscriptionPendingJob,
 	type HandwritingTranscriptionOpenSession,
 	type HandwritingTranscriptionHeldResult,
+	type HandwritingTranscriptionTerminalRejection,
 } from 'src/logic/handwriting-transcription-queue-store';
 
 //////////
 //////////
 
 const LAUNCH_RESUME_GRACE_MS = 5000;
+const RETRY_DELAY_MS = 30_000;
 const HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT = 'ddc-ink-handwriting-transcription-queue-changed';
 
 // Plugin-owned serial worker: survives embed unmount and Obsidian quit. React/widgets
@@ -42,7 +48,10 @@ let inflightJob: HandwritingTranscriptionPendingJob | null = null;
 let isWorkerRunning = false;
 let isStopped = false;
 let launchGraceTimerId: number | null = null;
+let retryKickTimerId: number | null = null;
 let unsubscribeSessionChanged: (() => void) | null = null;
+/** One notice per file for a retryable failure, until a later attempt succeeds. */
+const retryNoticeShownForPath = new Set<string>();
 /** User removed an in-flight job from the queue; discard its result when the POST returns. */
 const userCancelledInflightPaths = new Set<string>();
 
@@ -176,6 +185,10 @@ export function shutdownHandwritingTranscriptionQueue(): void {
 		window.clearTimeout(launchGraceTimerId);
 		launchGraceTimerId = null;
 	}
+	if (retryKickTimerId !== null) {
+		window.clearTimeout(retryKickTimerId);
+		retryKickTimerId = null;
+	}
 	unsubscribeSessionChanged?.();
 	unsubscribeSessionChanged = null;
 	for (const session of listHandwritingTranscriptionSessions()) {
@@ -268,6 +281,11 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 	if (!isAutoTranscribeEnabled(plugin, fileType)) return;
 	if (!inkFileHasStrokes(pageData)) return;
 	const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
+	dropStaleTerminalRejections(filePath, liveBboxCells);
+	if (matchingTerminalRejection(filePath, liveBboxCells)) {
+		// Same strokes already refused. A later close must not POST again.
+		return;
+	}
 	const storedBboxCells = pageData.meta.bboxCellsAtLastTranscription;
 	const thresholdPercent = getAutoTranscribeChangeThresholdPercent(plugin, fileType);
 	const meetsThreshold = inkChangeMeetsAutoTranscribeThreshold(
@@ -311,11 +329,18 @@ export async function enqueueManualTranscription(
 		new Notice('Nothing to transcribe');
 		return;
 	}
+	const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
+	dropStaleTerminalRejections(options.file.path, liveBboxCells);
+	const blocked = matchingTerminalRejection(options.file.path, liveBboxCells);
+	if (blocked) {
+		new Notice(blocked.notice);
+		return;
+	}
 	const pendingJob: HandwritingTranscriptionPendingJob = {
 		filePath: options.file.path,
 		fileType: options.fileType,
 		reason: 'manual',
-		bboxCellsAtLastTranscription: serializeBboxCellsAtLastTranscription(pageData),
+		bboxCellsAtLastTranscription: liveBboxCells,
 		enqueuedAt: new Date().toISOString(),
 	};
 	if (shouldSkipEnqueueBecauseInflightUnchanged(pendingJob)) {
@@ -352,6 +377,8 @@ function upsertPendingJob(
 			...job,
 			reason,
 		};
+		// A fresh enqueue should run now, not wait out a previous retry delay.
+		delete merged.retryAfter;
 		if (reason === 'manual') {
 			blob.pending.unshift(merged);
 		} else {
@@ -501,6 +528,164 @@ async function pruneUnrunnablePendingJobs(): Promise<void> {
 }
 
 /**
+ * True when a retryable failure asked this job to wait.
+ */
+function isPendingJobWaitingForRetry(
+	job: HandwritingTranscriptionPendingJob,
+	nowMs: number,
+): boolean {
+	if (!job.retryAfter) return false;
+	const retryAtMs = Date.parse(job.retryAfter);
+	if (Number.isNaN(retryAtMs)) return false;
+	return retryAtMs > nowMs;
+}
+
+/**
+ * Wakes the worker when the soonest delayed retry is due. Other files can run first.
+ */
+function scheduleDelayedRetryKick(
+	pending: HandwritingTranscriptionPendingJob[],
+	nowMs: number,
+): void {
+	if (retryKickTimerId !== null) {
+		window.clearTimeout(retryKickTimerId);
+		retryKickTimerId = null;
+	}
+	let earliestRetryAtMs = Number.POSITIVE_INFINITY;
+	for (const job of pending) {
+		if (!job.retryAfter) continue;
+		const retryAtMs = Date.parse(job.retryAfter);
+		if (Number.isNaN(retryAtMs)) continue;
+		if (retryAtMs > nowMs && retryAtMs < earliestRetryAtMs) {
+			earliestRetryAtMs = retryAtMs;
+		}
+	}
+	if (!Number.isFinite(earliestRetryAtMs)) return;
+	const delayMs = Math.max(0, earliestRetryAtMs - nowMs);
+	retryKickTimerId = window.setTimeout(() => {
+		retryKickTimerId = null;
+		kickHandwritingTranscriptionQueue();
+	}, delayMs);
+}
+
+/**
+ * Network throws have no portal code. Those stay retryable so a blip does not drop the file.
+ */
+function asHandwritingTranscriptionJobError(error: unknown): HandwritingTranscriptionJobError {
+	if (error instanceof HandwritingTranscriptionJobError) return error;
+	const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
+	return new HandwritingTranscriptionJobError({
+		message,
+		status: 0,
+		code: null,
+		retryable: true,
+	});
+}
+
+/**
+ * Shows a retryable failure once per file until a later attempt succeeds.
+ */
+function showRetryableNoticeOnce(filePath: string, message: string): void {
+	if (retryNoticeShownForPath.has(filePath)) return;
+	retryNoticeShownForPath.add(filePath);
+	new Notice(message);
+}
+
+/**
+ * Puts a retryable job back with a delay so the worker can run other files first.
+ */
+function requeueRetryableJob(job: HandwritingTranscriptionPendingJob): void {
+	if (!hasLinkedAlmostUsefulAccount()) return;
+	const blob = readHandwritingTranscriptionQueueBlob();
+	const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
+	if (alreadyQueued) return;
+	blob.pending.push({
+		...job,
+		retryAfter: new Date(Date.now() + RETRY_DELAY_MS).toISOString(),
+	});
+	writeHandwritingTranscriptionQueueBlob(blob);
+	notifyHandwritingTranscriptionQueueChanged();
+}
+
+/**
+ * File-shaped refusals stick to the strokes. Credits and sign-in do not.
+ */
+function shouldRememberTerminalRejection(error: HandwritingTranscriptionJobError): boolean {
+	if (error.retryable) return false;
+	if (error.code === 'payment_required' || error.code === 'unauthorized') {
+		// Buying credits or signing in again can succeed without new strokes.
+		return false;
+	}
+	if (error.status === 401 || error.status === 402) return false;
+	return true;
+}
+
+/**
+ * Remembers a portal refusal for these strokes so close/modify does not POST again.
+ */
+function rememberTerminalRejection(
+	filePath: string,
+	bboxCellsAtLastTranscription: string,
+	error: HandwritingTranscriptionJobError,
+	notice: string,
+): void {
+	if (!shouldRememberTerminalRejection(error)) return;
+	const code = error.code ?? 'invalid_request';
+	const blob = readHandwritingTranscriptionQueueBlob();
+	const next = blob.terminalRejections.filter((rejection) => rejection.filePath !== filePath);
+	const remembered: HandwritingTranscriptionTerminalRejection = {
+		filePath,
+		bboxCellsAtLastTranscription,
+		code,
+		notice,
+	};
+	next.push(remembered);
+	blob.terminalRejections = next;
+	writeHandwritingTranscriptionQueueBlob(blob);
+}
+
+/**
+ * Drops a stored refusal when the strokes no longer match it.
+ */
+function dropStaleTerminalRejections(filePath: string, liveBboxCells: string): void {
+	const blob = readHandwritingTranscriptionQueueBlob();
+	const next = blob.terminalRejections.filter((rejection) => {
+		if (rejection.filePath !== filePath) return true;
+		return rejection.bboxCellsAtLastTranscription === liveBboxCells;
+	});
+	if (next.length === blob.terminalRejections.length) return;
+	blob.terminalRejections = next;
+	writeHandwritingTranscriptionQueueBlob(blob);
+}
+
+/**
+ * Returns the refusal stored for this file's current strokes, if any.
+ */
+function matchingTerminalRejection(
+	filePath: string,
+	liveBboxCells: string,
+): HandwritingTranscriptionTerminalRejection | null {
+	const match = readHandwritingTranscriptionQueueBlob().terminalRejections.find((rejection) => {
+		const isSameFile = rejection.filePath === filePath;
+		const isSameStrokes = rejection.bboxCellsAtLastTranscription === liveBboxCells;
+		return isSameFile && isSameStrokes;
+	});
+	return match ?? null;
+}
+
+/**
+ * Clears retry notices and stroke refusals after a transcription succeeds.
+ */
+function clearTranscriptionFailureState(filePath: string): void {
+	retryNoticeShownForPath.delete(filePath);
+	const blob = readHandwritingTranscriptionQueueBlob();
+	const next = blob.terminalRejections.filter((rejection) => rejection.filePath !== filePath);
+	if (next.length === blob.terminalRejections.length) return;
+	blob.terminalRejections = next;
+	writeHandwritingTranscriptionQueueBlob(blob);
+}
+
+/**
  * Starts the next waiting job if the worker is idle and signed in.
  */
 export function kickHandwritingTranscriptionQueue(): void {
@@ -508,16 +693,20 @@ export function kickHandwritingTranscriptionQueue(): void {
 	if (launchGraceTimerId !== null) return;
 	if (!hasLinkedAlmostUsefulAccount()) return;
 	const blob = readHandwritingTranscriptionQueueBlob();
+	const nowMs = Date.now();
 	const nextJobIndex = blob.pending.findIndex((job) => {
+		if (isPendingJobWaitingForRetry(job, nowMs)) return false;
 		if (job.reason !== 'auto') return true;
 		return !getHandwritingTranscriptionSession(job.filePath);
 	});
 	if (nextJobIndex < 0) {
+		scheduleDelayedRetryKick(blob.pending, nowMs);
 		return;
 	}
 	const nextJob = blob.pending[nextJobIndex];
 	blob.pending.splice(nextJobIndex, 1);
 	writeHandwritingTranscriptionQueueBlob(blob);
+	scheduleDelayedRetryKick(blob.pending, nowMs);
 	// Notify only after runTranscriptionJob marks this file in-flight. A notify here
 	// would drop it from pending before inflightJob is set, so a visible embed would
 	// read "not in the queue" and never show the spinner.
@@ -563,6 +752,7 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 	inflightJob = job;
 	notifyHandwritingTranscriptionQueueChanged();
 	let shouldDeferKickBecauseEditorOpen = false;
+	let rejectionBboxCells = job.bboxCellsAtLastTranscription;
 	try {
 		if (userCancelledInflightPaths.has(job.filePath)) return;
 		const plugin = queuePlugin;
@@ -593,6 +783,7 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		if (!pageData) return;
 		if (!inkFileHasStrokes(pageData)) return;
 		const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
+		rejectionBboxCells = liveBboxCells;
 		if (job.bboxCellsAtLastTranscription && job.bboxCellsAtLastTranscription !== liveBboxCells) {
 			if (job.reason === 'auto') {
 				await enqueueAuto(job.filePath);
@@ -612,6 +803,7 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		const transcript = await transcribeWriting(svgFileContent);
 		if (userCancelledInflightPaths.has(job.filePath)) return;
 		const lastTranscriptionAt = new Date().toISOString();
+		clearTranscriptionFailureState(job.filePath);
 		const heldResult: HandwritingTranscriptionHeldResult = {
 			filePath: job.filePath,
 			fileType: job.fileType,
@@ -654,16 +846,14 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		await patchInkEmbedTranscriptAltsInVault(plugin, job.filePath, job.fileType, transcript);
 	} catch (error) {
 		if (!userCancelledInflightPaths.has(job.filePath)) {
-			const message = error instanceof Error ? error.message : 'Handwriting transcription failed';
-			new Notice(message);
-			if (hasLinkedAlmostUsefulAccount()) {
-				const blob = readHandwritingTranscriptionQueueBlob();
-				const alreadyQueued = blob.pending.some((pending) => pending.filePath === job.filePath);
-				if (!alreadyQueued) {
-					blob.pending.push(job);
-					writeHandwritingTranscriptionQueueBlob(blob);
-					notifyHandwritingTranscriptionQueueChanged();
-				}
+			const jobError = asHandwritingTranscriptionJobError(error);
+			if (!jobError.retryable) {
+				const notice = handwritingTranscriptionNoticeForError(jobError);
+				new Notice(notice);
+				rememberTerminalRejection(job.filePath, rejectionBboxCells, jobError, notice);
+			} else {
+				showRetryableNoticeOnce(job.filePath, handwritingTranscriptionNoticeForError(jobError));
+				requeueRetryableJob(job);
 			}
 		}
 	} finally {

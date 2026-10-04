@@ -106,7 +106,7 @@ Transcript-only writes from a successful job preserve stroke geometry → at def
 
 ### Completion (silent)
 
-Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Errors still surface as notices (portal failures, insufficient credits, manual enqueue blocked while unsigned).
+Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Failures show one notice. Whether the job is tried again depends on the portal `retryable` flag, not the English sentence.
 
 **Not auto-enqueued:** expand embed → dedicated view (save on expand, dequeue when dedicated editor opens), empty canvas, or when ink change is **below** the per-type occupancy threshold. Sync/modify while the file is open in an embed or dedicated view is also skipped.
 
@@ -195,7 +195,17 @@ Implementation:
 - [`handwriting-transcription-apply.ts`](../src/logic/handwriting-transcription-apply.ts) — vault-wide embed alt patch (open editor or `vault.process`)
 - [`postHandwritingTranscriptionJob`](../src/logic/almostuseful/almostuseful-handwriting-transcription.ts) — HTTP client
 
-Errors surface as Obsidian notices: not signed in, `402` insufficient credits, portal error messages.
+`postHandwritingTranscriptionJob` throws `HandwritingTranscriptionJobError` (`status`, `code`, `retryable`). It trusts `retryable` when the JSON includes a boolean. If that field is missing, 408, 429, and 5xx retry; other 4xx do not. Status **413**, including an empty body, is `media_too_large` and not retryable. A thrown network failure stays retryable.
+
+| Outcome | Queue |
+|---------|--------|
+| `retryable: false` | One notice. The job is not put back. |
+| `code: media_too_large` or status 413 | Notice: “This file can't be transcribed currently because it is too long. This will be fixed in a future update to Ink.” |
+| 402 | Notice: “Insufficient Almost Useful credits”. Not stored against the strokes, so a later close can try again after credits are added. |
+| 401 / not signed in | One notice. Not stored against the strokes. |
+| `retryable: true` | One notice for that file until a later attempt succeeds. Requeued after about 30 seconds so other files can run first. |
+
+A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds. Ink does not hardcode the 1.5MB portal cap.
 
 Eval matrix and live tests remain in the repo for model comparison — not exposed in the UI. See [Eval and live tests](#eval-and-live-tests). Per-model dollar cost is not available; see [Cost evaluation (currently unavailable)](#cost-evaluation-currently-unavailable).
 
@@ -218,9 +228,11 @@ ClickUp decision log (routes, cost table): [Portal AI job routes](https://app.cl
 
 | Key | Storage | Content |
 |-----|---------|---------|
-| `au_ink_handwritingTranscriptionQueue_v2` | `localStorage` via [`storage.ts`](../src/logic/utils/storage.ts) | `pending[]` + `openSessions[]` |
+| `au_ink_handwritingTranscriptionQueue_v2` | `localStorage` via [`storage.ts`](../src/logic/utils/storage.ts) | `pending[]` + `openSessions[]` + `terminalRejections[]` |
 
-Pending job fields: `filePath`, `fileType` (`inkWriting` \| `inkDrawing`), `reason` (`auto` \| `manual`), `bboxCellsAtLastTranscription` (live occupancy at enqueue; empty on quit-promote until prune), `enqueuedAt`.
+Pending job fields: `filePath`, `fileType` (`inkWriting` \| `inkDrawing`), `reason` (`auto` \| `manual`), `bboxCellsAtLastTranscription` (live occupancy at enqueue; empty on quit-promote until prune), `enqueuedAt`, optional `retryAfter` (ISO time; the worker skips the job until then).
+
+`terminalRejections` may be missing on older v2 blobs; readers treat that as empty. Each entry is `filePath`, `bboxCellsAtLastTranscription`, `code`, and `notice`. It is not synced.
 
 v1 blobs (`handwritingTranscriptionQueue_v1` with SimHash snapshots) are **not migrated** — a missing or non-v2 blob reads as empty pending/openSessions.
 

@@ -19,6 +19,19 @@ export interface HandwritingTranscriptionPendingJob {
 	/** Live bbox occupancy at enqueue; empty on quit-promote until prune. */
 	bboxCellsAtLastTranscription: string;
 	enqueuedAt: string;
+	/** ISO time before which the worker must skip this job. Absent on first enqueue. */
+	retryAfter?: string;
+}
+
+/**
+ * A file the portal refused for these strokes. Cleared when the strokes change.
+ * Account problems (credits, sign-in) are not stored here.
+ */
+export interface HandwritingTranscriptionTerminalRejection {
+	filePath: string;
+	bboxCellsAtLastTranscription: string;
+	code: string;
+	notice: string;
 }
 
 export interface HandwritingTranscriptionOpenSession {
@@ -44,6 +57,8 @@ export interface HandwritingTranscriptionQueueBlobV2 {
 	openSessions: HandwritingTranscriptionOpenSession[];
 	/** Missing on blobs written before held results existed; readers treat that as empty. */
 	heldTranscripts: HandwritingTranscriptionHeldResult[];
+	/** Missing on blobs written before terminal rejections existed; readers treat that as empty. */
+	terminalRejections: HandwritingTranscriptionTerminalRejection[];
 }
 
 /**
@@ -57,6 +72,7 @@ export function readHandwritingTranscriptionQueueBlob(): HandwritingTranscriptio
 		if (!isQueueBlob(parsedUnknown)) return emptyQueueBlob();
 		// Field was added after v2 shipped. Absence must not wipe pending jobs.
 		parsedUnknown.heldTranscripts = normalizeHeldTranscripts(parsedUnknown.heldTranscripts);
+		parsedUnknown.terminalRejections = normalizeTerminalRejections(parsedUnknown.terminalRejections);
 		return parsedUnknown;
 	} catch {
 		return emptyQueueBlob();
@@ -78,6 +94,7 @@ function emptyQueueBlob(): HandwritingTranscriptionQueueBlobV2 {
 		pending: [],
 		openSessions: [],
 		heldTranscripts: [],
+		terminalRejections: [],
 	};
 }
 
@@ -98,8 +115,9 @@ function isPendingJob(value: unknown): value is HandwritingTranscriptionPendingJ
 		typeof record.filePath === 'string'
 		&& isFileType
 		&& isReason
-		&& typeof record.bboxCellsAtLastTranscription === 'string'
+		&& 		typeof record.bboxCellsAtLastTranscription === 'string'
 		&& typeof record.enqueuedAt === 'string'
+		&& (record.retryAfter === undefined || typeof record.retryAfter === 'string')
 	);
 }
 
@@ -121,6 +139,25 @@ function isHeldResult(value: unknown): value is HandwritingTranscriptionHeldResu
 		&& typeof record.transcript === 'string'
 		&& typeof record.bboxCellsAtLastTranscription === 'string'
 		&& typeof record.lastTranscriptionAt === 'string'
+	);
+}
+
+/**
+ * Drops invalid terminal rejections. A bad entry must not fail the whole queue blob.
+ */
+function normalizeTerminalRejections(value: unknown): HandwritingTranscriptionTerminalRejection[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter(isTerminalRejection);
+}
+
+function isTerminalRejection(value: unknown): value is HandwritingTranscriptionTerminalRejection {
+	if (!value || typeof value !== 'object') return false;
+	const record = value as Record<string, unknown>;
+	return (
+		typeof record.filePath === 'string'
+		&& typeof record.bboxCellsAtLastTranscription === 'string'
+		&& typeof record.code === 'string'
+		&& typeof record.notice === 'string'
 	);
 }
 

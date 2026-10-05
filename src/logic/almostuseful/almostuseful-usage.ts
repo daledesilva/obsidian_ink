@@ -10,16 +10,15 @@ import {
 
 export interface AlmostUsefulBurndownPoint {
 	date: string;
-	creditsRemaining: number;
-	creditsDebited: number;
-	idealRemaining: number;
+	remainingPercent: number;
+	usedPercent: number;
+	idealRemainingPercent: number;
 }
 
 export interface AlmostUsefulBurndownSeries {
 	periodStartDay: string;
 	periodLastDay: string;
 	chartTimeZone: string;
-	creditsAllotted: number;
 	points: AlmostUsefulBurndownPoint[];
 }
 
@@ -27,7 +26,8 @@ export interface AlmostUsefulClientDailyUsagePoint {
 	date: string;
 	clientId: string;
 	clientDisplayName?: string | null;
-	creditsUsed: number;
+	usedPercent: number;
+	shareOfDayPercent: number;
 }
 
 export interface AlmostUsefulBurndownPool {
@@ -91,12 +91,10 @@ function parseBurndownSeries(raw: unknown): AlmostUsefulBurndownSeries | null {
 			: points[points.length - 1].date;
 	const chartTimeZone =
 		typeof record.chartTimeZone === 'string' ? record.chartTimeZone : 'UTC';
-	const creditsAllotted = toFiniteNumber(record.creditsAllotted);
 	return {
 		periodStartDay,
 		periodLastDay,
 		chartTimeZone,
-		creditsAllotted: creditsAllotted ?? Math.max(...points.map((point) => point.creditsRemaining), 1),
 		points,
 	};
 }
@@ -105,28 +103,30 @@ function parseBurndownPoint(raw: unknown): AlmostUsefulBurndownPoint[] {
 	if (!raw || typeof raw !== 'object') return [];
 	const record = raw as Record<string, unknown>;
 	if (typeof record.date !== 'string') return [];
-	const creditsRemaining = toFiniteNumber(record.creditsRemaining);
-	const creditsDebited = toFiniteNumber(record.creditsDebited);
-	const idealRemaining = toFiniteNumber(record.idealRemaining);
-	if (creditsRemaining === null || creditsDebited === null || idealRemaining === null) {
+	const remainingPercent = toFiniteNumber(record.remainingPercent);
+	const usedPercent = toFiniteNumber(record.usedPercent);
+	const idealRemainingPercent = toFiniteNumber(record.idealRemainingPercent);
+	if (remainingPercent === null || usedPercent === null || idealRemainingPercent === null) {
 		return [];
 	}
-	return [{ date: record.date, creditsRemaining, creditsDebited, idealRemaining }];
+	return [{ date: record.date, remainingPercent, usedPercent, idealRemainingPercent }];
 }
 
 function parseClientDailyUsage(raw: unknown): AlmostUsefulClientDailyUsagePoint[] {
 	if (!raw || typeof raw !== 'object') return [];
 	const record = raw as Record<string, unknown>;
 	if (typeof record.date !== 'string' || typeof record.clientId !== 'string') return [];
-	const creditsUsed = toFiniteNumber(record.creditsUsed);
-	if (creditsUsed === null) return [];
+	const usedPercent = toFiniteNumber(record.usedPercent);
+	const shareOfDayPercent = toFiniteNumber(record.shareOfDayPercent);
+	if (usedPercent === null || shareOfDayPercent === null) return [];
 	return [
 		{
 			date: record.date,
 			clientId: record.clientId,
 			clientDisplayName:
 				typeof record.clientDisplayName === 'string' ? record.clientDisplayName : null,
-			creditsUsed,
+			usedPercent,
+			shareOfDayPercent,
 		},
 	];
 }

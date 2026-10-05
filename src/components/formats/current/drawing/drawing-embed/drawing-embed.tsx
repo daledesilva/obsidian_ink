@@ -16,7 +16,7 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { TFile, WorkspaceLeaf, Notice } from "obsidian";
 import classNames from "classnames";
-import { atom, useSetAtom } from "jotai";
+import { atom, useAtomValue, useSetAtom } from "jotai";
 import { DRAWING_INITIAL_WIDTH, DRAWING_INITIAL_ASPECT_RATIO } from "src/constants";
 import { pushDrawingEmbedResize } from "src/logic/undo-redo/unified-undo-stack";
 import { DrawingEmbedPreviewWrapper } from "../drawing-embed-preview/drawing-embed-preview";
@@ -29,6 +29,11 @@ import { replaceActiveInkEmbed, clearActiveInkEmbed } from "src/stores/active-in
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { dismissLegacyInkNoticesForFile } from "src/logic/utils/legacy-ink-notice";
 import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-embed-height-cache";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
+import { enqueueAuto, enqueueManualTranscription } from "src/logic/handwriting-transcription-queue";
+import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
+import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
+import { InkEmbedTranscriptControls, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
 
 ///////
 ///////
@@ -92,6 +97,7 @@ interface DrawingEmbed_Props {
 	) => void | Promise<void>,
 	getEmbedMarkdown?: () => string | null,
 	deleteEmbed?: () => void,
+	updateEmbedTranscript?: (transcript: string) => void,
 }
 
 export function DrawingEmbed (props: DrawingEmbed_Props) {
@@ -103,11 +109,70 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	const embedWidthRef = useRef<number>(props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH);
 	const embedAspectRatioRef = useRef<number>(props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO);
 	const didExplicitSaveEmbedSettingsRef = useRef(false);
+	// Widget reuse after save framing does not remount React, so props.embedSettings
+	// stay at unlock-time values. Keep the last persisted framing here for preview/lock.
+	const [savedEmbedSettings, setSavedEmbedSettings] = React.useState<EmbedSettings>(props.embedSettings);
 	const resizeStartWidthRef = useRef<number>(0);
 	const resizeStartAspectRatioRef = useRef<number>(0);
 	const [drawingFormat, setDrawingFormat] = React.useState<DrawingFormat>('unknown');
+	const [transcriptHeightPx, setTranscriptHeightPx] = React.useState(0);
 
 	const setEmbedsInEditMode = useSetAtom(embedsInEditModeAtom_v2);
+	const embedsInEditMode = useAtomValue(embedsInEditModeAtom_v2);
+	const isThisEmbedEditing = !!(props.embedId && embedsInEditMode.has(props.embedId));
+	const transcript = useInkFileTranscript(props.embeddedFile);
+	const { hasTranscript, showTranscript } = useLockedInkTranscriptMode(
+		props.embeddedFile?.path,
+		transcript,
+		isThisEmbedEditing,
+	);
+	// Window resize handler is registered once; it must not squash Text-mode height.
+	const showTranscriptRef = useRef(false);
+	showTranscriptRef.current = showTranscript;
+
+	let resizeHeightPx = embedWidthRef.current / embedAspectRatioRef.current;
+	const transcriptHeightIsReady = showTranscript && transcriptHeightPx > 0;
+	if (transcriptHeightIsReady) {
+		resizeHeightPx = transcriptHeightPx;
+	}
+
+	let resizeContainerStyle: React.CSSProperties = {
+		width: embedWidthRef.current + 'px',
+		height: resizeHeightPx + 'px',
+		position: 'relative',
+		left: '50%',
+		translate: '-50%',
+	};
+	if (showTranscript) {
+		// Auto until the markdown has been measured. An aspect-ratio height makes the
+		// first toggle report the ink box, and CodeMirror never remeasures.
+		resizeContainerStyle = {
+			position: 'relative',
+			height: transcriptHeightIsReady ? resizeHeightPx + 'px' : 'auto',
+		};
+	}
+
+	// Transcript on a drawing embed uses writing column width; undo LP full-bleed margins.
+	React.useLayoutEffect(() => {
+		const embedEl = embedContainerElRef.current;
+		const resizeContainerEl = resizeContainerElRef.current;
+		if (!embedEl) return;
+
+		embedEl.classList.toggle('ddc_ink_drawing-text-layout', showTranscript);
+		const embedBlockEl = embedEl.closest('.cm-embed-block');
+		if (embedBlockEl instanceof HTMLElement) {
+			embedBlockEl.classList.toggle('ddc_ink_drawing-text-layout', showTranscript);
+		}
+
+		if (!resizeContainerEl) return;
+		if (showTranscript) {
+			resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
+			resizeContainerEl.style.maxWidth = '';
+			resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
+		} else {
+			resizeContainerEl.removeAttribute('data-ink-display-mode');
+		}
+	}, [showTranscript]);
 
 	// Detect file format on mount
 	React.useEffect(() => {
@@ -211,6 +276,53 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		},
 	];
 
+	function handleCopyTranscript() {
+		const text = transcript?.trim() ?? '';
+		if (!text) {
+			new Notice('No transcript to copy');
+			return;
+		}
+		void navigator.clipboard.writeText(text).then(() => {
+			new Notice('Transcript copied to clipboard');
+		}).catch(() => {
+			new Notice('Failed to copy transcript to clipboard');
+		});
+	}
+
+	// Locked editor is unmounted, so this reads the saved SVG instead of the live canvas.
+	async function updateTranscriptFromLockedEmbed() {
+		if (!props.embeddedFile) return;
+		const svgFileContent = await props.embeddedFile.vault.read(props.embeddedFile);
+		await enqueueManualTranscription({
+			file: props.embeddedFile,
+			fileType: 'inkDrawing',
+			svgFileContent,
+		});
+	}
+
+	// includeCopyTranscript: transcript view always; ink view only once a transcript exists.
+	function lockedEmbedMenuOptions(includeCopyTranscript: boolean): MenuOption[] {
+		const options: MenuOption[] = [
+			{
+				text: hasTranscript ? 'Update transcript' : 'Transcribe',
+				action: () => { void updateTranscriptFromLockedEmbed(); },
+			},
+			{
+				text: 'Open drawing',
+				action: () => { void openInDedicatedView(); },
+			},
+			{ separator: true },
+		];
+		if (includeCopyTranscript) {
+			options.push({
+				text: 'Copy transcript',
+				action: () => { handleCopyTranscript(); },
+			});
+		}
+		options.push(...embedClipboardMenuOptions);
+		return options;
+	}
+
 	const commonExtendedOptions = [
 		{
 			text: 'Open drawing',
@@ -284,6 +396,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			className = {classNames([
 				'ddc_ink_embed',
 				'ddc_ink_drawing-embed',
+				showTranscript && 'ddc_ink_drawing-text-layout',
 				props.isPendingPaste && 'ddc_ink_embed--pending',
 			])}
 			style = {{
@@ -320,24 +433,41 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						isBooxConnectionEnabled && 'ddc_ink_resize-container--boox',
 					])}
 					ref = {resizeContainerElRef}
-					style = {{
-						width: embedWidthRef.current + 'px',
-						height: embedWidthRef.current / embedAspectRatioRef.current + 'px',
-						position: 'relative', // For absolute positioning inside
-						left: '50%',
-						translate: '-50%',
-					}}
+					data-ink-display-mode={showTranscript ? 'text' : undefined}
+					style = {resizeContainerStyle}
 				>
 				
-				<EmbedPreviewContextMenu menuOptions={embedClipboardMenuOptions}>
-					<DrawingEmbedPreviewWrapper
-						embedId = {props.embedId}
-						embeddedFile = {props.embeddedFile}
-						embedSettings = {props.embedSettings}
-						onReady = {() => {}}
-						onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+				{showTranscript && transcript && (
+					<EmbedPreviewContextMenu
+						menuOptions={lockedEmbedMenuOptions(true)}
+						layout='content'
+					>
+						<InkTranscriptView
+							app={getGlobals().plugin.app}
+							markdown={transcript}
+							sourcePath={props.sourceMdFile?.path ?? ''}
+							onHeightChange={applyTranscriptHeight}
+						/>
+					</EmbedPreviewContextMenu>
+				)}
+				{!showTranscript && (
+					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
+						<DrawingEmbedPreviewWrapper
+							embedId = {props.embedId}
+							embeddedFile = {props.embeddedFile}
+							embedSettings = {savedEmbedSettings}
+							onReady = {() => {}}
+							onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
+						/>
+					</EmbedPreviewContextMenu>
+				)}
+				{!isThisEmbedEditing && (
+					<InkEmbedTranscriptControls
+						filePath={props.embeddedFile.path}
+						inkIconKind='drawing'
+						hasTranscript={hasTranscript}
 					/>
-				</EmbedPreviewContextMenu>
+				)}
 
 				{(drawingFormat === 'ink-canvas' || drawingFormat === 'legacyInk') && (
 					<DrawingEditorWrapper
@@ -347,9 +477,17 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						drawingFile = {props.embeddedFile}
 						save = {props.saveSrcFile}
 						extendedMenu = {commonExtendedOptions}
-						embedSettings = {props.embedSettings}
+						embedSettings = {savedEmbedSettings}
 						onSaveCameraPosition = {(viewBox) => {
 							didExplicitSaveEmbedSettingsRef.current = true;
+							const nextEmbedSettings: EmbedSettings = {
+								embedDisplay: {
+									width: embedWidthRef.current,
+									aspectRatio: embedAspectRatioRef.current,
+								},
+								viewBox,
+							};
+							setSavedEmbedSettings(nextEmbedSettings);
 							// Single rewrite: updating width/aspectRatio first can invalidate the widget
 							// range, causing a subsequent viewBox rewrite to silently no-op.
 							props.setEmbedPropsAndViewBox?.({
@@ -360,7 +498,8 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						}}
 						embedded
 						saveControlsReference = {registerEditorControls}
-						closeEditor = {() => void saveAndSwitchToPreviewMode()}
+						closeEditor = {() => saveAndSwitchToPreviewMode()}
+						onTranscriptSaved={(transcript) => props.updateEmbedTranscript?.(transcript)}
 						resizeEmbed = {resizeEmbed}
 						onResizeStart = {onResizeStart}
 						onResizeEnd = {onResizeEnd}
@@ -434,6 +573,24 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				toAspectRatio,
 			});
 		}
+	}
+
+	function applyTranscriptHeight(heightPx: number) {
+		if (heightPx <= 0) return;
+		setTranscriptHeightPx((currentHeightPx) => {
+			const heightIsUnchanged = Math.abs(currentHeightPx - heightPx) <= 1;
+			if (heightIsUnchanged) return currentHeightPx;
+			return heightPx;
+		});
+		if (!resizeContainerElRef.current) return;
+		resizeContainerElRef.current.classList.remove('ddc_ink_smooth-transition');
+		resizeContainerElRef.current.style.height = heightPx + 'px';
+		inkEmbedSyncWidgetRootMinHeightToContent({
+			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
+		});
+		// Always remeasure. Skipping when the pixel height matches the ink box left
+		// the first toggle stuck until the user switched away and back.
+		props.onRequestMeasure?.();
 	}
 
 	function applyEmbedDimensions(width: number, aspectRatio: number) {
@@ -540,11 +697,19 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 				return next;
 			});
 		}
+
+		if (props.embeddedFile) {
+			void enqueueAuto(props.embeddedFile.path);
+		}
+
+		const plugin = getGlobals().plugin;
+		if (plugin) recordInkCloseAndMaybeShowAccountNotice(plugin);
+
 		// If the user did NOT explicitly save embed settings, revert any local resize to the
 		// last-saved embed settings so a lock/unlock doesn't appear to have persisted changes.
 		if (!didExplicitSaveEmbedSettingsRef.current) {
-			embedWidthRef.current = props.embedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH;
-			embedAspectRatioRef.current = props.embedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO;
+			embedWidthRef.current = savedEmbedSettings.embedDisplay.width || DRAWING_INITIAL_WIDTH;
+			embedAspectRatioRef.current = savedEmbedSettings.embedDisplay.aspectRatio || DRAWING_INITIAL_ASPECT_RATIO;
 			applyEmbedDimensions(embedWidthRef.current, embedAspectRatioRef.current);
 		}
 
@@ -553,6 +718,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function handleResize() {
 		const maxWidth = getFullPageWidth(embedContainerElRef.current);
 		if (resizeContainerElRef.current) {
+			if (showTranscriptRef.current) {
+				resizeContainerElRef.current.style.maxWidth = '';
+				return;
+			}
 			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';
 			const curWidth = resizeContainerElRef.current.getBoundingClientRect().width;
 			resizeContainerElRef.current.style.height = curWidth/embedAspectRatioRef.current + 'px';

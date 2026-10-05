@@ -6,6 +6,10 @@
 export const CREDIT_POOL_PLOT_HEIGHT = 90;
 export const CREDIT_POOL_BAR_TOP_RADIUS = 6;
 export const CREDIT_POOL_BAR_BANDWIDTH_RATIO = 0.92;
+/** Visual-only floor so tiny remaining/spend still paints on the 90px plot. */
+export const CREDIT_POOL_BAR_MIN_SEGMENT_PX = 2;
+/** Usage-distribution stacks use a taller floor so thin slices stay tappable and readable. */
+export const CREDIT_POOL_STACK_MIN_SEGMENT_PX = CREDIT_POOL_BAR_MIN_SEGMENT_PX * 2;
 
 export const CREDIT_POOL_PLOT_PADDING_LEFT = 0;
 export const CREDIT_POOL_PLOT_PADDING_RIGHT = 0;
@@ -42,19 +46,15 @@ export function formatCreditPoolChartEdgeTick(dayKey: string): string {
 	return `${weekday} ${dayOfMonth} ${monthLabel}`;
 }
 
-/** Matches burndown day keys — e.g. `27 Aug (Thu)`. */
+/** Period subtitle above charts — e.g. `27 Aug` (weekday stays on x-axis edge ticks). */
 export function formatCreditPoolPeriodDate(isoDate: string): string {
 	const date = new Date(`${isoDate}T00:00:00.000Z`);
 	const dayOfMonth = date.getUTCDate();
-	const weekday = date.toLocaleDateString('en-AU', {
-		weekday: 'short',
-		timeZone: 'UTC',
-	});
 	const month = date.toLocaleDateString('en-AU', {
 		month: 'short',
 		timeZone: 'UTC',
 	});
-	return `${dayOfMonth} ${month} (${weekday})`;
+	return `${dayOfMonth} ${month}`;
 }
 
 export function creditPoolDaySegmentWidth(pointCount: number, plotWidth: number): number {
@@ -213,10 +213,4 @@ export function usageChartTodayKey(timeZone: string): string {
 	} catch {
 		return new Date().toISOString().slice(0, 10);
 	}
-}
-
-/** Two-decimal USD so remaining is not a raw numeric string from the usage API. */
-export function formatUsdRemaining(amount: number): string {
-	if (!Number.isFinite(amount)) return '$0.00';
-	return `$${amount.toFixed(2)}`;
 }

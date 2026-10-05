@@ -29,7 +29,7 @@ Usage: bash scripts/push-plugin-to-boox.sh [--skip-build]
 
 Environment:
   INK_BOOX_PLUGIN_DIRS   Colon-separated adb paths to .obsidian/plugins/ink
-                         (default: Testing + Imagination and Inquiry vaults)
+                         (default: discover every ink plugin folder on the connected device)
 
 Requires: adb, one device in "device" state, USB debugging enabled on the tablet.
 EOF
@@ -87,12 +87,28 @@ fi
 default_plugin_dirs=(
 	"/storage/emulated/0/Documents/Testing/.obsidian/plugins/${PLUGIN_ID}"
 	"/storage/emulated/0/Android/data/md.obsidian/files/Imagination and Inquiry/.obsidian/plugins/${PLUGIN_ID}"
+	"/storage/emulated/0/Documents/Design  and Development/.obsidian/plugins/${PLUGIN_ID}"
+	"/storage/emulated/0/Documents/Projects/.obsidian/plugins/${PLUGIN_ID}"
 )
+
+discover_plugin_dirs_on_device() {
+	adb shell "find /storage/emulated/0 -path '*/.obsidian/plugins/${PLUGIN_ID}' -type d 2>/dev/null" \
+		| tr -d '\r' \
+		| sort -u
+}
 
 if [[ -n "${INK_BOOX_PLUGIN_DIRS:-}" ]]; then
 	IFS=':' read -r -a plugin_dirs <<<"${INK_BOOX_PLUGIN_DIRS}"
 else
-	plugin_dirs=("${default_plugin_dirs[@]}")
+	# Prefer every vault on the tablet so QA in one vault does not leave others on a stale build.
+	plugin_dirs=()
+	while IFS= read -r remote_plugin_dir; do
+		[[ -z "${remote_plugin_dir}" ]] && continue
+		plugin_dirs+=("${remote_plugin_dir}")
+	done < <(discover_plugin_dirs_on_device)
+	if [[ ${#plugin_dirs[@]} -eq 0 ]]; then
+		plugin_dirs=("${default_plugin_dirs[@]}")
+	fi
 fi
 
 if [[ ${#plugin_dirs[@]} -eq 0 ]]; then

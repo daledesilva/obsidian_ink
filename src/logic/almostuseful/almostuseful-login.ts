@@ -1,11 +1,6 @@
 import { Platform } from 'obsidian';
-import { createAlmostUsefulPkcePair } from 'src/logic/almostuseful/almostuseful-pkce';
-import {
-	ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-	ALMOSTUSEFUL_CLIENT_ID,
-	ALMOSTUSEFUL_PROTOCOL_ACTION,
-	ALMOSTUSEFUL_REDIRECT_URI,
-} from 'src/logic/almostuseful/almostuseful-constants';
+import { ALMOSTUSEFUL_CLIENT_DISPLAY_NAME, ALMOSTUSEFUL_CLIENT_ID } from 'src/logic/almostuseful/almostuseful-constants';
+import { readOrCreateAlmostUsefulDeviceInstall } from 'src/logic/almostuseful/almostuseful-device';
 import { persistAlmostUsefulTokenResponse } from 'src/logic/almostuseful/almostuseful-token-persist';
 import { almostUsefulRequestJson } from 'src/logic/almostuseful/almostuseful-http';
 import {
@@ -19,42 +14,41 @@ import {
 	readAlmostUsefulSession,
 	resolveAlmostUsefulPortalOrigin,
 	writeAlmostUsefulHandoffPending,
+	type AlmostUsefulHandoffPending,
 } from 'src/logic/almostuseful/almostuseful-session';
 
 /////////
 /////////
 
-export type AlmostUsefulLoginPhase = 'idle' | 'opening' | 'pending';
+export const ALMOSTUSEFUL_DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
 
-const PASTE_UI_DELAY_MS = 4000;
+/** Used only when the portal omits interval. Live codes use the portal's value. */
+const DEFAULT_DEVICE_POLL_INTERVAL_SECONDS = 3;
+/**
+ * The code has only just appeared, so the website cannot have approved it yet.
+ * Returning from another app skips this and polls immediately.
+ */
+const INITIAL_FOREGROUND_POLL_DELAY_MS = 10_000;
+/** A hung device-code request must fail so Link account can be tried again. */
+const DEVICE_CODE_ISSUE_TIMEOUT_MS = 20_000;
+// RFC 8628 §3.5: each slow_down adds 5 seconds to the poll interval for the rest of this code.
+const SLOW_DOWN_EXTRA_MS = 5000;
 
-let almostUsefulLoginPhase: AlmostUsefulLoginPhase = 'idle';
-let almostUsefulPasteUiTimer: number | null = null;
+export type AlmostUsefulDeviceTokenPollOutcome =
+	| 'pending'
+	| 'slow_down'
+	| 'expired'
+	| 'denied'
+	| 'success'
+	| 'error';
 
-/** Current UI phase for the settings account section. */
-export function getAlmostUsefulLoginPhase(): AlmostUsefulLoginPhase {
-	return almostUsefulLoginPhase;
+export interface AlmostUsefulDevicePoller {
+	/** Polls immediately unless a poll or code refresh is already in flight. */
+	pollNow: () => Promise<void>;
+	stop: () => void;
 }
 
-function clearAlmostUsefulPasteUiTimer(): void {
-	if (almostUsefulPasteUiTimer === null) return;
-	window.clearTimeout(almostUsefulPasteUiTimer);
-	almostUsefulPasteUiTimer = null;
-}
-
-/** After Log in, wait so the paste field does not flash before the browser opens. */
-export function scheduleAlmostUsefulPasteUi(onShowPaste: () => void): void {
-	clearAlmostUsefulPasteUiTimer();
-	almostUsefulPasteUiTimer = window.setTimeout(() => {
-		almostUsefulPasteUiTimer = null;
-		if (almostUsefulLoginPhase !== 'opening') return;
-		if (!readAlmostUsefulHandoffPending()) return;
-		almostUsefulLoginPhase = 'pending';
-		onShowPaste();
-	}, PASTE_UI_DELAY_MS);
-}
-
-/** Opens the portal authorize URL in the system browser. */
+/** Opens a portal URL in the system browser. */
 export function openAlmostUsefulBrowserUrl(url: string): void {
 	if (Platform.isDesktop) {
 		const electron = require('electron') as {
@@ -66,89 +60,261 @@ export function openAlmostUsefulBrowserUrl(url: string): void {
 	window.open(url);
 }
 
-/** Starts website authorize: PKCE in device-local storage, then system browser. */
-export async function startAlmostUsefulBrowserLogin(): Promise<void> {
-	const pkce = await createAlmostUsefulPkcePair();
-	const stateBytes = crypto.getRandomValues(new Uint8Array(16));
-	let state = '';
-	stateBytes.forEach((byte) => {
-		state += byte.toString(16).padStart(2, '0');
-	});
-	writeAlmostUsefulHandoffPending({
-		state,
-		codeVerifier: pkce.verifier,
-	});
-	almostUsefulLoginPhase = 'opening';
+/**
+ * Requests a new device code and stores it device-locally, replacing any
+ * previous one. Unauthenticated POST — no Bearer.
+ */
+export async function requestAlmostUsefulDeviceCode(): Promise<
+	{ ok: true; pending: AlmostUsefulHandoffPending } | { ok: false; error: string }
+> {
+	const failure = { ok: false as const, error: 'Could not start Almost Useful sign-in. Try again.' };
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const query = new URLSearchParams({
-		client_id: ALMOSTUSEFUL_CLIENT_ID,
-		display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
-		redirect_uri: ALMOSTUSEFUL_REDIRECT_URI,
-		state,
-		code_challenge: pkce.challenge,
-		code_challenge_method: 'S256',
+	const deviceInstall = readOrCreateAlmostUsefulDeviceInstall();
+	let response: { status: number; json: unknown };
+	// requestUrl has no abort. Racing a timer lets the button recover if the portal never answers.
+	let timeoutId = 0;
+	const timeout = new Promise<never>((_resolve, reject) => {
+		timeoutId = window.setTimeout(() => reject(new Error('timeout')), DEVICE_CODE_ISSUE_TIMEOUT_MS);
 	});
-	openAlmostUsefulBrowserUrl(`${portalOrigin}/oauth/authorize?${query.toString()}`);
+	try {
+		response = await Promise.race([
+			almostUsefulRequestJson({
+				url: `${portalOrigin}/api/oauth/device`,
+				method: 'POST',
+				body: {
+					client_id: ALMOSTUSEFUL_CLIENT_ID,
+					display_name: ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
+					device_id: deviceInstall.deviceId,
+					device_label: deviceInstall.deviceLabel,
+				},
+			}),
+			timeout,
+		]);
+	} catch {
+		return failure;
+	} finally {
+		window.clearTimeout(timeoutId);
+	}
+	if (response.status !== 200) return failure;
+	const json = response.json as {
+		device_code?: unknown;
+		user_code?: unknown;
+		verification_uri?: unknown;
+		expires_in?: unknown;
+		interval?: unknown;
+	} | null;
+	if (
+		!json ||
+		typeof json.device_code !== 'string' ||
+		typeof json.user_code !== 'string' ||
+		typeof json.verification_uri !== 'string' ||
+		typeof json.expires_in !== 'number'
+	) {
+		return failure;
+	}
+	let intervalSeconds = DEFAULT_DEVICE_POLL_INTERVAL_SECONDS;
+	if (typeof json.interval === 'number' && json.interval > 0) intervalSeconds = json.interval;
+
+	const pending: AlmostUsefulHandoffPending = {
+		deviceCode: json.device_code,
+		userCode: json.user_code,
+		expiresAt: Date.now() + json.expires_in * 1000,
+		intervalSeconds,
+		verificationUri: json.verification_uri,
+	};
+	writeAlmostUsefulHandoffPending(pending);
+	return { ok: true, pending };
 }
 
-/** Completes protocol return: HTTPS token exchange, never tokens from the URL. */
-export async function completeAlmostUsefulProtocolHandoff(params: {
-	code?: string;
-	state?: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-	const pending = readAlmostUsefulHandoffPending();
-	if (!pending) {
-		return { ok: false, error: 'No in-progress Almost Useful login' };
-	}
-	if (!params.code || !params.state) {
-		return { ok: false, error: 'Missing authorize code' };
-	}
-	if (params.state !== pending.state) {
-		return { ok: false, error: 'Login state did not match' };
-	}
-
-	const stored = await exchangeAlmostUsefulAuthorizationCode({
-		code: params.code,
-		codeVerifier: pending.codeVerifier,
-	});
-	if (!stored.ok) return stored;
-
-	clearAlmostUsefulHandoffPending();
-	clearAlmostUsefulPasteUiTimer();
-	almostUsefulLoginPhase = 'idle';
-	void startAlmostUsefulSessionRefresh();
-	return { ok: true };
-}
-
-/** Drops in-flight PKCE so the user can start a fresh browser login. */
-export function cancelAlmostUsefulPendingLogin(): void {
-	clearAlmostUsefulHandoffPending();
-	clearAlmostUsefulPasteUiTimer();
-	almostUsefulLoginPhase = 'idle';
+/** Starts device-code sign-in: fetch a code for settings to display. The portal opens only from Copy code or Open website. */
+export async function startAlmostUsefulBrowserLogin(): Promise<
+	{ ok: true; pending: AlmostUsefulHandoffPending } | { ok: false; error: string }
+> {
+	return requestAlmostUsefulDeviceCode();
 }
 
 /**
- * Same HTTPS exchange as the protocol handler, for when a new Obsidian window
- * ate the deep link. Uses the PKCE verifier stored in this window.
+ * One device_code token poll. On success persists the app token, clears the
+ * handoff and starts session refresh; on access_denied clears the handoff.
  */
-export async function completeAlmostUsefulPastedHandoffCode(
-	rawCode: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-	const pending = readAlmostUsefulHandoffPending();
-	if (!pending) {
-		return {
-			ok: false,
-			error: 'Start Log in from this Obsidian window first, then paste the code here.',
-		};
+export async function pollAlmostUsefulDeviceToken(
+	deviceCode: string,
+): Promise<AlmostUsefulDeviceTokenPollOutcome> {
+	const portalOrigin = resolveAlmostUsefulPortalOrigin();
+	let response: { status: number; json: unknown };
+	try {
+		response = await almostUsefulRequestJson({
+			url: `${portalOrigin}/api/oauth/token`,
+			method: 'POST',
+			body: {
+				grant_type: ALMOSTUSEFUL_DEVICE_CODE_GRANT_TYPE,
+				device_code: deviceCode,
+				client_id: ALMOSTUSEFUL_CLIENT_ID,
+			},
+		});
+	} catch {
+		return 'error';
 	}
-	const code = rawCode.trim();
-	if (!code) {
-		return { ok: false, error: 'Paste the code from the authorize redirect' };
+
+	if (response.status !== 200) {
+		const errorCode = (response.json as { error?: unknown } | null)?.error;
+		if (errorCode === 'authorization_pending') return 'pending';
+		if (errorCode === 'slow_down') return 'slow_down';
+		if (errorCode === 'expired_token') return 'expired';
+		if (errorCode === 'access_denied') {
+			clearAlmostUsefulHandoffPending();
+			return 'denied';
+		}
+		return 'error';
 	}
-	return completeAlmostUsefulProtocolHandoff({
-		code,
-		state: pending.state,
-	});
+
+	const stored = await persistAlmostUsefulTokenResponse(response);
+	if (!stored.ok) return 'error';
+	clearAlmostUsefulHandoffPending();
+	void startAlmostUsefulSessionRefresh();
+	return 'success';
+}
+
+/**
+ * Polls the token endpoint while settings shows the code and this app is in
+ * front. The first check waits, because the code has only just been shown.
+ * Leaving the app cancels that wait. Coming back polls once, then on the
+ * portal interval. An expired code stays on screen until Renew.
+ */
+export function startAlmostUsefulDevicePolling(callbacks: {
+	onExpired: () => void;
+	onSignedIn: () => void;
+	onSignedOut: () => void;
+	onError: (message: string) => void;
+}): AlmostUsefulDevicePoller {
+	const hostWindow = window;
+	const hostDocument = document;
+	let isStopped = false;
+	let isPausedForBackground = hostDocument.visibilityState === 'hidden';
+	let slowDownExtraMs = 0;
+	let pollTimer: number | null = null;
+	let pollInFlight: Promise<void> | null = null;
+
+	const clearPollTimer = (): void => {
+		if (pollTimer === null) return;
+		hostWindow.clearTimeout(pollTimer);
+		pollTimer = null;
+	};
+
+	const scheduleNextPoll = (delayMs?: number): void => {
+		clearPollTimer();
+		if (isStopped || isPausedForBackground) return;
+		const pending = readAlmostUsefulHandoffPending();
+		let intervalSeconds = DEFAULT_DEVICE_POLL_INTERVAL_SECONDS;
+		if (pending) intervalSeconds = pending.intervalSeconds;
+		const waitMs = delayMs ?? intervalSeconds * 1000 + slowDownExtraMs;
+		pollTimer = hostWindow.setTimeout(() => {
+			pollTimer = null;
+			if (isPausedForBackground) return;
+			void runPoll();
+		}, waitMs);
+	};
+
+	/** Drop the timer. A poll must not run while Obsidian is not the front app. */
+	function pauseForBackground(): void {
+		isPausedForBackground = true;
+		clearPollTimer();
+	}
+
+	/** The user is back. Ask now, then the interval starts again from this poll. */
+	function resumeFromBackground(): void {
+		if (isStopped || !isPausedForBackground) return;
+		isPausedForBackground = false;
+		void runPoll();
+	}
+
+	const stop = (): void => {
+		if (isStopped) return;
+		isStopped = true;
+		clearPollTimer();
+		hostWindow.removeEventListener('blur', handleBlur);
+		hostWindow.removeEventListener('focus', handleFocus);
+		hostDocument.removeEventListener('visibilitychange', handleVisibilityChange);
+	};
+
+	const reportExpired = (): void => {
+		// Leave the stored code so settings can show it struck through until Renew.
+		stop();
+		callbacks.onExpired();
+	};
+
+	const executePoll = async (): Promise<void> => {
+		if (isStopped) return;
+		const pending = readAlmostUsefulHandoffPending();
+		if (!pending) {
+			stop();
+			callbacks.onSignedOut();
+			return;
+		}
+		clearPollTimer();
+		if (Date.now() >= pending.expiresAt) {
+			reportExpired();
+			return;
+		}
+		const outcome = await pollAlmostUsefulDeviceToken(pending.deviceCode);
+		if (isStopped) return;
+		if (outcome === 'success') {
+			stop();
+			callbacks.onSignedIn();
+			return;
+		}
+		if (outcome === 'denied') {
+			stop();
+			callbacks.onSignedOut();
+			return;
+		}
+		if (outcome === 'expired') {
+			reportExpired();
+			return;
+		}
+		if (outcome === 'slow_down') slowDownExtraMs += SLOW_DOWN_EXTRA_MS;
+		scheduleNextPoll();
+	};
+
+	/** One poll at a time. A focus event during a poll waits for that result. */
+	const runPoll = (): Promise<void> => {
+		if (isStopped) return Promise.resolve();
+		if (pollInFlight) return pollInFlight;
+		pollInFlight = executePoll().finally(() => {
+			pollInFlight = null;
+		});
+		return pollInFlight;
+	};
+
+	function handleBlur(): void {
+		pauseForBackground();
+	}
+
+	function handleFocus(): void {
+		resumeFromBackground();
+	}
+
+	function handleVisibilityChange(): void {
+		if (hostDocument.visibilityState === 'hidden') {
+			pauseForBackground();
+			return;
+		}
+		resumeFromBackground();
+	}
+
+	hostWindow.addEventListener('blur', handleBlur);
+	hostWindow.addEventListener('focus', handleFocus);
+	hostDocument.addEventListener('visibilitychange', handleVisibilityChange);
+	// Already in front: wait before the first ask. Already hidden: stay quiet
+	// until focus, which polls immediately.
+	if (!isPausedForBackground) scheduleNextPoll(INITIAL_FOREGROUND_POLL_DELAY_MS);
+
+	return { pollNow: runPoll, stop };
+}
+
+/** Drops the in-flight device code so settings returns to signed out. */
+export function cancelAlmostUsefulPendingLogin(): void {
+	clearAlmostUsefulHandoffPending();
 }
 
 /** Revokes the grant when possible, then drops local tokens. */
@@ -165,28 +331,4 @@ export function logOutAlmostUseful(): void {
 	}
 	clearAlmostUsefulSession();
 	clearAlmostUsefulHandoffPending();
-	clearAlmostUsefulPasteUiTimer();
-	almostUsefulLoginPhase = 'idle';
 }
-
-/** POSTs authorization_code to the portal token endpoint. */
-async function exchangeAlmostUsefulAuthorizationCode(params: {
-	code: string;
-	codeVerifier: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const response = await almostUsefulRequestJson({
-		url: `${portalOrigin}/api/oauth/token`,
-		method: 'POST',
-		body: {
-			grant_type: 'authorization_code',
-			code: params.code,
-			code_verifier: params.codeVerifier,
-			client_id: ALMOSTUSEFUL_CLIENT_ID,
-			redirect_uri: ALMOSTUSEFUL_REDIRECT_URI,
-		},
-	});
-	return persistAlmostUsefulTokenResponse(response);
-}
-
-export { ALMOSTUSEFUL_PROTOCOL_ACTION };

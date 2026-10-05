@@ -1,13 +1,16 @@
 import { TFile } from "obsidian";
 import { InkFileData } from "../types/file-data";
-import { WRITE_FILE_V1_EXT } from "src/constants";
 import InkPlugin from "src/main";
+import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { buildFileStr } from "./buildFileStr";
+import { serializeBboxCellsAtLastTranscription } from "src/logic/stroke-bbox-cells";
+import { normalizeInkTranscriptMarkdown } from "src/logic/normalize-ink-transcript-markdown";
 
 ////////
 ////////
 
 export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
-    // TODO: Also check if hte transcript is older than the last file update
+    // TODO: Also check if the transcript is older than the last file update
     // if(!pageData.meta.transcript) {
     // return true;
     // } else {
@@ -15,17 +18,41 @@ export const needsTranscriptUpdate = (pageData: InkFileData): boolean => {
     // }
 };
 
-export const saveWriteFileTranscript = async (plugin: InkPlugin, fileRef: TFile, transcript: string) => {
-    if (fileRef.extension !== WRITE_FILE_V1_EXT) return;
+/**
+ * Writes a transcript onto current-format ink SVG metadata (`<transcript>…</transcript>`).
+ * Optionally stores bbox occupancy snapshot on `<ink>` after a successful apply.
+ * Preserves the file mtime so transcript updates do not look like a content edit.
+ */
+export const saveWriteFileTranscript = async (
+    plugin: InkPlugin,
+    fileRef: TFile,
+    transcript: string,
+    transcriptionFingerprint?: {
+        lastTranscriptionAt: string;
+        /** Ink that this transcript describes. Omit to fingerprint strokes now on disk. */
+        bboxCellsAtLastTranscription?: string;
+    },
+) => {
     const v = plugin.app.vault;
-
-    // console.log('saving transcript to', fileRef.path);
     const pageDataStr = await v.read(fileRef);
-    const pageData = JSON.parse(pageDataStr) as InkFileData;
+    const pageData = extractInkJsonFromSvg(pageDataStr);
+    if (!pageData) return;
 
-    // TODO: Add in a date of the transcript
-    pageData.meta.transcript = "The new transcript";
-    const newPageDataStr = JSON.stringify(pageData, null, '\t');
+    // Flourish glyphs only. Blank lines stay, because they are real markdown breaks.
+    pageData.meta.transcript = normalizeInkTranscriptMarkdown(transcript);
+    if (transcriptionFingerprint) {
+        const transcribedBboxCells = transcriptionFingerprint.bboxCellsAtLastTranscription;
+        if (transcribedBboxCells) {
+            // Held results describe the ink that was sent. Re-fingerprinting strokes
+            // saved while the editor stayed open would hide that later change.
+            pageData.meta.bboxCellsAtLastTranscription = transcribedBboxCells;
+        } else {
+            // Occupancy fingerprint only on successful apply — from stroke geometry now on disk.
+            pageData.meta.bboxCellsAtLastTranscription = serializeBboxCellsAtLastTranscription(pageData);
+        }
+        pageData.meta.lastTranscriptionAt = transcriptionFingerprint.lastTranscriptionAt;
+    }
+    const newPageDataStr = buildFileStr(pageData);
 
     await v.modify(fileRef, newPageDataStr, { mtime: fileRef.stat.mtime });
 };

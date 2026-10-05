@@ -19,7 +19,10 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VAULT_ROOT = path.resolve(__dirname);
+const REPO_ROOT = path.resolve(__dirname, '..');
+const INK_PLUGIN_DIST_DIR = path.join(REPO_ROOT, 'dist');
 const FIXTURES = path.resolve(__dirname, 'fixtures');
+const HANDWRITING_TRANSCRIPTION_FIXTURES = path.resolve(__dirname, '../tests/fixtures/handwriting-transcription');
 const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 const PLUGIN_VERSION = '0.4.0';
 const TLDRAW_VERSION = '2.1.0';
@@ -27,6 +30,19 @@ const INK_CANVAS_FORMAT_VERSION = '0.5.0';
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+/** Copies built Ink artifacts into the QA vault so open-qa always has a loadable plugin folder. */
+function syncInkPluginFromDist(inkPluginDir) {
+  ensureDir(inkPluginDir);
+  for (const fileName of ['main.js', 'manifest.json', 'styles.css']) {
+    const sourcePath = path.join(INK_PLUGIN_DIST_DIR, fileName);
+    if (!fs.existsSync(sourcePath)) {
+      console.warn(`Warning: ${sourcePath} missing — run esbuild (npm run open-qa) before generate.mjs`);
+      continue;
+    }
+    fs.copyFileSync(sourcePath, path.join(inkPluginDir, fileName));
+  }
 }
 
 function writeFile(relPath, content) {
@@ -453,6 +469,30 @@ function generateAllNotes() {
   writeFile('11 - CodeMirror and Editor Behavior/Native Print Export.md', `# Print\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
 }
 
+/** Copies eval handwriting SVGs into the vault and embeds each one in one note. */
+function generateHandwritingTranscriptionNote() {
+  const svgNames = fs.readdirSync(HANDWRITING_TRANSCRIPTION_FIXTURES)
+    .filter((name) => name.endsWith('.svg'))
+    .sort();
+  const destDir = path.join(VAULT_ROOT, 'Ink/Writing/transcription');
+  ensureDir(destDir);
+  for (const name of svgNames) {
+    fs.copyFileSync(path.join(HANDWRITING_TRANSCRIPTION_FIXTURES, name), path.join(destDir, name));
+  }
+  const sections = svgNames.map((name) => {
+    const title = name.replace(/\.svg$/, '');
+    return `## ${title}\n${buildWritingEmbed(`Ink/Writing/transcription/${name}`)}`;
+  }).join('\n');
+  writeFile(
+    '21 - Handwriting Transcription/Transcript fixtures.md',
+    `# Handwriting transcription fixtures
+
+These SVGs are copied from \`tests/fixtures/handwriting-transcription/\` when the vault is generated. Expected transcripts, when a fixture has one, are the matching \`.expected.txt\` files in that same folder.
+
+${sections}`,
+  );
+}
+
 function main() {
   console.log('Generating QA test vault...');
   generateSvgAssets();
@@ -503,6 +543,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
 - **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
 - **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
+- **21 – Handwriting Transcription**: Eval SVGs from \`tests/fixtures/handwriting-transcription/\`, embedded for manual transcribe checks
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();
@@ -513,6 +554,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   generateCapturedLegacyMigrationAssets();
   generateMigrationProgressDensityAssets();
   generatePickerStressAssets();
+  generateHandwritingTranscriptionNote();
 
   ensureDir('.obsidian');
   // Enable community plugins needed for column layout e2e tests.
@@ -520,6 +562,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   // and cannot be listed here. The [!multi-column] and #mcl/list-grid pages will render
   // via standard callout/list fallback unless the MCL CSS snippet is also installed.
   writeFile('.obsidian/community-plugins.json', JSON.stringify([
+    'ink',
     'obsidian-columns',
     'multi-column-markdown',
     'obsidian-admonition',
@@ -535,7 +578,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
   // Pre-seed Ink plugin data so the welcome popup does not show during e2e tests.
   // The onboarding test explicitly resets welcomeTipRead and reloads the plugin to test first-run flow.
   const inkPluginDir = path.join(VAULT_ROOT, '.obsidian', 'plugins', 'ink');
-  ensureDir(inkPluginDir);
+  syncInkPluginFromDist(inkPluginDir);
   const inkPluginData = {
     onboardingTips: { welcomeTipRead: true, strokeLimitTipRead: false, lastVersionTipRead: PLUGIN_VERSION },
     customAttachmentFolders: false,

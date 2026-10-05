@@ -31,10 +31,11 @@ flowchart TD
 | `versions.json` | Repo-root fallback map for older Obsidian apps |
 | `version-bump.mjs` | On `npm version`, sets `manifest.version` and records `versions[targetVersion] = minAppVersion` |
 
-Current contract (plugin `0.5.6`):
+Current contract (plugin `0.6.0`):
 
 ```json
 {
+  "version": "0.6.0",
   "minAppVersion": "1.8.7"
 }
 ```
@@ -42,7 +43,8 @@ Current contract (plugin `0.5.6`):
 ```json
 {
   "0.5.5": "1.0.0",
-  "0.5.6": "1.8.7"
+  "0.5.6": "1.8.7",
+  "0.6.0": "1.8.7"
 }
 ```
 
@@ -65,6 +67,7 @@ Historical tags used the invalid string `1.00.0` (semver rejects leading zeros).
 ## Technical Gotchas
 
 - **`1.00.0` is not valid** — `semver.valid('1.00.0')` is `null`. Obsidian reviewers treat malformed `minAppVersion` as a check failure even when humans read it as “1.0.0”.
+- **Plugin `version` must be three parts too** — `0.6` is not valid semver. On load, `showVersionNotice` compares `manifest.version` with `semver.gt` and throws, which Obsidian reports as a plugin failure. Ship `0.6.0`. See [Version and welcome notices](version-and-welcome-notices.md).
 - **Do not list every release** — Official guidance: update `versions.json` when `minAppVersion` changes, not on every plugin bump. While the floor is stable, duplicate rows for past tags add no fallback value.
 - **Keep prior floors when raising** — When `minAppVersion` increases, leave older plugin versions mapped to their previous floors so older Obsidian apps still get a compatible Ink build. `version-bump.mjs` only writes the new `targetVersion` key; it does not rewrite or delete older entries.
 - **Local lint vs community scanner** — Project `obsidian` typings may lag the `@since` map the hosted scanner uses. A clean local `npx eslint .` does not prove `no-unsupported-api` will pass community checks; keep `minAppVersion` at or above the highest unguarded API `@since`.

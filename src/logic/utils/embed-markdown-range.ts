@@ -3,9 +3,11 @@ import type { EditorView } from '@codemirror/view';
 
 export type InkEmbedType = 'inkWriting' | 'inkDrawing';
 
+// Any image alt, not only the InkWriting/InkDrawing placeholders. A transcript
+// replaces that alt, and framing/size writes must still find the edit link.
 const EMBED_MARKDOWN_REGEX: Record<InkEmbedType, RegExp> = {
-	inkWriting: / !\[InkWriting\]\(<[^>]+>\) \[Edit Writing\]\([^)]+\)/,
-	inkDrawing: / !\[InkDrawing\]\(<[^>]+>\) \[Edit Drawing\]\([^)]+\)/,
+	inkWriting: / !\[[^\]]*\]\(<[^>]+>\) \[Edit Writing\]\([^)]+\)/,
+	inkDrawing: / !\[[^\]]*\]\(<[^>]+>\) \[Edit Drawing\]\([^)]+\)/,
 };
 
 export interface EmbedMarkdownRange {
@@ -87,6 +89,29 @@ export function getEmbedMarkdownRange(
 	}
 
 	return null;
+}
+
+/**
+ * True when two embed lines differ only inside `![alt]`.
+ * Size and framing live in the edit link. Rebuilding the widget for an alt-only
+ * edit drops the live widget and can show the previous viewBox.
+ */
+export function inkEmbedMarkdownOnlyAltChanged(beforeSnippet: string, afterSnippet: string): boolean {
+	const withoutAlt = (snippet: string) => snippet.replace(/!\[[^\]]*\]/, '![alt]');
+	return withoutAlt(beforeSnippet) === withoutAlt(afterSnippet);
+}
+
+/**
+ * True when two embed lines differ only in `![alt]` and/or the Edit link query.
+ * Save framing rewrites width/aspectRatio/viewBox there. Rebuilding the widget
+ * assigns a new embedId, drops edit mode, and empty-drawing preview can measure 0px.
+ */
+export function inkEmbedMarkdownOnlyAltOrEditQueryChanged(beforeSnippet: string, afterSnippet: string): boolean {
+	const normalize = (snippet: string): string => {
+		const withoutAlt = snippet.replace(/!\[[^\]]*\]/, '![alt]');
+		return withoutAlt.replace(/(\[Edit (?:Drawing|Writing)\]\([^)?]*)(?:\?[^)]*)?(\))/, '$1$2');
+	};
+	return normalize(beforeSnippet) === normalize(afterSnippet);
 }
 
 export function getEmbedMarkdownFromDecoration(

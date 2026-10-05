@@ -27,6 +27,21 @@ export function migrateOutdatedSettings(raw: Record<string, unknown>): PluginSet
 		settings.drawingGridEnabledByDefault = DEFAULT_PLUGIN_SETTINGS_0_5_0.drawingGridEnabledByDefault;
 	}
 
+	if (settings.writingAutoTranscribeOnClose === undefined) {
+		settings.writingAutoTranscribeOnClose = DEFAULT_PLUGIN_SETTINGS_0_5_0.writingAutoTranscribeOnClose;
+	}
+	if (settings.drawingAutoTranscribeOnClose === undefined) {
+		settings.drawingAutoTranscribeOnClose = DEFAULT_PLUGIN_SETTINGS_0_5_0.drawingAutoTranscribeOnClose;
+	}
+	if (settings.writingAutoTranscribeChangeThresholdPercent === undefined) {
+		settings.writingAutoTranscribeChangeThresholdPercent =
+			DEFAULT_PLUGIN_SETTINGS_0_5_0.writingAutoTranscribeChangeThresholdPercent;
+	}
+	if (settings.drawingAutoTranscribeChangeThresholdPercent === undefined) {
+		settings.drawingAutoTranscribeChangeThresholdPercent =
+			DEFAULT_PLUGIN_SETTINGS_0_5_0.drawingAutoTranscribeChangeThresholdPercent;
+	}
+
 	// Undo mistaken 0.6.0 settingsVersion bump from an earlier build
 	if (settings.settingsVersion === '0.6.0') {
 		settings.settingsVersion = DEFAULT_PLUGIN_SETTINGS_0_5_0.settingsVersion;

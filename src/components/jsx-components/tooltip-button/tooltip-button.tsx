@@ -9,6 +9,7 @@ interface TooltipButtonProps {
 	tooltip: string;
 	onClick?: () => void;
 	onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
+	onMouseDown?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 	disabled?: boolean;
 	className?: string;
 	children: React.ReactNode;
@@ -25,6 +26,7 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 	tooltip,
 	onClick,
 	onPointerDown,
+	onMouseDown,
 	disabled,
 	className,
 	children,
@@ -67,6 +69,7 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 				className={className}
 				disabled={disabled}
 				onPointerEnter={handlePointerEnter}
+				onMouseDown={onMouseDown}
 				onPointerDown={(e) => { startHoldTimer(); onPointerDown?.(e); }}
 				onPointerUp={dismissTooltip}
 				onPointerLeave={dismissTooltip}

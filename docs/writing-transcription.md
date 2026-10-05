@@ -1,0 +1,521 @@
+# Handwriting transcription (writing and drawing)
+
+**Why it exists:** Handwriting in current-format **writing and drawing** SVG files can be turned into searchable, copyable text. The plugin stores the **full markdown transcript** on the ink SVG attachment and a **stripped plain-text cousin** in the note's image embed alt so Live Preview and the CM6 widget stay stable.
+
+Transcription is powered by the Almost Useful account portal (`POST /api/jobs/handwriting-transcription`). Ink never calls OpenRouter directly.
+
+Jobs run through a **plugin-owned serial queue** so transcription survives embed unmount, note close, and Obsidian quit — not React or CodeMirror widget lifetime.
+
+## Conceptual understanding
+
+Two representations serve different jobs:
+
+| Location | Content | Purpose |
+|----------|---------|---------|
+| SVG `<metadata><transcript>…</transcript>` | Full markdown (newlines, links, emphasis) | Canonical transcript on the attachment; survives without the note |
+| `![alt](<path/to.svg>)` image alt | Single-line plain text | Visible in the note; must not break `![…](…)` or Obsidian `alt\|width` sizing |
+| `<ink bbox-cells-at-last-transcription="…" last-transcription-at="…"/>` | Occupied 32px cells relative to the stroke bounding box + ISO timestamp | Fingerprint ink at last **successful** transcription; used to skip redundant auto jobs (not a hash of transcript text or SVG markup) |
+
+The embed alt is **not** a second source of truth for markdown — it is a display-safe summary derived from the SVG transcript via [`formatWritingEmbedAltText`](../src/components/formats/current/utils/build-embeds.ts) or [`formatDrawingEmbedAltText`](../src/components/formats/current/utils/build-embeds.ts).
+
+```mermaid
+flowchart LR
+  User[User: lock / close note / Transcribe]
+  Queue[handwriting-transcription-queue]
+  Portal[Almost Useful portal vision job]
+  Svg["SVG transcript + bboxCellsAtLastTranscription"]
+  Alt[formatWritingEmbedAltText / formatDrawingEmbedAltText]
+  Note["Note embed alt text"]
+  User --> Queue
+  Queue --> Portal
+  Portal --> Svg
+  Portal --> Alt
+  Alt --> Note
+```
+
+## User flows
+
+### Manual Transcribe (always available)
+
+1. Sign in to Almost Useful in Ink settings (app token required).
+2. Open a **writing or drawing** file in the embed editor or dedicated view.
+3. Open the overflow menu (⋯).
+4. Choose **Transcribe** (no transcript yet) or **Update transcript** (transcript already on the file).
+5. The job is enqueued as **manual** (jumps the waiting list; not gated by auto-transcribe toggles).
+
+Manual jobs use the **live canvas** SVG (including unsaved strokes) when enqueued from the editor overflow menu.
+
+In an **embed**, Transcribe / Update transcript also **locks the embed immediately**: the editor captures the live SVG, awaits `closeEditor` (save and switch to preview), then enqueues. The user sees the locked preview, including the queue status icon while the job runs, even when the file has no transcript yet. Dedicated views stay open.
+
+```mermaid
+sequenceDiagram
+  participant Menu as Overflow menu
+  participant Editor as Writing / drawing editor
+  participant Embed as Embed saveAndSwitchToPreviewMode
+  participant Queue as enqueueManualTranscription
+  Menu->>Editor: handleTranscribe
+  Editor->>Editor: Build live SVG string
+  Editor->>Embed: await closeEditor()
+  Editor->>Queue: enqueue manual job
+  Queue-->>Embed: Status icon on locked preview
+```
+
+### Auto-transcribe on close (vault-synced toggles)
+
+Settings → **Writing** / **Drawing** — **Automatically transcribe writing** / **Automatically transcribe drawings** (last controls in each section, after display/layout options):
+
+| Setting | Default | Scope |
+|---------|---------|--------|
+| `writingAutoTranscribeOnClose` | **on** | Writing embed lock, **markdown note/tab close** (unlocked embeds), dedicated writing view close, quit-as-lock, vault modify |
+| `drawingAutoTranscribeOnClose` | **off** | Drawing embed lock, **markdown note/tab close** (unlocked embeds), dedicated drawing view close, quit-as-lock, vault modify |
+| `writingAutoTranscribeChangeThresholdPercent` | **20** | Writing minimum ink change (0–95%) before auto runs again |
+| `drawingAutoTranscribeChangeThresholdPercent` | **20** | Drawing minimum ink change (0–95%) before auto runs again |
+
+When the device is not signed in to Almost Useful, the auto-transcribe toggle description adds **Transcription requires an Almost Useful account. Link your account above.**
+
+**No linked account → no queue entries.** `enqueueAuto` returns without adding a job. **Transcribe** from the overflow menu shows a notice and does not enqueue. Quit-promote, launch resume, and failed-job retry also skip (or clear) pending work while unsigned. Signing out or session expiry clears the device-local pending list.
+
+Auto enqueue runs only when the device is signed in, the per-type toggle is on, **and** ink change meets the threshold. Turning a toggle **off** drops **waiting auto** jobs of that type from the device-local queue; it does **not** cancel an in-flight portal POST. Manual pending jobs stay while signed in.
+
+### Change threshold (occupied-cell Jaccard %)
+
+Settings → **Writing** / **Drawing** → **Re-transcribe when ink file changes significantly** (slider **0–95%**, shown when auto-transcribe on close is on):
+
+The slider is **percent of occupied 32px cells that changed** (Jaccard symmetric-difference / union of bbox-relative cells), not SimHash Hamming bits and not a hash of SVG markup. Page template / ruled-line pixels are not in the cell set — only stroke points.
+
+| Slider | Auto-enqueue when… |
+|--------|---------------------|
+| **0%** | Other gates pass — **always** re-transcribe, even if occupancy is unchanged |
+| **1–95%** | Jaccard change ratio ≥ slider/100, **or** no stored `bboxCellsAtLastTranscription` yet (never successfully transcribed with this fingerprint) |
+| Below threshold | Skip auto enqueue |
+
+Default **20%** skips small edits; **0%** always re-transcribes when other gates pass. **Manual Transcribe** ignores the threshold.
+
+[`inkChangeMeetsAutoTranscribeThreshold`](../src/logic/stroke-bbox-cells.ts) centralises the check in `enqueueAuto`, launch prune, and the worker.
+
+### Vault sync (`vault.on('modify')`)
+
+When an ink SVG changes outside an open editor (Obsidian Sync, external edit, another device), the queue calls `enqueueAuto` if:
+
+- the file parses as current-format ink writing/drawing,
+- that type's auto toggle is on,
+- the file is **not** in `openSessions` (embed autosave must not loop),
+- ink change meets the threshold.
+
+Transcript-only writes from a successful job preserve stroke geometry → at default **1%**, the modify event after apply does **not** re-enqueue. At **0%**, it may.
+
+### Completion (silent)
+
+Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Portal failures show one notice. Whether the job is tried again depends on the portal `retryable` flag, not the English sentence. A missing network does not fail the job — see [Offline and unreachable network](#offline-and-unreachable-network).
+
+**Not auto-enqueued:** expand embed → dedicated view (save on expand, dequeue when dedicated editor opens), empty canvas, or when ink change is **below** the per-type occupancy threshold. Sync/modify while the file is open in an embed or dedicated view is also skipped.
+
+### Queue lifecycle
+
+```mermaid
+flowchart TD
+  EditStart[Unlock embed or open dedicated view]
+  EditEnd[Lock embed / close markdown note / close dedicated view]
+  Quit[Plugin onunload / app quit]
+  Launch[Plugin onload]
+
+  EditStart --> Dequeue[Remove filePath from pending]
+  EditStart --> OpenSet[Persist in openSessions]
+
+  EditEnd --> Save[saveAndHalt or widget unmount completeSave]
+  Save --> DropOpen[Unregister session; last drop enqueueAuto]
+  DropOpen --> AutoGate{Type auto-transcribe on and threshold met?}
+  AutoGate -->|yes| Enqueue[enqueueAuto]
+  AutoGate -->|no| SkipAuto[Skip]
+
+  Quit --> FlushSave[Best-effort saveAndHalt]
+  Quit --> Promote[Promote openSessions to pending if toggle on]
+  Launch --> Merge[Merge leftover openSessions into pending]
+  Merge --> Notice[Notice if runnable count > 0]
+  Notice --> Grace[Wait 5 seconds]
+  Grace --> Worker[Serial worker if signed in]
+```
+
+- **One serial worker** for both file types, unique by file path.
+- **Manual** jobs sit at the front of **waiting**; never abort an in-flight POST.
+- **Launch resume:** after merge/prune, if runnable jobs remain **and** the device is signed in, Obsidian shows e.g. `Resuming handwriting transcription (3 files)`, waits **5 seconds**, then kicks. Unlock/open during grace still **dequeues** that file.
+- **Not signed in:** nothing is enqueued; launch prune clears any stale `pending`. Sign-in (`ALMOSTUSEFUL_SESSION_CHANGED_EVENT`) kicks the worker when jobs exist.
+
+Drawing files and v1 code-block embeds remain out of scope for the **enqueue** paths; the settings **Transcription Queue** card lists any pending or in-flight `inkWriting` / `inkDrawing` job already on the device-local queue (signed-in devices only).
+
+### v0.6 version notice (upgrade tip)
+
+When `manifest.version` is newer than `onboardingTips.lastVersionTipRead`, Ink shows a single-page **Changes in Ink v0.6** notice promoting handwriting OCR and Almost Useful sign-in. **Join the waitlist** opens the portal; **Log in** opens Ink settings. Those body buttons do not dismiss the notice — only **Dismiss** marks the tip read. See [version-and-welcome-notices.md](version-and-welcome-notices.md).
+
+### Auto-transcribe account notice (20 ink closes)
+
+After **20 saved ink closes** on a device with **no** linked Almost Useful account, Ink shows a one-time welcome-style notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) promoting auto-transcription via `almostuseful.xyz`. **Open Ink settings** or **Dismiss** permanently suppresses it on that device (`autoTranscribeAccountNoticeDismissed` in `deviceSettings_v1`).
+
+Counted closes (writing + drawing combined):
+
+| Event | Hook |
+|-------|------|
+| Writing embed save-and-lock | `writing-embed` → `saveAndSwitchToPreviewMode` |
+| Drawing embed save-and-lock | `drawing-embed` → `saveAndSwitchToPreviewMode` |
+| Dedicated writing view close | `writing-view` → `onClose` |
+| Dedicated drawing view close | `drawing-view` → `onClose` |
+
+Discard-without-save and v1 code-block embeds do not increment the counter. Linked accounts never see the notice.
+
+```mermaid
+sequenceDiagram
+  participant UI as Embed or dedicated view
+  participant Q as handwriting-transcription-queue
+  participant Store as au_ink localStorage
+  participant Portal as POST /api/jobs/handwriting-transcription
+  participant Vault as SVG and notes
+
+  UI->>Q: enqueueAuto / enqueueManual / dequeue
+  Q->>Store: persist pending + openSessions
+  Q->>Portal: transcribeWriting
+  Portal-->>Q: text
+  Q->>Vault: saveWriteFileTranscript + bbox occupancy
+  Q->>Vault: patch every matching embed alt
+```
+
+## Portal integration (production)
+
+| Setting | Value |
+|---------|--------|
+| Route | `POST /api/jobs/handwriting-transcription` |
+| Auth | Almost Useful app token (`ink` / `Ink` attribution) |
+| Model | `google/gemini-2.5-flash-lite` |
+| Media | Visual-only SVG (`<metadata>` stripped) |
+| Page background | Theme-aware opaque rect — white for dark ink, black for light ink (inferred from `ink-color-primary` stroke fills) |
+
+Implementation:
+
+- [`transcribeWriting`](../src/logic/transcribe-writing.ts) — production HTTP entry (full SVG string; used for **both** writing and drawing)
+- [`handwriting-transcription-queue.ts`](../src/logic/handwriting-transcription-queue.ts) — serial worker, enqueue/dequeue, launch grace, quit promote, settings snapshot/remove/clear
+- [`handwriting-transcription-apply.ts`](../src/logic/handwriting-transcription-apply.ts) — vault-wide embed alt patch (open editor or `vault.process`)
+- [`postHandwritingTranscriptionJob`](../src/logic/almostuseful/almostuseful-handwriting-transcription.ts) — HTTP client
+
+`postHandwritingTranscriptionJob` throws `HandwritingTranscriptionJobError` (`status`, `code`, `retryable`). It trusts `retryable` when the JSON includes a boolean. If that field is missing, 408, 429, and 5xx retry; other 4xx do not. Status **413**, including an empty body, is `media_too_large` and not retryable. A thrown network failure stays retryable.
+
+| Outcome | Queue |
+|---------|--------|
+| `retryable: false` | One notice. The job is not put back. |
+| `code: media_too_large` or status 413 | Notice: “This file can't be transcribed currently because it is too long. This will be fixed in a future update to Ink.” |
+| 402 | Notice: “Insufficient Almost Useful credits”. Not stored against the strokes, so a later close can try again after credits are added. |
+| 401 / not signed in | One notice. Not stored against the strokes. |
+| `navigator.onLine === false` | No POST. No notice. The job stays pending. If it was already taken off the list, it goes back to the front with no `retryAfter`. The window `online` event kicks the worker. |
+| Status 0 and no portal code (online, but the request threw) | Stays pending. Requeued after about 30 seconds. Silent for the first four consecutive throws on that job; from the fifth, one notice for that file until a later attempt succeeds. |
+| Other `retryable: true` (429, 5xx, and similar) | One notice for that file until a later attempt succeeds. Requeued after about 30 seconds so other files can run first. |
+
+### Offline and unreachable network
+
+Connectivity problems never remove the job. Terminal refusals still do.
+
+```mermaid
+flowchart TD
+  Kick[kickHandwritingTranscriptionQueue] --> Link{navigator.onLine?}
+  Link -->|no| Stay[Leave pending, no notice, no retry timer]
+  Stay --> OnlineEvent[window online event kicks]
+  Link -->|yes| Post[POST transcription job]
+  Post -->|threw, status 0| Count{networkFailureCount at least 5?}
+  Count -->|no| SilentRetry[Requeue about 30s, no notice]
+  Count -->|yes| LoudRetry[One notice, requeue about 30s]
+  Post -->|other retryable| OtherRetry[One notice, requeue about 30s]
+  Post -->|not retryable| Drop[One notice, do not requeue]
+```
+
+`networkFailureCount` lives on the pending job. A fresh enqueue clears it. A successful transcription removes the job, so the count goes with it.
+
+A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds. Ink does not hardcode the 1.5MB portal cap.
+
+Eval matrix and live tests remain in the repo for model comparison — not exposed in the UI. See [Eval and live tests](#eval-and-live-tests). Per-model dollar cost is not available; see [Cost evaluation (currently unavailable)](#cost-evaluation-currently-unavailable).
+
+## Cost evaluation (currently unavailable)
+
+The portal no longer returns any USD values on job or burndown responses, deliberately, so a subscriber cannot infer their allowance. `handwriting-transcription-live.test.ts` therefore no longer logs `amountUsd` or `creditsRemaining`.
+
+Until a portal-side evaluation report exists, compare model cost outside the plugin:
+
+- OpenRouter dashboard activity, filtered by model.
+- A service-role query summing `usage_ledger` deltas by `client_id` (and generation id, when present) on the portal database.
+
+Quality comparison in the live test is unchanged.
+
+ClickUp decision log (routes, cost table): [Portal AI job routes](https://app.clickup.com/36639212/docs/12y4fc-6596/12y4fc-7656) · Ink summary: [Handwriting transcription](https://app.clickup.com/36639212/docs/12y4fc-7576/12y4fc-7676).
+
+## Queue persistence (device-local only)
+
+**Do not put the pending queue in `data.json`.** A synced job list would double-bill across devices.
+
+| Key | Storage | Content |
+|-----|---------|---------|
+| `au_ink_handwritingTranscriptionQueue_v2` | `localStorage` via [`storage.ts`](../src/logic/utils/storage.ts) | `pending[]` + `openSessions[]` + `terminalRejections[]` |
+
+Pending job fields: `filePath`, `fileType` (`inkWriting` \| `inkDrawing`), `reason` (`auto` \| `manual`), `bboxCellsAtLastTranscription` (live occupancy at enqueue; empty on quit-promote until prune), `enqueuedAt`, optional `retryAfter` (ISO time; the worker skips the job until then), optional `networkFailureCount` (consecutive status-0 throws while the browser still reports online).
+
+`terminalRejections` may be missing on older v2 blobs; readers treat that as empty. Each entry is `filePath`, `bboxCellsAtLastTranscription`, `code`, and `notice`. It is not synced.
+
+v1 blobs (`handwritingTranscriptionQueue_v1` with SimHash snapshots) are **not migrated** — a missing or non-v2 blob reads as empty pending/openSessions.
+
+See [Plugin memory and persistence](plugin-memory-and-persistence.md).
+
+Auto-transcribe **preferences** (`writingAutoTranscribeOnClose`, `drawingAutoTranscribeOnClose`, and the matching `*ChangeThresholdPercent` sliders) **do** live in vault-synced `data.json` — they are user preferences, not job state.
+
+## Settings UI: Transcription Queue card
+
+Ink settings → collapsible **Almost Useful account** block ([`almostuseful-account-section.ts`](../src/components/dom-components/tabs/settings-tab/almostuseful-account-section.ts)). Full account UX: [almostuseful-account.md](almostuseful-account.md).
+
+```mermaid
+flowchart TD
+  open[Settings open]
+  snap[readHandwritingTranscriptionQueueSnapshot]
+  open --> snap
+  snap --> empty{length > 0?}
+  empty -->|no| hidden[No queue card]
+  empty -->|yes| card[Transcription Queue card]
+  card --> row[Rows: spinner if processing, basename, remove X]
+  card --> clear[Clear removes all pending + cancels inflight result]
+  subscribe[subscribeHandwritingTranscriptionQueueChanged] --> snap
+```
+
+| API | Role |
+|-----|------|
+| `readHandwritingTranscriptionQueueSnapshot()` | In-flight job first (`isProcessing: true`), then `pending` in order; skips duplicate path while deferred back to pending |
+| `subscribeHandwritingTranscriptionQueueChanged(onChange)` | Same-tab `CustomEvent`; repaint settings list without polling |
+| `removeHandwritingTranscriptionFromQueue(filePath)` | Drop one waiting job; if that path is in-flight, add to `userCancelledInflightPaths` so the POST result is not saved or re-queued |
+| `clearHandwritingTranscriptionQueue()` | Empty `pending` and cancel inflight the same way |
+
+No confirmation modals. Removing or clearing does not cancel the HTTP request; it only prevents apply on completion and suppresses error re-queue for cancelled paths.
+
+## Occupancy fingerprint (`bboxCellsAtLastTranscription`)
+
+Not SimHash and not a hash of SVG tags. Unique **32px cells** of stroke points, origin at the stroke bounding-box min X/Y (plus each stroke’s offset). Serialized as sorted `cellX,cellY` joined by `|`.
+
+- [`serializeBboxCellsAtLastTranscription`](../src/logic/stroke-bbox-cells.ts) — live occupancy string
+- [`bboxCellsJaccardChangeRatio`](../src/logic/stroke-bbox-cells.ts) — `0` identical cell sets, `1` disjoint
+- [`inkChangeMeetsAutoTranscribeThreshold`](../src/logic/stroke-bbox-cells.ts) — slider 0–95% vs stored cells
+- `lastTranscriptionAt` — ISO-8601 written on successful apply; diagnostic only
+
+**Written only after a successful portal apply** (`saveWriteFileTranscript` with fingerprint). Stroke saves copy the on-disk snapshot via [`preserveBboxCellsOnStrokeSave`](../src/components/formats/current/utils/preserve-bbox-cells-on-stroke-save.ts) so live ink can diverge while stored cells still mean “last successful transcription.”
+
+Old `svg-content-hash` / `svg-content-hashed-at` attributes are no longer written. Files without `bbox-cells-at-last-transcription` always meet the auto threshold (treated as never transcribed with this fingerprint).
+
+## SVG storage: `<transcript>` element
+
+Full markdown is written as a sibling of `<ink>` inside `<metadata>`:
+
+```xml
+<metadata>
+  <ink plugin-version="…" file-type="inkWriting"
+       bbox-cells-at-last-transcription="0,0|1,0|1,1"
+       last-transcription-at="2026-03-21T12:00:00.000Z"/>
+  <transcript>**bold**
+
+[line](https://example.com)</transcript>
+  <ink-canvas version="…">…</ink-canvas>
+</metadata>
+```
+
+- Emitted only when `meta.transcript` is non-empty.
+- Text is XML-escaped (`&`, `<`, `>`) via `escapeXmlText` — **not** CDATA.
+- The legacy `transcript="…"` attribute on `<ink>` is **no longer written**; [`readInkTranscript`](../src/logic/utils/extractInkJsonFromSvg.ts) still reads it for files saved during the brief attribute experiment.
+
+**Save paths:**
+
+| Engine | Builder | Transcript insertion |
+|--------|---------|-------------------|
+| ink-canvas | [`buildInkCanvasFileStr`](../src/components/formats/current/utils/buildFileStr.ts) | Included in the metadata string splice (no whole-file formatter) |
+| legacy tldraw | [`buildTldrawFileStr`](../src/components/formats/current/utils/buildFileStr.ts) | Spliced **after** `xml-formatter` so pretty-print does not inject whitespace into markdown body text |
+
+[`saveWriteFileTranscript`](../src/components/formats/current/utils/needsTranscriptUpdate.ts) updates transcript and optional occupancy fields (preserves file `mtime` so the change does not look like a stroke edit).
+
+## Embed alt stripping
+
+[`formatWritingEmbedAltText`](../src/components/formats/current/utils/build-embeds.ts) / [`formatDrawingEmbedAltText`](../src/components/formats/current/utils/build-embeds.ts) rules:
+
+1. Missing or empty after processing → `InkWriting` / `InkDrawing` placeholder.
+2. CR/LF/tabs → spaces; collapse runs of whitespace.
+3. Remove `[` `]` `\` `|` `<` `>` (break or hijack the image token / Obsidian sizing).
+4. Keep `*`, `_`, `~`, `(`, `)` — they do not terminate the alt.
+
+Vault-wide alt patch: [`patchInkEmbedTranscriptAltsInVault`](../src/logic/handwriting-transcription-apply.ts) matches `![any alt](<path>)` plus `type=inkWriting` or `type=inkDrawing` in the edit URL.
+
+## Locked embed transcript view (Ink / Text)
+
+When a writing or drawing SVG has a non-empty `<transcript>`, locked embeds in **Live Preview** and **reading mode** show a circular toggle in the top-right corner. The control appears only while the embed is locked (not in the ink editor).
+
+| Mode | What the user sees | Interaction |
+|------|-------------------|-------------|
+| **Ink** (default) | SVG preview | Click the preview to unlock and edit (unchanged). Toggle shows the Lucide [case-sensitive](https://lucide.dev/icons/case-sensitive) icon (grey; accent on hover) to switch to text. |
+| **Text** | Full markdown from SVG metadata | Non-editable, selectable copy via Obsidian `MarkdownRenderer`. Always framed like a locked drawing embed (`2px` border, `20px` radius). Toggle shows the writing or drawing ink icon to return to the SVG. |
+
+The image embed **alt** is still a one-line plain summary — text mode reads the canonical `<transcript>` element via [`readInkTranscript`](../src/logic/utils/extractInkJsonFromSvg.ts), not the alt.
+
+```mermaid
+flowchart LR
+  Svg["SVG meta.transcript"]
+  Hook["useInkFileTranscript"]
+  Mode["Session map by file path"]
+  InkPreview["SVG preview"]
+  TextView["InkTranscriptView"]
+  Svg --> Hook
+  Hook --> Mode
+  Mode --> InkPreview
+  Mode --> TextView
+```
+
+**Persistence:** The Ink vs Text choice is **session-only** ([`ink-embed-display-mode.ts`](../src/logic/ink-embed-display-mode.ts)), keyed by SVG path. It is not written into the note URL, does not sync, and is shared by every embed of that file in the same Obsidian session (Live Preview remounts and reading mode). If the transcript is cleared on disk, the embed falls back to ink and hides the toggle.
+
+**Rendering:** [`InkTranscriptView`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) calls `MarkdownRenderer.render` with `sourcePath` set to the note that contains the embed (wikilink resolution). Live Preview mounts a standalone `Component`; reading mode passes the [`InkReadingEmbedHost`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx) `MarkdownRenderChild` as parent so rendered children unload with the host. `mousedown` on the transcript host stops propagation so Live Preview does not steal text selection.
+
+**Queue status indicator:** [`InkEmbedTranscriptControls`](../src/components/formats/current/ink-transcript-view/ink-transcript-view.tsx) subscribes on every locked embed, including files with no transcript yet, so a visible embed shows a spinning loader while its job is **processing** and a clock while it is **queued** behind another job. The Ink/Text toggle still waits for a transcript. Both the status icon and the toggle use [`TooltipButton`](../src/components/jsx-components/tooltip-button/tooltip-button.tsx) (hold one second, tooltip above), the same control as the ink toolbar. [`useHandwritingTranscriptionQueueStatus`](../src/logic/use-handwriting-transcription-queue-status.ts) re-reads [`getHandwritingTranscriptionQueueStatusForFile`](../src/logic/handwriting-transcription-queue.ts) on each `subscribeHandwritingTranscriptionQueueChanged` event, so no polling is needed. CodeMirror only mounts embeds in view; scrolling one into view reads the current queue status on mount.
+
+```mermaid
+flowchart LR
+  QueueEvent[Queue changed event]
+  Status["getHandwritingTranscriptionQueueStatusForFile"]
+  Processing[Spinner]
+  Queued[Clock]
+  None[No icon]
+  QueueEvent --> Status
+  Status -->|processing| Processing
+  Status -->|queued| Queued
+  Status -->|null| None
+```
+
+**Icons:** All toggle and status icons are path-based SVGs. Write/Draw omit `fill="currentColor"` on the SVG root so parent SCSS can set `fill: var(--color-base-60)` (WKWebView on iPad did not reliably paint Material paths when the root used `fill="currentColor"`). The Lucide text, loader, and clock icons are stroke-only (`fill="none"`); shared SCSS on `.ddc_ink_transcript-queue-status` and `.ddc_ink_display-mode-toggle` keeps stroke icons unfilled and sizes SVGs like embed toolbar buttons. iPad WKWebView did not reliably draw the old SVG `<text>` "Aa" glyph with a CSS-variable font.
+
+**Transcript markdown normalization:** [`normalizeInkTranscriptMarkdown`](../src/logic/normalize-ink-transcript-markdown.ts) runs on save (`saveWriteFileTranscript`) and again before render, so older transcripts get the same treatment. It only rewrites handwritten list flourishes — arrows (`->`, `→`), dots (`•`), stars (`★`), boxes (`☐`), and `*`/`+` bullets — into `- ` bullets. Numbered items, indentation, and **blank lines are left unchanged**: whether a blank line separates two lists or paragraphs is decided by the portal prompt, which can see the handwriting. The portal applies the same flourish rewrite to its response.
+
+**Spacing:** The transcript view sets `white-space: normal`. It is mounted inside the CodeMirror editor, which sets `white-space: break-spaces`; inherited, that renders the newline text nodes `MarkdownRenderer` leaves between `<p>`, `<ul>`, and `<li>` as extra blank lines. Obsidian's own `--p-spacing` paragraph and list margins are kept; only the first and last child's outer margins are zeroed so they do not stack on the embed padding.
+
+**Height:** Text mode sizes the embed from the rendered markdown, not the SVG viewBox, so the next note line does not overlap. Switching back to ink restores aspect-ratio sizing.
+
+The first toggle used to leave the ink box's inline height in place. `MarkdownRenderer.render` resolves before layout, so a sync `offsetHeight` matched that box, `onRequestMeasure` was skipped, and CodeMirror kept the ink height until the user toggled away and back. Entering text mode now clears that inline height and the smooth-height class, sets `data-ink-display-mode="text"` before any measure (so reading mode cannot write the SVG height back), then measures `scrollHeight` inside [`inkEmbedScheduleAfterLayout`](../src/logic/utils/ink-embed-height-cache.ts) and always requests a CodeMirror measure.
+
+```mermaid
+flowchart LR
+  enter[Enter text mode]
+  clear[Clear aspect-ratio height]
+  render[MarkdownRenderer]
+  after[Measure scrollHeight after layout]
+  cm[requestMeasure]
+  enter --> clear --> render --> after --> cm
+```
+
+**Context menu:** Right-click on a locked embed, in Live Preview and reading mode, uses the ink menu instead of Obsidian's markdown edit menu. The transcript is read-only, so those edit actions do nothing.
+
+| Order | Item | When |
+|-------|------|------|
+| 1 | Update transcript, or Transcribe | Always. Transcribe when the file has no transcript yet |
+| 2 | Open writing, or Open drawing | Always |
+| — | separator | |
+| 3 | Copy transcript | Ink view and transcript view, when a transcript exists. Copies the SVG markdown |
+| 4 | Copy embed | Always |
+| 5 | Delete embed | Always |
+
+Update transcript reads the saved SVG and calls `enqueueManualTranscription`. The editor is unmounted while the embed is locked. The transcript wrapper uses `layout="content"` so it stays in normal flow. The ink preview keeps the absolute fill wrapper.
+
+**Drawing layout in text mode:** Locked **drawing** embeds normally use a saved pixel width, centre alignment, and full-bleed into page margins (Live Preview via [`applyCommonAncestorStyling`](../src/logic/utils/embed.ts) on `.cm-embed-block`; reading mode via negative margins on `.ddc_ink_reading-embed-host`). In **text** mode only, the embed adopts the same **column width and note margins** as a writing embed. Toggling back to **Ink** restores drawing ink layout. Writing embeds are unchanged.
+
+| Signal | Purpose |
+|--------|---------|
+| `data-ink-display-mode="text"` on `.ddc_ink_resize-container` | CSS + dimension helpers skip drawing pixel width / aspect height |
+| `ddc_ink_drawing-text-layout` on embed root, `.cm-embed-block`, or reading host | Neutralises full-bleed margins; forces `width: 100%` via [`drawing-embed.scss`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.scss) |
+
+[`applyReadingModeEmbedDimensions`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx) skips drawing width/height while `data-ink-display-mode="text"`. Live Preview [`handleResize`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx) clears `maxWidth` in text mode so window resize does not snap back to pixel width.
+
+**Mount points:** [`writing-embed.tsx`](../src/components/formats/current/writing/writing-embed/writing-embed.tsx), [`drawing-embed.tsx`](../src/components/formats/current/drawing/drawing-embed/drawing-embed.tsx), and [`ink-reading-embed-host.tsx`](../src/components/formats/current/reading-mode/ink-reading-embed-host.tsx).
+
+## Editor lifecycle: session registry
+
+While an embed is unlocked or a dedicated view is open, [`registerTranscriptionEditorSession`](../src/logic/handwriting-transcription-queue.ts) registers `saveAndHalt` by file path (refcount if the same SVG is open in two places), **dequeues** pending work for that path, and persists `openSessions`.
+
+The serial worker **skips auto jobs** while that file still has an open session. A request that has already been sent is not cancelled. Lock therefore unregisters in `saveAndHalt` **before** `enqueueAuto`, because React unmount is async.
+
+Closing a **markdown note without locking** does not call the embed lock path. CodeMirror `WidgetType.destroy` must **unmount the React root**; the editor cleanup finishes `completeSave` then unregisters. The last session drop applies any held transcript, then calls `enqueueAuto` (same gates as lock). Destroy without unmount leaked sessions and skipped transcription.
+
+Editors do **not** write occupancy on stroke save. [`preserveBboxCellsOnStrokeSave`](../src/components/formats/current/utils/preserve-bbox-cells-on-stroke-save.ts) copies `bboxCellsAtLastTranscription` / `lastTranscriptionAt` from disk. [`buildInkCanvasWritingFileData`](../src/components/formats/current/utils/build-file-data.ts) / [`buildInkCanvasDrawingFileData`](../src/components/formats/current/utils/build-file-data.ts) pass transcript (and preserved occupancy) on each save.
+
+When a result arrives and that file’s editor session is still open (embed or dedicated view, including a second leaf), the queue stores one held result and does not call `onTranscriptApplied`, write the SVG, or patch note alts. Calling `onTranscriptApplied` would run `updateEmbedTranscript` and edit the open embed’s own line. The held record is the transcript, file type, `lastTranscriptionAt`, and the bbox cells of the ink that was sent. It lives on the device-local queue blob (`heldTranscripts`; older blobs without the field read as empty).
+
+The last `unregisterTranscriptionEditorSession` for that path runs after `completeSave`. It writes the held transcript onto the current strokes using those stored cells, patches alts, then runs `enqueueAuto`. `saveAndHalt` awaits that sequence so the lock path’s extra `enqueueAuto` sees the saved fingerprint. Launch applies held transcripts before prune, so a quit during an open session does not drop a finished result.
+
+A result for a different file, or for a file with no open session, writes the SVG immediately and patches alts. If strokes changed during the request and no session is open, the result is still discarded and an auto job is re-queued.
+
+```mermaid
+flowchart LR
+  jobDone[Transcript ready]
+  sessionOpen{Session open for this file?}
+  hold[Store held transcript]
+  surgical[Alt-only note edits]
+  sessionEnd[Last session ends]
+  saveHeld[Write held transcript onto current SVG]
+  assess[enqueueAuto threshold check]
+  jobDone --> sessionOpen
+  sessionOpen -->|yes| hold
+  sessionOpen -->|no| surgical
+  hold --> sessionEnd
+  sessionEnd --> saveHeld
+  saveHeld --> surgical
+  surgical --> assess
+```
+
+Open notes get one CodeMirror change per matching `![alt]`, in a single transaction, with `Transaction.addToHistory` false. Each hunk is only the alt token, so two copies of the same SVG stay two edits and the line break shared with the next embed is left alone. Closed notes still use `vault.process` and a full-string replace.
+
+An alt-only edit overlaps the transcribed embed’s widget. Writing and drawing extensions reuse that widget when the rest of the embed line is unchanged, so the edit link’s size and view box stay on the live instance. See [Drawing embed framing](drawing-embed-framing.md).
+
+## Eval and live tests
+
+Fixtures: `tests/fixtures/handwriting-transcription/` (real writing SVGs + expected transcripts).
+
+**Manual QA:** `qa-test-vault/generate.mjs` copies every fixture `.svg` into `Ink/Writing/transcription/` and writes `21 - Handwriting Transcription/Transcript fixtures.md`, which embeds each one. Adding a new SVG to the fixtures folder is enough for it to appear in the regenerated QA vault.
+
+Eval matrix: 5 models × 2 media (SVG / PNG) = 10 variants via [`transcribeHandwritingVariant`](../src/logic/handwriting-transcription-variants.ts). Live auth defaults to the `testing` OAuth client (not production `ink`).
+
+```bash
+HANDWRITING_TRANSCRIPTION_LIVE=1 npm run test:unit -- tests/logic/handwriting-transcription-live.test.ts
+```
+
+PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bundled into the plugin). Regenerate fixture PNGs: `npx tsx tests/fixtures/handwriting-transcription/render-eval-pngs.ts`.
+
+## Technical gotchas
+
+- **Do not store full markdown in the embed alt.** Newlines and `[` `]` break Obsidian image syntax and the CM6 embed widget regex.
+- **Do not put transcript on an `<ink>` attribute.** XML attribute normalization collapses newlines; use the `<transcript>` element.
+- **Do not put the job queue in `data.json`.** Device-local only — avoids multi-device double billing.
+- **Tldraw saves and `xml-formatter`.** If `<transcript>` is inside the block passed to the formatter, indent whitespace can corrupt markdown. The tldraw path inserts the compact element after formatting.
+- **Send visual SVG with opaque page to the portal.** Raw metadata JSON wastes tokens; transparent SVG backgrounds caused Gemini to return numbered-list junk instead of transcribing. Theme-aware page contrast matches eval findings.
+- **Production uses SVG only.** PNG rasterization exists for eval variants, not the shipped Transcribe menu.
+- **Threshold 0% re-transcribes on every auto path**, including after transcript-only `vault.modify` from apply.
+- **Occupancy is bbox cells, not Hamming.** SimHash understated large handwriting edits (similar bit patterns while cells changed a lot). The slider is Jaccard of 32px cells relative to stroke min X/Y.
+- **Do not fingerprint SVG markup.** Grid lines and `<ink>` attribute churn would dominate.
+- **Fingerprint only after success.** Stroke save must preserve on-disk cells; writing live occupancy on autosave made later locks look “already transcribed.”
+- **Do not replace the whole open note when patching alts.** A full-document change overlaps every ink widget and remounts the embed being edited. Dispatch one alt-token change per match.
+- **Hold the result while that file’s session is open.** Writing the SVG mid-edit lets the next stroke save preserve a fingerprint for ink the transcript does not describe. Apply the held cells after `completeSave`, then run the threshold check.
+- **Unregister before lock `enqueueAuto`.** An open session makes `kick` skip auto jobs. The last drop must apply a held transcript before that check.
+- **Unmount React in widget `destroy` only for the node still mounted.** Markdown tab close does not lock embeds; without unmount the session stays open and auto never runs. Typing under an embed calls `toDOM` then `destroy` on the same widget — unmounting the root in that `destroy` blanks the new node. See [Embed scrolling](embed-scrolling.md).
+- [`needsTranscriptUpdate`](../src/components/formats/current/utils/needsTranscriptUpdate.ts) still returns `false` — do not revive dormant React `fetchTranscriptIfNeeded` effects.
+- **Quit may miss the last unsaved stroke.** Transcribe what is on disk after best-effort `saveAndHalt`.
+- **Expand-to-dedicated does not auto-enqueue.** Dedicated registration dequeues; user continues editing the same file.
+- **Re-save to migrate.** Files that still have `transcript="…"` on `<ink>` load correctly; the next transcribe or transcript save rewrites the `<transcript>` element.
+- **Do not put full markdown in the embed alt** — locked embeds can show the SVG `<transcript>` via **Ink / Text** toggle ([Locked embed transcript view](#locked-embed-transcript-view-ink--text)); the alt stays a one-line plain summary.
+- **Drawing text mode is not full-bleed.** Reuse `ddc_ink_drawing-text-layout` and `data-ink-display-mode="text"` together — toggling only inline width without neutralising `.cm-embed-block` / reading-host margins leaves the transcript wider than writing embeds.
+- **Sign-in required to enqueue.** Transcription debits Pool A credits through the portal; unsigned devices do not accumulate pending jobs.
+- **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates.
+- **Transcript spacing comes from `white-space`, not margins.** Removing `white-space: normal` from `.ddc_ink_transcript-view` brings back a blank line between every paragraph and bullet. A flex container with `gap: 0` hides it too, but only because flex drops whitespace text nodes.
+- **Do not fix list layout by rewriting blank lines.** The renderer cannot know what the user wrote; list grouping and paragraph breaks belong in the portal prompt. The normalizer only maps flourish glyphs to `- `.
+- **Capture the live SVG before locking on manual Transcribe.** `closeEditor` unmounts the editor; build the SVG string first, then await the lock, then enqueue.
+- **No SVG `<text>` in icons.** iPad WKWebView renders it unreliably; use path-based icons.
+- **Do not measure transcript height before layout.** A sync `offsetHeight` on the first toggle matches the leftover ink box, and skipping `onRequestMeasure` leaves CodeMirror at that height until the user toggles away and back. Clear the aspect-ratio height, measure `scrollHeight` after layout, and always request a measure.
+- **Do not wrap the transcript in the absolute context-menu fill.** That wrapper is for the ink preview. On the transcript it takes the markdown out of flow and the embed collapses. Use `layout="content"`.
+- **Do not drop a job because the device is offline.** `navigator.onLine === false` skips the POST and leaves the job pending. A retry timer while offline would keep waking the worker with nothing to send. Resume is the window `online` event, not a countdown.
+- **`navigator.onLine` is only the local link.** A captive portal or a dead route still looks online. Those throws are status 0 with `code: null`. Count them on the job and stay silent until the fifth consecutive throw, then show the usual retryable notice once. Do not treat the first throw as a user-facing failure.
+- **Offline requeue has no `retryAfter`.** The job goes to the front so coming back online runs it next. The 30 second delay is for attempts that already reached the network.
+- **Do not notify between leaving `pending` and setting `inflightJob`.** `kickHandwritingTranscriptionQueue` removes the job from `pending` and `runTranscriptionJob` assigns `inflightJob` before the only notify. A notify in the gap makes a visible embed read "not in the queue" and skip the spinner. The status cluster must stay mounted on locked embeds that have no transcript yet, or a first transcription never shows the icon.
+
+## Related docs
+
+- [Almost Useful account (Ink settings)](almostuseful-account.md) — login and credit charts
+- [File format and conversion](file-format-and-conversion.md) — overall SVG metadata layout
+- [Plugin memory and persistence](plugin-memory-and-persistence.md) — vault files vs settings vs queue

@@ -23,4 +23,8 @@ export interface DeviceSettingsV1 {
 	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;
 	/** Experimental: pen barrel button temporarily erases instead of panning. */
 	stylusSideButtonTemporaryErase: boolean;
+	/** Saved embed locks and dedicated view closes on this device (auto-transcribe account notice). */
+	inkCloseCount: number;
+	/** User dismissed or opened settings from the auto-transcribe account notice. */
+	autoTranscribeAccountNoticeDismissed: boolean;
 }

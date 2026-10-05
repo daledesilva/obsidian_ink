@@ -3,7 +3,7 @@ import './ddc-library/settings-styles.scss';
 import './components/shared/ink-svg-preview-theme.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
-import { openInkSettingsTab, registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
+import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
@@ -31,7 +31,7 @@ import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
 import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
-import { drawDefaultSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr, drawExistingSvgStr, drawPasteSvgStr } from './graphics/icons/command-icons';
+import { drawDefaultSvgStr, drawExistingSvgStr, drawPasteSvgStr, linkAccountUserSvgStr, writeDefaultSvgStr, writeExistingSvgStr, writePasteSvgStr } from './graphics/icons/command-icons';
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
@@ -49,9 +49,11 @@ import {
 	resetFingerDrawingToDefault,
 	setBooxConnectionEnabled,
 } from 'src/logic/device-settings/device-settings';
-import { ALMOSTUSEFUL_PROTOCOL_ACTION } from 'src/logic/almostuseful/almostuseful-constants';
-import { completeAlmostUsefulProtocolHandoff } from 'src/logic/almostuseful/almostuseful-login';
 import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
+import {
+	initHandwritingTranscriptionQueue,
+	shutdownHandwritingTranscriptionQueue,
+} from 'src/logic/handwriting-transcription-queue';
 
 ////////
 ////////
@@ -130,6 +132,10 @@ export default class InkPlugin extends Plugin {
 				});
 			});
 
+			await runInkOnloadStep('handwritingTranscriptionQueue', () => {
+				initHandwritingTranscriptionQueue(this);
+			});
+
 			logToVault(`Plugin loaded. writing=${this.settings.writingEnabled}, drawing=${this.settings.drawingEnabled}, boox=${getBooxConnectionEnabled()}`);
 
 			await runInkOnloadStep('addIcons', () => {
@@ -145,6 +151,7 @@ export default class InkPlugin extends Plugin {
 				addIcon('mastodon', mastodonSvgStr);
 				addIcon('threads', threadsSvgStr);
 				addIcon('twitter', twitterSvgStr);
+				addIcon('ddc_ink_link_account_user', linkAccountUserSvgStr);
 			});
 
 			//: NOTE: For testing only
@@ -236,25 +243,6 @@ export default class InkPlugin extends Plugin {
 			});
 
 			await runInkOnloadStep('almostUsefulAuth', () => {
-				this.registerObsidianProtocolHandler(
-					ALMOSTUSEFUL_PROTOCOL_ACTION,
-					(params) => {
-						void completeAlmostUsefulProtocolHandoff({
-							code: params.code,
-							state: params.state,
-						}).then((result) => {
-							if (result.ok) {
-								new Notice('Signed in to Almost Useful');
-								// Protocol return often runs after Settings already closed.
-								window.setTimeout(() => {
-									openInkSettingsTab(this);
-								}, 150);
-								return;
-							}
-							new Notice(result.error);
-						});
-					},
-				);
 				void startAlmostUsefulSessionRefresh();
 			});
 
@@ -285,6 +273,7 @@ export default class InkPlugin extends Plugin {
 			message: 'plugin unloading',
 		});
 		logToVault('Plugin unloaded');
+		shutdownHandwritingTranscriptionQueue();
 		this.booxConnection?.dispose();
 	}
 

@@ -9,7 +9,12 @@ export type InkFileMetadata = {
     fileType: "inkDrawing" | "inkWriting";
     tldrawVersion: string;
     previewIsOutdated?: boolean;
+    /** Handwriting transcript (markdown) stored in SVG `<metadata><transcript>…</transcript>`. */
     transcript?: string;
+    /** Sorted unique bbox-relative 32px occupancy cells at last successful transcription. */
+    bboxCellsAtLastTranscription?: string;
+    /** ISO-8601 time when bboxCellsAtLastTranscription was written. */
+    lastTranscriptionAt?: string;
     /** Height in pixels of each ruled line. Stored per-file so existing embeds are unaffected by the global setting. */
     writingLineHeight?: number;
 };

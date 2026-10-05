@@ -5,16 +5,18 @@ export const ALMOSTUSEFUL_CLIENT_DISPLAY_NAME = 'Ink';
 /** Production portal. Public client identifier, not a secret. */
 export const ALMOSTUSEFUL_PORTAL_ORIGIN = 'https://account.almostuseful.xyz';
 
-export const ALMOSTUSEFUL_REDIRECT_URI = 'obsidian://ink-almostuseful-auth';
-export const ALMOSTUSEFUL_PROTOCOL_ACTION = 'ink-almostuseful-auth';
-
 export const ALMOSTUSEFUL_APP_TOKEN_TYPE = 'almostuseful_app';
 
 /** Suffix for saveLocally — full key is au_ink_almostuseful_session. */
 export const ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX = 'almostuseful_session';
-/** In-flight PKCE verifier + state until HTTPS exchange completes. */
+/** Per-install id so a second vault does not replace this grant. Device-local only. */
+export const ALMOSTUSEFUL_DEVICE_STORAGE_SUFFIX = 'almostuseful_device';
+/** In-flight device code + user code until the token poll completes. */
 export const ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX = 'almostuseful_handoff';
 /** Optional staging portal origin (device-local). */
 export const ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX = 'almostuseful_debug';
 
 export const ALMOSTUSEFUL_SESSION_CHANGED_EVENT = 'ddc-ink-almostuseful-session-changed';
+/** Last successful burndown JSON so settings charts paint before the network returns. */
+/** v3 stores usage chart titles (AI Usage / Testing Usage). */
+export const ALMOSTUSEFUL_USAGE_CACHE_STORAGE_SUFFIX = 'almostuseful_usage_cache_v3';

@@ -4,6 +4,7 @@ import writePasteSvgStr from "./write_paste.svg";
 import drawDefaultSvgStr from "./draw_default.svg";
 import drawExistingSvgStr from "./draw_existing.svg";
 import drawPasteSvgStr from "./draw_paste.svg";
+import linkAccountUserSvgStr from "./link_account_user.svg";
 
 ////////////
 ////////////
@@ -15,4 +16,5 @@ export {
     drawDefaultSvgStr,
     drawExistingSvgStr,
     drawPasteSvgStr,
+    linkAccountUserSvgStr,
 };

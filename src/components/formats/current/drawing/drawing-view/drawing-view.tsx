@@ -19,6 +19,9 @@ import { type MenuOption } from "src/components/jsx-components/overflow-menu/ove
 import { buildDrawingEmbedLine } from "../../utils/build-embeds";
 import { buildDrawingEmbedSettingsFromFile } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
+import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
+import { preserveBboxCellsOnStrokeSave } from "../../utils/preserve-bbox-cells-on-stroke-save";
 
 ////////
 ////////
@@ -34,7 +37,14 @@ function getExtendedOptions(plugin: InkPlugin, fileRef: TFile): MenuOption[] {
                 if (!fileRef) return;
                 void (async () => {
                     const embedSettings = await buildDrawingEmbedSettingsFromFile(plugin, fileRef);
-                    const embedStr = buildDrawingEmbedLine(fileRef.path, { embedSettings });
+                    const svgFileContent = await plugin.app.vault.read(fileRef);
+                    const inkFileData = extractInkJsonFromSvg(svgFileContent);
+                    const embedStr = buildDrawingEmbedLine(fileRef.path, {
+                        embedSettings,
+                        ...(inkFileData?.meta.transcript
+                            ? { transcript: inkFileData.meta.transcript }
+                            : {}),
+                    });
                     void copyEmbedMarkdownToClipboard(embedStr);
                 })();
             },
@@ -181,9 +191,14 @@ export class DrawingView extends TextFileView {
 		}
     }
 
-    saveFile = (inkFileData: InkFileData) => {
-        this.inkFileData = inkFileData;
-        void this.save(false);   // Obsidian will call getViewData during this method
+    saveFile = (inkFileData: InkFileData): void | Promise<void> => {
+        return (async () => {
+            if (this.file) {
+                await preserveBboxCellsOnStrokeSave(this.plugin, this.file, inkFileData);
+            }
+            this.inkFileData = inkFileData;
+            await this.save(false);
+        })();
     }
     
     // This allows you to return the data you want Obsidian to save (Called by Obsidian when file is closing)
@@ -221,7 +236,13 @@ export class DrawingView extends TextFileView {
         if (this.root && this.editorControls) {
             await this.editorControls.saveAndHalt();
         }
-        
+
+        if (this.file) {
+            void enqueueAuto(this.file.path);
+        }
+
+        recordInkCloseAndMaybeShowAccountNotice(this.plugin);
+
         // Then cleanup
         this.clear();
         restoreSidebarsAfterInkView();

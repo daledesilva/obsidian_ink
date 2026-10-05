@@ -7,6 +7,7 @@ import classNames from 'classnames';
 import InkPlugin from 'src/main';
 import { InkFileData } from 'src/components/formats/current/types/file-data';
 import { buildInkCanvasWritingFileData } from 'src/components/formats/current/utils/build-file-data';
+import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
 import { isInkCanvasFile } from 'src/components/formats/current/utils/ink-file-storage-engine';
 import {
 	WRITE_SHORT_DELAY_MS,
@@ -26,6 +27,7 @@ import { ExpandLinesButton } from 'src/components/jsx-components/expand-lines-bu
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
+import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
@@ -57,7 +59,12 @@ import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'sr
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
 import { buildInkStrokeStyleForTreatAs } from 'src/ink-canvas/stroke-presets';
 import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-timestamps';
-
+import {
+	enqueueManualTranscription,
+	registerTranscriptionEditorSession,
+	replaceTranscriptionEditorSession,
+	unregisterTranscriptionEditorSession,
+} from 'src/logic/handwriting-transcription-queue';
 ///////////////////////////
 ///////////////////////////
 
@@ -84,12 +91,14 @@ interface WritingEditorProps {
 	workspaceLeafId: string;
 	embedId?: string;
 	writingFile: TFile;
-	save: (inkFileData: InkFileData) => void;
+	save: (inkFileData: InkFileData) => void | Promise<void>;
 	extendedMenu?: MenuOption[];
 	embedded?: boolean;
-	closeEditor?: () => void;
+	closeEditor?: () => void | Promise<void>;
 	saveControlsReference?: (controls: WritingEditorControls) => void;
 	onOpenInDedicatedView?: () => void;
+	/** Embed only: also write the transcript into the note's image alt text. */
+	onTranscriptSaved?: (transcript: string) => void;
 }
 
 export const WritingEditorWrapper: React.FC<WritingEditorProps> = (props) => {
@@ -123,6 +132,10 @@ export function WritingEditor(props: WritingEditorProps) {
 	const isAndroidDrawingAreaResizingRef = useRef(false);
 	const queuedBooxStrokePayloadsRef = useRef<BooxStrokePayload[]>([]);
 	const writingLineHeightRef = useRef(WRITING_LINE_HEIGHT);
+	/** Survives canvas autosaves so a later transcribe is not wiped by stroke writes. */
+	const transcriptRef = useRef<string | undefined>(undefined);
+	const transcriptionSessionRegisteredRef = useRef(false);
+	const [hasTranscript, setHasTranscript] = React.useState(false);
 	/** Applied embed/page inviting height — drives shouldResizeForNewHeight. */
 	const curHeightRef = useRef<number | null>(null);
 	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
@@ -146,6 +159,12 @@ export function WritingEditor(props: WritingEditorProps) {
 		return () => {
 			verbose('INK CANVAS WRITING EDITOR unmounting');
 			logToVault('Ink canvas writing editor unmounted: ' + props.writingFile.path);
+			transcriptionSessionRegisteredRef.current = false;
+			// Note/tab close never calls saveAndHalt. Finish the last save then unregister
+			// so a held transcript is written before enqueueAuto reads disk strokes.
+			void Promise.resolve(completeSave()).finally(() => {
+				return unregisterTranscriptionEditorSession(props.writingFile.path);
+			});
 		};
 	}, []);
 
@@ -373,29 +392,50 @@ export function WritingEditor(props: WritingEditorProps) {
 			editorWrapperRefEl.current.classList.remove('ddc_ink_editor-wrapper--loading');
 		}
 
+		const controls = {
+			save: () => void completeSave(),
+			saveAndHalt: async () => {
+				await completeSave();
+				unmountActions();
+				// Close the transcription session before embed lock calls enqueueAuto.
+				// React unmount is async; leaving the session open makes kick skip the job.
+				transcriptionSessionRegisteredRef.current = false;
+				await unregisterTranscriptionEditorSession(props.writingFile.path);
+			},
+			eraseAll: async () => {
+				editor.eraseAll();
+				await completeSave();
+			},
+			setBooxOverlayActive: (isActive: boolean) => {
+				isViewActiveRef.current = isActive;
+				if (!isActive) {
+					pendingNewOverlayRef.current = false;
+					props.plugin.booxConnection.sendCloseDrawingArea();
+				} else {
+					activateWritingSessionRef.current?.();
+					const sent = newAndroidDrawingArea();
+					if (!sent) pendingNewOverlayRef.current = true;
+				}
+			},
+		};
 		if (props.saveControlsReference) {
-			props.saveControlsReference({
-				save: () => void completeSave(),
-				saveAndHalt: async () => {
-					await completeSave();
-					unmountActions();
-				},
-				eraseAll: async () => {
-					editor.eraseAll();
-					await completeSave();
-				},
-				setBooxOverlayActive: (isActive) => {
-					isViewActiveRef.current = isActive;
-					if (!isActive) {
-						pendingNewOverlayRef.current = false;
-						props.plugin.booxConnection.sendCloseDrawingArea();
-					} else {
-						activateWritingSessionRef.current?.();
-						const sent = newAndroidDrawingArea();
-						if (!sent) pendingNewOverlayRef.current = true;
-					}
-				},
-			});
+			props.saveControlsReference(controls);
+		}
+		const transcriptionSession = {
+			filePath: props.writingFile.path,
+			fileType: 'inkWriting' as const,
+			saveAndHalt: controls.saveAndHalt,
+			onTranscriptApplied: (transcript: string) => {
+				transcriptRef.current = transcript;
+				setHasTranscript(true);
+				props.onTranscriptSaved?.(transcript);
+			},
+		};
+		if (transcriptionSessionRegisteredRef.current) {
+			replaceTranscriptionEditorSession(transcriptionSession);
+		} else {
+			registerTranscriptionEditorSession(transcriptionSession);
+			transcriptionSessionRegisteredRef.current = true;
 		}
 
 		if (getBooxConnectionEnabled() && props.plugin.booxConnection.isConnected()) {
@@ -625,7 +665,11 @@ export function WritingEditor(props: WritingEditorProps) {
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
 		hasUnsavedChangesRef.current = false;
-		props.save(buildInkCanvasWritingFileData({ inkCanvasSnapshot: snapshot, svgString }));
+		await props.save(buildInkCanvasWritingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+		}));
 	}
 
 	async function completeSave(): Promise<void> {
@@ -635,7 +679,11 @@ export function WritingEditor(props: WritingEditorProps) {
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
 		hasUnsavedChangesRef.current = false;
-		props.save(buildInkCanvasWritingFileData({ inkCanvasSnapshot: snapshot, svgString }));
+		await props.save(buildInkCanvasWritingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+		}));
 	}
 
 	function resetTimers() {
@@ -661,7 +709,33 @@ export function WritingEditor(props: WritingEditorProps) {
 			);
 		}
 		writingLineHeightRef.current = snapshot.writingLineHeight ?? WRITING_LINE_HEIGHT;
+		transcriptRef.current = data.meta.transcript;
+		setHasTranscript(!!data.meta.transcript);
 		setInitialSnapshot(snapshot);
+	}
+
+	/**
+	 * Manual overflow action: enqueue live-canvas SVG. Not gated by auto-transcribe settings.
+	 */
+	async function handleTranscribe() {
+		const editor = editorRef.current;
+		if (!editor) return;
+		const snapshot = editor.getSnapshot();
+		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
+		const writingSvgFileContent = buildFileStr(buildInkCanvasWritingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+		}));
+		// Capture live canvas before lock unmounts the editor; lock so preview + queue UI show while transcribing.
+		if (props.embedded && props.closeEditor) {
+			await props.closeEditor();
+		}
+		await enqueueManualTranscription({
+			file: props.writingFile,
+			fileType: 'inkWriting',
+			svgFileContent: writingSvgFileContent,
+		});
 	}
 
 	function getEditor(): InkCanvasEditor | undefined {
@@ -763,6 +837,10 @@ export function WritingEditor(props: WritingEditorProps) {
 			canvasHeight: visible.height,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper: editorWrapperRefEl.current,
+				isDedicatedView: !props.embedded,
+			}),
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
 		return true;
@@ -834,6 +912,10 @@ export function WritingEditor(props: WritingEditorProps) {
 			canvasHeight: visible.height,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper: editorWrapperRefEl.current,
+				isDedicatedView: !props.embedded,
+			}),
 			immediate,
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
@@ -969,6 +1051,15 @@ export function WritingEditor(props: WritingEditorProps) {
 		/>
 	);
 
+	const transcribeMenuOption: MenuOption = {
+		text: hasTranscript ? 'Update transcript' : 'Transcribe',
+		action: () => { void handleTranscribe(); },
+	};
+	const overflowMenuOptions: MenuOption[] = [
+		transcribeMenuOption,
+		...(props.extendedMenu ?? []),
+	];
+
 	return <>
 		<div
 			ref={editorWrapperRefEl}
@@ -1031,14 +1122,14 @@ export function WritingEditor(props: WritingEditorProps) {
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? props.plugin : undefined}
 				/>
-				{props.embedded && props.extendedMenu && (
+				{props.embedded && (
 					<ExtendedWritingMenu
 						onLockClick={() => props.closeEditor?.()}
-						menuOptions={props.extendedMenu}
+						menuOptions={overflowMenuOptions}
 					/>
 				)}
-				{!props.embedded && props.extendedMenu && (
-					<ExtendedWritingMenu menuOptions={props.extendedMenu} />
+				{!props.embedded && (
+					<ExtendedWritingMenu menuOptions={overflowMenuOptions} />
 				)}
 			</PrimaryMenuBar>
 

@@ -18,6 +18,7 @@ import { ResizeHandle } from 'src/components/jsx-components/resize-handle/resize
 import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
+import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
@@ -44,6 +45,13 @@ import { inkStrokeTimestampsFromBooxPoints } from 'src/ink-canvas/utils/stroke-t
 import { isWritingAlignedDrawingEmbed, type EmbedSettings } from 'src/types/embed-settings';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDrawingEmbedToolbarCompact } from './use-drawing-embed-toolbar-compact';
+import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
+import {
+	enqueueManualTranscription,
+	registerTranscriptionEditorSession,
+	replaceTranscriptionEditorSession,
+	unregisterTranscriptionEditorSession,
+} from 'src/logic/handwriting-transcription-queue';
 
 ///////////////////////////
 ///////////////////////////
@@ -105,7 +113,7 @@ interface DrawingEditorProps {
 	workspaceLeafId: string;
 	embedId?: string;
 	drawingFile: TFile;
-	save: (pageData: InkFileData) => void;
+	save: (pageData: InkFileData) => void | Promise<void>;
 	extendedMenu?: MenuOption[];
 	embedSettings?: EmbedSettings;
 	onSaveCameraPosition?: (viewBox: { x: number; y: number; width: number; height: number }) => void;
@@ -117,9 +125,10 @@ interface DrawingEditorProps {
 	onResizeEnd?: () => void;
 	onEmbedResizeEnd?: () => void;
 	applyEmbedDimensions?: (width: number, aspectRatio: number) => void;
-	closeEditor?: () => void;
+	closeEditor?: () => void | Promise<void>;
 	saveControlsReference?: (controls: DrawingEditorControls) => void;
 	onOpenInDedicatedView?: () => void;
+	onTranscriptSaved?: (transcript: string) => void;
 }
 
 export const DrawingEditorWrapper: React.FC<DrawingEditorProps> = (props) => {
@@ -154,6 +163,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 	const hasHandledInitialCameraRef = useRef(false);
 	// Tracks first init only — later InkSvgCanvas remounts must not hide save framing mid-edit.
 	const isLegacyInkFileRef = useRef(false);
+	const transcriptRef = useRef<string | undefined>(undefined);
+	const transcriptionSessionRegisteredRef = useRef(false);
+	const [hasTranscript, setHasTranscript] = React.useState(false);
 
 	// On mount
 	React.useEffect(() => {
@@ -163,6 +175,12 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		return () => {
 			verbose('INK CANVAS EDITOR unmounting');
 			logToVault('Ink canvas editor unmounted: ' + props.drawingFile.path);
+			transcriptionSessionRegisteredRef.current = false;
+			// Note/tab close never calls saveAndHalt. Finish the last save then unregister
+			// so a held transcript is written before enqueueAuto reads disk strokes.
+			void Promise.resolve(completeSave()).finally(() => {
+				return unregisterTranscriptionEditorSession(props.drawingFile.path);
+			});
 		};
 	}, []);
 
@@ -342,32 +360,53 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}
 
 		// Register save controls
-		if (props.saveControlsReference) {
-			props.saveControlsReference({
-				save: () => completeSave(),
-				saveAndHalt: async (): Promise<void> => {
-					await completeSave();
-					unmountActions();
-				},
-				eraseAll: async (): Promise<void> => {
-					editor.eraseAll();
-					await completeSave();
-				},
-				setBooxOverlayActive: (isActive: boolean) => {
-					isViewActiveRef.current = isActive;
-					if (isActive && websocketConnectedRef.current) {
-						activateDrawingSessionRef.current?.();
-						const sent = newAndroidDrawingArea();
-						if (!sent) pendingNewOverlayRef.current = true;
-					} else if (!isActive) {
-						pendingNewOverlayRef.current = false;
-						const inkPlugin = getGlobals().plugin;
-						if (getBooxConnectionEnabled()) {
-							inkPlugin.booxConnection.sendCloseDrawingArea();
-						}
+		const controls = {
+			save: () => completeSave(),
+			saveAndHalt: async (): Promise<void> => {
+				await completeSave();
+				unmountActions();
+				// Close the transcription session before embed lock calls enqueueAuto.
+				// React unmount is async; leaving the session open makes kick skip the job.
+				transcriptionSessionRegisteredRef.current = false;
+				await unregisterTranscriptionEditorSession(props.drawingFile.path);
+			},
+			eraseAll: async (): Promise<void> => {
+				editor.eraseAll();
+				await completeSave();
+			},
+			setBooxOverlayActive: (isActive: boolean) => {
+				isViewActiveRef.current = isActive;
+				if (isActive && websocketConnectedRef.current) {
+					activateDrawingSessionRef.current?.();
+					const sent = newAndroidDrawingArea();
+					if (!sent) pendingNewOverlayRef.current = true;
+				} else if (!isActive) {
+					pendingNewOverlayRef.current = false;
+					const inkPluginForOverlay = getGlobals().plugin;
+					if (getBooxConnectionEnabled()) {
+						inkPluginForOverlay.booxConnection.sendCloseDrawingArea();
 					}
-				},
-			});
+				}
+			},
+		};
+		if (props.saveControlsReference) {
+			props.saveControlsReference(controls);
+		}
+		const transcriptionSession = {
+			filePath: props.drawingFile.path,
+			fileType: 'inkDrawing' as const,
+			saveAndHalt: controls.saveAndHalt,
+			onTranscriptApplied: (transcript: string) => {
+				transcriptRef.current = transcript;
+				setHasTranscript(true);
+				props.onTranscriptSaved?.(transcript);
+			},
+		};
+		if (transcriptionSessionRegisteredRef.current) {
+			replaceTranscriptionEditorSession(transcriptionSession);
+		} else {
+			registerTranscriptionEditorSession(transcriptionSession);
+			transcriptionSessionRegisteredRef.current = true;
 		}
 
 		// Socket may have opened before the canvas mounted.
@@ -449,8 +488,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		const fileData = buildInkCanvasDrawingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
+			transcript: transcriptRef.current,
 		});
-		props.save(fileData);
+		await props.save(fileData);
 	}
 
 	async function completeSave(): Promise<void> {
@@ -465,8 +505,9 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		const fileData = buildInkCanvasDrawingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
+			transcript: transcriptRef.current,
 		});
-		props.save(fileData);
+		await props.save(fileData);
 	}
 
 	function resetTimers() {
@@ -491,6 +532,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		}
 
 		isLegacyInkFileRef.current = !isInkCanvasFile(inkFileData);
+		transcriptRef.current = inkFileData.meta.transcript;
+		setHasTranscript(!!inkFileData.meta.transcript);
 
 		// If this is already an ink-canvas file, use its snapshot directly
 		if (isInkCanvasFile(inkFileData) && inkFileData.inkCanvas) {
@@ -541,7 +584,35 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		setIsSaveCameraEnabled(false);
 	}
 
+	/**
+	 * Manual overflow action: enqueue live-canvas SVG. Not gated by auto-transcribe settings.
+	 */
+	async function handleTranscribe() {
+		const editor = editorRef.current;
+		if (!editor) return;
+		const snapshot = editor.getSnapshot();
+		const svgString = renderStrokesToSvg(snapshot.strokes, snapshot);
+		const drawingSvgFileContent = buildFileStr(buildInkCanvasDrawingFileData({
+			inkCanvasSnapshot: snapshot,
+			svgString,
+			transcript: transcriptRef.current,
+		}));
+		// Capture live canvas before lock unmounts the editor; lock so preview + queue UI show while transcribing.
+		if (props.embedded && props.closeEditor) {
+			await props.closeEditor();
+		}
+		await enqueueManualTranscription({
+			file: props.drawingFile,
+			fileType: 'inkDrawing',
+			svgFileContent: drawingSvgFileContent,
+		});
+	}
+
 	const customExtendedMenu = [
+		{
+			text: hasTranscript ? 'Update transcript' : 'Transcribe',
+			action: () => { void handleTranscribe(); },
+		},
 		{
 			text: 'Grid on/off',
 			action: () => {
@@ -629,6 +700,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				canvasHeight: number;
 				appWidth: number;
 				appHeight: number;
+				cornerMarkers: ReturnType<typeof buildBooxCornerMarkers>;
 		  }
 		| null {
 		const surfaceRect = getBooxClientAreaRect();
@@ -636,6 +708,8 @@ export function DrawingEditor(props: DrawingEditorProps) {
 		const canvasWidth = Math.round(surfaceRect.width);
 		const canvasHeight = Math.round(surfaceRect.height);
 		if (canvasWidth === 0 || canvasHeight === 0) return null;
+		const wrapper = editorWrapperRefEl.current;
+		if (!wrapper) return null;
 		return {
 			x: Math.round(surfaceRect.x),
 			y: Math.round(surfaceRect.y),
@@ -643,6 +717,11 @@ export function DrawingEditor(props: DrawingEditorProps) {
 			canvasHeight,
 			appWidth: window.innerWidth,
 			appHeight: window.innerHeight,
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper,
+				isDedicatedView: !props.embedded,
+				hideBottomRightCorner: props.embedded,
+			}),
 		};
 	}
 

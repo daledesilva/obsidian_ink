@@ -1,11 +1,14 @@
 // High-contrast embed chrome when Boox Companion is enabled (e-ink visibility).
-// Applied via .ddc_ink_resize-container--boox (embedded) or .ddc_ink_boox-eink (dedicated editor).
+// Embed radius matches preview frames and is sent to Bridge as cornerMarkers.radius.
+// Dedicated editors use square chrome (radius 0 in cornerMarkers); no embed frame rounding here.
 
 .ddc_ink_resize-container--boox,
 .ddc_ink_boox-eink {
-	// Edit embed outline (overrides v1/legacy 8px base-10 leak)
+	// Edit outline (overrides v1/legacy 8px base-10 leak)
 	.ddc_ink_writing-editor,
 	.ddc_ink_drawing-editor {
+		// Clips rounded embed canvas; writing embed overrides to visible so translated primary menu is not clipped (see writing-editor.scss).
+		overflow: hidden;
 		outline-color: color-mix(in srgb, var(--text-normal) 20%, transparent);
 	}
 
@@ -30,5 +33,13 @@
 	// Grid dots (editor): darker fill for e-ink; per-tier opacity stays from InkAdaptiveGrid.
 	.ink-adaptive-grid .ink-grid-dot {
 		fill: var(--text-normal);
+	}
+}
+
+// Embeds only — dedicated Boox editors stay square and omit overlay corner markers.
+.ddc_ink_resize-container--boox {
+	.ddc_ink_writing-editor,
+	.ddc_ink_drawing-editor {
+		border-radius: 20px;
 	}
 }

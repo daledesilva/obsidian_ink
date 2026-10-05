@@ -1,6 +1,15 @@
 import * as semVer from 'semver';
-import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
+import {
+    createNoticeBodyCtaButton,
+    createNoticeBodyCtaRow,
+    createNoticeCtaBar,
+    createNoticeTemplate,
+    launchPersistentNotice,
+} from 'src/components/dom-components/notice-components';
+import { ALMOSTUSEFUL_PORTAL_ORIGIN } from 'src/logic/almostuseful/almostuseful-constants';
+import { openAlmostUsefulBrowserUrl } from 'src/logic/almostuseful/almostuseful-login';
 import InkPlugin from "src/main";
+import { openInkSettingsTab } from './tabs/settings-tab/settings-tab';
 
 ///////////
 ///////////
@@ -29,36 +38,36 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.5.7`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6`);
 
-    const changesListEl = scrollAreaEl.createEl('ul');
-    changesListEl.createEl('li').setText(`Fixed iPad Scribble functionality interfering with Ink.`);
-    changesListEl.createEl('li').setText(`Experimental fix to Wacom pen erasers.`);
-    changesListEl.createEl('li').setText(`Fixed spacing issues around embeds.`);
-    changesListEl.createEl('li').setText(`Redesigned toolbar UX for clarity.`);
-    changesListEl.createEl('li').setText(`Refined stroke sizes to match across writing, drawing, and different input types.`);
-    changesListEl.createEl('li').setText(`Fixed Ink previews not appearing on linux.`);
-    changesListEl.createEl('li').setText(`Fixed random scroll jumps bug.`);
-    changesListEl.createEl('li').setText(`Performance optimisations.`);
+    scrollAreaEl.createEl('h2').setText('Handwriting transcriptions (OCR)');
+    const inviteOnlyParagraphEl = scrollAreaEl.createEl('p');
+    inviteOnlyParagraphEl.appendText('This requires an ');
+    inviteOnlyParagraphEl.createEl('strong').setText('Almost Useful');
+    inviteOnlyParagraphEl.appendText(' account for processing and is currently invite only.');
 
-    const {
-        tertiaryBtnEl,
-    } = createNoticeCtaBar(footerEl, {
+    const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
+    const joinWaitlistBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Join the waitlist');
+    const logInBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Log in');
+
+    const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/htIMy9kQtww',
+            href: 'https://youtu.be/ujXUf8ighSM',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',
-    })
+    });
 
     const notice = launchPersistentNotice(noticeBody);
 
-    // if (primaryBtnEl) {
-    //     primaryBtnEl.addEventListener('click', () => {
-    //         notice.hide();
-    //         // showChangesPageTwo(plugin);
-    //     });
-    // }
+    // Body CTAs stay open so invite copy remains after the browser or Settings backgrounds Obsidian.
+    joinWaitlistBtnEl.addEventListener('click', () => {
+        openAlmostUsefulBrowserUrl(ALMOSTUSEFUL_PORTAL_ORIGIN);
+    });
+
+    logInBtnEl.addEventListener('click', () => {
+        openInkSettingsTab(plugin);
+    });
 
     if (tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {

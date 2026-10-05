@@ -162,7 +162,7 @@ npm run test:e2e:spec -- tests/e2e/undo-redo.e2e.ts
 
 Both Ink and Excalidraw are pre-seeded so their welcome popups do not appear:
 
-1. **Ink** — `generate.mjs` pre-seeds `.obsidian/plugins/ink/data.json` with `welcomeTipRead: true` and `lastVersionTipRead` set. The onboarding spec explicitly resets these flags and reloads the plugin to test the first-run flow.
+1. **Ink** — `generate.mjs` pre-seeds `.obsidian/plugins/ink/data.json` with `welcomeTipRead: true` and `lastVersionTipRead` set to the fixture constant `PLUGIN_VERSION` (`0.4.0`, ink-file metadata — not the plugin semver). The onboarding spec explicitly resets these flags and reloads the plugin to test the first-run flow. Generate also copies `main.js`, `manifest.json`, and `styles.css` from `dist/` into that plugin folder and lists `ink` in `community-plugins.json`, so the QA vault has a loadable plugin before Obsidian starts. `open-qa` runs esbuild before generate; a missing `dist/` only warns and skips the copy.
 2. **Excalidraw** — `generate.mjs` pre-seeds `.obsidian/plugins/obsidian-excalidraw-plugin/data.json` with `previousRelease` set to the installed plugin version, so the release notes modal does not show.
 
 `tests/e2e/helpers/dismiss-popups.ts` provides `dismissBlockingPopups()` as a fallback (e.g. Ink notice if pre-seed ever fails). Every E2E spec’s `before` hook (except onboarding) calls it after `reloadObsidian` and `waitForPluginReady`.
@@ -171,31 +171,30 @@ Both Ink and Excalidraw are pre-seeded so their welcome popups do not appear:
 
 - **Manual vault inspection** (open Obsidian without running tests):
 
+| Script | Build | Purpose |
+|--------|-------|---------|
+| `open-qa` | `tsc` + esbuild **development** | Desktop QA vault; `verbose` / `debug` / `http` logs in DevTools |
+| `open-qa-mobile` | same + `INK_EMULATE_MOBILE=true` | Same as `open-qa` with mobile UI emulation (`app.emulateMobile(true)`) |
+
 ```bash
 npm run open-qa
 ```
 
-This builds the plugin, regenerates the vault from scratch (clearing all plugin data), and launches Obsidian with the vault loaded. Obsidian stays open until you close it manually. Changes made during the session are discarded — the vault is copied to a temporary directory first, so the source `qa-test-vault/` folder is not modified.
+This type-checks, builds the plugin in **development** mode (so `verbose`, `debug`, and `http` logs appear in the DevTools console), regenerates the vault from scratch (clearing all plugin data), and launches Obsidian with the vault loaded. Obsidian stays open until you close it manually. Changes made during the session are discarded — the vault is copied to a temporary directory first, so the source `qa-test-vault/` folder is not modified.
 
 Use this when you want to manually inspect the plugin's behaviour against specific test scenarios, try out new features, or debug issues interactively.
 
 **Legacy migration progress UI:** Section **19 – Migration Progress Density** (see [qa-test-vault/README.md](../qa-test-vault/README.md)) seeds many unique `.writing` / `.drawing` files so **Migrate legacy ink embeds** scan/migrate progress bars and counters update visibly mid-run. Details: [file-format-and-conversion.md](./file-format-and-conversion.md#vault-migration-v1-code-blocks).
 
-For debugging with verbose logs (e.g. embed state transitions, activity tracking), use `npm run open-qa-verbose` instead. It builds in development mode so `verbose`, `debug`, and `http` logs appear in the DevTools console.
-
-For mobile UI emulation on desktop, use:
+For mobile UI emulation on desktop (same development build and verbose logging as `open-qa`):
 
 ```bash
 npm run open-qa-mobile
 ```
 
-And the verbose variant:
+This sets `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
 
-```bash
-npm run open-qa-verbose-mobile
-```
-
-These scripts set `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
+**Gotcha:** `open-qa-verbose` and `open-qa-verbose-mobile` were removed — their development builds are now the only `open-qa` / `open-qa-mobile` scripts. Use `npm run build` (production esbuild) for release artifacts, E2E, and Boox deploy; do not expect production minification or release defines from `open-qa`.
 
 #### Deploy to a Boox device (USB)
 
@@ -278,10 +277,16 @@ flowchart LR
 
 **Default vault paths**
 
-Unless overridden, artifacts are pushed to:
+Unless overridden, the push script **discovers every** `…/.obsidian/plugins/ink` folder on the connected tablet via `adb find` and pushes the same build to each. That avoids QA in one vault (e.g. Testing) while Obsidian is open in another (e.g. Design and Development) still running an older `main.js`.
+
+If discovery finds nothing (no adb shell access), it falls back to these paths:
 
 - `/storage/emulated/0/Documents/Testing/.obsidian/plugins/ink`
 - `/storage/emulated/0/Android/data/md.obsidian/files/Imagination and Inquiry/.obsidian/plugins/ink`
+- `/storage/emulated/0/Documents/Design  and Development/.obsidian/plugins/ink`
+- `/storage/emulated/0/Documents/Projects/.obsidian/plugins/ink`
+
+**Gotcha:** Bridge overlay corner markers read nested **`cornerMarkers`** on drawing-area WebSocket messages. An older plugin build omits that field; Bridge then defaults to width 2, radius 20, and all four corners. Embeds should send `width: 3` and embed radius; dedicated views should send all corner flags `false`. After `build:boox`, confirm the vault you are testing actually received the new `main.js` (timestamp/size) or restart Obsidian so the WebView reloads the plugin.
 
 **Custom vaults**
 

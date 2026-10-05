@@ -23,6 +23,7 @@ import { useAtomValue } from 'jotai';
 import { info, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
+import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { SecondaryMenuBar } from 'src/components/jsx-components/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from './modify-menu/modify-menu';
 import { ExpandLinesButton } from 'src/components/jsx-components/expand-lines-button/expand-lines-button';
@@ -1127,6 +1128,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			canvasHeight: canvasHeight,
 			appWidth: windowWidth,
 			appHeight: windowHeight,
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper: editorWrapperRefEl.current,
+				isDedicatedView: !props.embedded,
+			}),
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});
 		return true;
@@ -1197,6 +1202,10 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 			canvasHeight,
 			appWidth: windowWidth,
 			appHeight: windowHeight,
+			cornerMarkers: buildBooxCornerMarkers({
+				wrapper: editorWrapperRefEl.current,
+				isDedicatedView: !props.embedded,
+			}),
 			immediate,
 			excludeRects: getMenuExcludeRects(editorWrapperRefEl.current),
 		});

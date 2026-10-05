@@ -10,6 +10,11 @@ const LONG_PRESS_MOVE_THRESHOLD_PX = 10;
 export const EmbedPreviewContextMenu: React.FC<{
 	menuOptions: MenuOption[];
 	children: React.ReactNode;
+	/**
+	 * `fill` covers the absolute ink preview. `content` stays in normal flow so a
+	 * transcript still contributes its own height. An absolute wrapper would collapse it.
+	 */
+	layout?: 'fill' | 'content';
 }> = (props) => {
 	const wrapperRef = React.useRef<HTMLDivElement>(null);
 	const longPressTimerRef = React.useRef<number | null>(null);
@@ -85,11 +90,16 @@ export const EmbedPreviewContextMenu: React.FC<{
 		}
 	}
 
+	const layout = props.layout ?? 'fill';
+	const wrapperStyle: React.CSSProperties = layout === 'content'
+		? { position: 'relative', width: '100%' }
+		: { position: 'absolute', width: '100%', height: '100%' };
+
 	return (
 		<div
 			ref={wrapperRef}
 			className="ddc_ink_embed-preview-context-menu"
-			style={{ position: 'absolute', width: '100%', height: '100%' }}
+			style={wrapperStyle}
 			onContextMenu={handleContextMenu}
 			onPointerDown={handlePointerDown}
 			onPointerMove={handlePointerMove}

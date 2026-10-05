@@ -1,7 +1,337 @@
-.ddc_ink_almostuseful-account {
-	p {
-		color: var(--text-normal);
+// Match Obsidian accent CTAs/links (--interactive-accent) for this featured settings block.
+.ddc_ink_almostuseful-account-section {
+	.ddc_ink_controls-section {
+		box-shadow: 0 0 0 2px var(--interactive-accent) inset;
 	}
+
+	.ddc_ink_controls-header--clickable {
+		color: var(--text-on-accent);
+		background-color: var(--interactive-accent);
+
+		.setting-item-name {
+			color: var(--text-on-accent);
+		}
+
+		&:hover {
+			opacity: 1;
+			background-color: var(--interactive-accent-hover);
+		}
+	}
+
+	.ddc_ink_collapse-arrow {
+		color: var(--text-on-accent);
+	}
+}
+
+.ddc_ink_almostuseful-account {
+	display: flex;
+	flex-direction: column;
+	gap: 0.65em;
+
+	// Match Obsidian default description colour/spacing for featured account rows.
+	.ddc_ink_almostuseful-link-account-setting,
+	.ddc_ink_almostuseful-processing-data-setting {
+		.setting-item-description {
+			color: var(--text-muted);
+
+			strong {
+				font-weight: var(--font-semibold);
+			}
+		}
+	}
+
+	.ddc_ink_almostuseful-processing-data-setting {
+		// Info-only row: no empty control column beside the description.
+		.setting-item-control {
+			display: none;
+		}
+
+		.setting-item-info {
+			width: 100%;
+		}
+
+		.setting-item-description {
+			strong {
+				color: var(--text-normal);
+			}
+
+			.ddc_ink_almostuseful-processing-data-retention {
+				display: block;
+				margin-top: 0.75em;
+			}
+		}
+	}
+
+	// Match section padding top/bottom; no extra Obsidian setting-item chrome on the action row.
+	.ddc_ink_almostuseful-account-actions.setting-item {
+		margin: 0;
+		padding: 0;
+		border: none;
+		flex-wrap: nowrap;
+		min-height: 0;
+
+		// ddc_ink_button-set forces info to full width; hide the empty row above the buttons.
+		.setting-item-info {
+			display: none;
+		}
+
+		.setting-item-control {
+			padding-block: 0;
+			width: 100%;
+		}
+	}
+
+	.ddc_ink_bare-setting--left.setting-item {
+		justify-content: flex-start;
+
+		.setting-item-control {
+			justify-content: flex-start;
+			padding-inline-start: 0;
+		}
+	}
+}
+
+.ddc_ink_almostuseful-link-account-setting {
+	.setting-item-control {
+		align-items: center;
+	}
+
+	.ddc_ink_almostuseful-link-account-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.55em;
+		padding: 0.7em 1.4em;
+		font-size: var(--font-ui-medium);
+		height: auto;
+		min-height: 2.75em;
+		color: var(--text-on-accent);
+
+		// Grey the accent out, and ignore the pointer so the cursor stays the arrow.
+		&.is-busy {
+			pointer-events: none;
+			background-color: var(--background-modifier-border) !important;
+			color: var(--text-muted) !important;
+			box-shadow: none !important;
+		}
+	}
+
+	.ddc_ink_almostuseful-link-account-btn-icon {
+		display: inline-flex;
+		align-items: center;
+		--icon-size: 1.15em;
+
+		svg {
+			width: var(--icon-size);
+			height: var(--icon-size);
+		}
+
+		circle,
+		path {
+			stroke: currentColor;
+		}
+	}
+}
+
+.ddc_ink_almostuseful-handoff-card {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	background-color: rgba(var(--background-modifier-hover-rgb, 128, 128, 128), 0.2);
+	border-radius: var(--radius-m);
+	padding: 1.1em 1.15em 1.2em;
+}
+
+.ddc_ink_almostuseful-handoff-instruction {
+	width: 100%;
+	margin: 0 0 0.85em;
+	color: var(--text-normal);
+	line-height: 1.45;
+	text-align: center;
+}
+
+.ddc_ink_almostuseful-handoff-user-code {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: fit-content;
+	max-width: 100%;
+	margin-bottom: 0.3em;
+	padding: 0.55em 0.75em;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: clamp(1.35rem, 5vw, 2rem);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.12em;
+	line-height: 1.2;
+	user-select: all;
+	white-space: nowrap;
+
+	&.is-expired {
+		color: var(--text-error);
+		text-decoration: line-through;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-copy-btn {
+	min-height: 2.75em;
+	height: auto;
+	margin: 0;
+	padding: 0.55em 1.35em;
+	font-size: var(--font-ui-medium);
+	color: var(--text-on-accent);
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-secondary-btn {
+	min-height: 2.75em;
+	height: auto;
+	padding: 0.55em 1.35em;
+	font-size: var(--font-ui-medium);
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-expiry-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: 0.45em;
+	margin: 0.45em 0 0.85em;
+}
+
+.ddc_ink_almostuseful-handoff-expiry {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.ddc_ink_almostuseful-handoff-checking {
+	width: 100%;
+	margin: 0.35em 0 0.85em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: 1.4;
+	text-align: center;
+	// The copy includes a newline after the first sentence.
+	white-space: pre-line;
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-renew {
+	margin: 0;
+	padding: 0;
+	border: none;
+	background: none;
+	box-shadow: none;
+	height: auto;
+	min-height: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	line-height: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--text-accent);
+	}
+
+	&.is-busy {
+		pointer-events: none;
+		color: var(--text-faint);
+		text-decoration: none;
+	}
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
+.ddc_ink_almostuseful-handoff-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.7em;
+	width: 100%;
+}
+
+// Secondary buttons use background-primary so they stay darker than the card wash.
+.ddc_ink_almostuseful-handoff-card button.ddc_ink_almostuseful-handoff-secondary-btn {
+	background: var(--background-primary) !important;
+	background-color: var(--background-primary) !important;
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	box-shadow: none;
+
+	&:hover {
+		background: var(--background-modifier-hover) !important;
+		background-color: var(--background-modifier-hover) !important;
+	}
+
+	&:disabled {
+		opacity: 0.65;
+	}
+}
+
+.ddc_ink_almostuseful-settings-card {
+	background-color: var(--setting-items-background);
+	border-radius: var(--radius-l);
+	padding: 0.8em;
+	padding-inline-start: 1em;
+}
+
+.ddc_ink_almostuseful-early-access-card {
+	margin-bottom: 0;
+
+	.ddc_ink_legacy-migrate-card-desc {
+		margin-bottom: 0;
+
+		a {
+			text-decoration: underline;
+		}
+	}
+}
+
+.theme-dark .ddc_ink_almostuseful-early-access-card .ddc_ink_legacy-migrate-card-desc a {
+	color: hsl(220, 65%, 38%);
+}
+
+.theme-light .ddc_ink_almostuseful-early-access-card .ddc_ink_legacy-migrate-card-desc a {
+	color: hsl(220, 85%, 78%);
+}
+
+.ddc_ink_almostuseful-settings-card-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em;
+	margin-bottom: 0.25em;
+}
+
+.ddc_ink_almostuseful-settings-card-title {
+	flex: 1;
+	font-weight: var(--font-medium);
+	margin-bottom: 0;
+}
+
+.ddc_ink_almostuseful-settings-card-actions {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
 }
 
 .ddc_ink_almostuseful-muted {
@@ -9,13 +339,36 @@
 	font-size: var(--font-ui-small);
 }
 
+.ddc_ink_almostuseful-refresh.is-refreshing svg {
+	animation: ddc_ink_almostuseful-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes ddc_ink_almostuseful-refresh-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .ddc_ink_almostuseful-pool {
 	margin-top: 0.75em;
 }
 
-.ddc_ink_almostuseful-pool-title {
-	font-weight: var(--font-medium);
+.ddc_ink_almostuseful-settings-card .ddc_ink_almostuseful-pool:first-child {
+	margin-top: 0;
+}
+
+.ddc_ink_almostuseful-pool-title-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em;
 	margin-bottom: 0.25em;
+}
+
+.ddc_ink_almostuseful-pool-title {
+	flex: 1;
+	font-weight: var(--font-medium);
+	margin-bottom: 0;
 }
 
 .ddc_ink_almostuseful-usage-heading {
@@ -75,16 +428,125 @@
 	flex-wrap: wrap;
 	gap: 0.75em;
 	margin-top: 0.35em;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
 }
 
 .ddc_ink_almostuseful-legend-item {
 	display: flex;
 	align-items: center;
 	gap: 0.35em;
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
 }
 
 .ddc_ink_almostuseful-legend-swatch {
 	width: 10px;
 	height: 10px;
 	border-radius: 999px;
+}
+
+.ddc_ink_almostuseful-chart-hit {
+	fill: transparent;
+	cursor: pointer;
+}
+
+.ddc_ink_almostuseful-chart.is-chart-focused .ddc_ink_almostuseful-chart-bar,
+.ddc_ink_almostuseful-chart.is-chart-focused .ddc_ink_almostuseful-chart-ink,
+.ddc_ink_almostuseful-chart.is-chart-focused .ddc_ink_almostuseful-chart-other {
+	opacity: 0.55;
+}
+
+.ddc_ink_almostuseful-chart.is-chart-focused [data-credit-pool-key].is-focused {
+	opacity: 1;
+	stroke: var(--background-primary);
+	stroke-width: 2;
+	paint-order: stroke fill;
+	filter: brightness(1.15);
+}
+
+.tippy-box[data-theme~='ddc_ink_almostuseful-chart'] {
+	background: var(--background-primary);
+	color: var(--text-normal);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	box-shadow: var(--shadow-s);
+	font-size: var(--font-ui-small);
+	pointer-events: none;
+}
+
+.tippy-box[data-theme~='ddc_ink_almostuseful-chart'] .tippy-content {
+	padding: 0.45em 0.65em;
+}
+
+.tippy-box[data-theme~='ddc_ink_almostuseful-chart'] .tippy-arrow {
+	color: var(--background-primary);
+}
+
+.ddc_ink_almostuseful-chart-tooltip-title {
+	font-weight: var(--font-medium);
+	margin: 0 0 0.25em;
+}
+
+.ddc_ink_almostuseful-chart-tooltip-row {
+	display: flex;
+	gap: 0.75em;
+	justify-content: space-between;
+	margin: 0;
+}
+
+.ddc_ink_almostuseful-chart-tooltip-label {
+	color: var(--text-muted);
+}
+
+.ddc_ink_almostuseful-chart-tooltip-value {
+	color: var(--text-normal);
+}
+
+.ddc_ink_almostuseful-transcription-queue-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35em;
+}
+
+.ddc_ink_almostuseful-transcription-queue-row {
+	display: flex;
+	align-items: center;
+	gap: 0.45em;
+	min-height: 1.75em;
+}
+
+.ddc_ink_almostuseful-transcription-queue-spinner {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	color: var(--text-muted);
+
+	svg {
+		animation: ddc_ink_almostuseful-refresh-spin 0.8s linear infinite;
+	}
+}
+
+.ddc_ink_almostuseful-transcription-queue-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+.ddc_ink_almostuseful-transcription-queue-clear {
+	font-size: var(--font-ui-small);
+	padding: 0.2em 0.65em;
+}
+
+.ddc_ink_almostuseful-transcription-queue-remove {
+	flex-shrink: 0;
+	color: var(--text-muted);
+
+	&:hover {
+		color: var(--text-normal);
+	}
 }

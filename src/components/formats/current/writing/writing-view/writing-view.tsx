@@ -16,6 +16,9 @@ import { ConfirmationModal } from "src/components/dom-components/modals/confirma
 import { buildWritingEmbedLine } from "../../utils/build-embeds";
 import { copyEmbedMarkdownToClipboard } from "src/logic/utils/copy-embed-to-clipboard";
 import { readWritingFileAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
+import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
+import { enqueueAuto } from "src/logic/handwriting-transcription-queue";
+import { preserveBboxCellsOnStrokeSave } from "../../utils/preserve-bbox-cells-on-stroke-save";
 
 ////////
 ////////
@@ -138,7 +141,12 @@ export class WritingView extends TextFileView {
                         const aspectRatio = await readWritingFileAspectRatio(this.plugin, this.file);
                         const embedStr = buildWritingEmbedLine(
                             this.file.path,
-                            aspectRatio != null ? { aspectRatio } : undefined,
+                            {
+                                ...(aspectRatio != null ? { aspectRatio } : {}),
+                                ...(this.inkFileData?.meta.transcript
+                                    ? { transcript: this.inkFileData.meta.transcript }
+                                    : {}),
+                            },
                         );
                         void copyEmbedMarkdownToClipboard(embedStr);
                     })();
@@ -172,9 +180,14 @@ export class WritingView extends TextFileView {
         ] as MenuOption[];
     }
 
-    saveFile = (inkFileData: InkFileData) => {
-        this.inkFileData = inkFileData;
-        void this.save(false);   // Obsidian will call getViewData during this method
+    saveFile = (inkFileData: InkFileData): void | Promise<void> => {
+        return (async () => {
+            if (this.file) {
+                await preserveBboxCellsOnStrokeSave(this.plugin, this.file, inkFileData);
+            }
+            this.inkFileData = inkFileData;
+            await this.save(false);
+        })();
     }
 
     // Register editor controls for saving before unmount
@@ -219,7 +232,13 @@ export class WritingView extends TextFileView {
         if (this.editorControls) {
             await this.editorControls.saveAndHalt();
         }
-        
+
+        if (this.file) {
+            void enqueueAuto(this.file.path);
+        }
+
+        recordInkCloseAndMaybeShowAccountNotice(this.plugin);
+
         // Then cleanup
         this.clear();
         restoreSidebarsAfterInkView();

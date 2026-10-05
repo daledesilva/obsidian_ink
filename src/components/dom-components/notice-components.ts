@@ -55,6 +55,22 @@ function createNoticeLabel(noticeParent: HTMLElement | DocumentFragment, noticeN
     return labelEl;
 }
 
+/** Row for one or more primary CTAs in notice scroll content (not the footer bar). */
+export function createNoticeBodyCtaRow(scrollAreaEl: HTMLElement): HTMLDivElement {
+	return scrollAreaEl.createDiv('ddc_ink_notice-body-cta-row');
+}
+
+/** Primary CTA button inside a notice body CTA row. */
+export function createNoticeBodyCtaButton(
+	parentEl: HTMLElement,
+	label: string,
+): HTMLButtonElement {
+	const buttonEl = parentEl.createEl('button');
+	buttonEl.setText(label);
+	buttonEl.classList.add('ddc_ink_primary-btn');
+	return buttonEl;
+}
+
 /** Inline twin of notice blockquotes — same accent chip look for shortcuts/commands inside a sentence. */
 export function createNoticeInlineQuote(parentEl: HTMLElement, text: string): HTMLQuoteElement {
     return parentEl.createEl('q', {

@@ -96,6 +96,10 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 		placement: 'right',
 		offset: [0, 12],
 		interactive: false,
+		// Tippy's default document touchend handler treats the bar tap as an outside click
+		// (the reference is a zero-size anchor), hiding the tooltip right after touch shows it.
+		// Outside dismiss is handled by onDocumentPointerDown instead.
+		hideOnClick: false,
 		animation: false,
 		allowHTML: true,
 		theme: 'ddc_ink_almostuseful-chart',

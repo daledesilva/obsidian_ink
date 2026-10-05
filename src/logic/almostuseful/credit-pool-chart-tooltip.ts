@@ -7,6 +7,9 @@ import 'tippy.js/dist/tippy.css';
 /** After touch, ignore synthetic mouse pointer events on hybrid devices. */
 const TOUCH_SUPPRESS_MOUSE_MS = 700;
 
+/** A second press on the bar this soon after it opened is a duplicate, not a toggle-off. */
+const TOUCH_REPEAT_PRESS_IGNORE_MS = 400;
+
 const liveTooltipSessions: CreditPoolChartTooltipSession[] = [];
 
 interface CreditPoolChartTooltipSession {
@@ -19,6 +22,7 @@ interface CreditPoolChartTooltipSession {
 	hideTimeout: number | null;
 	isTouchPointer: boolean;
 	touchSuppressMouseUntil: number;
+	shownAt: number;
 	onPointerMove: (event: PointerEvent) => void;
 	onPointerEnter: (event: PointerEvent) => void;
 	onPointerDown: (event: PointerEvent) => void;
@@ -84,6 +88,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 		hideTimeout: null,
 		isTouchPointer: false,
 		touchSuppressMouseUntil: 0,
+		shownAt: 0,
 		onPointerMove: () => undefined,
 		onPointerEnter: () => undefined,
 		onPointerDown: () => undefined,
@@ -164,6 +169,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 			instance.setContent(target.html);
 			session.focusedKey = target.key;
 			applyPaintedBarFocus(session.svg, target.key);
+			session.shownAt = Date.now();
 			instance.show();
 		}
 		instance.popperInstance?.update();
@@ -206,14 +212,18 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 	};
 
 	session.onPointerDown = (event: PointerEvent) => {
-		const isTouch = event.pointerType === 'touch';
-		session.isTouchPointer = isTouch;
-		if (isTouch) {
-			session.touchSuppressMouseUntil = Date.now() + TOUCH_SUPPRESS_MOUSE_MS;
-		}
+		// Matches the portal: only touch presses drive the sticky latch. Mouse already shows on
+		// hover, and iPadOS follows a quick tap (not a long press) with an emulated mouse press
+		// that must not flip the session out of touch mode. Only a real mouse move after the
+		// suppress window (onPointerMove) leaves touch mode.
+		if (event.pointerType !== 'touch') return;
+		session.isTouchPointer = true;
+		session.touchSuppressMouseUntil = Date.now() + TOUCH_SUPPRESS_MOUSE_MS;
 		const target = targetFromEvent(event);
 		if (!target) return;
-		if (isTouch && session.focusedKey === target.key) {
+		const isRepeatPressOfShownBar =
+			Date.now() - session.shownAt < TOUCH_REPEAT_PRESS_IGNORE_MS;
+		if (session.focusedKey === target.key && !isRepeatPressOfShownBar) {
 			hideTooltip();
 			return;
 		}

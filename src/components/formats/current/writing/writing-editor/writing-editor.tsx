@@ -138,8 +138,6 @@ export function WritingEditor(props: WritingEditorProps) {
 	const [hasTranscript, setHasTranscript] = React.useState(false);
 	/** Applied embed/page inviting height — drives shouldResizeForNewHeight. */
 	const curHeightRef = useRef<number | null>(null);
-	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
-	const forceNextPageHeightChangeRef = useRef(false);
 	const isLegacyInkFileRef = useRef(false);
 	/** Dedicated writing: native tall-page scroller (not camera pan). */
 	const dedicatedScrollerRef = useRef<HTMLDivElement>(null);
@@ -532,13 +530,18 @@ export function WritingEditor(props: WritingEditorProps) {
 		}
 	}
 
+	/** Boox toggle on: no automatic embed resize (erase/select close the overlay but keep this rule). */
+	function shouldSkipBooxEmbedAutoResize(): boolean {
+		return getBooxConnectionEnabled();
+	}
+
 	function debouncedEmbedResizePostProcess() {
 		cancelDelayedBooxResizePostProcess();
 		resizePostProcessTimeoutRef.current = window.setTimeout(() => {
 			resizePostProcessTimeoutRef.current = undefined;
 			const editor = editorRef.current;
 			if (!editor || !props.embedded) return;
-			if (websocketConnectedRef.current && getBooxConnectionEnabled()) return;
+			if (shouldSkipBooxEmbedAutoResize()) return;
 			const invitingHeight = latestInvitingHeightRef.current || getInvitingHeightFromEditor(editor);
 			if (!shouldResizeForNewHeight(
 				invitingHeight,
@@ -569,10 +572,8 @@ export function WritingEditor(props: WritingEditorProps) {
 		latestInvitingHeightRef.current = invitingFromContent;
 
 		if (props.embedded) {
-			const skipAutoResize = !forceNextPageHeightChangeRef.current
-				&& websocketConnectedRef.current
-				&& getBooxConnectionEnabled();
-			forceNextPageHeightChangeRef.current = false;
+			// Initial mount must still sync height when Boox skip is on; skip only blocks stroke-driven resize.
+			const skipAutoResize = !isInitialMount && shouldSkipBooxEmbedAutoResize();
 			if (skipAutoResize) return;
 
 			if (isInitialMount) {
@@ -1018,9 +1019,10 @@ export function WritingEditor(props: WritingEditorProps) {
 		if (!editor) return;
 		const lineHeight = writingLineHeightRef.current;
 		const bufferLines = props.plugin.settings.writingBufferLines;
+		// Boox manual grow: resize inline via notifyEmbedResize — not applyPageHeightChange (no bypass flags).
 		const newHeight = editor.getPageHeight() + bufferLines * lineHeight;
-		forceNextPageHeightChangeRef.current = true;
 		curHeightRef.current = newHeight;
+		latestInvitingHeightRef.current = newHeight;
 		editor.setWritingPageHeight(newHeight);
 		notifyEmbedResize(newHeight);
 	}
@@ -1141,7 +1143,7 @@ export function WritingEditor(props: WritingEditorProps) {
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? props.plugin : undefined}
 				/>
-				{props.embedded && booxConnected && (
+				{props.embedded && isBooxConnectionEnabled && (
 					<ExpandLinesButton onExpandLines={expandWritingLinesByOne} />
 				)}
 			</SecondaryMenuBar>

@@ -35,3 +35,54 @@ That combination **clips the translated menu** unless the embed overrides overfl
 ```
 
 Without this override, the toolbar remains in the DOM (and in `excludeRects`) but is not visible on Boox tablets. Changing Bridge `cornerMarkers.width` does not affect Obsidian toolbar layout.
+
+## Writing embed height when Boox companion is enabled
+
+With **Enable Boox companion app** on (device-local `booxConnectionEnabled`), embedded writing editors **do not auto-grow or auto-shrink** with stroke content. Bridge overlay open/close and tool switches (draw vs erase/select) must not change that rule — only the device toggle does.
+
+```mermaid
+flowchart TD
+    toggleOn["booxConnectionEnabled = true"]
+    stroke["Stroke / erase changes content height"]
+    skip["shouldSkipBooxEmbedAutoResize — skip auto resize"]
+    expandBtn["Expand-lines button — manual grow only"]
+    lockUnlock["Lock / unlock remount — initial sizing from content"]
+
+    toggleOn --> skip
+    stroke --> skip
+    toggleOn --> expandBtn
+    toggleOn --> lockUnlock
+```
+
+### Auto-resize skip
+
+**Sources:** `writing-editor.tsx` (`shouldSkipBooxEmbedAutoResize`, `applyPageHeightChange`, `debouncedEmbedResizePostProcess`); legacy tldraw path: `tldraw-writing-editor.tsx` (`instantInputPostProcess`).
+
+| Trigger | Behaviour when Boox toggle is on |
+|---|---|
+| New strokes (local pen or Bridge) | Page height and embed DOM height stay fixed |
+| Eraser / undo removing strokes | No contract-to-content resize |
+| Editor initial mount after unlock | **Still runs** — syncs inviting height from strokes and updates the embed container (skip applies only to ongoing stroke-driven changes, not `isInitialMount`) |
+| Boox toggle off | Normal inviting-height auto-resize resumes |
+
+The skip keys off **`getBooxConnectionEnabled()`**, not `websocketConnectedRef`. Erase/select close the Bridge overlay and unlock local input, but they must not re-enable auto-resize.
+
+### Manual expand-lines control
+
+When the toggle is on, embedded writing editors show the **expand-lines** chevron in the secondary menu bar (alongside undo/redo). Visibility follows the toggle, not whether the WebSocket is currently connected.
+
+Manual expand resizes inline (`setWritingPageHeight` + `notifyEmbedResize`) and does **not** route through `applyPageHeightChange`, so no bypass flag is needed for the next stroke.
+
+### Lock / unlock and remount reserve
+
+**Sources:** `writing-embed.tsx` (`useLayoutEffect` remount reserve); [embed-scrolling.md](embed-scrolling.md) (`remountReserveHeightPx`).
+
+Non-Boox unlocked remounts seed container height from `remountReserveHeightPx` so CodeMirror virtualisation does not collapse a tall editor to preview aspect. That reserve can preserve a **manually expanded** height after lock → unlock.
+
+When Boox is enabled, remount reserve is **not** applied while editing. Initial embed sizing (`applyInitialEmbedSizing` → `applyPageHeightChange` with `isInitialMount`) resets page and container height from current stroke content instead of the last expanded measurement.
+
+### Technical Gotchas
+
+- **Do not gate auto-resize skip on WebSocket session state** — eraser/select intentionally clear `websocketConnectedRef` for local input; gating on connection reintroduces post-stroke and post-erase resize bugs.
+- **Do not set a “force next resize” flag on manual expand without clearing it in the same turn** — a leaked flag lets the next stroke bypass the Boox skip (historical bug).
+- **Expand-lines button styling** — the control is absolutely positioned in `SecondaryMenuBar` (`expand-lines-button.scss`); it is outside `.ink_menu-bar` and needs the same button chrome as undo/redo plus `bottom: 8px` to align with the undo row.

@@ -150,9 +150,11 @@ export function WritingEmbed (props: {
 		// unlocked root and must not be reapplied here. Locked CM scroll is still protected
 		// by widget-root minHeight in toDOM.
 		const remountReserveHeightPx = props.remountReserveHeightPx;
+		// Boox: remount reserve preserves a manually expanded editor height — let initial sizing reset from content.
 		const shouldApplyRemountReserveToInner = isThisEmbedEditing
 			&& !!remountReserveHeightPx
-			&& remountReserveHeightPx > 0;
+			&& remountReserveHeightPx > 0
+			&& !isBooxConnectionEnabled;
 		if (shouldApplyRemountReserveToInner && remountReserveHeightPx) {
 			resizeContainer.style.height = remountReserveHeightPx + 'px';
 			previousHeightRef.current = remountReserveHeightPx;

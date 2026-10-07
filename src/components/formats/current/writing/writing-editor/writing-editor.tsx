@@ -53,6 +53,7 @@ import {
 } from 'src/components/formats/current/utils/tldraw-helpers';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
+import { useDedicatedInkWorkspaceChrome } from 'src/logic/utils/use-dedicated-ink-workspace-chrome';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -109,6 +110,7 @@ export const WritingEditorWrapper: React.FC<WritingEditorProps> = (props) => {
 
 export function WritingEditor(props: WritingEditorProps) {
 	const dominantHand = useDominantHand();
+	const workspaceChrome = useDedicatedInkWorkspaceChrome(props.workspaceLeafId, !props.embedded);
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
 	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
@@ -1115,6 +1117,11 @@ export function WritingEditor(props: WritingEditorProps) {
 					onStoreChange={handleStoreChange}
 					onActivateTool={handleBooxActivateTool}
 					onExpandClick={props.embedded ? props.onOpenInDedicatedView : undefined}
+					onEnterWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onEnterWorkspaceChrome}
+					onExitWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onExitWorkspaceChrome}
+					isWorkspaceChromeHidden={workspaceChrome.isWorkspaceChromeHidden}
+					showNavigateBack={workspaceChrome.showNavigateBack}
+					onNavigateBack={workspaceChrome.onNavigateBack}
 					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
 					isFingerDrawingActive={isFingerDrawingActive}
 					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}

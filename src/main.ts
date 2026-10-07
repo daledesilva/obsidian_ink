@@ -1,6 +1,7 @@
 import './ddc-library/settings-styles.scss';
 // Global so dark-mode native Ink img invert applies before embed SCSS chunks load.
 import './components/shared/ink-svg-preview-theme.scss';
+import './styles/ink-workspace-chrome.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
@@ -35,6 +36,7 @@ import { drawDefaultSvgStr, drawExistingSvgStr, drawPasteSvgStr, linkAccountUser
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { releaseInkWorkspaceChromeOnPluginUnload } from 'src/logic/utils/ink-workspace-chrome';
 import {
 	collectInkHostProbe,
 	postCursorDebugIngest,
@@ -273,6 +275,7 @@ export default class InkPlugin extends Plugin {
 			message: 'plugin unloading',
 		});
 		logToVault('Plugin unloaded');
+		releaseInkWorkspaceChromeOnPluginUnload();
 		shutdownHandwritingTranscriptionQueue();
 		this.booxConnection?.dispose();
 	}

@@ -11,6 +11,10 @@ import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
 import { openInkFileInView } from "src/logic/utils/open-file";
+import {
+	cancelPendingInkWorkspaceChromeHide,
+	requestInkWorkspaceChromeForNextDedicatedView,
+} from "src/logic/utils/ink-workspace-chrome";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
@@ -678,7 +682,16 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			});
 		}
 		editorControlsRef.current = undefined;
-		await openInkFileInView(props.embeddedFile, 'inkDrawing');
+		// Full screen continues in the dedicated view: hide ribbon, tabs, and the
+		// view header, and offer a floating back control in place of that header.
+		requestInkWorkspaceChromeForNextDedicatedView();
+		try {
+			await openInkFileInView(props.embeddedFile, 'inkDrawing');
+		} catch (error) {
+			// The dedicated view never opened, so it will not consume the request.
+			cancelPendingInkWorkspaceChromeHide();
+			throw error;
+		}
 	}
 
     async function saveAndSwitchToPreviewMode() {

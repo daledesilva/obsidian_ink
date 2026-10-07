@@ -1,0 +1,25 @@
+/*
+ * Full screen hides Obsidian chrome that dedicated view still leaves on screen
+ * after the sidebars collapse: the left ribbon, the tab strip, the leaf
+ * title bar (which also holds Navigate back), and the status bar.
+ * display:none drops them from the layout so the canvas uses that space — the
+ * same approach Obsidian uses for a hidden ribbon and for phone layout.
+ * Flat selectors so tests can inject this file as CSS.
+ */
+
+body.ddc_ink_hide-workspace-chrome .workspace-ribbon,
+body.ddc_ink_hide-workspace-chrome .workspace-tab-header-container,
+body.ddc_ink_hide-workspace-chrome .view-header,
+body.ddc_ink_hide-workspace-chrome .status-bar {
+	display: none;
+}
+
+/*
+ * Hiding the tab strip pulls the ink menu up into the macOS title bar, where
+ * the traffic lights cover the first two quick-menu buttons. Shift that group
+ * right by the width of those two buttons (2.5em of --font-ui-small, plus the
+ * 8px gap). Native fullscreen already hides the traffic lights.
+ */
+body.mod-macos.ddc_ink_hide-workspace-chrome:not(.is-fullscreen) .ink_quick-menu {
+	margin-left: calc(2 * 2.5 * var(--font-ui-small) + 8px);
+}

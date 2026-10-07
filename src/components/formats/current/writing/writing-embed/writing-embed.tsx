@@ -10,6 +10,10 @@ import { FileConversionModal } from "src/components/dom-components/modals/file-c
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
 import { openInkFileInView } from "src/logic/utils/open-file";
+import {
+	cancelPendingInkWorkspaceChromeHide,
+	requestInkWorkspaceChromeForNextDedicatedView,
+} from "src/logic/utils/ink-workspace-chrome";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
 import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
@@ -528,7 +532,16 @@ export function WritingEmbed (props: {
 			});
 		}
 		editorControlsRef.current = undefined;
-		await openInkFileInView(props.writingFileRef, 'inkWriting');
+		// Full screen continues in the dedicated view: hide ribbon, tabs, and the
+		// view header, and offer a floating back control in place of that header.
+		requestInkWorkspaceChromeForNextDedicatedView();
+		try {
+			await openInkFileInView(props.writingFileRef, 'inkWriting');
+		} catch (error) {
+			// The dedicated view never opened, so it will not consume the request.
+			cancelPendingInkWorkspaceChromeHide();
+			throw error;
+		}
 	}
 
 	function applySizingWhilePreviewing(height: number) {

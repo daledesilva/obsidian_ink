@@ -53,7 +53,6 @@ import {
 } from 'src/components/formats/current/utils/tldraw-helpers';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
-import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -210,12 +209,11 @@ export function WritingEditor(props: WritingEditorProps) {
 				flushQueuedBooxStrokesAfterResize();
 			},
 			onSocketOpen: () => {
+				// No Obsidian Notice here — Boox chrome, expand-lines, and input lock already show companion mode.
 				websocketConnectedRef.current = true;
 				setBooxConnected(true);
 				setIsBooxInputLocked(true);
 				debug('Ink canvas writing: Connected to Boox companion app WebSocket');
-				// Keep "Boox" as the product name.
-				new Notice('Connected to Boox companion app');
 				const sent = newAndroidDrawingArea();
 				if (sent) {
 					pendingNewOverlayRef.current = false;

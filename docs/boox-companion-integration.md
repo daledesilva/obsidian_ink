@@ -11,6 +11,19 @@ For **USB debugging and correlated logs**, see [Debugging on device](debugging-o
 
 Plugin implementation entry point: `src/connections/boox/boox-connection.ts`.
 
+## Connection feedback (no toast on connect)
+
+When the WebSocket handshake succeeds, ink canvas editors (`writing-editor.tsx`, `drawing-editor.tsx`) run the same `onSocketOpen` lifecycle as before — lock local pen input, register overlay geometry, and send `update-tool` — but **do not** show an Obsidian `Notice`. Connection is communicated through existing Boox UI instead:
+
+| Signal | When |
+|---|---|
+| `ddc_ink_boox-eink` chrome on the editor root | **Enable Boox companion app** is on (device-local toggle) |
+| Expand-lines control in embedded writing | Toggle on (not gated on live WebSocket state) |
+| Local canvas input locked | Active editor session with an open Bridge socket |
+| `debug(...)` in dev builds | `onSocketOpen` in the editor |
+
+Failed connects still surface only through dev logging / vault logs (`BooxConnection` probe path), not a success toast.
+
 ## Plugin-side overlay marker payloads
 
 Drawing and writing editors call `buildBooxCornerMarkers()` (`src/connections/boox/boox-corner-markers.ts`) when sending `new-drawing-area` / `update-drawing-area`:

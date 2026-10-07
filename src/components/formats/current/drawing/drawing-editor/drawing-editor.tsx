@@ -36,7 +36,6 @@ import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
 import { resolveInkAutosaveDelayMs } from 'src/ink-canvas/autosave-delay';
 import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
-import { Notice } from 'obsidian';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { CameraState, InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -227,11 +226,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				}
 			},
 			onSocketOpen: () => {
+				// No Obsidian Notice here — Boox chrome and input lock already show companion mode.
 				websocketConnectedRef.current = true;
 				setIsBooxInputLocked(true);
 				debug('Ink canvas: Connected to Boox companion app WebSocket');
-				// Keep "Boox" as the product name.
-				new Notice('Connected to Boox companion app');
 				const sent = newAndroidDrawingArea();
 				if (sent) {
 					pendingNewOverlayRef.current = false;

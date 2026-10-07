@@ -47,6 +47,7 @@ import { migrateWritingFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import type { PageBounds } from './page-bounds';
 import {
 	computeDedicatedWritingPageHeight,
+	rescaleDedicatedWritingScrollTop,
 	cropWritingStrokeHeightInvitingly,
 	cropWritingStrokeHeightTightly,
 	shouldResizeForNewHeight,
@@ -331,7 +332,10 @@ export function WritingEditor(props: WritingEditorProps) {
 	 * zoom = scrollerWidth / WRITING_PAGE_WIDTH (same width-fit as the canvas camera).
 	 *
 	 * Height growth must not change scrollTop — that would jump ink under the pen.
-	 * Only rescale scrollTop when width-fit zoom actually changes.
+	 * Only rescale scrollTop when width-fit zoom actually changes, and leave a
+	 * scroll that is still inside the menubar padding where it is. Jumping that
+	 * position down to the padding height hides the gap above the first line
+	 * as soon as the sidebars collapse on open.
 	 */
 	function syncDedicatedPageCssHeight(options?: {
 		pageHeight?: number;
@@ -361,10 +365,14 @@ export function WritingEditor(props: WritingEditorProps) {
 			window.requestAnimationFrame(() => {
 				const el = dedicatedScrollerRef.current;
 				if (!el) return;
-				// Menubar padding is fixed CSS px; only rescale the content scroll past it.
-				const pad = MENUBAR_HEIGHT_PX;
-				const contentScrollTop = Math.max(0, prevScrollTop - pad);
-				el.scrollTop = pad + contentScrollTop * (zoom / prevZoom);
+				// Stay at the top gap when the view opens. Snapping to the pad
+				// hid the space above the first line as soon as zoom changed.
+				el.scrollTop = rescaleDedicatedWritingScrollTop(
+					prevScrollTop,
+					prevZoom,
+					zoom,
+					MENUBAR_HEIGHT_PX,
+				);
 			});
 		}
 	}
@@ -624,6 +632,9 @@ export function WritingEditor(props: WritingEditorProps) {
 				pageHeight: editor.getPageHeight(),
 				preservePageScroll: false,
 			});
+			// Open at the top of the menubar padding so the gap above the first
+			// line is already on screen. Later zoom changes keep this position.
+			if (scroller) scroller.scrollTop = 0;
 		}
 	}
 

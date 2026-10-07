@@ -1018,6 +1018,26 @@ export function computeDedicatedWritingPageHeight(
 	return Math.max(minFromViewport, invitingContentHeight);
 }
 
+/**
+ * Keep the dedicated writing scroller visually stable when width-fit zoom changes.
+ *
+ * The menubar padding is a fixed CSS gap above the page. Scroll positions inside
+ * that gap are the extra space above the first line — opening the view starts
+ * there, and a zoom change (sidebar collapse) must not jump scrollTop down to
+ * the padding height, which would hide that gap.
+ * Past the padding, only the page content scales with zoom.
+ */
+export function rescaleDedicatedWritingScrollTop(
+	prevScrollTopPx: number,
+	prevZoom: number,
+	nextZoom: number,
+	menubarPadPx: number,
+): number {
+	if (prevScrollTopPx <= menubarPadPx) return prevScrollTopPx;
+	const contentScrollTopPx = prevScrollTopPx - menubarPadPx;
+	return menubarPadPx + contentScrollTopPx * (nextZoom / prevZoom);
+}
+
 /***
  * Resize the writing template for the dedicated (non-embed) writing view.
  * Unlike the embed-oriented helpers, this:

@@ -209,10 +209,9 @@ function handwritingTranscriptionProcessingDataSettingDesc(): DocumentFragment {
 	descEl.createEl('strong').setText('Almost Useful');
 	descEl.appendText("'s servers, then to ");
 	descEl.createEl('strong').setText('OpenRouter');
-	descEl.appendText(', which passes it to ');
-	descEl.createEl('strong').setText("Google's Gemini");
+	// Downstream model is named generically — portal routing may change; emphasise route hops only, not a specific vendor model.
 	descEl.appendText(
-		' model to read it. The transcript is returned to your app via the same route and stored in the SVG file as metadata and in all Markdown notes it is embedded in.',
+		', which passes it to the AI model provider to read it. The transcript is returned to your app via the same route and stored in the SVG file as metadata and in all Markdown notes it is embedded in.',
 	);
 	const retentionEl = descEl.createSpan({ cls: 'ddc_ink_almostuseful-processing-data-retention' });
 	retentionEl.createEl('strong').setText('Almost Useful does not store the SVG or transcript');

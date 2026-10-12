@@ -888,7 +888,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				'ddc_ink_editor-wrapper--loading',
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
-				isBooxConnectionEnabled && 'ddc_ink_boox-eink',
 			])}
 			style={{ height: '100%', position: 'relative' }}
 			tabIndex={props.embedded ? undefined : 0}

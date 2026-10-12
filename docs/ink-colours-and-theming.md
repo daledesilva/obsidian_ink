@@ -147,3 +147,4 @@ Native-leaf layout (sizing, scroll, centered media) lives in `src/logic/utils/sv
 - [Reading mode](reading-mode.md) — How Reading mode loads and shows embed previews
 - [Reading mode embed rendering](reading-mode-embed-rendering.md) — Reading mode implementation
 - [Plugin memory and persistence](plugin-memory-and-persistence.md) — What lives in vault files vs settings
+- [High contrast user interface](high-contrast-user-interface.md) — Device-local e-ink chrome overlay (does not change baked SVG colours)

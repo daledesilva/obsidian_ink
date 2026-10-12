@@ -19,12 +19,15 @@ import {
 	getLastDetectedStrokeInput,
 	getStrokeInputTreatAs,
 	getStylusSideButtonTemporaryEraseEnabled,
+	getHighContrastUserInterface,
 	setBooxConnectionEnabled,
 	setFingerDrawingEnabled,
 	setStrokeInputTreatAs,
 	setStylusSideButtonTemporaryEraseEnabled,
+	setHighContrastUserInterface,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
+import { applyHighContrastUserInterfaceBodyClass } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import {
 	insertAlmostUsefulAccountSection,
@@ -114,6 +117,7 @@ export class MySettingsTab extends PluginSettingTab {
 		let writingSectionEl!: HTMLElement;
 		let drawingSectionEl!: HTMLElement;
 		let booxCompanionToggle: ToggleComponent | undefined;
+		let highContrastUserInterfaceToggle: ToggleComponent | undefined;
 		let fingerDrawingToggle: ToggleComponent | undefined;
 		let stylusSideButtonTemporaryEraseToggle: ToggleComponent | undefined;
 
@@ -147,6 +151,7 @@ export class MySettingsTab extends PluginSettingTab {
 				strokeInputToggles[1].setDesc(strokeInputTreatAsSettingDesc('inkDrawing'));
 			}
 			booxCompanionToggle?.setValue(getBooxConnectionEnabled());
+			highContrastUserInterfaceToggle?.setValue(getHighContrastUserInterface());
 			fingerDrawingToggle?.setValue(getFingerDrawingEnabled());
 			stylusSideButtonTemporaryEraseToggle?.setValue(getStylusSideButtonTemporaryEraseEnabled());
 		});
@@ -174,6 +179,8 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertExperimentalChangesSection(containerEl, this.plugin, (toggle) => {
 			booxCompanionToggle = toggle;
+		}, (toggle) => {
+			highContrastUserInterfaceToggle = toggle;
 		}, (toggle) => {
 			stylusSideButtonTemporaryEraseToggle = toggle;
 		});
@@ -414,6 +421,7 @@ function insertExperimentalChangesSection(
 	containerEl: HTMLElement,
 	plugin: InkPlugin,
 	onBooxToggleReady?: (toggle: ToggleComponent) => void,
+	onHighContrastUserInterfaceReady?: (toggle: ToggleComponent) => void,
 	onStylusSideButtonTemporaryEraseReady?: (toggle: ToggleComponent) => void,
 ) {
 	// Expand/collapse header only — same pattern as "This plugin is in beta". Inner toggles
@@ -446,8 +454,23 @@ function insertExperimentalChangesSection(
 			toggle.setValue(getBooxConnectionEnabled());
 			onBooxToggleReady?.(toggle);
 			toggle.onChange((value: boolean) => {
+				// Do not enable highContrastUserInterface here — Boox and high-contrast chrome are independent.
 				setBooxConnectionEnabled(value);
 				plugin.booxConnection.onSettingsChanged();
+			});
+		});
+
+	new Setting(contentEl)
+		.setClass('ddc_ink_setting')
+		.setClass('ddc_ink_setting--nested')
+		.setName('High contrast user interface')
+		.setDesc('Uses high-contrast borders and controls across Ink embeds and editors — suited to e-ink and grayscale displays.')
+		.addToggle((toggle) => {
+			toggle.setValue(getHighContrastUserInterface());
+			onHighContrastUserInterfaceReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setHighContrastUserInterface(value);
+				applyHighContrastUserInterfaceBodyClass();
 			});
 		});
 

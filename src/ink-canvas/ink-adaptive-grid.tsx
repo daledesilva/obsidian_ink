@@ -26,7 +26,11 @@ const INK_GRID_TIER_DOT_RADIUS = [1, 1, 1.25, 1.5] as const;
  * Scales zoom fade thresholds (min/mid) on e-ink so dot opacity reaches zero at a lower
  * zoom level — dots stay visible longer when zooming out. 0.5 = half the zoom cutoff.
  */
+/** @deprecated Use {@link INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE}. */
 export const INK_GRID_BOOX_ZOOM_FADE_SCALE = 0.5;
+
+/** Scales grid zoom fade when style-for-grayscale-screen is enabled (e-ink visibility). */
+export const INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE = INK_GRID_BOOX_ZOOM_FADE_SCALE;
 
 function modulate(
 	value: number,

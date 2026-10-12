@@ -24,7 +24,7 @@ import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-set
 import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
-import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
+import { useHighContrastUserInterface } from 'src/logic/device-settings/use-high-contrast-user-interface';
 import { useStylusSideButtonTemporaryEraseEnabled } from 'src/logic/device-settings/use-stylus-side-button-temporary-erase';
 import {
 	isStylusEraserPointerActive,
@@ -37,7 +37,7 @@ import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvas
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
-import { InkAdaptiveGrid, INK_GRID_BOOX_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
+import { InkAdaptiveGrid, INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
 import { getRenderedStrokeData } from './rendered-stroke-cache';
 
 type LastCanvasPointerState = {
@@ -115,7 +115,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const resolvedStrokeInputTreatAs = useResolvedStrokeInputTreatAs(strokeInputEditorKind);
 	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
 	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
-	const isBooxConnectionEnabled = useBooxConnectionEnabled();
+	const isHighContrastUserInterface = useHighContrastUserInterface();
 	const isStylusSideButtonTemporaryEraseEnabled = useStylusSideButtonTemporaryEraseEnabled();
 	const isStylusSideButtonTemporaryEraseEnabledRef = useRef(isStylusSideButtonTemporaryEraseEnabled);
 	isStylusSideButtonTemporaryEraseEnabledRef.current = isStylusSideButtonTemporaryEraseEnabled;
@@ -1301,7 +1301,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						x={camera.x}
 						y={camera.y}
 						z={camera.zoom}
-						zoomFadeScale={isBooxConnectionEnabled ? INK_GRID_BOOX_ZOOM_FADE_SCALE : 1}
+						zoomFadeScale={isHighContrastUserInterface ? INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE : 1}
 					/>
 				)}
 				{/* Camera group — all content is transformed by the camera */}
@@ -1311,7 +1311,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						const pw = pageWidth;
 						const margin = pw * 0.05;
 						const lineCount = Math.floor(pageHeightState / lh);
-						const guideLineStrokeWidth = (isBooxConnectionEnabled ? 2 : 1) / camera.zoom;
+						// High-contrast CSS also sets 2px + vector-effect so locked previews match;
+						// 2/camera.zoom keeps the live attribute equivalent before that CSS applies.
+						const guideLineStrokeWidth = (isHighContrastUserInterface ? 2 : 1) / camera.zoom;
 						// Only emit guide indices overlapping the visible page rect — avoid
 						// Array.from(full page) + null cull on tall documents during scroll.
 						if (visiblePageRect === null) return null;
@@ -1333,8 +1335,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 									y1={lineY}
 									x2={pw - margin}
 									y2={lineY}
-									stroke={isBooxConnectionEnabled ? 'var(--text-normal)' : 'currentColor'}
-									strokeOpacity={isBooxConnectionEnabled ? 1 : 0.5}
+									stroke={isHighContrastUserInterface ? 'var(--text-normal)' : 'currentColor'}
+									strokeOpacity={isHighContrastUserInterface ? 1 : 0.5}
 									strokeWidth={guideLineStrokeWidth}
 								/>,
 							);

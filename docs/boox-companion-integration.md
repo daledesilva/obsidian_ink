@@ -15,10 +15,11 @@ Plugin implementation entry point: `src/connections/boox/boox-connection.ts`.
 
 When the WebSocket handshake succeeds, ink canvas editors (`writing-editor.tsx`, `drawing-editor.tsx`) run the same `onSocketOpen` lifecycle as before — lock local pen input, register overlay geometry, and send `update-tool` — but **do not** show an Obsidian `Notice`. Connection is communicated through existing Boox UI instead:
 
+High-contrast Ink chrome (`body.ddc_ink_style-for-grayscale-screen`) is **not** a connection signal. It follows the separate **High contrast user interface** device setting — see [High contrast user interface](high-contrast-user-interface.md).
+
 | Signal | When |
 |---|---|
-| `ddc_ink_boox-eink` chrome on the editor root | **Enable Boox companion app** is on (device-local toggle) |
-| Expand-lines control in embedded writing | Toggle on (not gated on live WebSocket state) |
+| Expand-lines control in embedded writing | **Enable Boox companion app** is on (not gated on live WebSocket state) |
 | Local canvas input locked | Active editor session with an open Bridge socket |
 | `debug(...)` in dev builds | `onSocketOpen` in the editor |
 
@@ -37,12 +38,12 @@ Embed border radius is applied in CSS on `.ddc_ink_resize-container--boox` only 
 
 ## Boox writing-embed toolbar visibility
 
-Embedded writing editors position the primary menu bar **above** the canvas using `transform: translate(0, -100%)` when active (`primary-menu-bar.scss`). Boox high-contrast chrome applies `overflow: hidden` on `.ddc_ink_boox-eink .ddc_ink_writing-editor` so rounded embed outlines clip cleanly.
+Embedded writing editors position the primary menu bar **above** the canvas using `transform: translate(0, -100%)` when active (`primary-menu-bar.scss`). Boox embed layout applies `overflow: hidden` on editors inside `.ddc_ink_resize-container--boox` (`ink-boox-eink-chrome.scss`) so rounded embed outlines clip cleanly.
 
 That combination **clips the translated menu** unless the embed overrides overflow. Drawing embeds already set `overflow: visible` on the editor root; writing embeds match that in `writing-editor.scss`:
 
 ```scss
-.ddc_ink_embed .ddc_ink_writing-editor.ddc_ink_boox-eink {
+.ddc_ink_embed .ddc_ink_resize-container--boox .ddc_ink_writing-editor {
 	overflow: visible;
 }
 ```

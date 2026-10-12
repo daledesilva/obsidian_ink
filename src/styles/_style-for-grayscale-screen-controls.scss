@@ -1,0 +1,113 @@
+// Shared high-contrast control chrome for body.ddc_ink_style-for-grayscale-screen.
+
+$ink-grayscale-screen-fill-on-dark-theme: #ffffff;
+$ink-grayscale-screen-ink-on-dark-theme: #000000;
+$ink-grayscale-screen-fill-on-light-theme: #000000;
+$ink-grayscale-screen-ink-on-light-theme: #ffffff;
+$ink-grayscale-screen-canvas-on-dark-theme: #000000;
+$ink-grayscale-screen-canvas-on-light-theme: #ffffff;
+
+@mixin ink-grayscale-screen-icon-button {
+	box-sizing: border-box;
+	border: 2px solid var(--text-normal);
+	color: var(--text-normal);
+	fill: var(--text-normal);
+	background-color: var(--background-primary);
+
+	&:hover {
+		background-color: var(--background-primary-alt);
+		color: var(--text-normal);
+		fill: var(--text-normal);
+	}
+
+	&:disabled {
+		opacity: 1;
+	}
+}
+
+// Inverted fill; keep the same 2px --text-normal ring as unselected tools so the
+// outer size matches (a black ring on a dark canvas disappears and looks smaller).
+@mixin ink-grayscale-screen-selected-tool-dark-theme {
+	background-color: $ink-grayscale-screen-fill-on-dark-theme;
+	color: $ink-grayscale-screen-ink-on-dark-theme;
+	fill: $ink-grayscale-screen-ink-on-dark-theme;
+	border: 2px solid var(--text-normal);
+
+	&:hover {
+		background-color: $ink-grayscale-screen-fill-on-dark-theme;
+		color: $ink-grayscale-screen-ink-on-dark-theme;
+		fill: $ink-grayscale-screen-ink-on-dark-theme;
+		border-color: var(--text-normal);
+	}
+}
+
+@mixin ink-grayscale-screen-selected-tool-light-theme {
+	background-color: $ink-grayscale-screen-fill-on-light-theme;
+	color: $ink-grayscale-screen-ink-on-light-theme;
+	fill: $ink-grayscale-screen-ink-on-light-theme;
+	border: 2px solid var(--text-normal);
+
+	&:hover {
+		background-color: $ink-grayscale-screen-fill-on-light-theme;
+		color: $ink-grayscale-screen-ink-on-light-theme;
+		fill: $ink-grayscale-screen-ink-on-light-theme;
+		border-color: var(--text-normal);
+	}
+}
+
+// Colour only — Obsidian button chrome (border, shadow, padding) stays as-is.
+@mixin ink-grayscale-screen-inverted-panel-button-dark-theme {
+	color: $ink-grayscale-screen-fill-on-dark-theme;
+	background-color: $ink-grayscale-screen-ink-on-dark-theme;
+
+	&:hover {
+		color: $ink-grayscale-screen-fill-on-dark-theme;
+		background-color: $ink-grayscale-screen-ink-on-dark-theme;
+	}
+}
+
+@mixin ink-grayscale-screen-inverted-panel-button-light-theme {
+	color: $ink-grayscale-screen-fill-on-light-theme;
+	background-color: $ink-grayscale-screen-ink-on-light-theme;
+
+	&:hover {
+		color: $ink-grayscale-screen-fill-on-light-theme;
+		background-color: $ink-grayscale-screen-ink-on-light-theme;
+	}
+}
+
+@mixin ink-grayscale-screen-icon-buttons {
+	.ink_menu-bar button,
+	.ink_tool-menu button,
+	.ink_extended-writing-menu button,
+	.ink_extended-drawing-menu button,
+	.ink_transition_menu button,
+	.ink_expand-lines-button button,
+	.ddc_ink_resize-handle,
+	.ddc_ink_svg-edit-button,
+	.ddc_ink_display-mode-toggle,
+	.ink_modify-menu button {
+		@include ink-grayscale-screen-icon-button;
+	}
+
+	.ddc_ink_overflow-button-and-menu .ddc_ink_dropdown {
+		border: 2px solid var(--text-normal);
+		background-color: var(--background-primary);
+		color: var(--text-normal);
+		fill: var(--text-normal);
+	}
+}
+
+@mixin ink-grayscale-screen-selected-tools-dark-theme {
+	.ink_tool-menu button:disabled,
+	.ink_menu-bar button.ink_menu-toggle--active {
+		@include ink-grayscale-screen-selected-tool-dark-theme;
+	}
+}
+
+@mixin ink-grayscale-screen-selected-tools-light-theme {
+	.ink_tool-menu button:disabled,
+	.ink_menu-bar button.ink_menu-toggle--active {
+		@include ink-grayscale-screen-selected-tool-light-theme;
+	}
+}

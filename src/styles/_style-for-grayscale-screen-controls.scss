@@ -56,23 +56,24 @@ $ink-grayscale-screen-canvas-on-light-theme: #ffffff;
 }
 
 // Colour only — Obsidian button chrome (border, shadow, padding) stays as-is.
+// !important beats .mod-cta so Link account (settings + notice) follows the same inversion.
 @mixin ink-grayscale-screen-inverted-panel-button-dark-theme {
-	color: $ink-grayscale-screen-fill-on-dark-theme;
-	background-color: $ink-grayscale-screen-ink-on-dark-theme;
+	color: $ink-grayscale-screen-fill-on-dark-theme !important;
+	background-color: $ink-grayscale-screen-ink-on-dark-theme !important;
 
 	&:hover {
-		color: $ink-grayscale-screen-fill-on-dark-theme;
-		background-color: $ink-grayscale-screen-ink-on-dark-theme;
+		color: $ink-grayscale-screen-fill-on-dark-theme !important;
+		background-color: $ink-grayscale-screen-ink-on-dark-theme !important;
 	}
 }
 
 @mixin ink-grayscale-screen-inverted-panel-button-light-theme {
-	color: $ink-grayscale-screen-fill-on-light-theme;
-	background-color: $ink-grayscale-screen-ink-on-light-theme;
+	color: $ink-grayscale-screen-fill-on-light-theme !important;
+	background-color: $ink-grayscale-screen-ink-on-light-theme !important;
 
 	&:hover {
-		color: $ink-grayscale-screen-fill-on-light-theme;
-		background-color: $ink-grayscale-screen-ink-on-light-theme;
+		color: $ink-grayscale-screen-fill-on-light-theme !important;
+		background-color: $ink-grayscale-screen-ink-on-light-theme !important;
 	}
 }
 

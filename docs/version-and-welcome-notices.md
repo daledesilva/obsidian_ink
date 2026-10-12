@@ -18,26 +18,26 @@ Ink uses persistent Obsidian notices for first-run onboarding (`welcome-notice.t
 |---------|-----------|
 | **h2** | `Handwriting transcriptions (OCR)` |
 | Body | Invite-only copy; only the product name **Almost Useful** is `<strong>` |
-| **Join the waitlist** | Opens `https://account.almostuseful.xyz` in the system browser (`openAlmostUsefulBrowserUrl`) |
-| **Log in** | Opens Ink settings (`openInkSettingsTab`) so the user can **Link account** |
+| **Link account** | Same CTA chrome as settings (`applyAlmostUsefulLinkAccountButtonChrome`, including `ddc_ink_primary-btn`). Centred. Opens Ink settings (`openInkSettingsTab`) |
+| **Create account** | Centred tertiary text link (`ddc_ink_tertiary-text-link`) under **Link account**, same `0.825em` stack gap as settings. Opens `{portalOrigin}/auth/sign-up` (`openAlmostUsefulBrowserUrl`) |
 | **View feature demos** | Footer link to YouTube (unchanged pattern) |
 | **Dismiss** | Hides notice and marks version tip read |
 
-Body primary CTAs sit in a horizontal **`createNoticeBodyCtaRow`** flex row (not the footer bar) so two buttons appear side by side with wrap on narrow widths.
+Body CTAs use a centred **`ddc_ink_almostuseful-link-account-cta-stack`** inside **`createNoticeBodyCtaRow`** (not the footer bar). **Join the waitlist** is gone.
 
 ```mermaid
 flowchart TD
   Load[Plugin load] --> Semver{manifest version > lastVersionTipRead?}
   Semver -->|yes| Show[showChanges persistent notice]
   Semver -->|no| Skip[No version tip]
-  Show --> Waitlist[Join the waitlist → portal]
-  Show --> Login[Log in → Ink settings]
+  Show --> Link[Link account → Ink settings]
+  Show --> Create[Create account → portal sign-up]
   Show --> Dismiss[Dismiss → hide + save lastVersionTipRead]
-  Waitlist --> StayOpen[Notice stays visible]
-  Login --> StayOpen
+  Link --> StayOpen[Notice stays visible]
+  Create --> StayOpen
 ```
 
-**Interaction rule:** Body CTAs (**Join the waitlist**, **Log in**) do **not** call `notice.hide()`. Obsidian often backgrounds for the browser or settings; keeping the notice visible lets the user read the invite copy again after returning. Only **Dismiss** clears the tip.
+**Interaction rule:** Body CTAs (**Link account**, **Create account**) do **not** call `notice.hide()`. Obsidian often backgrounds for the browser or settings; keeping the notice visible lets the user read the invite copy again after returning. Only **Dismiss** clears the tip.
 
 ---
 

@@ -1,3 +1,5 @@
+@use '../../../../styles/almostuseful-link-account-controls';
+
 // Match Obsidian accent CTAs/links (--interactive-accent) for this featured settings block.
 .ddc_ink_almostuseful-account-section {
 	.ddc_ink_controls-section {
@@ -93,42 +95,8 @@
 
 .ddc_ink_almostuseful-link-account-setting {
 	.setting-item-control {
-		align-items: center;
-	}
-
-	.ddc_ink_almostuseful-link-account-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.55em;
-		padding: 0.7em 1.4em;
-		font-size: var(--font-ui-medium);
-		height: auto;
-		min-height: 2.75em;
-		color: var(--text-on-accent);
-
-		// Grey the accent out, and ignore the pointer so the cursor stays the arrow.
-		&.is-busy {
-			pointer-events: none;
-			background-color: var(--background-modifier-border) !important;
-			color: var(--text-muted) !important;
-			box-shadow: none !important;
-		}
-	}
-
-	.ddc_ink_almostuseful-link-account-btn-icon {
-		display: inline-flex;
-		align-items: center;
-		--icon-size: 1.15em;
-
-		svg {
-			width: var(--icon-size);
-			height: var(--icon-size);
-		}
-
-		circle,
-		path {
-			stroke: currentColor;
-		}
+		flex-direction: column;
+		align-items: flex-start;
 	}
 }
 
@@ -292,26 +260,6 @@
 	border-radius: var(--radius-l);
 	padding: 0.8em;
 	padding-inline-start: 1em;
-}
-
-.ddc_ink_almostuseful-early-access-card {
-	margin-bottom: 0;
-
-	.ddc_ink_legacy-migrate-card-desc {
-		margin-bottom: 0;
-
-		a {
-			text-decoration: underline;
-		}
-	}
-}
-
-.theme-dark .ddc_ink_almostuseful-early-access-card .ddc_ink_legacy-migrate-card-desc a {
-	color: hsl(220, 65%, 38%);
-}
-
-.theme-light .ddc_ink_almostuseful-early-access-card .ddc_ink_legacy-migrate-card-desc a {
-	color: hsl(220, 85%, 78%);
 }
 
 .ddc_ink_almostuseful-settings-card-title-row {

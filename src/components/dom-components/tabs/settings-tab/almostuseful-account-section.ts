@@ -1,4 +1,5 @@
 import { Notice, setIcon, Setting, type ButtonComponent } from 'obsidian';
+import { decorateAlmostUsefulLinkAccountButton } from 'src/components/dom-components/almostuseful-link-account-button';
 import InkPlugin from 'src/main';
 import { fetchAlmostUsefulBurndown } from 'src/logic/almostuseful/almostuseful-usage';
 import {
@@ -89,11 +90,10 @@ export function insertAlmostUsefulAccountSection(
 	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
 
 	if (!session) {
-		insertAlmostUsefulEarlyAccessCard(contentEl, portalOrigin);
 		if (pending) {
 			insertDeviceSignInCodeCard(contentEl, pending, onRerender);
 		} else {
-			new Setting(contentEl)
+			const linkAccountSetting = new Setting(contentEl)
 				.setClass('ddc_ink_setting')
 				.setClass('ddc_ink_almostuseful-link-account-setting')
 				.setName('Link account')
@@ -121,6 +121,8 @@ export function insertAlmostUsefulAccountSection(
 							});
 					});
 				});
+			const linkAccountCtaStackEl = wrapAlmostUsefulLinkAccountCtaStack(linkAccountSetting.controlEl);
+			appendAlmostUsefulCreateAccountLink(linkAccountCtaStackEl, portalOrigin, true);
 		}
 		insertHandwritingTranscriptionPrivacyDisclosure(contentEl);
 		insertTranscriptionQueueSection(contentEl);
@@ -153,23 +155,36 @@ export function insertAlmostUsefulAccountSection(
 	insertTranscriptionQueueSection(contentEl);
 }
 
-/** Invite-only notice at the top of the account block; hidden once a session exists on this device. */
-function insertAlmostUsefulEarlyAccessCard(contentEl: HTMLElement, portalOrigin: string): void {
-	const cardEl = contentEl.createDiv(
-		'ddc_ink_legacy-migrate-card ddc_ink_almostuseful-early-access-card',
-	);
-	cardEl.createDiv({
-		cls: 'ddc_ink_legacy-migrate-card-title',
-		text: 'Early access',
+/**
+ * Obsidian's Setting owns the button node. Move it into this stack so the
+ * 0.825em gap matches the version notice (margin on the button alone was shorter here).
+ */
+function wrapAlmostUsefulLinkAccountCtaStack(controlEl: HTMLElement): HTMLElement {
+	const stackEl = controlEl.createDiv('ddc_ink_almostuseful-link-account-cta-stack');
+	const buttonEl = controlEl.querySelector('button.ddc_ink_almostuseful-link-account-btn');
+	if (buttonEl?.parentElement === controlEl) {
+		stackEl.appendChild(buttonEl);
+	}
+	return stackEl;
+}
+
+/** Tertiary text link under Link account; opens the portal create-account page in the system browser. */
+function appendAlmostUsefulCreateAccountLink(
+	parentEl: HTMLElement,
+	portalOrigin: string,
+	isAlignEnd = false,
+): void {
+	const linkEl = parentEl.createEl('a', {
+		cls: isAlignEnd
+			? 'ddc_ink_tertiary-text-link ddc_ink_almostuseful-create-account-link--align-end'
+			: 'ddc_ink_tertiary-text-link',
+		text: 'Create account',
+		href: '#',
 	});
-	const bodyEl = cardEl.createDiv({ cls: 'ddc_ink_legacy-migrate-card-desc' });
-	bodyEl.appendText(
-		'Almost Useful is currently in early access and is invite-only. If you have an account, sign in, or apply for an invite ',
-	);
-	const portalLinkEl = bodyEl.createEl('a', { href: portalOrigin, text: 'here' });
-	portalLinkEl.setAttr('target', '_blank');
-	portalLinkEl.setAttr('rel', 'noopener');
-	bodyEl.appendText('.');
+	linkEl.addEventListener('click', (event) => {
+		event.preventDefault();
+		openAlmostUsefulBrowserUrl(`${portalOrigin}/auth/sign-up`);
+	});
 }
 
 /** Transcription data-flow and retention disclosure; shown signed out and under usage when linked. */
@@ -269,19 +284,6 @@ function insertTranscriptionQueueSection(contentEl: HTMLElement): void {
 
 	paintQueueList();
 	transcriptionQueueUnsubscribe = subscribeHandwritingTranscriptionQueueChanged(paintQueueList);
-}
-
-/** Outline head/shoulders icon plus label; ButtonComponent#setIcon does not reliably pair with text on CTA buttons. */
-function decorateAlmostUsefulLinkAccountButton(button: ButtonComponent): void {
-	button.setCta();
-	button.buttonEl.addClass('ddc_ink_almostuseful-link-account-btn');
-	button.buttonEl.empty();
-	const iconEl = button.buttonEl.createSpan({ cls: 'ddc_ink_almostuseful-link-account-btn-icon' });
-	setIcon(iconEl, 'ddc_ink_link_account_user');
-	button.buttonEl.createSpan({
-		cls: 'ddc_ink_almostuseful-link-account-btn-label',
-		text: 'Link account',
-	});
 }
 
 /** Disables the control and swaps the label so a click is visible before the code card replaces it. */

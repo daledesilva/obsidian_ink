@@ -173,7 +173,17 @@ body.theme-dark.ddc_ink_style-for-grayscale-screen {
 			color: grayscaleControls.$ink-grayscale-screen-fill-on-dark-theme;
 		}
 
-		button.ddc_ink_primary-btn {
+		a.ddc_ink_tertiary-text-link {
+			color: grayscaleControls.$ink-grayscale-screen-fill-on-dark-theme;
+
+			&:hover {
+				color: grayscaleControls.$ink-grayscale-screen-fill-on-dark-theme;
+				opacity: 0.75;
+			}
+		}
+
+		button.ddc_ink_primary-btn,
+		button.ddc_ink_almostuseful-link-account-btn {
 			@include grayscaleControls.ink-grayscale-screen-inverted-panel-button-light-theme;
 		}
 
@@ -232,7 +242,17 @@ body.theme-light.ddc_ink_style-for-grayscale-screen {
 			color: grayscaleControls.$ink-grayscale-screen-fill-on-light-theme;
 		}
 
-		button.ddc_ink_primary-btn {
+		a.ddc_ink_tertiary-text-link {
+			color: grayscaleControls.$ink-grayscale-screen-fill-on-light-theme;
+
+			&:hover {
+				color: grayscaleControls.$ink-grayscale-screen-fill-on-light-theme;
+				opacity: 0.75;
+			}
+		}
+
+		button.ddc_ink_primary-btn,
+		button.ddc_ink_almostuseful-link-account-btn {
 			@include grayscaleControls.ink-grayscale-screen-inverted-panel-button-dark-theme;
 		}
 

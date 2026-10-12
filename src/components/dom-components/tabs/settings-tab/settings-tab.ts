@@ -133,6 +133,9 @@ export class MySettingsTab extends PluginSettingTab {
 			(toggle) => {
 				fingerDrawingToggle = toggle;
 			},
+			(toggle) => {
+				highContrastUserInterfaceToggle = toggle;
+			},
 		);
 
 		insertTldrawSvgMigrateSection(containerEl, this.plugin);
@@ -179,8 +182,6 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertExperimentalChangesSection(containerEl, this.plugin, (toggle) => {
 			booxCompanionToggle = toggle;
-		}, (toggle) => {
-			highContrastUserInterfaceToggle = toggle;
 		}, (toggle) => {
 			stylusSideButtonTemporaryEraseToggle = toggle;
 		});
@@ -362,6 +363,7 @@ function insertHighLevelSettings(
 	onToggleWriting: (show: boolean) => void,
 	onToggleDrawing: (show: boolean) => void,
 	onFingerDrawingToggleReady?: (toggle: ToggleComponent) => void,
+	onHighContrastUserInterfaceReady?: (toggle: ToggleComponent) => void,
 ) {
 
 	new Setting(containerEl)
@@ -415,13 +417,25 @@ function insertHighLevelSettings(
 			await plugin.saveSettings();
 		});
 
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('High contrast user interface')
+		.setDesc('Uses high-contrast borders and controls across Ink embeds and editors — suited to e-ink and grayscale displays.')
+		.addToggle((toggle) => {
+			toggle.setValue(getHighContrastUserInterface());
+			onHighContrastUserInterfaceReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setHighContrastUserInterface(value);
+				applyHighContrastUserInterfaceBodyClass();
+			});
+		});
+
 }
 
 function insertExperimentalChangesSection(
 	containerEl: HTMLElement,
 	plugin: InkPlugin,
 	onBooxToggleReady?: (toggle: ToggleComponent) => void,
-	onHighContrastUserInterfaceReady?: (toggle: ToggleComponent) => void,
 	onStylusSideButtonTemporaryEraseReady?: (toggle: ToggleComponent) => void,
 ) {
 	// Expand/collapse header only — same pattern as "This plugin is in beta". Inner toggles
@@ -457,20 +471,6 @@ function insertExperimentalChangesSection(
 				// Do not enable highContrastUserInterface here — Boox and high-contrast chrome are independent.
 				setBooxConnectionEnabled(value);
 				plugin.booxConnection.onSettingsChanged();
-			});
-		});
-
-	new Setting(contentEl)
-		.setClass('ddc_ink_setting')
-		.setClass('ddc_ink_setting--nested')
-		.setName('High contrast user interface')
-		.setDesc('Uses high-contrast borders and controls across Ink embeds and editors — suited to e-ink and grayscale displays.')
-		.addToggle((toggle) => {
-			toggle.setValue(getHighContrastUserInterface());
-			onHighContrastUserInterfaceReady?.(toggle);
-			toggle.onChange((value: boolean) => {
-				setHighContrastUserInterface(value);
-				applyHighContrastUserInterfaceBodyClass();
 			});
 		});
 

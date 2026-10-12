@@ -48,12 +48,12 @@ flowchart TD
 
 ### Toggle on this device
 
-1. **Settings → Ink → Experimental changes → High contrast user interface** writes `highContrastUserInterface` via `setHighContrastUserInterface` (localStorage blob, not `data.json`).
+1. **Settings → Ink → High contrast user interface** (below **Dominant hand**) writes `highContrastUserInterface` via `setHighContrastUserInterface` (localStorage blob, not `data.json`).
 2. The settings `onChange` also calls `applyHighContrastUserInterfaceBodyClass` immediately so the class updates without waiting for another event.
 3. `main.ts` applies the class on plugin load and subscribes to device-settings changes (same-tab custom event and cross-tab `storage`) so other windows stay in sync.
 4. Plugin unload removes the body class.
 
-Enabling **Enable Boox companion app** does **not** turn high contrast on. The nested settings row is visual grouping only.
+Enabling **Enable Boox companion app** does **not** turn high contrast on.
 
 ### Existing Boox devices (one-time)
 
@@ -74,7 +74,7 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 
 **Canvas (dark / light):** editor `.ink-svg-canvas-container` is jet black (`#000000`) in dark theme and white (`#ffffff`) in light theme. Locked preview lines and live writing guides both use 2 CSS-px `--text-normal` strokes (`vector-effect: non-scaling-stroke` plus `2 / camera.zoom` while unlocked) so lock/unlock does not change apparent line weight.
 
-**Notices (dark):** black panel, white text, white primary buttons with black label. **Light:** white panel, black text, black primary buttons with white label. Quote chips recolour fill and outline; they do not grow.
+**Notices (dark):** black panel, white text, white primary buttons with black label. **Light:** white panel, black text, black primary buttons with white label. Inversion keys off `button.ddc_ink_primary-btn` (and `button.ddc_ink_almostuseful-link-account-btn`) inside `.ddc_ink_notice`. Link account must go through `applyAlmostUsefulLinkAccountButtonChrome`, which adds `ddc_ink_primary-btn`, or the notice CTA keeps Obsidian accent colours. Those inverted colours use `!important` so `.mod-cta` cannot win. Quote chips recolour fill and outline; they do not grow. Tertiary text links (`ddc_ink_tertiary-text-link`) recolour with the notice text and dim slightly on hover.
 
 **Grid:** `INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE` keeps dots visible further when zooming out (same numeric scale as the old Boox-named constant).
 
@@ -82,11 +82,12 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 
 1. **Do not thicken borders for contrast** — A 1px → 2px `border` on notices (or extra outline **plus** a thicker border) shifts layout and was rejected. Notices already have a 1px border in `notice-components.scss`; high contrast recolours that border and adds a 1px outline.
 2. **There is no inset shadow on the notice panel** — The original panel uses `border: 1px` and an **outer** drop shadow (`0 2px 8px`). Inset shadows exist only on quote chips inside the notice. Do not “sharpen an inner shadow” on the panel backdrop.
-3. **Boox must not auto-enable this flag** — `setBooxConnectionEnabled` only patches Boox. The nested settings indent is not a parent/child enable.
+3. **Boox must not auto-enable this flag** — `setBooxConnectionEnabled` only patches Boox.
 4. **Body class vs Boox class** — High-contrast CSS keys off `ddc_ink_style-for-grayscale-screen`. Do not reintroduce `ddc_ink_boox-eink` as a visual switch on editors.
 5. **Toolbar overflow on Boox embeds** — Rounded clip still uses Boox `overflow: hidden` on the resize container; writing embeds keep `overflow: visible` on the editor so the translated menu is not clipped. That override is Boox layout, not high-contrast colour.
 6. **Selected tools use `:disabled`** — Idle vs selected rings must stay the same thickness; only fill/ink colours invert.
 7. **Legacy class and field names** — CSS class and older JSON keys were renamed in product copy only. Keep the body class; keep merge of old field names until those blobs are gone.
+8. **New notice buttons need `ddc_ink_primary-btn`** — High contrast does not scan every `button`. A one-off class misses the inverted fill. Reuse `applyAlmostUsefulLinkAccountButtonChrome` or `createNoticeBodyCtaButton`.
 
 ## See also
 

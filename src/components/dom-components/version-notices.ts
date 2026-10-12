@@ -1,6 +1,6 @@
 import * as semVer from 'semver';
+import { applyAlmostUsefulLinkAccountButtonChrome } from 'src/components/dom-components/almostuseful-link-account-button';
 import {
-    createNoticeBodyCtaButton,
     createNoticeBodyCtaRow,
     createNoticeCtaBar,
     createNoticeTemplate,
@@ -47,8 +47,18 @@ function showChanges(plugin: InkPlugin) {
     inviteOnlyParagraphEl.appendText(' account for processing and is currently invite only.');
 
     const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
-    const joinWaitlistBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Join the waitlist');
-    const logInBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Log in');
+    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--stacked');
+    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--centered');
+    const linkAccountCtaStackEl = bodyCtaRowEl.createDiv(
+        'ddc_ink_almostuseful-link-account-cta-stack ddc_ink_almostuseful-link-account-cta-stack--centered',
+    );
+    const linkAccountBtnEl = linkAccountCtaStackEl.createEl('button', { type: 'button' });
+    applyAlmostUsefulLinkAccountButtonChrome(linkAccountBtnEl);
+    const createAccountLinkEl = linkAccountCtaStackEl.createEl('a', {
+        cls: 'ddc_ink_tertiary-text-link',
+        text: 'Create account',
+        href: '#',
+    });
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
@@ -61,11 +71,12 @@ function showChanges(plugin: InkPlugin) {
     const notice = launchPersistentNotice(noticeBody);
 
     // Body CTAs stay open so invite copy remains after the browser or Settings backgrounds Obsidian.
-    joinWaitlistBtnEl.addEventListener('click', () => {
-        openAlmostUsefulBrowserUrl(ALMOSTUSEFUL_PORTAL_ORIGIN);
+    createAccountLinkEl.addEventListener('click', (event) => {
+        event.preventDefault();
+        openAlmostUsefulBrowserUrl(`${ALMOSTUSEFUL_PORTAL_ORIGIN}/auth/sign-up`);
     });
 
-    logInBtnEl.addEventListener('click', () => {
+    linkAccountBtnEl.addEventListener('click', () => {
         openInkSettingsTab(plugin);
     });
 

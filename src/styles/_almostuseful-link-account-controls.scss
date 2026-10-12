@@ -1,0 +1,53 @@
+@use 'ink-tertiary-text-link';
+
+// Link account CTA + Create account tertiary link (Ink settings and version notice).
+
+.ddc_ink_almostuseful-link-account-cta-stack {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 0.825em;
+
+	&--centered {
+		align-items: center;
+	}
+
+	.ddc_ink_almostuseful-create-account-link--align-end {
+		align-self: flex-end;
+	}
+}
+
+.ddc_ink_almostuseful-link-account-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.55em;
+	padding: 0.7em 1.4em;
+	font-size: var(--font-ui-medium);
+	height: auto;
+	min-height: 2.75em;
+	color: var(--text-on-accent);
+	margin-bottom: 0;
+
+	&.is-busy {
+		pointer-events: none;
+		background-color: var(--background-modifier-border) !important;
+		color: var(--text-muted) !important;
+		box-shadow: none !important;
+	}
+}
+
+.ddc_ink_almostuseful-link-account-btn-icon {
+	display: inline-flex;
+	align-items: center;
+	--icon-size: 1.15em;
+
+	svg {
+		width: var(--icon-size);
+		height: var(--icon-size);
+	}
+
+	circle,
+	path {
+		stroke: currentColor;
+	}
+}

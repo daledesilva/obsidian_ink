@@ -1,0 +1,23 @@
+// Tertiary text control — matches notice footer .ddc_ink_tertiary-btn hover/colour tokens.
+
+@mixin ink-tertiary-text-link-chrome {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	line-height: var(--font-ui-small);
+	text-decoration: underline;
+	cursor: var(--cursor);
+
+	&:hover {
+		color: var(--text-normal);
+	}
+}
+
+a.ddc_ink_tertiary-text-link,
+button.ddc_ink_tertiary-text-link {
+	@include ink-tertiary-text-link-chrome;
+	background: none;
+	border: none;
+	box-shadow: none;
+	margin: 0;
+	padding: 0;
+}

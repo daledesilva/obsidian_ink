@@ -3,7 +3,9 @@ import * as React from "react";
 /////
 /////
 
-// https://fonts.google.com/icons?selected=Material%20Symbols%20Rounded%3Aopen_in_full%3AFILL%400%3Bwght%40400%3BGRAD%400%3Bopsz%4024
+// Material Symbols Rounded expand_content, rotated 90° CCW so the L-brackets
+// open vertically to match a tall canvas.
+// https://fonts.google.com/icons?selected=Material+Symbols+Rounded:expand_content
 
 export const ExpandIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -13,6 +15,8 @@ export const ExpandIcon = (props: React.SVGProps<SVGSVGElement>) => (
         width={24}
         {...props}
     >
-        <path d="M200-200v-240h80v160h160v80H200Zm480-320v-160H520v-80h240v240h-80Z" />
+        <g transform="rotate(-90 480 -480)">
+            <path d="M280-280h120q17 0 28.5 11.5T440-240q0 17-11.5 28.5T400-200H240q-17 0-28.5-11.5T200-240v-160q0-17 11.5-28.5T240-440q17 0 28.5 11.5T280-400v120Zm400-400H560q-17 0-28.5-11.5T520-720q0-17 11.5-28.5T560-760h160q17 0 28.5 11.5T760-720v160q0 17-11.5 28.5T720-520q-17 0-28.5-11.5T680-560v-120Z" />
+        </g>
     </svg>
 );

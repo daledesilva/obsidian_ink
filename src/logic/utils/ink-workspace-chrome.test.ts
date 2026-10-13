@@ -12,7 +12,7 @@ import {
 	releaseInkWorkspaceChromeOnPluginUnload,
 	requestInkWorkspaceChromeForNextDedicatedView,
 	resetInkWorkspaceChromeForTests,
-	shouldOfferInkWorkspaceNavigateBack,
+	wasInkWorkspaceOpenedFromEmbed,
 } from 'src/logic/utils/ink-workspace-chrome';
 
 //////////
@@ -107,7 +107,7 @@ describe('ink workspace chrome', () => {
 
 		enterInkWorkspaceChromeHidden('ink-leaf', {
 			collapseSidebars: false,
-			showNavigateBack: true,
+			openedFromEmbed: true,
 		});
 
 		expect(document.body.classList.contains(INK_WORKSPACE_CHROME_HIDDEN_CLASS)).toBe(true);
@@ -142,36 +142,36 @@ describe('ink workspace chrome', () => {
 		stylesheet.remove();
 	});
 
-	it('starts full screen from an embed without restoring sidebars on exit, and offers back', () => {
+	it('starts full screen from an embed without restoring sidebars on chrome-only exit', () => {
 		const { leftSplit, rightSplit } = installWorkspace('ink-leaf');
 		leftSplit.collapsed = true;
 		rightSplit.collapsed = true;
 		requestInkWorkspaceChromeForNextDedicatedView();
 		applyPendingInkWorkspaceChromeHide('ink-leaf');
 
-		expect(shouldOfferInkWorkspaceNavigateBack('ink-leaf')).toBe(true);
+		expect(wasInkWorkspaceOpenedFromEmbed('ink-leaf')).toBe(true);
 		expect(leftSplit.collapsed).toBe(true);
 
 		applyPendingInkWorkspaceChromeHide('ink-leaf');
-		expect(shouldOfferInkWorkspaceNavigateBack('ink-leaf')).toBe(true);
+		expect(wasInkWorkspaceOpenedFromEmbed('ink-leaf')).toBe(true);
 
 		exitInkWorkspaceChromeHidden('ink-leaf');
 		expect(document.body.classList.contains(INK_WORKSPACE_CHROME_HIDDEN_CLASS)).toBe(false);
-		expect(shouldOfferInkWorkspaceNavigateBack('ink-leaf')).toBe(false);
+		expect(wasInkWorkspaceOpenedFromEmbed('ink-leaf')).toBe(false);
 		expect(leftSplit.collapsed).toBe(true);
 		expect(rightSplit.collapsed).toBe(true);
 	});
 
-	it('dedicated-view full screen collapses sidebars and does not offer back', () => {
+	it('dedicated-view full screen collapses sidebars and is not marked as opened from an embed', () => {
 		const { leftSplit, rightSplit } = installWorkspace('ink-leaf');
 		enterInkWorkspaceChromeHidden('ink-leaf', {
 			collapseSidebars: true,
-			showNavigateBack: false,
+			openedFromEmbed: false,
 		});
 
 		expect(leftSplit.collapsed).toBe(true);
 		expect(rightSplit.collapsed).toBe(true);
-		expect(shouldOfferInkWorkspaceNavigateBack('ink-leaf')).toBe(false);
+		expect(wasInkWorkspaceOpenedFromEmbed('ink-leaf')).toBe(false);
 
 		exitInkWorkspaceChromeHidden('ink-leaf');
 		expect(leftSplit.collapsed).toBe(false);
@@ -182,7 +182,7 @@ describe('ink workspace chrome', () => {
 		installWorkspace('ink-leaf');
 		enterInkWorkspaceChromeHidden('ink-leaf', {
 			collapseSidebars: false,
-			showNavigateBack: true,
+			openedFromEmbed: true,
 		});
 		exitInkWorkspaceChromeHidden('other-leaf');
 		expect(document.body.classList.contains(INK_WORKSPACE_CHROME_HIDDEN_CLASS)).toBe(true);
@@ -217,7 +217,7 @@ describe('ink workspace chrome', () => {
 		const { leftSplit } = installWorkspace('ink-leaf');
 		enterInkWorkspaceChromeHidden('ink-leaf', {
 			collapseSidebars: true,
-			showNavigateBack: false,
+			openedFromEmbed: false,
 		});
 		expect(leftSplit.collapsed).toBe(true);
 		releaseInkWorkspaceChromeOnPluginUnload();

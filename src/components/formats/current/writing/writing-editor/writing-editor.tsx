@@ -55,6 +55,7 @@ import {
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { useDedicatedInkWorkspaceChrome } from 'src/logic/utils/use-dedicated-ink-workspace-chrome';
+import { revealInkFileInExplorer } from 'src/logic/utils/reveal-ink-file-in-explorer';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -1130,8 +1131,7 @@ export function WritingEditor(props: WritingEditorProps) {
 					onEnterWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onEnterWorkspaceChrome}
 					onExitWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onExitWorkspaceChrome}
 					isWorkspaceChromeHidden={workspaceChrome.isWorkspaceChromeHidden}
-					showNavigateBack={workspaceChrome.showNavigateBack}
-					onNavigateBack={workspaceChrome.onNavigateBack}
+					onLocateFile={props.embedded ? undefined : () => revealInkFileInExplorer(props.writingFile)}
 					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
 					isFingerDrawingActive={isFingerDrawingActive}
 					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}

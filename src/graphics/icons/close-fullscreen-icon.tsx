@@ -3,8 +3,8 @@ import * as React from "react";
 //////////
 //////////
 
-// Opposite corners of ExpandIcon (Material Symbols open_in_full → close_fullscreen).
-// https://fonts.google.com/icons?selected=Material+Symbols+Rounded:close_fullscreen
+// Pair of ExpandIcon (Material Symbols collapse_content), rotated 90° CCW.
+// https://fonts.google.com/icons?selected=Material+Symbols+Rounded:collapse_content
 
 export const CloseFullscreenIcon = (props: React.SVGProps<SVGSVGElement>) => (
 	<svg
@@ -14,6 +14,8 @@ export const CloseFullscreenIcon = (props: React.SVGProps<SVGSVGElement>) => (
 		width={24}
 		{...props}
 	>
-		<path d="M240-120v-120H120v-80h200v200h-80Zm400 0v-200h200v80H720v120h-80ZM120-640v-80h120v-120h80v200H120Zm520 0v-200h80v120h120v80H640Z" />
+		<g transform="rotate(-90 480 -480)">
+			<path d="M360-360H240q-17 0-28.5-11.5T200-400q0-17 11.5-28.5T240-440h160q17 0 28.5 11.5T440-400v160q0 17-11.5 28.5T400-200q-17 0-28.5-11.5T360-240v-120Zm240-240h120q17 0 28.5 11.5T760-560q0 17-11.5 28.5T720-520H560q-17 0-28.5-11.5T520-560v-160q0-17 11.5-28.5T560-760q17 0 28.5 11.5T600-720v120Z" />
+		</g>
 	</svg>
 );

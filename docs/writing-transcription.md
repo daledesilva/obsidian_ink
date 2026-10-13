@@ -408,7 +408,7 @@ flowchart LR
 | Order | Item | When |
 |-------|------|------|
 | 1 | Update transcript, or Transcribe | Always. Transcribe when the file has no transcript yet |
-| 2 | Open writing, or Open drawing | Always |
+| 2 | Open writing, or Open drawing | Always. Opens the dedicated view without full screen, then reveals the file in the explorer |
 | — | separator | |
 | 3 | Copy transcript | Ink view and transcript view, when a transcript exists. Copies the SVG markdown |
 | 4 | Copy embed | Always |

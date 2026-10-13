@@ -37,6 +37,7 @@ import { resolveInkAutosaveDelayMs } from 'src/ink-canvas/autosave-delay';
 import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
 import { useDedicatedInkWorkspaceChrome } from 'src/logic/utils/use-dedicated-ink-workspace-chrome';
+import { revealInkFileInExplorer } from 'src/logic/utils/reveal-ink-file-in-explorer';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { CameraState, InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -946,8 +947,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					onEnterWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onEnterWorkspaceChrome}
 					onExitWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onExitWorkspaceChrome}
 					isWorkspaceChromeHidden={workspaceChrome.isWorkspaceChromeHidden}
-					showNavigateBack={workspaceChrome.showNavigateBack}
-					onNavigateBack={workspaceChrome.onNavigateBack}
+					onLocateFile={props.embedded ? undefined : () => revealInkFileInExplorer(props.drawingFile)}
 					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
 					isFingerDrawingActive={isFingerDrawingActive}
 					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}

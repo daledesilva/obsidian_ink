@@ -23,35 +23,39 @@ describe('InkCanvasDrawingMenu full screen controls', () => {
 		expect(onExpandClick).toHaveBeenCalledTimes(1);
 		expect(queryByRole('button', { name: 'Exit full screen' })).toBeNull();
 		expect(queryByRole('button', { name: 'Back' })).toBeNull();
+		expect(queryByRole('button', { name: 'Locate' })).toBeNull();
 		unmount();
 	});
 
-	it('shows full screen on a dedicated view that is not yet full screen', () => {
+	it('shows full screen then locate on a dedicated view that is not yet full screen', () => {
 		const onEnterWorkspaceChrome = jest.fn();
-		const { getByRole, queryByRole, unmount } = renderMenu({ onEnterWorkspaceChrome });
-		fireEvent.click(getByRole('button', { name: 'Full screen' }));
+		const onLocateFile = jest.fn();
+		const { getByRole, queryByRole, unmount } = renderMenu({
+			onEnterWorkspaceChrome,
+			onLocateFile,
+		});
+		const fullScreenButton = getByRole('button', { name: 'Full screen' });
+		const locateButton = getByRole('button', { name: 'Locate' });
+		expect(fullScreenButton.compareDocumentPosition(locateButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		fireEvent.click(fullScreenButton);
+		fireEvent.click(locateButton);
 		expect(onEnterWorkspaceChrome).toHaveBeenCalledTimes(1);
+		expect(onLocateFile).toHaveBeenCalledTimes(1);
 		expect(queryByRole('button', { name: 'Back' })).toBeNull();
 		unmount();
 	});
 
-	it('places back to the left of exit when full screen was opened from an embed', () => {
+	it('shows only exit full screen when opened from an embed', () => {
 		const onExitWorkspaceChrome = jest.fn();
-		const onNavigateBack = jest.fn();
 		const { getByRole, queryByRole, unmount } = renderMenu({
 			isWorkspaceChromeHidden: true,
-			showNavigateBack: true,
 			onExitWorkspaceChrome,
-			onNavigateBack,
 		});
-		const backButton = getByRole('button', { name: 'Back' });
-		const exitButton = getByRole('button', { name: 'Exit full screen' });
-		expect(queryByRole('button', { name: 'Full screen' })).toBeNull();
-		expect(backButton.compareDocumentPosition(exitButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		fireEvent.click(backButton);
-		fireEvent.click(exitButton);
-		expect(onNavigateBack).toHaveBeenCalledTimes(1);
+		fireEvent.click(getByRole('button', { name: 'Exit full screen' }));
 		expect(onExitWorkspaceChrome).toHaveBeenCalledTimes(1);
+		expect(queryByRole('button', { name: 'Full screen' })).toBeNull();
+		expect(queryByRole('button', { name: 'Back' })).toBeNull();
+		expect(queryByRole('button', { name: 'Locate' })).toBeNull();
 		unmount();
 	});
 
@@ -59,10 +63,12 @@ describe('InkCanvasDrawingMenu full screen controls', () => {
 		const { getByRole, queryByRole, unmount } = renderMenu({
 			isWorkspaceChromeHidden: true,
 			onExitWorkspaceChrome: () => {},
+			onLocateFile: () => {},
 		});
 		expect(getByRole('button', { name: 'Exit full screen' })).toBeInTheDocument();
 		expect(queryByRole('button', { name: 'Back' })).toBeNull();
 		expect(queryByRole('button', { name: 'Full screen' })).toBeNull();
+		expect(queryByRole('button', { name: 'Locate' })).toBeNull();
 		unmount();
 	});
 });

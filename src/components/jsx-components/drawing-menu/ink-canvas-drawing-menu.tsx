@@ -6,7 +6,7 @@ import { EraseIcon } from 'src/graphics/icons/erase-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
 import { ExpandIcon } from 'src/graphics/icons/expand-icon';
 import { CloseFullscreenIcon } from 'src/graphics/icons/close-fullscreen-icon';
-import { ArrowBackIcon } from 'src/graphics/icons/arrow-back-icon';
+import { LocateIcon } from 'src/graphics/icons/locate-icon';
 import { PointerIcon } from 'src/graphics/icons/pointer-icon';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
@@ -34,15 +34,11 @@ interface InkCanvasDrawingMenuProps {
 	onExpandClick?: () => void;
 	/** Dedicated view: hide ribbon, tab strip, view header, and side docks. */
 	onEnterWorkspaceChrome?: () => void;
-	/** Dedicated view: restore the chrome hidden by full screen. */
+	/** Dedicated view: restore the chrome hidden by full screen, or return to the note. */
 	onExitWorkspaceChrome?: () => void;
 	isWorkspaceChromeHidden?: boolean;
-	/**
-	 * Floating back control, shown to the left of exit full screen when this
-	 * session was opened from an embed (the view-header back button is hidden).
-	 */
-	showNavigateBack?: boolean;
-	onNavigateBack?: () => void;
+	/** Dedicated view (not full screen): reveal this ink file in the file explorer. */
+	onLocateFile?: () => void;
 	showFingerDrawingToggle?: boolean;
 	isFingerDrawingActive?: boolean;
 	onFingerDrawingToggle?: () => void;
@@ -113,17 +109,21 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 	///////////
 	///////////
 
-	const showFloatingBack = Boolean(props.isWorkspaceChromeHidden && props.showNavigateBack);
 	const showEmbedFullScreen = Boolean(props.onExpandClick);
 	const showDedicatedFullScreen = Boolean(
 		!props.onExpandClick && !props.isWorkspaceChromeHidden && props.onEnterWorkspaceChrome
 	);
 	const showExitFullScreen = Boolean(!props.onExpandClick && props.isWorkspaceChromeHidden);
+	// Dedicated only: Full screen already left-justifies Exit, and embeds use overflow Open instead.
+	const showLocate = Boolean(
+		!props.onExpandClick && !props.isWorkspaceChromeHidden && props.onLocateFile
+	);
 	const showQuickMenu = Boolean(
 		props.showFingerDrawingToggle
 		|| showEmbedFullScreen
 		|| showDedicatedFullScreen
 		|| showExitFullScreen
+		|| showLocate
 	);
 
 	return <>
@@ -136,14 +136,6 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 		>
 			{showQuickMenu && (
 				<div className='ink_quick-menu'>
-					{showFloatingBack && (
-						<TooltipButton
-							tooltip='Back'
-							onClick={() => props.onNavigateBack?.()}
-						>
-							<ArrowBackIcon />
-						</TooltipButton>
-					)}
 					{showEmbedFullScreen && (
 						<TooltipButton
 							tooltip='Full screen'
@@ -158,6 +150,14 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 							onClick={() => props.onEnterWorkspaceChrome?.()}
 						>
 							<ExpandIcon />
+						</TooltipButton>
+					)}
+					{showLocate && (
+						<TooltipButton
+							tooltip='Locate'
+							onClick={() => props.onLocateFile?.()}
+						>
+							<LocateIcon />
 						</TooltipButton>
 					)}
 					{showExitFullScreen && (

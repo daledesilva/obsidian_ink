@@ -10,7 +10,7 @@ import { getFullPageWidth } from "src/logic/utils/getFullPageWidth";
 import { inkDebugLog, verbose } from "src/logic/utils/universal-dev-logging";
 import { logToVault } from "src/logic/utils/log-to-vault";
 import { getGlobals } from "src/stores/global-store";
-import { openInkFileInView } from "src/logic/utils/open-file";
+import { openInkFileInView, openInkFileInViewAndLocate } from "src/logic/utils/open-file";
 import {
 	cancelPendingInkWorkspaceChromeHide,
 	requestInkWorkspaceChromeForNextDedicatedView,
@@ -313,7 +313,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			},
 			{
 				text: 'Open drawing',
-				action: () => { void openInDedicatedView(); },
+				action: () => { void openInDedicatedView({ enterFullScreen: false }); },
 			},
 			{ separator: true },
 		];
@@ -331,7 +331,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		{
 			text: 'Open drawing',
 			action: async () => {
-				await openInDedicatedView();
+				await openInDedicatedView({ enterFullScreen: false });
 			}
 		},
 		{ separator: true },
@@ -662,8 +662,9 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		}
 	}
 
-    async function openInDedicatedView() {
+    async function openInDedicatedView(options?: { enterFullScreen?: boolean }) {
 		if (!props.embeddedFile) return;
+		const enterFullScreen = options?.enterFullScreen !== false;
 		// Drop the embed's migrate CTA before expand — saveAndHalt may already rewrite a
 		// tldraw SVG as ink-canvas, and a leftover notice would then fail as "not eligible".
 		dismissLegacyInkNoticesForFile(props.embeddedFile.path);
@@ -682,14 +683,21 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			});
 		}
 		editorControlsRef.current = undefined;
-		// Full screen continues in the dedicated view: hide ribbon, tabs, and the
-		// view header, and offer a floating back control in place of that header.
-		requestInkWorkspaceChromeForNextDedicatedView();
+		if (enterFullScreen) {
+			// Full screen continues in the dedicated view: hide ribbon, tabs, and the view header.
+			requestInkWorkspaceChromeForNextDedicatedView();
+		}
 		try {
-			await openInkFileInView(props.embeddedFile, 'inkDrawing');
+			if (enterFullScreen) {
+				await openInkFileInView(props.embeddedFile, 'inkDrawing');
+			} else {
+				await openInkFileInViewAndLocate(props.embeddedFile, 'inkDrawing');
+			}
 		} catch (error) {
-			// The dedicated view never opened, so it will not consume the request.
-			cancelPendingInkWorkspaceChromeHide();
+			if (enterFullScreen) {
+				// The dedicated view never opened, so it will not consume the request.
+				cancelPendingInkWorkspaceChromeHide();
+			}
 			throw error;
 		}
 	}

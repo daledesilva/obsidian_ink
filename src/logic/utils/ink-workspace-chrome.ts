@@ -1,4 +1,4 @@
-import type { EventRef, WorkspaceLeaf } from 'obsidian';
+import type { WorkspaceLeaf } from 'obsidian';
 import { getGlobals } from 'src/stores/global-store';
 
 //////////
@@ -20,15 +20,14 @@ export interface EnterInkWorkspaceChromeOptions {
 	 */
 	collapseSidebars: boolean;
 	/**
-	 * Offer a floating back control. Only the embed expand path sets this,
-	 * because that path hides the view header which normally holds Navigate back.
-	 * A later full-screen toggle from the dedicated view itself does not.
+	 * Exit full screen should return to the note. Only the embed expand path
+	 * sets this; a later full-screen toggle from the dedicated view itself does not.
 	 */
-	showNavigateBack: boolean;
+	openedFromEmbed: boolean;
 }
 
 let chromeHiddenLeafId: string | null = null;
-let showNavigateBack = false;
+let openedFromEmbed = false;
 let sidebarSnapshot: SidebarSnapshot | null = null;
 let pendingHideForNextDedicatedView = false;
 let leafListenerRegistered = false;
@@ -49,11 +48,10 @@ export function isInkWorkspaceChromeHiddenForLeaf(leafId: string): boolean {
 }
 
 /**
- * True when full screen was started from an embed, so the hidden view-header
- * back button needs a floating replacement.
+ * True when full screen was started from an embed, so Exit should return to the note.
  */
-export function shouldOfferInkWorkspaceNavigateBack(leafId: string): boolean {
-	return chromeHiddenLeafId === leafId && showNavigateBack;
+export function wasInkWorkspaceOpenedFromEmbed(leafId: string): boolean {
+	return chromeHiddenLeafId === leafId && openedFromEmbed;
 }
 
 /** Whether the leaf can navigate back to the note that opened it. */
@@ -84,7 +82,7 @@ export function applyPendingInkWorkspaceChromeHide(leafId: string): void {
 	pendingHideForNextDedicatedView = false;
 	enterInkWorkspaceChromeHidden(leafId, {
 		collapseSidebars: false,
-		showNavigateBack: true,
+		openedFromEmbed: true,
 	});
 }
 
@@ -102,7 +100,7 @@ export function enterInkWorkspaceChromeHidden(
 		// The previous leaf's sidebar snapshot must not leak into this session.
 		restoreSidebarSnapshot();
 		sidebarSnapshot = null;
-		showNavigateBack = options.showNavigateBack;
+		openedFromEmbed = options.openedFromEmbed;
 		chromeHiddenLeafId = leafId;
 	}
 
@@ -128,7 +126,7 @@ export function exitInkWorkspaceChromeHidden(leafId: string): void {
 	if (chromeHiddenLeafId !== leafId) return;
 	restoreSidebarSnapshot();
 	sidebarSnapshot = null;
-	showNavigateBack = false;
+	openedFromEmbed = false;
 	chromeHiddenLeafId = null;
 	syncBodyClass();
 	notifyListeners();
@@ -140,11 +138,6 @@ export function navigateInkLeafBack(leafId: string): void {
 	if (!leaf) return;
 	if (!leafHasBackHistory(leaf)) return;
 	void leaf.history.back();
-}
-
-/** Listen for the same history updates that enable Obsidian's view-header back button. */
-export function subscribeLeafHistoryChange(leaf: WorkspaceLeaf, onChange: () => void): EventRef {
-	return leaf.on('history-change', onChange);
 }
 
 /** Plugin unload: drop the body class and undo a sidebar collapse this session owns. */
@@ -161,7 +154,7 @@ export function releaseInkWorkspaceChromeOnPluginUnload(): void {
 /** Clears module state between unit tests. */
 export function resetInkWorkspaceChromeForTests(): void {
 	chromeHiddenLeafId = null;
-	showNavigateBack = false;
+	openedFromEmbed = false;
 	sidebarSnapshot = null;
 	pendingHideForNextDedicatedView = false;
 	leafListenerRegistered = false;

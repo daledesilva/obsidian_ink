@@ -78,6 +78,8 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 
 **Grid:** `INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE` keeps dots visible further when zooming out (same numeric scale as the old Boox-named constant).
 
+**Select tool chrome:** When high contrast is on, lasso polygon, selection bounding box, and resize/rotate handle dots use pure **white** (dark theme) or **black** (light theme) at **2 CSS-px** stroke width (`vector-effect: non-scaling-stroke`), not `--interactive-accent`. The mixin `ink-grayscale-screen-selection-chrome` in `_style-for-grayscale-screen-controls.scss` overrides both `selection-overlay.scss` and the lasso’s inline SVG attributes from `select-tool.ts`. Handle icon glyphs use the canvas colour on the dot ring so each handle reads as a solid black-on-white or white-on-black control. **Selected stroke fill** still uses the normal accent tint — only the frame and lasso swap to black/white.
+
 ## Technical Gotchas
 
 1. **Do not thicken borders for contrast** — A 1px → 2px `border` on notices (or extra outline **plus** a thicker border) shifts layout and was rejected. Notices already have a 1px border in `notice-components.scss`; high contrast recolours that border and adds a 1px outline.
@@ -88,6 +90,7 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 6. **Selected tools use `:disabled`** — Idle vs selected rings must stay the same thickness; only fill/ink colours invert.
 7. **Legacy class and field names** — CSS class and older JSON keys were renamed in product copy only. Keep the body class; keep merge of old field names until those blobs are gone.
 8. **New notice buttons need `ddc_ink_primary-btn`** — High contrast does not scan every `button`. A one-off class misses the inverted fill. Reuse `applyAlmostUsefulLinkAccountButtonChrome` or `createNoticeBodyCtaButton`.
+9. **Lasso attributes vs CSS** — `updateLassoVisual` still sets accent `fill`/`stroke` on the polygon for non-high-contrast mode. High-contrast rules must stay specific enough to beat those presentation attributes without `!important`.
 
 ## See also
 
@@ -95,3 +98,4 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 - [Ink colours and theming](ink-colours-and-theming.md) — baked SVG colours vs themed preview (high contrast does not rewrite saved stroke colours)
 - [Boox companion app integration](boox-companion-integration.md) — companion connection and embed layout, independent of this toggle
 - [Version and welcome notices](version-and-welcome-notices.md) — Ink notice structure that high-contrast recolours
+- [Ink canvas: stroke selection and transform](ink-canvas-selection.md) — lasso, bounds, and selected-stroke tint (accent in normal mode; black/white chrome in high contrast)

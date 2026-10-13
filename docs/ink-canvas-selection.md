@@ -50,7 +50,7 @@ Long-press on the selection chrome (not on empty canvas) opens a small context m
 | `selection-context-menu.ts` | Long-press thresholds and “point on chrome” helper for menu routing. |
 | `commands.ts` | `MoveStrokesCommand`, `TransformStrokesCommand` (undo/redo via `StrokeStore`). |
 | `ink-svg-canvas.tsx` | Wires select context, overlay, selection state, long-press menu; tints selected strokes in `StrokePath`. |
-| `ink-svg-canvas.scss` | `.ink-stroke--selected` saturation bump alongside accent `color-mix` fill. |
+| `ink-svg-canvas.scss` | `.ink-stroke--selected` `saturate(1.35)` alongside accent `color-mix` fill. |
 
 Chrome is **rebuilt from stroke bounds** when the selected id set changes, not after every move/rotate bake (signature on sorted ids avoids jitter).
 
@@ -63,5 +63,5 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **CM embed remounts** are unrelated to selection state; unlock/edit-mode for embeds is still keyed by widget id only. Opening Obsidian Settings can force-rebuild Live Preview widgets and drop unlock state — that interaction was intentionally left unchanged after an abandoned mitigation attempt in this thread.
 - **Boox input lock** still applies: when the companion streams strokes, local select pointer input is suppressed like draw/erase.
 - **Minimum bounds**: very small selections expand to a minimum page size so resize/rotate handles remain tappable.
-- **Selected stroke tint** uses `color-mix` with `--interactive-accent` so selection is visible in both writing and drawing without hiding ink colour.
+- **Selected stroke tint** mixes **60%** `--interactive-accent` into the stroke fill (`INK_SELECTED_STROKE_ACCENT_MIX_PERCENT` in `ink-svg-canvas.tsx`) plus a light saturation filter so membership stays obvious in writing and drawing without fully replacing ink colour.
 - **Drag vs toggle on a selected stroke** uses `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX` (6px): a press without that much movement toggles the stroke off; larger movement promotes to move the whole selection.

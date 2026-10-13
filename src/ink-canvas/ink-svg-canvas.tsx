@@ -1548,10 +1548,13 @@ function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): 
 	return true;
 }
 
+/** Share of --interactive-accent in selected stroke fill (writing + drawing). */
+const INK_SELECTED_STROKE_ACCENT_MIX_PERCENT = 60;
+
 /** Accent mix keeps ink readable in writing and drawing; see docs/ink-canvas-selection.md. */
 function inkStrokeFillWithSelectionTint(inkColor: string, isSelected: boolean): string {
 	if (!isSelected) return inkColor;
-	return `color-mix(in srgb, var(--interactive-accent) 30%, ${inkColor})`;
+	return `color-mix(in srgb, var(--interactive-accent) ${INK_SELECTED_STROKE_ACCENT_MIX_PERCENT}%, ${inkColor})`;
 }
 
 const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {

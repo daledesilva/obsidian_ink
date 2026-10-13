@@ -8,11 +8,19 @@
 body.theme-dark.ddc_ink_style-for-grayscale-screen {
 	@include grayscaleControls.ink-grayscale-screen-icon-buttons;
 	@include grayscaleControls.ink-grayscale-screen-selected-tools-dark-theme;
+	@include grayscaleControls.ink-grayscale-screen-selection-chrome(
+		grayscaleControls.$ink-grayscale-screen-fill-on-dark-theme,
+		grayscaleControls.$ink-grayscale-screen-canvas-on-dark-theme
+	);
 }
 
 body.theme-light.ddc_ink_style-for-grayscale-screen {
 	@include grayscaleControls.ink-grayscale-screen-icon-buttons;
 	@include grayscaleControls.ink-grayscale-screen-selected-tools-light-theme;
+	@include grayscaleControls.ink-grayscale-screen-selection-chrome(
+		grayscaleControls.$ink-grayscale-screen-fill-on-light-theme,
+		grayscaleControls.$ink-grayscale-screen-canvas-on-light-theme
+	);
 }
 
 body.ddc_ink_style-for-grayscale-screen {

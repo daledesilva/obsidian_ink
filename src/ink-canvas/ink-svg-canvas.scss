@@ -13,9 +13,9 @@
 	}
 }
 
-// Select tool: slight accent tint so selected ink stays readable on writing and drawing.
+// Select tool: accent tint is mostly in fill color-mix; saturation nudges hue toward feature colour.
 .ink-svg-canvas .ink-stroke--selected {
-	filter: saturate(1.08);
+	filter: saturate(1.35);
 }
 
 .ink-svg-canvas [data-stroke-group].ink-stroke--pending-erase {

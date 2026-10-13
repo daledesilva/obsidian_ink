@@ -99,6 +99,31 @@ $ink-grayscale-screen-canvas-on-light-theme: #ffffff;
 	}
 }
 
+// Select tool visuals (lasso polygon, selection bounds, resize/rotate handles) swap
+// --interactive-accent for pure black/white so they read on greyscale eInk panels.
+// Selectors beat the base selection-overlay.scss rules and the lasso's SVG
+// presentation attributes (set in select-tool.ts) without !important.
+@mixin ink-grayscale-screen-selection-chrome($selection-color, $canvas-color) {
+	.ink-canvas-lasso,
+	.ink-canvas-selection-overlay .ink-canvas-selection-bounds {
+		fill: color-mix(in srgb, $selection-color 14%, transparent);
+		stroke: $selection-color;
+		stroke-width: 2px;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.ink-canvas-selection-overlay {
+		.ink-canvas-selection-handle-dot {
+			fill: $selection-color;
+			stroke: $canvas-color;
+		}
+
+		.ink-canvas-selection-handle-icon {
+			color: $canvas-color;
+		}
+	}
+}
+
 @mixin ink-grayscale-screen-selected-tools-dark-theme {
 	.ink_tool-menu button:disabled,
 	.ink_menu-bar button.ink_menu-toggle--active {

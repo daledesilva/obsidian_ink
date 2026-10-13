@@ -1548,6 +1548,7 @@ function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): 
 	return true;
 }
 
+/** Accent mix keeps ink readable in writing and drawing; see docs/ink-canvas-selection.md. */
 function inkStrokeFillWithSelectionTint(inkColor: string, isSelected: boolean): string {
 	if (!isSelected) return inkColor;
 	return `color-mix(in srgb, var(--interactive-accent) 30%, ${inkColor})`;

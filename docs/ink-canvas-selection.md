@@ -49,7 +49,8 @@ Long-press on the selection chrome (not on empty canvas) opens a small context m
 | `utils/lasso-stroke-selection.ts` | Stroke ∩ lasso polygon (segment sampling). |
 | `selection-context-menu.ts` | Long-press thresholds and “point on chrome” helper for menu routing. |
 | `commands.ts` | `MoveStrokesCommand`, `TransformStrokesCommand` (undo/redo via `StrokeStore`). |
-| `ink-svg-canvas.tsx` | Wires select context, overlay, selection state, long-press menu. |
+| `ink-svg-canvas.tsx` | Wires select context, overlay, selection state, long-press menu; tints selected strokes in `StrokePath`. |
+| `ink-svg-canvas.scss` | `.ink-stroke--selected` saturation bump alongside accent `color-mix` fill. |
 
 Chrome is **rebuilt from stroke bounds** when the selected id set changes, not after every move/rotate bake (signature on sorted ids avoids jitter).
 
@@ -63,3 +64,4 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **Boox input lock** still applies: when the companion streams strokes, local select pointer input is suppressed like draw/erase.
 - **Minimum bounds**: very small selections expand to a minimum page size so resize/rotate handles remain tappable.
 - **Selected stroke tint** uses `color-mix` with `--interactive-accent` so selection is visible in both writing and drawing without hiding ink colour.
+- **Drag vs toggle on a selected stroke** uses `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX` (6px): a press without that much movement toggles the stroke off; larger movement promotes to move the whole selection.

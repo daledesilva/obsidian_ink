@@ -301,6 +301,7 @@ function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
 	const allStrokes = ctx.store.getAll();
 	const selected = new Set(ctx.getSelectedStrokeIds());
 
+	// XOR: new lassos extend or shrink the set without clearing unrelated strokes.
 	for (const stroke of allStrokes) {
 		if (!strokeIntersectsLassoPolygon(stroke, lassoPoints)) continue;
 		if (selected.has(stroke.id)) selected.delete(stroke.id);

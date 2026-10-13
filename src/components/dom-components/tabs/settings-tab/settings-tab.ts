@@ -409,7 +409,7 @@ function insertHighLevelSettings(
 	new TwoWayToggleSetting<DominantHand>(containerEl)
 		.setName('Dominant hand')
 		.setDesc('Which side undo/redo and extend controls appear on while editing.')
-		.setOptionPair('right', 'Right', 'left', 'Left')
+		.setOptionPair('left', 'Left', 'right', 'Right')
 		.setValue(plugin.settings.dominantHand)
 		.onChange(async (value) => {
 			plugin.settings.dominantHand = value;

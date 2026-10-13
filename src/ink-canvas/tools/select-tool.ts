@@ -1,9 +1,34 @@
 import { screenToPage } from '../camera';
-import { MoveStrokesCommand } from '../commands';
+import { MoveStrokesCommand, TransformStrokesCommand } from '../commands';
+import {
+	selectionBoundsPaddingPageUnits,
+	SELECTION_HANDLE_HIT_RADIUS_SCREEN_PX,
+	expandBoundsToMinimumSize,
+	getSelectionBoundsForStrokes,
+} from '../selection-bounds';
+import {
+	EMPTY_SELECTION_CHROME_PREVIEW,
+	applyRotationToSelectionChrome,
+	applyScaleToSelectionChrome,
+	getChromeHandlePositions,
+	hitTestChromeHandle,
+	isPagePointInChrome,
+	translateSelectionChrome,
+	type SelectionChrome,
+	type SelectionChromePreview,
+} from '../selection-chrome';
+import {
+	rotationDeltaForDominantHand,
+	scaleFactorFromPointerDistance,
+	transformStrokesAroundPivot,
+} from '../selection-transform';
 import type { StrokeStore } from '../stroke-store';
 import type { UndoManager } from '../undo-manager';
-import type { CameraState } from '../types';
+import type { CameraState, InkStroke } from '../types';
+import type { StrokeBounds } from '../svg-export';
+import { strokeIntersectsLassoPolygon } from '../utils/lasso-stroke-selection';
 import { getStrokeIdAtClientPoint } from '../utils/stroke-hit-test';
+import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 
 ///////////////////////////
 ///////////////////////////
@@ -14,21 +39,35 @@ export interface SelectToolContext {
 	getCamera: () => CameraState;
 	getContainerRect: () => DOMRect;
 	getSvgElement: () => SVGSVGElement | null;
+	getSelectionOverlayElement: () => SVGGElement | null;
 	getSelectedStrokeIds: () => Set<string>;
 	setSelectedStrokeIds: (ids: Set<string>) => void;
+	getSelectionChrome: () => SelectionChrome | null;
+	setSelectionChrome: (chrome: SelectionChrome | null) => void;
+	setSelectionPreview: (preview: SelectionChromePreview | null) => void;
+	writingMode: boolean;
+	getDominantHand: () => DominantHand;
 	onSelectionChange?: () => void;
 }
 
-type SelectPhase = 'idle' | 'lasso' | 'dragging';
+// Pointer-down picks a phase once; pointer-up commits MoveStrokesCommand or TransformStrokesCommand.
+// Resize/rotate handles are drawing-only (writingMode false) — see docs/ink-canvas-selection.md.
+type SelectPhase = 'idle' | 'lasso' | 'dragging' | 'resizing' | 'rotating';
 
 let phase: SelectPhase = 'idle';
 
-// Lasso state
 let lassoPoints: Array<{ x: number; y: number }> = [];
 
-// Drag state
 let dragStartPage: { x: number; y: number } | null = null;
 let dragAccumulatedDelta = { x: 0, y: 0 };
+
+let transformPivot: { x: number; y: number } | null = null;
+let transformStartPage: { x: number; y: number } | null = null;
+let transformPreviewScale = 1;
+let transformPreviewRotationRad = 0;
+let transformBaseOffsets = new Map<string, { x: number; y: number }>();
+
+const MIN_BOUNDS_PAGE_FOR_HANDLES = 24;
 
 
 export function selectToolPointerDown(e: PointerEvent, ctx: SelectToolContext): void {
@@ -37,9 +76,37 @@ export function selectToolPointerDown(e: PointerEvent, ctx: SelectToolContext): 
 	const pagePoint = screenToPage(camera, containerRect, e.clientX, e.clientY);
 
 	const selected = ctx.getSelectedStrokeIds();
+	const tolerancePage = SELECTION_HANDLE_HIT_RADIUS_SCREEN_PX / camera.zoom;
 
-	// Check if clicking on an already-selected stroke to start a drag
+	const chrome = ctx.getSelectionChrome();
+
+	if (!ctx.writingMode && selected.size > 0 && chrome) {
+		const handleHit = hitTestChromeHandle(
+			pagePoint,
+			chrome,
+			ctx.getDominantHand(),
+			tolerancePage,
+		);
+		if (handleHit === 'resize') {
+			const handles = getChromeHandlePositions(chrome, ctx.getDominantHand());
+			beginTransformGesture(ctx, 'resizing', pagePoint, handles.pivot);
+			return;
+		}
+		if (handleHit === 'rotate') {
+			const handles = getChromeHandlePositions(chrome, ctx.getDominantHand());
+			beginTransformGesture(ctx, 'rotating', pagePoint, handles.pivot);
+			return;
+		}
+	}
+
 	if (selected.size > 0) {
+		if (chrome && isPagePointInChrome(pagePoint, chrome)) {
+			phase = 'dragging';
+			dragStartPage = pagePoint;
+			dragAccumulatedDelta = { x: 0, y: 0 };
+			return;
+		}
+
 		const hitId = hitTestSingleStroke(e, ctx);
 		if (hitId && selected.has(hitId)) {
 			phase = 'dragging';
@@ -49,11 +116,9 @@ export function selectToolPointerDown(e: PointerEvent, ctx: SelectToolContext): 
 		}
 	}
 
-	// Otherwise, start a lasso selection
 	phase = 'lasso';
 	lassoPoints = [pagePoint];
 
-	// Clear previous selection unless Shift is held
 	if (!e.shiftKey) {
 		ctx.setSelectedStrokeIds(new Set());
 		ctx.onSelectionChange?.();
@@ -79,14 +144,60 @@ export function selectToolPointerMove(e: PointerEvent, ctx: SelectToolContext): 
 		const dx = pagePoint.x - dragStartPage.x;
 		const dy = pagePoint.y - dragStartPage.y;
 
-		// Move selection visuals imperatively
 		const delta = {
 			x: dx - dragAccumulatedDelta.x,
 			y: dy - dragAccumulatedDelta.y,
 		};
 		moveSelectionVisuals(ctx, delta.x, delta.y);
 		dragAccumulatedDelta = { x: dx, y: dy };
+		publishSelectionPreview(ctx);
 		return;
+	}
+
+	if (phase === 'resizing' || phase === 'rotating') {
+		const camera = ctx.getCamera();
+		const containerRect = ctx.getContainerRect();
+		const pagePoint = screenToPage(camera, containerRect, e.clientX, e.clientY);
+		if (!transformPivot || !transformStartPage) return;
+
+		if (phase === 'resizing') {
+			transformPreviewScale = scaleFactorFromPointerDistance(
+				transformPivot,
+				transformStartPage,
+				pagePoint,
+			);
+			transformPreviewRotationRad = 0;
+		} else {
+			transformPreviewRotationRad = rotationDeltaForDominantHand(
+				ctx.getDominantHand(),
+				transformPivot,
+				transformStartPage,
+				pagePoint,
+			);
+			transformPreviewScale = 1;
+		}
+		applyTransformPreviewToDom(ctx);
+		publishSelectionPreview(ctx);
+		return;
+	}
+}
+
+function publishSelectionPreview(ctx: SelectToolContext): void {
+	if (phase === 'dragging') {
+		ctx.setSelectionPreview({
+			...EMPTY_SELECTION_CHROME_PREVIEW,
+			translateX: dragAccumulatedDelta.x,
+			translateY: dragAccumulatedDelta.y,
+		});
+		return;
+	}
+	if (phase === 'resizing' || phase === 'rotating') {
+		ctx.setSelectionPreview({
+			scale: transformPreviewScale,
+			rotationRad: transformPreviewRotationRad,
+			translateX: 0,
+			translateY: 0,
+		});
 	}
 }
 
@@ -102,12 +213,23 @@ export function selectToolPointerUp(_e: PointerEvent, ctx: SelectToolContext): v
 		phase = 'idle';
 		return;
 	}
+
+	if (phase === 'resizing' || phase === 'rotating') {
+		finishTransform(ctx);
+		phase = 'idle';
+		return;
+	}
 }
 
 export function selectToolPointerCancel(_e: PointerEvent, ctx: SelectToolContext): void {
+	if (phase === 'dragging' || phase === 'resizing' || phase === 'rotating') {
+		revertSelectionVisuals(ctx);
+	}
 	phase = 'idle';
 	lassoPoints = [];
 	dragStartPage = null;
+	dragAccumulatedDelta = { x: 0, y: 0 };
+	resetTransformGestureState();
 	clearLassoVisual(ctx);
 }
 
@@ -116,13 +238,34 @@ export function isSelectToolActive(): boolean {
 }
 
 
+// Selection bounds
+///////////////////////////
+
+function getSelectedStrokes(ctx: SelectToolContext): InkStroke[] {
+	const ids = ctx.getSelectedStrokeIds();
+	const strokes: InkStroke[] = [];
+	for (const id of ids) {
+		const stroke = ctx.store.getById(id);
+		if (stroke) strokes.push(stroke);
+	}
+	return strokes;
+}
+
+export function getContextSelectionBounds(ctx: SelectToolContext): StrokeBounds | null {
+	const strokes = getSelectedStrokes(ctx);
+	const paddingPage = selectionBoundsPaddingPageUnits(ctx.getCamera().zoom);
+	const bounds = getSelectionBoundsForStrokes(strokes, paddingPage);
+	if (!bounds) return null;
+	const minSize = MIN_BOUNDS_PAGE_FOR_HANDLES / ctx.getCamera().zoom;
+	return expandBoundsToMinimumSize(bounds, minSize);
+}
+
+
 // Lasso helpers
 ///////////////////////////
 
 function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
 	if (lassoPoints.length < 3) {
-		// Too few points for a lasso — treat as a click / tap select.
-		// Use exact path hit testing so tapping empty space reliably deselects.
 		handleTapSelect(e, ctx);
 		clearLassoVisual(ctx);
 		lassoPoints = [];
@@ -133,8 +276,7 @@ function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
 	const selected = new Set(ctx.getSelectedStrokeIds());
 
 	for (const stroke of allStrokes) {
-		const isInside = isStrokeInsideLasso(stroke, lassoPoints);
-		if (isInside) selected.add(stroke.id);
+		if (strokeIntersectsLassoPolygon(stroke, lassoPoints)) selected.add(stroke.id);
 	}
 
 	ctx.setSelectedStrokeIds(selected);
@@ -167,51 +309,6 @@ function handleTapSelect(e: PointerEvent, ctx: SelectToolContext): void {
 	}
 }
 
-/**
- * Check if a stroke's bounding box center is inside a lasso polygon.
- * Uses a simple ray-casting point-in-polygon test.
- */
-function isStrokeInsideLasso(
-	stroke: { points: Array<[number, number, number]>; offset: { x: number; y: number } },
-	lasso: Array<{ x: number; y: number }>,
-): boolean {
-	if (stroke.points.length === 0) return false;
-
-	// Compute the bounding box center of the stroke
-	let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-	for (const pt of stroke.points) {
-		const px = pt[0] + stroke.offset.x;
-		const py = pt[1] + stroke.offset.y;
-		if (px < minX) minX = px;
-		if (py < minY) minY = py;
-		if (px > maxX) maxX = px;
-		if (py > maxY) maxY = py;
-	}
-	const cx = (minX + maxX) / 2;
-	const cy = (minY + maxY) / 2;
-
-	return isPointInPolygon(cx, cy, lasso);
-}
-
-/** Ray-casting point-in-polygon test. */
-function isPointInPolygon(
-	x: number,
-	y: number,
-	polygon: Array<{ x: number; y: number }>,
-): boolean {
-	let inside = false;
-	const n = polygon.length;
-	for (let i = 0, j = n - 1; i < n; j = i++) {
-		const xi = polygon[i].x, yi = polygon[i].y;
-		const xj = polygon[j].x, yj = polygon[j].y;
-
-		const intersect = ((yi > y) !== (yj > y))
-			&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-		if (intersect) inside = !inside;
-	}
-	return inside;
-}
-
 function updateLassoVisual(ctx: SelectToolContext): void {
 	const svg = ctx.getSvgElement();
 	if (!svg) return;
@@ -220,8 +317,8 @@ function updateLassoVisual(ctx: SelectToolContext): void {
 	if (!lassoEl) {
 		lassoEl = svg.createSvg('polygon');
 		lassoEl.classList.add('ink-canvas-lasso');
-		lassoEl.setAttribute('fill', 'rgba(0, 123, 255, 0.08)');
-		lassoEl.setAttribute('stroke', 'rgba(0, 123, 255, 0.5)');
+		lassoEl.setAttribute('fill', 'color-mix(in srgb, var(--interactive-accent) 14%, transparent)');
+		lassoEl.setAttribute('stroke', 'var(--interactive-accent)');
 		lassoEl.setAttribute('stroke-width', '1');
 		lassoEl.setAttribute('stroke-dasharray', '4 2');
 	}
@@ -246,12 +343,14 @@ function clearLassoVisual(ctx: SelectToolContext): void {
 
 function finishDrag(ctx: SelectToolContext): void {
 	if (dragAccumulatedDelta.x === 0 && dragAccumulatedDelta.y === 0) {
+		ctx.setSelectionPreview(null);
 		dragStartPage = null;
 		return;
 	}
 
 	const selected = ctx.getSelectedStrokeIds();
 	if (selected.size === 0) {
+		ctx.setSelectionPreview(null);
 		dragStartPage = null;
 		return;
 	}
@@ -265,11 +364,21 @@ function finishDrag(ctx: SelectToolContext): void {
 	);
 	ctx.undoManager.execute(command);
 
+	const chrome = ctx.getSelectionChrome();
+	if (chrome) {
+		ctx.setSelectionChrome(translateSelectionChrome(
+			chrome,
+			dragAccumulatedDelta.x,
+			dragAccumulatedDelta.y,
+		));
+	}
+
+	ctx.setSelectionPreview(null);
+	syncStrokeGroupTransformsFromStore(ctx, ids);
 	dragStartPage = null;
 	dragAccumulatedDelta = { x: 0, y: 0 };
 }
 
-/** Imperatively translate selected stroke group elements during drag. */
 function moveSelectionVisuals(ctx: SelectToolContext, dx: number, dy: number): void {
 	const svg = ctx.getSvgElement();
 	if (!svg) return;
@@ -286,6 +395,148 @@ function moveSelectionVisuals(ctx: SelectToolContext, dx: number, dy: number): v
 		group.setAttribute('transform', `translate(${newX}, ${newY})`);
 		group.setAttribute('data-offset-x', String(newX));
 		group.setAttribute('data-offset-y', String(newY));
+	}
+
+}
+
+
+// Transform (scale / rotate) helpers
+///////////////////////////
+
+function beginTransformGesture(
+	ctx: SelectToolContext,
+	nextPhase: 'resizing' | 'rotating',
+	pagePoint: { x: number; y: number },
+	pivot: { x: number; y: number },
+): void {
+	phase = nextPhase;
+	transformPivot = pivot;
+	transformStartPage = pagePoint;
+	transformPreviewScale = 1;
+	transformPreviewRotationRad = 0;
+	transformBaseOffsets = new Map();
+	ctx.setSelectionPreview({ ...EMPTY_SELECTION_CHROME_PREVIEW });
+	for (const id of ctx.getSelectedStrokeIds()) {
+		const stroke = ctx.store.getById(id);
+		if (!stroke) continue;
+		transformBaseOffsets.set(id, { ...stroke.offset });
+	}
+}
+
+function resetTransformGestureState(): void {
+	transformPivot = null;
+	transformStartPage = null;
+	transformPreviewScale = 1;
+	transformPreviewRotationRad = 0;
+	transformBaseOffsets = new Map();
+}
+
+function buildPivotTransformAttribute(
+	pivot: { x: number; y: number },
+	scale: number,
+	rotationRad: number,
+	offsetX: number,
+	offsetY: number,
+): string {
+	const rotateDeg = (rotationRad * 180) / Math.PI;
+	return [
+		`translate(${pivot.x}, ${pivot.y})`,
+		`rotate(${rotateDeg})`,
+		`scale(${scale})`,
+		`translate(${-pivot.x}, ${-pivot.y})`,
+		`translate(${offsetX}, ${offsetY})`,
+	].join(' ');
+}
+
+function applyTransformPreviewToDom(ctx: SelectToolContext): void {
+	const svg = ctx.getSvgElement();
+	if (!svg || !transformPivot) return;
+
+	const scale = transformPreviewScale;
+	const rotationRad = transformPreviewRotationRad;
+
+	for (const id of ctx.getSelectedStrokeIds()) {
+		const group = svg.querySelector<SVGGElement>(`[data-stroke-group][data-stroke-id="${id}"]`);
+		const baseOffset = transformBaseOffsets.get(id);
+		if (!group || !baseOffset) continue;
+		group.setAttribute(
+			'transform',
+			buildPivotTransformAttribute(
+				transformPivot,
+				scale,
+				rotationRad,
+				baseOffset.x,
+				baseOffset.y,
+			),
+		);
+	}
+
+}
+
+function finishTransform(ctx: SelectToolContext): void {
+	const selectedIds = Array.from(ctx.getSelectedStrokeIds());
+	const strokes = getSelectedStrokes(ctx);
+	const pivot = transformPivot;
+
+	const isNoOp = transformPreviewScale === 1 && transformPreviewRotationRad === 0;
+	if (!pivot || isNoOp || strokes.length === 0) {
+		ctx.setSelectionPreview(null);
+		revertSelectionVisuals(ctx);
+		return;
+	}
+
+	const nextStrokes = transformStrokesAroundPivot(
+		strokes,
+		pivot,
+		transformPreviewScale,
+		transformPreviewRotationRad,
+	);
+	const command = new TransformStrokesCommand(ctx.store, nextStrokes);
+	ctx.undoManager.execute(command);
+
+	const chrome = ctx.getSelectionChrome();
+	if (chrome) {
+		let nextChrome = chrome;
+		if (transformPreviewScale !== 1) {
+			nextChrome = applyScaleToSelectionChrome(nextChrome, transformPreviewScale);
+		}
+		if (transformPreviewRotationRad !== 0) {
+			nextChrome = applyRotationToSelectionChrome(nextChrome, transformPreviewRotationRad);
+		}
+		ctx.setSelectionChrome(nextChrome);
+	}
+
+	ctx.setSelectionPreview(null);
+	syncStrokeGroupTransformsFromStore(ctx, selectedIds);
+	resetTransformGestureState();
+}
+
+function revertSelectionVisuals(ctx: SelectToolContext): void {
+	const ids = Array.from(ctx.getSelectedStrokeIds());
+	ctx.setSelectionPreview(null);
+	syncStrokeGroupTransformsFromStore(ctx, ids);
+	resetTransformGestureState();
+	dragStartPage = null;
+	dragAccumulatedDelta = { x: 0, y: 0 };
+}
+
+function syncStrokeGroupTransformsFromStore(ctx: SelectToolContext, ids: string[]): void {
+	const svg = ctx.getSvgElement();
+	if (!svg) return;
+
+	for (const id of ids) {
+		const stroke = ctx.store.getById(id);
+		const group = svg.querySelector<SVGGElement>(`[data-stroke-group][data-stroke-id="${id}"]`);
+		if (!stroke || !group) continue;
+		const ox = stroke.offset.x;
+		const oy = stroke.offset.y;
+		group.setAttribute('data-offset-x', String(ox));
+		group.setAttribute('data-offset-y', String(oy));
+		if (ox !== 0 || oy !== 0) {
+			group.setAttribute('transform', `translate(${ox}, ${oy})`);
+		} else {
+			group.removeAttribute('transform');
+		}
 	}
 }
 

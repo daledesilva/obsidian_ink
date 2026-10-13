@@ -65,3 +65,4 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **Minimum bounds**: very small selections expand to a minimum page size so resize/rotate handles remain tappable.
 - **Selected stroke tint** mixes **60%** `--interactive-accent` into the stroke fill (`INK_SELECTED_STROKE_ACCENT_MIX_PERCENT` in `ink-svg-canvas.tsx`) plus a light saturation filter so membership stays obvious in writing and drawing without fully replacing ink colour.
 - **Drag vs toggle on a selected stroke** uses `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX` (6px): a press without that much movement toggles the stroke off; larger movement promotes to move the whole selection.
+- **High contrast user interface** recolours lasso and selection chrome to black/white (2px strokes); selected strokes keep the accent fill tint. See [High contrast user interface](high-contrast-user-interface.md).

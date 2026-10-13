@@ -33,6 +33,8 @@ flowchart TD
 
 Long-press on the selection chrome (not on empty canvas) opens a small context menu with **Delete**, which removes selected strokes through the existing delete path and clears selection.
 
+**Additive XOR:** Starting a new lasso or tap does not clear the existing selection. Strokes hit by a lasso toggle membership (selected → deselect, unselected → select). A short tap on a stroke toggles that stroke. Tap empty canvas to clear all. Dragging still starts from the selection frame interior, or from a selected stroke after moving the pointer a few screen pixels.
+
 ---
 
 ## Technical details
@@ -60,4 +62,4 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **CM embed remounts** are unrelated to selection state; unlock/edit-mode for embeds is still keyed by widget id only. Opening Obsidian Settings can force-rebuild Live Preview widgets and drop unlock state — that interaction was intentionally left unchanged after an abandoned mitigation attempt in this thread.
 - **Boox input lock** still applies: when the companion streams strokes, local select pointer input is suppressed like draw/erase.
 - **Minimum bounds**: very small selections expand to a minimum page size so resize/rotate handles remain tappable.
-- **Shift + lasso** adds to the current selection instead of replacing it.
+- **Selected stroke tint** uses `color-mix` with `--interactive-accent` so selection is visible in both writing and drawing without hiding ink colour.

@@ -1493,6 +1493,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 							<StrokePath
 								key={stroke.id}
 								stroke={stroke}
+								isSelected={selectedIds.has(stroke.id)}
 								pathDCache={strokePathDCacheRef.current}
 							/>
 						) : null
@@ -1528,12 +1529,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 interface StrokePathProps {
 	stroke: InkStroke;
+	isSelected: boolean;
 	/** Shared cache: path `d` depends on points/style only; offset is a transform. */
 	pathDCache: Map<string, string>;
 }
 
 function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): boolean {
 	if (prev.pathDCache !== next.pathDCache) return false;
+	if (prev.isSelected !== next.isSelected) return false;
 	const a = prev.stroke;
 	const b = next.stroke;
 	if (a === b) return true;
@@ -1545,8 +1548,13 @@ function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): 
 	return true;
 }
 
+function inkStrokeFillWithSelectionTint(inkColor: string, isSelected: boolean): string {
+	if (!isSelected) return inkColor;
+	return `color-mix(in srgb, var(--interactive-accent) 30%, ${inkColor})`;
+}
+
 const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {
-	const { stroke, pathDCache } = props;
+	const { stroke, isSelected, pathDCache } = props;
 	// All strokes render through perfect-freehand's `getStroke` directly — the same call the
 	// live preview makes (see `draw-tool.ts`), so committed strokes match what was drawn.
 	// Cached by stroke id: parent re-renders (viewportRevision, unrelated store updates after
@@ -1568,9 +1576,10 @@ const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.E
 			transform={hasOffset ? `translate(${stroke.offset.x}, ${stroke.offset.y})` : undefined}
 		>
 			<path
+				className={isSelected ? 'ink-stroke--selected' : undefined}
 				data-stroke-id={stroke.id}
 				d={d}
-				fill={stroke.style.color}
+				fill={inkStrokeFillWithSelectionTint(stroke.style.color, isSelected)}
 			/>
 		</g>
 	);

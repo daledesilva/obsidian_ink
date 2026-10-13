@@ -67,6 +67,11 @@ let transformPreviewScale = 1;
 let transformPreviewRotationRad = 0;
 let transformBaseOffsets = new Map<string, { x: number; y: number }>();
 
+/** Screen px before a press on a selected stroke becomes a move instead of toggle-off. */
+const SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX = 6;
+let strokeDragCandidateId: string | null = null;
+let strokeDragCandidateStartClient: { x: number; y: number } | null = null;
+
 const MIN_BOUNDS_PAGE_FOR_HANDLES = 24;
 
 
@@ -107,26 +112,45 @@ export function selectToolPointerDown(e: PointerEvent, ctx: SelectToolContext): 
 			return;
 		}
 
-		const hitId = hitTestSingleStroke(e, ctx);
-		if (hitId && selected.has(hitId)) {
-			phase = 'dragging';
-			dragStartPage = pagePoint;
-			dragAccumulatedDelta = { x: 0, y: 0 };
-			return;
-		}
 	}
 
 	phase = 'lasso';
 	lassoPoints = [pagePoint];
+	strokeDragCandidateId = null;
+	strokeDragCandidateStartClient = null;
 
-	if (!e.shiftKey) {
-		ctx.setSelectedStrokeIds(new Set());
-		ctx.onSelectionChange?.();
+	const hitId = hitTestSingleStroke(e, ctx);
+	if (hitId && selected.has(hitId)) {
+		// Short press toggles off; movement promotes to drag (see lasso pointermove).
+		strokeDragCandidateId = hitId;
+		strokeDragCandidateStartClient = { x: e.clientX, y: e.clientY };
 	}
 }
 
 export function selectToolPointerMove(e: PointerEvent, ctx: SelectToolContext): void {
 	if (phase === 'lasso') {
+		if (
+			strokeDragCandidateId
+			&& strokeDragCandidateStartClient
+			&& lassoPoints.length > 0
+		) {
+			const dx = e.clientX - strokeDragCandidateStartClient.x;
+			const dy = e.clientY - strokeDragCandidateStartClient.y;
+			if (Math.hypot(dx, dy) >= SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX) {
+				const camera = ctx.getCamera();
+				const containerRect = ctx.getContainerRect();
+				const pagePoint = screenToPage(camera, containerRect, e.clientX, e.clientY);
+				phase = 'dragging';
+				dragStartPage = pagePoint;
+				dragAccumulatedDelta = { x: 0, y: 0 };
+				strokeDragCandidateId = null;
+				strokeDragCandidateStartClient = null;
+				clearLassoVisual(ctx);
+				lassoPoints = [];
+				return;
+			}
+		}
+
 		const camera = ctx.getCamera();
 		const containerRect = ctx.getContainerRect();
 		const pagePoint = screenToPage(camera, containerRect, e.clientX, e.clientY);
@@ -229,6 +253,8 @@ export function selectToolPointerCancel(_e: PointerEvent, ctx: SelectToolContext
 	lassoPoints = [];
 	dragStartPage = null;
 	dragAccumulatedDelta = { x: 0, y: 0 };
+	strokeDragCandidateId = null;
+	strokeDragCandidateStartClient = null;
 	resetTransformGestureState();
 	clearLassoVisual(ctx);
 }
@@ -276,7 +302,9 @@ function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
 	const selected = new Set(ctx.getSelectedStrokeIds());
 
 	for (const stroke of allStrokes) {
-		if (strokeIntersectsLassoPolygon(stroke, lassoPoints)) selected.add(stroke.id);
+		if (!strokeIntersectsLassoPolygon(stroke, lassoPoints)) continue;
+		if (selected.has(stroke.id)) selected.delete(stroke.id);
+		else selected.add(stroke.id);
 	}
 
 	ctx.setSelectedStrokeIds(selected);
@@ -284,29 +312,34 @@ function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
 
 	clearLassoVisual(ctx);
 	lassoPoints = [];
+	strokeDragCandidateId = null;
+	strokeDragCandidateStartClient = null;
 }
 
 function handleTapSelect(e: PointerEvent, ctx: SelectToolContext): void {
-	const hitId = hitTestSingleStroke(e, ctx);
 	const next = new Set(ctx.getSelectedStrokeIds());
 
-	if (hitId) {
-		if (e.shiftKey) {
-			if (next.has(hitId)) next.delete(hitId);
-			else next.add(hitId);
-		} else {
-			next.clear();
-			next.add(hitId);
-		}
+	if (strokeDragCandidateId) {
+		next.delete(strokeDragCandidateId);
+		strokeDragCandidateId = null;
+		strokeDragCandidateStartClient = null;
 		ctx.setSelectedStrokeIds(next);
 		ctx.onSelectionChange?.();
 		return;
 	}
 
-	if (!e.shiftKey) {
-		ctx.setSelectedStrokeIds(new Set());
+	const hitId = hitTestSingleStroke(e, ctx);
+
+	if (hitId) {
+		if (next.has(hitId)) next.delete(hitId);
+		else next.add(hitId);
+		ctx.setSelectedStrokeIds(next);
 		ctx.onSelectionChange?.();
+		return;
 	}
+
+	ctx.setSelectedStrokeIds(new Set());
+	ctx.onSelectionChange?.();
 }
 
 function updateLassoVisual(ctx: SelectToolContext): void {

@@ -13,6 +13,11 @@
 	}
 }
 
+// Writing guides use currentColor (ink-writing-guide-lines.scss); match locked embed text colour.
+.ink-svg-canvas {
+	color: var(--text-normal);
+}
+
 // Select tool: accent tint is mostly in fill color-mix; saturation nudges hue toward feature colour.
 .ink-svg-canvas .ink-stroke--selected {
 	filter: saturate(1.35);

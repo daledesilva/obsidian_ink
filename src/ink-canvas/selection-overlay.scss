@@ -1,8 +1,18 @@
+// Fill sits in ink-canvas-selection-bounds-underlay (below strokes); stroke + handles stay on top.
+.ink-canvas-selection-bounds-underlay {
+	pointer-events: none;
+
+	.ink-canvas-selection-bounds-fill {
+		fill: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+		stroke: none;
+	}
+}
+
 .ink-canvas-selection-overlay {
 	pointer-events: none;
 
 	.ink-canvas-selection-bounds {
-		fill: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+		fill: none;
 		stroke: var(--interactive-accent);
 		stroke-width: 1;
 		vector-effect: non-scaling-stroke;

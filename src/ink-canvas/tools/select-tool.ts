@@ -68,9 +68,31 @@ let transformPreviewRotationRad = 0;
 let transformBaseOffsets = new Map<string, { x: number; y: number }>();
 
 /** Screen px before a press on a selected stroke becomes a move instead of toggle-off. */
-const SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX = 6;
+export const SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX = 6;
 let strokeDragCandidateId: string | null = null;
 let strokeDragCandidateStartClient: { x: number; y: number } | null = null;
+
+/** Lasso gesture tracking — Boox pens emit many pointermoves on tap; classify via displacement, not point count. */
+let lassoGestureStartClient: { x: number; y: number } | null = null;
+let lassoGestureStartPage: { x: number; y: number } | null = null;
+let lassoGestureMaxScreenDisplacement = 0;
+
+function resetLassoGestureTracking(): void {
+	lassoGestureStartClient = null;
+	lassoGestureStartPage = null;
+	lassoGestureMaxScreenDisplacement = 0;
+}
+
+function recordLassoGestureClientPosition(clientX: number, clientY: number): void {
+	if (!lassoGestureStartClient) return;
+	const displacement = Math.hypot(
+		clientX - lassoGestureStartClient.x,
+		clientY - lassoGestureStartClient.y,
+	);
+	if (displacement > lassoGestureMaxScreenDisplacement) {
+		lassoGestureMaxScreenDisplacement = displacement;
+	}
+}
 
 const MIN_BOUNDS_PAGE_FOR_HANDLES = 24;
 
@@ -116,6 +138,9 @@ export function selectToolPointerDown(e: PointerEvent, ctx: SelectToolContext): 
 
 	phase = 'lasso';
 	lassoPoints = [pagePoint];
+	lassoGestureStartClient = { x: e.clientX, y: e.clientY };
+	lassoGestureStartPage = pagePoint;
+	lassoGestureMaxScreenDisplacement = 0;
 	strokeDragCandidateId = null;
 	strokeDragCandidateStartClient = null;
 
@@ -147,9 +172,12 @@ export function selectToolPointerMove(e: PointerEvent, ctx: SelectToolContext): 
 				strokeDragCandidateStartClient = null;
 				clearLassoVisual(ctx);
 				lassoPoints = [];
+				resetLassoGestureTracking();
 				return;
 			}
 		}
+
+		recordLassoGestureClientPosition(e.clientX, e.clientY);
 
 		const camera = ctx.getCamera();
 		const containerRect = ctx.getContainerRect();
@@ -256,6 +284,7 @@ export function selectToolPointerCancel(_e: PointerEvent, ctx: SelectToolContext
 	strokeDragCandidateId = null;
 	strokeDragCandidateStartClient = null;
 	resetTransformGestureState();
+	resetLassoGestureTracking();
 	clearLassoVisual(ctx);
 }
 
@@ -291,10 +320,38 @@ export function getContextSelectionBounds(ctx: SelectToolContext): StrokeBounds 
 ///////////////////////////
 
 function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
+	// Shares SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX with stroke drag promotion — Boox tap vs lasso.
+	const isShortTapGesture =
+		lassoGestureMaxScreenDisplacement < SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX;
+
+	if (isShortTapGesture) {
+		const selected = ctx.getSelectedStrokeIds();
+		const chrome = ctx.getSelectionChrome();
+		const tapPagePoint = lassoGestureStartPage;
+		if (
+			selected.size > 0
+			&& chrome
+			&& tapPagePoint
+			&& !isPagePointInChrome(tapPagePoint, chrome)
+		) {
+			ctx.setSelectedStrokeIds(new Set());
+			ctx.onSelectionChange?.();
+		} else {
+			handleTapSelect(e, ctx);
+		}
+		clearLassoVisual(ctx);
+		lassoPoints = [];
+		strokeDragCandidateId = null;
+		strokeDragCandidateStartClient = null;
+		resetLassoGestureTracking();
+		return;
+	}
+
 	if (lassoPoints.length < 3) {
 		handleTapSelect(e, ctx);
 		clearLassoVisual(ctx);
 		lassoPoints = [];
+		resetLassoGestureTracking();
 		return;
 	}
 
@@ -315,6 +372,7 @@ function finishLasso(e: PointerEvent, ctx: SelectToolContext): void {
 	lassoPoints = [];
 	strokeDragCandidateId = null;
 	strokeDragCandidateStartClient = null;
+	resetLassoGestureTracking();
 }
 
 function handleTapSelect(e: PointerEvent, ctx: SelectToolContext): void {

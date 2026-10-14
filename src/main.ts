@@ -2,6 +2,7 @@ import './ddc-library/settings-styles.scss';
 // Global so dark-mode native Ink img invert applies before embed SCSS chunks load.
 import './components/shared/ink-svg-preview-theme.scss';
 import './styles/ink-workspace-chrome.scss';
+import './styles/ink-writing-guide-lines.scss';
 import './styles/ink-grayscale-screen-chrome.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';

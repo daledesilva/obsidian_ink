@@ -29,39 +29,84 @@ export interface SelectionOverlayProps {
 	writingMode: boolean;
 }
 
+/** Chrome visuals shared by the underlay fill and the on-top overlay. */
+export type SelectionChromeVisualProps = Omit<SelectionOverlayProps, 'overlayRef'>;
+
 const RESIZE_ICON_SCREEN_PX = 11;
 const ROTATE_ICON_SCREEN_PX = 12;
 /** Lucide redo/undo glyph orientation on the rotate handle (clockwise from default). */
 const ROTATE_ICON_EXTRA_DEG = 50;
 const HANDLE_ICON_VIEW_SIZE = 24;
 
-/** Selection bounding box and drawing-only transform handles (oriented page space). */
+interface SelectionChromeRectLayout {
+	transform: string;
+	halfW: number;
+	halfH: number;
+	width: number;
+	height: number;
+	cornerRadiusPage: number;
+}
+
+function getSelectionChromeRectLayout(props: SelectionChromeVisualProps): SelectionChromeRectLayout {
+	const effectiveChrome = getEffectiveChrome(props.chrome, props.preview);
+	const cornerRadiusPage = SELECTION_BOUNDS_CORNER_RADIUS_SCREEN_PX / props.cameraZoom;
+	const halfW = effectiveChrome.width / 2;
+	const halfH = effectiveChrome.height / 2;
+	const rotateDeg = (effectiveChrome.rotationRad * 180) / Math.PI;
+	const cx = effectiveChrome.center.x;
+	const cy = effectiveChrome.center.y;
+	return {
+		transform: `translate(${cx}, ${cy}) rotate(${rotateDeg})`,
+		halfW,
+		halfH,
+		width: effectiveChrome.width,
+		height: effectiveChrome.height,
+		cornerRadiusPage,
+	};
+}
+
+/** Semi-transparent selection fill drawn under committed strokes so ink outlines stay visible. */
+export const SelectionBoundsFillUnderlay: React.FC<SelectionChromeVisualProps> = (props) => {
+	const layout = getSelectionChromeRectLayout(props);
+	return (
+		<g className="ink-canvas-selection-bounds-underlay" pointerEvents="none">
+			<g transform={layout.transform}>
+				<rect
+					className="ink-canvas-selection-bounds-fill"
+					x={-layout.halfW}
+					y={-layout.halfH}
+					width={layout.width}
+					height={layout.height}
+					rx={layout.cornerRadiusPage}
+					ry={layout.cornerRadiusPage}
+				/>
+			</g>
+		</g>
+	);
+};
+
+/** Selection bounding box stroke and drawing-only transform handles (oriented page space). */
 export const SelectionOverlay: React.FC<SelectionOverlayProps> = (props) => {
 	const effectiveChrome = getEffectiveChrome(props.chrome, props.preview);
 	const zoom = props.cameraZoom;
-	const cornerRadiusPage = SELECTION_BOUNDS_CORNER_RADIUS_SCREEN_PX / zoom;
+	const layout = getSelectionChromeRectLayout(props);
 	const handleRadiusPage = SELECTION_HANDLE_HIT_RADIUS_SCREEN_PX / zoom;
 	const resizeIconSizePage = RESIZE_ICON_SCREEN_PX / zoom;
 	const rotateIconSizePage = ROTATE_ICON_SCREEN_PX / zoom;
-	const rotateDeg = (effectiveChrome.rotationRad * 180) / Math.PI;
 	const handlesLocal = getChromeHandlePositionsLocal(effectiveChrome, props.dominantHand);
 	const shouldFlipHandleIcons = props.dominantHand === 'left';
-	const halfW = effectiveChrome.width / 2;
-	const halfH = effectiveChrome.height / 2;
-	const cx = effectiveChrome.center.x;
-	const cy = effectiveChrome.center.y;
 
 	return (
 		<g ref={props.overlayRef} className="ink-canvas-selection-overlay">
-			<g transform={`translate(${cx}, ${cy}) rotate(${rotateDeg})`}>
+			<g transform={layout.transform}>
 				<rect
 					className="ink-canvas-selection-bounds"
-					x={-halfW}
-					y={-halfH}
-					width={effectiveChrome.width}
-					height={effectiveChrome.height}
-					rx={cornerRadiusPage}
-					ry={cornerRadiusPage}
+					x={-layout.halfW}
+					y={-layout.halfH}
+					width={layout.width}
+					height={layout.height}
+					rx={layout.cornerRadiusPage}
+					ry={layout.cornerRadiusPage}
 				/>
 				{!props.writingMode && (
 					<>

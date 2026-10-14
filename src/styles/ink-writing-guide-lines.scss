@@ -1,0 +1,12 @@
+// Horizontal writing guides — same in normal and high-contrast, all themes.
+// `.ddc_ink_writing-editor line` (legacy tldraw) is scoped to `.tl-container`; live ink-svg-canvas
+// lines need the extra selector so they beat any other editor `line` rules.
+.ink-writing-guide-line,
+.ddc_ink_writing-editor .ink-writing-guide-line,
+.ddc_ink_writing-embed-preview line,
+.ink-type-writing-line {
+	stroke: currentColor;
+	stroke-opacity: 0.3;
+	stroke-width: 1px;
+	vector-effect: non-scaling-stroke;
+}

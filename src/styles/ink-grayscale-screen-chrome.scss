@@ -12,6 +12,9 @@ body.theme-dark.ddc_ink_style-for-grayscale-screen {
 		grayscaleControls.$ink-grayscale-screen-fill-on-dark-theme,
 		grayscaleControls.$ink-grayscale-screen-canvas-on-dark-theme
 	);
+	@include grayscaleControls.ink-grayscale-screen-selected-stroke-outline(
+		grayscaleControls.$ink-grayscale-screen-canvas-on-dark-theme
+	);
 }
 
 body.theme-light.ddc_ink_style-for-grayscale-screen {
@@ -19,6 +22,9 @@ body.theme-light.ddc_ink_style-for-grayscale-screen {
 	@include grayscaleControls.ink-grayscale-screen-selected-tools-light-theme;
 	@include grayscaleControls.ink-grayscale-screen-selection-chrome(
 		grayscaleControls.$ink-grayscale-screen-fill-on-light-theme,
+		grayscaleControls.$ink-grayscale-screen-canvas-on-light-theme
+	);
+	@include grayscaleControls.ink-grayscale-screen-selected-stroke-outline(
 		grayscaleControls.$ink-grayscale-screen-canvas-on-light-theme
 	);
 }
@@ -54,17 +60,6 @@ body.ddc_ink_style-for-grayscale-screen {
 			border: 2px solid var(--text-normal);
 			background-color: var(--background-primary);
 		}
-	}
-
-	// Locked preview lines and live editor guides share one recipe: 2 CSS-px
-	// --text-normal strokes (same as 2/camera.zoom in ink-svg-canvas).
-	.ink-writing-guide-line,
-	.ddc_ink_writing-embed-preview line,
-	.ink-type-writing-line {
-		stroke: var(--text-normal) !important;
-		stroke-opacity: 1 !important;
-		stroke-width: 2px !important;
-		vector-effect: non-scaling-stroke;
 	}
 
 	// Drawing preview

@@ -40,8 +40,8 @@
     background-color: var(--color-base-05);
 
     // TODO: Should be placed in a separate file for writing-file-styles
-    // Writing lines
-    line {
+    // Writing lines (tldraw shape only)
+    .tl-container line {
         stroke: var(--color-base-50);
         stroke-width: 2px;
     }

@@ -24,7 +24,7 @@ import {
 	selectToolPointerCancel,
 	getContextSelectionBounds,
 } from './tools/select-tool';
-import { SelectionOverlay } from './selection-overlay';
+import { SelectionBoundsFillUnderlay, SelectionOverlay } from './selection-overlay';
 import {
 	selectionChromeFromBounds,
 	type SelectionChrome,
@@ -684,6 +684,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const selectionLongPressTimerRef = useRef<number | null>(null);
 	const selectionLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
 	const selectionLongPressHandledRef = useRef(false);
+	/** Single-finger touch on select when finger drawing is off (tap/lasso/deselect). */
+	const isTouchSelectGestureRef = useRef(false);
 
 	const deleteSelectedStrokes = useCallback(() => {
 		const ids = Array.from(selectedIdsRef.current);
@@ -876,6 +878,18 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 					showSelectionContextMenuAt(e.clientX, e.clientY);
 				}, SELECTION_CONTEXT_MENU_LONG_PRESS_MS);
 				(e.target as HTMLElement).setPointerCapture(e.pointerId);
+				return;
+			}
+			if (toolRef.current === 'select') {
+				isTouchSelectGestureRef.current = true;
+				onInteractionChangeRef.current?.(true);
+				recordCanvasPointer(e);
+				isPointerOverCanvasRef.current = true;
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerDown(e.nativeEvent, selectCtx);
+				}
+				(e.target as HTMLElement).setPointerCapture(e.pointerId);
+				return;
 			}
 			return;
 		}
@@ -983,6 +997,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerMove = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (isTouchSelectGestureRef.current) {
+				recordCanvasPointer(e);
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerMove(e.nativeEvent, selectCtx);
+				}
+				return;
+			}
 			if (selectionLongPressStartRef.current && selectionLongPressTimerRef.current) {
 				const dx = e.clientX - selectionLongPressStartRef.current.x;
 				const dy = e.clientY - selectionLongPressStartRef.current.y;
@@ -1048,6 +1069,15 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (isTouchSelectGestureRef.current) {
+				isTouchSelectGestureRef.current = false;
+				onInteractionChangeRef.current?.(false);
+				recordCanvasPointer(e);
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerUp(e.nativeEvent, selectCtx);
+				}
+				return;
+			}
 			clearSelectionLongPressTimer();
 			if (selectionLongPressHandledRef.current) {
 				e.preventDefault();
@@ -1098,6 +1128,15 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (isTouchSelectGestureRef.current) {
+				isTouchSelectGestureRef.current = false;
+				onInteractionChangeRef.current?.(false);
+				recordCanvasPointer(e);
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerCancel(e.nativeEvent, selectCtx);
+				}
+				return;
+			}
 			clearSelectionLongPressTimer();
 			selectionLongPressHandledRef.current = false;
 			return;
@@ -1455,9 +1494,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						const pw = pageWidth;
 						const margin = pw * 0.05;
 						const lineCount = Math.floor(pageHeightState / lh);
-						// High-contrast CSS also sets 2px + vector-effect so locked previews match;
-						// 2/camera.zoom keeps the live attribute equivalent before that CSS applies.
-						const guideLineStrokeWidth = (isHighContrastUserInterface ? 2 : 1) / camera.zoom;
 						// Only emit guide indices overlapping the visible page rect — avoid
 						// Array.from(full page) + null cull on tall documents during scroll.
 						if (visiblePageRect === null) return null;
@@ -1468,6 +1504,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 							endIndex = Math.min(lineCount, Math.ceil(visiblePageRect.maxY / lh));
 						}
 						if (endIndex < startIndex) return null;
+						// Guide appearance: ink-writing-guide-lines.scss (+ vectorEffect); avoid inline stroke so live matches locked embeds.
 						const lines: React.JSX.Element[] = [];
 						for (let i = startIndex; i <= endIndex; i++) {
 							const lineY = i * lh;
@@ -1475,18 +1512,26 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 								<line
 									key={i}
 									className="ink-writing-guide-line"
+									vectorEffect="non-scaling-stroke"
 									x1={margin}
 									y1={lineY}
 									x2={pw - margin}
 									y2={lineY}
-									stroke={isHighContrastUserInterface ? 'var(--text-normal)' : 'currentColor'}
-									strokeOpacity={isHighContrastUserInterface ? 1 : 0.5}
-									strokeWidth={guideLineStrokeWidth}
 								/>,
 							);
 						}
 						return lines;
 					})()}
+					{tool === 'select' && selectionChrome && (
+						<SelectionBoundsFillUnderlay
+							chrome={selectionChrome}
+							preview={selectionPreview}
+							cameraZoom={camera.zoom}
+							dominantHand={dominantHand}
+							writingMode={writingMode}
+						/>
+					)}
+
 					{/* Committed strokes — store keeps all; only visible (or selected) mount as SVG */}
 					{strokes.map(stroke => (
 						isStrokeVisibleInViewport(stroke) ? (

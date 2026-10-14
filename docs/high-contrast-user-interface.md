@@ -72,13 +72,15 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 | Control mixins / tokens | `src/styles/_style-for-grayscale-screen-controls.scss` |
 | Boox-only layout | `ink-boox-eink-chrome.scss` — embed `border-radius` / `overflow` on `.ddc_ink_resize-container--boox` only |
 
-**Canvas (dark / light):** editor `.ink-svg-canvas-container` is jet black (`#000000`) in dark theme and white (`#ffffff`) in light theme. Locked preview lines and live writing guides both use 2 CSS-px `--text-normal` strokes (`vector-effect: non-scaling-stroke` plus `2 / camera.zoom` while unlocked) so lock/unlock does not change apparent line weight.
+**Canvas (dark / light):** editor `.ink-svg-canvas-container` is jet black (`#000000`) in dark theme and white (`#ffffff`) in light theme. Locked preview lines and live writing guides use the same styling as normal mode (**1 CSS-px**, `currentColor`, **30% opacity**; see [Ink writing guide lines](ink-writing-guide-lines.md)) — high contrast does not recolour them.
+
+**Selected strokes (HC):** `.ink-stroke--selected` paths get a **4 CSS-px** outline via `ink-grayscale-screen-selected-stroke-outline` — **black** on `body.theme-dark`, **white** on `body.theme-light` (`paint-order: stroke fill`). Accent `color-mix` fill and saturation from normal mode still apply underneath.
 
 **Notices (dark):** black panel, white text, white primary buttons with black label. **Light:** white panel, black text, black primary buttons with white label. Inversion keys off `button.ddc_ink_primary-btn` (and `button.ddc_ink_almostuseful-link-account-btn`) inside `.ddc_ink_notice`. Link account must go through `applyAlmostUsefulLinkAccountButtonChrome`, which adds `ddc_ink_primary-btn`, or the notice CTA keeps Obsidian accent colours. Those inverted colours use `!important` so `.mod-cta` cannot win. Quote chips recolour fill and outline; they do not grow. Tertiary text links (`ddc_ink_tertiary-text-link`) recolour with the notice text and dim slightly on hover.
 
 **Grid:** `INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE` keeps dots visible further when zooming out (same numeric scale as the old Boox-named constant).
 
-**Select tool chrome:** When high contrast is on, lasso polygon, selection bounding box, and resize/rotate handle dots use pure **white** (dark theme) or **black** (light theme) at **2 CSS-px** stroke width (`vector-effect: non-scaling-stroke`), not `--interactive-accent`. The mixin `ink-grayscale-screen-selection-chrome` in `_style-for-grayscale-screen-controls.scss` overrides both `selection-overlay.scss` and the lasso’s inline SVG attributes from `select-tool.ts`. Handle icon glyphs use the canvas colour on the dot ring so each handle reads as a solid black-on-white or white-on-black control. **Selected stroke fill** still uses the normal accent tint — only the frame and lasso swap to black/white.
+**Select tool chrome:** When high contrast is on, lasso polygon, selection bounding box, and resize/rotate handle dots use pure **white** (dark theme) or **black** (light theme) at **2 CSS-px** stroke width (`vector-effect: non-scaling-stroke`), not `--interactive-accent`. The mixin `ink-grayscale-screen-selection-chrome` in `_style-for-grayscale-screen-controls.scss` overrides both `selection-overlay.scss` and the lasso’s inline SVG attributes from `select-tool.ts`. Handle icon glyphs use the canvas colour on the dot ring so each handle reads as a solid black-on-white or white-on-black control.
 
 ## Technical Gotchas
 
@@ -99,3 +101,4 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 - [Boox companion app integration](boox-companion-integration.md) — companion connection and embed layout, independent of this toggle
 - [Version and welcome notices](version-and-welcome-notices.md) — Ink notice structure that high-contrast recolours
 - [Ink canvas: stroke selection and transform](ink-canvas-selection.md) — lasso, bounds, and selected-stroke tint (accent in normal mode; black/white chrome in high contrast)
+- [Ink writing guide lines](ink-writing-guide-lines.md) — shared 1px / 30% guides (unchanged in high contrast)

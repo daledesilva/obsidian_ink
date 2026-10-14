@@ -33,7 +33,9 @@ flowchart TD
 
 Long-press on the selection chrome (not on empty canvas) opens a small context menu with **Delete**, which removes selected strokes through the existing delete path and clears selection.
 
-**Additive XOR:** Starting a new lasso or tap does not clear the existing selection. Strokes hit by a lasso toggle membership (selected → deselect, unselected → select). A short tap on a stroke toggles that stroke. Tap empty canvas to clear all. Dragging still starts from the selection frame interior, or from a selected stroke after moving the pointer a few screen pixels.
+**Additive XOR:** Starting a new lasso or tap does not clear the existing selection. Strokes hit by a **long** lasso toggle membership (selected → deselect, unselected → select). A short tap on a stroke toggles that stroke. **Short tap outside the selection chrome** (press start outside the oriented bounding box, movement under `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX`) clears the whole selection — even when the pen emits many pointermove samples (Boox). Dragging still starts from the selection frame interior, or from a selected stroke after moving the pointer a few screen pixels.
+
+**Finger + select:** When finger drawing is off, single-finger touch on the canvas still runs the select tool (tap/lasso/deselect). Long-press on the selection chrome alone opens the delete menu.
 
 ---
 
@@ -45,7 +47,7 @@ Long-press on the selection chrome (not on empty canvas) opens a small context m
 | `selection-bounds.ts` | Axis-aligned bounds from strokes, padding, minimum size for handles. |
 | `selection-chrome.ts` | Oriented frame, handle positions, hit tests, preview application. |
 | `selection-transform.ts` | Scale/rotate about pivot; `rotationDeltaForDominantHand` for left hand. |
-| `selection-overlay.tsx` | SVG chrome, Lucide-style resize diagonal and rotate (redo/undo) icons. |
+| `selection-overlay.tsx` | SVG chrome: bounds **fill underlay** (below strokes), then bounds **stroke** + handles above ink. |
 | `utils/lasso-stroke-selection.ts` | Stroke ∩ lasso polygon (segment sampling). |
 | `selection-context-menu.ts` | Long-press thresholds and “point on chrome” helper for menu routing. |
 | `commands.ts` | `MoveStrokesCommand`, `TransformStrokesCommand` (undo/redo via `StrokeStore`). |
@@ -65,4 +67,5 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **Minimum bounds**: very small selections expand to a minimum page size so resize/rotate handles remain tappable.
 - **Selected stroke tint** mixes **60%** `--interactive-accent` into the stroke fill (`INK_SELECTED_STROKE_ACCENT_MIX_PERCENT` in `ink-svg-canvas.tsx`) plus a light saturation filter so membership stays obvious in writing and drawing without fully replacing ink colour.
 - **Drag vs toggle on a selected stroke** uses `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX` (6px): a press without that much movement toggles the stroke off; larger movement promotes to move the whole selection.
-- **High contrast user interface** recolours lasso and selection chrome to black/white (2px strokes); selected strokes keep the accent fill tint. See [High contrast user interface](high-contrast-user-interface.md).
+- **High contrast user interface** recolours lasso and selection chrome to black/white (2px strokes) and adds a **4px** selected-stroke outline (black on dark theme, white on light theme); writing guides stay 1px `currentColor` at 30% opacity. See [High contrast user interface](high-contrast-user-interface.md) and [Ink writing guide lines](ink-writing-guide-lines.md).
+- **Tap vs lasso** is classified by **screen displacement**, not lasso point count — micro-jitter on e-ink must not turn a tap into an XOR lasso.

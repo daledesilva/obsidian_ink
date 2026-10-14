@@ -133,6 +133,16 @@ $ink-grayscale-screen-canvas-on-light-theme: #ffffff;
 	}
 }
 
+// Writing guides: base sheet uses 30% opacity; HC raises to 50% for e-ink readability.
+@mixin ink-grayscale-screen-writing-guide-lines {
+	.ink-writing-guide-line,
+	.ddc_ink_writing-editor .ink-writing-guide-line,
+	.ddc_ink_writing-embed-preview line,
+	.ink-type-writing-line {
+		stroke-opacity: 0.5;
+	}
+}
+
 // Selected ink only — 4px halo (horizontal guides: ink-writing-guide-lines.scss).
 @mixin ink-grayscale-screen-selected-stroke-outline($outline-color) {
 	.ink-svg-canvas .ink-stroke--selected {

@@ -1,4 +1,4 @@
-// Horizontal writing guides — same in normal and high-contrast, all themes.
+// Horizontal writing guides — 30% opacity by default; high contrast overrides to 50% in ink-grayscale-screen-chrome.scss.
 // `.ddc_ink_writing-editor line` (legacy tldraw) is scoped to `.tl-container`; live ink-svg-canvas
 // lines need the extra selector so they beat any other editor `line` rules.
 .ink-writing-guide-line,

@@ -23,6 +23,7 @@ import {
 	selectToolPointerUp,
 	selectToolPointerCancel,
 	getContextSelectionBounds,
+	isSelectToolActive,
 } from './tools/select-tool';
 import { SelectionBoundsFillUnderlay, SelectionOverlay } from './selection-overlay';
 import {
@@ -236,7 +237,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
 	const toolChangeListenersRef = useRef(new Set<(t: InkTool) => void>());
+	const selectCtxRef = useRef<SelectToolContext | null>(null);
+	const onLeaveSelectToolRef = useRef<() => void>(() => {});
 	const applyToolChange = useCallback((nextTool: InkTool) => {
+		// Keep selectedIds but hide chrome/tint on pen/eraser; cancel in-flight lasso/drag DOM previews.
+		if (toolRef.current === 'select' && nextTool !== 'select') {
+			onLeaveSelectToolRef.current();
+		}
 		setTool(nextTool);
 		toolChangeListenersRef.current.forEach((listener) => listener(nextTool));
 	}, []);
@@ -674,6 +681,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		getDominantHand: () => dominantHandRef.current,
 	};
 
+	selectCtxRef.current = selectCtx;
+	onLeaveSelectToolRef.current = () => {
+		if (isSelectToolActive()) {
+			selectToolPointerCancel({} as PointerEvent, selectCtx);
+		}
+		setSelectionPreview(null);
+	};
 
 	// Pointer event handlers
 	///////////////////////////
@@ -1387,6 +1401,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const cameraTransform = `scale(${camera.zoom}) translate(${camera.x}, ${camera.y})`;
 
+	// Chrome + stroke tint only on select tool; selectedIds persist for writing and drawing editors.
+	const showSelectionVisuals = tool === 'select';
+
 	// Render-only visibility: skip mounting StrokePath for fully off-screen strokes.
 	// void viewportRevision — dependency so scroll bumps re-evaluate without store changes.
 	void viewportRevision;
@@ -1538,7 +1555,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 							<StrokePath
 								key={stroke.id}
 								stroke={stroke}
-								isSelected={selectedIds.has(stroke.id)}
+								isSelected={showSelectionVisuals && selectedIds.has(stroke.id)}
 								pathDCache={strokePathDCacheRef.current}
 							/>
 						) : null

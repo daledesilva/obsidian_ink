@@ -2,21 +2,21 @@
 
 ## Why it exists
 
-Horizontal guides help line up handwriting in writing mode. They must look the same when you are editing, when the embed is locked in a note, and when high contrast is on — without changing saved pen ink colours.
+Horizontal guides help line up handwriting in writing mode. They must match between live editing and locked embeds, without changing saved pen ink colours. High contrast only raises guide **opacity** (not width or stroke colour).
 
 ## Conceptual understanding
 
 Guide lines are **not** pen strokes. They are thin horizontal rules only in writing mode (and in exported writing SVGs). Ink applies one shared CSS recipe everywhere the app paints them:
 
-| Property | Value |
-|----------|--------|
-| Colour | `currentColor` (inherits theme text on the SVG host) |
-| Opacity | **30%** (`stroke-opacity: 0.3`) |
-| Width | **1 CSS pixel** (`stroke-width: 1px`, `vector-effect: non-scaling-stroke`) |
+| Property | Normal mode | High contrast UI (`ddc_ink_style-for-grayscale-screen`) |
+|----------|-------------|--------------------------------------------------------|
+| Colour | `currentColor` (theme text on the SVG host) | Same |
+| Opacity | **30%** (`stroke-opacity: 0.3`) | **50%** (`ink-grayscale-screen-writing-guide-lines` mixin) |
+| Width | **1 CSS pixel** (`vector-effect: non-scaling-stroke`) | Same |
 
 High contrast does **not** recolour or thicken guides. Selected-stroke halos and selection chrome are separate (see [High contrast user interface](high-contrast-user-interface.md) and [Ink canvas: stroke selection and transform](ink-canvas-selection.md)).
 
-Saved files still bake `#888888` at `stroke-opacity="0.3"` on each `<line>` for print and out-of-Obsidian fallback. In Obsidian, `ink-writing-guide-lines.scss` overrides stroke to `currentColor` at 30% opacity.
+Saved files still bake `#888888` at `stroke-opacity="0.3"` on each `<line>` for print and out-of-Obsidian fallback. In Obsidian, `ink-writing-guide-lines.scss` overrides stroke to `currentColor` at 30% opacity; high contrast raises display opacity to 50% via CSS only.
 
 ```mermaid
 flowchart LR
@@ -45,8 +45,9 @@ Live canvas sets `color: var(--text-normal)` on `.ink-svg-canvas` so `currentCol
 
 1. **Legacy tldraw editor SCSS** — `.ddc_ink_writing-editor line` used to style **all** `<line>` elements at 2px and `--color-base-50`, which overrode live ink-svg-canvas guides. That rule is scoped to `.tl-container line` only; ink-svg-canvas uses `.ddc_ink_writing-editor .ink-writing-guide-line` in the shared stylesheet so specificity wins.
 2. **Tap vs lasso on e-ink** — Unrelated to colour, but guide lines share the same canvas as selection; do not thicken guides for “visibility” when high contrast already handles selection chrome separately.
-3. **Old vault files** — SVGs saved before 0.3 opacity may still carry `stroke-opacity="0.5"` in markup; CSS in Obsidian still forces **0.3** for `.ink-type-writing-line`.
-4. **Pen stroke theming** — Guide rules target `line` and guide classes only. Pen paths use `ink-svg-preview-theme.scss` and stroke classes; see [Ink colours and theming](ink-colours-and-theming.md).
+3. **Old vault files** — Baked markup may use older `stroke-opacity` values; Obsidian applies **0.3** from the base sheet and **0.5** when `ddc_ink_style-for-grayscale-screen` is on.
+4. **Dormant selection on other tools** — Pen/eraser hide selection tint and chrome while `selectedIds` persist; see [Ink canvas: stroke selection and transform](ink-canvas-selection.md).
+5. **Pen stroke theming** — Guide rules target `line` and guide classes only. Pen paths use `ink-svg-preview-theme.scss` and stroke classes; see [Ink colours and theming](ink-colours-and-theming.md).
 
 ## See also
 

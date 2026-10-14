@@ -30,6 +30,7 @@ body.theme-light.ddc_ink_style-for-grayscale-screen {
 }
 
 body.ddc_ink_style-for-grayscale-screen {
+	@include grayscaleControls.ink-grayscale-screen-writing-guide-lines;
 
 	// Drop shadows only — does not change border/padding, so layout stays put.
 	.notice:has(.ddc_ink_notice),

@@ -37,6 +37,8 @@ Long-press on the selection chrome (not on empty canvas) opens a small context m
 
 **Finger + select:** When finger drawing is off, single-finger touch on the canvas still runs the select tool (tap/lasso/deselect). Long-press on the selection chrome alone opens the delete menu.
 
+**Tool switching (writing + drawing):** `selectedIds` and `selectionChrome` stay in memory when you switch to pen or eraser. Bounds, handles, lasso, and stroke highlight (accent tint / high-contrast halo) show **only** while the select tool is active — same behaviour in both ink-canvas writing and drawing editors (`InkSvgCanvas` + `InkCanvasDrawingMenu`). Returning to the arrow restores the previous pick without re-lassoing.
+
 ---
 
 ## Technical details
@@ -65,7 +67,7 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **CM embed remounts** are unrelated to selection state; unlock/edit-mode for embeds is still keyed by widget id only. Opening Obsidian Settings can force-rebuild Live Preview widgets and drop unlock state — that interaction was intentionally left unchanged after an abandoned mitigation attempt in this thread.
 - **Boox input lock** still applies: when the companion streams strokes, local select pointer input is suppressed like draw/erase.
 - **Minimum bounds**: very small selections expand to a minimum page size so resize/rotate handles remain tappable.
-- **Selected stroke tint** mixes **60%** `--interactive-accent` into the stroke fill (`INK_SELECTED_STROKE_ACCENT_MIX_PERCENT` in `ink-svg-canvas.tsx`) plus a light saturation filter so membership stays obvious in writing and drawing without fully replacing ink colour.
+- **Selected stroke tint** mixes **60%** `--interactive-accent` into the stroke fill (`INK_SELECTED_STROKE_ACCENT_MIX_PERCENT` in `ink-svg-canvas.tsx`) plus a light saturation filter — only when the select tool is active (`showSelectionVisuals` in `ink-svg-canvas.tsx`).
 - **Drag vs toggle on a selected stroke** uses `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX` (6px): a press without that much movement toggles the stroke off; larger movement promotes to move the whole selection.
-- **High contrast user interface** recolours lasso and selection chrome to black/white (2px strokes) and adds a **4px** selected-stroke outline (black on dark theme, white on light theme); writing guides stay 1px `currentColor` at 30% opacity. See [High contrast user interface](high-contrast-user-interface.md) and [Ink writing guide lines](ink-writing-guide-lines.md).
+- **High contrast user interface** recolours lasso and selection chrome to black/white (2px strokes) and adds a **4px** selected-stroke outline (black on dark theme, white on light theme) while the select tool is active; writing guides use 50% opacity in HC vs 30% in normal mode. See [High contrast user interface](high-contrast-user-interface.md) and [Ink writing guide lines](ink-writing-guide-lines.md).
 - **Tap vs lasso** is classified by **screen displacement**, not lasso point count — micro-jitter on e-ink must not turn a tap into an XOR lasso.

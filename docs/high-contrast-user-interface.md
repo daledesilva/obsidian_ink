@@ -72,7 +72,7 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 | Control mixins / tokens | `src/styles/_style-for-grayscale-screen-controls.scss` |
 | Boox-only layout | `ink-boox-eink-chrome.scss` — embed `border-radius` / `overflow` on `.ddc_ink_resize-container--boox` only |
 
-**Canvas (dark / light):** editor `.ink-svg-canvas-container` is jet black (`#000000`) in dark theme and white (`#ffffff`) in light theme. Locked preview lines and live writing guides use the same styling as normal mode (**1 CSS-px**, `currentColor`, **30% opacity**; see [Ink writing guide lines](ink-writing-guide-lines.md)) — high contrast does not recolour them.
+**Canvas (dark / light):** editor `.ink-svg-canvas-container` is jet black (`#000000`) in dark theme and white (`#ffffff`) in light theme. Writing guides stay **1 CSS-px** `currentColor` but use **50% opacity** in high contrast (vs **30%** when the toggle is off); see [Ink writing guide lines](ink-writing-guide-lines.md). High contrast does not recolour guide stroke colour.
 
 **Selected strokes (HC):** `.ink-stroke--selected` paths get a **4 CSS-px** outline via `ink-grayscale-screen-selected-stroke-outline` — **black** on `body.theme-dark`, **white** on `body.theme-light` (`paint-order: stroke fill`). Accent `color-mix` fill and saturation from normal mode still apply underneath.
 
@@ -101,4 +101,4 @@ If the blob has no `highContrastUserInterface` (and no legacy `highContrastStyli
 - [Boox companion app integration](boox-companion-integration.md) — companion connection and embed layout, independent of this toggle
 - [Version and welcome notices](version-and-welcome-notices.md) — Ink notice structure that high-contrast recolours
 - [Ink canvas: stroke selection and transform](ink-canvas-selection.md) — lasso, bounds, and selected-stroke tint (accent in normal mode; black/white chrome in high contrast)
-- [Ink writing guide lines](ink-writing-guide-lines.md) — shared 1px / 30% guides (unchanged in high contrast)
+- [Ink writing guide lines](ink-writing-guide-lines.md) — 1px guides; 50% opacity in high contrast, 30% otherwise

@@ -38,13 +38,15 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6.1`);
 
-    scrollAreaEl.createEl('h2').setText('Handwriting transcriptions (OCR)');
-    const inviteOnlyParagraphEl = scrollAreaEl.createEl('p');
-    inviteOnlyParagraphEl.appendText('This requires an ');
-    inviteOnlyParagraphEl.createEl('strong').setText('Almost Useful');
-    inviteOnlyParagraphEl.appendText(' account for processing and is currently invite only.');
+    const changesListEl = scrollAreaEl.createEl('ul');
+    changesListEl.createEl('li').setText(
+        'Handwriting transcriptions available to all (requires an Almost Useful account).',
+    );
+    changesListEl.createEl('li').setText('Fuller full screen mode.');
+    changesListEl.createEl('li').setText('Better selections and transformations.');
+    changesListEl.createEl('li').setText('High contrast mode.');
 
     const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
     bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--stacked');
@@ -62,7 +64,7 @@ function showChanges(plugin: InkPlugin) {
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/ujXUf8ighSM',
+            href: 'https://youtu.be/oyKH5mgfGFY',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',

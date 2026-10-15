@@ -63,7 +63,7 @@ describe('svg-export', () => {
 		const svg = renderWritingStrokesToSvg([], emptySnapshot, WRITING_PAGE_WIDTH);
 		expect(svg).toContain(`stroke="${DEFAULT_CONTENT_COLOUR_WRITING_LINE}"`);
 		expect(svg).toContain(`class="${INK_SVG_WRITING_LINE_CLASS}"`);
-		expect(svg).toContain('stroke-opacity="0.5"');
+		expect(svg).toContain('stroke-opacity="0.3"');
 		expect(svg).not.toContain('stroke="currentColor"');
 	});
 

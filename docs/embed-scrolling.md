@@ -161,7 +161,7 @@ Unlocked writing embeds amplify the problem: edit height (~2300px) is much talle
 
 3. **Measured height cache** — `lastMeasuredHeightPx` on the widget instance, plus a filepath map in `ink-embed-height-cache.ts` so `forceRebuild` (new widget instance) still recalls height. `estimatedHeight` prefers the cached measurement. While unlocked, shrinks toward preview height are ignored so a remount flash cannot poison the cache. After `toDOM` + `root.render()`, the cache is updated only via **`inkEmbedScheduleAfterLayout`** (not a sync `offsetHeight` read).
 
-4. **Writing `remountReserveHeightPx`** — On remount (**locked or unlocked**), React seeds the container height from the last measurement so `useLayoutEffect` does not reset to URL aspect.
+4. **Writing `remountReserveHeightPx`** — On remount (**locked or unlocked**), React seeds the container height from the last measurement so `useLayoutEffect` does not reset to URL aspect. **Exception:** when Boox companion is enabled, remount reserve is skipped while editing so unlock resets from content instead of a stale manual expand — see [boox-companion-integration.md](boox-companion-integration.md#lock--unlock-and-remount-reserve).
 
 5. **`scrollSnapshot()` on explicit refresh** — `refreshWritingEmbedsNow` / `refreshDrawingEmbedsNow` dispatch CM’s scroll snapshot with the refresh effect so panel / Live Preview force-rebuilds keep scroll anchored.
 

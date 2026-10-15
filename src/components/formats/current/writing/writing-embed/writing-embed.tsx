@@ -9,7 +9,11 @@ import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-s
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { openRemoveEmbedFlow } from "src/logic/utils/remove-embed-flow";
-import { openInkFileInView } from "src/logic/utils/open-file";
+import { openInkFileInView, openInkFileInViewAndLocate } from "src/logic/utils/open-file";
+import {
+	cancelPendingInkWorkspaceChromeHide,
+	requestInkWorkspaceChromeForNextDedicatedView,
+} from "src/logic/utils/ink-workspace-chrome";
 import { embedShouldActivateImmediately } from "src/logic/utils/storage";
 import { getBooxConnectionEnabled } from "src/logic/device-settings/device-settings";
 import { useBooxConnectionEnabled } from "src/logic/device-settings/use-boox-connection-enabled";
@@ -150,9 +154,11 @@ export function WritingEmbed (props: {
 		// unlocked root and must not be reapplied here. Locked CM scroll is still protected
 		// by widget-root minHeight in toDOM.
 		const remountReserveHeightPx = props.remountReserveHeightPx;
+		// Boox: remount reserve preserves a manually expanded editor height — let initial sizing reset from content.
 		const shouldApplyRemountReserveToInner = isThisEmbedEditing
 			&& !!remountReserveHeightPx
-			&& remountReserveHeightPx > 0;
+			&& remountReserveHeightPx > 0
+			&& !isBooxConnectionEnabled;
 		if (shouldApplyRemountReserveToInner && remountReserveHeightPx) {
 			resizeContainer.style.height = remountReserveHeightPx + 'px';
 			previousHeightRef.current = remountReserveHeightPx;
@@ -322,7 +328,7 @@ export function WritingEmbed (props: {
 			},
 			{
 				text: 'Open writing',
-				action: () => { void openInDedicatedView(); },
+				action: () => { void openInDedicatedView({ enterFullScreen: false }); },
 			},
 			{ separator: true },
 		];
@@ -340,7 +346,7 @@ export function WritingEmbed (props: {
 		{
 			text: 'Open writing',
 			action: () => {
-				void openInDedicatedView();
+				void openInDedicatedView({ enterFullScreen: false });
 			}
 		},
 		{ separator: true },
@@ -509,8 +515,9 @@ export function WritingEmbed (props: {
 		editorControlsRef.current = handlers;
 	}
 
-	async function openInDedicatedView() {
+	async function openInDedicatedView(options?: { enterFullScreen?: boolean }) {
 		if (!props.writingFileRef) return;
+		const enterFullScreen = options?.enterFullScreen !== false;
 		// Drop the embed migrate CTA before expand so a leftover notice cannot target a
 		// file that saveAndHalt may already have rewritten as ink-canvas.
 		dismissLegacyInkNoticesForFile(props.writingFileRef.path);
@@ -526,7 +533,23 @@ export function WritingEmbed (props: {
 			});
 		}
 		editorControlsRef.current = undefined;
-		await openInkFileInView(props.writingFileRef, 'inkWriting');
+		if (enterFullScreen) {
+			// Full screen continues in the dedicated view: hide ribbon, tabs, and the view header.
+			requestInkWorkspaceChromeForNextDedicatedView();
+		}
+		try {
+			if (enterFullScreen) {
+				await openInkFileInView(props.writingFileRef, 'inkWriting');
+			} else {
+				await openInkFileInViewAndLocate(props.writingFileRef, 'inkWriting');
+			}
+		} catch (error) {
+			if (enterFullScreen) {
+				// The dedicated view never opened, so it will not consume the request.
+				cancelPendingInkWorkspaceChromeHide();
+			}
+			throw error;
+		}
 	}
 
 	function applySizingWhilePreviewing(height: number) {

@@ -1,6 +1,6 @@
 import * as semVer from 'semver';
+import { applyAlmostUsefulLinkAccountButtonChrome } from 'src/components/dom-components/almostuseful-link-account-button';
 import {
-    createNoticeBodyCtaButton,
     createNoticeBodyCtaRow,
     createNoticeCtaBar,
     createNoticeTemplate,
@@ -38,21 +38,33 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6.1`);
 
-    scrollAreaEl.createEl('h2').setText('Handwriting transcriptions (OCR)');
-    const inviteOnlyParagraphEl = scrollAreaEl.createEl('p');
-    inviteOnlyParagraphEl.appendText('This requires an ');
-    inviteOnlyParagraphEl.createEl('strong').setText('Almost Useful');
-    inviteOnlyParagraphEl.appendText(' account for processing and is currently invite only.');
+    const changesListEl = scrollAreaEl.createEl('ul');
+    changesListEl.createEl('li').setText(
+        'Handwriting transcriptions available to all (requires an Almost Useful account).',
+    );
+    changesListEl.createEl('li').setText('Fuller full screen mode.');
+    changesListEl.createEl('li').setText('Better selections and transformations.');
+    changesListEl.createEl('li').setText('High contrast mode.');
 
     const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
-    const joinWaitlistBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Join the waitlist');
-    const logInBtnEl = createNoticeBodyCtaButton(bodyCtaRowEl, 'Log in');
+    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--stacked');
+    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--centered');
+    const linkAccountCtaStackEl = bodyCtaRowEl.createDiv(
+        'ddc_ink_almostuseful-link-account-cta-stack ddc_ink_almostuseful-link-account-cta-stack--centered',
+    );
+    const linkAccountBtnEl = linkAccountCtaStackEl.createEl('button', { type: 'button' });
+    applyAlmostUsefulLinkAccountButtonChrome(linkAccountBtnEl);
+    const createAccountLinkEl = linkAccountCtaStackEl.createEl('a', {
+        cls: 'ddc_ink_tertiary-text-link',
+        text: 'Create account',
+        href: '#',
+    });
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/ujXUf8ighSM',
+            href: 'https://youtu.be/oyKH5mgfGFY',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',
@@ -61,11 +73,12 @@ function showChanges(plugin: InkPlugin) {
     const notice = launchPersistentNotice(noticeBody);
 
     // Body CTAs stay open so invite copy remains after the browser or Settings backgrounds Obsidian.
-    joinWaitlistBtnEl.addEventListener('click', () => {
-        openAlmostUsefulBrowserUrl(ALMOSTUSEFUL_PORTAL_ORIGIN);
+    createAccountLinkEl.addEventListener('click', (event) => {
+        event.preventDefault();
+        openAlmostUsefulBrowserUrl(`${ALMOSTUSEFUL_PORTAL_ORIGIN}/auth/sign-up`);
     });
 
-    logInBtnEl.addEventListener('click', () => {
+    linkAccountBtnEl.addEventListener('click', () => {
         openInkSettingsTab(plugin);
     });
 

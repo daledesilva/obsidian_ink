@@ -10,6 +10,7 @@ import { buildFileStr } from "../../utils/buildFileStr";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
 import { ensureThemedNativeInkSvgView } from "src/logic/utils/addEditButtonToSvgView";
 import { openInkFileInView, restoreSidebarsAfterInkView } from "src/logic/utils/open-file";
+import { applyPendingInkWorkspaceChromeHide, exitInkWorkspaceChromeHidden } from "src/logic/utils/ink-workspace-chrome";
 import { FileConversionModal } from "src/components/dom-components/modals/file-conversion-modal/file-conversion-modal";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
 import { DrawingEditor } from "../drawing-editor/drawing-editor";
@@ -140,6 +141,10 @@ export class DrawingView extends TextFileView {
 
         this.root = createRoot(host);
 
+        // Embed expand requested full screen before this view mounted. Apply it
+        // before the first paint so the ribbon and headers do not flash on.
+        applyPendingInkWorkspaceChromeHide(this.leaf.id);
+
 		const editorElement = <DrawingEditor
 			onReady = {() => {}}
 			workspaceLeafId = {this.leaf.id}
@@ -243,8 +248,10 @@ export class DrawingView extends TextFileView {
 
         recordInkCloseAndMaybeShowAccountNotice(this.plugin);
 
-        // Then cleanup
+        // Then cleanup. Drop full-screen chrome before sidebar restore so a
+        // dedicated-view full-screen session does not leave the body class on.
         this.clear();
+        exitInkWorkspaceChromeHidden(this.leaf.id);
         restoreSidebarsAfterInkView();
         return await super.onClose();
     }

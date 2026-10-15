@@ -2,6 +2,7 @@ import { TFile } from "obsidian";
 import { getGlobals } from "src/stores/global-store";
 import { WRITING_VIEW_TYPE } from "src/components/formats/current/writing/writing-view/writing-view";
 import { DRAWING_VIEW_TYPE } from "src/components/formats/current/drawing/drawing-view/drawing-view";
+import { revealInkFileInExplorer } from "src/logic/utils/reveal-ink-file-in-explorer";
 
 ////////////////////////////////
 ////////////////////////////////
@@ -16,19 +17,30 @@ export async function openInActiveView(fileRef: TFile) {
     await leaf.openFile(fileRef);
 }
 
+export interface OpenInkFileInViewOptions {
+	/**
+	 * Collapse both side docks to maximise canvas space. Full screen from an
+	 * embed wants this; overflow "Open writing/drawing" does not, because Locate
+	 * then opens the file explorer.
+	 */
+	collapseSidebars?: boolean;
+}
+
 /**
  * Opens an ink file in the matching view type (writing or drawing).
  * Use after conversion so the file opens in the correct editor.
- * Also collapses the sidebars to maximise canvas space.
+ * Collapses the sidebars by default to maximise canvas space.
  */
 export async function openInkFileInView(
 	fileRef: TFile,
 	viewType: 'inkWriting' | 'inkDrawing',
+	options?: OpenInkFileInViewOptions,
 ) {
 	const plugin = getGlobals().plugin;
 	const { workspace } = plugin.app;
 	const leaf = workspace.getLeaf();
 	const type = viewType === 'inkDrawing' ? DRAWING_VIEW_TYPE : WRITING_VIEW_TYPE;
+	const collapseSidebars = options?.collapseSidebars !== false;
 
 	// Check BEFORE opening so the new view isn't counted as "already open"
 	const inkViewAlreadyOpen = [
@@ -42,7 +54,7 @@ export async function openInkFileInView(
 		active: true,
 	});
 
-	if (!inkViewAlreadyOpen) {
+	if (collapseSidebars && !inkViewAlreadyOpen) {
 		plugin.inkViewSidebarState = {
 			leftWasCollapsed: workspace.leftSplit.collapsed,
 			rightWasCollapsed: workspace.rightSplit.collapsed,
@@ -50,6 +62,18 @@ export async function openInkFileInView(
 		workspace.leftSplit.collapse();
 		workspace.rightSplit.collapse();
 	}
+}
+
+/**
+ * Open the dedicated writing/drawing view without full-screen chrome, then
+ * reveal the file in the explorer (same as the dedicated Locate control).
+ */
+export async function openInkFileInViewAndLocate(
+	fileRef: TFile,
+	viewType: 'inkWriting' | 'inkDrawing',
+): Promise<void> {
+	await openInkFileInView(fileRef, viewType, { collapseSidebars: false });
+	revealInkFileInExplorer(fileRef);
 }
 
 /**

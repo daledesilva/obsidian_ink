@@ -48,6 +48,25 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.booxConnectionEnabled === 'boolean'
 			? partial.booxConnectionEnabled
 			: base.booxConnectionEnabled;
+	const legacyPartial = partial as DeviceSettingsV1 & {
+		styleForGrayscaleScreenEnabled?: boolean;
+		highContrastStyling?: boolean;
+	};
+	const hasStoredHighContrastUserInterface =
+		'highContrastUserInterface' in partial
+		|| 'highContrastStyling' in partial
+		|| 'styleForGrayscaleScreenEnabled' in partial;
+	let highContrastUserInterface = base.highContrastUserInterface;
+	if (typeof partial.highContrastUserInterface === 'boolean') {
+		highContrastUserInterface = partial.highContrastUserInterface;
+	} else if (typeof legacyPartial.highContrastStyling === 'boolean') {
+		highContrastUserInterface = legacyPartial.highContrastStyling;
+	} else if (typeof legacyPartial.styleForGrayscaleScreenEnabled === 'boolean') {
+		highContrastUserInterface = legacyPartial.styleForGrayscaleScreenEnabled;
+	} else if (!hasStoredHighContrastUserInterface && booxConnectionEnabled) {
+		// Existing Boox users before this field existed kept high-contrast chrome tied to Boox.
+		highContrastUserInterface = true;
+	}
 	const fingerDrawingEnabled =
 		typeof partial.fingerDrawingEnabled === 'boolean'
 			? partial.fingerDrawingEnabled
@@ -67,6 +86,7 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 	return {
 		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
+		highContrastUserInterface,
 		fingerDrawingEnabled,
 		stylusSideButtonTemporaryErase,
 		strokeInputTreatAs: {
@@ -140,6 +160,14 @@ export function setBooxConnectionEnabled(enabled: boolean): void {
 	patchDeviceSettings({ booxConnectionEnabled: enabled });
 }
 
+export function getHighContrastUserInterface(): boolean {
+	return readDeviceSettings().highContrastUserInterface;
+}
+
+export function setHighContrastUserInterface(enabled: boolean): void {
+	patchDeviceSettings({ highContrastUserInterface: enabled });
+}
+
 /** Resets Boox companion to default (off). Used by vault "Reset settings". */
 export function resetBooxConnectionToDefault(): void {
 	setBooxConnectionEnabled(DEFAULT_DEVICE_SETTINGS_V1.booxConnectionEnabled);
@@ -170,6 +198,7 @@ export function setStylusSideButtonTemporaryEraseEnabled(enabled: boolean): void
 export function resetExperimentalDeviceSettingsToDefault(): void {
 	patchDeviceSettings({
 		stylusSideButtonTemporaryErase: DEFAULT_DEVICE_SETTINGS_V1.stylusSideButtonTemporaryErase,
+		highContrastUserInterface: DEFAULT_DEVICE_SETTINGS_V1.highContrastUserInterface,
 	});
 }
 

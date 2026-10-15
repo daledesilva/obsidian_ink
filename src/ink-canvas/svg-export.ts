@@ -59,7 +59,7 @@ export function renderWritingStrokesToSvg(
 	const lineCount = Math.floor(height / lineHeight);
 	for (let i = 1; i <= lineCount; i++) {
 		const y = i * lineHeight;
-		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="${DEFAULT_CONTENT_COLOUR_WRITING_LINE}" stroke-opacity="0.5" class="${INK_SVG_WRITING_LINE_CLASS}" />\n`;
+		guideMarkup += `<line x1="${margin}" y1="${y}" x2="${pageWidth - margin}" y2="${y}" stroke="${DEFAULT_CONTENT_COLOUR_WRITING_LINE}" stroke-opacity="0.3" class="${INK_SVG_WRITING_LINE_CLASS}" />\n`;
 	}
 
 	const viewBox = `0 0 ${pageWidth} ${height}`;

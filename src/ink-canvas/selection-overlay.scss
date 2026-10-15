@@ -1,0 +1,43 @@
+// Fill sits in ink-canvas-selection-bounds-underlay (below strokes); stroke + handles stay on top.
+.ink-canvas-selection-bounds-underlay {
+	pointer-events: none;
+
+	.ink-canvas-selection-bounds-fill {
+		fill: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+		stroke: none;
+	}
+}
+
+.ink-canvas-selection-overlay {
+	pointer-events: none;
+
+	.ink-canvas-selection-bounds {
+		fill: none;
+		stroke: var(--interactive-accent);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.ink-canvas-selection-handle-dot {
+		fill: var(--interactive-accent);
+		stroke: var(--background-primary, #fff);
+		stroke-width: 1.5;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.ink-canvas-selection-handle-icon {
+		color: var(--text-on-accent, var(--text-normal));
+		pointer-events: none;
+	}
+
+	.ink-canvas-selection-handle-icon--resize path {
+		fill: currentColor;
+	}
+
+	// Stroke scales with the handle icon transform so weight matches the filled resize glyph.
+	.ink-canvas-selection-handle-icon--rotate path {
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+	}
+}

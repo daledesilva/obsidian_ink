@@ -145,7 +145,7 @@ Drawing files and v1 code-block embeds remain out of scope for the **enqueue** p
 
 ### v0.6 version notice (upgrade tip)
 
-When `manifest.version` is newer than `onboardingTips.lastVersionTipRead`, Ink shows a single-page **Changes in Ink v0.6** notice promoting handwriting OCR and Almost Useful sign-in. **Join the waitlist** opens the portal; **Log in** opens Ink settings. Those body buttons do not dismiss the notice — only **Dismiss** marks the tip read. See [version-and-welcome-notices.md](version-and-welcome-notices.md).
+When `manifest.version` is newer than `onboardingTips.lastVersionTipRead`, Ink shows a single-page **Changes in Ink v0.6** notice promoting handwriting OCR and Almost Useful sign-in. **Link account** opens Ink settings; **Create account** opens portal sign-up. Those body actions do not dismiss the notice — only **Dismiss** marks the tip read. See [version-and-welcome-notices.md](version-and-welcome-notices.md).
 
 ### Auto-transcribe account notice (20 ink closes)
 
@@ -408,7 +408,7 @@ flowchart LR
 | Order | Item | When |
 |-------|------|------|
 | 1 | Update transcript, or Transcribe | Always. Transcribe when the file has no transcript yet |
-| 2 | Open writing, or Open drawing | Always |
+| 2 | Open writing, or Open drawing | Always. Opens the dedicated view without full screen, then reveals the file in the explorer |
 | — | separator | |
 | 3 | Copy transcript | Ink view and transcript view, when a transcript exists. Copies the SVG markdown |
 | 4 | Copy embed | Always |

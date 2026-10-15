@@ -1,3 +1,5 @@
+@use '../../styles/almostuseful-link-account-controls';
+@use '../../styles/ink-tertiary-text-link';
 
 .notice:has(.ddc_ink_notice),
 .notice.ddc_ink_notice {
@@ -131,8 +133,22 @@
         flex-wrap: wrap;
         gap: var(--size-4-2);
 
-        button.ddc_ink_primary-btn {
+        button.ddc_ink_primary-btn,
+        button.ddc_ink_almostuseful-link-account-btn,
+        a.ddc_ink_tertiary-text-link {
             pointer-events: all;
+        }
+
+        &--stacked {
+            flex-direction: column;
+            align-items: flex-start;
+            flex-wrap: nowrap;
+            gap: 0;
+        }
+
+        &--centered {
+            align-items: center;
+            text-align: center;
         }
     }
 
@@ -160,7 +176,8 @@
             pointer-events: all;
 
             &.ddc_ink_tertiary-btn {
-                color: var(--text-faint);
+                @include ink-tertiary-text-link.ink-tertiary-text-link-chrome;
+                text-decoration: none;
                 background: none;
                 box-shadow: none;
                 margin-inline: 0;
@@ -168,10 +185,8 @@
                 padding-block: 0 !important;
                 display: inline-flex;
                 align-items: center;
-                line-height: var(--font-ui-small) !important;
-    
+
                 &:hover {
-                    color: var(--text-normal);
                     text-decoration: underline;
                 }
             }

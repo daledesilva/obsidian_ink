@@ -67,6 +67,7 @@ export const TooltipButton: React.FC<TooltipButtonProps> = ({
 		>
 			<button
 				className={className}
+				aria-label={tooltip}
 				disabled={disabled}
 				onPointerEnter={handlePointerEnter}
 				onMouseDown={onMouseDown}

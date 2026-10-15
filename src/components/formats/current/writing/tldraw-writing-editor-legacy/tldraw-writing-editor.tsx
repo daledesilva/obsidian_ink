@@ -23,6 +23,7 @@ import { useAtomValue } from 'jotai';
 import { info, verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
+import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
 import { SecondaryMenuBar } from 'src/components/jsx-components/secondary-menu-bar/secondary-menu-bar';
 import ModifyMenu from './modify-menu/modify-menu';
@@ -122,6 +123,7 @@ const stableComponents = {
 export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 
 	const dominantHand = useDominantHand();
+	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const [tlEditorSnapshot, setTlEditorSnapshot] = React.useState<TLEditorSnapshot>()
 	const resizePostProcessTimeoutRef = useRef<number>();
 	const shortDelayPostProcessTimeoutRef = useRef<number>();
@@ -737,9 +739,9 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const instantInputPostProcess = (editor: Editor) => { //, entry?: HistoryEntry<TLRecord>) => {
 		logToVault('Writing instantInputPostProcess: curHeightRef=' + curHeightRef.current);
 		if (props.embedded) {
-			// When Boox is connected, skip automatic resize — the user must press the
+			// When Boox companion is enabled, skip automatic resize — the user must press the
 			// expand-lines button instead to avoid resize-during-writing conflicts.
-			const skipAutoResize = websocketConnectedRef.current;
+			const skipAutoResize = getBooxConnectionEnabled();
 			if (skipAutoResize) {
 				info(['Guide lines: instantInputPostProcess SKIPPED (Boox connected)', {
 					curHeight: curHeightRef.current,
@@ -1054,7 +1056,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 					getTlEditor = {getTlEditor}
 					onStoreChange = {(tlEditor: Editor) => queueOrRunStorePostProcesses(tlEditor)}
 				/>
-				{props.embedded && booxConnected && (
+				{props.embedded && isBooxConnectionEnabled && (
 					<ExpandLinesButton
 						onExpandLines = {expandWritingLinesByOne}
 					/>

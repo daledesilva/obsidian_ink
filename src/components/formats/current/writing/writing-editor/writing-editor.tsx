@@ -47,13 +47,15 @@ import { migrateWritingFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import type { PageBounds } from './page-bounds';
 import {
 	computeDedicatedWritingPageHeight,
+	rescaleDedicatedWritingScrollTop,
 	cropWritingStrokeHeightInvitingly,
 	cropWritingStrokeHeightTightly,
 	shouldResizeForNewHeight,
 } from 'src/components/formats/current/utils/tldraw-helpers';
 import { showLegacyInkUnlockNotice } from 'src/logic/utils/legacy-ink-notice';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
-import { Notice } from 'obsidian';
+import { useDedicatedInkWorkspaceChrome } from 'src/logic/utils/use-dedicated-ink-workspace-chrome';
+import { revealInkFileInExplorer } from 'src/logic/utils/reveal-ink-file-in-explorer';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -110,6 +112,7 @@ export const WritingEditorWrapper: React.FC<WritingEditorProps> = (props) => {
 
 export function WritingEditor(props: WritingEditorProps) {
 	const dominantHand = useDominantHand();
+	const workspaceChrome = useDedicatedInkWorkspaceChrome(props.workspaceLeafId, !props.embedded);
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
 	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
@@ -138,8 +141,6 @@ export function WritingEditor(props: WritingEditorProps) {
 	const [hasTranscript, setHasTranscript] = React.useState(false);
 	/** Applied embed/page inviting height — drives shouldResizeForNewHeight. */
 	const curHeightRef = useRef<number | null>(null);
-	/** When true, next page-height change bypasses Boox auto-resize skip (expand-lines button). */
-	const forceNextPageHeightChangeRef = useRef(false);
 	const isLegacyInkFileRef = useRef(false);
 	/** Dedicated writing: native tall-page scroller (not camera pan). */
 	const dedicatedScrollerRef = useRef<HTMLDivElement>(null);
@@ -212,12 +213,11 @@ export function WritingEditor(props: WritingEditorProps) {
 				flushQueuedBooxStrokesAfterResize();
 			},
 			onSocketOpen: () => {
+				// No Obsidian Notice here — Boox chrome, expand-lines, and input lock already show companion mode.
 				websocketConnectedRef.current = true;
 				setBooxConnected(true);
 				setIsBooxInputLocked(true);
 				debug('Ink canvas writing: Connected to Boox companion app WebSocket');
-				// Keep "Boox" as the product name.
-				new Notice('Connected to Boox companion app');
 				const sent = newAndroidDrawingArea();
 				if (sent) {
 					pendingNewOverlayRef.current = false;
@@ -333,7 +333,10 @@ export function WritingEditor(props: WritingEditorProps) {
 	 * zoom = scrollerWidth / WRITING_PAGE_WIDTH (same width-fit as the canvas camera).
 	 *
 	 * Height growth must not change scrollTop — that would jump ink under the pen.
-	 * Only rescale scrollTop when width-fit zoom actually changes.
+	 * Only rescale scrollTop when width-fit zoom actually changes, and leave a
+	 * scroll that is still inside the menubar padding where it is. Jumping that
+	 * position down to the padding height hides the gap above the first line
+	 * as soon as the sidebars collapse on open.
 	 */
 	function syncDedicatedPageCssHeight(options?: {
 		pageHeight?: number;
@@ -363,10 +366,14 @@ export function WritingEditor(props: WritingEditorProps) {
 			window.requestAnimationFrame(() => {
 				const el = dedicatedScrollerRef.current;
 				if (!el) return;
-				// Menubar padding is fixed CSS px; only rescale the content scroll past it.
-				const pad = MENUBAR_HEIGHT_PX;
-				const contentScrollTop = Math.max(0, prevScrollTop - pad);
-				el.scrollTop = pad + contentScrollTop * (zoom / prevZoom);
+				// Stay at the top gap when the view opens. Snapping to the pad
+				// hid the space above the first line as soon as zoom changed.
+				el.scrollTop = rescaleDedicatedWritingScrollTop(
+					prevScrollTop,
+					prevZoom,
+					zoom,
+					MENUBAR_HEIGHT_PX,
+				);
 			});
 		}
 	}
@@ -532,13 +539,18 @@ export function WritingEditor(props: WritingEditorProps) {
 		}
 	}
 
+	/** Boox toggle on: no automatic embed resize (erase/select close the overlay but keep this rule). */
+	function shouldSkipBooxEmbedAutoResize(): boolean {
+		return getBooxConnectionEnabled();
+	}
+
 	function debouncedEmbedResizePostProcess() {
 		cancelDelayedBooxResizePostProcess();
 		resizePostProcessTimeoutRef.current = window.setTimeout(() => {
 			resizePostProcessTimeoutRef.current = undefined;
 			const editor = editorRef.current;
 			if (!editor || !props.embedded) return;
-			if (websocketConnectedRef.current && getBooxConnectionEnabled()) return;
+			if (shouldSkipBooxEmbedAutoResize()) return;
 			const invitingHeight = latestInvitingHeightRef.current || getInvitingHeightFromEditor(editor);
 			if (!shouldResizeForNewHeight(
 				invitingHeight,
@@ -569,10 +581,8 @@ export function WritingEditor(props: WritingEditorProps) {
 		latestInvitingHeightRef.current = invitingFromContent;
 
 		if (props.embedded) {
-			const skipAutoResize = !forceNextPageHeightChangeRef.current
-				&& websocketConnectedRef.current
-				&& getBooxConnectionEnabled();
-			forceNextPageHeightChangeRef.current = false;
+			// Initial mount must still sync height when Boox skip is on; skip only blocks stroke-driven resize.
+			const skipAutoResize = !isInitialMount && shouldSkipBooxEmbedAutoResize();
 			if (skipAutoResize) return;
 
 			if (isInitialMount) {
@@ -623,6 +633,9 @@ export function WritingEditor(props: WritingEditorProps) {
 				pageHeight: editor.getPageHeight(),
 				preservePageScroll: false,
 			});
+			// Open at the top of the menubar padding so the gap above the first
+			// line is already on screen. Later zoom changes keep this position.
+			if (scroller) scroller.scrollTop = 0;
 		}
 	}
 
@@ -1018,9 +1031,10 @@ export function WritingEditor(props: WritingEditorProps) {
 		if (!editor) return;
 		const lineHeight = writingLineHeightRef.current;
 		const bufferLines = props.plugin.settings.writingBufferLines;
+		// Boox manual grow: resize inline via notifyEmbedResize — not applyPageHeightChange (no bypass flags).
 		const newHeight = editor.getPageHeight() + bufferLines * lineHeight;
-		forceNextPageHeightChangeRef.current = true;
 		curHeightRef.current = newHeight;
+		latestInvitingHeightRef.current = newHeight;
 		editor.setWritingPageHeight(newHeight);
 		notifyEmbedResize(newHeight);
 	}
@@ -1068,7 +1082,6 @@ export function WritingEditor(props: WritingEditorProps) {
 				'ddc_ink_editor-wrapper--loading',
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
-				isBooxConnectionEnabled && 'ddc_ink_boox-eink',
 			])}
 			style={{ height: '100%', position: 'relative' }}
 			tabIndex={props.embedded ? undefined : 0}
@@ -1115,6 +1128,10 @@ export function WritingEditor(props: WritingEditorProps) {
 					onStoreChange={handleStoreChange}
 					onActivateTool={handleBooxActivateTool}
 					onExpandClick={props.embedded ? props.onOpenInDedicatedView : undefined}
+					onEnterWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onEnterWorkspaceChrome}
+					onExitWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onExitWorkspaceChrome}
+					isWorkspaceChromeHidden={workspaceChrome.isWorkspaceChromeHidden}
+					onLocateFile={props.embedded ? undefined : () => revealInkFileInExplorer(props.writingFile)}
 					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
 					isFingerDrawingActive={isFingerDrawingActive}
 					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}
@@ -1141,7 +1158,7 @@ export function WritingEditor(props: WritingEditorProps) {
 					workspaceLeafId={props.embedded && props.workspaceLeafId ? props.workspaceLeafId : undefined}
 					plugin={props.embedded ? props.plugin : undefined}
 				/>
-				{props.embedded && booxConnected && (
+				{props.embedded && isBooxConnectionEnabled && (
 					<ExpandLinesButton onExpandLines={expandWritingLinesByOne} />
 				)}
 			</SecondaryMenuBar>

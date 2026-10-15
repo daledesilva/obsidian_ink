@@ -20,7 +20,7 @@ import { EmbedPreviewContextMenu } from 'src/components/jsx-components/embed-pre
 import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import { copyEmbedMarkdownToClipboard } from 'src/logic/utils/copy-embed-to-clipboard';
 import { enqueueManualTranscription } from 'src/logic/handwriting-transcription-queue';
-import { openInkFileInView } from 'src/logic/utils/open-file';
+import { openInkFileInViewAndLocate } from 'src/logic/utils/open-file';
 import { openRemoveEmbedFlow } from 'src/logic/utils/remove-embed-flow';
 
 //////////
@@ -331,7 +331,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 			},
 			{
 				text: isDrawing ? 'Open drawing' : 'Open writing',
-				action: () => { void openInkFileInView(embeddedFile, embedType); },
+				action: () => { void openInkFileInViewAndLocate(embeddedFile, embedType); },
 			},
 			{ separator: true },
 		];

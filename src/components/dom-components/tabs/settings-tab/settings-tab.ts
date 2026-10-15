@@ -19,12 +19,15 @@ import {
 	getLastDetectedStrokeInput,
 	getStrokeInputTreatAs,
 	getStylusSideButtonTemporaryEraseEnabled,
+	getHighContrastUserInterface,
 	setBooxConnectionEnabled,
 	setFingerDrawingEnabled,
 	setStrokeInputTreatAs,
 	setStylusSideButtonTemporaryEraseEnabled,
+	setHighContrastUserInterface,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
+import { applyHighContrastUserInterfaceBodyClass } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import {
 	insertAlmostUsefulAccountSection,
@@ -114,6 +117,7 @@ export class MySettingsTab extends PluginSettingTab {
 		let writingSectionEl!: HTMLElement;
 		let drawingSectionEl!: HTMLElement;
 		let booxCompanionToggle: ToggleComponent | undefined;
+		let highContrastUserInterfaceToggle: ToggleComponent | undefined;
 		let fingerDrawingToggle: ToggleComponent | undefined;
 		let stylusSideButtonTemporaryEraseToggle: ToggleComponent | undefined;
 
@@ -128,6 +132,9 @@ export class MySettingsTab extends PluginSettingTab {
 			},
 			(toggle) => {
 				fingerDrawingToggle = toggle;
+			},
+			(toggle) => {
+				highContrastUserInterfaceToggle = toggle;
 			},
 		);
 
@@ -147,6 +154,7 @@ export class MySettingsTab extends PluginSettingTab {
 				strokeInputToggles[1].setDesc(strokeInputTreatAsSettingDesc('inkDrawing'));
 			}
 			booxCompanionToggle?.setValue(getBooxConnectionEnabled());
+			highContrastUserInterfaceToggle?.setValue(getHighContrastUserInterface());
 			fingerDrawingToggle?.setValue(getFingerDrawingEnabled());
 			stylusSideButtonTemporaryEraseToggle?.setValue(getStylusSideButtonTemporaryEraseEnabled());
 		});
@@ -355,6 +363,7 @@ function insertHighLevelSettings(
 	onToggleWriting: (show: boolean) => void,
 	onToggleDrawing: (show: boolean) => void,
 	onFingerDrawingToggleReady?: (toggle: ToggleComponent) => void,
+	onHighContrastUserInterfaceReady?: (toggle: ToggleComponent) => void,
 ) {
 
 	new Setting(containerEl)
@@ -400,12 +409,25 @@ function insertHighLevelSettings(
 	new TwoWayToggleSetting<DominantHand>(containerEl)
 		.setName('Dominant hand')
 		.setDesc('Which side undo/redo and extend controls appear on while editing.')
-		.setOptionPair('right', 'Right', 'left', 'Left')
+		.setOptionPair('left', 'Left', 'right', 'Right')
 		.setValue(plugin.settings.dominantHand)
 		.onChange(async (value) => {
 			plugin.settings.dominantHand = value;
 			setDominantHand(value);
 			await plugin.saveSettings();
+		});
+
+	new Setting(containerEl)
+		.setClass('ddc_ink_setting')
+		.setName('High contrast user interface')
+		.setDesc('Uses high-contrast borders and controls across Ink embeds and editors — suited to e-ink and grayscale displays.')
+		.addToggle((toggle) => {
+			toggle.setValue(getHighContrastUserInterface());
+			onHighContrastUserInterfaceReady?.(toggle);
+			toggle.onChange((value: boolean) => {
+				setHighContrastUserInterface(value);
+				applyHighContrastUserInterfaceBodyClass();
+			});
 		});
 
 }
@@ -446,6 +468,7 @@ function insertExperimentalChangesSection(
 			toggle.setValue(getBooxConnectionEnabled());
 			onBooxToggleReady?.(toggle);
 			toggle.onChange((value: boolean) => {
+				// Do not enable highContrastUserInterface here — Boox and high-contrast chrome are independent.
 				setBooxConnectionEnabled(value);
 				plugin.booxConnection.onSettingsChanged();
 			});

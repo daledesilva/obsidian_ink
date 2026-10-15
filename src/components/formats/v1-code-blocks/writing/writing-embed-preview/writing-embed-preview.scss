@@ -27,12 +27,7 @@
         background-color: var(--color-base-05);
     }
 
-    // Writing lines
-    line {
-        stroke: var(--color-base-50);
-        stroke-width: 2px;
-        stroke-opacity: 0.5;
-    }
+    // Writing line stroke: ink-writing-guide-lines.scss
     
     &:not(.ddc_ink_visible-lines) {
         line { display: none; }

@@ -36,7 +36,8 @@ import { renderStrokesToSvg } from 'src/ink-canvas/svg-export';
 import { resolveInkAutosaveDelayMs } from 'src/ink-canvas/autosave-delay';
 import { migrateFromTldraw } from 'src/ink-canvas/migrate-from-tldraw';
 import { useDominantHand } from 'src/stores/dominant-hand-store';
-import { Notice } from 'obsidian';
+import { useDedicatedInkWorkspaceChrome } from 'src/logic/utils/use-dedicated-ink-workspace-chrome';
+import { revealInkFileInExplorer } from 'src/logic/utils/reveal-ink-file-in-explorer';
 import { debug } from 'src/logic/utils/universal-dev-logging';
 import type { CameraState, InkCanvasEditor, InkCanvasSnapshot, InkStroke, InkPoint } from 'src/ink-canvas/types';
 import { normalizeBooxPenPressureForCapture } from 'src/ink-canvas/constants/pen-input';
@@ -142,6 +143,7 @@ export const DrawingEditorWrapper: React.FC<DrawingEditorProps> = (props) => {
 export function DrawingEditor(props: DrawingEditorProps) {
 
 	const dominantHand = useDominantHand();
+	const workspaceChrome = useDedicatedInkWorkspaceChrome(props.workspaceLeafId, !props.embedded);
 	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
 	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
@@ -227,11 +229,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				}
 			},
 			onSocketOpen: () => {
+				// No Obsidian Notice here — Boox chrome and input lock already show companion mode.
 				websocketConnectedRef.current = true;
 				setIsBooxInputLocked(true);
 				debug('Ink canvas: Connected to Boox companion app WebSocket');
-				// Keep "Boox" as the product name.
-				new Notice('Connected to Boox companion app');
 				const sent = newAndroidDrawingArea();
 				if (sent) {
 					pendingNewOverlayRef.current = false;
@@ -888,7 +889,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 				'ddc_ink_editor-wrapper--loading',
 				!props.embedded && 'ddc_ink_dedicated-editor',
 				dominantHand === 'left' && 'ink_dominant-hand_left',
-				isBooxConnectionEnabled && 'ddc_ink_boox-eink',
 			])}
 			style={{ height: '100%', position: 'relative' }}
 			tabIndex={props.embedded ? undefined : 0}
@@ -944,6 +944,10 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					onStoreChange={handleStoreChange}
 					onActivateTool={handleBooxActivateTool}
 					onExpandClick={props.embedded ? () => props.onOpenInDedicatedView?.() : undefined}
+					onEnterWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onEnterWorkspaceChrome}
+					onExitWorkspaceChrome={props.embedded ? undefined : workspaceChrome.onExitWorkspaceChrome}
+					isWorkspaceChromeHidden={workspaceChrome.isWorkspaceChromeHidden}
+					onLocateFile={props.embedded ? undefined : () => revealInkFileInExplorer(props.drawingFile)}
 					showFingerDrawingToggle={isFingerDrawingGloballyEnabled}
 					isFingerDrawingActive={isFingerDrawingActive}
 					onFingerDrawingToggle={() => setIsFingerDrawingActive((active) => !active)}

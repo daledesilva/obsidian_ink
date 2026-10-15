@@ -21,12 +21,14 @@ describe('StrokeStore change notifications', () => {
 		store.add(makeStroke('a'));
 		store.addMany([makeStroke('b'), makeStroke('c')]);
 		store.updateOffsets(new Map([['b', { x: 5, y: 8 }]]));
+		store.updateStrokes(new Map([['b', { ...makeStroke('b'), offset: { x: 1, y: 2 } }]]));
 		store.remove(['a']);
 
 		expect(changes).toEqual([
 			{ type: 'add', ids: ['a'] },
 			{ type: 'addMany', ids: ['b', 'c'] },
 			{ type: 'updateOffsets', ids: ['b'] },
+			{ type: 'updateStrokes', ids: ['b'] },
 			{ type: 'remove', ids: ['a'] },
 		]);
 	});

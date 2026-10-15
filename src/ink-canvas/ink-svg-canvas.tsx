@@ -17,14 +17,35 @@ import { WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
 import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
 import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
-import { selectToolPointerDown, selectToolPointerMove, selectToolPointerUp, selectToolPointerCancel } from './tools/select-tool';
+import {
+	selectToolPointerDown,
+	selectToolPointerMove,
+	selectToolPointerUp,
+	selectToolPointerCancel,
+	getContextSelectionBounds,
+	isSelectToolActive,
+} from './tools/select-tool';
+import { SelectionBoundsFillUnderlay, SelectionOverlay } from './selection-overlay';
+import {
+	selectionChromeFromBounds,
+	type SelectionChrome,
+	type SelectionChromePreview,
+} from './selection-chrome';
+import { useDominantHand } from 'src/stores/dominant-hand-store';
+import { showMenuOptionsAtPosition } from 'src/components/jsx-components/overflow-menu/show-menu-options';
+import {
+	buildSelectionStrokeContextMenuOptions,
+	isPagePointOnSelectionChrome,
+	SELECTION_CONTEXT_MENU_LONG_PRESS_MS,
+	SELECTION_CONTEXT_MENU_LONG_PRESS_MOVE_THRESHOLD_PX,
+} from './selection-context-menu';
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { resolveInkTouchGestureMode } from 'src/logic/touch-gesture-policy';
 import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-settings-types';
 import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
-import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
+import { useHighContrastUserInterface } from 'src/logic/device-settings/use-high-contrast-user-interface';
 import { useStylusSideButtonTemporaryEraseEnabled } from 'src/logic/device-settings/use-stylus-side-button-temporary-erase';
 import {
 	isStylusEraserPointerActive,
@@ -37,7 +58,7 @@ import type { InkTool, InkStrokeStyle, CameraState, InkCanvasSnapshot, InkCanvas
 import type { DrawToolContext } from './tools/draw-tool';
 import type { EraseToolContext } from './tools/erase-tool';
 import type { SelectToolContext } from './tools/select-tool';
-import { InkAdaptiveGrid, INK_GRID_BOOX_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
+import { InkAdaptiveGrid, INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE } from './ink-adaptive-grid';
 import { getRenderedStrokeData } from './rendered-stroke-cache';
 
 type LastCanvasPointerState = {
@@ -115,10 +136,14 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const resolvedStrokeInputTreatAs = useResolvedStrokeInputTreatAs(strokeInputEditorKind);
 	const resolvedStrokeInputTreatAsRef = useRef(resolvedStrokeInputTreatAs);
 	resolvedStrokeInputTreatAsRef.current = resolvedStrokeInputTreatAs;
-	const isBooxConnectionEnabled = useBooxConnectionEnabled();
+	const isHighContrastUserInterface = useHighContrastUserInterface();
 	const isStylusSideButtonTemporaryEraseEnabled = useStylusSideButtonTemporaryEraseEnabled();
 	const isStylusSideButtonTemporaryEraseEnabledRef = useRef(isStylusSideButtonTemporaryEraseEnabled);
 	isStylusSideButtonTemporaryEraseEnabledRef.current = isStylusSideButtonTemporaryEraseEnabled;
+	const dominantHand = useDominantHand();
+	const dominantHandRef = useRef(dominantHand);
+	dominantHandRef.current = dominantHand;
+	const selectionOverlayRef = useRef<SVGGElement | null>(null);
 
 	const pageWidth = props.pageWidth ?? WRITING_PAGE_WIDTH;
 	const writingBufferLines = props.writingBufferLines ?? 3;
@@ -163,6 +188,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		props.initialSnapshot?.gridEnabled ?? (writingMode ? false : DEFAULT_SETTINGS.drawingGridEnabledByDefault),
 	);
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+	const [selectionChrome, setSelectionChrome] = useState<SelectionChrome | null>(null);
+	const [selectionPreview, setSelectionPreview] = useState<SelectionChromePreview | null>(null);
+	const selectionChromeRef = useRef<SelectionChrome | null>(null);
+	selectionChromeRef.current = selectionChrome;
+	const selectionPreviewRef = useRef<SelectionChromePreview | null>(null);
+	selectionPreviewRef.current = selectionPreview;
+	const selectedIdsSignatureRef = useRef('');
 	const [, forceRender] = useState(0);
 	// Bumped on note/window scroll so render-time culling re-evaluates without touching StrokeStore.
 	const [viewportRevision, setViewportRevision] = useState(0);
@@ -205,7 +237,13 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
 	const toolChangeListenersRef = useRef(new Set<(t: InkTool) => void>());
+	const selectCtxRef = useRef<SelectToolContext | null>(null);
+	const onLeaveSelectToolRef = useRef<() => void>(() => {});
 	const applyToolChange = useCallback((nextTool: InkTool) => {
+		// Keep selectedIds but hide chrome/tint on pen/eraser; cancel in-flight lasso/drag DOM previews.
+		if (toolRef.current === 'select' && nextTool !== 'select') {
+			onLeaveSelectToolRef.current();
+		}
 		setTool(nextTool);
 		toolChangeListenersRef.current.forEach((listener) => listener(nextTool));
 	}, []);
@@ -213,6 +251,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	strokeStyleRef.current = strokeStyle;
 	const selectedIdsRef = useRef(selectedIds);
 	selectedIdsRef.current = selectedIds;
+
+	// Rebuild oriented chrome only when the selected id set changes (not after move/rotate bakes).
+	useEffect(() => {
+		const signature = [...selectedIds].sort().join(',');
+		if (signature === selectedIdsSignatureRef.current) return;
+		selectedIdsSignatureRef.current = signature;
+		setSelectionPreview(null);
+		if (selectedIds.size === 0) {
+			setSelectionChrome(null);
+			return;
+		}
+		const bounds = getContextSelectionBounds({
+			store: storeRef.current,
+			getSelectedStrokeIds: () => selectedIds,
+			getCamera: () => cameraRef.current,
+		} as SelectToolContext);
+		if (bounds) setSelectionChrome(selectionChromeFromBounds(bounds));
+	}, [selectedIds]);
 
 	const panMomentumRef = useRef<PanMomentumController | null>(null);
 	useEffect(() => {
@@ -535,13 +591,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			setGridEnabled: (enabled: boolean) => setGridEnabledHandlerRef.current(enabled),
 
 			getSelectedStrokeIds: () => new Set(selectedIdsRef.current),
-			deleteSelectedStrokes: () => {
-				const ids = Array.from(selectedIdsRef.current);
-				if (ids.length === 0) return;
-				const cmd = new RemoveStrokesCommand(storeRef.current, ids);
-				undoManagerRef.current.execute(cmd);
-				setSelectedIds(new Set());
-			},
+			deleteSelectedStrokes: () => deleteSelectedStrokesRef.current(),
 
 			getSnapshot: (): InkCanvasSnapshot => ({
 				version: 1,
@@ -618,16 +668,76 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		getCamera: () => cameraRef.current,
 		getContainerRect,
 		getSvgElement: () => svgRef.current,
+		getSelectionOverlayElement: () => selectionOverlayRef.current,
 		getSelectedStrokeIds: () => selectedIdsRef.current,
 		setSelectedStrokeIds: (ids: Set<string>) => setSelectedIds(ids),
+		getSelectionChrome: () => selectionChromeRef.current,
+		setSelectionChrome: (chrome) => {
+			selectionChromeRef.current = chrome;
+			setSelectionChrome(chrome);
+		},
+		setSelectionPreview: (preview) => setSelectionPreview(preview),
+		writingMode,
+		getDominantHand: () => dominantHandRef.current,
 	};
 
+	selectCtxRef.current = selectCtx;
+	onLeaveSelectToolRef.current = () => {
+		if (isSelectToolActive()) {
+			selectToolPointerCancel({} as PointerEvent, selectCtx);
+		}
+		setSelectionPreview(null);
+	};
 
 	// Pointer event handlers
 	///////////////////////////
 
 	const isPanning = useRef(false);
 	const lastPanPoint = useRef<{ x: number; y: number } | null>(null);
+
+	const selectionLongPressTimerRef = useRef<number | null>(null);
+	const selectionLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
+	const selectionLongPressHandledRef = useRef(false);
+	/** Single-finger touch on select when finger drawing is off (tap/lasso/deselect). */
+	const isTouchSelectGestureRef = useRef(false);
+
+	const deleteSelectedStrokes = useCallback(() => {
+		const ids = Array.from(selectedIdsRef.current);
+		if (ids.length === 0) return;
+		const cmd = new RemoveStrokesCommand(storeRef.current, ids);
+		undoManagerRef.current.execute(cmd);
+		setSelectedIds(new Set());
+	}, []);
+
+	const deleteSelectedStrokesRef = useRef(deleteSelectedStrokes);
+	deleteSelectedStrokesRef.current = deleteSelectedStrokes;
+
+	const isClientPointOnSelectionChrome = useCallback((clientX: number, clientY: number): boolean => {
+		const containerRect = containerRef.current?.getBoundingClientRect() ?? new DOMRect();
+		const pagePoint = screenToPageFn(cameraRef.current, containerRect, clientX, clientY);
+		return isPagePointOnSelectionChrome(
+			pagePoint,
+			toolRef.current,
+			selectedIdsRef.current.size,
+			selectionChromeRef.current,
+			selectionPreviewRef.current,
+		);
+	}, []);
+
+	const showSelectionContextMenuAt = useCallback((clientX: number, clientY: number) => {
+		showMenuOptionsAtPosition(
+			buildSelectionStrokeContextMenuOptions(() => deleteSelectedStrokesRef.current()),
+			{ x: clientX, y: clientY },
+		);
+	}, []);
+
+	const clearSelectionLongPressTimer = useCallback(() => {
+		if (selectionLongPressTimerRef.current !== null) {
+			window.clearTimeout(selectionLongPressTimerRef.current);
+			selectionLongPressTimerRef.current = null;
+		}
+		selectionLongPressStartRef.current = null;
+	}, []);
 
 	// Right-drag zoom (Phase B)
 	const isRightDraggingRef = useRef(false);
@@ -768,8 +878,35 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
 		// Touch input: two-finger gestures are handled by the native touch listener.
-		// Single-finger touch is ignored unless finger drawing is active.
-		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		// Single-finger touch is ignored unless finger drawing is active — except long-press
+		// on the selection chrome for a stroke delete menu.
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (toolRef.current === 'select' && isClientPointOnSelectionChrome(e.clientX, e.clientY)) {
+				selectionLongPressHandledRef.current = false;
+				selectionLongPressStartRef.current = { x: e.clientX, y: e.clientY };
+				clearSelectionLongPressTimer();
+				selectionLongPressTimerRef.current = window.setTimeout(() => {
+					selectionLongPressTimerRef.current = null;
+					selectionLongPressHandledRef.current = true;
+					selectionLongPressStartRef.current = null;
+					showSelectionContextMenuAt(e.clientX, e.clientY);
+				}, SELECTION_CONTEXT_MENU_LONG_PRESS_MS);
+				(e.target as HTMLElement).setPointerCapture(e.pointerId);
+				return;
+			}
+			if (toolRef.current === 'select') {
+				isTouchSelectGestureRef.current = true;
+				onInteractionChangeRef.current?.(true);
+				recordCanvasPointer(e);
+				isPointerOverCanvasRef.current = true;
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerDown(e.nativeEvent, selectCtx);
+				}
+				(e.target as HTMLElement).setPointerCapture(e.pointerId);
+				return;
+			}
+			return;
+		}
 		onInteractionChangeRef.current?.(true);
 
 		recordCanvasPointer(e);
@@ -831,6 +968,10 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			e.nativeEvent.stopPropagation();
 
 			const isModHeld = e.ctrlKey || e.metaKey;
+			if (!isModHeld && isClientPointOnSelectionChrome(e.clientX, e.clientY)) {
+				(e.target as HTMLElement).setPointerCapture(e.pointerId);
+				return;
+			}
 			if (isModHeld) {
 				if (writingMode) return;
 				isRightDraggingRef.current = true;
@@ -866,10 +1007,26 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		}
 
 		(e.target as HTMLElement).setPointerCapture(e.pointerId);
-	}, [tool]);  
+	}, [tool, isClientPointOnSelectionChrome, clearSelectionLongPressTimer, showSelectionContextMenuAt]);  
 
 	const handlePointerMove = useCallback((e: React.PointerEvent) => {
-		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (isTouchSelectGestureRef.current) {
+				recordCanvasPointer(e);
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerMove(e.nativeEvent, selectCtx);
+				}
+				return;
+			}
+			if (selectionLongPressStartRef.current && selectionLongPressTimerRef.current) {
+				const dx = e.clientX - selectionLongPressStartRef.current.x;
+				const dy = e.clientY - selectionLongPressStartRef.current.y;
+				if (Math.hypot(dx, dy) > SELECTION_CONTEXT_MENU_LONG_PRESS_MOVE_THRESHOLD_PX) {
+					clearSelectionLongPressTimer();
+				}
+			}
+			return;
+		}
 
 		recordCanvasPointer(e);
 
@@ -925,7 +1082,24 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool]);  
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
-		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (isTouchSelectGestureRef.current) {
+				isTouchSelectGestureRef.current = false;
+				onInteractionChangeRef.current?.(false);
+				recordCanvasPointer(e);
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerUp(e.nativeEvent, selectCtx);
+				}
+				return;
+			}
+			clearSelectionLongPressTimer();
+			if (selectionLongPressHandledRef.current) {
+				e.preventDefault();
+				e.stopPropagation();
+				selectionLongPressHandledRef.current = false;
+			}
+			return;
+		}
 		onInteractionChangeRef.current?.(false);
 
 		recordCanvasPointer(e);
@@ -964,10 +1138,23 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		) {
 			endTemporaryEraseMode('sideButton');
 		}
-	}, [tool, releasePanMomentum, applyToolChange]);  
+	}, [tool, releasePanMomentum, applyToolChange, clearSelectionLongPressTimer]);  
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
-		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) return;
+		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
+			if (isTouchSelectGestureRef.current) {
+				isTouchSelectGestureRef.current = false;
+				onInteractionChangeRef.current?.(false);
+				recordCanvasPointer(e);
+				if (!isBooxInputLockedRef.current) {
+					selectToolPointerCancel(e.nativeEvent, selectCtx);
+				}
+				return;
+			}
+			clearSelectionLongPressTimer();
+			selectionLongPressHandledRef.current = false;
+			return;
+		}
 		onInteractionChangeRef.current?.(false);
 
 		recordCanvasPointer(e);
@@ -1028,20 +1215,30 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	// Context-menu suppression
 	// A native capture-phase listener fires before Obsidian's bubble-phase document-level
-	// note context-menu handler. This ensures that right-clicking inside an embed never
-	// shows the markdown note context menu — right-click on the canvas is reserved for pan/zoom.
-	// The toolbar overflow menu provides all note-level actions the user needs.
+	// note context-menu handler. Right-click on empty canvas stays reserved for pan/zoom;
+	// right-click on the selection chrome opens stroke actions instead of the note menu.
 	///////////////////////////
+
+	const isClientPointOnSelectionChromeRef = useRef(isClientPointOnSelectionChrome);
+	isClientPointOnSelectionChromeRef.current = isClientPointOnSelectionChrome;
+	const showSelectionContextMenuAtRef = useRef(showSelectionContextMenuAt);
+	showSelectionContextMenuAtRef.current = showSelectionContextMenuAt;
 
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
-		const suppressContextMenu = (e: MouseEvent) => {
+		const handleContextMenu = (e: MouseEvent) => {
+			if (isClientPointOnSelectionChromeRef.current(e.clientX, e.clientY)) {
+				e.preventDefault();
+				e.stopPropagation();
+				showSelectionContextMenuAtRef.current(e.clientX, e.clientY);
+				return;
+			}
 			e.preventDefault();
 			e.stopPropagation();
 		};
-		container.addEventListener('contextmenu', suppressContextMenu, { capture: true });
-		return () => container.removeEventListener('contextmenu', suppressContextMenu, { capture: true });
+		container.addEventListener('contextmenu', handleContextMenu, { capture: true });
+		return () => container.removeEventListener('contextmenu', handleContextMenu, { capture: true });
 	}, []);
 
 
@@ -1204,6 +1401,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 
 	const cameraTransform = `scale(${camera.zoom}) translate(${camera.x}, ${camera.y})`;
 
+	// Chrome + stroke tint only on select tool; selectedIds persist for writing and drawing editors.
+	const showSelectionVisuals = tool === 'select';
+
 	// Render-only visibility: skip mounting StrokePath for fully off-screen strokes.
 	// void viewportRevision — dependency so scroll bumps re-evaluate without store changes.
 	void viewportRevision;
@@ -1301,7 +1501,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						x={camera.x}
 						y={camera.y}
 						z={camera.zoom}
-						zoomFadeScale={isBooxConnectionEnabled ? INK_GRID_BOOX_ZOOM_FADE_SCALE : 1}
+						zoomFadeScale={isHighContrastUserInterface ? INK_GRID_GRAYSCALE_SCREEN_ZOOM_FADE_SCALE : 1}
 					/>
 				)}
 				{/* Camera group — all content is transformed by the camera */}
@@ -1311,7 +1511,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						const pw = pageWidth;
 						const margin = pw * 0.05;
 						const lineCount = Math.floor(pageHeightState / lh);
-						const guideLineStrokeWidth = (isBooxConnectionEnabled ? 2 : 1) / camera.zoom;
 						// Only emit guide indices overlapping the visible page rect — avoid
 						// Array.from(full page) + null cull on tall documents during scroll.
 						if (visiblePageRect === null) return null;
@@ -1322,6 +1521,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 							endIndex = Math.min(lineCount, Math.ceil(visiblePageRect.maxY / lh));
 						}
 						if (endIndex < startIndex) return null;
+						// Guide appearance: ink-writing-guide-lines.scss (+ vectorEffect); avoid inline stroke so live matches locked embeds.
 						const lines: React.JSX.Element[] = [];
 						for (let i = startIndex; i <= endIndex; i++) {
 							const lineY = i * lh;
@@ -1329,29 +1529,48 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 								<line
 									key={i}
 									className="ink-writing-guide-line"
+									vectorEffect="non-scaling-stroke"
 									x1={margin}
 									y1={lineY}
 									x2={pw - margin}
 									y2={lineY}
-									stroke={isBooxConnectionEnabled ? 'var(--text-normal)' : 'currentColor'}
-									strokeOpacity={isBooxConnectionEnabled ? 1 : 0.5}
-									strokeWidth={guideLineStrokeWidth}
 								/>,
 							);
 						}
 						return lines;
 					})()}
+					{tool === 'select' && selectionChrome && (
+						<SelectionBoundsFillUnderlay
+							chrome={selectionChrome}
+							preview={selectionPreview}
+							cameraZoom={camera.zoom}
+							dominantHand={dominantHand}
+							writingMode={writingMode}
+						/>
+					)}
+
 					{/* Committed strokes — store keeps all; only visible (or selected) mount as SVG */}
 					{strokes.map(stroke => (
 						isStrokeVisibleInViewport(stroke) ? (
 							<StrokePath
 								key={stroke.id}
 								stroke={stroke}
-								isSelected={selectedIds.has(stroke.id)}
+								isSelected={showSelectionVisuals && selectedIds.has(stroke.id)}
 								pathDCache={strokePathDCacheRef.current}
 							/>
 						) : null
 					))}
+
+					{tool === 'select' && selectionChrome && (
+						<SelectionOverlay
+							overlayRef={selectionOverlayRef}
+							chrome={selectionChrome}
+							preview={selectionPreview}
+							cameraZoom={camera.zoom}
+							dominantHand={dominantHand}
+							writingMode={writingMode}
+						/>
+					)}
 
 					{/* Live stroke (in-progress, drawn imperatively) */}
 					<path
@@ -1378,8 +1597,8 @@ interface StrokePathProps {
 }
 
 function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): boolean {
-	if (prev.isSelected !== next.isSelected) return false;
 	if (prev.pathDCache !== next.pathDCache) return false;
+	if (prev.isSelected !== next.isSelected) return false;
 	const a = prev.stroke;
 	const b = next.stroke;
 	if (a === b) return true;
@@ -1389,6 +1608,15 @@ function strokePathPropsAreEqual(prev: StrokePathProps, next: StrokePathProps): 
 	// Offset-only changes still need a re-render for the translate transform, but not a new `d`.
 	if (a.offset.x !== b.offset.x || a.offset.y !== b.offset.y) return false;
 	return true;
+}
+
+/** Share of --interactive-accent in selected stroke fill (writing + drawing). */
+const INK_SELECTED_STROKE_ACCENT_MIX_PERCENT = 60;
+
+/** Accent mix keeps ink readable in writing and drawing; see docs/ink-canvas-selection.md. */
+function inkStrokeFillWithSelectionTint(inkColor: string, isSelected: boolean): string {
+	if (!isSelected) return inkColor;
+	return `color-mix(in srgb, var(--interactive-accent) ${INK_SELECTED_STROKE_ACCENT_MIX_PERCENT}%, ${inkColor})`;
 }
 
 const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.Element {
@@ -1414,19 +1642,11 @@ const StrokePath = memo(function StrokePath(props: StrokePathProps): React.JSX.E
 			transform={hasOffset ? `translate(${stroke.offset.x}, ${stroke.offset.y})` : undefined}
 		>
 			<path
+				className={isSelected ? 'ink-stroke--selected' : undefined}
 				data-stroke-id={stroke.id}
 				d={d}
-				fill={stroke.style.color}
+				fill={inkStrokeFillWithSelectionTint(stroke.style.color, isSelected)}
 			/>
-			{isSelected && (
-				<path
-					d={d}
-					fill="none"
-					stroke="rgba(0, 123, 255, 0.6)"
-					strokeWidth={2}
-					pointerEvents="none"
-				/>
-			)}
 		</g>
 	);
 }, strokePathPropsAreEqual);

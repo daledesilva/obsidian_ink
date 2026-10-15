@@ -13,7 +13,7 @@
 
 // Embedded writing: primary menu sits above the canvas via translateY(-100%) when active.
 // Boox e-ink chrome sets overflow:hidden on the editor; allow visible overflow here (matches drawing embed).
-.ddc_ink_embed .ddc_ink_writing-editor.ddc_ink_boox-eink {
+.ddc_ink_embed .ddc_ink_resize-container--boox .ddc_ink_writing-editor {
 	overflow: visible;
 }
 

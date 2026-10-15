@@ -1,0 +1,38 @@
+/*
+ * Full screen hides Obsidian chrome that dedicated view still leaves on screen
+ * after the sidebars collapse: the left ribbon, the tab strip, the leaf
+ * title bar (which also holds Navigate back), and the status bar.
+ * display:none drops them from the layout so the canvas uses that space — the
+ * same approach Obsidian uses for a hidden ribbon and for phone layout.
+ * Flat selectors so tests can inject this file as CSS.
+ */
+
+body.ddc_ink_hide-workspace-chrome .workspace-ribbon,
+body.ddc_ink_hide-workspace-chrome .workspace-tab-header-container,
+body.ddc_ink_hide-workspace-chrome .view-header,
+body.ddc_ink_hide-workspace-chrome .status-bar {
+	display: none;
+}
+
+/*
+ * Hiding the tab strip pulls the ink menu up into the macOS title bar, where
+ * the traffic lights cover the left of that row. Shift the quick menu right by
+ * two button widths plus the 8px gap (2.5em of --font-ui-small) so Exit sits
+ * clear of the lights. That offset is the lights' footprint, not button count.
+ * Native fullscreen already hides the traffic lights.
+ */
+body.mod-macos.ddc_ink_hide-workspace-chrome:not(.is-fullscreen) .ink_quick-menu {
+	margin-left: calc(2 * 2.5 * var(--font-ui-small) + 8px);
+}
+
+/*
+ * Drawing's left-hand layout parks .ink_tool-menu on the left. Full screen
+ * puts Exit in that same slot, so re-center tools to match writing.
+ */
+body.ddc_ink_hide-workspace-chrome .ddc_ink_drawing-editor .ink_tool-menu,
+body.ddc_ink_hide-workspace-chrome .ddc_ink_drawing-editor.ink_dominant-hand_left .ink_tool-menu {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}

@@ -3,6 +3,7 @@
     // Positioned at the far right of the SecondaryMenuBar while undo/redo stays centered
     position: absolute;
     right: 8px;
+    bottom: 8px;
 
     display: flex;
     flex-direction: row;
@@ -14,6 +15,17 @@
         height: 2.5em;
         border-radius: 0.8em;
         padding: 0 !important;
+
+        // Match .ink_menu-bar button chrome (undo/redo in SecondaryMenuBar)
+        background-color: var(--interactive-normal);
+        color: var(--color-base-60);
+        fill: var(--color-base-60);
+
+        &:hover {
+            background-color: var(--interactive-hover);
+            color: var(--color-base-100);
+            fill: var(--color-base-100);
+        }
 
         svg {
             width: 1.5em !important;

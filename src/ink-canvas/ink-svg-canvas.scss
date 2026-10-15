@@ -13,6 +13,16 @@
 	}
 }
 
+// Writing guides use currentColor (ink-writing-guide-lines.scss); match locked embed text colour.
+.ink-svg-canvas {
+	color: var(--text-normal);
+}
+
+// Select tool: accent tint is mostly in fill color-mix; saturation nudges hue toward feature colour.
+.ink-svg-canvas .ink-stroke--selected {
+	filter: saturate(1.35);
+}
+
 .ink-svg-canvas [data-stroke-group].ink-stroke--pending-erase {
 	/* Ease-in-out cubic: starts and ends slowly, faster in the middle */
 	animation: ink-stroke-pending-erase 0.2s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;

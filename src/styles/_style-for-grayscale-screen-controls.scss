@@ -1,0 +1,168 @@
+// Shared high-contrast control chrome for body.ddc_ink_style-for-grayscale-screen.
+
+$ink-grayscale-screen-fill-on-dark-theme: #ffffff;
+$ink-grayscale-screen-ink-on-dark-theme: #000000;
+$ink-grayscale-screen-fill-on-light-theme: #000000;
+$ink-grayscale-screen-ink-on-light-theme: #ffffff;
+$ink-grayscale-screen-canvas-on-dark-theme: #000000;
+$ink-grayscale-screen-canvas-on-light-theme: #ffffff;
+@mixin ink-grayscale-screen-icon-button {
+	box-sizing: border-box;
+	border: 2px solid var(--text-normal);
+	color: var(--text-normal);
+	fill: var(--text-normal);
+	background-color: var(--background-primary);
+
+	&:hover {
+		background-color: var(--background-primary-alt);
+		color: var(--text-normal);
+		fill: var(--text-normal);
+	}
+
+	&:disabled {
+		opacity: 1;
+	}
+}
+
+// Inverted fill; keep the same 2px --text-normal ring as unselected tools so the
+// outer size matches (a black ring on a dark canvas disappears and looks smaller).
+@mixin ink-grayscale-screen-selected-tool-dark-theme {
+	background-color: $ink-grayscale-screen-fill-on-dark-theme;
+	color: $ink-grayscale-screen-ink-on-dark-theme;
+	fill: $ink-grayscale-screen-ink-on-dark-theme;
+	border: 2px solid var(--text-normal);
+
+	&:hover {
+		background-color: $ink-grayscale-screen-fill-on-dark-theme;
+		color: $ink-grayscale-screen-ink-on-dark-theme;
+		fill: $ink-grayscale-screen-ink-on-dark-theme;
+		border-color: var(--text-normal);
+	}
+}
+
+@mixin ink-grayscale-screen-selected-tool-light-theme {
+	background-color: $ink-grayscale-screen-fill-on-light-theme;
+	color: $ink-grayscale-screen-ink-on-light-theme;
+	fill: $ink-grayscale-screen-ink-on-light-theme;
+	border: 2px solid var(--text-normal);
+
+	&:hover {
+		background-color: $ink-grayscale-screen-fill-on-light-theme;
+		color: $ink-grayscale-screen-ink-on-light-theme;
+		fill: $ink-grayscale-screen-ink-on-light-theme;
+		border-color: var(--text-normal);
+	}
+}
+
+// Colour only — Obsidian button chrome (border, shadow, padding) stays as-is.
+// !important beats .mod-cta so Link account (settings + notice) follows the same inversion.
+@mixin ink-grayscale-screen-inverted-panel-button-dark-theme {
+	color: $ink-grayscale-screen-fill-on-dark-theme !important;
+	background-color: $ink-grayscale-screen-ink-on-dark-theme !important;
+
+	&:hover {
+		color: $ink-grayscale-screen-fill-on-dark-theme !important;
+		background-color: $ink-grayscale-screen-ink-on-dark-theme !important;
+	}
+}
+
+@mixin ink-grayscale-screen-inverted-panel-button-light-theme {
+	color: $ink-grayscale-screen-fill-on-light-theme !important;
+	background-color: $ink-grayscale-screen-ink-on-light-theme !important;
+
+	&:hover {
+		color: $ink-grayscale-screen-fill-on-light-theme !important;
+		background-color: $ink-grayscale-screen-ink-on-light-theme !important;
+	}
+}
+
+@mixin ink-grayscale-screen-icon-buttons {
+	.ink_menu-bar button,
+	.ink_tool-menu button,
+	.ink_extended-writing-menu button,
+	.ink_extended-drawing-menu button,
+	.ink_transition_menu button,
+	.ink_expand-lines-button button,
+	.ddc_ink_resize-handle,
+	.ddc_ink_svg-edit-button,
+	.ddc_ink_display-mode-toggle,
+	.ink_modify-menu button {
+		@include ink-grayscale-screen-icon-button;
+	}
+
+	.ddc_ink_overflow-button-and-menu .ddc_ink_dropdown {
+		border: 2px solid var(--text-normal);
+		background-color: var(--background-primary);
+		color: var(--text-normal);
+		fill: var(--text-normal);
+	}
+}
+
+// Select tool visuals (lasso polygon, selection bounds, resize/rotate handles) swap
+// --interactive-accent for pure black/white so they read on greyscale eInk panels.
+// Selectors beat the base selection-overlay.scss rules and the lasso's SVG
+// presentation attributes (set in select-tool.ts) without !important.
+@mixin ink-grayscale-screen-selection-chrome($selection-color, $canvas-color) {
+	.ink-canvas-lasso {
+		fill: color-mix(in srgb, $selection-color 14%, transparent);
+		stroke: $selection-color;
+		stroke-width: 2px;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.ink-canvas-selection-bounds-underlay .ink-canvas-selection-bounds-fill {
+		fill: color-mix(in srgb, $selection-color 14%, transparent);
+	}
+
+	.ink-canvas-selection-overlay .ink-canvas-selection-bounds {
+		fill: none;
+		stroke: $selection-color;
+		stroke-width: 2px;
+		vector-effect: non-scaling-stroke;
+	}
+
+	.ink-canvas-selection-overlay {
+		.ink-canvas-selection-handle-dot {
+			fill: $selection-color;
+			stroke: $canvas-color;
+		}
+
+		.ink-canvas-selection-handle-icon {
+			color: $canvas-color;
+		}
+	}
+}
+
+// Writing guides: base sheet uses 30% opacity; HC raises to 50% for e-ink readability.
+@mixin ink-grayscale-screen-writing-guide-lines {
+	.ink-writing-guide-line,
+	.ddc_ink_writing-editor .ink-writing-guide-line,
+	.ddc_ink_writing-embed-preview line,
+	.ink-type-writing-line {
+		stroke-opacity: 0.5;
+	}
+}
+
+// Selected ink only — 4px halo (horizontal guides: ink-writing-guide-lines.scss).
+@mixin ink-grayscale-screen-selected-stroke-outline($outline-color) {
+	.ink-svg-canvas .ink-stroke--selected {
+		stroke: $outline-color;
+		stroke-width: 4px;
+		vector-effect: non-scaling-stroke;
+		paint-order: stroke fill;
+	}
+}
+
+@mixin ink-grayscale-screen-selected-tools-dark-theme {
+	.ink_tool-menu button:disabled,
+	.ink_menu-bar button.ink_menu-toggle--active {
+		@include ink-grayscale-screen-selected-tool-dark-theme;
+	}
+}
+
+@mixin ink-grayscale-screen-selected-tools-light-theme {
+	.ink_tool-menu button:disabled,
+	.ink_menu-bar button.ink_menu-toggle--active {
+		@include ink-grayscale-screen-selected-tool-light-theme;
+	}
+}

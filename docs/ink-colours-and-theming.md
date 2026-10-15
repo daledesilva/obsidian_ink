@@ -29,7 +29,7 @@ That themed display path is shared across:
 - **Obsidian’s native SVG leaf** when you open an ink `.svg` attachment directly (before switching into Ink’s custom writing/drawing editor)
 
 - **Pen strokes** use `--text-normal` — the same colour as body text in the current theme.
-- **Writing guide lines** use `--color-base-50` — a soft line colour that fits the theme.
+- **Writing guide lines** use `currentColor` at **30% opacity** and **1 CSS-px** width (`ink-writing-guide-lines.scss`) — same in the live editor and locked previews. See [Ink writing guide lines](ink-writing-guide-lines.md).
 - **Optional writing background and drawing frame** use other theme surface colours when those settings are on.
 
 When you toggle light or dark mode, those variables change. The preview updates without resaving the SVG.
@@ -113,7 +113,7 @@ Before the Reading-mode post-processor mounts an inlined preview — or if that 
 | Element | Baked in file | On screen in Ink preview |
 |---------|---------------|--------------------------|
 | Pen strokes | `#000000` | `var(--text-normal)` |
-| Writing guide lines | `#888888` | `var(--color-base-50)` |
+| Writing guide lines | `#888888` at 30% opacity | `currentColor` at 30% opacity, 1px |
 | Writing background (optional setting) | — | `var(--color-base-05)` |
 | Drawing frame (optional setting) | — | `var(--color-base-30)` |
 
@@ -147,3 +147,5 @@ Native-leaf layout (sizing, scroll, centered media) lives in `src/logic/utils/sv
 - [Reading mode](reading-mode.md) — How Reading mode loads and shows embed previews
 - [Reading mode embed rendering](reading-mode-embed-rendering.md) — Reading mode implementation
 - [Plugin memory and persistence](plugin-memory-and-persistence.md) — What lives in vault files vs settings
+- [High contrast user interface](high-contrast-user-interface.md) — Device-local e-ink chrome overlay (does not change baked SVG colours)
+- [Ink writing guide lines](ink-writing-guide-lines.md) — shared live, locked, and export guide styling

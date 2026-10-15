@@ -1,5 +1,5 @@
 import type { StrokeStore } from './stroke-store';
-import type { InkStroke } from './types';
+import type { InkPoint, InkStroke } from './types';
 
 ///////////////////////////
 ///////////////////////////
@@ -49,6 +49,48 @@ export class RemoveStrokesCommand implements InkCommand {
 
 	unapply(): void {
 		this.store.addMany(this.removedStrokes);
+	}
+}
+
+/** Replace stroke geometry after scale/rotate (full stroke snapshots). */
+export class TransformStrokesCommand implements InkCommand {
+	private store: StrokeStore;
+	private previousStrokes: InkStroke[];
+	private nextStrokes: InkStroke[];
+
+	constructor(store: StrokeStore, nextStrokes: InkStroke[]) {
+		this.store = store;
+		this.nextStrokes = nextStrokes.map((stroke) => ({
+			...stroke,
+			points: stroke.points.map((point) => [...point] as InkPoint),
+			style: { ...stroke.style },
+			offset: { ...stroke.offset },
+		}));
+		this.previousStrokes = nextStrokes
+			.map((stroke) => store.getById(stroke.id))
+			.filter((stroke): stroke is InkStroke => stroke !== undefined)
+			.map((stroke) => ({
+				...stroke,
+				points: stroke.points.map((point) => [...point] as InkPoint),
+				style: { ...stroke.style },
+				offset: { ...stroke.offset },
+			}));
+	}
+
+	apply(): void {
+		const map = new Map<string, InkStroke>();
+		for (const stroke of this.nextStrokes) {
+			map.set(stroke.id, stroke);
+		}
+		this.store.updateStrokes(map);
+	}
+
+	unapply(): void {
+		const map = new Map<string, InkStroke>();
+		for (const stroke of this.previousStrokes) {
+			map.set(stroke.id, stroke);
+		}
+		this.store.updateStrokes(map);
 	}
 }
 

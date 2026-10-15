@@ -5,6 +5,8 @@ import { SelectIcon } from 'src/graphics/icons/select-icon';
 import { EraseIcon } from 'src/graphics/icons/erase-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
 import { ExpandIcon } from 'src/graphics/icons/expand-icon';
+import { CloseFullscreenIcon } from 'src/graphics/icons/close-fullscreen-icon';
+import { LocateIcon } from 'src/graphics/icons/locate-icon';
 import { PointerIcon } from 'src/graphics/icons/pointer-icon';
 import classNames from 'classnames';
 import { TooltipButton } from 'src/components/jsx-components/tooltip-button/tooltip-button';
@@ -30,6 +32,13 @@ interface InkCanvasDrawingMenuProps {
 	onStoreChange: () => void;
 	onActivateTool?: (tool: 'draw' | 'erase' | 'select') => void;
 	onExpandClick?: () => void;
+	/** Dedicated view: hide ribbon, tab strip, view header, and side docks. */
+	onEnterWorkspaceChrome?: () => void;
+	/** Dedicated view: restore the chrome hidden by full screen, or return to the note. */
+	onExitWorkspaceChrome?: () => void;
+	isWorkspaceChromeHidden?: boolean;
+	/** Dedicated view (not full screen): reveal this ink file in the file explorer. */
+	onLocateFile?: () => void;
 	showFingerDrawingToggle?: boolean;
 	isFingerDrawingActive?: boolean;
 	onFingerDrawingToggle?: () => void;
@@ -100,6 +109,23 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 	///////////
 	///////////
 
+	const showEmbedFullScreen = Boolean(props.onExpandClick);
+	const showDedicatedFullScreen = Boolean(
+		!props.onExpandClick && !props.isWorkspaceChromeHidden && props.onEnterWorkspaceChrome
+	);
+	const showExitFullScreen = Boolean(!props.onExpandClick && props.isWorkspaceChromeHidden);
+	// Dedicated only: Full screen already left-justifies Exit, and embeds use overflow Open instead.
+	const showLocate = Boolean(
+		!props.onExpandClick && !props.isWorkspaceChromeHidden && props.onLocateFile
+	);
+	const showQuickMenu = Boolean(
+		props.showFingerDrawingToggle
+		|| showEmbedFullScreen
+		|| showDedicatedFullScreen
+		|| showExitFullScreen
+		|| showLocate
+	);
+
 	return <>
 		<div
 			ref={ref}
@@ -108,14 +134,38 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 				'ink_menu-bar_full',
 			])}
 		>
-			{(props.showFingerDrawingToggle || props.onExpandClick) && (
+			{showQuickMenu && (
 				<div className='ink_quick-menu'>
-					{props.onExpandClick && (
+					{showEmbedFullScreen && (
 						<TooltipButton
-							tooltip='Open in full view'
+							tooltip='Full screen'
 							onClick={() => props.onExpandClick?.()}
 						>
 							<ExpandIcon />
+						</TooltipButton>
+					)}
+					{showDedicatedFullScreen && (
+						<TooltipButton
+							tooltip='Full screen'
+							onClick={() => props.onEnterWorkspaceChrome?.()}
+						>
+							<ExpandIcon />
+						</TooltipButton>
+					)}
+					{showLocate && (
+						<TooltipButton
+							tooltip='Locate'
+							onClick={() => props.onLocateFile?.()}
+						>
+							<LocateIcon />
+						</TooltipButton>
+					)}
+					{showExitFullScreen && (
+						<TooltipButton
+							tooltip='Exit full screen'
+							onClick={() => props.onExitWorkspaceChrome?.()}
+						>
+							<CloseFullscreenIcon />
 						</TooltipButton>
 					)}
 					{props.showFingerDrawingToggle && (

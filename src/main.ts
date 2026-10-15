@@ -1,6 +1,9 @@
 import './ddc-library/settings-styles.scss';
 // Global so dark-mode native Ink img invert applies before embed SCSS chunks load.
 import './components/shared/ink-svg-preview-theme.scss';
+import './styles/ink-workspace-chrome.scss';
+import './styles/ink-writing-guide-lines.scss';
+import './styles/ink-grayscale-screen-chrome.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
@@ -35,6 +38,7 @@ import { drawDefaultSvgStr, drawExistingSvgStr, drawPasteSvgStr, linkAccountUser
 import { BooxConnection } from 'src/connections/boox/boox-connection';
 import { migrateOutdatedSettings } from 'src/types/plugin-settings-migrations';
 import { logToVault } from 'src/logic/utils/log-to-vault';
+import { releaseInkWorkspaceChromeOnPluginUnload } from 'src/logic/utils/ink-workspace-chrome';
 import {
 	collectInkHostProbe,
 	postCursorDebugIngest,
@@ -48,7 +52,12 @@ import {
 	resetExperimentalDeviceSettingsToDefault,
 	resetFingerDrawingToDefault,
 	setBooxConnectionEnabled,
+	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
+import {
+	applyHighContrastUserInterfaceBodyClass,
+	releaseHighContrastUserInterfaceBodyClassOnPluginUnload,
+} from 'src/logic/device-settings/high-contrast-user-interface-body-class';
 import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
 import {
 	initHandwritingTranscriptionQueue,
@@ -89,6 +98,8 @@ export default class InkPlugin extends Plugin {
 	/** Boox companion app WebSocket: open only while a drawing editor is active (unlocked). */
 	booxConnection: BooxConnection;
 
+	private unsubscribeHighContrastUserInterfaceBodyClass?: () => void;
+
 	/** Sidebar collapsed state captured before opening a dedicated ink view, restored on close. */
 	inkViewSidebarState: { leftWasCollapsed: boolean; rightWasCollapsed: boolean } | null = null;
 
@@ -118,6 +129,13 @@ export default class InkPlugin extends Plugin {
 		try {
 			await runInkOnloadStep('loadSettings', async () => {
 				await this.loadSettings();
+			});
+
+			await runInkOnloadStep('highContrastUserInterfaceBodyClass', () => {
+				applyHighContrastUserInterfaceBodyClass();
+				this.unsubscribeHighContrastUserInterfaceBodyClass = subscribeDeviceSettingsChanged(() => {
+					applyHighContrastUserInterfaceBodyClass();
+				});
 			});
 
 			await runInkOnloadStep('booxConnection', () => {
@@ -273,6 +291,10 @@ export default class InkPlugin extends Plugin {
 			message: 'plugin unloading',
 		});
 		logToVault('Plugin unloaded');
+		releaseInkWorkspaceChromeOnPluginUnload();
+		releaseHighContrastUserInterfaceBodyClassOnPluginUnload();
+		this.unsubscribeHighContrastUserInterfaceBodyClass?.();
+		this.unsubscribeHighContrastUserInterfaceBodyClass = undefined;
 		shutdownHandwritingTranscriptionQueue();
 		this.booxConnection?.dispose();
 	}

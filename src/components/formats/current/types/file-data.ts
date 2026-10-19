@@ -17,6 +17,12 @@ export type InkFileMetadata = {
     lastTranscriptionAt?: string;
     /** Height in pixels of each ruled line. Stored per-file so existing embeds are unaffected by the global setting. */
     writingLineHeight?: number;
+    /** Relative vault path to a source photo (e.g. `images/note.jpg`) for photo-imported writing. */
+    sourceImage?: string;
+    /** Cropped page JPEG used for transcription. The Photo tab keeps `sourceImage`. */
+    transcriptImage?: string;
+    /** When `photo`, transcription reads the source JPEG until the user edits strokes. */
+    transcriptFrom?: 'photo';
 };
 
 export type InkFileData = {

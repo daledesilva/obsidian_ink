@@ -89,6 +89,13 @@
 	}
 }
 
+.ddc_ink_display-mode-toggle-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2em;
+	pointer-events: auto;
+}
+
 .ddc_ink_display-mode-toggle {
 	width: 2.1em;
 	height: 2.1em;
@@ -101,4 +108,18 @@
 		color: var(--text-on-accent);
 		fill: var(--text-on-accent);
 	}
+
+	&--active {
+		background-color: var(--interactive-accent);
+		color: var(--text-on-accent);
+		fill: var(--text-on-accent);
+	}
+}
+
+.ddc_ink_display-mode-toggle__label {
+	font-size: 0.55em;
+	font-weight: 600;
+	line-height: 1;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
 }

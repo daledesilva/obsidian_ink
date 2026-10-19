@@ -29,6 +29,10 @@ export const buildInkCanvasWritingFileData = (props: {
   inkCanvasSnapshot: InkCanvasSnapshot,
   svgString: string,
   transcript?: string,
+  sourceImage?: string,
+  transcriptImage?: string,
+  transcriptFrom?: 'photo',
+  writingLineHeight?: number,
 }): InkFileData => {
   return {
     meta: {
@@ -36,6 +40,10 @@ export const buildInkCanvasWritingFileData = (props: {
       tldrawVersion: '',
       fileType: 'inkWriting',
       transcript: props.transcript,
+      sourceImage: props.sourceImage,
+      transcriptImage: props.transcriptImage,
+      transcriptFrom: props.transcriptFrom,
+      writingLineHeight: props.writingLineHeight ?? props.inkCanvasSnapshot.writingLineHeight,
     },
     tldraw: {} as TLEditorSnapshot,
     inkCanvas: props.inkCanvasSnapshot,

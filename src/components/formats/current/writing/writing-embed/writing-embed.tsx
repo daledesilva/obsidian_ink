@@ -40,6 +40,9 @@ import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-em
 import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
 import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
 import { InkEmbedTranscriptControls, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
+import { InkPhotoView } from "src/components/formats/current/ink-photo-view/ink-photo-view";
+import { useInkEmbedDisplayMode } from "src/logic/use-ink-embed-display-mode";
+import { useInkFileSourceImageUrl } from "src/logic/use-ink-file-source-image";
 
 ///////
 ///////
@@ -123,6 +126,10 @@ export function WritingEmbed (props: {
 		transcript,
 		isThisEmbedEditing,
 	);
+	const sourceImageUrl = useInkFileSourceImageUrl(props.plugin, props.writingFileRef);
+	const hasSourcePhoto = !!sourceImageUrl;
+	const embedDisplayMode = useInkEmbedDisplayMode(props.writingFileRef?.path);
+	const showPhoto = !isThisEmbedEditing && hasSourcePhoto && embedDisplayMode === 'photo';
 	// Aspect-ratio sync is async; it must not overwrite Text-mode content height.
 	const showTranscriptRef = useRef(false);
 	showTranscriptRef.current = showTranscript;
@@ -138,10 +145,14 @@ export function WritingEmbed (props: {
 		// Text height comes from the rendered markdown, not the SVG aspect ratio.
 		// Leaving the ink height here makes the first transcript measure match that box,
 		// and CodeMirror never remeasures until the user toggles away and back.
-		if (showTranscript) {
+		if (showTranscript || showPhoto) {
 			resizeContainer.classList.remove('ddc_ink_smooth-transition');
 			resizeContainer.style.height = 'auto';
-			resizeContainer.setAttribute('data-ink-display-mode', 'text');
+			if (showTranscript) {
+				resizeContainer.setAttribute('data-ink-display-mode', 'text');
+			} else {
+				resizeContainer.setAttribute('data-ink-display-mode', 'photo');
+			}
 			previousHeightRef.current = null;
 			return;
 		}
@@ -169,7 +180,7 @@ export function WritingEmbed (props: {
 		inkEmbedSyncWidgetRootMinHeightToContent({
 			widgetRootEl: embedContainerElRef.current?.closest('.ddc_ink_widget-root'),
 		});
-	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx, showTranscript]);
+	}, [props.writingFileRef?.path, props.embedSettings?.embedDisplay?.aspectRatio, isThisEmbedEditing, props.remountReserveHeightPx, showTranscript, showPhoto]);
 
 	// SVG viewBox is authoritative for preview height.
 	// Do NOT rewrite note markdown here: mount-time setEmbedProps caused CM remount
@@ -453,6 +464,11 @@ export function WritingEmbed (props: {
 					ref = {resizeContainerElRef}
 				>
 				
+					{showPhoto && sourceImageUrl && (
+						<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
+							<InkPhotoView sourceImageUrl={sourceImageUrl} />
+						</EmbedPreviewContextMenu>
+					)}
 					{showTranscript && transcript && (
 						<EmbedPreviewContextMenu
 							menuOptions={lockedEmbedMenuOptions(true)}
@@ -466,7 +482,7 @@ export function WritingEmbed (props: {
 							/>
 						</EmbedPreviewContextMenu>
 					)}
-					{!showTranscript && (
+					{!showTranscript && !showPhoto && (
 						<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 							<WritingEmbedPreviewWrapper
 								embedId = {props.embedId}
@@ -482,6 +498,7 @@ export function WritingEmbed (props: {
 							filePath={props.writingFileRef.path}
 							inkIconKind='writing'
 							hasTranscript={hasTranscript}
+							hasSourcePhoto={hasSourcePhoto}
 						/>
 					)}
 

@@ -115,6 +115,7 @@ export interface InkEmbedTranscriptControlsProps {
 	filePath: string;
 	inkIconKind: 'writing' | 'drawing';
 	hasTranscript: boolean;
+	hasSourcePhoto?: boolean;
 }
 
 /**
@@ -125,7 +126,7 @@ export interface InkEmbedTranscriptControlsProps {
 export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProps) {
 	const queueStatus = useHandwritingTranscriptionQueueStatus(props.filePath);
 
-	if (!queueStatus && !props.hasTranscript) return null;
+	if (!queueStatus && !props.hasTranscript && !props.hasSourcePhoto) return null;
 
 	let statusTooltip = 'Transcription queued';
 	if (queueStatus === 'processing') statusTooltip = 'Transcribing…';
@@ -144,11 +145,56 @@ export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProp
 					{queueStatus === 'processing' ? <Loader2Icon /> : <ClockIcon />}
 				</TooltipButton>
 			)}
-			{props.hasTranscript && (
+			{props.hasSourcePhoto && (
+				<InkEmbedDisplayModeSwitchWithPhoto
+					filePath={props.filePath}
+					inkIconKind={props.inkIconKind}
+					hasTranscript={props.hasTranscript}
+				/>
+			)}
+			{!props.hasSourcePhoto && props.hasTranscript && (
 				<InkEmbedDisplayModeSwitch
 					filePath={props.filePath}
 					inkIconKind={props.inkIconKind}
 				/>
+			)}
+		</div>
+	);
+}
+
+/** Photo, ink, and transcript toggles for photo-imported writing embeds. */
+export function InkEmbedDisplayModeSwitchWithPhoto(props: InkEmbedDisplayModeSwitchProps & {
+	hasTranscript: boolean;
+}) {
+	const mode = useInkEmbedDisplayMode(props.filePath);
+
+	return (
+		<div className='ddc_ink_display-mode-toggle-group'>
+			<TooltipButton
+				tooltip='Show photo'
+				className={mode === 'photo' ? 'ddc_ink_display-mode-toggle ddc_ink_display-mode-toggle--active' : 'ddc_ink_display-mode-toggle'}
+				onMouseDown={(event) => event.stopPropagation()}
+				onClick={() => setInkEmbedDisplayMode(props.filePath, 'photo')}
+			>
+				<span className='ddc_ink_display-mode-toggle__label'>Photo</span>
+			</TooltipButton>
+			<TooltipButton
+				tooltip='Show ink'
+				className={mode === 'ink' ? 'ddc_ink_display-mode-toggle ddc_ink_display-mode-toggle--active' : 'ddc_ink_display-mode-toggle'}
+				onMouseDown={(event) => event.stopPropagation()}
+				onClick={() => setInkEmbedDisplayMode(props.filePath, 'ink')}
+			>
+				{props.inkIconKind === 'drawing' ? <DrawIcon /> : <WriteIcon />}
+			</TooltipButton>
+			{props.hasTranscript && (
+				<TooltipButton
+					tooltip='Show transcript'
+					className={mode === 'text' ? 'ddc_ink_display-mode-toggle ddc_ink_display-mode-toggle--active' : 'ddc_ink_display-mode-toggle'}
+					onMouseDown={(event) => event.stopPropagation()}
+					onClick={() => setInkEmbedDisplayMode(props.filePath, 'text')}
+				>
+					<TextModeIcon />
+				</TooltipButton>
 			)}
 		</div>
 	);

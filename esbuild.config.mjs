@@ -219,7 +219,7 @@ esbuild.build({
 	footer: {
 		js: buildEarlyDebugIngestFooter(),
 	},
-	entryPoints: ['./src/main.ts'],
+	entryPoints: ['./src/main.ts', './src/logic/photo-trace/photo-trace.worker.ts'],
 	bundle: true,
 	external: [
 		'obsidian',

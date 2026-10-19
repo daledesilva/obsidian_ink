@@ -10,6 +10,7 @@ import { registerSettingsTab } from './components/dom-components/tabs/settings-t
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
+import { insertWritingFromPhoto } from './commands/insert-writing-from-photo';
 import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
 import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
 import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
@@ -360,6 +361,12 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 		name: 'New handwriting section',
 		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'create-handwriting-from-photo',
+		name: 'Handwriting from photo',
+		icon: 'write_default',
+		editorCallback: (editor: Editor) => insertWritingFromPhoto(plugin, editor),
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file',

@@ -735,10 +735,15 @@ export function WritingEditor(props: WritingEditorProps) {
 		if (!editor) return;
 		const snapshot = editor.getSnapshot();
 		const svgString = renderWritingStrokesToSvg(snapshot.strokes, snapshot, WRITING_PAGE_WIDTH);
+		const existingSvg = await props.writingFile.vault.read(props.writingFile);
+		const existingPageData = extractInkJsonFromSvg(existingSvg);
 		const writingSvgFileContent = buildFileStr(buildInkCanvasWritingFileData({
 			inkCanvasSnapshot: snapshot,
 			svgString,
 			transcript: transcriptRef.current,
+			sourceImage: existingPageData?.meta.sourceImage,
+			transcriptImage: existingPageData?.meta.transcriptImage,
+			transcriptFrom: existingPageData?.meta.transcriptFrom,
 		}));
 		// Capture live canvas before lock unmounts the editor; lock so preview + queue UI show while transcribing.
 		if (props.embedded && props.closeEditor) {

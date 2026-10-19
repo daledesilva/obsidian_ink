@@ -1,0 +1,12 @@
+.ddc_ink_photo-view {
+	width: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+}
+
+.ddc_ink_photo-view__image {
+	max-width: 100%;
+	height: auto;
+	display: block;
+}

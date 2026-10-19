@@ -1,0 +1,26 @@
+.modal.ddc_ink_photo-adjust-modal {
+	width: min(36em, calc(100vw - 3em));
+	max-height: calc(100vh - 2.5em);
+}
+
+.ddc_ink_photo-adjust-modal .modal-content {
+	padding-right: 1.25em;
+	padding-left: 1.25em;
+}
+
+.ddc_ink_photo-adjust__intro {
+	margin-top: 0;
+}
+
+.ddc_ink_photo-adjust__frame {
+	box-sizing: border-box;
+	max-width: 100%;
+	margin: 0.25em auto 0.75em;
+	padding: 0.85em;
+}
+
+.ddc_ink_photo-adjust__stage {
+	display: block;
+	margin: 0 auto;
+	background: var(--background-secondary);
+}

@@ -21,7 +21,7 @@ export const HANDWRITING_TRANSCRIPTION_MODELS = {
 export type HandwritingTranscriptionModel =
 	(typeof HANDWRITING_TRANSCRIPTION_MODELS)[keyof typeof HANDWRITING_TRANSCRIPTION_MODELS];
 
-export type HandwritingTranscriptionMediaType = 'image/svg+xml' | 'image/png';
+export type HandwritingTranscriptionMediaType = 'image/svg+xml' | 'image/png' | 'image/jpeg';
 
 export interface HandwritingTranscriptionJobRequest {
 	idempotencyKey: string;
@@ -172,7 +172,11 @@ function parseHandwritingTranscriptionJobResponse(
 	const record = json as Record<string, unknown>;
 	if (typeof record.text !== 'string') return null;
 	if (typeof record.model !== 'string') return null;
-	if (record.mediaType !== 'image/svg+xml' && record.mediaType !== 'image/png') return null;
+	if (
+		record.mediaType !== 'image/svg+xml'
+		&& record.mediaType !== 'image/png'
+		&& record.mediaType !== 'image/jpeg'
+	) return null;
 	const parsed: HandwritingTranscriptionJobResponse = {
 		text: record.text,
 		model: record.model,

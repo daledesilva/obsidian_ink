@@ -1,0 +1,129 @@
+import { Modal, Notice, Setting } from 'obsidian';
+import InkPlugin from 'src/main';
+
+////////
+////////
+
+export type WritingPhotoPickerMode = 'camera' | 'library' | 'clipboard';
+
+export class WritingPhotoPickerModal extends Modal {
+	private onPick: (file: File) => void;
+	private onPaste = (event: ClipboardEvent) => {
+		const file = imageFileFromClipboardEvent(event);
+		if (!file) return;
+		event.preventDefault();
+		this.finishWithFile(file);
+	};
+
+	constructor(plugin: InkPlugin, onPick: (file: File) => void) {
+		super(plugin.app);
+		this.onPick = onPick;
+	}
+
+	onOpen(): void {
+		const { titleEl, contentEl } = this;
+		titleEl.setText('Handwriting from photo');
+		contentEl.createEl('p', {
+			text: 'Take a photo of handwritten notes, choose an existing image, or paste one from the clipboard. Ink will trace the writing and transcribe the photo when your Almost Useful account is linked.',
+		});
+
+		const inputEl = contentEl.createEl('input', {
+			attr: {
+				type: 'file',
+				accept: 'image/*',
+				class: 'ddc_ink_writing-photo-picker-input',
+			},
+		});
+		inputEl.style.display = 'none';
+
+		new Setting(contentEl)
+			.addButton((button) => {
+				button.setButtonText('Take photo');
+				button.onClick(() => {
+					inputEl.setAttr('capture', 'environment');
+					inputEl.click();
+				});
+			})
+			.addButton((button) => {
+				button.setButtonText('Choose photo');
+				button.onClick(() => {
+					inputEl.removeAttribute('capture');
+					inputEl.click();
+				});
+			})
+			.addButton((button) => {
+				button.setButtonText('Paste photo');
+				button.onClick(() => {
+					void this.pasteFromClipboard();
+				});
+			});
+
+		inputEl.addEventListener('change', () => {
+			const file = inputEl.files?.[0];
+			if (!file) return;
+			this.finishWithFile(file);
+			inputEl.value = '';
+		});
+
+		// A paste while this dialog is open is more reliable than clipboard.read()
+		// in Electron, which often needs an extra permission prompt.
+		window.addEventListener('paste', this.onPaste);
+	}
+
+	onClose(): void {
+		window.removeEventListener('paste', this.onPaste);
+		this.contentEl.empty();
+	}
+
+	private async pasteFromClipboard(): Promise<void> {
+		const file = await imageFileFromClipboardApi();
+		if (file) {
+			this.finishWithFile(file);
+			return;
+		}
+		new Notice('Copy a photo first, then paste it here with Cmd+V or Ctrl+V.');
+	}
+
+	private finishWithFile(file: File): void {
+		this.close();
+		this.onPick(file);
+	}
+}
+
+async function imageFileFromClipboardApi(): Promise<File | null> {
+	if (!navigator.clipboard?.read) return null;
+	try {
+		const items = await navigator.clipboard.read();
+		for (const item of items) {
+			const imageType = item.types.find((type) => type.startsWith('image/'));
+			if (!imageType) continue;
+			const blob = await item.getType(imageType);
+			return clipboardImageFile(blob);
+		}
+	} catch {
+		// Permission denied or no image. The paste listener still works.
+	}
+	return null;
+}
+
+function imageFileFromClipboardEvent(event: ClipboardEvent): File | null {
+	const data = event.clipboardData;
+	if (!data) return null;
+	for (const file of Array.from(data.files)) {
+		if (file.type.startsWith('image/')) return file;
+	}
+	for (const item of Array.from(data.items)) {
+		if (item.kind !== 'file' || !item.type.startsWith('image/')) continue;
+		const blob = item.getAsFile();
+		if (blob) return clipboardImageFile(blob);
+	}
+	return null;
+}
+
+function clipboardImageFile(blob: Blob): File {
+	if (blob instanceof File && blob.name) return blob;
+	const extension = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
+	return new File([blob], `handwriting-clipboard.${extension}`, {
+		type: blob.type || 'image/jpeg',
+	});
+}

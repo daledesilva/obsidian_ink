@@ -111,6 +111,7 @@ function extractInkCanvasFormat(
         : '';
     const transcript = readInkTranscript(metadataElement, inkElements[0]);
     const transcriptionFingerprintMeta = readBboxCellsAtLastTranscriptionAttrs(inkElements[0]);
+    const photoMetadata = readInkPhotoMetadataAttrs(inkElements[0]);
 
     return {
         meta: {
@@ -119,6 +120,7 @@ function extractInkCanvasFormat(
             fileType: fileTypeText as 'inkDrawing' | 'inkWriting',
             transcript,
             ...transcriptionFingerprintMeta,
+            ...photoMetadata,
         },
         tldraw: {} as TLEditorSnapshot, // Not used for ink-canvas files
         inkCanvas: inkCanvasSnapshot,
@@ -177,6 +179,7 @@ function extractTldrawFormat(
         : undefined;
     const transcript = readInkTranscript(metadataElement, inkElements[0]);
     const transcriptionFingerprintMeta = readBboxCellsAtLastTranscriptionAttrs(inkElements[0]);
+    const photoMetadata = readInkPhotoMetadataAttrs(inkElements[0]);
 
     return {
         meta: {
@@ -186,6 +189,7 @@ function extractTldrawFormat(
             writingLineHeight,
             transcript,
             ...transcriptionFingerprintMeta,
+            ...photoMetadata,
         },
         tldraw: tldrawSnapshot,
         svgString,
@@ -215,6 +219,26 @@ function readInkTranscript(
  * Reads last-success bbox occupancy snapshot from `<ink>` attributes.
  * Ignores legacy svg-content-hash / grid-cells (different metric and origin).
  */
+function readInkPhotoMetadataAttrs(inkElement: Element | undefined): {
+    sourceImage?: string;
+    transcriptImage?: string;
+    transcriptFrom?: 'photo';
+} {
+    if (!inkElement) return {};
+    const sourceImage = inkElement.getAttribute('source-image') || undefined;
+    const transcriptImage = inkElement.getAttribute('transcript-image') || undefined;
+    const transcriptFromRaw = inkElement.getAttribute('transcript-from');
+    let transcriptFrom: 'photo' | undefined;
+    if (transcriptFromRaw === 'photo') {
+        transcriptFrom = 'photo';
+    }
+    return {
+        ...(sourceImage ? { sourceImage } : {}),
+        ...(transcriptImage ? { transcriptImage } : {}),
+        ...(transcriptFrom ? { transcriptFrom } : {}),
+    };
+}
+
 function readBboxCellsAtLastTranscriptionAttrs(inkElement: Element | undefined): {
     bboxCellsAtLastTranscription?: string;
     lastTranscriptionAt?: string;

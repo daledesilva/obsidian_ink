@@ -1,0 +1,31 @@
+.ddc_ink_notice .ddc_ink_almostuseful-dev-portal-notice-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5em;
+	margin-block-start: 0.6em;
+
+	.setting-item {
+		padding: 0;
+		border: none;
+		align-items: flex-start;
+	}
+
+	.setting-item-control {
+		justify-content: flex-start;
+	}
+
+	input[type='text'] {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.ddc_ink_almostuseful-dev-portal-notice-url {
+		.setting-item-info {
+			display: none;
+		}
+
+		.setting-item-control {
+			width: 100%;
+		}
+	}
+}

@@ -7,6 +7,7 @@ import {
 	type PagePhotoAdjustment,
 	type PagePhotoAssessment,
 } from 'src/logic/photo-trace/adjust-page-photo';
+import { flattenPageIlluminationImageData } from 'src/logic/photo-trace/flatten-page-illumination';
 import {
 	PHOTO_TRACE_DEFAULT_DETAIL,
 	PHOTO_TRACE_DEFAULT_RESOLUTION,
@@ -18,26 +19,25 @@ import './writing-photo-adjust-modal.scss';
 ////////
 
 export type WritingPhotoAdjustChoice =
-	| { action: 'convert'; canvas: HTMLCanvasElement; detail: number; resolution: number }
+	| { action: 'convert'; adjustment: PagePhotoAdjustment; detail: number; resolution: number }
 	| { action: 'back' }
 	| { action: 'cancel' };
 
 /**
- * Second step after the corners are pinned. Shows the cropped page with the
- * assessed contrast and colour already applied. Back returns to the corners.
+ * Second step after the corners are pinned. Shows a downscaled cropped page with
+ * the assessed contrast and colour already applied. Convert returns the sliders
+ * only; full-res adjust and trace run in the worker. Back returns to the corners.
  * Cancel writes nothing.
  */
 export function openWritingPhotoAdjustModal(
 	plugin: InkPlugin,
-	pageCanvas: HTMLCanvasElement,
+	previewImage: ImageData,
 ): Promise<WritingPhotoAdjustChoice> {
-	const sourceContext = pageCanvas.getContext('2d');
-	if (!sourceContext) return Promise.reject(new Error('Could not read the page photo'));
-	const sourceImage = sourceContext.getImageData(0, 0, pageCanvas.width, pageCanvas.height);
-	const assessment = assessPagePhoto(sourceImage);
+	const flattenedPreview = flattenPageIlluminationImageData(previewImage);
+	const assessment = assessPagePhoto(flattenedPreview);
 	return new Promise((resolve) => {
 		const modal = new WritingPhotoAdjustModal(plugin, {
-			sourceImage,
+			sourceImage: flattenedPreview,
 			assessment,
 			onChoice: (choice) => resolve(choice),
 		});
@@ -139,7 +139,7 @@ class WritingPhotoAdjustModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Detail')
-			.setDesc('How closely the ink follows the pen. Higher keeps more of each stroke.')
+			.setDesc('How closely the ink follows the pen. Highest keeps nearly every pixel and is slower.')
 			.addSlider((slider) => {
 				slider
 					.setLimits(0, 100, 1)
@@ -152,7 +152,7 @@ class WritingPhotoAdjustModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Resolution')
-			.setDesc('How many pixels the tracer reads. Higher is sharper and slower.')
+			.setDesc('How many pixels the tracer reads. Default is 1600. Highest is 4096.')
 			.addSlider((slider) => {
 				slider
 					.setLimits(0, 100, 1)
@@ -192,11 +192,9 @@ class WritingPhotoAdjustModal extends Modal {
 				button.setButtonText('Convert to handwriting');
 				button.setCta();
 				button.onClick(() => {
-					this.paint();
-					if (!this.outputCanvas) return;
 					this.finish({
 						action: 'convert',
-						canvas: this.outputCanvas,
+						adjustment: { ...this.adjustment },
 						detail: this.detail,
 						resolution: this.resolution,
 					});

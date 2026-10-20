@@ -24,12 +24,19 @@ export interface PhotoTraceRasterInput {
 }
 
 /** Long-edge cap for the canvas that corners, warp, and trace read. */
-export const PHOTO_TRACE_WORKING_MAX_EDGE_PX = 3200;
+export const PHOTO_TRACE_WORKING_MAX_EDGE_PX = 4096;
+/** Long-edge used for pins, the first warp, and the default Resolution slider. */
+export const PHOTO_TRACE_DEFAULT_EDGE_PX = 1600;
+/** Adjust-step preview long edge so slider paints stay cheap. */
+export const PHOTO_TRACE_PREVIEW_MAX_EDGE_PX = 1000;
 /** Long-edge floor when the user turns Resolution down. */
-export const PHOTO_TRACE_MIN_EDGE_PX = 900;
-/** Default Detail and Resolution slider positions. Higher than the old fixed trace. */
-export const PHOTO_TRACE_DEFAULT_DETAIL = 85;
-export const PHOTO_TRACE_DEFAULT_RESOLUTION = 85;
+export const PHOTO_TRACE_MIN_EDGE_PX = 800;
+/** Default Detail slider is maximum so local trace keeps the finest centreline. Resolution defaults to 1600px (about 24 on the 800–4096 slider). */
+export const PHOTO_TRACE_DEFAULT_DETAIL = 100;
+export const PHOTO_TRACE_DEFAULT_RESOLUTION = Math.round(
+	((PHOTO_TRACE_DEFAULT_EDGE_PX - PHOTO_TRACE_MIN_EDGE_PX)
+		/ (PHOTO_TRACE_WORKING_MAX_EDGE_PX - PHOTO_TRACE_MIN_EDGE_PX)) * 100,
+);
 
 /**
  * Maps the Detail slider (0–100) onto how tightly polylines follow the skeleton.
@@ -37,7 +44,8 @@ export const PHOTO_TRACE_DEFAULT_RESOLUTION = 85;
  */
 export function photoTraceSimplifyEpsilon(detail: number): number {
 	const unit = clampSlider(detail) / 100;
-	return 4.2 - unit * 3.8;
+	// 0 keeps a coarse centreline. 100 keeps almost raw skeleton pixels.
+	return 5.6 - unit * 5.5;
 }
 
 /**
@@ -45,7 +53,7 @@ export function photoTraceSimplifyEpsilon(detail: number): number {
  */
 export function photoTraceMinPolylineLength(detail: number): number {
 	const unit = clampSlider(detail) / 100;
-	return Math.max(2, Math.round(16 - unit * 14));
+	return Math.max(1, Math.round(20 - unit * 19));
 }
 
 /**
@@ -85,19 +93,23 @@ export function traceHandwritingFromRaster(input: PhotoTraceRasterInput): PhotoT
 	removeTinySpecks(binary, input.width, input.height);
 	bridgeSinglePixelGaps(binary, input.width, input.height);
 	removeLongStraightRules(binary, input.width, input.height);
+	// Do not clip by global paper brightness. Shadows sit below that floor and
+	// wipe Sauvola ink; desk leftover is dropLargeBorderComponents after warp.
 	if (input.dropLargeBorderComponents) {
 		dropLargeBorderComponents(binary, input.width, input.height);
 	}
-	const skeleton = zhangSuenThin(binary, input.width, input.height);
-	const polylines = extractPolylines(skeleton, input.width, input.height);
+	const radius = inkRadiusMap(binary, input.width, input.height);
+	const skeleton = zhangSuenThinImpl(binary, input.width, input.height);
+	const polylines = stitchPolylines(extractPolylines(skeleton, input.width, input.height))
+		.filter((line) => !polylineHugsRasterBorder(line, input.width, input.height));
 	const simplifyEpsilon = input.simplifyEpsilon ?? DEFAULT_SIMPLIFY_EPSILON;
 	const minPolylineLengthPx = input.minPolylineLengthPx ?? DEFAULT_MIN_POLYLINE_LENGTH_PX;
 	const simplified = polylines
 		.map((line) => simplifyPolyline(line, simplifyEpsilon))
 		.filter((line) => line.length >= MIN_POLYLINE_POINTS && polylineLength(line) >= minPolylineLengthPx);
-	const mapped = mapPolylinesToWritingPage(simplified);
-	const writingLineHeight = estimateWritingLineHeight(mapped, WRITING_LINE_HEIGHT);
-	const strokes = mapped.map((points) => polylineToInkStroke(points));
+	const mapped = mapPolylinesToWritingPage(simplified, radius, input.width, input.height);
+	const writingLineHeight = estimateWritingLineHeight(mapped.map((line) => line.points), WRITING_LINE_HEIGHT);
+	const strokes = mapped.map((line) => polylineToInkStroke(line.points, line.radii));
 	return { strokes, writingLineHeight };
 }
 
@@ -337,7 +349,7 @@ function isMostlyThinVertical(
 
 function dropLargeBorderComponents(binary: Uint8Array, width: number, height: number): void {
 	const seen = new Uint8Array(width * height);
-	const rim = Math.max(3, Math.round(Math.min(width, height) * 0.012));
+	const rim = Math.max(6, Math.round(Math.min(width, height) * 0.04));
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
 			const start = y * width + x;
@@ -355,7 +367,7 @@ function dropLargeBorderComponents(binary: Uint8Array, width: number, height: nu
 			}
 			// A finger or torn edge sits on the rim. A word that merely touches a corner
 			// has most of its pixels inside the page, so it stays.
-			const hugsRim = rimCount / pixels.length > 0.7;
+			const hugsRim = rimCount / pixels.length > 0.45;
 			const isEdgeArtifact = touchesBorder && hugsRim && pixels.length > 40;
 			if (!isEdgeArtifact) continue;
 			for (const index of pixels) binary[index] = 0;
@@ -396,7 +408,20 @@ function floodInk(
 	return pixels;
 }
 
-function zhangSuenThin(binary: Uint8Array, width: number, height: number): Uint8Array {
+/** Convert path must set this to WASM. JS thinning is a compile/test reference only. */
+let zhangSuenThinImpl: (binary: Uint8Array, width: number, height: number) => Uint8Array = () => {
+	throw new Error('Zhang–Suen WASM is not loaded');
+};
+
+/** Worker calls this after instantiating skeleton.wasm so convert never thins on JS. */
+export function setZhangSuenThinImpl(
+	impl: (binary: Uint8Array, width: number, height: number) => Uint8Array,
+): void {
+	zhangSuenThinImpl = impl;
+}
+
+/** JS Zhang–Suen for tests and the AssemblyScript reference. Not used on convert. */
+export function zhangSuenThinJs(binary: Uint8Array, width: number, height: number): Uint8Array {
 	const work = new Uint8Array(binary);
 	let changed = true;
 	while (changed) {
@@ -659,41 +684,162 @@ function polylineLength(points: [number, number][]): number {
 
 function mapPolylinesToWritingPage(
 	polylines: [number, number][][],
-): [number, number][][] {
-	let minX = Infinity;
-	let minY = Infinity;
-	let maxX = -Infinity;
-	let maxY = -Infinity;
-	for (const line of polylines) {
-		for (const [x, y] of line) {
-			if (x < minX) minX = x;
-			if (y < minY) minY = y;
-			if (x > maxX) maxX = x;
-			if (y > maxY) maxY = y;
-		}
-	}
-	if (!Number.isFinite(minX)) {
-		return [];
-	}
+	radius: Float32Array,
+	rasterWidth: number,
+	rasterHeight: number,
+): { points: [number, number][]; radii: number[] }[] {
+	if (polylines.length === 0) return [];
+	// Use the cropped raster, not the stroke bounding box. Edge junk must not
+	// become the page, or the writing shrinks into the photo's leftover shape.
 	const margin = WRITING_PAGE_WIDTH * 0.05;
 	const contentWidth = WRITING_PAGE_WIDTH - margin * 2;
-	const inkWidth = Math.max(1, maxX - minX);
-	const inkHeight = Math.max(1, maxY - minY);
-	const scale = Math.min(contentWidth / inkWidth, contentWidth / inkHeight);
-	const offsetX = margin + (contentWidth - inkWidth * scale) / 2;
+	const scale = Math.min(contentWidth / Math.max(1, rasterWidth), contentWidth / Math.max(1, rasterHeight));
+	const offsetX = margin + (contentWidth - rasterWidth * scale) / 2;
 	const offsetY = margin;
-	const mapped: [number, number][][] = [];
+	const mapped: { points: [number, number][]; radii: number[] }[] = [];
 	for (const line of polylines) {
-		const next: [number, number][] = [];
+		const points: [number, number][] = [];
+		const radii: number[] = [];
 		for (const [x, y] of line) {
-			next.push([
-				(x - minX) * scale + offsetX,
-				(y - minY) * scale + offsetY,
+			const px = Math.min(rasterWidth - 1, Math.max(0, Math.round(x)));
+			const py = Math.min(rasterHeight - 1, Math.max(0, Math.round(y)));
+			points.push([
+				x * scale + offsetX,
+				y * scale + offsetY,
 			]);
+			radii.push(radius[py * rasterWidth + px] * scale);
 		}
-		mapped.push(next);
+		mapped.push({ points, radii });
 	}
 	return mapped;
+}
+
+function inkRadiusMap(binary: Uint8Array, width: number, height: number): Float32Array {
+	const dist = new Float32Array(width * height);
+	dist.fill(1e6);
+	const queue: number[] = [];
+	for (let i = 0; i < binary.length; i++) {
+		if (binary[i] !== 0) continue;
+		dist[i] = 0;
+		queue.push(i);
+	}
+	let head = 0;
+	while (head < queue.length) {
+		const index = queue[head++];
+		const x = index % width;
+		const y = Math.floor(index / width);
+		const nextDist = dist[index] + 1;
+		for (let dy = -1; dy <= 1; dy++) {
+			for (let dx = -1; dx <= 1; dx++) {
+				if (dx === 0 && dy === 0) continue;
+				const nx = x + dx;
+				const ny = y + dy;
+				if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+				const next = ny * width + nx;
+				if (nextDist >= dist[next]) continue;
+				dist[next] = nextDist;
+				queue.push(next);
+			}
+		}
+	}
+	return dist;
+}
+
+function polylineHugsRasterBorder(
+	line: [number, number][],
+	width: number,
+	height: number,
+): boolean {
+	if (line.length < 8) return false;
+	const rim = Math.max(5, Math.min(width, height) * 0.035);
+	let near = 0;
+	for (const [x, y] of line) {
+		if (x <= rim || y <= rim || x >= width - rim || y >= height - rim) near++;
+	}
+	const longEnough = polylineLength(line) >= Math.min(width, height) * 0.22;
+	return longEnough && near / line.length > 0.6;
+}
+
+/**
+ * Joins skeleton fragments that meet at a junction with a similar heading.
+ * Thinning splits letters at every fork; stitching those pieces back is what
+ * makes a word look like handwriting instead of dashes.
+ */
+function stitchPolylines(lines: [number, number][][]): [number, number][][] {
+	const remaining = lines.filter((line) => line.length >= 2).map((line) => line.slice());
+	let merged = true;
+	while (merged) {
+		merged = false;
+		outer: for (let i = 0; i < remaining.length; i++) {
+			for (let j = 0; j < remaining.length; j++) {
+				if (i === j) continue;
+				const joined = tryJoinPolylines(remaining[i], remaining[j]);
+				if (!joined) continue;
+				remaining[i] = joined;
+				remaining.splice(j, 1);
+				merged = true;
+				break outer;
+			}
+		}
+	}
+	return remaining;
+}
+
+function tryJoinPolylines(
+	a: [number, number][],
+	b: [number, number][],
+): [number, number][] | null {
+	const maxGap = 3;
+	const minDot = 0.5;
+	const aStart = a[0];
+	const aEnd = a[a.length - 1];
+	const bStart = b[0];
+	const bEnd = b[b.length - 1];
+	const towardAEnd = tangentTowardEnd(a);
+	const fromAStart = tangentFromStart(a);
+	const towardBEnd = tangentTowardEnd(b);
+	const fromBStart = tangentFromStart(b);
+	if (distance(aEnd, bStart) <= maxGap && dot(towardAEnd, fromBStart) >= minDot) {
+		return a.concat(b.slice(1));
+	}
+	if (distance(aEnd, bEnd) <= maxGap && dot(towardAEnd, scale(towardBEnd, -1)) >= minDot) {
+		return a.concat(b.slice(0, -1).reverse());
+	}
+	if (distance(aStart, bEnd) <= maxGap && dot(towardBEnd, fromAStart) >= minDot) {
+		return b.concat(a.slice(1));
+	}
+	if (distance(aStart, bStart) <= maxGap && dot(scale(fromAStart, -1), fromBStart) >= minDot) {
+		return a.slice().reverse().concat(b.slice(1));
+	}
+	return null;
+}
+
+function tangentFromStart(line: [number, number][]): [number, number] {
+	const look = Math.min(line.length - 1, 4);
+	return unit(line[look][0] - line[0][0], line[look][1] - line[0][1]);
+}
+
+function tangentTowardEnd(line: [number, number][]): [number, number] {
+	const look = Math.max(0, line.length - 5);
+	const last = line[line.length - 1];
+	return unit(last[0] - line[look][0], last[1] - line[look][1]);
+}
+
+function unit(dx: number, dy: number): [number, number] {
+	const length = Math.hypot(dx, dy) || 1;
+	return [dx / length, dy / length];
+}
+
+function scale(vector: [number, number], amount: number): [number, number] {
+	return [vector[0] * amount, vector[1] * amount];
+}
+
+function distance(a: [number, number], b: [number, number]): number {
+	return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
+function dot(a: [number, number], b: [number, number]): number {
+	return a[0] * b[0] + a[1] * b[1];
 }
 
 function estimateWritingLineHeight(polylines: [number, number][][], fallback: number): number {
@@ -721,10 +867,16 @@ function estimateWritingLineHeight(polylines: [number, number][][], fallback: nu
 	return Math.round(gaps[mid]);
 }
 
-function polylineToInkStroke(points: [number, number][]): InkStroke {
+function polylineToInkStroke(points: [number, number][], radii: number[]): InkStroke {
+	let radiusSum = 0;
+	for (const radius of radii) radiusSum += radius;
+	const meanRadius = radiusSum / Math.max(1, radii.length);
+	const size = Math.min(22, Math.max(2.4, meanRadius * 2.4));
 	const inkPoints: InkPoint[] = [];
-	for (const [x, y] of points) {
-		inkPoints.push([x, y, 0.5]);
+	for (let index = 0; index < points.length; index++) {
+		const radius = radii[index] ?? meanRadius;
+		const pressure = Math.min(1, Math.max(0.18, radius / Math.max(0.6, size / 2)));
+		inkPoints.push([points[index][0], points[index][1], pressure]);
 	}
 	const now = Date.now();
 	return {
@@ -732,7 +884,11 @@ function polylineToInkStroke(points: [number, number][]): InkStroke {
 		points: inkPoints,
 		style: {
 			...DEFAULT_STROKE_STYLE,
-			simulatePressure: true,
+			size,
+			thinning: 0.45,
+			// Real thickness from the photo. Velocity simulation would taper the dashes.
+			simulatePressure: false,
+			inputKind: 'pen',
 		},
 		offset: { x: 0, y: 0 },
 		startedAt: now,

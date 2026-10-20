@@ -1,7 +1,4 @@
-import type InkPlugin from 'src/main';
-import type { PhotoTraceRasterInput, PhotoTraceResult } from './trace-from-raster';
-import { PHOTO_TRACE_WORKING_MAX_EDGE_PX, traceHandwritingFromRaster } from './trace-from-raster';
-import type { PhotoTraceWorkerRequest, PhotoTraceWorkerResponse } from './photo-trace.worker';
+import { PHOTO_TRACE_WORKING_MAX_EDGE_PX } from './trace-from-raster';
 
 //////////
 //////////
@@ -34,12 +31,66 @@ export async function decodePhotoToCanvas(
 }
 
 /**
+ * Object URL of the working canvas so the pin dialog and the warp share the same pixels.
+ */
+export function canvasJpegObjectUrl(canvas: HTMLCanvasElement, quality = 0.8): Promise<string> {
+	return new Promise((resolve, reject) => {
+		canvas.toBlob((blob) => {
+			if (!blob) {
+				reject(new Error('Could not preview the photo'));
+				return;
+			}
+			resolve(URL.createObjectURL(blob));
+		}, 'image/jpeg', quality);
+	});
+}
+
+export function imageDataFromCanvas(canvas: HTMLCanvasElement): ImageData {
+	const context = canvas.getContext('2d');
+	if (!context) throw new Error('Could not read the photo');
+	return context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+export function canvasFromRgba(
+	rgba: Uint8ClampedArray,
+	width: number,
+	height: number,
+): HTMLCanvasElement {
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	const context = canvas.getContext('2d');
+	if (!context) throw new Error('Could not paint the page photo');
+	context.putImageData(new ImageData(rgba, width, height), 0, 0);
+	return canvas;
+}
+
+/**
+ * Shrinks ImageData so its long edge is at most maxEdgePx. Used by the adjust preview.
+ */
+export function scaleImageDataToMaxEdge(image: ImageData, maxEdgePx: number): ImageData {
+	const longEdge = Math.max(image.width, image.height);
+	if (longEdge <= maxEdgePx) return image;
+	const scale = maxEdgePx / longEdge;
+	const width = Math.max(1, Math.round(image.width * scale));
+	const height = Math.max(1, Math.round(image.height * scale));
+	const source = canvasFromRgba(image.data, image.width, image.height);
+	const scaled = document.createElement('canvas');
+	scaled.width = width;
+	scaled.height = height;
+	const context = scaled.getContext('2d');
+	if (!context) throw new Error('Could not scale the page photo');
+	context.imageSmoothingEnabled = true;
+	context.imageSmoothingQuality = 'high';
+	context.drawImage(source, 0, 0, width, height);
+	return context.getImageData(0, 0, width, height);
+}
+
+/**
  * Luminance raster from a canvas. Colour is ignored so any paper colour can trace.
  */
 export function luminanceFromCanvas(canvas: HTMLCanvasElement): Uint8Array {
-	const context = canvas.getContext('2d');
-	if (!context) throw new Error('Could not read the photo');
-	const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+	const imageData = imageDataFromCanvas(canvas);
 	const gray = new Uint8Array(canvas.width * canvas.height);
 	for (let i = 0; i < gray.length; i++) {
 		const r = imageData.data[i * 4];
@@ -48,92 +99,4 @@ export function luminanceFromCanvas(canvas: HTMLCanvasElement): Uint8Array {
 		gray[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 	}
 	return gray;
-}
-
-/**
- * Shrinks a canvas so its long edge is at most maxEdgePx. Used by the Resolution slider.
- */
-export function scaleCanvasToMaxEdge(canvas: HTMLCanvasElement, maxEdgePx: number): HTMLCanvasElement {
-	const longEdge = Math.max(canvas.width, canvas.height);
-	if (longEdge <= maxEdgePx) return canvas;
-	const scale = maxEdgePx / longEdge;
-	const width = Math.max(1, Math.round(canvas.width * scale));
-	const height = Math.max(1, Math.round(canvas.height * scale));
-	const scaled = document.createElement('canvas');
-	scaled.width = width;
-	scaled.height = height;
-	const context = scaled.getContext('2d');
-	if (!context) throw new Error('Could not scale the page photo');
-	context.imageSmoothingEnabled = true;
-	context.imageSmoothingQuality = 'high';
-	context.drawImage(canvas, 0, 0, width, height);
-	return scaled;
-}
-
-/**
- * Runs handwriting trace off the UI thread when a worker bundle is available.
- */
-export async function runPhotoTrace(
-	plugin: InkPlugin,
-	raster: PhotoTraceRasterInput,
-): Promise<PhotoTraceResult> {
-	const workerUrl = getPhotoTraceWorkerUrl(plugin);
-	if (workerUrl) {
-		try {
-			return await runPhotoTraceInWorker(workerUrl, raster);
-		} catch {
-			// Fall back to main thread when the worker fails to load.
-		}
-	}
-	return traceHandwritingFromRaster(raster);
-}
-
-function getPhotoTraceWorkerUrl(plugin: InkPlugin): string | null {
-	try {
-		const adapter = plugin.app.vault.adapter as { getResourcePath?: (path: string) => string };
-		if (!adapter.getResourcePath) return null;
-		return adapter.getResourcePath(
-			`plugins/${plugin.manifest.id}/logic/photo-trace/photo-trace.worker.js`,
-		);
-	} catch {
-		return null;
-	}
-}
-
-function runPhotoTraceInWorker(
-	workerUrl: string,
-	raster: PhotoTraceRasterInput,
-): Promise<PhotoTraceResult> {
-	return new Promise((resolve, reject) => {
-		const worker = new Worker(workerUrl);
-		const id = crypto.randomUUID();
-		const request: PhotoTraceWorkerRequest = {
-			id,
-			width: raster.width,
-			height: raster.height,
-			gray: raster.gray,
-			dropLargeBorderComponents: raster.dropLargeBorderComponents,
-			simplifyEpsilon: raster.simplifyEpsilon,
-			minPolylineLengthPx: raster.minPolylineLengthPx,
-		};
-		const timeoutId = window.setTimeout(() => {
-			worker.terminate();
-			reject(new Error('Photo trace timed out'));
-		}, 120_000);
-		worker.onmessage = (event: MessageEvent<PhotoTraceWorkerResponse>) => {
-			if (event.data.id !== id) return;
-			window.clearTimeout(timeoutId);
-			worker.terminate();
-			resolve({
-				strokes: event.data.strokes,
-				writingLineHeight: event.data.writingLineHeight,
-			});
-		};
-		worker.onerror = (error) => {
-			window.clearTimeout(timeoutId);
-			worker.terminate();
-			reject(error);
-		};
-		worker.postMessage(request);
-	});
 }

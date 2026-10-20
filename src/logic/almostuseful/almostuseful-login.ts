@@ -13,6 +13,7 @@ import {
 	readAlmostUsefulHandoffPending,
 	readAlmostUsefulSession,
 	resolveAlmostUsefulPortalOrigin,
+	rewriteAlmostUsefulPortalVerificationUri,
 	writeAlmostUsefulHandoffPending,
 	type AlmostUsefulHandoffPending,
 } from 'src/logic/almostuseful/almostuseful-session';
@@ -120,7 +121,7 @@ export async function requestAlmostUsefulDeviceCode(): Promise<
 		userCode: json.user_code,
 		expiresAt: Date.now() + json.expires_in * 1000,
 		intervalSeconds,
-		verificationUri: json.verification_uri,
+		verificationUri: rewriteAlmostUsefulPortalVerificationUri(json.verification_uri),
 	};
 	writeAlmostUsefulHandoffPending(pending);
 	return { ok: true, pending };
@@ -318,11 +319,12 @@ export function cancelAlmostUsefulPendingLogin(): void {
 }
 
 /** Revokes the grant when possible, then drops local tokens. */
-export function logOutAlmostUseful(): void {
+export function logOutAlmostUseful(options?: { portalOrigin?: string }): void {
 	const session = readAlmostUsefulSession();
 	void stopAlmostUsefulSessionRefresh();
 	if (session) {
-		const portalOrigin = resolveAlmostUsefulPortalOrigin();
+		// Caller can pass the host that issued the token when the override is about to change.
+		const portalOrigin = options?.portalOrigin ?? resolveAlmostUsefulPortalOrigin();
 		void almostUsefulRequestJson({
 			url: `${portalOrigin}/api/oauth/grants/${session.grantId}/revoke`,
 			method: 'POST',

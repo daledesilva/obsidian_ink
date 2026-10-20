@@ -36,8 +36,10 @@ export function quadMatchesFullFrame(
 	height: number,
 ): boolean {
 	const frame = fullFrameCorners(width, height);
-	const toleranceX = width * 0.04;
-	const toleranceY = height * 0.04;
+	// Only skip a warp when the pins are truly the photo corners. A 4% window
+	// treated an inset page as the full frame, so the tracer kept the hand and desk.
+	const toleranceX = Math.max(8, width * 0.008);
+	const toleranceY = Math.max(8, height * 0.008);
 	for (let i = 0; i < 4; i++) {
 		const deltaX = Math.abs(corners[i].x - frame[i].x);
 		const deltaY = Math.abs(corners[i].y - frame[i].y);

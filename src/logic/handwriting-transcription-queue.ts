@@ -11,7 +11,10 @@ import {
 	serializeBboxCellsAtLastTranscription,
 } from 'src/logic/stroke-bbox-cells';
 import { patchInkEmbedTranscriptAltsInVault } from 'src/logic/handwriting-transcription-apply';
-import { subscribeAlmostUsefulSessionChanged, readAlmostUsefulSession } from 'src/logic/almostuseful/almostuseful-session';
+import {
+	hasLinkedAlmostUsefulAccount,
+	subscribeAlmostUsefulSessionChanged,
+} from 'src/logic/almostuseful/almostuseful-session';
 import {
 	HandwritingTranscriptionJobError,
 	handwritingTranscriptionNoticeForError,
@@ -772,11 +775,6 @@ function shouldSkipEnqueueBecauseInflightUnchanged(
 	if (!inflightJob || inflightJob.filePath !== job.filePath) return false;
 	if (!inflightJob.bboxCellsAtLastTranscription || !job.bboxCellsAtLastTranscription) return false;
 	return inflightJob.bboxCellsAtLastTranscription === job.bboxCellsAtLastTranscription;
-}
-
-/** Transcription jobs require a linked Almost Useful app-token session on this device. */
-function hasLinkedAlmostUsefulAccount(): boolean {
-	return !!readAlmostUsefulSession()?.accessToken;
 }
 
 function isAutoTranscribeEnabled(

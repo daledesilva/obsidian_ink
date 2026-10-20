@@ -6,6 +6,8 @@ Transcription is powered by the Almost Useful account portal (`POST /api/jobs/ha
 
 Jobs run through a **plugin-owned serial queue** so transcription survives embed unmount, note close, and Obsidian quit — not React or CodeMirror widget lifetime.
 
+Photo import (`Ink: handwriting from photo`) writes strokes first, then enqueues the same queue. Tracing and lighting flatten are documented in [writing-from-photo.md](writing-from-photo.md).
+
 ## Conceptual understanding
 
 Two representations serve different jobs:

@@ -9,6 +9,7 @@ import svg from 'esbuild-plugin-svg';
 // import renamePlugin from "./rename-plugin";
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { emitPhotoTraceGenerated } from './scripts/emit-photo-trace-generated.mjs';
 
 function detectBuildHostLanIpv4() {
 	if (process.env.INK_DEBUG_SKIP_LAN_DISCOVERY === '1') return '';
@@ -212,6 +213,17 @@ const prod = buildMode === 'production';
 const watch = buildMode === undefined;
 const emulateMobile = process.env.INK_EMULATE_MOBILE === 'true';
 
+const photoTraceCodegenPlugin = () => ({
+	name: 'photo-trace-codegen',
+	setup(build) {
+		build.onStart(async () => {
+			await emitPhotoTraceGenerated();
+		});
+	},
+});
+
+await emitPhotoTraceGenerated();
+
 esbuild.build({
 	banner: {
 		js: banner,
@@ -219,7 +231,7 @@ esbuild.build({
 	footer: {
 		js: buildEarlyDebugIngestFooter(),
 	},
-	entryPoints: ['./src/main.ts', './src/logic/photo-trace/photo-trace.worker.ts'],
+	entryPoints: ['./src/main.ts'],
 	bundle: true,
 	external: [
 		'obsidian',
@@ -244,6 +256,7 @@ esbuild.build({
 	treeShaking: true,
 	outdir: './dist',
 	loader: {
+		'.wasm': 'binary',
 		// '.png': 'file',
 		// '.woff2': 'file',
 		// '.json': 'file',
@@ -269,6 +282,7 @@ esbuild.build({
 		copyManifestPlugin(),
 		// Renames main.css to styles.css as that's what obsidian expects
 		renamePlugin(),
+		photoTraceCodegenPlugin(),
 	],
 	define: {
 		'process.env.NODE_ENV': JSON.stringify(prod ? 'production' : 'development'),

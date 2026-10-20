@@ -89,13 +89,6 @@
 	}
 }
 
-.ddc_ink_display-mode-toggle-group {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.2em;
-	pointer-events: auto;
-}
-
 .ddc_ink_display-mode-toggle {
 	width: 2.1em;
 	height: 2.1em;
@@ -104,12 +97,6 @@
 	background-color: var(--interactive-normal);
 
 	&:hover {
-		background-color: var(--interactive-accent);
-		color: var(--text-on-accent);
-		fill: var(--text-on-accent);
-	}
-
-	&--active {
 		background-color: var(--interactive-accent);
 		color: var(--text-on-accent);
 		fill: var(--text-on-accent);

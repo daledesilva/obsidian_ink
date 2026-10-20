@@ -43,6 +43,7 @@ import {
 	clampAutoTranscribeChangeThresholdPercent,
 } from 'src/logic/stroke-bbox-cells';
 import type { HandwritingTranscriptionFileType } from 'src/logic/handwriting-transcription-queue-store';
+import { isInkDevelopmentBuild } from 'src/logic/utils/ink-build-mode';
 
 /////////
 /////////
@@ -138,7 +139,9 @@ export class MySettingsTab extends PluginSettingTab {
 			},
 		);
 
-		insertTldrawSvgMigrateSection(containerEl, this.plugin);
+		if (isInkDevelopmentBuild()) {
+			insertTldrawSvgMigrateSection(containerEl, this.plugin);
+		}
 
 		containerEl.createEl('hr');
 		const strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[] = [];

@@ -59,6 +59,8 @@ import {
 	applyHighContrastUserInterfaceBodyClass,
 	releaseHighContrastUserInterfaceBodyClassOnPluginUnload,
 } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
+import { showAlmostUsefulDevPortalNotice_maybe } from './components/dom-components/almostuseful-dev-portal-notice';
+import { applyAlmostUsefulDevelopmentPortalDefault } from 'src/logic/almostuseful/almostuseful-portal-server';
 import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
 import {
 	initHandwritingTranscriptionQueue,
@@ -262,10 +264,12 @@ export default class InkPlugin extends Plugin {
 			});
 
 			await runInkOnloadStep('almostUsefulAuth', () => {
+				applyAlmostUsefulDevelopmentPortalDefault();
 				void startAlmostUsefulSessionRefresh();
 			});
 
 			await runInkOnloadStep('showOnboardingTips', () => {
+				showAlmostUsefulDevPortalNotice_maybe();
 				showOnboardingTips_maybe(this);
 			});
 

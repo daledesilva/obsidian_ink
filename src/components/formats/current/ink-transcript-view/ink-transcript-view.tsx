@@ -162,42 +162,46 @@ export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProp
 	);
 }
 
-/** Photo, ink, and transcript toggles for photo-imported writing embeds. */
+/**
+ * One button, same as Ink/Transcript: it shows the next pane, not the current one.
+ * Cycle is Photo → Ink → Transcript → Photo. Without a transcript it is Photo ↔ Ink.
+ */
 export function InkEmbedDisplayModeSwitchWithPhoto(props: InkEmbedDisplayModeSwitchProps & {
 	hasTranscript: boolean;
 }) {
 	const mode = useInkEmbedDisplayMode(props.filePath);
+	const nextMode = nextPhotoEmbedDisplayMode(mode, props.hasTranscript);
+	const inkIcon = props.inkIconKind === 'drawing' ? <DrawIcon /> : <WriteIcon />;
+
+	let tooltip = 'Show ink';
+	let icon: React.ReactNode = inkIcon;
+	if (nextMode === 'text') {
+		tooltip = 'Show transcript';
+		icon = <TextModeIcon />;
+	} else if (nextMode === 'photo') {
+		tooltip = 'Show photo';
+		icon = <span className='ddc_ink_display-mode-toggle__label'>Photo</span>;
+	}
 
 	return (
-		<div className='ddc_ink_display-mode-toggle-group'>
-			<TooltipButton
-				tooltip='Show photo'
-				className={mode === 'photo' ? 'ddc_ink_display-mode-toggle ddc_ink_display-mode-toggle--active' : 'ddc_ink_display-mode-toggle'}
-				onMouseDown={(event) => event.stopPropagation()}
-				onClick={() => setInkEmbedDisplayMode(props.filePath, 'photo')}
-			>
-				<span className='ddc_ink_display-mode-toggle__label'>Photo</span>
-			</TooltipButton>
-			<TooltipButton
-				tooltip='Show ink'
-				className={mode === 'ink' ? 'ddc_ink_display-mode-toggle ddc_ink_display-mode-toggle--active' : 'ddc_ink_display-mode-toggle'}
-				onMouseDown={(event) => event.stopPropagation()}
-				onClick={() => setInkEmbedDisplayMode(props.filePath, 'ink')}
-			>
-				{props.inkIconKind === 'drawing' ? <DrawIcon /> : <WriteIcon />}
-			</TooltipButton>
-			{props.hasTranscript && (
-				<TooltipButton
-					tooltip='Show transcript'
-					className={mode === 'text' ? 'ddc_ink_display-mode-toggle ddc_ink_display-mode-toggle--active' : 'ddc_ink_display-mode-toggle'}
-					onMouseDown={(event) => event.stopPropagation()}
-					onClick={() => setInkEmbedDisplayMode(props.filePath, 'text')}
-				>
-					<TextModeIcon />
-				</TooltipButton>
-			)}
-		</div>
+		<TooltipButton
+			tooltip={tooltip}
+			className='ddc_ink_display-mode-toggle'
+			onMouseDown={(event) => event.stopPropagation()}
+			onClick={() => setInkEmbedDisplayMode(props.filePath, nextMode)}
+		>
+			{icon}
+		</TooltipButton>
 	);
+}
+
+function nextPhotoEmbedDisplayMode(
+	mode: InkEmbedDisplayMode,
+	hasTranscript: boolean,
+): InkEmbedDisplayMode {
+	if (mode === 'photo') return 'ink';
+	if (mode === 'ink') return hasTranscript ? 'text' : 'photo';
+	return 'photo';
 }
 
 /** Circular toggle between ink preview and transcript on a locked embed. */

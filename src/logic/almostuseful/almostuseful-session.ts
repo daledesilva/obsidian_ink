@@ -3,11 +3,13 @@ import {
 	ALMOSTUSEFUL_CLIENT_DISPLAY_NAME,
 	ALMOSTUSEFUL_CLIENT_ID,
 	ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX,
+	ALMOSTUSEFUL_DEFAULT_CUSTOM_PORTAL_ORIGIN,
 	ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX,
 	ALMOSTUSEFUL_PORTAL_ORIGIN,
 	ALMOSTUSEFUL_SESSION_CHANGED_EVENT,
 	ALMOSTUSEFUL_SESSION_STORAGE_SUFFIX,
 } from 'src/logic/almostuseful/almostuseful-constants';
+import { isInkDevelopmentBuild } from 'src/logic/utils/ink-build-mode';
 import { deleteLocally, fetchLocally, saveLocally } from 'src/logic/utils/storage';
 
 /////////
@@ -25,6 +27,8 @@ export interface AlmostUsefulSession {
 	userEmail: string | null;
 }
 
+export type AlmostUsefulPortalServerMode = 'production' | 'custom';
+
 /** In-flight device-code grant; the app shows userCode and polls with deviceCode. */
 export interface AlmostUsefulHandoffPending {
 	deviceCode: string;
@@ -37,7 +41,15 @@ export interface AlmostUsefulHandoffPending {
 }
 
 export interface AlmostUsefulDebugConfig {
+	/**
+	 * Development-only. Missing means Custom (localhost / last custom URL).
+	 * Production builds ignore this and always use the public portal.
+	 */
+	portalServerMode?: AlmostUsefulPortalServerMode;
+	/** When Custom is active in a development build, jobs and sign-in use this host. */
 	portalOrigin?: string;
+	/** Last Custom field value so Production ↔ Custom can restore localhost or staging. */
+	customPortalOrigin?: string;
 }
 
 /** Reads a live app-token session. Plan 2 user JWTs are discarded. */
@@ -94,6 +106,14 @@ export function clearAlmostUsefulSession(): void {
 	window.dispatchEvent(new CustomEvent(ALMOSTUSEFUL_SESSION_CHANGED_EVENT));
 }
 
+/**
+ * True when this device has a linked Almost Useful app-token session.
+ * Portal jobs (transcription, handwriting-vector, etc.) enforce credits on POST (402).
+ */
+export function hasLinkedAlmostUsefulAccount(): boolean {
+	return Boolean(readAlmostUsefulSession()?.accessToken);
+}
+
 /** Stores the device code until the token poll succeeds, is denied, or is cancelled. */
 export function writeAlmostUsefulHandoffPending(pending: AlmostUsefulHandoffPending): void {
 	saveLocally(ALMOSTUSEFUL_HANDOFF_STORAGE_SUFFIX, JSON.stringify(pending));
@@ -117,7 +137,7 @@ export function readAlmostUsefulHandoffPending(): AlmostUsefulHandoffPending | n
 			userCode: parsed.userCode,
 			expiresAt: parsed.expiresAt,
 			intervalSeconds: parsed.intervalSeconds,
-			verificationUri: parsed.verificationUri,
+			verificationUri: rewriteAlmostUsefulPortalVerificationUri(parsed.verificationUri),
 		};
 	} catch {
 		return null;
@@ -147,11 +167,111 @@ export function writeAlmostUsefulDebugConfig(config: AlmostUsefulDebugConfig): v
 	saveLocally(ALMOSTUSEFUL_DEBUG_STORAGE_SUFFIX, JSON.stringify(config));
 }
 
+/**
+ * Device-code responses include verification_uri from the portal's configured
+ * site URL, which may still point at production when the API is localhost.
+ * Always open the host Ink is using for OAuth.
+ */
+export function rewriteAlmostUsefulPortalVerificationUri(verificationUri: string): string {
+	const portalOrigin = resolveAlmostUsefulPortalOrigin().replace(/\/$/, '');
+	try {
+		const parsed = new URL(verificationUri);
+		return `${portalOrigin}${parsed.pathname}${parsed.search}`;
+	} catch {
+		return `${portalOrigin}/oauth/device`;
+	}
+}
+
 /** Portal origin used for authorize and usage APIs. */
 export function resolveAlmostUsefulPortalOrigin(): string {
+	// Community / `npm run build` copies must not use a leftover localhost override.
+	if (!isInkDevelopmentBuild()) return ALMOSTUSEFUL_PORTAL_ORIGIN;
+	const config = readAlmostUsefulDebugConfig();
+	if (config.portalServerMode === 'production') return ALMOSTUSEFUL_PORTAL_ORIGIN;
+	const override = config.portalOrigin?.trim();
+	if (override) return override.replace(/\/$/, '');
+	return ALMOSTUSEFUL_DEFAULT_CUSTOM_PORTAL_ORIGIN;
+}
+
+export function rememberedAlmostUsefulCustomPortalOrigin(): string {
+	const remembered = readAlmostUsefulDebugConfig().customPortalOrigin?.trim();
+	if (remembered) return remembered.replace(/\/$/, '');
+	return ALMOSTUSEFUL_DEFAULT_CUSTOM_PORTAL_ORIGIN;
+}
+
+export function resolveAlmostUsefulPortalServerMode(): AlmostUsefulPortalServerMode {
+	if (!isInkDevelopmentBuild()) return 'production';
+	if (readAlmostUsefulDebugConfig().portalServerMode === 'production') return 'production';
+	return 'custom';
+}
+
+export function isAlmostUsefulCustomPortalOriginActive(): boolean {
+	return resolveAlmostUsefulPortalServerMode() === 'custom';
+}
+
+/** Origin actually stored, not the development default. Used when switching so revoke hits the old host. */
+export function storedAlmostUsefulPortalOriginOrProduction(): string {
 	const override = readAlmostUsefulDebugConfig().portalOrigin?.trim();
 	if (override) return override.replace(/\/$/, '');
 	return ALMOSTUSEFUL_PORTAL_ORIGIN;
+}
+
+/**
+ * Normalises a Custom host. Rejects anything that is not http(s) so a typo
+ * cannot send tokens to a mystery scheme.
+ */
+export function normalizeAlmostUsefulPortalOriginInput(raw: string): string | null {
+	const trimmed = raw.trim().replace(/\/$/, '');
+	if (!trimmed) return null;
+	try {
+		const parsed = new URL(trimmed);
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+		return `${parsed.protocol}//${parsed.host}`;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Writes the development portal override. Caller should log out first when the
+ * resolved origin will change so revoke still hits the previous host.
+ */
+export function resolveAlmostUsefulPortalServerChoice(
+	mode: AlmostUsefulPortalServerMode,
+	customOriginRaw: string,
+): { ok: true; origin: string } | { ok: false; error: string } {
+	if (mode === 'production') {
+		return { ok: true, origin: ALMOSTUSEFUL_PORTAL_ORIGIN };
+	}
+	const origin = normalizeAlmostUsefulPortalOriginInput(customOriginRaw)
+		?? normalizeAlmostUsefulPortalOriginInput(rememberedAlmostUsefulCustomPortalOrigin());
+	if (!origin) {
+		return { ok: false, error: 'Enter an http or https address such as http://localhost:3000' };
+	}
+	return { ok: true, origin };
+}
+
+export function writeAlmostUsefulPortalServerMode(
+	mode: AlmostUsefulPortalServerMode,
+	customOriginRaw: string,
+): { ok: true; origin: string } | { ok: false; error: string } {
+	const choice = resolveAlmostUsefulPortalServerChoice(mode, customOriginRaw);
+	if (!choice.ok) return choice;
+	if (mode === 'custom') {
+		writeAlmostUsefulDebugConfig({
+			portalServerMode: 'custom',
+			portalOrigin: choice.origin,
+			customPortalOrigin: choice.origin,
+		});
+		return choice;
+	}
+	const remembered = normalizeAlmostUsefulPortalOriginInput(customOriginRaw)
+		?? rememberedAlmostUsefulCustomPortalOrigin();
+	writeAlmostUsefulDebugConfig({
+		portalServerMode: 'production',
+		customPortalOrigin: remembered,
+	});
+	return choice;
 }
 
 /** Subscribes settings UI to session changes. */

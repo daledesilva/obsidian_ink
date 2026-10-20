@@ -7,13 +7,49 @@ import { PHOTO_TRACE_WORKING_MAX_EDGE_PX } from './trace-from-raster';
 
 const WARP_MAX_EDGE_PX = PHOTO_TRACE_WORKING_MAX_EDGE_PX;
 
+export interface WarpedRgba {
+	data: Uint8ClampedArray;
+	width: number;
+	height: number;
+}
+
 /**
  * Perspective-warps a quadrilateral to a straight page bitmap.
  */
 export function warpQuadToCanvas(
 	source: HTMLCanvasElement,
 	corners: [PagePoint, PagePoint, PagePoint, PagePoint],
+	maxEdgePx = WARP_MAX_EDGE_PX,
 ): HTMLCanvasElement {
+	const sourceContext = source.getContext('2d');
+	if (!sourceContext) throw new Error('Could not read the photo');
+	const sourceData = sourceContext.getImageData(0, 0, source.width, source.height);
+	const warped = warpQuadToRgba(
+		sourceData.data,
+		source.width,
+		source.height,
+		corners,
+		maxEdgePx,
+	);
+	const dest = document.createElement('canvas');
+	dest.width = warped.width;
+	dest.height = warped.height;
+	const destContext = dest.getContext('2d');
+	if (!destContext) throw new Error('Could not warp the page');
+	destContext.putImageData(new ImageData(warped.data, warped.width, warped.height), 0, 0);
+	return dest;
+}
+
+/**
+ * Canvas-free warp so the photo worker can straighten the page off the UI thread.
+ */
+export function warpQuadToRgba(
+	sourceRgba: Uint8ClampedArray | Uint8Array,
+	sourceWidth: number,
+	sourceHeight: number,
+	corners: [PagePoint, PagePoint, PagePoint, PagePoint],
+	maxEdgePx = WARP_MAX_EDGE_PX,
+): WarpedRgba {
 	const [topLeft, topRight, bottomRight, bottomLeft] = corners;
 	const widthTop = Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y);
 	const widthBottom = Math.hypot(bottomRight.x - bottomLeft.x, bottomRight.y - bottomLeft.y);
@@ -22,40 +58,31 @@ export function warpQuadToCanvas(
 	let outWidth = Math.max(1, Math.round(Math.max(widthTop, widthBottom)));
 	let outHeight = Math.max(1, Math.round(Math.max(heightLeft, heightRight)));
 	const longEdge = Math.max(outWidth, outHeight);
-	if (longEdge > WARP_MAX_EDGE_PX) {
-		const scale = WARP_MAX_EDGE_PX / longEdge;
+	if (longEdge > maxEdgePx) {
+		const scale = maxEdgePx / longEdge;
 		outWidth = Math.max(1, Math.round(outWidth * scale));
 		outHeight = Math.max(1, Math.round(outHeight * scale));
 	}
 	const homography = homographyDestToSource(corners, outWidth, outHeight);
-	const sourceContext = source.getContext('2d');
-	if (!sourceContext) throw new Error('Could not read the photo');
-	const sourceData = sourceContext.getImageData(0, 0, source.width, source.height);
-	const dest = document.createElement('canvas');
-	dest.width = outWidth;
-	dest.height = outHeight;
-	const destContext = dest.getContext('2d');
-	if (!destContext) throw new Error('Could not warp the page');
-	const destData = destContext.createImageData(outWidth, outHeight);
+	const destData = new Uint8ClampedArray(outWidth * outHeight * 4);
 	for (let y = 0; y < outHeight; y++) {
 		for (let x = 0; x < outWidth; x++) {
 			const sourcePoint = applyHomography(homography, x, y);
 			const pixel = sampleBilinear(
-				sourceData.data,
-				source.width,
-				source.height,
+				sourceRgba,
+				sourceWidth,
+				sourceHeight,
 				sourcePoint.x,
 				sourcePoint.y,
 			);
 			const offset = (y * outWidth + x) * 4;
-			destData.data[offset] = pixel[0];
-			destData.data[offset + 1] = pixel[1];
-			destData.data[offset + 2] = pixel[2];
-			destData.data[offset + 3] = 255;
+			destData[offset] = pixel[0];
+			destData[offset + 1] = pixel[1];
+			destData[offset + 2] = pixel[2];
+			destData[offset + 3] = 255;
 		}
 	}
-	destContext.putImageData(destData, 0, 0);
-	return dest;
+	return { data: destData, width: outWidth, height: outHeight };
 }
 
 /**
@@ -158,7 +185,7 @@ function solveLinearSystem(matrix: number[][], rhs: number[]): number[] {
 }
 
 function sampleBilinear(
-	data: Uint8ClampedArray,
+	data: Uint8ClampedArray | Uint8Array,
 	width: number,
 	height: number,
 	x: number,

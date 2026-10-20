@@ -18,5 +18,6 @@ This file is the source of truth for the libraries, frameworks, and tools used i
 - **IDs:** `nanoid` ^5.1.6
 - **Almost Useful account:** portal `/oauth/authorize` + `POST /api/oauth/token` (app JWT `typ=almostuseful_app`). No `@supabase/supabase-js` / anon key in the plugin. Tokens in device-local `saveLocally('almostuseful_session')` (`au_ink_almostuseful_session`).
 - **Build tooling:** esbuild (plugin bundling), npm scripts
+- **Photo-trace thinning:** AssemblyScript (`asc`) Zhang–Suen → `src/logic/photo-trace/generated/skeleton.wasm` (`npm run build:wasm` before esbuild). The photo worker bundle and WASM are inlined into `main.js` (Blob worker + binary import) so QA/community installs that only ship `main.js` still convert photos; JS thinning is a test/reference copy only.
 - **Linting:** ESLint flat config (`eslint.config.mjs`) + `eslint-plugin-obsidianmd` ^0.4.2
 - **Boox companion:** eInk Bridge Android app (`eink-bridge` repo) — loopback WebSocket on the same tablet

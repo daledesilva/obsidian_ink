@@ -5,6 +5,7 @@ import './styles/ink-workspace-chrome.scss';
 import './styles/ink-writing-guide-lines.scss';
 import './styles/ink-grayscale-screen-chrome.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
+import type { Extension } from '@codemirror/state';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
@@ -19,8 +20,9 @@ import { showWelcomeTips_maybe } from './components/dom-components/welcome-notic
 import { blueskySvgStr, mastodonSvgStr, threadsSvgStr, twitterSvgStr } from './graphics/social-icons/social-icons';
 import { showVersionNotice } from './components/dom-components/version-notices';
 import { atom } from 'jotai';
-import { registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
-import { registerWritingEmbed } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { drawingEmbedExtension, registerDrawingEmbed } from './components/formats/current/drawing/drawing-embed-extension/drawing-embed-extension';
+import { registerWritingEmbed, writingEmbedExtension } from './components/formats/current/writing/writing-embed-extension/writing-embed-extension';
+import { inkEmbedSourcePathFacet } from './components/formats/current/ink-embeds-extension/ink-embed-host';
 import { registerReadingModeInkEmbeds } from './components/formats/current/reading-mode/register-reading-mode-ink-embeds';
 import { registerPasteEmbedHandler } from './components/formats/current/utils/paste-embed-handler';
 import { setGlobals } from './stores/global-store';
@@ -117,6 +119,18 @@ export default class InkPlugin extends Plugin {
 
 	openTldrawSvgMigrationModal() {
 		new TldrawSvgMigrationModal(this).open();
+	}
+
+	/**
+	 * Public API for plugins that host their own Live Preview editor outside a MarkdownView
+	 * (e.g. flashcard fields). Add the returned extensions to that editor so Ink embeds render
+	 * and stay editable there. Embed links resolve relative to `sourcePath`.
+	 */
+	getEmbeddableEditorExtensions(sourcePath: string): Extension[] {
+		const extensions: Extension[] = [inkEmbedSourcePathFacet.of(sourcePath)];
+		if (this.settings.writingEnabled) extensions.push(writingEmbedExtension());
+		if (this.settings.drawingEnabled) extensions.push(drawingEmbedExtension());
+		return extensions;
 	}
 
 	async onload() {

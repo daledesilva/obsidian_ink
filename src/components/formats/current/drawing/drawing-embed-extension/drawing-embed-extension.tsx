@@ -12,7 +12,7 @@ import {
     EditorView,
     WidgetType,
 } from "@codemirror/view";
-import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
+import { MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from "react";
 import { createRoot, Root } from "react-dom/client";
@@ -47,6 +47,7 @@ import { embedsInEditModeAtom_v2 } from 'src/components/formats/current/drawing/
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
+import { getInkEmbedHost } from '../../ink-embeds-extension/ink-embed-host';
 import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect-ratio';
 import {
 	getEmbedDecorationRange,
@@ -524,14 +525,10 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
     update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
 
-        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-        const activeEditor = activeView?.editor;
-        if (!activeEditor) return prevEmbeds;
-
-        // @ts-expect-error, not typed
-        const cmEditorView = activeEditor.cm as EditorView;
-        const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
-        if (!isLivePreview) return Decoration.none;
+        const host = getInkEmbedHost(plugin, transaction.state);
+        if (!host) return prevEmbeds;
+        if (!host.isLivePreview) return Decoration.none;
+        const mdFile = host.mdFile;
 
         const firstRun = prevEmbeds.size === 0;
 
@@ -572,7 +569,6 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
             : { enter: iterateCallback };
 
         function iterateCallback(syntaxNodeRef: SyntaxNodeRef): boolean | void {
-            const mdFile = activeView?.file;
             if (!mdFile) return true; // continue traversal
 
             const {embedLinkInfo, alterFlow} = detectMarkdownEmbedLink(mdFile, syntaxNodeRef, transaction);

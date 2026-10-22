@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { Extension, RangeSetBuilder, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, DecorationSet, EditorView, WidgetType } from '@codemirror/view';
-import { editorLivePreviewField, MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
+import { MarkdownView, normalizePath, Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
 import * as React from 'react';
 import { createRoot, Root } from 'react-dom/client';
@@ -29,6 +29,7 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
+import { getInkEmbedHost } from '../../ink-embeds-extension/ink-embed-host';
 import { EmbedSettings } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import {
@@ -432,14 +433,10 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
     update(prevEmbeds: DecorationSet, transaction: Transaction): DecorationSet {
         const { plugin } = getGlobals();
 
-        const activeView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-        const activeEditor = activeView?.editor;
-        if (!activeEditor) return prevEmbeds;
-
-        // @ts-expect-error, not typed
-        const cmEditorView = activeEditor.cm as EditorView;
-        const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
-        if (!isLivePreview) return Decoration.none;
+        const host = getInkEmbedHost(plugin, transaction.state);
+        if (!host) return prevEmbeds;
+        if (!host.isLivePreview) return Decoration.none;
+        const mdFile = host.mdFile;
 
         const firstRun = prevEmbeds.size === 0;
 
@@ -479,7 +476,6 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
             : { enter: iterateCallback };
 
         function iterateCallback(syntaxNodeRef: SyntaxNodeRef): boolean | void {
-            const mdFile = activeView?.file;
             if (!mdFile) return true;
 
             const { embedLinkInfo, alterFlow } = detectMarkdownEmbedLinkWriting(mdFile, syntaxNodeRef, transaction);

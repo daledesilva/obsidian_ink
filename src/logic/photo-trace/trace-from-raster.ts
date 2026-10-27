@@ -19,20 +19,29 @@ export interface PhotoTraceRasterInput {
 	dropLargeBorderComponents?: boolean;
 	/** Ramer–Douglas–Peucker epsilon in source pixels. Lower keeps more of the pen. */
 	simplifyEpsilon?: number;
-	/** Drop skeleton fragments shorter than this, in source pixels. */
+	/** Drop skeleton fragments shorter than this, in source pixels. Dots are kept. */
 	minPolylineLengthPx?: number;
+	/** Sauvola k. Lower keeps fainter pen strokes after lighting has been flattened. */
+	sauvolaK?: number;
+	/** When true (default), removes tiny specks and isolated margin/paper noise dots. */
+	noiseCleanup?: boolean;
 }
 
 /** Long-edge cap for the canvas that corners, warp, and trace read. */
 export const PHOTO_TRACE_WORKING_MAX_EDGE_PX = 4096;
-/** Long-edge used for pins, the first warp, and the default Resolution slider. */
+/** Long edge for corner pins, the page warp, and the local trace. There is no resolution slider. */
 export const PHOTO_TRACE_DEFAULT_EDGE_PX = 1600;
 /** Adjust-step preview long edge so slider paints stay cheap. */
 export const PHOTO_TRACE_PREVIEW_MAX_EDGE_PX = 1000;
 /** Long-edge floor when the user turns Resolution down. */
 export const PHOTO_TRACE_MIN_EDGE_PX = 800;
-/** Default Detail slider is maximum so local trace keeps the finest centreline. Resolution defaults to 1600px (about 24 on the 800–4096 slider). */
-export const PHOTO_TRACE_DEFAULT_DETAIL = 100;
+/**
+ * Convert always uses this detail. There is no detail slider.
+ * 90 maps to about 0.48px of simplification. 100 would be the finest setting.
+ */
+export const PHOTO_TRACE_DEFAULT_DETAIL = 90;
+/** Ink sensitivity whose Sauvola k is 0.20. Higher keeps fainter strokes. */
+export const PHOTO_TRACE_DEFAULT_INK_SENSITIVITY = 75;
 export const PHOTO_TRACE_DEFAULT_RESOLUTION = Math.round(
 	((PHOTO_TRACE_DEFAULT_EDGE_PX - PHOTO_TRACE_MIN_EDGE_PX)
 		/ (PHOTO_TRACE_WORKING_MAX_EDGE_PX - PHOTO_TRACE_MIN_EDGE_PX)) * 100,
@@ -44,8 +53,17 @@ export const PHOTO_TRACE_DEFAULT_RESOLUTION = Math.round(
  */
 export function photoTraceSimplifyEpsilon(detail: number): number {
 	const unit = clampSlider(detail) / 100;
-	// 0 keeps a coarse centreline. 100 keeps almost raw skeleton pixels.
-	return 5.6 - unit * 5.5;
+	// 0 is a coarse centreline (2.0px). 90 is ~0.48px. 100 keeps tight loops (0.32px).
+	return 2.0 - unit * 1.68;
+}
+
+/**
+ * Maps Ink sensitivity (0–100) onto Sauvola k.
+ * 0 keeps only dark ink. 100 keeps faint strokes. 75 is k = 0.20.
+ */
+export function photoTraceSauvolaK(sensitivity: number): number {
+	const unit = clampSlider(sensitivity) / 100;
+	return 0.5 - unit * 0.4;
 }
 
 /**
@@ -75,46 +93,127 @@ export interface PhotoTraceResult {
 	writingLineHeight: number;
 }
 
-const MIN_POLYLINE_POINTS = 3;
 const DEFAULT_SIMPLIFY_EPSILON = photoTraceSimplifyEpsilon(PHOTO_TRACE_DEFAULT_DETAIL);
 const DEFAULT_MIN_POLYLINE_LENGTH_PX = photoTraceMinPolylineLength(PHOTO_TRACE_DEFAULT_DETAIL);
-const SAUVOLA_K = 0.34;
-const INK_CLOSE_RADIUS = 1;
+const DEFAULT_SAUVOLA_K = photoTraceSauvolaK(PHOTO_TRACE_DEFAULT_INK_SENSITIVITY);
 
 /**
  * Traces dark-or-light ink on a photo into ink-canvas stroke centreline points in page space.
  */
 export function traceHandwritingFromRaster(input: PhotoTraceRasterInput): PhotoTraceResult {
-	let binary = buildInkMask(input);
-	// A small window outlines a thick pen instead of filling it, and thinning those
-	// outlines becomes the broken dashes. Close the mask so each stroke is solid
-	// before specks are dropped. An open (erode first) is avoided: it deletes the pen.
-	binary = closeMask(binary, input.width, input.height, INK_CLOSE_RADIUS);
-	removeTinySpecks(binary, input.width, input.height);
-	bridgeSinglePixelGaps(binary, input.width, input.height);
-	removeLongStraightRules(binary, input.width, input.height);
-	// Do not clip by global paper brightness. Shadows sit below that floor and
-	// wipe Sauvola ink; desk leftover is dropLargeBorderComponents after warp.
-	if (input.dropLargeBorderComponents) {
-		dropLargeBorderComponents(binary, input.width, input.height);
-	}
+	const binary = buildPhotoInkMask(
+		input.gray,
+		input.width,
+		input.height,
+		input.sauvolaK ?? DEFAULT_SAUVOLA_K,
+		input.dropLargeBorderComponents ?? false,
+		input.noiseCleanup ?? true,
+	);
 	const radius = inkRadiusMap(binary, input.width, input.height);
 	const skeleton = zhangSuenThinImpl(binary, input.width, input.height);
-	const polylines = stitchPolylines(extractPolylines(skeleton, input.width, input.height))
-		.filter((line) => !polylineHugsRasterBorder(line, input.width, input.height));
+	const traced = traceSkeletonPolylines(skeleton, input.width, input.height)
+		.filter((line) => !polylineHugsRasterBorder(line.points, input.width, input.height));
 	const simplifyEpsilon = input.simplifyEpsilon ?? DEFAULT_SIMPLIFY_EPSILON;
 	const minPolylineLengthPx = input.minPolylineLengthPx ?? DEFAULT_MIN_POLYLINE_LENGTH_PX;
-	const simplified = polylines
-		.map((line) => simplifyPolyline(line, simplifyEpsilon))
-		.filter((line) => line.length >= MIN_POLYLINE_POINTS && polylineLength(line) >= minPolylineLengthPx);
+	const simplified = traced
+		.map((line) => ({
+			points: simplifyPolyline(smoothPolyline(line.points), simplifyEpsilon),
+			isDot: line.isDot,
+		}))
+		.filter((line) => {
+			// A straight pen mark simplifies to two points. Keep it when it is long enough.
+			// Dots are short on purpose and skip that length test.
+			if (line.isDot) return line.points.length >= 2;
+			return line.points.length >= 2 && polylineLength(line.points) >= minPolylineLengthPx;
+		});
 	const mapped = mapPolylinesToWritingPage(simplified, radius, input.width, input.height);
-	const writingLineHeight = estimateWritingLineHeight(mapped.map((line) => line.points), WRITING_LINE_HEIGHT);
-	const strokes = mapped.map((line) => polylineToInkStroke(line.points, line.radii));
-	return { strokes, writingLineHeight };
+	const strokes = mapped.map((line) => polylineToInkStroke(line.points, smoothRadii(line.radii)));
+	// Guide spacing is the standard writing line height. Stroke Y gaps are not
+	// baselines, so guessing a height from them packed or stretched the lines.
+	return { strokes, writingLineHeight: WRITING_LINE_HEIGHT };
+}
+
+/**
+ * Sauvola ink mask for a grayscale page, with specks, isolated margin noise,
+ * notebook rules, and edge artifacts cleaned up so the Adjust preview matches
+ * what will be traced.
+ */
+export function buildPhotoInkMask(
+	gray: Uint8Array,
+	width: number,
+	height: number,
+	sauvolaK = DEFAULT_SAUVOLA_K,
+	shouldDropLargeBorderComponents = true,
+	noiseCleanup = true,
+): Uint8Array {
+	const binary = buildInkMask({ width, height, gray, sauvolaK });
+	if (noiseCleanup) {
+		removeTinySpecks(binary, width, height);
+		removeContextualNoiseDots(binary, width, height);
+	}
+	bridgeSinglePixelGaps(binary, width, height);
+	bridgeDiagonalThinGaps(binary, width, height);
+	removeLongStraightRules(binary, width, height);
+	if (shouldDropLargeBorderComponents) {
+		dropLargeBorderComponents(binary, width, height);
+	}
+	return binary;
+}
+
+/**
+ * Picks an Ink sensitivity (0–100) for an illumination-flattened grayscale page
+ * by stepping Sauvola sensitivity down when the mask is peppered with tiny paper
+ * grain specks, while keeping stroke pixels intact.
+ */
+export function autoSelectPhotoInkSensitivity(
+	gray: Uint8Array,
+	width: number,
+	height: number,
+): number {
+	const shouldInvert = detectLightInkOnDarkPage(gray);
+	const samples = new Uint8Array(gray.length);
+	for (let i = 0; i < gray.length; i++) {
+		samples[i] = shouldInvert ? 255 - gray[i] : gray[i];
+	}
+	const sum = buildSummedArea(samples, width, height, false);
+	const sumSq = buildSummedArea(samples, width, height, true);
+	const half = Math.floor(sauvolaWindow(width, height) / 2);
+
+	const candidates = [35, 45, 55, 65, 72, 78, 84];
+	const scored: { sensitivity: number; speckCount: number; validInkPixels: number }[] = [];
+	let maxValidInk = 0;
+
+	for (const sensitivity of candidates) {
+		const sauvolaK = photoTraceSauvolaK(sensitivity);
+		const mask = thresholdFromSummedArea(samples, sum, sumSq, width, height, half, sauvolaK);
+		const stats = measureMaskSpecksAndInk(mask, width, height);
+		if (stats.validInkPixels > maxValidInk) maxValidInk = stats.validInkPixels;
+		scored.push({ sensitivity, ...stats });
+	}
+
+	if (maxValidInk === 0) return PHOTO_TRACE_DEFAULT_INK_SENSITIVITY;
+
+	let bestSensitivity = PHOTO_TRACE_DEFAULT_INK_SENSITIVITY;
+	let bestScore = -Infinity;
+	for (const item of scored) {
+		const strokeRetention = item.validInkPixels / maxValidInk;
+		if (strokeRetention < 0.7) continue;
+		// Penalise pepper noise (tiny 1–12px specks per thousand stroke pixels) while
+		// preferring a sensitivity near 70 when the page is clean so margin specks are not pulled in.
+		const speckRatio = (item.speckCount * 22) / Math.max(200, item.validInkPixels);
+		const distanceFromTarget = Math.abs(item.sensitivity - 70) / 100;
+		const score = strokeRetention - speckRatio - distanceFromTarget * 0.45;
+		if (score > bestScore) {
+			bestScore = score;
+			bestSensitivity = item.sensitivity;
+		}
+	}
+	return bestSensitivity;
 }
 
 function buildInkMask(input: PhotoTraceRasterInput): Uint8Array {
 	const { width, height, gray } = input;
+	const sauvolaK = input.sauvolaK ?? DEFAULT_SAUVOLA_K;
 	const shouldInvert = detectLightInkOnDarkPage(gray);
 	const samples = new Uint8Array(gray.length);
 	for (let i = 0; i < gray.length; i++) {
@@ -125,6 +224,18 @@ function buildInkMask(input: PhotoTraceRasterInput): Uint8Array {
 	// Window must be wider than the pen. A 15px window on a page-sized crop
 	// only sees ink, so the middle of each stroke falls back out of the mask.
 	const half = Math.floor(sauvolaWindow(width, height) / 2);
+	return thresholdFromSummedArea(samples, sum, sumSq, width, height, half, sauvolaK);
+}
+
+function thresholdFromSummedArea(
+	samples: Uint8Array,
+	sum: Float64Array,
+	sumSq: Float64Array,
+	width: number,
+	height: number,
+	half: number,
+	sauvolaK: number,
+): Uint8Array {
 	const mask = new Uint8Array(width * height);
 	for (let y = 0; y < height; y++) {
 		const y0 = Math.max(0, y - half);
@@ -136,11 +247,35 @@ function buildInkMask(input: PhotoTraceRasterInput): Uint8Array {
 			const mean = areaSum(sum, width, x0, y0, x1, y1) / n;
 			const meanSq = areaSum(sumSq, width, x0, y0, x1, y1) / n;
 			const std = Math.sqrt(Math.max(0, meanSq - mean * mean));
-			const threshold = Math.min(255, Math.max(0, mean * (1 + SAUVOLA_K * ((std / 128) - 1))));
+			const threshold = Math.min(255, Math.max(0, mean * (1 + sauvolaK * ((std / 128) - 1))));
 			mask[y * width + x] = samples[y * width + x] < threshold ? 1 : 0;
 		}
 	}
 	return mask;
+}
+
+function measureMaskSpecksAndInk(
+	binary: Uint8Array,
+	width: number,
+	height: number,
+): { speckCount: number; validInkPixels: number } {
+	const seen = new Uint8Array(width * height);
+	const rim = Math.max(6, Math.round(Math.min(width, height) * 0.04));
+	let speckCount = 0;
+	let validInkPixels = 0;
+	for (let y = rim; y < height - rim; y++) {
+		for (let x = rim; x < width - rim; x++) {
+			const start = y * width + x;
+			if (binary[start] !== 1 || seen[start] === 1) continue;
+			const pixels = floodInk(binary, seen, width, height, start);
+			if (pixels.length <= 10) {
+				speckCount++;
+			} else if (pixels.length < width * height * 0.15) {
+				validInkPixels += pixels.length;
+			}
+		}
+	}
+	return { speckCount, validInkPixels };
 }
 
 function sauvolaWindow(width: number, height: number): number {
@@ -184,60 +319,6 @@ function areaSum(
 		+ sat[y0 * stride + x0];
 }
 
-function closeMask(binary: Uint8Array, width: number, height: number, radius: number): Uint8Array {
-	return erodeSquare(dilateSquare(binary, width, height, radius), width, height, radius);
-}
-
-function dilateSquare(binary: Uint8Array, width: number, height: number, radius: number): Uint8Array {
-	const out = new Uint8Array(binary.length);
-	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
-			let on = 0;
-			for (let dy = -radius; dy <= radius && on === 0; dy++) {
-				const yy = y + dy;
-				if (yy < 0 || yy >= height) continue;
-				const row = yy * width;
-				for (let dx = -radius; dx <= radius; dx++) {
-					const xx = x + dx;
-					if (xx < 0 || xx >= width) continue;
-					if (binary[row + xx] === 1) {
-						on = 1;
-						break;
-					}
-				}
-			}
-			out[y * width + x] = on;
-		}
-	}
-	return out;
-}
-
-function erodeSquare(binary: Uint8Array, width: number, height: number, radius: number): Uint8Array {
-	const out = new Uint8Array(binary.length);
-	for (let y = 0; y < height; y++) {
-		for (let x = 0; x < width; x++) {
-			let on = 1;
-			for (let dy = -radius; dy <= radius && on === 1; dy++) {
-				const yy = y + dy;
-				if (yy < 0 || yy >= height) {
-					on = 0;
-					break;
-				}
-				const row = yy * width;
-				for (let dx = -radius; dx <= radius; dx++) {
-					const xx = x + dx;
-					if (xx < 0 || xx >= width || binary[row + xx] !== 1) {
-						on = 0;
-						break;
-					}
-				}
-			}
-			out[y * width + x] = on;
-		}
-	}
-	return out;
-}
-
 function detectLightInkOnDarkPage(gray: Uint8Array): boolean {
 	const sampleStep = Math.max(1, Math.floor(gray.length / 5000));
 	let sum = 0;
@@ -264,6 +345,70 @@ function removeTinySpecks(binary: Uint8Array, width: number, height: number): vo
 	}
 }
 
+/**
+ * Removes small erroneous dots of paper/margin noise (up to ~32px scaled by image size)
+ * unless they sit near a real handwriting stroke — preserving `i`/`j` dots (above a stem)
+ * and full stops / punctuation (beside the end of a word).
+ */
+function removeContextualNoiseDots(binary: Uint8Array, width: number, height: number): void {
+	const scale = Math.max(width, height) / 1000;
+	const maxDotArea = Math.max(18, Math.round(32 * scale * scale));
+	const minStrokeArea = maxDotArea + 1;
+	const minStrokeSpan = Math.max(7, Math.round(10 * scale));
+	const proximityRadius = Math.max(18, Math.round(28 * scale));
+
+	const seen = new Uint8Array(width * height);
+	const anchorMask = new Uint8Array(width * height);
+	const candidateDots: { pixels: number[]; cx: number; cy: number }[] = [];
+
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			const start = y * width + x;
+			if (binary[start] !== 1 || seen[start] === 1) continue;
+			const pixels = floodInk(binary, seen, width, height, start);
+			let minX = width;
+			let maxX = 0;
+			let minY = height;
+			let maxY = 0;
+			let sumX = 0;
+			let sumY = 0;
+			for (const index of pixels) {
+				const px = index % width;
+				const py = Math.floor(index / width);
+				if (px < minX) minX = px;
+				if (px > maxX) maxX = px;
+				if (py < minY) minY = py;
+				if (py > maxY) maxY = py;
+				sumX += px;
+				sumY += py;
+			}
+			const span = Math.max(maxX - minX + 1, maxY - minY + 1);
+			if (pixels.length >= minStrokeArea || span >= minStrokeSpan) {
+				for (const index of pixels) anchorMask[index] = 1;
+			} else {
+				candidateDots.push({
+					pixels,
+					cx: Math.round(sumX / pixels.length),
+					cy: Math.round(sumY / pixels.length),
+				});
+			}
+		}
+	}
+
+	if (candidateDots.length === 0) return;
+
+	const anchorSat = buildSummedArea(anchorMask, width, height, false);
+	for (const dot of candidateDots) {
+		const x0 = Math.max(0, dot.cx - proximityRadius);
+		const x1 = Math.min(width - 1, dot.cx + proximityRadius);
+		const y0 = Math.max(0, dot.cy - Math.round(proximityRadius * 0.65));
+		const y1 = Math.min(height - 1, dot.cy + Math.round(proximityRadius * 1.15));
+		const nearbyStrokePixels = areaSum(anchorSat, width, x0, y0, x1, y1);
+		if (nearbyStrokePixels > 0) continue;
+		for (const index of dot.pixels) binary[index] = 0;
+	}
+}
+
 function bridgeSinglePixelGaps(binary: Uint8Array, width: number, height: number): void {
 	const additions: number[] = [];
 	for (let y = 1; y < height - 1; y++) {
@@ -273,6 +418,34 @@ function bridgeSinglePixelGaps(binary: Uint8Array, width: number, height: number
 			const leftAndRight = binary[index - 1] === 1 && binary[index + 1] === 1;
 			const aboveAndBelow = binary[index - width] === 1 && binary[index + width] === 1;
 			if (leftAndRight || aboveAndBelow) additions.push(index);
+		}
+	}
+	for (const index of additions) binary[index] = 1;
+}
+
+/**
+ * Fills a 1px diagonal break in a thin stroke. Skips pixels that already
+ * have a cardinal neighbour, so the inside of a loop is not painted shut.
+ */
+function bridgeDiagonalThinGaps(binary: Uint8Array, width: number, height: number): void {
+	const additions: number[] = [];
+	for (let y = 1; y < height - 1; y++) {
+		const row = y * width;
+		for (let x = 1; x < width - 1; x++) {
+			const index = row + x;
+			if (binary[index] === 1) continue;
+			const hasCardinal = binary[index - 1] === 1
+				|| binary[index + 1] === 1
+				|| binary[index - width] === 1
+				|| binary[index + width] === 1;
+			if (hasCardinal) continue;
+			const northWest = binary[index - width - 1] === 1;
+			const northEast = binary[index - width + 1] === 1;
+			const southWest = binary[index + width - 1] === 1;
+			const southEast = binary[index + width + 1] === 1;
+			const mainDiagonal = northWest && southEast && !northEast && !southWest;
+			const antiDiagonal = northEast && southWest && !northWest && !southEast;
+			if (mainDiagonal || antiDiagonal) additions.push(index);
 		}
 	}
 	for (const index of additions) binary[index] = 1;
@@ -498,7 +671,34 @@ const SKELETON_NEIGHBOR_OFFSETS: [number, number][] = [
 	[-1, 1], [0, 1], [1, 1],
 ];
 
-function extractPolylines(skeleton: Uint8Array, width: number, height: number): [number, number][][] {
+interface TracedPolyline {
+	points: [number, number][];
+	/** Isolated 1–2px skeleton (i-dots, periods). Kept even when shorter than the length filter. */
+	isDot: boolean;
+}
+
+interface SkeletonChain {
+	points: [number, number][];
+	/** -1 when this end is a free endpoint rather than a junction centroid. */
+	startCluster: number;
+	endCluster: number;
+}
+
+const JUNCTION_PAIR_MIN_DOT = 0.65;
+const STITCH_MAX_GAP = 4;
+const STITCH_MIN_DOT = 0.5;
+const STITCH_CELL = 4;
+
+/**
+ * Turns a skeleton into strokes. Junction pixels are clustered so a crossing
+ * stays one point, branches pair by heading, and short isolated components
+ * stay as dots instead of being dropped as 2px bridges.
+ */
+function traceSkeletonPolylines(
+	skeleton: Uint8Array,
+	width: number,
+	height: number,
+): TracedPolyline[] {
 	const degree = new Uint8Array(width * height);
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
@@ -507,79 +707,171 @@ function extractPolylines(skeleton: Uint8Array, width: number, height: number): 
 			degree[index] = skeletonNeighbors(skeleton, width, height, x, y).length;
 		}
 	}
-	const consumed = new Uint8Array(width * height);
-	const lines: [number, number][][] = [];
+
+	const clusterOf = new Int32Array(width * height);
+	clusterOf.fill(-1);
+	const centroids: [number, number][] = [];
+	const clusterPixels: number[][] = [];
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
 			const index = y * width + x;
-			if (skeleton[index] !== 1) continue;
-			const pixelDegree = degree[index];
-			if (pixelDegree !== 1 && pixelDegree < 3) continue;
+			if (skeleton[index] !== 1 || degree[index] < 3 || clusterOf[index] >= 0) continue;
+			const pixels = floodJunctionCluster(skeleton, degree, clusterOf, width, height, index);
+			let sumX = 0;
+			let sumY = 0;
+			const cluster = centroids.length;
+			for (const pixel of pixels) {
+				clusterOf[pixel] = cluster;
+				sumX += pixel % width;
+				sumY += Math.floor(pixel / width);
+			}
+			centroids.push([sumX / pixels.length, sumY / pixels.length]);
+			clusterPixels.push(pixels);
+		}
+	}
+
+	const consumed = new Uint8Array(width * height);
+	const chains: SkeletonChain[] = [];
+	for (let cluster = 0; cluster < centroids.length; cluster++) {
+		const centroid = centroids[cluster];
+		for (const pixel of clusterPixels[cluster]) {
+			const x = pixel % width;
+			const y = Math.floor(pixel / width);
 			for (const [nextX, nextY] of skeletonNeighbors(skeleton, width, height, x, y)) {
 				const nextIndex = nextY * width + nextX;
-				if (degree[nextIndex] < 3 && consumed[nextIndex] === 1) continue;
-				const line = walkSkeletonBranch(skeleton, degree, consumed, width, height, x, y, nextX, nextY);
-				if (line) lines.push(line);
+				if (clusterOf[nextIndex] >= 0 || consumed[nextIndex] === 1) continue;
+				const walked = walkAwayFromJunction(
+					skeleton,
+					clusterOf,
+					degree,
+					consumed,
+					width,
+					height,
+					nextX,
+					nextY,
+					x,
+					y,
+					cluster,
+				);
+				const points: [number, number][] = [centroid, ...walked.points];
+				if (walked.endCluster >= 0) points.push(centroids[walked.endCluster]);
+				if (points.length < 2) continue;
+				chains.push({
+					points,
+					startCluster: cluster,
+					endCluster: walked.endCluster,
+				});
 			}
 		}
 	}
+
+	const dots: TracedPolyline[] = [];
 	for (let y = 0; y < height; y++) {
 		for (let x = 0; x < width; x++) {
 			const index = y * width + x;
-			if (skeleton[index] !== 1 || consumed[index] === 1 || degree[index] !== 2) continue;
-			const line = walkSkeletonLoop(skeleton, consumed, width, height, x, y);
-			if (line) lines.push(line);
+			if (skeleton[index] !== 1 || consumed[index] === 1 || clusterOf[index] >= 0) continue;
+			if (degree[index] === 0) {
+				consumed[index] = 1;
+				dots.push({ points: [[x - 0.6, y], [x + 0.6, y]], isDot: true });
+				continue;
+			}
+			if (degree[index] !== 1 && degree[index] !== 2) continue;
+			const line = walkFreeSkeleton(skeleton, clusterOf, degree, consumed, width, height, x, y);
+			if (!line || line.length < 2) continue;
+			// A 1–2px component is a dot or period, not a stroke to stitch into a neighbour.
+			if (line.length <= 2) {
+				dots.push({ points: line, isDot: true });
+				continue;
+			}
+			chains.push({ points: line, startCluster: -1, endCluster: -1 });
 		}
 	}
-	return lines;
+
+	const routed = routeChainsThroughJunctions(chains, centroids);
+	const stitched = stitchPolylines(routed.map((chain) => chain.points));
+	const traced: TracedPolyline[] = stitched.map((points) => ({ points, isDot: false }));
+	return traced.concat(dots);
 }
 
-function walkSkeletonBranch(
+function floodJunctionCluster(
 	skeleton: Uint8Array,
+	degree: Uint8Array,
+	clusterOf: Int32Array,
+	width: number,
+	height: number,
+	start: number,
+): number[] {
+	const pixels: number[] = [];
+	const stack = [start];
+	clusterOf[start] = -2;
+	while (stack.length > 0) {
+		const index = stack.pop();
+		if (index === undefined) break;
+		pixels.push(index);
+		const x = index % width;
+		const y = Math.floor(index / width);
+		for (const [nx, ny] of skeletonNeighbors(skeleton, width, height, x, y)) {
+			const next = ny * width + nx;
+			if (degree[next] < 3 || clusterOf[next] !== -1) continue;
+			clusterOf[next] = -2;
+			stack.push(next);
+		}
+	}
+	return pixels;
+}
+
+function walkAwayFromJunction(
+	skeleton: Uint8Array,
+	clusterOf: Int32Array,
 	degree: Uint8Array,
 	consumed: Uint8Array,
 	width: number,
 	height: number,
 	startX: number,
 	startY: number,
-	nextX: number,
-	nextY: number,
-): [number, number][] | null {
-	const path: [number, number][] = [[startX, startY]];
-	let prevX = startX;
-	let prevY = startY;
-	let x = nextX;
-	let y = nextY;
+	fromX: number,
+	fromY: number,
+	startCluster: number,
+): { points: [number, number][]; endCluster: number } {
+	const points: [number, number][] = [];
+	let x = startX;
+	let y = startY;
+	let prevX = fromX;
+	let prevY = fromY;
 	const maxSteps = width * height;
 	for (let step = 0; step < maxSteps; step++) {
 		const index = y * width + x;
-		if (skeleton[index] !== 1) break;
-		path.push([x, y]);
-		const isStop = degree[index] <= 1 || degree[index] >= 3;
-		if (isStop) break;
-		if (consumed[index] === 1) break;
+		if (skeleton[index] !== 1) return { points, endCluster: -1 };
+		if (clusterOf[index] >= 0) return { points, endCluster: clusterOf[index] };
+		if (consumed[index] === 1) return { points, endCluster: -1 };
 		consumed[index] = 1;
-		const neighbors = skeletonNeighbors(skeleton, width, height, x, y);
+		points.push([x, y]);
+		if (degree[index] <= 1) return { points, endCluster: -1 };
 		let foundX = -1;
 		let foundY = -1;
-		for (const [nx, ny] of neighbors) {
+		// First step out of a multi-pixel junction can still border another pixel of the
+		// same cluster; prefer the non-cluster continuation before stopping at a cluster.
+		for (const [nx, ny] of skeletonNeighbors(skeleton, width, height, x, y)) {
 			if (nx === prevX && ny === prevY) continue;
+			const neighborCluster = clusterOf[ny * width + nx];
+			if (step === 0 && neighborCluster === startCluster) continue;
 			foundX = nx;
 			foundY = ny;
-			break;
+			if (neighborCluster < 0) break;
 		}
-		if (foundX < 0) break;
+		if (foundX < 0) return { points, endCluster: -1 };
 		prevX = x;
 		prevY = y;
 		x = foundX;
 		y = foundY;
 	}
-	if (path.length < MIN_POLYLINE_POINTS) return null;
-	return path;
+	return { points, endCluster: -1 };
 }
 
-function walkSkeletonLoop(
+function walkFreeSkeleton(
 	skeleton: Uint8Array,
+	clusterOf: Int32Array,
+	degree: Uint8Array,
 	consumed: Uint8Array,
 	width: number,
 	height: number,
@@ -587,8 +879,11 @@ function walkSkeletonLoop(
 	startY: number,
 ): [number, number][] | null {
 	const neighbors = skeletonNeighbors(skeleton, width, height, startX, startY);
-	if (neighbors.length === 0) return null;
-	const path: [number, number][] = [[startX, startY]];
+	if (neighbors.length === 0) {
+		consumed[startY * width + startX] = 1;
+		return [[startX, startY], [startX + 0.6, startY]];
+	}
+	const points: [number, number][] = [[startX, startY]];
 	consumed[startY * width + startX] = 1;
 	let prevX = startX;
 	let prevY = startY;
@@ -598,13 +893,13 @@ function walkSkeletonLoop(
 	for (let step = 0; step < maxSteps; step++) {
 		if (x === startX && y === startY) break;
 		const index = y * width + x;
-		if (skeleton[index] !== 1 || consumed[index] === 1) break;
+		if (skeleton[index] !== 1 || clusterOf[index] >= 0 || consumed[index] === 1) break;
 		consumed[index] = 1;
-		path.push([x, y]);
-		const nextNeighbors = skeletonNeighbors(skeleton, width, height, x, y);
+		points.push([x, y]);
+		if (degree[index] <= 1) break;
 		let foundX = -1;
 		let foundY = -1;
-		for (const [nx, ny] of nextNeighbors) {
+		for (const [nx, ny] of skeletonNeighbors(skeleton, width, height, x, y)) {
 			if (nx === prevX && ny === prevY) continue;
 			foundX = nx;
 			foundY = ny;
@@ -616,8 +911,89 @@ function walkSkeletonLoop(
 		x = foundX;
 		y = foundY;
 	}
-	if (path.length < MIN_POLYLINE_POINTS) return null;
-	return path;
+	return points;
+}
+
+/**
+ * At each junction, pair the two branches whose headings best continue a stroke.
+ * A score of 1 is a straight line through the crossing. Below 0.65 the branch stays its own stroke.
+ */
+function routeChainsThroughJunctions(
+	chains: SkeletonChain[],
+	centroids: [number, number][],
+): SkeletonChain[] {
+	let current = chains;
+	for (let cluster = 0; cluster < centroids.length; cluster++) {
+		current = pairChainsAtCluster(current, cluster);
+	}
+	return current;
+}
+
+function pairChainsAtCluster(chains: SkeletonChain[], cluster: number): SkeletonChain[] {
+	const incident: number[] = [];
+	for (let index = 0; index < chains.length; index++) {
+		const chain = chains[index];
+		const touches = chain.startCluster === cluster || chain.endCluster === cluster;
+		const isClosedAtCluster = chain.startCluster === cluster && chain.endCluster === cluster;
+		if (touches && !isClosedAtCluster) incident.push(index);
+	}
+	if (incident.length < 2) return chains;
+
+	const pairs: { a: number; b: number; score: number }[] = [];
+	for (let i = 0; i < incident.length; i++) {
+		const headingA = headingIntoCluster(chains[incident[i]], cluster);
+		for (let j = i + 1; j < incident.length; j++) {
+			const headingB = headingIntoCluster(chains[incident[j]], cluster);
+			// Both headings point into the junction. Opposite headings are one stroke.
+			const score = -dot(headingA, headingB);
+			if (score >= JUNCTION_PAIR_MIN_DOT) {
+				pairs.push({ a: incident[i], b: incident[j], score });
+			}
+		}
+	}
+	pairs.sort((left, right) => right.score - left.score);
+	const used = new Set<number>();
+	const merged = new Map<number, SkeletonChain>();
+	const dropped = new Set<number>();
+	for (const pair of pairs) {
+		if (used.has(pair.a) || used.has(pair.b)) continue;
+		used.add(pair.a);
+		used.add(pair.b);
+		dropped.add(pair.b);
+		merged.set(pair.a, mergeChainsAtCluster(chains[pair.a], chains[pair.b], cluster));
+	}
+	const next: SkeletonChain[] = [];
+	for (let index = 0; index < chains.length; index++) {
+		if (dropped.has(index)) continue;
+		next.push(merged.get(index) ?? chains[index]);
+	}
+	return next;
+}
+
+function headingIntoCluster(chain: SkeletonChain, cluster: number): [number, number] {
+	const points = chain.endCluster === cluster ? chain.points : [...chain.points].reverse();
+	return tangentTowardEnd(points);
+}
+
+function mergeChainsAtCluster(a: SkeletonChain, b: SkeletonChain, cluster: number): SkeletonChain {
+	const endOriented = orientClusterToEnd(a, cluster);
+	const startOriented = orientClusterToEnd(b, cluster);
+	const reversedStart = [...startOriented.points].reverse();
+	return {
+		points: endOriented.points.slice(0, -1).concat(reversedStart),
+		startCluster: endOriented.otherCluster,
+		endCluster: startOriented.otherCluster,
+	};
+}
+
+function orientClusterToEnd(
+	chain: SkeletonChain,
+	cluster: number,
+): { points: [number, number][]; otherCluster: number } {
+	if (chain.endCluster === cluster) {
+		return { points: chain.points, otherCluster: chain.startCluster };
+	}
+	return { points: [...chain.points].reverse(), otherCluster: chain.endCluster };
 }
 
 function skeletonNeighbors(
@@ -683,7 +1059,7 @@ function polylineLength(points: [number, number][]): number {
 }
 
 function mapPolylinesToWritingPage(
-	polylines: [number, number][][],
+	polylines: { points: [number, number][] }[],
 	radius: Float32Array,
 	rasterWidth: number,
 	rasterHeight: number,
@@ -700,7 +1076,7 @@ function mapPolylinesToWritingPage(
 	for (const line of polylines) {
 		const points: [number, number][] = [];
 		const radii: number[] = [];
-		for (const [x, y] of line) {
+		for (const [x, y] of line.points) {
 			const px = Math.min(rasterWidth - 1, Math.max(0, Math.round(x)));
 			const py = Math.min(rasterHeight - 1, Math.max(0, Math.round(y)));
 			points.push([
@@ -714,35 +1090,98 @@ function mapPolylinesToWritingPage(
 	return mapped;
 }
 
+/**
+ * Distance from each ink pixel to the nearest paper pixel.
+ * Two Chamfer passes replace a full-frame queue so a page stays under a few milliseconds
+ * and the radius can sit between integer pixels.
+ */
 function inkRadiusMap(binary: Uint8Array, width: number, height: number): Float32Array {
 	const dist = new Float32Array(width * height);
-	dist.fill(1e6);
-	const queue: number[] = [];
-	for (let i = 0; i < binary.length; i++) {
-		if (binary[i] !== 0) continue;
-		dist[i] = 0;
-		queue.push(i);
+	const diagonal = 1.41421356;
+	for (let index = 0; index < binary.length; index++) {
+		dist[index] = binary[index] === 0 ? 0 : 1e6;
 	}
-	let head = 0;
-	while (head < queue.length) {
-		const index = queue[head++];
-		const x = index % width;
-		const y = Math.floor(index / width);
-		const nextDist = dist[index] + 1;
-		for (let dy = -1; dy <= 1; dy++) {
-			for (let dx = -1; dx <= 1; dx++) {
-				if (dx === 0 && dy === 0) continue;
-				const nx = x + dx;
-				const ny = y + dy;
-				if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-				const next = ny * width + nx;
-				if (nextDist >= dist[next]) continue;
-				dist[next] = nextDist;
-				queue.push(next);
-			}
+	for (let y = 0; y < height; y++) {
+		const row = y * width;
+		for (let x = 0; x < width; x++) {
+			const index = row + x;
+			let best = dist[index];
+			if (x > 0) best = Math.min(best, dist[index - 1] + 1);
+			if (y > 0) best = Math.min(best, dist[index - width] + 1);
+			if (x > 0 && y > 0) best = Math.min(best, dist[index - width - 1] + diagonal);
+			if (x + 1 < width && y > 0) best = Math.min(best, dist[index - width + 1] + diagonal);
+			dist[index] = best;
+		}
+	}
+	for (let y = height - 1; y >= 0; y--) {
+		const row = y * width;
+		for (let x = width - 1; x >= 0; x--) {
+			const index = row + x;
+			let best = dist[index];
+			if (x + 1 < width) best = Math.min(best, dist[index + 1] + 1);
+			if (y + 1 < height) best = Math.min(best, dist[index + width] + 1);
+			if (x + 1 < width && y + 1 < height) best = Math.min(best, dist[index + width + 1] + diagonal);
+			if (x > 0 && y + 1 < height) best = Math.min(best, dist[index + width - 1] + diagonal);
+			// Chamfer distance to the first background pixel is 1.0 even for a 1px stroke
+			// (true half-width 0.5px). Subtract 0.45 so the centreline radius matches the
+			// actual half-width of the Sauvola mask instead of inflating strokes by +1px.
+			dist[index] = best > 0 ? Math.max(0.45, best - 0.45) : 0;
 		}
 	}
 	return dist;
+}
+
+/** One light 3-point average so a pixel staircase is softened without shrinking small letter loops. */
+function smoothPolyline(points: [number, number][]): [number, number][] {
+	if (points.length < 3) return points;
+	const closed = distance(points[0], points[points.length - 1]) <= 1.5;
+	if (closed) {
+		const ring = points.slice(0, -1);
+		const count = ring.length;
+		if (count < 3) return points;
+		const smoothed: [number, number][] = [];
+		for (let index = 0; index < count; index++) {
+			const prev = ring[(index - 1 + count) % count];
+			const point = ring[index];
+			const next = ring[(index + 1) % count];
+			smoothed.push([
+				prev[0] * 0.2 + point[0] * 0.6 + next[0] * 0.2,
+				prev[1] * 0.2 + point[1] * 0.6 + next[1] * 0.2,
+			]);
+		}
+		smoothed.push([smoothed[0][0], smoothed[0][1]]);
+		return smoothed;
+	}
+	const smoothed: [number, number][] = [points[0]];
+	for (let index = 1; index < points.length - 1; index++) {
+		const prev = points[index - 1];
+		const point = points[index];
+		const next = points[index + 1];
+		smoothed.push([
+			prev[0] * 0.2 + point[0] * 0.6 + next[0] * 0.2,
+			prev[1] * 0.2 + point[1] * 0.6 + next[1] * 0.2,
+		]);
+	}
+	smoothed.push(points[points.length - 1]);
+	return smoothed;
+}
+
+/** Five-point average so pen width does not jump between neighbouring skeleton pixels. */
+function smoothRadii(radii: number[]): number[] {
+	if (radii.length < 3) return radii;
+	const smoothed = radii.slice();
+	for (let index = 0; index < radii.length; index++) {
+		let sum = 0;
+		let count = 0;
+		for (let delta = -2; delta <= 2; delta++) {
+			const sample = index + delta;
+			if (sample < 0 || sample >= radii.length) continue;
+			sum += radii[sample];
+			count++;
+		}
+		smoothed[index] = sum / count;
+	}
+	return smoothed;
 }
 
 function polylineHugsRasterBorder(
@@ -761,57 +1200,157 @@ function polylineHugsRasterBorder(
 }
 
 /**
- * Joins skeleton fragments that meet at a junction with a similar heading.
- * Thinning splits letters at every fork; stitching those pieces back is what
- * makes a word look like handwriting instead of dashes.
+ * Joins chain ends that sit within a few pixels and share a heading.
+ * Candidates are scored once and applied best-first, so a crossing is not
+ * welded to whichever fragment the raster scan happened to see first.
  */
 function stitchPolylines(lines: [number, number][][]): [number, number][][] {
-	const remaining = lines.filter((line) => line.length >= 2).map((line) => line.slice());
-	let merged = true;
-	while (merged) {
-		merged = false;
-		outer: for (let i = 0; i < remaining.length; i++) {
-			for (let j = 0; j < remaining.length; j++) {
-				if (i === j) continue;
-				const joined = tryJoinPolylines(remaining[i], remaining[j]);
-				if (!joined) continue;
-				remaining[i] = joined;
-				remaining.splice(j, 1);
-				merged = true;
-				break outer;
+	const pieces = lines
+		.filter((line) => line.length >= 2)
+		.map((points) => points.slice());
+	const link: number[][] = pieces.map(() => [-1, -1]);
+	const linkSide: number[][] = pieces.map(() => [-1, -1]);
+	const grid = new Map<string, { piece: number; side: number }[]>();
+	const cellKey = (x: number, y: number) => `${Math.floor(x / STITCH_CELL)},${Math.floor(y / STITCH_CELL)}`;
+	for (let piece = 0; piece < pieces.length; piece++) {
+		for (const side of [0, 1]) {
+			const point = pieceEndpoint(pieces[piece], side);
+			const key = cellKey(point[0], point[1]);
+			const bucket = grid.get(key);
+			const end = { piece, side };
+			if (bucket) bucket.push(end);
+			else grid.set(key, [end]);
+		}
+	}
+
+	const candidates: { aPiece: number; aSide: number; bPiece: number; bSide: number; score: number; gap: number }[] = [];
+	const seen = new Set<string>();
+	for (let piece = 0; piece < pieces.length; piece++) {
+		for (const side of [0, 1]) {
+			const point = pieceEndpoint(pieces[piece], side);
+			const heading = pieceHeadingOut(pieces[piece], side);
+			const cellX = Math.floor(point[0] / STITCH_CELL);
+			const cellY = Math.floor(point[1] / STITCH_CELL);
+			for (let dy = -1; dy <= 1; dy++) {
+				for (let dx = -1; dx <= 1; dx++) {
+					const bucket = grid.get(`${cellX + dx},${cellY + dy}`);
+					if (!bucket) continue;
+					for (const other of bucket) {
+						if (other.piece === piece && other.side === side) continue;
+						const pairKey = stitchPairKey(piece, side, other.piece, other.side);
+						if (seen.has(pairKey)) continue;
+						seen.add(pairKey);
+						const otherPoint = pieceEndpoint(pieces[other.piece], other.side);
+						const gap = distance(point, otherPoint);
+						if (gap > STITCH_MAX_GAP) continue;
+						const otherHeading = pieceHeadingOut(pieces[other.piece], other.side);
+						const score = -dot(heading, otherHeading);
+						if (score < STITCH_MIN_DOT) continue;
+						candidates.push({
+							aPiece: piece,
+							aSide: side,
+							bPiece: other.piece,
+							bSide: other.side,
+							score,
+							gap,
+						});
+					}
+				}
 			}
 		}
 	}
-	return remaining;
+	candidates.sort((left, right) => right.score - left.score || left.gap - right.gap);
+	for (const candidate of candidates) {
+		if (link[candidate.aPiece][candidate.aSide] >= 0 || link[candidate.bPiece][candidate.bSide] >= 0) continue;
+		link[candidate.aPiece][candidate.aSide] = candidate.bPiece;
+		linkSide[candidate.aPiece][candidate.aSide] = candidate.bSide;
+		link[candidate.bPiece][candidate.bSide] = candidate.aPiece;
+		linkSide[candidate.bPiece][candidate.bSide] = candidate.aSide;
+	}
+	return emitStitchedPieces(pieces, link, linkSide);
 }
 
-function tryJoinPolylines(
-	a: [number, number][],
-	b: [number, number][],
-): [number, number][] | null {
-	const maxGap = 3;
-	const minDot = 0.5;
-	const aStart = a[0];
-	const aEnd = a[a.length - 1];
-	const bStart = b[0];
-	const bEnd = b[b.length - 1];
-	const towardAEnd = tangentTowardEnd(a);
-	const fromAStart = tangentFromStart(a);
-	const towardBEnd = tangentTowardEnd(b);
-	const fromBStart = tangentFromStart(b);
-	if (distance(aEnd, bStart) <= maxGap && dot(towardAEnd, fromBStart) >= minDot) {
-		return a.concat(b.slice(1));
+function stitchPairKey(aPiece: number, aSide: number, bPiece: number, bSide: number): string {
+	const a = `${aPiece}:${aSide}`;
+	const b = `${bPiece}:${bSide}`;
+	return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+function pieceEndpoint(points: [number, number][], side: number): [number, number] {
+	return side === 0 ? points[0] : points[points.length - 1];
+}
+
+function pieceHeadingOut(points: [number, number][], side: number): [number, number] {
+	if (side === 0) return scale(tangentFromStart(points), -1);
+	return tangentTowardEnd(points);
+}
+
+function stepStitchLink(
+	link: number[][],
+	linkSide: number[][],
+	piece: number,
+	side: number,
+): { piece: number; side: number } | null {
+	const nextPiece = link[piece][side];
+	if (nextPiece < 0) return null;
+	return { piece: nextPiece, side: linkSide[piece][side] };
+}
+
+function emitStitchedPieces(
+	pieces: [number, number][][],
+	link: number[][],
+	linkSide: number[][],
+): [number, number][][] {
+	const visited = new Uint8Array(pieces.length);
+	const result: [number, number][][] = [];
+	for (let index = 0; index < pieces.length; index++) {
+		if (visited[index] === 1) continue;
+		let piece = index;
+		let departSide = 0;
+		const guard = new Set<number>();
+		let cycled = false;
+		while (!guard.has(piece)) {
+			guard.add(piece);
+			const next = stepStitchLink(link, linkSide, piece, departSide);
+			if (!next) break;
+			if (next.piece === index) {
+				cycled = true;
+				break;
+			}
+			piece = next.piece;
+			departSide = next.side === 0 ? 1 : 0;
+		}
+		// departSide is the free tail, or the side that steps back to the start of a loop.
+		// Entering there walks into the piece and out through the rest of the chain.
+		let entrySide = departSide;
+		const points: [number, number][] = [];
+		const loopStart = piece;
+		let first = true;
+		while (piece >= 0 && visited[piece] === 0 && (first || piece !== loopStart)) {
+			first = false;
+			visited[piece] = 1;
+			const ordered = entrySide === 0 ? pieces[piece] : [...pieces[piece]].reverse();
+			appendPolyline(points, ordered);
+			const exitSide = entrySide === 0 ? 1 : 0;
+			const next = stepStitchLink(link, linkSide, piece, exitSide);
+			if (!next || next.piece === loopStart) break;
+			piece = next.piece;
+			entrySide = next.side;
+		}
+		if (cycled && points.length >= 3 && distance(points[0], points[points.length - 1]) > 0.75) {
+			points.push([points[0][0], points[0][1]]);
+		}
+		if (points.length >= 2) result.push(points);
 	}
-	if (distance(aEnd, bEnd) <= maxGap && dot(towardAEnd, scale(towardBEnd, -1)) >= minDot) {
-		return a.concat(b.slice(0, -1).reverse());
+	return result;
+}
+
+function appendPolyline(target: [number, number][], extra: [number, number][]): void {
+	let start = 0;
+	if (target.length > 0 && extra.length > 0 && distance(target[target.length - 1], extra[0]) <= 0.75) {
+		start = 1;
 	}
-	if (distance(aStart, bEnd) <= maxGap && dot(towardBEnd, fromAStart) >= minDot) {
-		return b.concat(a.slice(1));
-	}
-	if (distance(aStart, bStart) <= maxGap && dot(scale(fromAStart, -1), fromBStart) >= minDot) {
-		return a.slice().reverse().concat(b.slice(1));
-	}
-	return null;
+	for (let index = start; index < extra.length; index++) target.push(extra[index]);
 }
 
 function tangentFromStart(line: [number, number][]): [number, number] {
@@ -842,40 +1381,17 @@ function dot(a: [number, number], b: [number, number]): number {
 	return a[0] * b[0] + a[1] * b[1];
 }
 
-function estimateWritingLineHeight(polylines: [number, number][][], fallback: number): number {
-	const ySamples: number[] = [];
-	for (const line of polylines) {
-		if (line.length === 0) continue;
-		let sumY = 0;
-		for (const [, y] of line) {
-			sumY += y;
-		}
-		ySamples.push(sumY / line.length);
-	}
-	ySamples.sort((a, b) => a - b);
-	if (ySamples.length < 2) return fallback;
-	const gaps: number[] = [];
-	for (let i = 1; i < ySamples.length; i++) {
-		const gap = ySamples[i] - ySamples[i - 1];
-		if (gap > fallback * 0.35) {
-			gaps.push(gap);
-		}
-	}
-	if (gaps.length === 0) return fallback;
-	gaps.sort((a, b) => a - b);
-	const mid = Math.floor(gaps.length / 2);
-	return Math.round(gaps[mid]);
-}
-
 function polylineToInkStroke(points: [number, number][], radii: number[]): InkStroke {
 	let radiusSum = 0;
 	for (const radius of radii) radiusSum += radius;
 	const meanRadius = radiusSum / Math.max(1, radii.length);
-	const size = Math.min(22, Math.max(2.4, meanRadius * 2.4));
+	// Diameter is 2 * radius. Keep a modest ceiling so bold markers stay bold without
+	// inflating normal handwriting strokes past their preview mask width.
+	const size = Math.min(16, Math.max(1.8, meanRadius * 1.85));
 	const inkPoints: InkPoint[] = [];
 	for (let index = 0; index < points.length; index++) {
 		const radius = radii[index] ?? meanRadius;
-		const pressure = Math.min(1, Math.max(0.18, radius / Math.max(0.6, size / 2)));
+		const pressure = Math.min(0.85, Math.max(0.22, (radius / Math.max(0.5, size / 2)) * 0.5));
 		inkPoints.push([points[index][0], points[index][1], pressure]);
 	}
 	const now = Date.now();
@@ -885,7 +1401,11 @@ function polylineToInkStroke(points: [number, number][], radii: number[]): InkSt
 		style: {
 			...DEFAULT_STROKE_STYLE,
 			size,
-			thinning: 0.45,
+			thinning: 0.18,
+			smoothing: 0.35,
+			// Traced coordinates are already smoothed and simplified; high streamline
+			// pulls perfect-freehand inside tight letter turns ('e', 'o', 'v', 'k').
+			streamline: 0.12,
 			// Real thickness from the photo. Velocity simulation would taper the dashes.
 			simulatePressure: false,
 			inputKind: 'pen',

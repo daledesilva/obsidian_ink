@@ -22,9 +22,9 @@ export class WritingPhotoPickerModal extends Modal {
 
 	onOpen(): void {
 		const { titleEl, contentEl } = this;
-		titleEl.setText('Handwriting from photo');
+		titleEl.setText('Create Ink from Photo');
 		contentEl.createEl('p', {
-			text: 'Take a photo of handwritten notes, choose an existing image, or paste one from the clipboard. Ink will trace the writing and transcribe the photo when your Almost Useful account is linked.',
+			text: 'Ink will trace the image into an editable format.',
 		});
 
 		const inputEl = contentEl.createEl('input', {

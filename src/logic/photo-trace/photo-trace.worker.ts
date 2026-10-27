@@ -61,33 +61,45 @@ async function handleRequest(payload: PhotoTraceWorkerRequest): Promise<void> {
 		return;
 	}
 
-	post({ type: 'progress', id: payload.id, stage: 'Straightening the page…' });
-	const warped = warpQuadToRgba(
-		payload.rgba,
-		payload.width,
-		payload.height,
-		payload.corners,
-		payload.maxEdgePx,
-	);
+	let pageRgba = payload.rgba;
+	let pageWidth = payload.width;
+	let pageHeight = payload.height;
+	if (!payload.alreadyWarped) {
+		post({ type: 'progress', id: payload.id, stage: 'Straightening the page…' });
+		const warped = warpQuadToRgba(
+			payload.rgba,
+			payload.width,
+			payload.height,
+			payload.corners,
+			payload.maxEdgePx,
+		);
+		const flattened = new ImageData(warped.data, warped.width, warped.height);
+		// Lighting flatten once, on the pixels that will be traced and saved.
+		flattenPageIlluminationImageDataInto(flattened, flattened);
+		pageRgba = flattened.data;
+		pageWidth = warped.width;
+		pageHeight = warped.height;
+	}
 	post({ type: 'progress', id: payload.id, stage: 'Tracing locally…' });
-	const sourceImage = new ImageData(warped.data, warped.width, warped.height);
-	flattenPageIlluminationImageDataInto(sourceImage, sourceImage);
+	const sourceImage = new ImageData(pageRgba, pageWidth, pageHeight);
 	const assessment = assessPagePhoto(sourceImage);
-	const adjusted = new ImageData(warped.width, warped.height);
+	const adjusted = new ImageData(pageWidth, pageHeight);
 	renderAdjustedPagePhoto(
 		sourceImage,
 		pagePhotoToneForAdjustment(assessment, payload.adjustment.lightInk),
 		payload.adjustment,
 		adjusted,
 	);
-	const gray = luminanceFromRgba(adjusted.data, warped.width * warped.height);
+	const gray = luminanceFromRgba(adjusted.data, pageWidth * pageHeight);
 	const result = traceHandwritingFromRaster({
-		width: warped.width,
-		height: warped.height,
+		width: pageWidth,
+		height: pageHeight,
 		gray,
 		dropLargeBorderComponents: payload.dropLargeBorderComponents,
 		simplifyEpsilon: payload.simplifyEpsilon,
 		minPolylineLengthPx: payload.minPolylineLengthPx,
+		sauvolaK: payload.sauvolaK,
+		noiseCleanup: payload.noiseCleanup,
 	});
 	post({
 		type: 'convert-done',
@@ -95,8 +107,8 @@ async function handleRequest(payload: PhotoTraceWorkerRequest): Promise<void> {
 		strokes: result.strokes,
 		writingLineHeight: result.writingLineHeight,
 		pageRgba: sourceImage.data,
-		pageWidth: warped.width,
-		pageHeight: warped.height,
+		pageWidth,
+		pageHeight,
 	});
 }
 

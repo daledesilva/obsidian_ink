@@ -11,6 +11,7 @@ import { useHandwritingTranscriptionQueueStatus } from 'src/logic/use-handwritin
 import { WriteIcon } from 'src/graphics/icons/write-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
 import { TextModeIcon } from 'src/graphics/icons/text-mode-icon';
+import { PhotoModeIcon } from 'src/graphics/icons/photo-mode-icon';
 import { Loader2Icon } from 'src/graphics/icons/loader-2-icon';
 import { ClockIcon } from 'src/graphics/icons/clock-icon';
 import { normalizeInkTranscriptMarkdown } from 'src/logic/normalize-ink-transcript-markdown';
@@ -180,7 +181,7 @@ export function InkEmbedDisplayModeSwitchWithPhoto(props: InkEmbedDisplayModeSwi
 		icon = <TextModeIcon />;
 	} else if (nextMode === 'photo') {
 		tooltip = 'Show photo';
-		icon = <span className='ddc_ink_display-mode-toggle__label'>Photo</span>;
+		icon = <PhotoModeIcon />;
 	}
 
 	return (

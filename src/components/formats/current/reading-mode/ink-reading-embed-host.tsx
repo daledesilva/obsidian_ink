@@ -171,7 +171,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 	const sourceImageUrl = useInkFileSourceImageUrl(props.plugin, props.embeddedFile);
 	const hasSourcePhoto = !!sourceImageUrl;
 	const embedDisplayMode = useInkEmbedDisplayMode(props.embeddedFile?.path);
-	const showPhoto = props.embedKind !== 'drawing' && hasSourcePhoto && embedDisplayMode === 'photo';
+	const showPhoto = hasSourcePhoto && embedDisplayMode === 'photo';
 
 	let drawingHeightPx = embedWidth / embedAspectRatio;
 	const transcriptHeightIsReady = showTranscript && transcriptHeightPx > 0;
@@ -181,7 +181,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// Until the markdown has been measured, keep the SVG aspect height so the card
 	// does not collapse. After that, the attribute tells dimension refresh to leave it.
-	// Drawing ink mode uses saved pixel width + full-bleed; text mode matches writing column width.
+	// Drawing ink and photo modes use saved pixel width + full-bleed; text mode matches writing column width.
 	const drawingShowsTranscript = props.embedKind === 'drawing' && showTranscript;
 
 	let resizeStyle: React.CSSProperties = { position: 'relative' };
@@ -223,8 +223,6 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 				}
 			} else if (showPhoto) {
 				resizeContainerEl.setAttribute('data-ink-display-mode', 'photo');
-				resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
-				resizeContainerEl.style.height = 'auto';
 			} else {
 				resizeContainerEl.removeAttribute('data-ink-display-mode');
 			}

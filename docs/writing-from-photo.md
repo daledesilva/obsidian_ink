@@ -2,58 +2,65 @@
 
 ## Why it exists
 
-People often have handwriting on paper (or a photo of a page) that they want as an Ink writing embed. Tracing that photo into strokes keeps the note editable as ink, then the usual transcription queue can turn it into searchable text.
+People often have handwriting on paper that they want as editable ink. The plugin traces the photo on the device into strokes, then the usual transcription queue can turn that page into searchable text. A vision model is not part of this path: a partial reply used to skip the local trace and still charge credits.
 
 ---
 
 ## Conceptual understanding
 
-The command **Ink: handwriting from photo** (see `insert-writing-from-photo.ts`) is a short wizard:
+The command **Trace photo** (`create-handwriting-from-photo` in `insert-writing-from-photo.ts`) is a short wizard:
 
-1. Pick an image.
-2. Pin the page corners (or use the full frame).
-3. Adjust colour/contrast if the paper is stained. Lighting flatten already ran, so hand shadows should not need a slider.
-4. Convert. If an Almost Useful account is linked on this device, Ink asks the portal for centreline strokes first. If that job fails, it traces locally with WASM Zhang–Suen.
-5. The plugin writes an SVG embed plus JPEGs, then queues transcription like any other writing file.
+1. Pick a photo (take, choose, or paste). The dialog title is **Create Ink from Photo**.
+2. Pin the page corners. Detection proposes a quad. Drag the circles if it is wrong.
+3. Review how the page will become ink. Colour, contrast, ink sensitivity, and noise cleanup sit under **Adjust detection** and start from an automatic guess.
+4. Convert to handwriting or to drawing. Tracing is always local.
+5. The plugin writes an SVG embed plus JPEGs, opens it in ink mode, and queues transcription.
 
-**Detail** defaults to **100** (finest local centreline). **Resolution** still defaults to 1600px on the long edge. Detail only affects **local** tracing, not the portal vector job.
-
-Progress is a log, not a single replacing line, so “Model did not return handwriting polylines” stays on screen while local tracing continues.
+Writing embeds use the standard guide spacing `WRITING_LINE_HEIGHT` (150px). A new handwriting section created from the command palette can still follow the line height in Settings. A photo trace does not copy that setting, because guessed gaps between stroke centres are not baselines.
 
 ```mermaid
 flowchart TD
   Pick[Pick photo]
-  Crop[Pin page corners]
+  Detect[Find page corners]
+  Crop[Pin corners]
+  Warp[Warp to 1600px]
   Flatten[Flatten illumination]
-  Adjust[Colour contrast sliders]
-  Linked{Linked Almost Useful?}
-  Portal[POST handwriting-vector]
-  Local[Worker Sauvola plus Zhang-Suen]
+  Adjust[Adjust detection and live mask]
+  Trace[Local Sauvola plus Zhang-Suen]
   Embed[Write SVG and JPEGs]
   Queue[Queue transcription]
-  Pick --> Crop --> Flatten --> Adjust --> Linked
-  Linked -->|yes| Portal
-  Portal -->|200 strokes| Embed
-  Portal -->|error| Local
-  Linked -->|no| Local
-  Local --> Embed --> Queue
+  Pick --> Detect --> Crop --> Warp --> Flatten --> Adjust --> Trace --> Embed --> Queue
 ```
 
 ---
 
 ## Flows
 
+**Page corners**
+
+`findPageQuad` downscales to a 360px long edge and estimates paper from the centre 40% of the frame. It compares illumination-invariant colour ratios (`R/(R+G+B)` and `G/(R+G+B)`), so a shadow across the sheet stays one page. Skin and a cool screen differ from that paper colour. The fit rejects sharp angles and sides whose lengths differ by more than about 1.45. A weak score, or a quad that is already the photo, returns the full frame.
+
+The crop dialog title is **Define the corners of the page**. Outside the quad, the overlay is Obsidian’s `--background-primary` at 50% opacity, so light mode stays light.
+
+**Adjust**
+
+The title is **How your photo will convert into ink**. The preview is the ink mask, always on. On open, colour and contrast stay at zero when that already yields a clean mask; otherwise they follow the page assessment. Ink sensitivity is chosen to keep strokes and penalise pepper specks, preferring a value near 70. Noise cleanup defaults on.
+
+**Back** sits at the far left and returns to the corners. **Cancel** leaves the wizard. **Convert to drawing** and **Convert to handwriting** are both primary buttons.
+
 **Convert**
 
-- Warp always runs in the photo worker.
-- Flatten divides RGB by a downscaled morphological closing of luminance so slow shadows lift and ink stays darker than local paper (`flatten-page-illumination.ts`).
-- A linked session (`hasLinkedAlmostUsefulAccount`) POSTs the flattened page JPEG to `{portalOrigin}/api/jobs/handwriting-vector`.
-- On success, `mapHandwritingVectorStrokesToInk` maps 0–1 (or pixel-like) polylines onto the writing page and drops full-width ruled lines.
-- On 401/402/502/parse/network, the progress log records the portal message and local convert runs.
+The adjust step already warped the page to a 1600px long edge. Convert reuses that raster (`alreadyWarped`) and does not warp again. Illumination is flattened once before the trace. Colour and contrast are applied only for the mask, not written back as the saved page photo. Detail is the constant `PHOTO_TRACE_DEFAULT_DETAIL` (90). There is no detail or resolution slider.
+
+The tracer builds a Sauvola mask, optionally removes tiny specks and isolated noise dots, bridges small gaps, drops long printed rules, thins with WASM Zhang–Suen, and turns the skeleton into ink strokes on a page `WRITING_PAGE_WIDTH` wide (2000). Noise cleanup keeps a small dot when it sits on a real stroke, so i-dots and full stops stay.
 
 **After convert**
 
-- Vault JPEG of the original photo plus, when cropped, a flattened page JPEG for transcription.
+- The original photo is saved as a JPEG next to the SVG.
+- A cropped import also saves a flattened page JPEG. Transcription uses that page when it exists, and the original photo when the pins were the full frame.
+- Handwriting files store `writingLineHeight: 150`. Drawing files use the drawing grid default and a view box fitted to the strokes.
+- The embed starts in ink display mode. Photo, ink, and transcript are a session toggle. The photo control is an image icon.
+- In photo mode the image matches the ink frame height, and its width follows the photo. Corners are 20px, the same as the ink frame.
 - `enqueueTranscriptionAfterPhotoImport` uses the handwriting transcription queue. See [writing-transcription.md](writing-transcription.md).
 
 ---
@@ -62,23 +69,31 @@ flowchart TD
 
 | Piece | Role |
 |-------|------|
-| `flatten-page-illumination.ts` | Close on ~320px gray, upsample, divide. No slider. |
-| `trace-from-raster.ts` | Sauvola mask, specks, ruled-line removal, border blobs. Does **not** clip by global paper brightness. |
-| `photo-trace.worker.ts` | Warp, flatten, colour/contrast, local trace. WASM thinning is inlined in `main.js`. |
-| `almostuseful-handwriting-vector.ts` | Portal POST. HTML 200 (missing route) is `route_missing`. |
-| Progress modal | Append-only stage log. |
+| `find-page-quad.ts` | Centre paper colour, then a scored quad. Full frame when the page is already the photo. |
+| `flatten-page-illumination.ts` | Divides RGB by a downscaled closing of luminance so slow shadows lift. No slider. |
+| `trace-from-raster.ts` | Sauvola, noise dots, rules, Chamfer radius, skeleton routing, RDP. Returns `WRITING_LINE_HEIGHT`. |
+| `photo-trace.worker.ts` | Warp, and flatten only when the page is not already warped. Then colour, contrast, and the local trace. WASM thinning is inlined in `main.js`. |
+| `photoTraceSauvolaK` | Sensitivity 0 → k 0.5, 75 → k 0.20, 100 → k 0.1. Higher keeps fainter ink. |
+| `photoTraceSimplifyEpsilon` | Detail 90 → about 0.48px. Convert always passes `PHOTO_TRACE_DEFAULT_DETAIL`. |
+| `writing-photo-adjust-modal.ts` | Live mask, auto-tune, collapsed detection controls, writing or drawing convert. |
+| `ink-photo-view` | Height 100% of the ink frame, width auto, 20px radius. |
 
-**Detail 100** maps to simplify epsilon ≈ 0.1px and min stroke length 1px (`photoTraceSimplifyEpsilon` / `photoTraceMinPolylineLength`). Values above 100 clamp to 100.
+Ink sensitivity 75 is the built-in default before auto-tune. Auto-tune may pick another value in the 35–84 range.
 
-Portal job contract and billing: portal repo `docs/conceptual/HANDWRITING_VECTOR.md`.
+Portal handwriting transcription is unchanged. The old centreline job is retired; historical charges still use the ledger reason `handwriting_vector`. See the portal page `docs/conceptual/HANDWRITING_VECTOR.md`.
 
 ---
 
 ## Technical Gotchas
 
-- **Production portal may not have `/api/jobs/handwriting-vector` until that branch is deployed.** Transcription can still work. Custom `http://localhost:3000` must be a development Ink build plus a portal that includes the route.
-- **A 502 after settle has already billed Pool A.** Ink must fall back locally, not retry the same JPEG as if nothing was charged.
-- **Flash Lite often returns markdown fences, truncated JSON, pixel coords, or notebook rules.** The portal recovers complete strokes and drops full-width flats; Ink also maps values `> 1.5` as pixels and drops ruling lines. Local WASM remains the reliable centreline.
-- **Do not restore `clipInkToLargestPaper`.** A global luminance floor (`max(mean, 118)`) treats shadows as “not paper” and deletes Sauvola ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
-- **Flatten is automatic** on preview, local convert, portal JPEG, and the saved page photo. Colour/Contrast remain for stains and chalk, not for lighting.
-- **Community `npm run build` ignores Custom portal origin** (`isInkDevelopmentBuild`). Use `npm run dev` / `open-qa` when pointing at localhost.
+- **Do not send the page to a vision model for centrelines.** Any non-empty reply used to skip this local trace. Transcription stays a portal job.
+- **Do not estimate writing line height from stroke Y positions.** Those gaps are not baselines and packed or stretched the guides. Photo traces use `WRITING_LINE_HEIGHT` (150). The Settings line height applies when creating a handwriting section the normal way.
+- **A straight pen mark simplifies to two points.** Requiring three points drops rules, underscores, and t-bars.
+- **Chamfer distance is 1px even for a 1px stroke.** The radius subtracts 0.45 so strokes stay as thin as the mask. Adding a pixel, or a strong streamline, pulls letters inside their loops.
+- **Noise cleanup must not delete every small component.** An i-dot and a full stop are small. They stay when a nearby component is a real stroke. Isolated pepper does not.
+- **Shadows are colour, not brightness.** A luminance split cuts the page on the shadow line. Chromaticity keeps the sheet together. A white page on a white desk can still fall back to the full frame.
+- **Display mode is not stored in the SVG.** Starting the new embed in photo mode made the first lock return to the photo. Create it in ink mode.
+- **Photo mode must not grow the embed.** The image fills the existing ink height. A shorter container hides the cursor in the note underneath.
+- **The saved page JPEG is the flattened warp, not the adjusted mask.** Colour, contrast, and sensitivity change the trace. They do not rewrite the transcription photo.
+- **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
+- **Flatten is automatic** on the page that is traced and, when cropped, on the saved page photo. Colour and contrast remain for stains, not for lighting.

@@ -1,11 +1,29 @@
 .modal.ddc_ink_photo-crop-modal {
-	width: min(36em, calc(100vw - 3em));
-	max-height: calc(100vh - 2.5em);
+	width: min(54em, calc(100vw - 2em));
+	max-width: calc(100vw - 2em);
+	max-height: calc(100vh - 2em);
+	min-width: min(22em, calc(100vw - 2em));
+	min-height: 24em;
+	resize: both;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
 }
 
 .ddc_ink_photo-crop-modal .modal-content {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-x: hidden;
+	overflow-y: auto;
 	padding-right: 1.25em;
 	padding-left: 1.25em;
+	box-sizing: border-box;
+}
+
+.ddc_ink_photo-crop-modal .setting-item {
+	flex-wrap: wrap;
+	gap: 0.5em;
 }
 
 .ddc_ink_photo-crop__intro {
@@ -14,13 +32,18 @@
 
 .ddc_ink_photo-crop__frame {
 	box-sizing: border-box;
+	width: 100%;
 	max-width: 100%;
 	margin: 0.25em auto 0.75em;
-	padding: 0.85em;
+	padding: 0.65em;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 
 .ddc_ink_photo-crop__stage {
 	position: relative;
+	width: 100%;
 	margin: 0 auto;
 	touch-action: none;
 	background: var(--background-secondary);

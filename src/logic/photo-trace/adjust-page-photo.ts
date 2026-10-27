@@ -176,14 +176,18 @@ function measurePageTone(
 function colourStrengthFromPaper(red: number, green: number, blue: number): number {
 	const maxChannel = Math.max(red, green, blue, 1);
 	const deviation = Math.max(Math.abs(red - green), Math.abs(green - blue), Math.abs(red - blue)) / maxChannel;
-	// A mild cast should open part-way. A strong tan or coloured page opens near full neutralize.
-	return clampUnit(Math.round(deviation * 250));
+	// Illumination flattening already lifts neutral pages. Only apply channel scaling
+	// when the paper has a real colour cast (> 10% channel spread).
+	if (deviation <= 0.1) return 0;
+	return clampUnit(Math.round((deviation - 0.1) * 180));
 }
 
 function contrastStrengthFromSpread(blackPoint: number, whitePoint: number): number {
 	const spread = Math.max(0, whitePoint - blackPoint);
-	// A flat photo needs a hard stretch. A photo that already separates ink and paper stays milder.
-	return clampUnit(Math.round((1 - spread / 255) * 100));
+	// After illumination flattening, pages with healthy spread (>= 135) need 0 contrast
+	// stretch; stretching clips the 5th-percentile ink tail and turns paper grain into specks.
+	if (spread >= 135) return 0;
+	return clampUnit(Math.round(((135 - spread) / 135) * 65));
 }
 
 function mixScale(channel: number, paperGrey: number, colourMix: number): number {

@@ -368,7 +368,7 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 	});
 	plugin.addCommand({
 		id: 'create-handwriting-from-photo',
-		name: 'Handwriting from photo',
+		name: 'Trace photo',
 		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertWritingFromPhoto(plugin, editor),
 	});

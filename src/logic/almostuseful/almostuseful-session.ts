@@ -108,7 +108,7 @@ export function clearAlmostUsefulSession(): void {
 
 /**
  * True when this device has a linked Almost Useful app-token session.
- * Portal jobs (transcription, handwriting-vector, etc.) enforce credits on POST (402).
+ * Portal jobs (handwriting transcription) enforce credits on POST (402).
  */
 export function hasLinkedAlmostUsefulAccount(): boolean {
 	return Boolean(readAlmostUsefulSession()?.accessToken);

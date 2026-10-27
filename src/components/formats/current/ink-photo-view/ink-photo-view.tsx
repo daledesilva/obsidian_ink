@@ -8,7 +8,10 @@ export interface InkPhotoViewProps {
 	sourceImageUrl: string;
 }
 
-/** Locked-embed pane that shows the original imported handwriting photo. */
+/**
+ * Locked-embed pane that shows the original imported handwriting photo,
+ * matching the height of the ink embed frame and auto-adjusting width by aspect ratio.
+ */
 export const InkPhotoView: React.FC<InkPhotoViewProps> = (props) => {
 	return (
 		<div className='ddc_ink_photo-view'>

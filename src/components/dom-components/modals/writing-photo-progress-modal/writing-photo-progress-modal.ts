@@ -11,8 +11,8 @@ export interface WritingPhotoProgressHandle {
 }
 
 /**
- * Stays open while warp, local trace, or the Almost Useful job runs.
- * Stages append as a log so a portal error stays visible after local fallback.
+ * Stays open while the page is straightened and traced locally.
+ * Stages append as a log so a later message does not replace an earlier one.
  * Cancel writes nothing. Determinate bar only when the worker posts a percent.
  */
 export function openWritingPhotoProgressModal(

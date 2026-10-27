@@ -83,6 +83,9 @@ export class PhotoTraceWorkerClient {
 		dropLargeBorderComponents?: boolean;
 		simplifyEpsilon?: number;
 		minPolylineLengthPx?: number;
+		sauvolaK?: number;
+		noiseCleanup?: boolean;
+		alreadyWarped?: boolean;
 		onProgress?: (stage: string, percent?: number) => void;
 	}): Promise<PhotoTraceConvertResult> {
 		const response = await this.request({
@@ -97,6 +100,9 @@ export class PhotoTraceWorkerClient {
 			dropLargeBorderComponents: params.dropLargeBorderComponents,
 			simplifyEpsilon: params.simplifyEpsilon,
 			minPolylineLengthPx: params.minPolylineLengthPx,
+			sauvolaK: params.sauvolaK,
+			noiseCleanup: params.noiseCleanup,
+			alreadyWarped: params.alreadyWarped,
 		}, params.onProgress);
 		if (response.type !== 'convert-done') {
 			throw new Error('Photo worker did not return ink strokes');

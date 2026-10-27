@@ -32,6 +32,15 @@ export type PhotoTraceWorkerRequest =
 		dropLargeBorderComponents?: boolean;
 		simplifyEpsilon?: number;
 		minPolylineLengthPx?: number;
+		/** Sauvola k. Lower keeps fainter pen strokes. */
+		sauvolaK?: number;
+		/** When true (default), removes tiny specks and isolated margin/paper noise dots. */
+		noiseCleanup?: boolean;
+		/**
+		 * True when rgba is already the warped, illumination-flattened page.
+		 * Skips a second homography and a second lighting flatten.
+		 */
+		alreadyWarped?: boolean;
 	};
 
 export type PhotoTraceWorkerResponse =

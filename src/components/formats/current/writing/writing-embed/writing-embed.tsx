@@ -130,7 +130,6 @@ export function WritingEmbed (props: {
 	const hasSourcePhoto = !!sourceImageUrl;
 	const embedDisplayMode = useInkEmbedDisplayMode(props.writingFileRef?.path);
 	const showPhoto = !isThisEmbedEditing && hasSourcePhoto && embedDisplayMode === 'photo';
-	// Aspect-ratio sync is async; it must not overwrite Text-mode content height.
 	const showTranscriptRef = useRef(false);
 	showTranscriptRef.current = showTranscript;
 	type WritingFormat = 'tldraw' | 'ink-canvas' | 'unknown';
@@ -145,18 +144,19 @@ export function WritingEmbed (props: {
 		// Text height comes from the rendered markdown, not the SVG aspect ratio.
 		// Leaving the ink height here makes the first transcript measure match that box,
 		// and CodeMirror never remeasures until the user toggles away and back.
-		if (showTranscript || showPhoto) {
+		if (showTranscript) {
 			resizeContainer.classList.remove('ddc_ink_smooth-transition');
 			resizeContainer.style.height = 'auto';
-			if (showTranscript) {
-				resizeContainer.setAttribute('data-ink-display-mode', 'text');
-			} else {
-				resizeContainer.setAttribute('data-ink-display-mode', 'photo');
-			}
+			resizeContainer.setAttribute('data-ink-display-mode', 'text');
 			previousHeightRef.current = null;
 			return;
 		}
-		resizeContainer.removeAttribute('data-ink-display-mode');
+		// Photo keeps the ink aspect height. Growing the box to the photo hid the cursor under the embed.
+		if (showPhoto) {
+			resizeContainer.setAttribute('data-ink-display-mode', 'photo');
+		} else {
+			resizeContainer.removeAttribute('data-ink-display-mode');
+		}
 		previousHeightRef.current = null;
 		resizeContainer.classList.remove('ddc_ink_smooth-transition');
 		const containerWidth = resizeContainer.getBoundingClientRect().width || defaultInitialWidth;

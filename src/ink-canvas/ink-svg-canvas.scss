@@ -13,6 +13,11 @@
 	}
 }
 
+// Focused after a click, drag, or selection change so shortcuts reach the embed. No ring.
+.ink-svg-canvas-container:focus {
+	outline: none;
+}
+
 // Writing guides use currentColor (ink-writing-guide-lines.scss); match locked embed text colour.
 .ink-svg-canvas {
 	color: var(--text-normal);

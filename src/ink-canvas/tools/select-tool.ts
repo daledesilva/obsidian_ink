@@ -45,13 +45,12 @@ export interface SelectToolContext {
 	getSelectionChrome: () => SelectionChrome | null;
 	setSelectionChrome: (chrome: SelectionChrome | null) => void;
 	setSelectionPreview: (preview: SelectionChromePreview | null) => void;
-	writingMode: boolean;
 	getDominantHand: () => DominantHand;
 	onSelectionChange?: () => void;
 }
 
 // Pointer-down picks a phase once; pointer-up commits MoveStrokesCommand or TransformStrokesCommand.
-// Resize/rotate handles are drawing-only (writingMode false) — see docs/ink-canvas-selection.md.
+// Resize and rotate are the same in writing and drawing so handwriting can be scaled and turned.
 type SelectPhase = 'idle' | 'lasso' | 'dragging' | 'resizing' | 'rotating';
 
 let phase: SelectPhase = 'idle';
@@ -107,7 +106,7 @@ export function selectToolPointerDown(e: PointerEvent, ctx: SelectToolContext): 
 
 	const chrome = ctx.getSelectionChrome();
 
-	if (!ctx.writingMode && selected.size > 0 && chrome) {
+	if (selected.size > 0 && chrome) {
 		const handleHit = hitTestChromeHandle(
 			pagePoint,
 			chrome,

@@ -19,7 +19,10 @@ export type InkFileMetadata = {
     writingLineHeight?: number;
     /** Relative vault path to a source photo (e.g. `images/note.jpg`) for photo-imported writing. */
     sourceImage?: string;
-    /** Cropped page JPEG used for transcription. The Photo tab keeps `sourceImage`. */
+    /**
+     * Older imports stored a straightened page JPEG here for transcription.
+     * New imports omit it and transcribe `sourceImage` instead.
+     */
     transcriptImage?: string;
     /** When `photo`, transcription reads the source JPEG until the user edits strokes. */
     transcriptFrom?: 'photo';

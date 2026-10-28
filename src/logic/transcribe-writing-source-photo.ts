@@ -30,6 +30,7 @@ export async function transcribeWritingSourcePhoto(
 	svgVaultPath: string,
 	pageData: InkFileData,
 ): Promise<string> {
+	// Older imports stored a straightened page at transcriptImage. New imports omit it.
 	const sourceImage = pageData.meta.transcriptImage ?? pageData.meta.sourceImage;
 	if (!sourceImage) {
 		throw new Error('Writing file has no source photo');

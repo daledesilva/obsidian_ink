@@ -14,7 +14,7 @@ The command **Trace photo** (`create-handwriting-from-photo` in `insert-writing-
 2. Pin the page corners. Detection proposes a quad. Drag the circles if it is wrong.
 3. Review how the page will become ink. Colour, contrast, ink sensitivity, and noise cleanup sit under **Adjust detection** and start from an automatic guess.
 4. Convert to handwriting or to drawing. Tracing is always local.
-5. The plugin writes an SVG embed plus JPEGs, opens it in ink mode, and queues transcription.
+5. The plugin writes an SVG embed plus the original JPEG, opens it in ink mode, and queues transcription.
 
 Writing embeds use the standard guide spacing `WRITING_LINE_HEIGHT` (150px). A new handwriting section created from the command palette can still follow the line height in Settings. A photo trace does not copy that setting, because guessed gaps between stroke centres are not baselines.
 
@@ -27,7 +27,7 @@ flowchart TD
   Flatten[Flatten illumination]
   Adjust[Adjust detection and live mask]
   Trace[Local Sauvola plus Zhang-Suen]
-  Embed[Write SVG and JPEGs]
+  Embed[Write SVG and original JPEG]
   Queue[Queue transcription]
   Pick --> Detect --> Crop --> Warp --> Flatten --> Adjust --> Trace --> Embed --> Queue
 ```
@@ -50,14 +50,15 @@ The title is **How your photo will convert into ink**. The preview is the ink ma
 
 **Convert**
 
-The adjust step already warped the page to a 1600px long edge. Convert reuses that raster (`alreadyWarped`) and does not warp again. Illumination is flattened once before the trace. Colour and contrast are applied only for the mask, not written back as the saved page photo. Detail is the constant `PHOTO_TRACE_DEFAULT_DETAIL` (90). There is no detail or resolution slider.
+The adjust step already warped the page to a 1600px long edge. Convert reuses that raster (`alreadyWarped`) and does not warp again. Illumination is flattened once before the trace, in memory. Colour and contrast are applied only for the mask. The vault keeps the original photo. Detail is the constant `PHOTO_TRACE_DEFAULT_DETAIL` (90). There is no detail or resolution slider.
 
 The tracer builds a Sauvola mask, optionally removes tiny specks and isolated noise dots, bridges small gaps, drops long printed rules, thins with WASM Zhang–Suen, and turns the skeleton into ink strokes on a page `WRITING_PAGE_WIDTH` wide (2000). Noise cleanup keeps a small dot when it sits on a real stroke, so i-dots and full stops stay.
 
 **After convert**
 
-- The original photo is saved as a JPEG next to the SVG.
-- A cropped import also saves a flattened page JPEG. Transcription uses that page when it exists, and the original photo when the pins were the full frame.
+- The original photo is saved as a JPEG beside the SVG, under `images/`.
+- The straightened page is traced in memory and is not written. New imports omit `transcriptImage`, so transcription reads that original JPEG.
+- Older imports may still set `transcript-image` to a `-page.jpg`. Those files keep using that JPEG.
 - Handwriting files store `writingLineHeight: 150`. Drawing files use the drawing grid default and a view box fitted to the strokes.
 - The embed starts in ink display mode. Photo, ink, and transcript are a session toggle. The photo control is an image icon.
 - In photo mode the image matches the ink frame height, and its width follows the photo. Corners are 20px, the same as the ink frame.
@@ -94,7 +95,7 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **Shadows are colour, not brightness.** A luminance split cuts the page on the shadow line. Chromaticity keeps the sheet together. A white page on a white desk can still fall back to the full frame.
 - **Display mode is not stored in the SVG.** Starting the new embed in photo mode made the first lock return to the photo. Create it in ink mode.
 - **Photo mode must not grow the embed.** The image fills the existing ink height. A shorter container hides the cursor in the note underneath.
-- **The saved page JPEG is the flattened warp, not the adjusted mask.** Colour, contrast, and sensitivity change the trace. They do not rewrite the transcription photo.
+- **Do not save the straightened page.** The crop exists only to trace. Writing it beside the SVG duplicated the photo. Colour, contrast, and sensitivity change the mask. They do not rewrite the saved original.
 - **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
-- **Flatten is automatic** on the page that is traced and, when cropped, on the saved page photo. Colour and contrast remain for stains, not for lighting.
+- **Flatten is automatic** on the page that is traced. It is not written back onto the saved original. Colour and contrast remain for stains, not for lighting.
 - **The inlined worker is minified only in production.** `npm run build:wasm` writes a readable bundle. `npm run build` rewrites it minified before it is stored as a string in `main.js`. The outer minify pass cannot shrink that string by itself.

@@ -1,5 +1,4 @@
 import type { PagePoint } from './find-page-quad';
-import { HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES } from 'src/logic/almostuseful/handwriting-transcription-media-limit';
 import { PHOTO_TRACE_WORKING_MAX_EDGE_PX } from './trace-from-raster';
 
 //////////
@@ -83,34 +82,6 @@ export function warpQuadToRgba(
 		}
 	}
 	return { data: destData, width: outWidth, height: outHeight };
-}
-
-/**
- * JPEG bytes for the warped page, kept under the transcription size cap.
- */
-export async function encodeCanvasJpeg(canvas: HTMLCanvasElement): Promise<ArrayBuffer> {
-	let quality = 0.85;
-	let lastBuffer: ArrayBuffer | null = null;
-	while (quality >= 0.35) {
-		const encoded = await canvasToJpegArrayBuffer(canvas, quality);
-		lastBuffer = encoded;
-		if (encoded.byteLength <= HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES) return encoded;
-		quality -= 0.1;
-	}
-	if (lastBuffer) return lastBuffer;
-	throw new Error('Cropped photo is too large to save');
-}
-
-function canvasToJpegArrayBuffer(canvas: HTMLCanvasElement, quality: number): Promise<ArrayBuffer> {
-	return new Promise((resolve, reject) => {
-		canvas.toBlob((jpegBlob) => {
-			if (!jpegBlob) {
-				reject(new Error('Could not encode JPEG'));
-				return;
-			}
-			void jpegBlob.arrayBuffer().then(resolve).catch(reject);
-		}, 'image/jpeg', quality);
-	});
 }
 
 function homographyDestToSource(

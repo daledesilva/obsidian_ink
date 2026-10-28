@@ -49,7 +49,7 @@ export function flattenPageIlluminationImageDataInto(source: ImageData, dest: Im
 	}
 }
 
-/** Flatten lighting on a warped page canvas in place (AI JPEG and saved page photo). */
+/** Flatten lighting on a warped page canvas in place before it is traced. */
 export function flattenPageIlluminationCanvasInPlace(canvas: HTMLCanvasElement): void {
 	const context = canvas.getContext('2d');
 	if (!context) throw new Error('Could not flatten page lighting');

@@ -41,11 +41,8 @@ import {
 import {
 	findPageQuad,
 	fullFrameCorners,
-	quadMatchesFullFrame,
-	type PagePoint,
 } from 'src/logic/photo-trace/find-page-quad';
 import { flattenPageIlluminationCanvasInPlace } from 'src/logic/photo-trace/flatten-page-illumination';
-import { encodeCanvasJpeg } from 'src/logic/photo-trace/warp-page-quad';
 import {
 	buildInkCanvasDrawingFileData,
 	buildInkCanvasWritingFileData,
@@ -99,7 +96,6 @@ async function importWritingFromPhoto(
 		const photoPreviewUrl = await canvasJpegObjectUrl(photoCanvas);
 		previewUrl = photoPreviewUrl;
 		let corners = defaultCorners;
-		let useFullFrame = false;
 		let convertChoice: {
 			target: WritingPhotoConvertTarget;
 			adjustment: PagePhotoAdjustment;
@@ -123,7 +119,6 @@ async function importWritingFromPhoto(
 				return;
 			}
 			corners = chosenCorners;
-			useFullFrame = quadMatchesFullFrame(chosenCorners, photoCanvas.width, photoCanvas.height);
 			const straightenProgress = openWritingPhotoProgressModal(plugin, () => {
 				cancelled = true;
 				worker.cancel();
@@ -178,7 +173,7 @@ async function importWritingFromPhoto(
 			worker.cancel();
 			return;
 		}
-		// Flatten lighting before the portal JPEG so shadows are not sent as black corners.
+		// Flatten before the trace. The worker skips this when the page is already warped.
 		flattenPageIlluminationCanvasInPlace(pageCanvas);
 
 		const convertProgress = openWritingPhotoProgressModal(plugin, () => {
@@ -209,7 +204,6 @@ async function importWritingFromPhoto(
 			});
 			if (cancelled) return;
 			traceResult = converted;
-			pageCanvas = canvasFromRgba(converted.pageRgba, converted.pageWidth, converted.pageHeight);
 		} catch (error) {
 			if (error instanceof PhotoTraceCancelledError || cancelled) {
 				convertProgress.close();
@@ -235,16 +229,8 @@ async function importWritingFromPhoto(
 
 		await createFoldersForFilepath(plugin, jpegVaultPath);
 		await createFoldersForFilepath(plugin, svgPath);
+		// Keep the original photo only. The straightened page is traced in memory and not written.
 		await plugin.app.vault.createBinary(jpegVaultPath, jpegBuffer);
-
-		let transcriptImageRelative: string | undefined;
-		if (!useFullFrame) {
-			const pageFileName = `${basename.replace(/\.svg$/i, '')}-page.jpg`;
-			const pageVaultPath = buildWritingPhotoJpegVaultPath(svgPath, pageFileName);
-			const pageBuffer = await encodeCanvasJpeg(pageCanvas);
-			await plugin.app.vault.createBinary(pageVaultPath, pageBuffer);
-			transcriptImageRelative = buildWritingPhotoSourceImageRelativePath(pageFileName);
-		}
 
 		let pageDataStr: string;
 		if (isDrawingTarget) {
@@ -258,7 +244,6 @@ async function importWritingFromPhoto(
 				inkCanvasSnapshot,
 				svgString,
 				sourceImage: sourceImageRelative,
-				transcriptImage: transcriptImageRelative,
 				transcriptFrom: 'photo',
 			});
 			pageDataStr = buildFileStr(pageData);
@@ -278,7 +263,6 @@ async function importWritingFromPhoto(
 				inkCanvasSnapshot,
 				svgString,
 				sourceImage: sourceImageRelative,
-				transcriptImage: transcriptImageRelative,
 				transcriptFrom: 'photo',
 				writingLineHeight: traceResult.writingLineHeight,
 			});

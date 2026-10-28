@@ -74,7 +74,7 @@ async function handleRequest(payload: PhotoTraceWorkerRequest): Promise<void> {
 			payload.maxEdgePx,
 		);
 		const flattened = new ImageData(warped.data, warped.width, warped.height);
-		// Lighting flatten once, on the pixels that will be traced and saved.
+		// Lighting flatten once, on the pixels that will be traced.
 		flattenPageIlluminationImageDataInto(flattened, flattened);
 		pageRgba = flattened.data;
 		pageWidth = warped.width;

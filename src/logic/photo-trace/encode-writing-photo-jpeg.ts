@@ -1,4 +1,6 @@
 import { HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES } from 'src/logic/almostuseful/handwriting-transcription-media-limit';
+import { rotateImageDataQuarterTurns } from 'src/logic/photo-trace/rotate-image-data';
+import { canvasFromRgba } from 'src/logic/photo-trace/run-photo-trace';
 
 //////////
 //////////
@@ -8,8 +10,12 @@ const INITIAL_JPEG_QUALITY = 0.85;
 
 /**
  * Resizes a picked photo and encodes JPEG bytes under the portal transcription cap.
+ * Quarter turns match the corner step so the vault file is the orientation the user chose.
  */
-export async function encodeWritingPhotoJpeg(blob: Blob): Promise<ArrayBuffer> {
+export async function encodeWritingPhotoJpeg(
+	blob: Blob,
+	quarterTurnsClockwise = 0,
+): Promise<ArrayBuffer> {
 	const bitmap = await createImageBitmap(blob);
 	const longEdge = Math.max(bitmap.width, bitmap.height);
 	const scale = longEdge > PHOTO_LONG_EDGE_PX ? PHOTO_LONG_EDGE_PX / longEdge : 1;
@@ -25,10 +31,13 @@ export async function encodeWritingPhotoJpeg(blob: Blob): Promise<ArrayBuffer> {
 	}
 	context.drawImage(bitmap, 0, 0, width, height);
 	bitmap.close();
+	const scaled = context.getImageData(0, 0, width, height);
+	const oriented = rotateImageDataQuarterTurns(scaled, quarterTurnsClockwise);
+	const outputCanvas = canvasFromRgba(oriented.data, oriented.width, oriented.height);
 	let quality = INITIAL_JPEG_QUALITY;
 	let lastBuffer: ArrayBuffer | null = null;
 	while (quality >= 0.35) {
-		const encoded = await canvasToJpegArrayBuffer(canvas, quality);
+		const encoded = await canvasToJpegArrayBuffer(outputCanvas, quality);
 		lastBuffer = encoded;
 		if (encoded.byteLength <= HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES) {
 			return encoded;

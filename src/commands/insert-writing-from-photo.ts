@@ -24,7 +24,6 @@ import {
 } from 'src/logic/photo-trace/writing-photo-paths';
 import {
 	canvasFromRgba,
-	canvasJpegObjectUrl,
 	decodePhotoToCanvas,
 	imageDataFromCanvas,
 	luminanceFromCanvas,
@@ -62,6 +61,7 @@ import {
 	PhotoTraceWorkerClient,
 } from 'src/logic/photo-trace/photo-trace-worker-client';
 import type { PagePhotoAdjustment } from 'src/logic/photo-trace/adjust-page-photo';
+import { rotateImageDataQuarterTurns } from 'src/logic/photo-trace/rotate-image-data';
 import type { PhotoTraceResult } from 'src/logic/photo-trace/trace-from-raster';
 
 ////////
@@ -83,19 +83,16 @@ async function importWritingFromPhoto(
 	photoFile: File,
 ): Promise<void> {
 	const activeFile = plugin.app.workspace.getActiveFile();
-	let previewUrl: string | null = null;
 	const worker = new PhotoTraceWorkerClient(plugin);
 	let cancelled = false;
 	try {
-		const jpegBuffer = await encodeWritingPhotoJpeg(photoFile);
 		const photoCanvas = await decodePhotoToCanvas(photoFile, PHOTO_TRACE_DEFAULT_EDGE_PX);
 		const photoImage = imageDataFromCanvas(photoCanvas);
 		const photoGray = luminanceFromCanvas(photoCanvas);
 		const detectedQuad = findPageQuad(photoGray, photoCanvas.width, photoCanvas.height, photoImage.data);
 		const defaultCorners = detectedQuad?.corners ?? fullFrameCorners(photoCanvas.width, photoCanvas.height);
-		const photoPreviewUrl = await canvasJpegObjectUrl(photoCanvas);
-		previewUrl = photoPreviewUrl;
 		let corners = defaultCorners;
+		let quarterTurnsClockwise = 0;
 		let convertChoice: {
 			target: WritingPhotoConvertTarget;
 			adjustment: PagePhotoAdjustment;
@@ -105,20 +102,20 @@ async function importWritingFromPhoto(
 		let pageCanvas: HTMLCanvasElement | null = null;
 
 		while (!convertChoice) {
-			const chosenCorners = await openWritingPhotoCropModal(
+			const crop = await openWritingPhotoCropModal(
 				plugin,
-				photoPreviewUrl,
-				photoCanvas.width,
-				photoCanvas.height,
+				photoImage,
 				corners,
+				quarterTurnsClockwise,
 			);
-			if (!chosenCorners || cancelled) {
-				URL.revokeObjectURL(photoPreviewUrl);
-				previewUrl = null;
+			if (!crop || cancelled) {
 				worker.cancel();
 				return;
 			}
-			corners = chosenCorners;
+			corners = crop.corners;
+			quarterTurnsClockwise = crop.quarterTurnsClockwise;
+			// Warp the turned photo so the pins match the pixels the user just saw.
+			const orientedPhoto = rotateImageDataQuarterTurns(photoImage, quarterTurnsClockwise);
 			const straightenProgress = openWritingPhotoProgressModal(plugin, () => {
 				cancelled = true;
 				worker.cancel();
@@ -126,10 +123,10 @@ async function importWritingFromPhoto(
 			straightenProgress.setStage('Straightening the page…');
 			try {
 				const warped = await worker.warp({
-					rgba: photoImage.data,
-					width: photoImage.width,
-					height: photoImage.height,
-					corners: chosenCorners,
+					rgba: orientedPhoto.data,
+					width: orientedPhoto.width,
+					height: orientedPhoto.height,
+					corners,
 					maxEdgePx: PHOTO_TRACE_DEFAULT_EDGE_PX,
 					onProgress: (stage, percent) => straightenProgress.setStage(stage, percent),
 				});
@@ -145,8 +142,6 @@ async function importWritingFromPhoto(
 				straightenProgress.close();
 				const adjustChoice = await openWritingPhotoAdjustModal(plugin, previewImage);
 				if (adjustChoice.action === 'back') continue;
-				URL.revokeObjectURL(photoPreviewUrl);
-				previewUrl = null;
 				if (adjustChoice.action === 'cancel') {
 					worker.cancel();
 					return;
@@ -229,7 +224,8 @@ async function importWritingFromPhoto(
 
 		await createFoldersForFilepath(plugin, jpegVaultPath);
 		await createFoldersForFilepath(plugin, svgPath);
-		// Keep the original photo only. The straightened page is traced in memory and not written.
+		// The saved photo matches the turn chosen with the corners. The crop itself stays in memory.
+		const jpegBuffer = await encodeWritingPhotoJpeg(photoFile, quarterTurnsClockwise);
 		await plugin.app.vault.createBinary(jpegVaultPath, jpegBuffer);
 
 		let pageDataStr: string;
@@ -302,7 +298,6 @@ async function importWritingFromPhoto(
 		await enqueueTranscriptionAfterPhotoImport(fileRef.path);
 		new Notice(isDrawingTarget ? 'Drawing from the photo is ready.' : 'Handwriting from the photo is ready.');
 	} catch (error) {
-		if (previewUrl) URL.revokeObjectURL(previewUrl);
 		worker.cancel();
 		if (error instanceof PhotoTraceCancelledError || (error instanceof Error && error.message.includes('cancelled'))) {
 			return;

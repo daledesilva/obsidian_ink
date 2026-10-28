@@ -11,10 +11,10 @@ People often have handwriting on paper that they want as editable ink. The plugi
 The command **Trace photo** (`create-handwriting-from-photo` in `insert-writing-from-photo.ts`) is a short wizard:
 
 1. Pick a photo (take, choose, or paste). The dialog title is **Create Ink from Photo**.
-2. Pin the page corners. Detection proposes a quad. Drag the circles if it is wrong.
+2. Turn the photo if it is sideways, then pin the page corners. Detection proposes a quad. Drag the circles if it is wrong. **Rotate left** and **Rotate right** sit under the photo, each a further 90°.
 3. Review how the page will become ink. Colour, contrast, ink sensitivity, and noise cleanup sit under **Adjust detection** and start from an automatic guess.
 4. Convert to handwriting or to drawing. Tracing is always local.
-5. The plugin writes an SVG embed plus the original JPEG, opens it in ink mode, and queues transcription.
+5. The plugin writes an SVG embed plus the turned JPEG, opens it in ink mode, and queues transcription.
 
 Writing embeds use the standard guide spacing `WRITING_LINE_HEIGHT` (150px). A new handwriting section created from the command palette can still follow the line height in Settings. A photo trace does not copy that setting, because guessed gaps between stroke centres are not baselines.
 
@@ -22,12 +22,12 @@ Writing embeds use the standard guide spacing `WRITING_LINE_HEIGHT` (150px). A n
 flowchart TD
   Pick[Pick photo]
   Detect[Find page corners]
-  Crop[Pin corners]
-  Warp[Warp to 1600px]
+  Crop[Turn photo and pin corners]
+  Warp[Warp the turned photo to 1600px]
   Flatten[Flatten illumination]
   Adjust[Adjust detection and live mask]
   Trace[Local Sauvola plus Zhang-Suen]
-  Embed[Write SVG and original JPEG]
+  Embed[Write SVG and turned JPEG]
   Queue[Queue transcription]
   Pick --> Detect --> Crop --> Warp --> Flatten --> Adjust --> Trace --> Embed --> Queue
 ```
@@ -40,7 +40,9 @@ flowchart TD
 
 `findPageQuad` downscales to a 360px long edge and estimates paper from the centre 40% of the frame. It compares illumination-invariant colour ratios (`R/(R+G+B)` and `G/(R+G+B)`), so a shadow across the sheet stays one page. Skin and a cool screen differ from that paper colour. The fit rejects sharp angles and sides whose lengths differ by more than about 1.45. A weak score, or a quad that is already the photo, returns the full frame.
 
-The crop dialog title is **Define the corners of the page**. Outside the quad, the overlay is Obsidian’s `--background-primary` at 50% opacity, so light mode stays light.
+The crop dialog title is **Define the corners of the page**. **Rotate left** and **Rotate right** turn the whole photo 90° either way, as many times as needed. The pins stay on the same paper corners. Corner order follows the turn, so the pin that is top-left on screen is the top-left of the straightened page. Going **Back** from adjust reopens this step with the same turn and the same pins.
+
+Outside the quad, the overlay is Obsidian’s `--background-primary` at 50% opacity, so light mode stays light.
 
 **Adjust**
 
@@ -50,14 +52,14 @@ The title is **How your photo will convert into ink**. The preview is the ink ma
 
 **Convert**
 
-The adjust step already warped the page to a 1600px long edge. Convert reuses that raster (`alreadyWarped`) and does not warp again. Illumination is flattened once before the trace, in memory. Colour and contrast are applied only for the mask. The vault keeps the original photo. Detail is the constant `PHOTO_TRACE_DEFAULT_DETAIL` (90). There is no detail or resolution slider.
+The adjust step already warped the turned photo to a 1600px long edge. Convert reuses that raster (`alreadyWarped`) and does not warp or turn again. Illumination is flattened once before the trace, in memory. Colour and contrast are applied only for the mask. Detail is the constant `PHOTO_TRACE_DEFAULT_DETAIL` (90). There is no detail or resolution slider.
 
 The tracer builds a Sauvola mask, optionally removes tiny specks and isolated noise dots, bridges small gaps, drops long printed rules, thins with WASM Zhang–Suen, and turns the skeleton into ink strokes on a page `WRITING_PAGE_WIDTH` wide (2000). Noise cleanup keeps a small dot when it sits on a real stroke, so i-dots and full stops stay.
 
 **After convert**
 
-- The original photo is saved as a JPEG beside the SVG, under `Images/`. Older imports may still store a lowercase `images/` path. Those notes keep the path already written on the file.
-- The straightened page is traced in memory and is not written. New imports omit `transcriptImage`, so transcription reads that original JPEG.
+- The picked photo is saved as a JPEG beside the SVG, under `Images/`, turned by the same 90° steps chosen on the corner step. A photo that was not turned is saved in the orientation it was picked. Older imports may still store a lowercase `images/` path. Those notes keep the path already written on the file.
+- The straightened page is traced in memory and is not written. New imports omit `transcriptImage`, so transcription reads that saved JPEG, including its turn.
 - Older imports may still set `transcript-image` to a `-page.jpg`. Those files keep using that JPEG.
 - Handwriting files store `writingLineHeight: 150`. Drawing files use the drawing grid default and a view box fitted to the strokes.
 - The embed starts in ink display mode. Photo, ink, and transcript are a session toggle. The photo control is an image icon.
@@ -76,7 +78,11 @@ The tracer builds a Sauvola mask, optionally removes tiny specks and isolated no
 | `photo-trace.worker.ts` | Warp, and flatten only when the page is not already warped. Then colour, contrast, and the local trace. WASM thinning is inlined in `main.js`. Production builds minify that worker string; dev builds do not. See [Production minification](development.md#production-minification). |
 | `photoTraceSauvolaK` | Sensitivity 0 → k 0.5, 75 → k 0.20, 100 → k 0.1. Higher keeps fainter ink. |
 | `photoTraceSimplifyEpsilon` | Detail 90 → about 0.48px. Convert always passes `PHOTO_TRACE_DEFAULT_DETAIL`. |
+| `rotate-image-data.ts` | 90° pixel remap, and the matching reorder of the page quad. |
+| `writing-photo-crop-modal.ts` | Rotate left/right, corner pins, preview of the turned photo. |
+| `encode-writing-photo-jpeg.ts` | Resize, apply the same quarter turns, then JPEG under the transcription size cap. |
 | `writing-photo-adjust-modal.ts` | Live mask, auto-tune, collapsed detection controls, writing or drawing convert. |
+| `tests/fixtures/photo-trace/` | Five page photos for unit tests. No EXIF, GPS, or camera identity. |
 | `ink-photo-view` | Height 100% of the ink frame, width auto, 20px radius. |
 
 Ink sensitivity 75 is the built-in default before auto-tune. Auto-tune may pick another value in the 35–84 range.
@@ -95,7 +101,9 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **Shadows are colour, not brightness.** A luminance split cuts the page on the shadow line. Chromaticity keeps the sheet together. A white page on a white desk can still fall back to the full frame.
 - **Display mode is not stored in the SVG.** Starting the new embed in photo mode made the first lock return to the photo. Create it in ink mode.
 - **Photo mode must not grow the embed.** The image fills the existing ink height. A shorter container hides the cursor in the note underneath.
-- **Do not save the straightened page.** The crop exists only to trace. Writing it beside the SVG duplicated the photo. Colour, contrast, and sensitivity change the mask. They do not rewrite the saved original.
+- **Do not save the straightened page.** The crop exists only to trace. Writing it beside the SVG duplicated the photo. Colour, contrast, and sensitivity change the mask. They do not rewrite the saved JPEG. The corner-step turn does: the vault JPEG is the full photo after that turn, not the cropped page.
+- **Do not turn the page again after the warp.** The trace already uses the turned pixels. A second turn on the flattened page would disagree with the saved JPEG.
+- **Fixture JPEGs stay free of camera metadata.** `tests/fixtures/photo-trace/` is in a public repo. Those files are plain JFIF plus image data. Do not put EXIF, GPS, or a phone colour profile back on them.
 - **The photo folder is `Images`.** A lowercase `images` folder is a different directory on a case-sensitive vault, such as Android. Do not lowercase the new path. Do not rewrite paths already stored on older files.
 - **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
 - **Flatten is automatic** on the page that is traced. It is not written back onto the saved original. Colour and contrast remain for stains, not for lighting.

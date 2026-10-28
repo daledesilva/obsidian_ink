@@ -91,18 +91,10 @@ class WritingPhotoAdjustModal extends Modal {
 
 		const frame = contentEl.createDiv({ cls: 'ddc_ink_photo-adjust__frame' });
 		const stage = frame.createEl('canvas', { cls: 'ddc_ink_photo-adjust__stage' });
-		stage.width = this.sourceImage.width;
-		stage.height = this.sourceImage.height;
-		stage.style.aspectRatio = `${this.sourceImage.width} / ${this.sourceImage.height}`;
-		stage.style.maxWidth = `min(100%, calc(56vh * ${this.sourceImage.width} / ${Math.max(1, this.sourceImage.height)}))`;
 		this.stageCanvas = stage;
 
 		this.outputCanvas = document.createElement('canvas');
-		this.outputCanvas.width = this.sourceImage.width;
-		this.outputCanvas.height = this.sourceImage.height;
-		const outputContext = this.outputCanvas.getContext('2d');
-		if (!outputContext) throw new Error('Could not adjust the page photo');
-		this.outputImage = outputContext.createImageData(this.sourceImage.width, this.sourceImage.height);
+		this.syncCanvasesToSource();
 
 		const detailsEl = contentEl.createEl('details', { cls: 'ddc_ink_photo-adjust__details' });
 		detailsEl.createEl('summary', {
@@ -211,6 +203,26 @@ class WritingPhotoAdjustModal extends Modal {
 		this.contentEl.empty();
 		if (!this.settled) this.onChoice({ action: 'cancel' });
 		this.settled = true;
+	}
+
+	/** Sizes the preview buffers to the flattened page. */
+	private syncCanvasesToSource(): void {
+		const width = this.sourceImage.width;
+		const height = this.sourceImage.height;
+		const stage = this.stageCanvas;
+		if (stage) {
+			stage.width = width;
+			stage.height = height;
+			stage.style.aspectRatio = `${width} / ${height}`;
+			stage.style.maxWidth = `min(100%, calc(56vh * ${width} / ${Math.max(1, height)}))`;
+		}
+		const output = this.outputCanvas;
+		if (!output) return;
+		output.width = width;
+		output.height = height;
+		const outputContext = output.getContext('2d');
+		if (!outputContext) throw new Error('Could not adjust the page photo');
+		this.outputImage = outputContext.createImageData(width, height);
 	}
 
 	private schedulePaint(): void {

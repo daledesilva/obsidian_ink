@@ -77,3 +77,23 @@
 	cursor: grab;
 	touch-action: none;
 }
+
+.ddc_ink_photo-crop__rotate {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.75em;
+	margin: 0 0 0.85em;
+}
+
+.ddc_ink_photo-crop__rotate-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+}
+
+.ddc_ink_photo-crop__rotate-btn svg {
+	width: var(--icon-size);
+	height: var(--icon-size);
+}

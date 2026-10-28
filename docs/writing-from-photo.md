@@ -72,7 +72,7 @@ The tracer builds a Sauvola mask, optionally removes tiny specks and isolated no
 | `find-page-quad.ts` | Centre paper colour, then a scored quad. Full frame when the page is already the photo. |
 | `flatten-page-illumination.ts` | Divides RGB by a downscaled closing of luminance so slow shadows lift. No slider. |
 | `trace-from-raster.ts` | Sauvola, noise dots, rules, Chamfer radius, skeleton routing, RDP. Returns `WRITING_LINE_HEIGHT`. |
-| `photo-trace.worker.ts` | Warp, and flatten only when the page is not already warped. Then colour, contrast, and the local trace. WASM thinning is inlined in `main.js`. |
+| `photo-trace.worker.ts` | Warp, and flatten only when the page is not already warped. Then colour, contrast, and the local trace. WASM thinning is inlined in `main.js`. Production builds minify that worker string; dev builds do not. See [Production minification](development.md#production-minification). |
 | `photoTraceSauvolaK` | Sensitivity 0 → k 0.5, 75 → k 0.20, 100 → k 0.1. Higher keeps fainter ink. |
 | `photoTraceSimplifyEpsilon` | Detail 90 → about 0.48px. Convert always passes `PHOTO_TRACE_DEFAULT_DETAIL`. |
 | `writing-photo-adjust-modal.ts` | Live mask, auto-tune, collapsed detection controls, writing or drawing convert. |
@@ -97,3 +97,4 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **The saved page JPEG is the flattened warp, not the adjusted mask.** Colour, contrast, and sensitivity change the trace. They do not rewrite the transcription photo.
 - **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
 - **Flatten is automatic** on the page that is traced and, when cropped, on the saved page photo. Colour and contrast remain for stains, not for lighting.
+- **The inlined worker is minified only in production.** `npm run build:wasm` writes a readable bundle. `npm run build` rewrites it minified before it is stored as a string in `main.js`. The outer minify pass cannot shrink that string by itself.

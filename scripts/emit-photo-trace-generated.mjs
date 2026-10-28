@@ -14,8 +14,12 @@ const workerCodeTs = path.join(generatedDir, 'photo-trace-worker-code.ts');
  * Bundles the photo worker into a generated TS module so main.js can spawn it
  * from a Blob URL. Obsidian QA installs and obsidian-launcher only copy
  * manifest.json, main.js, and styles.css — not dist/logic/*.
+ *
+ * `minify` is for production only. The bundle is stored as a string, so the
+ * outer main.js minify pass does not shrink this code.
  */
-export async function emitPhotoTraceGenerated() {
+export async function emitPhotoTraceGenerated(options = {}) {
+	const minify = options.minify === true;
 	fs.mkdirSync(generatedDir, { recursive: true });
 	await esbuild.build({
 		entryPoints: [workerEntry],
@@ -24,6 +28,7 @@ export async function emitPhotoTraceGenerated() {
 		target: 'es2020',
 		outfile: workerOutFile,
 		logLevel: 'silent',
+		minify,
 		external: photoTraceWorkerExternals,
 	});
 	const workerBundledCode = fs.readFileSync(workerOutFile, 'utf8');

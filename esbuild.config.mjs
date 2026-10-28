@@ -217,12 +217,13 @@ const photoTraceCodegenPlugin = () => ({
 	name: 'photo-trace-codegen',
 	setup(build) {
 		build.onStart(async () => {
-			await emitPhotoTraceGenerated();
+			// The worker is inlined as a string, so the outer minify pass cannot shrink it.
+			await emitPhotoTraceGenerated({ minify: prod });
 		});
 	},
 });
 
-await emitPhotoTraceGenerated();
+await emitPhotoTraceGenerated({ minify: prod });
 
 esbuild.build({
 	banner: {
@@ -253,6 +254,9 @@ esbuild.build({
 	target: 'es2020',
 	logLevel: "info",
 	sourcemap: prod ? false : 'inline',
+	// Release builds only. Dev stays readable, with the inline sourcemap above.
+	// Matches Obsidian's sample plugin (`minify: prod`) and their load-time guide.
+	minify: prod,
 	treeShaking: true,
 	outdir: './dist',
 	loader: {

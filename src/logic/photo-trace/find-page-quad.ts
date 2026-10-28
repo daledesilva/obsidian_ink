@@ -49,10 +49,10 @@ export function quadMatchesFullFrame(
 }
 
 /**
- * Finds a page quadrilateral using centre-seeded paper colour/luminance segmentation
- * combined with Sobel edge contours, scored by interior paper uniformity, boundary
- * edge contrast, and corner geometry. Returns null when the photo is already the page
- * or no trustworthy border exists.
+ * Finds a page quadrilateral using centre-seeded paper colour/luminance segmentation,
+ * or smoothness when the page and background share a colour. Candidates are scored by
+ * interior paper uniformity, boundary edge contrast, and corner geometry. Returns null
+ * when the photo is already the page or no trustworthy border exists.
  */
 export function findPageQuad(
 	gray: Uint8Array,
@@ -71,12 +71,25 @@ export function findPageQuad(
 		: null;
 	const blurred = boxBlur(smallGray, detectWidth, detectHeight);
 	const edges = sobelEdges(blurred, detectWidth, detectHeight);
-	const paperLikelihood = buildCenterPaperLikelihoodMask(
-		blurred,
-		smallRgb,
-		detectWidth,
-		detectHeight,
-	);
+	const smoothLikelihood = smoothPaperLikelihood(smallGray, detectWidth, detectHeight);
+	let paperLikelihood: Float32Array;
+	let maskCloseRadius = 3;
+	if (smoothLikelihood) {
+		// White paper and gray carpet share a colour, so chromaticity cannot separate
+		// them, and a shadow closes the brightness gap as well. Flattening the lighting
+		// leaves the page smooth and the carpet textured, which still marks the sheet.
+		paperLikelihood = smoothLikelihood;
+		// Ruled lines and the shadow edge are thin dark gaps. A slightly wider close
+		// bridges them without reaching the carpet margin.
+		maskCloseRadius = 5;
+	} else {
+		paperLikelihood = buildCenterPaperLikelihoodMask(
+			blurred,
+			smallRgb,
+			detectWidth,
+			detectHeight,
+		);
+	}
 
 	const candidates: [PagePoint, PagePoint, PagePoint, PagePoint][] = [];
 
@@ -84,7 +97,7 @@ export function findPageQuad(
 	// then opens by radius 2 to sever thin bridges into background notes).
 	for (const strictness of [1.1, 1.3, 1.5, 0.9]) {
 		const rawMask = thresholdPaperMask(paperLikelihood, strictness);
-		const closedMask = closeBinaryMask(rawMask, detectWidth, detectHeight, 3);
+		const closedMask = closeBinaryMask(rawMask, detectWidth, detectHeight, maskCloseRadius);
 		const openedMask = erodeBinaryMask(closedMask, detectWidth, detectHeight, 2);
 		const centralCore = extractDominantCentralComponent(openedMask, detectWidth, detectHeight);
 		if (!centralCore) continue;
@@ -213,6 +226,175 @@ function downscaleRgb(
 		}
 	}
 	return out;
+}
+
+/**
+ * Paper likelihood from smoothness after a wide blur removes the shadow.
+ * Returns null when the border is not clearly more textured than the page,
+ * so coloured paper and a soft background keep the chromaticity mask.
+ */
+function smoothPaperLikelihood(
+	gray: Uint8Array,
+	width: number,
+	height: number,
+): Float32Array | null {
+	const illuminationRadius = Math.max(8, Math.round(Math.min(width, height) / 14));
+	const texture = illuminationNormalizedTexture(gray, width, height, illuminationRadius);
+	const centerLow = texturePercentile(texture, width, height, 0.3, 0.7, 0.3, 0.7, 0.2);
+	const borderLow = borderTexturePercentile(texture, width, height, 0.2);
+	const textureGap = borderLow - centerLow;
+	// Carpet texture sits well above smooth paper (about 3×, and a gap above 0.06).
+	// A soft wall or a coloured sheet fails this and stays on colour.
+	const backgroundIsTextured = borderLow > centerLow * 3 && textureGap > 0.06;
+	if (!backgroundIsTextured) return null;
+
+	const likelihood = new Float32Array(width * height);
+	for (let index = 0; index < texture.length; index++) {
+		const distance = (texture[index] - centerLow) / textureGap;
+		likelihood[index] = clamp(1 - distance, 0, 1);
+	}
+	return likelihood;
+}
+
+/**
+ * Local brightness wobble after dividing out a wide blur, so a shadow reads as smooth paper.
+ */
+function illuminationNormalizedTexture(
+	gray: Uint8Array,
+	width: number,
+	height: number,
+	illuminationRadius: number,
+): Float32Array {
+	const blurred = boxBlurFloat(gray, width, height, illuminationRadius);
+	const ratio = new Float32Array(width * height);
+	for (let index = 0; index < gray.length; index++) {
+		ratio[index] = gray[index] / Math.max(8, blurred[index]);
+	}
+	const texture = new Float32Array(width * height);
+	for (let y = 0; y < height; y++) {
+		for (let x = 0; x < width; x++) {
+			let sum = 0;
+			let sumSq = 0;
+			let count = 0;
+			for (let dy = -2; dy <= 2; dy++) {
+				const sampleY = y + dy;
+				if (sampleY < 0 || sampleY >= height) continue;
+				for (let dx = -2; dx <= 2; dx++) {
+					const sampleX = x + dx;
+					if (sampleX < 0 || sampleX >= width) continue;
+					const value = ratio[sampleY * width + sampleX];
+					sum += value;
+					sumSq += value * value;
+					count++;
+				}
+			}
+			const mean = sum / count;
+			texture[y * width + x] = Math.sqrt(Math.max(0, sumSq / count - mean * mean));
+		}
+	}
+	return texture;
+}
+
+/** Separable box blur. The wide radius is the lighting scale, not an edge finder. */
+function boxBlurFloat(
+	gray: Uint8Array,
+	width: number,
+	height: number,
+	radius: number,
+): Float32Array {
+	const horizontal = new Float32Array(width * height);
+	const blurred = new Float32Array(width * height);
+	for (let y = 0; y < height; y++) {
+		let sum = 0;
+		let count = 0;
+		const row = y * width;
+		for (let x = -radius; x < width; x++) {
+			const addX = x + radius;
+			if (addX < width) {
+				sum += gray[row + addX];
+				count++;
+			}
+			const removeX = x - radius - 1;
+			if (removeX >= 0) {
+				sum -= gray[row + removeX];
+				count--;
+			}
+			if (x >= 0) horizontal[row + x] = sum / count;
+		}
+	}
+	for (let x = 0; x < width; x++) {
+		let sum = 0;
+		let count = 0;
+		for (let y = -radius; y < height; y++) {
+			const addY = y + radius;
+			if (addY < height) {
+				sum += horizontal[addY * width + x];
+				count++;
+			}
+			const removeY = y - radius - 1;
+			if (removeY >= 0) {
+				sum -= horizontal[removeY * width + x];
+				count--;
+			}
+			if (y >= 0) blurred[y * width + x] = sum / count;
+		}
+	}
+	return blurred;
+}
+
+/** Low-end texture inside a central window. Ink and rules sit in the high end and are ignored. */
+function texturePercentile(
+	texture: Float32Array,
+	width: number,
+	height: number,
+	x0Fraction: number,
+	x1Fraction: number,
+	y0Fraction: number,
+	y1Fraction: number,
+	quantile: number,
+): number {
+	const samples: number[] = [];
+	const x0 = Math.floor(width * x0Fraction);
+	const x1 = Math.ceil(width * x1Fraction);
+	const y0 = Math.floor(height * y0Fraction);
+	const y1 = Math.ceil(height * y1Fraction);
+	for (let y = y0; y < y1; y += 2) {
+		for (let x = x0; x < x1; x += 2) samples.push(texture[y * width + x]);
+	}
+	samples.sort((a, b) => a - b);
+	return samples[Math.floor(samples.length * quantile)] ?? 0;
+}
+
+/**
+ * Low-end texture in a ring inset from the photo edge.
+ * The inset skips the flat black rim, which would look as smooth as paper.
+ */
+function borderTexturePercentile(
+	texture: Float32Array,
+	width: number,
+	height: number,
+	quantile: number,
+): number {
+	const samples: number[] = [];
+	const shortEdge = Math.min(width, height);
+	const outer = Math.max(2, Math.floor(shortEdge * 0.03));
+	const inner = Math.max(outer + 2, Math.floor(shortEdge * 0.09));
+	for (let y = outer; y < height - outer; y += 2) {
+		const row = y * width;
+		for (let x = outer; x < inner; x += 2) samples.push(texture[row + x]);
+		for (let x = width - inner; x < width - outer; x += 2) samples.push(texture[row + x]);
+	}
+	for (let y = outer; y < inner; y += 2) {
+		const row = y * width;
+		for (let x = inner; x < width - inner; x += 2) samples.push(texture[row + x]);
+	}
+	for (let y = height - inner; y < height - outer; y += 2) {
+		const row = y * width;
+		for (let x = inner; x < width - inner; x += 2) samples.push(texture[row + x]);
+	}
+	if (samples.length === 0) return 0;
+	samples.sort((a, b) => a - b);
+	return samples[Math.floor(samples.length * quantile)] ?? 0;
 }
 
 /**

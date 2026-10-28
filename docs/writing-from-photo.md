@@ -38,7 +38,25 @@ flowchart TD
 
 **Page corners**
 
-`findPageQuad` downscales to a 360px long edge and estimates paper from the centre 40% of the frame. It compares illumination-invariant colour ratios (`R/(R+G+B)` and `G/(R+G+B)`), so a shadow across the sheet stays one page. Skin and a cool screen differ from that paper colour. The fit rejects sharp angles and sides whose lengths differ by more than about 1.45. A weak score, or a quad that is already the photo, returns the full frame.
+`findPageQuad` downscales to a 360px long edge, then picks one of two paper masks.
+
+```mermaid
+flowchart TD
+  Downscale[Downscale to a 360px long edge]
+  Texture{Is the border much more textured than the page?}
+  Smooth[Smoothness after lifting the shadow]
+  Colour[Colour ratios from the centre]
+  Fit[Score a quad]
+  Downscale --> Texture
+  Texture -->|Yes| Smooth --> Fit
+  Texture -->|No| Colour --> Fit
+```
+
+Colour is the usual path. It estimates paper from the centre 40% of the frame and compares illumination-invariant ratios (`R/(R+G+B)` and `G/(R+G+B)`). A shadow does not change those ratios, so a coloured sheet stays one page. Skin and a cool screen differ from that paper colour. An evenly lit white page is still brighter than a darker surround, so brightness keeps that mask on the sheet.
+
+White paper on gray carpet shares the carpet’s colour. A shadow then makes the shaded half as dark as the carpet, and the colour mask spills off the page so the pins jump toward the photo edges. When the border is clearly more textured than the centre of the page, detection uses smoothness instead. It divides luminance by a wide blur so the shadow lifts, keeps the smooth sheet, and drops the mottled carpet. Ruled lines and the shadow edge are thin holes. A close of radius 5 fills them without reaching the carpet margin. A soft background, or coloured paper, fails the texture test and stays on colour.
+
+The fit rejects sharp angles and sides whose lengths differ by more than about 1.45. A weak score, or a quad that is already the photo, returns the full frame. Pins can sit a little inside a torn edge or a row of spiral holes, because those pixels are textured. Drag the circles if they need to move.
 
 The crop dialog title is **Define the corners of the page**. **Rotate left** and **Rotate right** turn the whole photo 90° either way, as many times as needed. The pins stay on the same paper corners. Corner order follows the turn, so the pin that is top-left on screen is the top-left of the straightened page. Going **Back** from adjust reopens this step with the same turn and the same pins.
 
@@ -72,7 +90,7 @@ The tracer builds a Sauvola mask, optionally removes tiny specks and isolated no
 
 | Piece | Role |
 |-------|------|
-| `find-page-quad.ts` | Centre paper colour, then a scored quad. Full frame when the page is already the photo. |
+| `find-page-quad.ts` | Centre paper colour, or smoothness when the border is textured and the page is not. Full frame when the page is already the photo. |
 | `flatten-page-illumination.ts` | Divides RGB by a downscaled closing of luminance so slow shadows lift. No slider. |
 | `trace-from-raster.ts` | Sauvola, noise dots, rules, Chamfer radius, skeleton routing, RDP. Returns `WRITING_LINE_HEIGHT`. |
 | `photo-trace.worker.ts` | Warp, and flatten only when the page is not already warped. Then colour, contrast, and the local trace. WASM thinning is inlined in `main.js`. Production builds minify that worker string; dev builds do not. See [Production minification](development.md#production-minification). |
@@ -98,7 +116,8 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **A straight pen mark simplifies to two points.** Requiring three points drops rules, underscores, and t-bars.
 - **Chamfer distance is 1px even for a 1px stroke.** The radius subtracts 0.45 so strokes stay as thin as the mask. Adding a pixel, or a strong streamline, pulls letters inside their loops.
 - **Noise cleanup must not delete every small component.** An i-dot and a full stop are small. They stay when a nearby component is a real stroke. Isolated pepper does not.
-- **Shadows are colour, not brightness.** A luminance split cuts the page on the shadow line. Chromaticity keeps the sheet together. A white page on a white desk can still fall back to the full frame.
+- **Coloured paper follows colour, not brightness.** A luminance split cuts the page on the shadow line. Chromaticity keeps a brown or tinted sheet together. Skin and a cool screen fall outside that colour.
+- **White paper on a textured gray background follows smoothness.** Colour cannot separate them, and a shadow removes the brightness gap, so the quad spills onto the carpet. Smoothness after a wide blur keeps the sheet, including the shaded half. Do not force that path when the border is as smooth as the page, such as a held notepad or a soft wall. Those photos stay on colour. The texture sample is inset from the photo edge so a flat black rim is not treated as paper.
 - **Display mode is not stored in the SVG.** Starting the new embed in photo mode made the first lock return to the photo. Create it in ink mode.
 - **Photo mode must not grow the embed.** The image fills the existing ink height. A shorter container hides the cursor in the note underneath.
 - **Do not save the straightened page.** The crop exists only to trace. Writing it beside the SVG duplicated the photo. Colour, contrast, and sensitivity change the mask. They do not rewrite the saved JPEG. The corner-step turn does: the vault JPEG is the full photo after that turn, not the cropped page.

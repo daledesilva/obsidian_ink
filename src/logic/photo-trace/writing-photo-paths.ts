@@ -4,7 +4,8 @@ import { parseFilepath } from 'src/logic/utils/parseFilepath';
 //////////
 //////////
 
-const WRITING_PHOTO_IMAGES_SUBFOLDER = 'images';
+// Capital I is intentional. A lowercase name is a different folder on case-sensitive vaults.
+const WRITING_PHOTO_IMAGES_SUBFOLDER = 'Images';
 
 /**
  * Relative path stored on `<ink source-image="…">` beside the SVG.

@@ -56,7 +56,7 @@ The tracer builds a Sauvola mask, optionally removes tiny specks and isolated no
 
 **After convert**
 
-- The original photo is saved as a JPEG beside the SVG, under `images/`.
+- The original photo is saved as a JPEG beside the SVG, under `Images/`. Older imports may still store a lowercase `images/` path. Those notes keep the path already written on the file.
 - The straightened page is traced in memory and is not written. New imports omit `transcriptImage`, so transcription reads that original JPEG.
 - Older imports may still set `transcript-image` to a `-page.jpg`. Those files keep using that JPEG.
 - Handwriting files store `writingLineHeight: 150`. Drawing files use the drawing grid default and a view box fitted to the strokes.
@@ -96,6 +96,7 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **Display mode is not stored in the SVG.** Starting the new embed in photo mode made the first lock return to the photo. Create it in ink mode.
 - **Photo mode must not grow the embed.** The image fills the existing ink height. A shorter container hides the cursor in the note underneath.
 - **Do not save the straightened page.** The crop exists only to trace. Writing it beside the SVG duplicated the photo. Colour, contrast, and sensitivity change the mask. They do not rewrite the saved original.
+- **The photo folder is `Images`.** A lowercase `images` folder is a different directory on a case-sensitive vault, such as Android. Do not lowercase the new path. Do not rewrite paths already stored on older files.
 - **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
 - **Flatten is automatic** on the page that is traced. It is not written back onto the saved original. Colour and contrast remain for stains, not for lighting.
 - **The inlined worker is minified only in production.** `npm run build:wasm` writes a readable bundle. `npm run build` rewrites it minified before it is stored as a string in `main.js`. The outer minify pass cannot shrink that string by itself.

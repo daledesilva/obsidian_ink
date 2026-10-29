@@ -8,10 +8,10 @@ People often have handwriting on paper that they want as editable ink. The plugi
 
 ## Conceptual understanding
 
-The command **Trace photo** (`create-handwriting-from-photo` in `insert-writing-from-photo.ts`) is a short wizard:
+The command **Insert handwriting/drawing from photo** (`create-handwriting-from-photo` in `insert-writing-from-photo.ts`) is a short wizard. The id stays `create-handwriting-from-photo` so an existing hotkey still runs it.
 
-1. Pick a photo (take, choose, or paste). The dialog title is **Create Ink from Photo**.
-2. Turn the photo if it is sideways, then pin the page corners. Detection proposes a quad. Drag the circles if it is wrong. **Rotate left** and **Rotate right** sit under the photo, each a further 90°.
+1. Pick a photo (take, choose, or paste). The dialog title is **Create Ink from Photo**. Opening it does not focus **Take photo**. The three choices are equal, so focus sits on the dialog. Tab still reaches the buttons.
+2. Turn the photo if it is sideways, then pin the page corners. Detection proposes a quad. Drag a circle, drag the line between two circles, or tap the photo to grab the nearest circle. **Rotate left** and **Rotate right** sit under the photo, each a further 90°. The dialog has no instruction paragraph.
 3. Review how the page will become ink. Colour, contrast, ink sensitivity, and noise cleanup sit under **Adjust detection** and start from an automatic guess.
 4. Convert to handwriting or to drawing. Tracing is always local.
 5. The plugin writes an SVG embed plus the turned JPEG, opens it in ink mode, and queues transcription.
@@ -58,7 +58,24 @@ White paper on gray carpet shares the carpet’s colour. A shadow then makes the
 
 The fit rejects sharp angles and sides whose lengths differ by more than about 1.45. A weak score, or a quad that is already the photo, returns the full frame. Pins can sit a little inside a torn edge or a row of spiral holes, because those pixels are textured. Drag the circles if they need to move.
 
-The crop dialog title is **Define the corners of the page**. **Rotate left** and **Rotate right** turn the whole photo 90° either way, as many times as needed. The pins stay on the same paper corners. Corner order follows the turn, so the pin that is top-left on screen is the top-left of the straightened page. Going **Back** from adjust reopens this step with the same turn and the same pins.
+The crop dialog title is **Define the corners of the page**. There is no instruction line under the title. **Rotate left** and **Rotate right** turn the whole photo 90° either way, as many times as needed. The pins stay on the same paper corners. Corner order follows the turn, so the pin that is top-left on screen is the top-left of the straightened page. Going **Back** from adjust reopens this step with the same turn and the same pins.
+
+A press on a circle moves only that pin. A press near the middle of a side slides both pins of that side by the same amount, so the side keeps its length and angle, and both pins stay inside the photo. A press anywhere else jumps the nearest pin to that point and keeps it under the pointer. The side grab is about 28 screen pixels from the line. The last 24 screen pixels at either end are not a side: they grab the nearest circle, so a near-miss beside a pin does not slide the whole side.
+
+```mermaid
+flowchart TD
+  Press[Press on the photo]
+  Circle{On a circle?}
+  Side{Near the middle of a side?}
+  MoveOne[Move that pin]
+  MoveSide[Slide both pins together]
+  Jump[Jump the nearest pin and follow the pointer]
+  Press --> Circle
+  Circle -->|Yes| MoveOne
+  Circle -->|No| Side
+  Side -->|Yes| MoveSide
+  Side -->|No| Jump
+```
 
 Outside the quad, the overlay is Obsidian’s `--background-primary` at 50% opacity, so light mode stays light.
 
@@ -97,7 +114,7 @@ The tracer builds a Sauvola mask, optionally removes tiny specks and isolated no
 | `photoTraceSauvolaK` | Sensitivity 0 → k 0.5, 75 → k 0.20, 100 → k 0.1. Higher keeps fainter ink. |
 | `photoTraceSimplifyEpsilon` | Detail 90 → about 0.48px. Convert always passes `PHOTO_TRACE_DEFAULT_DETAIL`. |
 | `rotate-image-data.ts` | 90° pixel remap, and the matching reorder of the page quad. |
-| `writing-photo-crop-modal.ts` | Rotate left/right, corner pins, preview of the turned photo. |
+| `writing-photo-crop-modal.ts` | Rotate left/right, corner pins, side slides, tap-to-nearest-pin, preview of the turned photo. |
 | `encode-writing-photo-jpeg.ts` | Resize, apply the same quarter turns, then JPEG under the transcription size cap. |
 | `writing-photo-adjust-modal.ts` | Live mask, auto-tune, collapsed detection controls, writing or drawing convert. |
 | `tests/fixtures/photo-trace/` | Five page photos for unit tests. No EXIF, GPS, or camera identity. |
@@ -127,3 +144,5 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
 - **Flatten is automatic** on the page that is traced. It is not written back onto the saved original. Colour and contrast remain for stains, not for lighting.
 - **The inlined worker is minified only in production.** `npm run build:wasm` writes a readable bundle. `npm run build` rewrites it minified before it is stored as a string in `main.js`. The outer minify pass cannot shrink that string by itself.
+- **Do not let the photo picker focus Take photo on open.** Obsidian focuses the first visible control after `onOpen` when a keyboard is attached. That control is **Take photo**, so one equal choice looks selected. `hasInitialInputFocus` is real on `Modal` in Obsidian 1.14 and missing from the typings. It must stay false, and focus must stay on the dialog, or the ring comes back. Tab still reaches the buttons.
+- **A side drag must move both pins by one shared delta.** Moving the ends independently turns or stretches the side. Presses within about 24 screen pixels of a circle are not side hits, or a near-miss slides the side instead of grabbing that circle. A very short side can sit entirely inside that exclusion, and the tap still grabs the nearest circle.

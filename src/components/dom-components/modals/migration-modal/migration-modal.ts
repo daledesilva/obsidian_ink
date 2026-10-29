@@ -57,6 +57,8 @@ export class MigrationModal extends Modal {
 	}
 
 	onOpen() {
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		this.modalEl.addClass('ddc_ink_modal');
 		this.titleEl.setText('Migrate legacy ink embeds to ink-canvas');
 		this.contentEl.addClass('ddc_ink_migration-modal');
 		this.renderScanPhase();

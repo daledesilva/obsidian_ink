@@ -87,6 +87,8 @@ class WritingPhotoAdjustModal extends Modal {
 	onOpen(): void {
 		const { titleEl, contentEl, modalEl } = this;
 		modalEl.addClass('ddc_ink_photo-adjust-modal');
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		modalEl.addClass('ddc_ink_modal');
 		titleEl.setText('How your photo will convert into ink');
 
 		const frame = contentEl.createDiv({ cls: 'ddc_ink_photo-adjust__frame' });

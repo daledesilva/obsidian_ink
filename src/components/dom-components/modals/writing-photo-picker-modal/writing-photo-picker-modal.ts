@@ -21,6 +21,8 @@ export class WritingPhotoPickerModal extends Modal {
 	}
 
 	onOpen(): void {
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		this.modalEl.addClass('ddc_ink_modal');
 		const { titleEl, contentEl } = this;
 		titleEl.setText('Create Ink from Photo');
 		contentEl.createEl('p', {
@@ -68,6 +70,11 @@ export class WritingPhotoPickerModal extends Modal {
 		// A paste while this dialog is open is more reliable than clipboard.read()
 		// in Electron, which often needs an extra permission prompt.
 		window.addEventListener('paste', this.onPaste);
+
+		// Obsidian focuses the first visible control after onOpen. That is Take photo,
+		// which makes one equal choice look selected. Focus the dialog instead so a
+		// keyboard user is still inside it, and Tab still reaches the buttons.
+		preventInitialButtonFocus(this);
 	}
 
 	onClose(): void {
@@ -88,6 +95,23 @@ export class WritingPhotoPickerModal extends Modal {
 		this.close();
 		this.onPick(file);
 	}
+}
+
+/**
+ * Stops Obsidian highlighting the first button, and moves focus onto the dialog.
+ * hasInitialInputFocus is real on Modal in Obsidian 1.14 but missing from the typings.
+ */
+function preventInitialButtonFocus(modal: Modal): void {
+	const dialog = modal as Modal & { hasInitialInputFocus?: boolean };
+	dialog.hasInitialInputFocus = false;
+	if (!modal.titleEl.id) modal.titleEl.id = 'ddc_ink_writing-photo-picker-title';
+	modal.modalEl.setAttribute('role', 'dialog');
+	modal.modalEl.setAttribute('aria-modal', 'true');
+	modal.modalEl.setAttribute('aria-labelledby', modal.titleEl.id);
+	modal.modalEl.tabIndex = -1;
+	// The dialog is not a control. A focus ring around the whole box is noise.
+	modal.modalEl.style.outline = 'none';
+	modal.modalEl.focus({ preventScroll: true });
 }
 
 async function imageFileFromClipboardApi(): Promise<File | null> {

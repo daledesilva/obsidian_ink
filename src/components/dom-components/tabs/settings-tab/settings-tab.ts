@@ -95,6 +95,8 @@ export class MySettingsTab extends PluginSettingTab {
 		this.unsubscribeAlmostUsefulSession = undefined;
 
 		containerEl.empty();
+		// Hook for ink-button-hover.scss so plain settings buttons hover on macOS.
+		containerEl.addClass('ddc_ink_settings');
 		
 		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
 		

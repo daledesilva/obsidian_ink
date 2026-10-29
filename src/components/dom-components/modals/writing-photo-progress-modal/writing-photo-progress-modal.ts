@@ -44,6 +44,8 @@ class WritingPhotoProgressModal extends Modal {
 	onOpen(): void {
 		const { titleEl, contentEl, modalEl } = this;
 		modalEl.addClass('ddc_ink_photo-progress-modal');
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		modalEl.addClass('ddc_ink_modal');
 		titleEl.setText('Converting handwriting');
 		this.logEl = contentEl.createDiv({ cls: 'ddc_ink_photo-progress__log' });
 		this.appendLogLine('Starting…');

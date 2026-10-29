@@ -4,6 +4,7 @@ import './components/shared/ink-svg-preview-theme.scss';
 import './styles/ink-workspace-chrome.scss';
 import './styles/ink-writing-guide-lines.scss';
 import './styles/ink-grayscale-screen-chrome.scss';
+import './styles/ink-button-hover.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
@@ -368,7 +369,8 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 	});
 	plugin.addCommand({
 		id: 'create-handwriting-from-photo',
-		name: 'Trace photo',
+		// The palette name covers both destinations. The id stays so an existing hotkey still runs this command.
+		name: 'Insert handwriting/drawing from photo',
 		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertWritingFromPhoto(plugin, editor),
 	});

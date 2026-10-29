@@ -26,10 +26,6 @@
 	gap: 0.5em;
 }
 
-.ddc_ink_photo-crop__intro {
-	margin-top: 0;
-}
-
 .ddc_ink_photo-crop__frame {
 	box-sizing: border-box;
 	width: 100%;
@@ -46,6 +42,7 @@
 	width: 100%;
 	margin: 0 auto;
 	touch-action: none;
+	cursor: pointer;
 	background: var(--background-secondary);
 }
 

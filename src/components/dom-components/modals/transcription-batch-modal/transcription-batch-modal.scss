@@ -1,0 +1,11 @@
+.modal.ddc_ink_transcription-batch-modal {
+	width: min(30em, calc(100vw - 3em));
+}
+
+.ddc_ink_transcription-batch-modal__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	justify-content: flex-end;
+	margin-top: 1em;
+}

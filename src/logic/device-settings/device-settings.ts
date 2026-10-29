@@ -3,6 +3,7 @@ import { fetchLocally, saveLocally } from 'src/logic/utils/storage';
 import { DEFAULT_DEVICE_SETTINGS_V1, DEVICE_SETTINGS_STORAGE_KEY } from './device-settings-defaults';
 import type {
 	DeviceSettingsV1,
+	LowCreditNoticeState,
 	ResolvedStrokeInputTreatAs,
 	StrokeInputEditorKind,
 	StrokeInputTreatAs,
@@ -83,6 +84,7 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.autoTranscribeAccountNoticeDismissed === 'boolean'
 			? partial.autoTranscribeAccountNoticeDismissed
 			: base.autoTranscribeAccountNoticeDismissed;
+	const lowCreditNoticeState = mergeLowCreditNoticeState(partial.lowCreditNoticeState);
 	return {
 		pluginVersion: PLUGIN_VERSION,
 		booxConnectionEnabled,
@@ -96,6 +98,29 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		lastDetectedStrokeInput: lastDetected,
 		inkCloseCount,
 		autoTranscribeAccountNoticeDismissed,
+		lowCreditNoticeState,
+	};
+}
+
+/**
+ * Keeps stored low-credit warnings when the blob predates the field.
+ *
+ * Blobs written before this field existed must not lose the rest of their settings, and a
+ * malformed entry must fall back to "nothing shown yet" rather than suppressing warnings.
+ */
+function mergeLowCreditNoticeState(raw: unknown): LowCreditNoticeState {
+	const base = DEFAULT_DEVICE_SETTINGS_V1.lowCreditNoticeState;
+	if (!raw || typeof raw !== 'object') return { ...base, shownThresholdsPercent: [] };
+	const record = raw as Record<string, unknown>;
+	const shownThresholds = Array.isArray(record.shownThresholdsPercent)
+		? record.shownThresholdsPercent.filter(
+			(value): value is number => typeof value === 'number' && Number.isFinite(value),
+		)
+		: [];
+	return {
+		userId: typeof record.userId === 'string' ? record.userId : base.userId,
+		periodKey: typeof record.periodKey === 'string' ? record.periodKey : base.periodKey,
+		shownThresholdsPercent: shownThresholds,
 	};
 }
 
@@ -282,6 +307,50 @@ export function isAutoTranscribeAccountNoticeDismissed(): boolean {
 
 export function markAutoTranscribeAccountNoticeDismissed(): void {
 	patchDeviceSettings({ autoTranscribeAccountNoticeDismissed: true });
+}
+
+export function readLowCreditNoticeState(): LowCreditNoticeState {
+	return readDeviceSettings().lowCreditNoticeState;
+}
+
+/**
+ * Records that a low-credit warning has been shown, resetting when the user or period changes.
+ *
+ * Matching on both user and period means a new linked account or a refilled pool starts
+ * clean, while the same period never repeats a threshold it already warned about.
+ */
+export function markLowCreditThresholdShown(params: {
+	userId: string;
+	periodKey: string;
+	thresholdPercent: number;
+}): LowCreditNoticeState {
+	const current = readLowCreditNoticeState();
+	const isSamePeriod =
+		current.userId === params.userId && current.periodKey === params.periodKey;
+	const shownThresholds = isSamePeriod ? [...current.shownThresholdsPercent] : [];
+	if (!shownThresholds.includes(params.thresholdPercent)) {
+		shownThresholds.push(params.thresholdPercent);
+	}
+	const next: LowCreditNoticeState = {
+		userId: params.userId,
+		periodKey: params.periodKey,
+		shownThresholdsPercent: shownThresholds,
+	};
+	patchDeviceSettings({ lowCreditNoticeState: next });
+	return next;
+}
+
+/** True when this threshold has already warned for this user in this period. */
+export function hasLowCreditThresholdBeenShown(params: {
+	userId: string;
+	periodKey: string;
+	thresholdPercent: number;
+}): boolean {
+	const current = readLowCreditNoticeState();
+	const isSamePeriod =
+		current.userId === params.userId && current.periodKey === params.periodKey;
+	if (!isSamePeriod) return false;
+	return current.shownThresholdsPercent.includes(params.thresholdPercent);
 }
 
 /** Same-tab updates use a custom event; `storage` covers other windows/tabs for the same vault host. */

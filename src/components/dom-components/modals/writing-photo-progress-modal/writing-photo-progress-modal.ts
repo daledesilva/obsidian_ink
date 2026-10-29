@@ -10,16 +10,24 @@ export interface WritingPhotoProgressHandle {
 	close: () => void;
 }
 
+export interface OpenWritingPhotoProgressModalOptions {
+	plugin: InkPlugin;
+	onCancel: () => void;
+	/** Modal title; defaults to the photo conversion wording. */
+	title?: string;
+	/** First log line; defaults to the photo conversion wording. */
+	initialStage?: string;
+}
+
 /**
  * Stays open while the page is straightened and traced locally.
  * Stages append as a log so a later message does not replace an earlier one.
  * Cancel writes nothing. Determinate bar only when the worker posts a percent.
  */
 export function openWritingPhotoProgressModal(
-	plugin: InkPlugin,
-	onCancel: () => void,
+	options: OpenWritingPhotoProgressModalOptions,
 ): WritingPhotoProgressHandle {
-	const modal = new WritingPhotoProgressModal(plugin, onCancel);
+	const modal = new WritingPhotoProgressModal(options);
 	modal.open();
 	return {
 		setStage: (stage, percent) => modal.setStage(stage, percent),
@@ -28,7 +36,7 @@ export function openWritingPhotoProgressModal(
 }
 
 class WritingPhotoProgressModal extends Modal {
-	private onCancel: () => void;
+	private readonly options: OpenWritingPhotoProgressModalOptions;
 	private settled = false;
 	private logEl: HTMLElement | null = null;
 	private barEl: HTMLElement | null = null;
@@ -36,9 +44,9 @@ class WritingPhotoProgressModal extends Modal {
 	/** Avoids duplicate log lines when the worker repeats the same stage label. */
 	private lastLoggedStage: string | null = null;
 
-	constructor(plugin: InkPlugin, onCancel: () => void) {
-		super(plugin.app);
-		this.onCancel = onCancel;
+	constructor(options: OpenWritingPhotoProgressModalOptions) {
+		super(options.plugin.app);
+		this.options = options;
 	}
 
 	onOpen(): void {
@@ -46,9 +54,9 @@ class WritingPhotoProgressModal extends Modal {
 		modalEl.addClass('ddc_ink_photo-progress-modal');
 		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
 		modalEl.addClass('ddc_ink_modal');
-		titleEl.setText('Converting handwriting');
+		titleEl.setText(this.options.title ?? 'Converting handwriting');
 		this.logEl = contentEl.createDiv({ cls: 'ddc_ink_photo-progress__log' });
-		this.appendLogLine('Starting…');
+		this.appendLogLine(this.options.initialStage ?? 'Starting…');
 		this.barEl = contentEl.createDiv({ cls: 'ddc_ink_photo-progress__bar is-indeterminate' });
 		this.barFillEl = this.barEl.createDiv({ cls: 'ddc_ink_photo-progress__fill' });
 		const actions = contentEl.createDiv({ cls: 'ddc_ink_photo-progress__actions' });
@@ -80,7 +88,7 @@ class WritingPhotoProgressModal extends Modal {
 		this.contentEl.empty();
 		if (!this.settled) {
 			this.settled = true;
-			this.onCancel();
+			this.options.onCancel();
 		}
 	}
 
@@ -97,7 +105,7 @@ class WritingPhotoProgressModal extends Modal {
 	private cancel(): void {
 		if (this.settled) return;
 		this.settled = true;
-		this.onCancel();
+		this.options.onCancel();
 		this.close();
 	}
 }

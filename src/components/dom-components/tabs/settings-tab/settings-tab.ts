@@ -38,6 +38,7 @@ import {
 	subscribeAlmostUsefulSessionChanged,
 } from 'src/logic/almostuseful/almostuseful-session';
 import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
+import { beginTranscriptionBatchFromSettings } from 'src/logic/transcription-batch-settings-entry';
 import { describeInkSubfolderPathChange, sanitiseInkSubfolderPath } from 'src/logic/utils/ink-subfolder-path';
 import {
 	AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT,
@@ -104,6 +105,8 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertAlmostUsefulAccountSection(containerEl, this.plugin, () => {
 			this.renderSettingsTab();
+		}, (fileType) => {
+			void beginTranscriptionBatchFromSettings(this.plugin, fileType);
 		});
 		this.unsubscribeAlmostUsefulSession = subscribeAlmostUsefulSessionChanged(() => {
 			this.renderSettingsTab();

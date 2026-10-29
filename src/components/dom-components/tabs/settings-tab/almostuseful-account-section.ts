@@ -30,6 +30,7 @@ import {
 	removeHandwritingTranscriptionFromQueue,
 	subscribeHandwritingTranscriptionQueueChanged,
 } from 'src/logic/handwriting-transcription-queue';
+import type { HandwritingTranscriptionFileType } from 'src/logic/handwriting-transcription-queue-store';
 import './almostuseful-account-section.scss';
 
 /////////
@@ -60,6 +61,7 @@ export function insertAlmostUsefulAccountSection(
 	containerEl: HTMLElement,
 	_plugin: InkPlugin,
 	onRerender: () => void,
+	onOpenBatch: (fileType: HandwritingTranscriptionFileType) => void,
 ): void {
 	stopAlmostUsefulAccountSectionDevicePolling();
 	const session = readAlmostUsefulSession();
@@ -153,6 +155,7 @@ export function insertAlmostUsefulAccountSection(
 	void loadUsageInto(usageHostEl, session, portalOrigin);
 	insertHandwritingTranscriptionPrivacyDisclosure(contentEl);
 	insertTranscriptionQueueSection(contentEl);
+	insertTranscriptionBatchSection({ contentEl }, onOpenBatch);
 }
 
 /**
@@ -283,6 +286,55 @@ function insertTranscriptionQueueSection(contentEl: HTMLElement): void {
 
 	paintQueueList();
 	transcriptionQueueUnsubscribe = subscribeHandwritingTranscriptionQueueChanged(paintQueueList);
+}
+
+export interface InsertTranscriptionBatchSectionOptions {
+	contentEl: HTMLElement;
+}
+
+/**
+ * Batch transcribe buttons, one per ink type.
+ *
+ * Lives under the account section because a batch run spends credits, so it must be next
+ * to the usage charts where the user can see what is left before committing.
+ */
+export function insertTranscriptionBatchSection(
+	options: InsertTranscriptionBatchSectionOptions,
+	openBatchScopeModal: (fileType: HandwritingTranscriptionFileType) => void,
+): void {
+	const cardEl = options.contentEl.createDiv(
+		'ddc_ink_almostuseful-settings-card ddc_ink_almostuseful-transcription-batch',
+	);
+	cardEl.createDiv({
+		cls: 'ddc_ink_almostuseful-settings-card-title',
+		text: 'Batch transcribe',
+	});
+	cardEl.createEl('p', {
+		cls: 'ddc_ink_almostuseful-muted',
+		text: 'Transcribe writing or drawings across the whole vault. Files queue up and run one at a time.',
+	});
+
+	const actionsEl = cardEl.createDiv('ddc_ink_almostuseful-transcription-batch-actions');
+	insertBatchButton(actionsEl, 'Transcribe all writing', () => {
+		openBatchScopeModal('inkWriting');
+	});
+	insertBatchButton(actionsEl, 'Transcribe all drawings', () => {
+		openBatchScopeModal('inkDrawing');
+	});
+}
+
+/** One secondary batch button; kept plain so the account card keeps its own styling. */
+function insertBatchButton(
+	parentEl: HTMLElement,
+	label: string,
+	onClick: () => void,
+): void {
+	const buttonEl = parentEl.createEl('button', {
+		cls: 'ddc_ink_almostuseful-transcription-batch-btn',
+		text: label,
+		type: 'button',
+	});
+	buttonEl.addEventListener('click', onClick);
 }
 
 /** Disables the control and swaps the label so a click is visible before the code card replaces it. */

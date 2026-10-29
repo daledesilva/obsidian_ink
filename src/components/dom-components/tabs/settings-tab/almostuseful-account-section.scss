@@ -498,3 +498,15 @@
 		color: var(--text-normal);
 	}
 }
+
+.ddc_ink_almostuseful-transcription-batch-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	margin-top: 0.35em;
+}
+
+.ddc_ink_almostuseful-transcription-batch-btn {
+	font-size: var(--font-ui-small);
+	padding: 0.25em 0.75em;
+}

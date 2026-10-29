@@ -11,8 +11,10 @@ import {
 	serializeBboxCellsAtLastTranscription,
 } from 'src/logic/stroke-bbox-cells';
 import { patchInkEmbedTranscriptAltsInVault } from 'src/logic/handwriting-transcription-apply';
+import { maybeShowLowCreditNotice } from 'src/components/dom-components/low-credit-notice';
 import {
 	hasLinkedAlmostUsefulAccount,
+	readAlmostUsefulSession,
 	subscribeAlmostUsefulSessionChanged,
 } from 'src/logic/almostuseful/almostuseful-session';
 import {
@@ -903,6 +905,9 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			bboxCellsAtLastTranscription: liveBboxCells,
 		});
 		await patchInkEmbedTranscriptAltsInVault(plugin, job.filePath, job.fileType, transcript);
+		// Credits just changed, so this is the only moment the warning is both accurate
+		// and relevant. Awaited fire-and-forget: a failed check must not fail the job.
+		void maybeShowLowCreditNotice(readAlmostUsefulSession());
 	} catch (error) {
 		if (!userCancelledInflightPaths.has(job.filePath)) {
 			const jobError = asHandwritingTranscriptionJobError(error);

@@ -16,4 +16,9 @@ export const DEFAULT_DEVICE_SETTINGS_V1: DeviceSettingsV1 = {
 	stylusSideButtonTemporaryErase: false,
 	inkCloseCount: 0,
 	autoTranscribeAccountNoticeDismissed: false,
+	lowCreditNoticeState: {
+		userId: '',
+		periodKey: '',
+		shownThresholdsPercent: [],
+	},
 };

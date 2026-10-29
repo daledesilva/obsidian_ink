@@ -194,7 +194,37 @@ npm run open-qa-mobile
 
 This sets `INK_EMULATE_MOBILE=true` at build time and the plugin calls `app.emulateMobile(true)` on load.
 
-**Gotcha:** `open-qa-verbose` and `open-qa-verbose-mobile` were removed — their development builds are now the only `open-qa` / `open-qa-mobile` scripts. Use `npm run build` (production esbuild) for release artifacts, E2E, and Boox deploy; do not expect production minification or release defines from `open-qa`.
+**Gotcha:** `open-qa-verbose` and `open-qa-verbose-mobile` were removed — their development builds are now the only `open-qa` / `open-qa-mobile` scripts. Those scripts leave `main.js` unminified and embed an inline source map. Use `npm run build` for release artifacts, E2E, and Boox deploy. That production build minifies `main.js` and `styles.css` and omits the source map. See [Production minification](#production-minification).
+
+#### Production minification
+
+**Why it exists** — Release `main.js` is what Obsidian downloads and reads from disk before the app is interactive. An unminified production bundle was about 4.3 MB. Obsidian’s [load-time guide](https://docs.obsidian.md/plugins/guides/load-time) asks release builds to be production builds and to minify plugin code. Their [sample plugin](https://github.com/obsidianmd/obsidian-sample-plugin/blob/master/esbuild.config.mjs) sets `minify: prod`.
+
+**Conceptual understanding** — `npm run build` (and anything that runs `node esbuild.config.mjs production`) minifies JavaScript and CSS and ships no source map. `npm run dev`, `open-qa`, and `open-qa-mobile` stay readable and keep an inline source map inside `main.js`. That dev file is much larger than the release file. Do not copy a dev `dist/` into a release or onto a device you are sizing.
+
+The photo-trace worker is a string inside `main.js` (Obsidian only installs `main.js`, `manifest.json`, and `styles.css`). Minifying the outer bundle does not shrink text inside a string, so production also minifies that worker before it is inlined.
+
+```mermaid
+flowchart LR
+  dev["npm run dev / open-qa"] --> devOut["Unminified main.js with inline sourcemap"]
+  prod["npm run build"] --> wasm["build:wasm writes an unminified worker"]
+  wasm --> esbuild["esbuild production"]
+  esbuild --> worker["Rewrite the worker with minify on"]
+  worker --> release["Minified main.js and styles.css, no sourcemap"]
+```
+
+**Technical details**
+
+- [`esbuild.config.mjs`](../esbuild.config.mjs): `minify: prod` and `sourcemap: prod ? false : 'inline'`. `prod` is only the `production` argument. `development` and watch mode leave both off.
+- CSS is the same esbuild output, renamed to `styles.css`. Minify shortens whitespace. It does not rename class selectors, so component class strings still match the stylesheet.
+- [`scripts/emit-photo-trace-generated.mjs`](../scripts/emit-photo-trace-generated.mjs): `emitPhotoTraceGenerated({ minify: prod })` from the esbuild config, including the rebuild `onStart` hook. Running that script directly (`npm run build:wasm`) does not minify. `npm run build` runs `build:wasm` first, then the production esbuild step overwrites the generated worker before bundling.
+- A production build of this change produced `dist/main.js` at about 1.9 MB and `dist/styles.css` at about 271 KB, with no `sourceMappingURL` in either file.
+
+**Technical Gotchas**
+
+- **A dev `dist/main.js` looks like the plugin got huge.** Most of that size is the inline source map, plus React’s development build. The release artifact is the production build.
+- **The generated worker file follows the last esbuild mode.** After `npm run build` it is minified. The next dev or watch build rewrites it unminified. It is gitignored under `src/logic/photo-trace/generated/`.
+- **Production stack traces have no map.** `sourcemap` is false for production, so a crash in a release build will not point at the original TypeScript. Use a development build to debug.
 
 #### Deploy to a Boox device (USB)
 

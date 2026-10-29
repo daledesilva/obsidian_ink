@@ -4,12 +4,14 @@ import './components/shared/ink-svg-preview-theme.scss';
 import './styles/ink-workspace-chrome.scss';
 import './styles/ink-writing-guide-lines.scss';
 import './styles/ink-grayscale-screen-chrome.scss';
+import './styles/ink-button-hover.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
+import { insertWritingFromPhoto } from './commands/insert-writing-from-photo';
 import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
 import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
 import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
@@ -58,6 +60,8 @@ import {
 	applyHighContrastUserInterfaceBodyClass,
 	releaseHighContrastUserInterfaceBodyClassOnPluginUnload,
 } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
+import { showAlmostUsefulDevPortalNotice_maybe } from './components/dom-components/almostuseful-dev-portal-notice';
+import { applyAlmostUsefulDevelopmentPortalDefault } from 'src/logic/almostuseful/almostuseful-portal-server';
 import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
 import {
 	initHandwritingTranscriptionQueue,
@@ -261,10 +265,12 @@ export default class InkPlugin extends Plugin {
 			});
 
 			await runInkOnloadStep('almostUsefulAuth', () => {
+				applyAlmostUsefulDevelopmentPortalDefault();
 				void startAlmostUsefulSessionRefresh();
 			});
 
 			await runInkOnloadStep('showOnboardingTips', () => {
+				showAlmostUsefulDevPortalNotice_maybe();
 				showOnboardingTips_maybe(this);
 			});
 
@@ -360,6 +366,13 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 		name: 'New handwriting section',
 		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
+	});
+	plugin.addCommand({
+		id: 'create-handwriting-from-photo',
+		// The palette name covers both destinations. The id stays so an existing hotkey still runs this command.
+		name: 'Insert handwriting/drawing from photo',
+		icon: 'write_default',
+		editorCallback: (editor: Editor) => insertWritingFromPhoto(plugin, editor),
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file',

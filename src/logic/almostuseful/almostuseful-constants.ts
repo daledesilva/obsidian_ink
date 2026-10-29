@@ -4,6 +4,8 @@ export const ALMOSTUSEFUL_CLIENT_DISPLAY_NAME = 'Ink';
 
 /** Production portal. Public client identifier, not a secret. */
 export const ALMOSTUSEFUL_PORTAL_ORIGIN = 'https://account.almostuseful.xyz';
+/** Default Custom server in development builds (`npm run dev`). */
+export const ALMOSTUSEFUL_DEFAULT_CUSTOM_PORTAL_ORIGIN = 'http://localhost:3000';
 
 export const ALMOSTUSEFUL_APP_TOKEN_TYPE = 'almostuseful_app';
 

@@ -14,8 +14,10 @@ import {
 	readWritingFileAspectRatio,
 } from 'src/logic/utils/writing-embed-aspect-ratio';
 import { useInkFileTranscript } from 'src/logic/use-ink-file-transcript';
-import { useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
+import { useInkEmbedDisplayMode, useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
 import { InkEmbedTranscriptControls, InkTranscriptView } from 'src/components/formats/current/ink-transcript-view/ink-transcript-view';
+import { InkPhotoView } from 'src/components/formats/current/ink-photo-view/ink-photo-view';
+import { useInkFileSourceImageUrl } from 'src/logic/use-ink-file-source-image';
 import { EmbedPreviewContextMenu } from 'src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu';
 import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import { copyEmbedMarkdownToClipboard } from 'src/logic/utils/copy-embed-to-clipboard';
@@ -166,6 +168,10 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		transcript,
 		false,
 	);
+	const sourceImageUrl = useInkFileSourceImageUrl(props.plugin, props.embeddedFile);
+	const hasSourcePhoto = !!sourceImageUrl;
+	const embedDisplayMode = useInkEmbedDisplayMode(props.embeddedFile?.path);
+	const showPhoto = hasSourcePhoto && embedDisplayMode === 'photo';
 
 	let drawingHeightPx = embedWidth / embedAspectRatio;
 	const transcriptHeightIsReady = showTranscript && transcriptHeightPx > 0;
@@ -175,7 +181,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// Until the markdown has been measured, keep the SVG aspect height so the card
 	// does not collapse. After that, the attribute tells dimension refresh to leave it.
-	// Drawing ink mode uses saved pixel width + full-bleed; text mode matches writing column width.
+	// Drawing ink and photo modes use saved pixel width + full-bleed; text mode matches writing column width.
 	const drawingShowsTranscript = props.embedKind === 'drawing' && showTranscript;
 
 	let resizeStyle: React.CSSProperties = { position: 'relative' };
@@ -215,6 +221,8 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 				if (!transcriptHeightIsReady) {
 					resizeContainerEl.style.height = 'auto';
 				}
+			} else if (showPhoto) {
+				resizeContainerEl.setAttribute('data-ink-display-mode', 'photo');
 			} else {
 				resizeContainerEl.removeAttribute('data-ink-display-mode');
 			}
@@ -228,6 +236,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		props.embedSettings.embedDisplay.aspectRatio,
 		props.embeddedFile?.path,
 		showTranscript,
+		showPhoto,
 		drawingShowsTranscript,
 	]);
 
@@ -367,10 +376,15 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 			<div
 				ref={resizeContainerElRef}
 				className='ddc_ink_resize-container'
-				data-ink-display-mode={showTranscript ? 'text' : undefined}
+				data-ink-display-mode={showTranscript ? 'text' : showPhoto ? 'photo' : undefined}
 				// Static centering/width live in SCSS; only dynamic size stays inline.
 				style={resizeStyle}
 			>
+				{showPhoto && sourceImageUrl && (
+					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
+						<InkPhotoView sourceImageUrl={sourceImageUrl} />
+					</EmbedPreviewContextMenu>
+				)}
 				{showTranscript && transcript && (
 					<EmbedPreviewContextMenu
 						menuOptions={lockedEmbedMenuOptions(true)}
@@ -385,7 +399,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						/>
 					</EmbedPreviewContextMenu>
 				)}
-				{!showTranscript && props.embedKind === 'drawing' && (
+				{!showTranscript && !showPhoto && props.embedKind === 'drawing' && (
 					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 						<DrawingEmbedPreview
 							key={props.embeddedFile.path}
@@ -396,7 +410,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						/>
 					</EmbedPreviewContextMenu>
 				)}
-				{!showTranscript && props.embedKind !== 'drawing' && (
+				{!showTranscript && !showPhoto && props.embedKind !== 'drawing' && (
 					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 						<WritingEmbedPreview
 							plugin={props.plugin}
@@ -411,6 +425,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						filePath={props.embeddedFile.path}
 						inkIconKind={props.embedKind === 'drawing' ? 'drawing' : 'writing'}
 						hasTranscript={hasTranscript}
+						hasSourcePhoto={props.embedKind !== 'drawing' && hasSourcePhoto}
 					/>
 				)}
 			</div>

@@ -36,8 +36,10 @@ import { inkEmbedSyncWidgetRootMinHeightToContent } from "src/logic/utils/ink-em
 import { recordInkCloseAndMaybeShowAccountNotice } from "src/components/dom-components/auto-transcribe-account-notice";
 import { enqueueAuto, enqueueManualTranscription } from "src/logic/handwriting-transcription-queue";
 import { useInkFileTranscript } from "src/logic/use-ink-file-transcript";
-import { useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
+import { useInkFileSourceImageUrl } from "src/logic/use-ink-file-source-image";
+import { useInkEmbedDisplayMode, useLockedInkTranscriptMode } from "src/logic/use-ink-embed-display-mode";
 import { InkEmbedTranscriptControls, InkTranscriptView } from "src/components/formats/current/ink-transcript-view/ink-transcript-view";
+import { InkPhotoView } from "src/components/formats/current/ink-photo-view/ink-photo-view";
 
 ///////
 ///////
@@ -130,6 +132,10 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		transcript,
 		isThisEmbedEditing,
 	);
+	const sourceImageUrl = useInkFileSourceImageUrl(getGlobals().plugin, props.embeddedFile);
+	const hasSourcePhoto = !!sourceImageUrl;
+	const embedDisplayMode = useInkEmbedDisplayMode(props.embeddedFile?.path);
+	const showPhoto = !isThisEmbedEditing && hasSourcePhoto && embedDisplayMode === 'photo';
 	// Window resize handler is registered once; it must not squash Text-mode height.
 	const showTranscriptRef = useRef(false);
 	showTranscriptRef.current = showTranscript;
@@ -173,10 +179,13 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 			resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
 			resizeContainerEl.style.maxWidth = '';
 			resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
+		} else if (showPhoto) {
+			// Keep the ink frame size. Photo fills that height and shrinks its width to the image.
+			resizeContainerEl.setAttribute('data-ink-display-mode', 'photo');
 		} else {
 			resizeContainerEl.removeAttribute('data-ink-display-mode');
 		}
-	}, [showTranscript]);
+	}, [showTranscript, showPhoto]);
 
 	// Detect file format on mount
 	React.useEffect(() => {
@@ -441,6 +450,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 					style = {resizeContainerStyle}
 				>
 				
+				{showPhoto && sourceImageUrl && (
+					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
+						<InkPhotoView sourceImageUrl={sourceImageUrl} />
+					</EmbedPreviewContextMenu>
+				)}
 				{showTranscript && transcript && (
 					<EmbedPreviewContextMenu
 						menuOptions={lockedEmbedMenuOptions(true)}
@@ -454,7 +468,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						/>
 					</EmbedPreviewContextMenu>
 				)}
-				{!showTranscript && (
+				{!showTranscript && !showPhoto && (
 					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 						<DrawingEmbedPreviewWrapper
 							embedId = {props.embedId}
@@ -470,6 +484,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 						filePath={props.embeddedFile.path}
 						inkIconKind='drawing'
 						hasTranscript={hasTranscript}
+						hasSourcePhoto={hasSourcePhoto}
 					/>
 				)}
 

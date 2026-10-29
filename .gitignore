@@ -12,6 +12,10 @@ node_modules
 # They should be uploaded to GitHub releases instead.
 dist/*
 
+# Photo-trace WASM + inlined worker bundle (built by npm run build:wasm / emit-photo-trace-generated)
+src/logic/photo-trace/generated/*
+!src/logic/photo-trace/generated/.gitkeep
+
 # Exclude sourcemaps
 *.map
 

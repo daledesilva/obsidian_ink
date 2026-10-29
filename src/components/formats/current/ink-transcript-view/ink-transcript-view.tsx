@@ -11,6 +11,7 @@ import { useHandwritingTranscriptionQueueStatus } from 'src/logic/use-handwritin
 import { WriteIcon } from 'src/graphics/icons/write-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
 import { TextModeIcon } from 'src/graphics/icons/text-mode-icon';
+import { PhotoModeIcon } from 'src/graphics/icons/photo-mode-icon';
 import { Loader2Icon } from 'src/graphics/icons/loader-2-icon';
 import { ClockIcon } from 'src/graphics/icons/clock-icon';
 import { normalizeInkTranscriptMarkdown } from 'src/logic/normalize-ink-transcript-markdown';
@@ -115,6 +116,7 @@ export interface InkEmbedTranscriptControlsProps {
 	filePath: string;
 	inkIconKind: 'writing' | 'drawing';
 	hasTranscript: boolean;
+	hasSourcePhoto?: boolean;
 }
 
 /**
@@ -125,7 +127,7 @@ export interface InkEmbedTranscriptControlsProps {
 export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProps) {
 	const queueStatus = useHandwritingTranscriptionQueueStatus(props.filePath);
 
-	if (!queueStatus && !props.hasTranscript) return null;
+	if (!queueStatus && !props.hasTranscript && !props.hasSourcePhoto) return null;
 
 	let statusTooltip = 'Transcription queued';
 	if (queueStatus === 'processing') statusTooltip = 'Transcribing…';
@@ -144,7 +146,14 @@ export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProp
 					{queueStatus === 'processing' ? <Loader2Icon /> : <ClockIcon />}
 				</TooltipButton>
 			)}
-			{props.hasTranscript && (
+			{props.hasSourcePhoto && (
+				<InkEmbedDisplayModeSwitchWithPhoto
+					filePath={props.filePath}
+					inkIconKind={props.inkIconKind}
+					hasTranscript={props.hasTranscript}
+				/>
+			)}
+			{!props.hasSourcePhoto && props.hasTranscript && (
 				<InkEmbedDisplayModeSwitch
 					filePath={props.filePath}
 					inkIconKind={props.inkIconKind}
@@ -152,6 +161,48 @@ export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProp
 			)}
 		</div>
 	);
+}
+
+/**
+ * One button, same as Ink/Transcript: it shows the next pane, not the current one.
+ * Cycle is Photo → Ink → Transcript → Photo. Without a transcript it is Photo ↔ Ink.
+ */
+export function InkEmbedDisplayModeSwitchWithPhoto(props: InkEmbedDisplayModeSwitchProps & {
+	hasTranscript: boolean;
+}) {
+	const mode = useInkEmbedDisplayMode(props.filePath);
+	const nextMode = nextPhotoEmbedDisplayMode(mode, props.hasTranscript);
+	const inkIcon = props.inkIconKind === 'drawing' ? <DrawIcon /> : <WriteIcon />;
+
+	let tooltip = 'Show ink';
+	let icon: React.ReactNode = inkIcon;
+	if (nextMode === 'text') {
+		tooltip = 'Show transcript';
+		icon = <TextModeIcon />;
+	} else if (nextMode === 'photo') {
+		tooltip = 'Show photo';
+		icon = <PhotoModeIcon />;
+	}
+
+	return (
+		<TooltipButton
+			tooltip={tooltip}
+			className='ddc_ink_display-mode-toggle'
+			onMouseDown={(event) => event.stopPropagation()}
+			onClick={() => setInkEmbedDisplayMode(props.filePath, nextMode)}
+		>
+			{icon}
+		</TooltipButton>
+	);
+}
+
+function nextPhotoEmbedDisplayMode(
+	mode: InkEmbedDisplayMode,
+	hasTranscript: boolean,
+): InkEmbedDisplayMode {
+	if (mode === 'photo') return 'ink';
+	if (mode === 'ink') return hasTranscript ? 'text' : 'photo';
+	return 'photo';
 }
 
 /** Circular toggle between ink preview and transcript on a locked embed. */

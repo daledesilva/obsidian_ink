@@ -1,0 +1,42 @@
+.modal.ddc_ink_photo-progress-modal {
+	width: min(28em, calc(100vw - 3em));
+}
+
+.ddc_ink_photo-progress__log {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35em;
+	max-height: min(12em, 40vh);
+	margin-top: 0;
+	overflow-y: auto;
+	font-size: var(--font-ui-small);
+	line-height: 1.35;
+	color: var(--text-muted);
+}
+
+.ddc_ink_photo-progress__log-line:last-child {
+	color: var(--text-normal);
+}
+
+.ddc_ink_photo-progress__bar {
+	height: 0.45em;
+	margin: 0.75em 0 1em;
+	overflow: hidden;
+	background: var(--background-modifier-border);
+	border-radius: 999px;
+}
+
+.ddc_ink_photo-progress__fill {
+	height: 100%;
+	width: 35%;
+	background: var(--interactive-accent);
+}
+
+.ddc_ink_photo-progress__bar.is-indeterminate .ddc_ink_photo-progress__fill {
+	width: 35%;
+}
+
+.ddc_ink_photo-progress__actions {
+	display: flex;
+	justify-content: flex-end;
+}

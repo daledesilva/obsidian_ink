@@ -29,6 +29,8 @@ export class TldrawSvgMigrationModal extends Modal {
 	}
 
 	onOpen() {
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		this.modalEl.addClass('ddc_ink_modal');
 		this.titleEl.setText('Migrate tldraw SVG files to ink-canvas');
 		this.contentEl.addClass('ddc_ink_migration-modal');
 		this.renderScanPhase();

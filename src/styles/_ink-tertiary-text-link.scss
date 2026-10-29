@@ -9,6 +9,9 @@
 
 	&:hover {
 		color: var(--text-normal);
+		// Text controls stay unfilled. Obsidian's button:hover would otherwise
+		// paint a chip behind Dismiss and other tertiary labels.
+		background: none;
 	}
 }
 

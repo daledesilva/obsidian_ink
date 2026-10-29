@@ -18,8 +18,8 @@ Ink uses persistent Obsidian notices for first-run onboarding (`welcome-notice.t
 |---------|-----------|
 | **h2** | `Handwriting transcriptions (OCR)` |
 | Body | Invite-only copy; only the product name **Almost Useful** is `<strong>` |
-| **Link account** | Same CTA chrome as settings (`applyAlmostUsefulLinkAccountButtonChrome`, including `ddc_ink_primary-btn`). Centred. Opens Ink settings (`openInkSettingsTab`) |
-| **Create account** | Centred tertiary text link (`ddc_ink_tertiary-text-link`) under **Link account**, same `0.825em` stack gap as settings. Opens `{portalOrigin}/auth/sign-up` (`openAlmostUsefulBrowserUrl`) |
+| **Link account** | Same CTA chrome as settings (`applyAlmostUsefulLinkAccountButtonChrome`, including `ddc_ink_primary-btn`). Centred. Hides the notice, marks `lastVersionTipRead`, then opens Ink settings (`openInkSettingsTab`) so the notice does not sit over the account section |
+| **Create account** | Centred tertiary text link (`ddc_ink_tertiary-text-link`) under **Link account**, same `0.825em` stack gap as settings. Opens `{portalOrigin}/auth/sign-up` (`openAlmostUsefulBrowserUrl`). Does **not** hide the notice |
 | **View feature demos** | Footer link to YouTube (unchanged pattern) |
 | **Dismiss** | Hides notice and marks version tip read |
 
@@ -30,14 +30,13 @@ flowchart TD
   Load[Plugin load] --> Semver{manifest version > lastVersionTipRead?}
   Semver -->|yes| Show[showChanges persistent notice]
   Semver -->|no| Skip[No version tip]
-  Show --> Link[Link account → Ink settings]
+  Show --> Link[Link account → hide + save lastVersionTipRead + Ink settings]
   Show --> Create[Create account → portal sign-up]
   Show --> Dismiss[Dismiss → hide + save lastVersionTipRead]
-  Link --> StayOpen[Notice stays visible]
-  Create --> StayOpen
+  Create --> StayOpen[Notice stays visible]
 ```
 
-**Interaction rule:** Body CTAs (**Link account**, **Create account**) do **not** call `notice.hide()`. Obsidian often backgrounds for the browser or settings; keeping the notice visible lets the user read the invite copy again after returning. Only **Dismiss** clears the tip.
+**Interaction rule:** **Link account** hides the notice (and marks the tip read) so settings are not covered. **Create account** leaves it open so invite copy is still there when the browser overlays Obsidian. **Dismiss** also hides and marks the tip read.
 
 ---
 
@@ -60,7 +59,7 @@ flowchart TD
 
 ## Technical Gotchas
 
-- **Do not dismiss on body CTA click** — Restoring `notice.hide()` on waitlist/login regresses the post-browser return UX; users lose the invite-only reminder mid-flow.
+- **Create account must stay open** — Hiding on that link loses the invite copy when the browser overlays Obsidian. **Link account** is the exception: it must hide so it does not cover Settings.
 - **`showRecentChanges` bypasses semver** — Useful for settings “Recent changes”; does not update `lastVersionTipRead` unless the user clicks **Dismiss**.
 - **Beta suffix** — `showVersionNotice` strips `-beta` before semver compare so beta builds still match the release tip version string.
 - **`manifest.version` must be valid semver** — `showVersionNotice` calls `semVer.gt` on the current version during onload. `semver` throws `Invalid Version` for a two-part string such as `0.6`. That throw fails plugin load (`Plugin failure: ink`). Use three numeric parts (`0.6.0`). `semVer.valid` is only applied to `lastVersionTipRead`, so a bad current version is not skipped. The notice heading `Changes in Ink v0.6` is display copy and is not the string passed to `semver`.

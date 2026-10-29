@@ -6,8 +6,8 @@ import {
     createNoticeTemplate,
     launchPersistentNotice,
 } from 'src/components/dom-components/notice-components';
-import { ALMOSTUSEFUL_PORTAL_ORIGIN } from 'src/logic/almostuseful/almostuseful-constants';
 import { openAlmostUsefulBrowserUrl } from 'src/logic/almostuseful/almostuseful-login';
+import { resolveAlmostUsefulPortalOrigin } from 'src/logic/almostuseful/almostuseful-session';
 import InkPlugin from "src/main";
 import { openInkSettingsTab } from './tabs/settings-tab/settings-tab';
 
@@ -72,13 +72,17 @@ function showChanges(plugin: InkPlugin) {
 
     const notice = launchPersistentNotice(noticeBody);
 
-    // Body CTAs stay open so invite copy remains after the browser or Settings backgrounds Obsidian.
+    // Create account stays open: the browser overlays Obsidian and the invite copy should still be there.
     createAccountLinkEl.addEventListener('click', (event) => {
         event.preventDefault();
-        openAlmostUsefulBrowserUrl(`${ALMOSTUSEFUL_PORTAL_ORIGIN}/auth/sign-up`);
+        openAlmostUsefulBrowserUrl(`${resolveAlmostUsefulPortalOrigin()}/auth/sign-up`);
     });
 
+    // Link account opens Settings; hide so it does not sit over the account section.
     linkAccountBtnEl.addEventListener('click', () => {
+        notice.hide();
+        plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
+        void plugin.saveSettings();
         openInkSettingsTab(plugin);
     });
 

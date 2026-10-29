@@ -1,0 +1,25 @@
+/*
+ * macOS Obsidian sets --interactive-hover to the same token as
+ * --interactive-normal (--background-modifier-border) and clears both input
+ * shadows. Accent primary buttons still shift via --interactive-accent-hover.
+ * Plain secondary buttons therefore never change.
+ *
+ * --background-modifier-border-hover is only one step away (base-30 to
+ * base-35), which still reads as no hover next to an accent button. Mix a
+ * little text colour into the resting fill so light themes darken and dark
+ * themes lighten.
+ *
+ * Roots: settings tab (.ddc_ink_settings), dialogs (.ddc_ink_modal), notices,
+ * embeds, and editors. Custom properties inherit, so button:hover and our
+ * own var(--interactive-hover) fills (menus, pending-banner secondary) pick
+ * this up. Accent, warning, and explicit accent-hover rules do not use it.
+ */
+body.mod-macos .ddc_ink_settings,
+body.mod-macos .modal.ddc_ink_modal,
+body.mod-macos .ddc_ink_notice,
+body.mod-macos .notice:has(.ddc_ink_notice),
+body.mod-macos .ddc_ink_embed,
+body.mod-macos .ddc_ink_writing-editor,
+body.mod-macos .ddc_ink_drawing-editor {
+	--interactive-hover: color-mix(in srgb, var(--text-normal) 18%, var(--background-modifier-border));
+}

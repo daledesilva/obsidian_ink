@@ -1,0 +1,148 @@
+# Writing from a photo
+
+## Why it exists
+
+People often have handwriting on paper that they want as editable ink. The plugin traces the photo on the device into strokes, then the usual transcription queue can turn that page into searchable text. A vision model is not part of this path: a partial reply used to skip the local trace and still charge credits.
+
+---
+
+## Conceptual understanding
+
+The command **Insert handwriting/drawing from photo** (`create-handwriting-from-photo` in `insert-writing-from-photo.ts`) is a short wizard. The id stays `create-handwriting-from-photo` so an existing hotkey still runs it.
+
+1. Pick a photo (take, choose, or paste). The dialog title is **Create Ink from Photo**. Opening it does not focus **Take photo**. The three choices are equal, so focus sits on the dialog. Tab still reaches the buttons.
+2. Turn the photo if it is sideways, then pin the page corners. Detection proposes a quad. Drag a circle, drag the line between two circles, or tap the photo to grab the nearest circle. **Rotate left** and **Rotate right** sit under the photo, each a further 90°. The dialog has no instruction paragraph.
+3. Review how the page will become ink. Colour, contrast, ink sensitivity, and noise cleanup sit under **Adjust detection** and start from an automatic guess.
+4. Convert to handwriting or to drawing. Tracing is always local.
+5. The plugin writes an SVG embed plus the turned JPEG, opens it in ink mode, and queues transcription.
+
+Writing embeds use the standard guide spacing `WRITING_LINE_HEIGHT` (150px). A new handwriting section created from the command palette can still follow the line height in Settings. A photo trace does not copy that setting, because guessed gaps between stroke centres are not baselines.
+
+```mermaid
+flowchart TD
+  Pick[Pick photo]
+  Detect[Find page corners]
+  Crop[Turn photo and pin corners]
+  Warp[Warp the turned photo to 1600px]
+  Flatten[Flatten illumination]
+  Adjust[Adjust detection and live mask]
+  Trace[Local Sauvola plus Zhang-Suen]
+  Embed[Write SVG and turned JPEG]
+  Queue[Queue transcription]
+  Pick --> Detect --> Crop --> Warp --> Flatten --> Adjust --> Trace --> Embed --> Queue
+```
+
+---
+
+## Flows
+
+**Page corners**
+
+`findPageQuad` downscales to a 360px long edge, then picks one of two paper masks.
+
+```mermaid
+flowchart TD
+  Downscale[Downscale to a 360px long edge]
+  Texture{Is the border much more textured than the page?}
+  Smooth[Smoothness after lifting the shadow]
+  Colour[Colour ratios from the centre]
+  Fit[Score a quad]
+  Downscale --> Texture
+  Texture -->|Yes| Smooth --> Fit
+  Texture -->|No| Colour --> Fit
+```
+
+Colour is the usual path. It estimates paper from the centre 40% of the frame and compares illumination-invariant ratios (`R/(R+G+B)` and `G/(R+G+B)`). A shadow does not change those ratios, so a coloured sheet stays one page. Skin and a cool screen differ from that paper colour. An evenly lit white page is still brighter than a darker surround, so brightness keeps that mask on the sheet.
+
+White paper on gray carpet shares the carpet’s colour. A shadow then makes the shaded half as dark as the carpet, and the colour mask spills off the page so the pins jump toward the photo edges. When the border is clearly more textured than the centre of the page, detection uses smoothness instead. It divides luminance by a wide blur so the shadow lifts, keeps the smooth sheet, and drops the mottled carpet. Ruled lines and the shadow edge are thin holes. A close of radius 5 fills them without reaching the carpet margin. A soft background, or coloured paper, fails the texture test and stays on colour.
+
+The fit rejects sharp angles and sides whose lengths differ by more than about 1.45. A weak score, or a quad that is already the photo, returns the full frame. Pins can sit a little inside a torn edge or a row of spiral holes, because those pixels are textured. Drag the circles if they need to move.
+
+The crop dialog title is **Define the corners of the page**. There is no instruction line under the title. **Rotate left** and **Rotate right** turn the whole photo 90° either way, as many times as needed. The pins stay on the same paper corners. Corner order follows the turn, so the pin that is top-left on screen is the top-left of the straightened page. Going **Back** from adjust reopens this step with the same turn and the same pins.
+
+A press on a circle moves only that pin. A press near the middle of a side slides both pins of that side by the same amount, so the side keeps its length and angle, and both pins stay inside the photo. A press anywhere else jumps the nearest pin to that point and keeps it under the pointer. The side grab is about 28 screen pixels from the line. The last 24 screen pixels at either end are not a side: they grab the nearest circle, so a near-miss beside a pin does not slide the whole side.
+
+```mermaid
+flowchart TD
+  Press[Press on the photo]
+  Circle{On a circle?}
+  Side{Near the middle of a side?}
+  MoveOne[Move that pin]
+  MoveSide[Slide both pins together]
+  Jump[Jump the nearest pin and follow the pointer]
+  Press --> Circle
+  Circle -->|Yes| MoveOne
+  Circle -->|No| Side
+  Side -->|Yes| MoveSide
+  Side -->|No| Jump
+```
+
+Outside the quad, the overlay is Obsidian’s `--background-primary` at 50% opacity, so light mode stays light.
+
+**Adjust**
+
+The title is **How your photo will convert into ink**. The preview is the ink mask, always on. On open, colour and contrast stay at zero when that already yields a clean mask; otherwise they follow the page assessment. Ink sensitivity is chosen to keep strokes and penalise pepper specks, preferring a value near 70. Noise cleanup defaults on.
+
+**Back** sits at the far left and returns to the corners. **Cancel** leaves the wizard. **Convert to drawing** and **Convert to handwriting** are both primary buttons.
+
+**Convert**
+
+The adjust step already warped the turned photo to a 1600px long edge. Convert reuses that raster (`alreadyWarped`) and does not warp or turn again. Illumination is flattened once before the trace, in memory. Colour and contrast are applied only for the mask. Detail is the constant `PHOTO_TRACE_DEFAULT_DETAIL` (90). There is no detail or resolution slider.
+
+The tracer builds a Sauvola mask, optionally removes tiny specks and isolated noise dots, bridges small gaps, drops long printed rules, thins with WASM Zhang–Suen, and turns the skeleton into ink strokes on a page `WRITING_PAGE_WIDTH` wide (2000). Noise cleanup keeps a small dot when it sits on a real stroke, so i-dots and full stops stay.
+
+**After convert**
+
+- The picked photo is saved as a JPEG beside the SVG, under `Images/`, turned by the same 90° steps chosen on the corner step. A photo that was not turned is saved in the orientation it was picked. Older imports may still store a lowercase `images/` path. Those notes keep the path already written on the file.
+- The straightened page is traced in memory and is not written. New imports omit `transcriptImage`, so transcription reads that saved JPEG, including its turn.
+- Older imports may still set `transcript-image` to a `-page.jpg`. Those files keep using that JPEG.
+- Handwriting files store `writingLineHeight: 150`. Drawing files use the drawing grid default and a view box fitted to the strokes.
+- The embed starts in ink display mode. Photo, ink, and transcript are a session toggle. The photo control is an image icon.
+- In photo mode the image matches the ink frame height, and its width follows the photo. Corners are 20px, the same as the ink frame.
+- `enqueueTranscriptionAfterPhotoImport` uses the handwriting transcription queue. See [writing-transcription.md](writing-transcription.md).
+
+---
+
+## Technical details
+
+| Piece | Role |
+|-------|------|
+| `find-page-quad.ts` | Centre paper colour, or smoothness when the border is textured and the page is not. Full frame when the page is already the photo. |
+| `flatten-page-illumination.ts` | Divides RGB by a downscaled closing of luminance so slow shadows lift. No slider. |
+| `trace-from-raster.ts` | Sauvola, noise dots, rules, Chamfer radius, skeleton routing, RDP. Returns `WRITING_LINE_HEIGHT`. |
+| `photo-trace.worker.ts` | Warp, and flatten only when the page is not already warped. Then colour, contrast, and the local trace. WASM thinning is inlined in `main.js`. Production builds minify that worker string; dev builds do not. See [Production minification](development.md#production-minification). |
+| `photoTraceSauvolaK` | Sensitivity 0 → k 0.5, 75 → k 0.20, 100 → k 0.1. Higher keeps fainter ink. |
+| `photoTraceSimplifyEpsilon` | Detail 90 → about 0.48px. Convert always passes `PHOTO_TRACE_DEFAULT_DETAIL`. |
+| `rotate-image-data.ts` | 90° pixel remap, and the matching reorder of the page quad. |
+| `writing-photo-crop-modal.ts` | Rotate left/right, corner pins, side slides, tap-to-nearest-pin, preview of the turned photo. |
+| `encode-writing-photo-jpeg.ts` | Resize, apply the same quarter turns, then JPEG under the transcription size cap. |
+| `writing-photo-adjust-modal.ts` | Live mask, auto-tune, collapsed detection controls, writing or drawing convert. |
+| `tests/fixtures/photo-trace/` | Five page photos for unit tests. No EXIF, GPS, or camera identity. |
+| `ink-photo-view` | Height 100% of the ink frame, width auto, 20px radius. |
+
+Ink sensitivity 75 is the built-in default before auto-tune. Auto-tune may pick another value in the 35–84 range.
+
+Portal handwriting transcription is unchanged. The old centreline job is retired; historical charges still use the ledger reason `handwriting_vector`. See the portal page `docs/conceptual/HANDWRITING_VECTOR.md`.
+
+---
+
+## Technical Gotchas
+
+- **Do not send the page to a vision model for centrelines.** Any non-empty reply used to skip this local trace. Transcription stays a portal job.
+- **Do not estimate writing line height from stroke Y positions.** Those gaps are not baselines and packed or stretched the guides. Photo traces use `WRITING_LINE_HEIGHT` (150). The Settings line height applies when creating a handwriting section the normal way.
+- **A straight pen mark simplifies to two points.** Requiring three points drops rules, underscores, and t-bars.
+- **Chamfer distance is 1px even for a 1px stroke.** The radius subtracts 0.45 so strokes stay as thin as the mask. Adding a pixel, or a strong streamline, pulls letters inside their loops.
+- **Noise cleanup must not delete every small component.** An i-dot and a full stop are small. They stay when a nearby component is a real stroke. Isolated pepper does not.
+- **Coloured paper follows colour, not brightness.** A luminance split cuts the page on the shadow line. Chromaticity keeps a brown or tinted sheet together. Skin and a cool screen fall outside that colour.
+- **White paper on a textured gray background follows smoothness.** Colour cannot separate them, and a shadow removes the brightness gap, so the quad spills onto the carpet. Smoothness after a wide blur keeps the sheet, including the shaded half. Do not force that path when the border is as smooth as the page, such as a held notepad or a soft wall. Those photos stay on colour. The texture sample is inset from the photo edge so a flat black rim is not treated as paper.
+- **Display mode is not stored in the SVG.** Starting the new embed in photo mode made the first lock return to the photo. Create it in ink mode.
+- **Photo mode must not grow the embed.** The image fills the existing ink height. A shorter container hides the cursor in the note underneath.
+- **Do not save the straightened page.** The crop exists only to trace. Writing it beside the SVG duplicated the photo. Colour, contrast, and sensitivity change the mask. They do not rewrite the saved JPEG. The corner-step turn does: the vault JPEG is the full photo after that turn, not the cropped page.
+- **Do not turn the page again after the warp.** The trace already uses the turned pixels. A second turn on the flattened page would disagree with the saved JPEG.
+- **Fixture JPEGs stay free of camera metadata.** `tests/fixtures/photo-trace/` is in a public repo. Those files are plain JFIF plus image data. Do not put EXIF, GPS, or a phone colour profile back on them.
+- **The photo folder is `Images`.** A lowercase `images` folder is a different directory on a case-sensitive vault, such as Android. Do not lowercase the new path. Do not rewrite paths already stored on older files.
+- **Do not restore a global paper-brightness clip.** A luminance floor treats shadows as “not paper” and deletes ink in dark corners. Desk leftover is `dropLargeBorderComponents`.
+- **Flatten is automatic** on the page that is traced. It is not written back onto the saved original. Colour and contrast remain for stains, not for lighting.
+- **The inlined worker is minified only in production.** `npm run build:wasm` writes a readable bundle. `npm run build` rewrites it minified before it is stored as a string in `main.js`. The outer minify pass cannot shrink that string by itself.
+- **Do not let the photo picker focus Take photo on open.** Obsidian focuses the first visible control after `onOpen` when a keyboard is attached. That control is **Take photo**, so one equal choice looks selected. `hasInitialInputFocus` is real on `Modal` in Obsidian 1.14 and missing from the typings. It must stay false, and focus must stay on the dialog, or the ring comes back. Tab still reaches the buttons.
+- **A side drag must move both pins by one shared delta.** Moving the ends independently turns or stretches the side. Presses within about 24 screen pixels of a circle are not side hits, or a near-miss slides the side instead of grabbing that circle. A very short side can sit entirely inside that exclusion, and the tap still grabs the nearest circle.

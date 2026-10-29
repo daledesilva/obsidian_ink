@@ -1,6 +1,6 @@
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
-import { App, ButtonComponent, PluginSettingTab, Setting, SliderComponent, TextComponent, ToggleComponent } from "obsidian";
+import { App, ButtonComponent, Notice, PluginSettingTab, Setting, SliderComponent, TextComponent, ToggleComponent } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -38,6 +38,7 @@ import {
 	subscribeAlmostUsefulSessionChanged,
 } from 'src/logic/almostuseful/almostuseful-session';
 import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
+import { describeInkSubfolderPathChange, sanitiseInkSubfolderPath } from 'src/logic/utils/ink-subfolder-path';
 import {
 	AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT,
 	clampAutoTranscribeChangeThresholdPercent,
@@ -494,15 +495,39 @@ function insertExperimentalChangesSection(
 
 function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlugin) {
 
-	const saveWritingFolder = async (enteredValue: string) => {
-		const value = enteredValue || DEFAULT_SETTINGS.writingSubfolder;
-		plugin.settings.writingSubfolder = value.trim();
+	// Obsidian silently refuses folder names that start with a dot, so an unsanitised `.ink/Writing`
+	// saved fine but produced no folder and no ink file (#64). Repair the path, write it back into
+	// the input, and tell the user when the stored value differs from what they typed.
+	const applyFolderValue = async (
+		enteredValue: string,
+		fallbackValue: string,
+		inputEl: HTMLInputElement | null,
+	): Promise<string> => {
+		const rawValue = enteredValue || fallbackValue;
+		const sanitised = sanitiseInkSubfolderPath(rawValue);
+		if (inputEl) inputEl.value = sanitised.path;
+
+		const explanation = describeInkSubfolderPathChange(sanitised);
+		if (explanation) new Notice(explanation);
+
+		return sanitised.path;
+	}
+
+	const saveWritingFolder = async (enteredValue: string, inputEl: HTMLInputElement | null) => {
+		plugin.settings.writingSubfolder = await applyFolderValue(
+			enteredValue,
+			DEFAULT_SETTINGS.writingSubfolder,
+			inputEl,
+		);
 		await plugin.saveSettings();
 	}
 
-	const saveDrawingFolder = async (enteredValue: string) => {
-		const value = enteredValue || DEFAULT_SETTINGS.drawingSubfolder;
-		plugin.settings.drawingSubfolder = value.trim();
+	const saveDrawingFolder = async (enteredValue: string, inputEl: HTMLInputElement | null) => {
+		plugin.settings.drawingSubfolder = await applyFolderValue(
+			enteredValue,
+			DEFAULT_SETTINGS.drawingSubfolder,
+			inputEl,
+		);
 		await plugin.saveSettings();
 	}
 
@@ -611,10 +636,10 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 					textItem.setValue(plugin.settings.writingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
 					textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
-						void saveWritingFolder(textItem.getValue());
+						void saveWritingFolder(textItem.getValue(), textItem.inputEl);
 					})
 					textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') void saveWritingFolder(textItem.getValue());
+						if(ev.key === 'Enter') void saveWritingFolder(textItem.getValue(), textItem.inputEl);
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -626,10 +651,10 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 					textItem.setValue(plugin.settings.drawingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
 					textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
-						void saveDrawingFolder(textItem.getValue());
+						void saveDrawingFolder(textItem.getValue(), textItem.inputEl);
 					})
 					textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') void saveDrawingFolder(textItem.getValue());
+						if(ev.key === 'Enter') void saveDrawingFolder(textItem.getValue(), textItem.inputEl);
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');

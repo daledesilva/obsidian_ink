@@ -39,6 +39,11 @@ Long-press or right-click on the selection chrome (not on empty canvas) opens a 
 
 **Additive XOR:** Starting a new lasso or tap does not clear the existing selection. Strokes hit by a **long** lasso toggle membership (selected → deselect, unselected → select). A short tap on a stroke toggles that stroke. **Short tap outside the selection chrome** (press start outside the oriented bounding box, movement under `SELECT_STROKE_DRAG_THRESHOLD_SCREEN_PX`) clears the whole selection — even when the pen emits many pointermove samples (Boox). Dragging still starts from the selection frame interior, or from a selected stroke after moving the pointer a few screen pixels.
 
+**Writing selections stay on the page:** On a writing page a drag is clamped so the selection cannot be pushed completely out of reach. The canvas supplies page bounds through `getSelectionMovePageBounds()`; drawing canvases return `null` and move freely because a drawing is an infinite canvas.
+
+Clamping keeps at least `max(8, 25% of the shorter selection side)` page units of the selection inside the page, on all four edges. It limits each drag step rather than the whole gesture, so the selection slides along an edge and remains grabbable instead of stopping dead. `clampSelectionMoveDelta()` lives in `ink-canvas/selection-move-clamp.ts` and is applied in `select-tool.ts` via `limitDragToReachableArea()`. A clamp logs the requested and applied delta at debug level.
+
+
 **Finger + select:** When finger drawing is off, single-finger touch on the canvas still runs the select tool (tap/lasso/deselect). Long-press on the selection chrome alone opens the delete menu.
 
 **Tool switching (writing + drawing):** `selectedIds` and `selectionChrome` stay in memory when you switch to pen or eraser. Bounds, handles, lasso, and stroke highlight (accent tint / high-contrast halo) show **only** while the select tool is active — same behaviour in both ink-canvas writing and drawing editors (`InkSvgCanvas` + `InkCanvasDrawingMenu`). Returning to the arrow restores the previous pick without re-lassoing.
@@ -51,7 +56,8 @@ Long-press or right-click on the selection chrome (not on empty canvas) opens a 
 |--------|------|
 | `tools/select-tool.ts` | Pointer phases: `idle`, `lasso`, `dragging`, `resizing`, `rotating`. |
 | `selection-bounds.ts` | Axis-aligned bounds from strokes, padding, minimum size for handles. |
-| `selection-chrome.ts` | Oriented frame, handle positions, hit tests, preview application. |
+| `selection-chrome.ts` | Oriented frame, handle positions, hit tests, preview application; `getChromeAxisAlignedBounds()` for edge clamping. |
+| `selection-move-clamp.ts` | `clampSelectionMoveDelta()` — keeps a dragged writing selection reachable inside the page. |
 | `selection-transform.ts` | Scale/rotate about pivot; `rotationDeltaForDominantHand` for left hand. |
 | `selection-overlay.tsx` | SVG chrome: bounds **fill underlay** (below strokes), then bounds **stroke** + handles above ink. |
 | `utils/lasso-stroke-selection.ts` | Stroke ∩ lasso polygon (segment sampling). |
@@ -78,3 +84,5 @@ Settings UI lists **Left** before **Right** on the dominant-hand toggle so the c
 - **Delete only while the box is showing.** Pen and eraser keep `selectedIds` but hide the chrome. Backspace and Delete do nothing until the select tool is active again.
 - **Do not focus the canvas on hover.** `FingerBlocker` `pointerenter` used to blur whatever was focused. On a desktop that pulled the caret out of the note as soon as the pointer crossed an unlocked embed. Blur runs only for `pointerType === 'touch'`, and only when the active element is a text field.
 - **Two open editors.** Each canvas listens for Backspace/Delete. When focus is on `document.body`, only the canvas remembered from the latest click, drag, or selection change deletes. Unmount releases that memory.
+- **Clamping uses the rotated extent.** Edge clamping measures the chrome's axis-aligned bounds (`getChromeAxisAlignedBounds`), not its unrotated width/height. A rotated selection is wider on screen than its stored dimensions, so using the raw size would still let a corner escape the page.
+- **Clamping advances the accumulated delta by the applied amount.** `dragAccumulatedDelta` grows by the *clamped* delta, not the requested one. Adding the requested delta would let the internal counter drift ahead of the visible geometry and release the selection past the edge on pointer up.

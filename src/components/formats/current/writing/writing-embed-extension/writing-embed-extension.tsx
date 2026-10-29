@@ -29,9 +29,11 @@ import { preventWidgetRootStealingFocus } from '../../utils/preventWidgetRootSte
 import { preventCodeMirrorHandlingWidgetsEvents } from '../../utils/createWidgetRootDomEventHandlers';
 import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-leaf-from-cm';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
+import { debug, error } from 'src/logic/utils/universal-dev-logging';
 import { EmbedSettings } from 'src/types/embed-settings';
 import { parseSettingsFromUrl } from '../../utils/parse-settings-from-url';
 import {
+	findEmbedMarkdownRangeForFile,
 	getEmbedDecorationRange,
 	getEmbedMarkdownRange,
 	inkEmbedMarkdownOnlyAltChanged,
@@ -301,6 +303,27 @@ export class WritingEmbedWidget extends WidgetType {
         );
     }
 
+    /**
+     * Decoration range first, then a path-based fallback.
+     * The fallback is what keeps "Delete embed" working after a widget rebuild (#69).
+     */
+    private getEmbedMarkdownRangeInViewOrFallback(view: EditorView) {
+        const rangeFromDecoration = this.getEmbedMarkdownRangeInView(view);
+        if (rangeFromDecoration) return rangeFromDecoration;
+
+        const embeddedFilePath = this.embeddedFile?.path;
+        if (!embeddedFilePath) return null;
+
+        const fallbackRange = findEmbedMarkdownRangeForFile(view.state.doc, embeddedFilePath, 'inkWriting');
+        debug([
+            'Writing embed range fallback',
+            `decorationRangeFound=${!!rangeFromDecoration}`,
+            `fallbackRangeFound=${!!fallbackRange}`,
+            embeddedFilePath,
+        ]);
+        return fallbackRange;
+    }
+
     getEmbedMarkdown(view: EditorView): string | null {
         const range = this.getEmbedMarkdownRangeInView(view);
         if (!range) return null;
@@ -308,8 +331,17 @@ export class WritingEmbedWidget extends WidgetType {
     }
 
     private removeEmbed(view: EditorView) {
-        const range = this.getEmbedMarkdownRangeInView(view);
-        if (!range) return;
+        // Never fail silently: a no-op delete is what issue #69 reported.
+        const range = this.getEmbedMarkdownRangeInViewOrFallback(view);
+        if (!range) {
+            error([
+                'Could not remove writing embed',
+                'No embed Markdown found for this widget',
+                this.embeddedFile?.path ?? '(unknown file)',
+            ]);
+            new Notice('Could not find this embed in the note. Remove the embed line manually.');
+            return;
+        }
         const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: '' } });
         view.dispatch(tr);
     }

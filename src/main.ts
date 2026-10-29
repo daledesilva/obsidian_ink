@@ -33,6 +33,8 @@ import { TldrawSvgMigrationModal } from './components/dom-components/modals/tldr
 import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
 import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfFileFromNote } from './logic/utils/convert-file-embeds';
 import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
+import { findEmbedMarkdownRangeForFile, findEmbedMarkdownRangeInString } from './logic/utils/embed-markdown-range';
+import { getNewTimestampedDrawingSvgFilepath, getNewTimestampedWritingSvgFilepath } from './logic/utils/file-manipulation';
 import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
@@ -114,6 +116,12 @@ export default class InkPlugin extends Plugin {
 	readonly RemoveEmbedModal = RemoveEmbedModal;
 	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
 	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
+	/** Lets e2e assert the #69 removal fallback without depending on Obsidian's menu DOM. */
+	readonly findEmbedMarkdownRangeForFile = findEmbedMarkdownRangeForFile;
+	readonly findEmbedMarkdownRangeInString = findEmbedMarkdownRangeInString;
+	/** Lets e2e resolve Ink's destination path without creating folders (#126). */
+	readonly getNewTimestampedWritingSvgFilepath = getNewTimestampedWritingSvgFilepath;
+	readonly getNewTimestampedDrawingSvgFilepath = getNewTimestampedDrawingSvgFilepath;
 
 	openMigrationModal(onPermanentMigrationFinished?: () => void) {
 		new MigrationModal(this, onPermanentMigrationFinished).open();

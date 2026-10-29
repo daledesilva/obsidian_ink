@@ -693,6 +693,12 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		},
 		setSelectionPreview: (preview) => setSelectionPreview(preview),
 		getDominantHand: () => dominantHandRef.current,
+		// Writing pages end at the page edge, so a dragged fragment is clamped back into reach (#132).
+		// Drawings are an infinite canvas, so they return null and move freely.
+		getSelectionMovePageBounds: () => {
+			if (!writingMode) return null;
+			return { width: pageWidth, height: pageHeightRef.current };
+		},
 	};
 
 	selectCtxRef.current = selectCtx;

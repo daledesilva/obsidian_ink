@@ -48,9 +48,11 @@ import { getWorkspaceLeafForEditorView } from 'src/logic/undo-redo/workspace-lea
 import { applyCommonAncestorStyling } from 'src/logic/utils/embed';
 import { parseInkEmbedRefreshEffectValue, type InkEmbedRefreshRequest } from '../../ink-embeds-extension/ink-embed-refresh';
 import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect-ratio';
+import { debug, error } from 'src/logic/utils/universal-dev-logging';
 import {
 	getEmbedDecorationRange,
 	getEmbedMarkdownRange,
+	findEmbedMarkdownRangeForFile,
 	inkEmbedMarkdownOnlyAltOrEditQueryChanged,
 } from 'src/logic/utils/embed-markdown-range';
 
@@ -74,8 +76,13 @@ export class DrawingEmbedWidget extends WidgetType {
     private reactRoot: Root | null = null;
     // Survives CM offscreen destroy→toDOM remounts (widget instance is reused via decoration eq).
     private lastMeasuredHeightPx: number | null = null;
+    /**
+     * False when the embed's Edit link had no viewBox params. The preview then trusts the SVG
+     * file's own viewBox instead of the default, which otherwise crops the drawing (#180).
+     */
+    private hasExplicitViewBox: boolean;
 
-    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean) {
+    constructor(mdFile: TFile, embeddedFile: TFile | null, embedSettings: EmbedSettings, partialEmbedFilepath: string, isPendingPaste: boolean, hasExplicitViewBox: boolean = true) {
         super();
         this.mdFile = mdFile;
         this.id = crypto.randomUUID(); // REVIEW: Is this available everyhere? // Also, what's it for?
@@ -83,6 +90,7 @@ export class DrawingEmbedWidget extends WidgetType {
         this.embedSettings = embedSettings;
         this.partialEmbedFilepath = partialEmbedFilepath;
         this.isPendingPaste = isPendingPaste;
+        this.hasExplicitViewBox = hasExplicitViewBox;
         this.lastMeasuredHeightPx = inkEmbedRecallHeightForFilepath(partialEmbedFilepath);
     }
 
@@ -130,6 +138,7 @@ export class DrawingEmbedWidget extends WidgetType {
                     embedId={this.id}
                     embeddedFile={this.embeddedFile}
                     embedSettings={this.embedSettings}
+                    hasExplicitViewBox={this.hasExplicitViewBox}
                     saveSrcFile={(pageData: InkFileData) => void this.save(pageData)}
                     remove={() => { this.removeEmbed(view); }}
                     getEmbedMarkdown={() => this.getEmbedMarkdown(view)}
@@ -414,6 +423,27 @@ export class DrawingEmbedWidget extends WidgetType {
         );
     }
 
+    /**
+     * Decoration range first, then a path-based fallback.
+     * The fallback is what keeps "Delete embed" working after a widget rebuild (#69).
+     */
+    private getEmbedMarkdownRangeInViewOrFallback(view: EditorView) {
+        const rangeFromDecoration = this.getEmbedMarkdownRangeInView(view);
+        if (rangeFromDecoration) return rangeFromDecoration;
+
+        const embeddedFilePath = this.embeddedFile?.path;
+        if (!embeddedFilePath) return null;
+
+        const fallbackRange = findEmbedMarkdownRangeForFile(view.state.doc, embeddedFilePath, 'inkDrawing');
+        debug([
+            'Drawing embed range fallback',
+            `decorationRangeFound=${!!rangeFromDecoration}`,
+            `fallbackRangeFound=${!!fallbackRange}`,
+            embeddedFilePath,
+        ]);
+        return fallbackRange;
+    }
+
     getEmbedMarkdown(view: EditorView): string | null {
         const range = this.getEmbedMarkdownRangeInView(view);
         if (!range) return null;
@@ -421,8 +451,17 @@ export class DrawingEmbedWidget extends WidgetType {
     }
 
     private removeEmbed(view: EditorView) {
-        const range = this.getEmbedMarkdownRangeInView(view);
-        if (!range) return;
+        // Never fail silently: a no-op delete is what issue #69 reported.
+        const range = this.getEmbedMarkdownRangeInViewOrFallback(view);
+        if (!range) {
+            error([
+                'Could not remove drawing embed',
+                'No embed Markdown found for this widget',
+                this.embeddedFile?.path ?? '(unknown file)',
+            ]);
+            new Notice('Could not find this embed in the note. Remove the embed line manually.');
+            return;
+        }
         const tr = view.state.update({ changes: { from: range.from, to: range.to, insert: '' } });
         view.dispatch(tr);
     }
@@ -636,7 +675,7 @@ const embedStateField: StateField<DecorationSet> = StateField.define<DecorationS
                     embedLinkInfo.startPosition,  
                     embedLinkInfo.endPosition,
                     Decoration.replace({
-                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste),
+                        widget: new DrawingEmbedWidget(mdFile, embedLinkInfo.embeddedFile, embedLinkInfo.embedSettings, embedLinkInfo.partialEmbedFilepath, embedLinkInfo.isPendingPaste, embedLinkInfo.hasExplicitViewBox),
                         isBlock: true,
                     })
                 );
@@ -777,6 +816,8 @@ interface embedLinkInfoNew {
     embedSettings: EmbedSettings,
     partialEmbedFilepath: string,
     isPendingPaste: boolean,
+    /** False when the Edit link carried no viewBox params, so the SVG file's own viewBox wins (#180). */
+    hasExplicitViewBox: boolean,
 }
 
 
@@ -965,7 +1006,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
     const startOfReplacement = previewLinkStartNode.from;
     const endOfReplacement = settingsUrlEndNode.to;
 
-    const { embedSettings, isPendingPaste } = parseSettingsFromUrl(urlAndSettings);
+    const { embedSettings, isPendingPaste, hasExplicitViewBox } = parseSettingsFromUrl(urlAndSettings);
 
     // Log the complete detected embed structure
     // console.log(`---- Successfully detected complete embed structure:`);
@@ -989,6 +1030,7 @@ function detectMarkdownEmbedLink(mdFile: TFile, previewLinkStartNode: SyntaxNode
             embedSettings: embedSettings,
             partialEmbedFilepath: previewPartialFilepath,
             isPendingPaste: isPendingPaste,
+            hasExplicitViewBox: hasExplicitViewBox,
         },
     }
 

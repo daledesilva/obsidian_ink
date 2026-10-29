@@ -10,6 +10,7 @@ import {
 	EMPTY_SELECTION_CHROME_PREVIEW,
 	applyRotationToSelectionChrome,
 	applyScaleToSelectionChrome,
+	getChromeAxisAlignedBounds,
 	getChromeHandlePositions,
 	hitTestChromeHandle,
 	isPagePointInChrome,
@@ -22,6 +23,7 @@ import {
 	scaleFactorFromPointerDistance,
 	transformStrokesAroundPivot,
 } from '../selection-transform';
+import { clampSelectionMoveDelta } from '../selection-move-clamp';
 import type { StrokeStore } from '../stroke-store';
 import type { UndoManager } from '../undo-manager';
 import type { CameraState, InkStroke } from '../types';
@@ -29,6 +31,7 @@ import type { StrokeBounds } from '../svg-export';
 import { strokeIntersectsLassoPolygon } from '../utils/lasso-stroke-selection';
 import { getStrokeIdAtClientPoint } from '../utils/stroke-hit-test';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
+import { debug } from 'src/logic/utils/universal-dev-logging';
 
 ///////////////////////////
 ///////////////////////////
@@ -46,6 +49,11 @@ export interface SelectToolContext {
 	setSelectionChrome: (chrome: SelectionChrome | null) => void;
 	setSelectionPreview: (preview: SelectionChromePreview | null) => void;
 	getDominantHand: () => DominantHand;
+	/**
+	 * Page size used to keep a dragged selection reachable (#132).
+	 * `null` in drawing mode, where the canvas is intentionally infinite.
+	 */
+	getSelectionMovePageBounds?: () => { width: number; height: number } | null;
 	onSelectionChange?: () => void;
 }
 
@@ -58,6 +66,9 @@ let phase: SelectPhase = 'idle';
 let lassoPoints: Array<{ x: number; y: number }> = [];
 
 let dragStartPage: { x: number; y: number } | null = null;
+// Grows by the CLAMPED delta, not the requested one. Adding the requested delta would let this
+// counter run ahead of the visible geometry, so pointer-up would bake a move past the page edge
+// even though the selection looked correctly stopped (#132).
 let dragAccumulatedDelta = { x: 0, y: 0 };
 
 let transformPivot: { x: number; y: number } | null = null;
@@ -195,12 +206,13 @@ export function selectToolPointerMove(e: PointerEvent, ctx: SelectToolContext): 
 		const dx = pagePoint.x - dragStartPage.x;
 		const dy = pagePoint.y - dragStartPage.y;
 
-		const delta = {
+		const requestedDelta = {
 			x: dx - dragAccumulatedDelta.x,
 			y: dy - dragAccumulatedDelta.y,
 		};
+		const delta = limitDragToReachableArea(ctx, requestedDelta);
 		moveSelectionVisuals(ctx, delta.x, delta.y);
-		dragAccumulatedDelta = { x: dx, y: dy };
+		dragAccumulatedDelta = { x: dragAccumulatedDelta.x + delta.x, y: dragAccumulatedDelta.y + delta.y };
 		publishSelectionPreview(ctx);
 		return;
 	}
@@ -431,6 +443,45 @@ function clearLassoVisual(ctx: SelectToolContext): void {
 
 // Drag helpers
 ///////////////////////////
+
+/**
+ * Caps a drag step so a writing selection cannot be pushed off the page (#132).
+ * Drawing canvases are infinite, so they pass no page bounds and move freely.
+ *
+ * The clamp runs per pointer-move step rather than once for the whole gesture so the selection
+ * slides along the page edge and stays grabbable, instead of stopping dead at the first limit.
+ */
+function limitDragToReachableArea(
+	ctx: SelectToolContext,
+	requestedDelta: { x: number; y: number },
+): { x: number; y: number } {
+	const pageBounds = ctx.getSelectionMovePageBounds?.() ?? null;
+	if (!pageBounds) return requestedDelta;
+
+	const chrome = ctx.getSelectionChrome();
+	if (!chrome) return requestedDelta;
+
+	// Chrome bounds as they would be after the steps already applied in this gesture.
+	const previewChrome = translateSelectionChrome(chrome, dragAccumulatedDelta.x, dragAccumulatedDelta.y);
+	const previewBounds = getChromeAxisAlignedBounds(previewChrome);
+
+	const clampedDelta = clampSelectionMoveDelta(requestedDelta, previewBounds, {
+		pageBounds,
+		selectionSize: { width: previewBounds.width, height: previewBounds.height },
+	});
+
+	const wasClamped = clampedDelta.x !== requestedDelta.x || clampedDelta.y !== requestedDelta.y;
+	if (wasClamped) {
+		debug([
+			'Selection move clamped to page',
+			`requested=(${requestedDelta.x.toFixed(1)}, ${requestedDelta.y.toFixed(1)})`,
+			`applied=(${clampedDelta.x.toFixed(1)}, ${clampedDelta.y.toFixed(1)})`,
+			`page=${pageBounds.width.toFixed(0)}x${pageBounds.height.toFixed(0)}`,
+		]);
+	}
+
+	return clampedDelta;
+}
 
 function finishDrag(ctx: SelectToolContext): void {
 	if (dragAccumulatedDelta.x === 0 && dragAccumulatedDelta.y === 0) {

@@ -81,6 +81,13 @@ interface DrawingEmbed_Props {
 	embedId?: string,
 	embeddedFile: TFile | null,
 	embedSettings: EmbedSettings,
+	/**
+	 * False when the Edit link carried no viewBox params, so the SVG file's own viewBox wins (#180).
+	 *
+	 * Threaded all the way from `parseSettingsFromUrl` because `embedSettings` alone cannot tell
+	 * "the URL said `0 0 500 281`" apart from "the URL said nothing and we defaulted to it".
+	 */
+	hasExplicitViewBox?: boolean,
 	saveSrcFile: (pageData: InkFileData) => void,
     remove: () => void,
     setEmbedProps?: (width: number, aspectRatio: number) => void,
@@ -474,6 +481,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 							embedId = {props.embedId}
 							embeddedFile = {props.embeddedFile}
 							embedSettings = {savedEmbedSettings}
+							hasExplicitViewBox = {props.hasExplicitViewBox ?? true}
 							onReady = {() => {}}
 							onClick = {props.isPendingPaste ? () => {} : () => void switchToEditMode()}
 						/>

@@ -142,6 +142,27 @@ export function translateSelectionChrome(
 	};
 }
 
+/**
+ * Axis-aligned bounds of the (possibly rotated) chrome in page space.
+ * Used for edge clamping, where only the outermost extent of the selection matters.
+ */
+export function getChromeAxisAlignedBounds(chrome: SelectionChrome): StrokeBounds {
+	const halfW = chrome.width / 2;
+	const halfH = chrome.height / 2;
+	const cos = Math.abs(Math.cos(chrome.rotationRad));
+	const sin = Math.abs(Math.sin(chrome.rotationRad));
+	const halfExtentX = halfW * cos + halfH * sin;
+	const halfExtentY = halfW * sin + halfH * cos;
+	return {
+		minX: chrome.center.x - halfExtentX,
+		minY: chrome.center.y - halfExtentY,
+		maxX: chrome.center.x + halfExtentX,
+		maxY: chrome.center.y + halfExtentY,
+		width: halfExtentX * 2,
+		height: halfExtentY * 2,
+	};
+}
+
 export function applyScaleToSelectionChrome(
 	chrome: SelectionChrome,
 	scale: number,

@@ -146,6 +146,13 @@ export function WritingEditor(props: WritingEditorProps) {
 	const dedicatedScrollerRef = useRef<HTMLDivElement>(null);
 	const dedicatedPageRef = useRef<HTMLDivElement>(null);
 	const [dedicatedPageCssHeightPx, setDedicatedPageCssHeightPx] = React.useState<number | null>(null);
+	/**
+	 * Same value as dedicatedPageCssHeightPx, written synchronously in
+	 * syncDedicatedPageCssHeight. The ink canvas store subscription calls the
+	 * mount-time onPageHeightChange forever, so React state in that closure
+	 * stays null and must not decide whether to pin scroll.
+	 */
+	const dedicatedPageCssHeightRef = useRef<number | null>(null);
 	/** Last width-fit zoom applied to dedicated page CSS — used only when zoom changes. */
 	const dedicatedLastZoomRef = useRef<number | null>(null);
 
@@ -356,6 +363,7 @@ export function WritingEditor(props: WritingEditorProps) {
 		const prevZoom = dedicatedLastZoomRef.current;
 
 		setDedicatedPageCssHeightPx(nextCssHeight);
+		dedicatedPageCssHeightRef.current = nextCssHeight;
 		dedicatedLastZoomRef.current = zoom;
 
 		if (
@@ -627,15 +635,18 @@ export function WritingEditor(props: WritingEditorProps) {
 				pageHeight: targetHeight,
 				preservePageScroll: true,
 			});
-		} else if (isInitialMount || dedicatedPageCssHeightPx === null) {
+		} else if (isInitialMount || dedicatedPageCssHeightRef.current == null) {
+			const shouldPinScrollToTop = dedicatedPageCssHeightRef.current == null || isInitialMount;
 			curHeightRef.current = editor.getPageHeight();
 			syncDedicatedPageCssHeight({
 				pageHeight: editor.getPageHeight(),
 				preservePageScroll: false,
 			});
 			// Open at the top of the menubar padding so the gap above the first
-			// line is already on screen. Later zoom changes keep this position.
-			if (scroller) scroller.scrollTop = 0;
+			// line is already on screen. Pin only while CSS height is still unset.
+			// The canvas store keeps the mount-time handler, so a React state null
+			// check stayed true forever and later strokes jumped scroll back to 0.
+			if (shouldPinScrollToTop && scroller) scroller.scrollTop = 0;
 		}
 	}
 

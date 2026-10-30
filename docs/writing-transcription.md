@@ -307,8 +307,8 @@ flowchart TD
   count --> empty{Any files of this type?}
   empty -->|no| none[Notice: none found]
   empty -->|yes| modal[Scope modal]
-  modal --> missing[Transcribe missing only]
-  modal --> all[Re-transcribe everything]
+  modal --> missing[Untranscribed Only]
+  modal --> all[Re-transcribe All]
   modal --> cancel[Cancel]
   missing --> queue[runTranscriptionBatch]
   all --> queue
@@ -317,9 +317,11 @@ flowchart TD
 
 | Choice | What is queued |
 |--------|----------------|
-| **Transcribe missing only** | Files of that type whose SVG `<transcript>` is empty. Disabled when every file already has one. |
-| **Re-transcribe everything** | Every file of that type, including ones that already have a transcript. |
+| **Untranscribed Only** | Files of that type whose SVG `<transcript>` is empty. Disabled when every file already has one. |
+| **Re-transcribe All** | Every file of that type, including ones that already have a transcript. |
 | **Cancel** | Nothing. |
+
+The writing modal is titled **Transcribe Writing**. The drawing modal is titled **Transcribe Drawing**. The title does not say “all”, because that choice is the buttons. The only body sentence is the count of files with no transcript and files that already have one. There is no second paragraph about credits. **Cancel** is a plain button on the far left of the same row. **Untranscribed Only** and **Re-transcribe All** are both filled primary buttons (`mod-cta`) on the right.
 
 Counts in the modal come from one vault pass: SVG files are sniffed with [`sniffInkSvgFileType`](../src/logic/utils/extractInkJsonFromSvg.ts) (eight reads at a time), then parsed. A file counts as already transcribed when `meta.transcript` has non-whitespace text. Drawings are not included in a writing run, and the reverse. A plain SVG that is not an Ink file is skipped.
 
@@ -590,6 +592,7 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Batch runs enqueue; they do not transcribe inline.** A vault of many files must stay on the one serial worker. Do not POST from the settings button.
 - **Batch cancel does not unwind the queue.** The enqueue loop ignores the cancel flag. Jobs already added keep running. Do not delete them on cancel — the user asked for those files.
 - **“Missing” means an empty `<transcript>`.** A file the portal refused, or a file transcribed then edited below the auto threshold, still counts as already transcribed if the element has text.
+- **Do not put “all” in the batch modal title.** **Transcribe Writing** and **Transcribe Drawing** only name the file type. “All” is **Re-transcribe All**. Do not restore the credits paragraph; the count sentence is the whole body.
 - **Do not warn about low credits when the percent is unknown.** Cache miss plus a failed burndown must stay silent. Do not treat a throw as 0%.
 - **A 2% warning replaces a 5% notice still on screen.** The 5% threshold stays recorded for that period so it does not reappear after dismiss of the 2% notice. Blocking all later warnings while one is visible would hide the more urgent level.
 - **Do not print 5% or 2% in the notice sentence.** Those numbers only choose when to warn. The sentence is the only body paragraph; do not add copy about transcription stopping or about opening the account. **View account** is the action.

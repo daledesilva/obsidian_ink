@@ -99,8 +99,8 @@ describe("Batch transcribe settings", function () {
 		expect(result.signedInHasBatch).toBe(true);
 		expect(result.signedInHasWriting).toBe(true);
 		expect(result.signedInHasDrawings).toBe(true);
-		expect(result.modalText).toContain("Transcribe missing only");
-		expect(result.modalText).toContain("Re-transcribe everything");
+		expect(result.modalText).toContain("Untranscribed Only");
+		expect(result.modalText).toContain("Re-transcribe All");
 		expect(result.modalText).toContain("Cancel");
 		expect(result.modalText).toContain("no transcript yet");
 		expect(result.modalStillOpen).toBe(false);

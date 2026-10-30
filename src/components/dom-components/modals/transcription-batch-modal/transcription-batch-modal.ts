@@ -39,21 +39,28 @@ class TranscriptionBatchModal extends Modal {
 		modalEl.addClass('ddc_ink_modal');
 		modalEl.addClass('ddc_ink_transcription-batch-modal');
 
+		// "All" belongs on the scope buttons, not the title. The title only names the file type.
+		const title = this.options.fileType === 'inkWriting' ? 'Transcribe Writing' : 'Transcribe Drawing';
 		const typeLabel = this.options.fileType === 'inkWriting' ? 'writing' : 'drawings';
-		titleEl.setText(`Transcribe all ${typeLabel}`);
+		titleEl.setText(title);
 
 		contentEl.createEl('p', {
 			text: `${this.options.pendingCount} ${typeLabel} ${this.options.pendingCount === 1 ? 'has' : 'have'} no transcript yet. ${this.options.alreadyTranscribedCount} already ${this.options.alreadyTranscribedCount === 1 ? 'has' : 'have'} one.`,
 		});
-		contentEl.createEl('p', {
-			text: 'Each file uses AI credits. Re-transcribing replaces existing transcripts and spends credits again.',
-		});
 
 		const actionsEl = contentEl.createDiv('ddc_ink_transcription-batch-modal__actions');
 
+		// Cancel is first so it can sit on the far left of the same row. Both choices spend
+		// credits, so both use the filled primary style rather than one looking optional.
+		const cancelButtonEl = actionsEl.createEl('button', {
+			text: 'Cancel',
+			type: 'button',
+		});
+		cancelButtonEl.addEventListener('click', () => this.close());
+
 		const missingOnlyButtonEl = actionsEl.createEl('button', {
-			cls: 'ddc_ink_primary-btn',
-			text: 'Transcribe missing only',
+			cls: 'mod-cta',
+			text: 'Untranscribed Only',
 			type: 'button',
 		});
 		missingOnlyButtonEl.addEventListener('click', () => {
@@ -63,20 +70,13 @@ class TranscriptionBatchModal extends Modal {
 		if (this.options.pendingCount === 0) missingOnlyButtonEl.disabled = true;
 
 		const everythingButtonEl = actionsEl.createEl('button', {
-			cls: 'ddc_ink_tertiary-btn',
-			text: 'Re-transcribe everything',
+			cls: 'mod-cta',
+			text: 'Re-transcribe All',
 			type: 'button',
 		});
 		everythingButtonEl.addEventListener('click', () => {
 			this.confirm('everything');
 		});
-
-		const cancelButtonEl = actionsEl.createEl('button', {
-			cls: 'ddc_ink_tertiary-btn',
-			text: 'Cancel',
-			type: 'button',
-		});
-		cancelButtonEl.addEventListener('click', () => this.close());
 	}
 
 	onClose(): void {

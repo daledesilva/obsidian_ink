@@ -87,13 +87,21 @@ describe('transcription batch modal', () => {
 			onConfirm: (scope) => scopes.push(scope),
 		});
 
-		expect(document.body.textContent).toContain('Transcribe all writing');
+		expect(document.body.textContent).toContain('Transcribe Writing');
+		expect(document.body.textContent).not.toContain('Each file uses AI credits');
 		expect(document.body.textContent).toContain('2 writing have no transcript yet. 1 already has one.');
-		expect(button('Transcribe missing only').disabled).toBe(false);
+		expect(button('Untranscribed Only').disabled).toBe(false);
+		expect(button('Untranscribed Only').classList.contains('mod-cta')).toBe(true);
+		expect(button('Re-transcribe All').classList.contains('mod-cta')).toBe(true);
+		expect([...document.querySelectorAll('button')].map((candidate) => candidate.textContent)).toEqual([
+			'Cancel',
+			'Untranscribed Only',
+			'Re-transcribe All',
+		]);
 
-		button('Transcribe missing only').click();
+		button('Untranscribed Only').click();
 		expect(scopes).toEqual(['missing-only']);
-		expect(document.body.textContent).not.toContain('Transcribe all writing');
+		expect(document.body.textContent).not.toContain('Transcribe Writing');
 	});
 
 	test('disables missing-only when every file already has a transcript', () => {
@@ -106,11 +114,12 @@ describe('transcription batch modal', () => {
 			onConfirm: (scope) => scopes.push(scope),
 		});
 
-		expect(document.body.textContent).toContain('Transcribe all drawings');
+		expect(document.body.textContent).toContain('Transcribe Drawing');
+		expect(document.body.textContent).not.toContain('Each file uses AI credits');
 		expect(document.body.textContent).toContain('0 drawings have no transcript yet. 1 already has one.');
-		expect(button('Transcribe missing only').disabled).toBe(true);
+		expect(button('Untranscribed Only').disabled).toBe(true);
 
-		button('Re-transcribe everything').click();
+		button('Re-transcribe All').click();
 		expect(scopes).toEqual(['everything']);
 	});
 

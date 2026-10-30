@@ -118,7 +118,7 @@ Signed-in content below the action row uses nested **settings cards** (`ddc_ink_
 |------|------------|----------|
 | **AI Credit Pool** | Signed in only | Pool title row + refresh; period subtitle; burndown SVG; **Usage distribution** subtitle + stacked spend SVG; Ink / Other apps legend at `font-ui-small` muted size |
 | **Transcription Queue** | When `readHandwritingTranscriptionQueueSnapshot()` is non-empty | Title row with **Clear** (no confirmation); file rows in run order with basename label, full path on hover, spinner on the in-flight job, per-row **×** remove |
-| **Batch transcribe** | Signed in only | **Transcribe all writing** and **Transcribe all drawings**. Each opens a scope modal (missing transcripts only, or everything) then enqueues onto the serial worker. |
+| **Batch transcribe** | Signed in only | **Transcribe all writing** and **Transcribe all drawings**. Each opens a scope modal titled **Transcribe Writing** or **Transcribe Drawing**, with **Untranscribed Only** and **Re-transcribe All**, then enqueues onto the serial worker. |
 
 **Clear** and per-row **×** call `clearHandwritingTranscriptionQueue` / `removeHandwritingTranscriptionFromQueue`. Waiting jobs are deleted from `pending`; an in-flight POST is not aborted but its result is discarded when it returns. The card is removed from the DOM when the queue empties (no empty-state copy). Live updates use `subscribeHandwritingTranscriptionQueueChanged` while settings stay open.
 

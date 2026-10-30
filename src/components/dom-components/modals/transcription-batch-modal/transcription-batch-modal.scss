@@ -4,8 +4,14 @@
 
 .ddc_ink_transcription-batch-modal__actions {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
+	align-items: center;
 	gap: 0.5em;
-	justify-content: flex-end;
 	margin-top: 1em;
+
+	// Cancel is the first button. Pushing it left keeps the two primary actions together
+	// on the right of the same row instead of wrapping Cancel onto a second line.
+	> button:first-child {
+		margin-right: auto;
+	}
 }

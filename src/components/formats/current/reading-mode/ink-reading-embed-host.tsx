@@ -276,11 +276,19 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 	function handleCopyTranscript() {
 		const text = transcript?.trim() ?? '';
 		if (!text) {
-			new Notice('No transcript to copy');
+			if (isDrawing) {
+				new Notice('No description or transcript to copy');
+			} else {
+				new Notice('No transcript to copy');
+			}
 			return;
 		}
 		void navigator.clipboard.writeText(text).then(() => {
-			new Notice('Transcript copied to clipboard');
+			if (isDrawing) {
+				new Notice('Description/transcript copied to clipboard');
+			} else {
+				new Notice('Transcript copied to clipboard');
+			}
 		}).catch(() => {
 			new Notice('Failed to copy transcript to clipboard');
 		});
@@ -333,9 +341,15 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// includeCopyTranscript: transcript view always; ink view only once a transcript exists.
 	function lockedEmbedMenuOptions(includeCopyTranscript: boolean): MenuOption[] {
+		let processLabel = 'Transcribe';
+		if (hasTranscript) processLabel = 'Update transcript';
+		if (isDrawing) {
+			processLabel = 'Describe/transcribe';
+			if (hasTranscript) processLabel = 'Update description/transcript';
+		}
 		const options: MenuOption[] = [
 			{
-				text: hasTranscript ? 'Update transcript' : 'Transcribe',
+				text: processLabel,
 				action: () => { void updateTranscriptFromLockedEmbed(); },
 			},
 			{
@@ -346,7 +360,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		];
 		if (includeCopyTranscript) {
 			options.push({
-				text: 'Copy transcript',
+				text: isDrawing ? 'Copy description/transcript' : 'Copy transcript',
 				action: () => { handleCopyTranscript(); },
 			});
 		}

@@ -42,7 +42,7 @@ flowchart LR
 1. Sign in to Almost Useful in Ink settings (app token required).
 2. Open a **writing or drawing** file in the embed editor or dedicated view.
 3. Open the overflow menu (⋯).
-4. Choose **Transcribe** (no transcript yet) or **Update transcript** (transcript already on the file).
+4. For writing, choose **Transcribe** (no transcript yet) or **Update transcript** (transcript already on the file). For a drawing, choose **Describe/transcribe** or **Update description/transcript**. A drawing job describes what is in the picture and transcribes any writing in it.
 5. The job is enqueued as **manual** (jumps the waiting list; not gated by auto-transcribe toggles).
 
 Manual jobs use the **live canvas** SVG (including unsaved strokes) when enqueued from the editor overflow menu.
@@ -64,24 +64,24 @@ sequenceDiagram
 
 ### Auto-transcribe on close (vault-synced toggles)
 
-Settings → **Writing** / **Drawing** — **Automatically transcribe writing** / **Automatically transcribe drawings** (last controls in each section, after display/layout options):
+Settings → **Writing** / **Drawing** — **Automatically transcribe writing** / **Automatically describe/transcribe drawings** (last controls in each section, after display/layout options). Drawing jobs describe the picture and transcribe any writing in it.
 
 | Setting | Default | Scope |
 |---------|---------|--------|
 | `writingAutoTranscribeOnClose` | **on** | Writing embed lock, **markdown note/tab close** (unlocked embeds), dedicated writing view close, quit-as-lock, vault modify |
-| `drawingAutoTranscribeOnClose` | **off** | Drawing embed lock, **markdown note/tab close** (unlocked embeds), dedicated drawing view close, quit-as-lock, vault modify |
+| `drawingAutoTranscribeOnClose` | **on** for a new vault | Drawing embed lock, **markdown note/tab close** (unlocked embeds), dedicated drawing view close, quit-as-lock, vault modify. A vault that already saved off keeps that choice. |
 | `writingAutoTranscribeChangeThresholdPercent` | **20** | Writing minimum ink change (0–95%) before auto runs again |
 | `drawingAutoTranscribeChangeThresholdPercent` | **20** | Drawing minimum ink change (0–95%) before auto runs again |
 
-When the device is not signed in to Almost Useful, the auto-transcribe toggle description adds **Transcription requires an Almost Useful account. Link your account above.**
+When the device is not signed in to Almost Useful, the writing toggle adds **Transcription requires an Almost Useful account. Link your account above.** The drawing toggle adds **Describing and transcribing a drawing requires an Almost Useful account. Link your account above.**
 
-**No linked account → no queue entries.** `enqueueAuto` returns without adding a job. **Transcribe** from the overflow menu shows a notice and does not enqueue. Quit-promote, launch resume, and failed-job retry also skip (or clear) pending work while unsigned. Signing out or session expiry clears the device-local pending list.
+**No linked account → no queue entries.** `enqueueAuto` returns without adding a job. **Transcribe** or **Describe/transcribe** from the overflow menu shows a notice and does not enqueue. Quit-promote, launch resume, and failed-job retry also skip (or clear) pending work while unsigned. Signing out or session expiry clears the device-local pending list.
 
 Auto enqueue runs only when the device is signed in, the per-type toggle is on, **and** ink change meets the threshold. Turning a toggle **off** drops **waiting auto** jobs of that type from the device-local queue; it does **not** cancel an in-flight portal POST. Manual pending jobs stay while signed in.
 
 ### Change threshold (occupied-cell Jaccard %)
 
-Settings → **Writing** / **Drawing** → **Re-transcribe when ink file changes significantly** (slider **0–95%**, shown when auto-transcribe on close is on):
+Settings → **Writing** → **Re-transcribe when ink file changes significantly**, and **Drawing** → **Re-describe/transcribe when the drawing changes significantly** (slider **0–95%**, shown when the auto toggle is on):
 
 The slider is **percent of occupied 32px cells that changed** (Jaccard symmetric-difference / union of bbox-relative cells), not SimHash Hamming bits and not a hash of SVG markup. Page template / ruled-line pixels are not in the cell set — only stroke points.
 
@@ -189,7 +189,7 @@ sequenceDiagram
 | Route | `POST /api/jobs/handwriting-transcription` |
 | Auth | Almost Useful app token (`ink` / `Ink` attribution) |
 | Model | `google/gemini-2.5-flash-lite` |
-| Media | Visual-only SVG (`<metadata>` stripped) |
+| Media | Visual-only SVG (`<metadata>` stripped). Sent in full first; after a size or complexity refusal, writing is sliced on line gaps and drawings or unsliced writing retry once as JPEG. |
 | Page background | Theme-aware opaque rect — white for dark ink, black for light ink (inferred from `ink-color-primary` stroke fills) |
 
 Implementation:
@@ -204,7 +204,7 @@ Implementation:
 | Outcome | Queue |
 |---------|--------|
 | `retryable: false` | One notice. The job is not put back. |
-| `code: media_too_large` or status 413 | Notice: “This file can't be transcribed currently because it is too long. This will be fixed in a future update to Ink.” |
+| `code: media_too_large` or status 413, after the JPEG retry also fails | Notice: “This file is too large to transcribe or describe. Try splitting it into separate writing or drawing files.” |
 | 402 | Notice: “Insufficient Almost Useful credits”. Not stored against the strokes, so a later close can try again after credits are added. |
 | 401 / not signed in | One notice. Not stored against the strokes. |
 | `navigator.onLine === false` | No POST. No notice. The job stays pending. If it was already taken off the list, it goes back to the front with no `retryAfter`. The window `online` event kicks the worker. |
@@ -230,7 +230,51 @@ flowchart TD
 
 `networkFailureCount` lives on the pending job. A fresh enqueue clears it. A successful transcription removes the job, so the count goes with it.
 
-A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds. Ink does not hardcode the 1.5MB portal cap.
+A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds.
+
+The plugin does hardcode the portal’s decoded-media cap as [`HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES`](../src/logic/almostuseful/handwriting-transcription-media-limit.ts) (1,500,000 bytes). That constant is what slicing and the JPEG retry aim under. A refusal that still arrives after those retries is what the queue stores.
+
+### Long writing and dense drawings
+
+**Why it exists:** The portal rejects media above about 1.5MB decoded, and it can also refuse a dense SVG as `invalid_request`. A long handwriting page used to fail with a “future update” notice. Drawings have no lines to cut, so they stay one image and are re-sent as JPEG when the SVG is refused.
+
+```mermaid
+flowchart TD
+  start[transcribeWriting]
+  one[One visual SVG]
+  start --> one
+  one --> okOne{Portal accepts?}
+  okOne -->|yes| done[Return text]
+  okOne -->|credits or sign-in| throw[Throw, no slice, no JPEG]
+  okOne -->|media refusal| plan{Writing slices?}
+  plan -->|yes| each[Each slice: visual SVG]
+  each --> ok{Portal accepts?}
+  ok -->|yes| keep[Keep slice text]
+  ok -->|media refusal| jpegSlice[Retry that slice as JPEG]
+  ok -->|credits or sign-in| throw
+  jpegSlice --> keep
+  keep --> stitch[Stitch in reading order]
+  plan -->|no| jpeg[Retry whole file as JPEG]
+  jpeg --> done
+```
+
+The full visual SVG is always sent first. Slicing ([`planWritingTranscriptionSlices`](../src/logic/writing-transcription-slicing.ts)) runs only after that request is refused for size or complexity, and only for `inkWriting`. Drawings, a page that is one vertical band, and rows that still pack into one slice all return null and retry as one JPEG. A credits or sign-in failure stops before slicing.
+
+Strokes are grouped into bands by overlapping world-Y bounds, sorted from the top. A band is a visual row: overlapping boxes stay together, so a line is never split across requests. Whole bands are packed until the next band would pass the cap minus a 4,096-byte margin. The estimate is the UTF-8 length of the visual-only slice SVG (metadata already stripped), because that is the decoded document the portal receives. A single band that is already over the cap is its own slice so the JPEG retry can still run. If packing produces only one slice, the planner returns null and that image is retried as JPEG.
+
+Each slice is a self-contained visual SVG. Strokes are shifted so the band sits at a local origin with 24px of padding, and the viewBox hugs those strokes. The model then sees a short page rather than a thin strip of a very tall one.
+
+Slice transcripts are joined in order. If the text so far ends with `.` `!` `?` `:` or `;` (optional closing quote or bracket), the next slice follows after a blank line. Otherwise they are joined with a space, so a sentence that crossed the seam is not turned into two paragraphs. Empty slice texts are dropped.
+
+If a slice POST is refused for size or complexity, that slice alone is rasterised to JPEG and posted again. Any other slice failure, including credits or sign-in, throws the original error. Earlier slice text is not written: the stitch returns only when every slice produced text.
+
+The whole-file JPEG retry (drawings, and handwriting that cannot be split) runs only for `media_too_large`, HTTP 413, or `invalid_request` with a 4xx status. Insufficient credits (402) and sign-in (401) are not rasterised and are not sliced.
+
+JPEG ([`writingSvgToJpegBase64`](../src/logic/utils/writing-svg-to-png-base64.ts)) uses the same Canvg canvas as PNG eval. Quality starts at 0.85 and steps down by 0.1 to 0.35. If the image is still over the cap, the canvas is scaled by 0.7 and quality is swept again, up to three scale attempts. The last attempt returns the smallest JPEG even when it is still over the cap. No canvas returns null, and the original portal error is thrown. The media type on the retry is `image/jpeg`.
+
+The “too large” notice is shown only when that retry also fails. It tells the user to split the file. It no longer promises a future Ink update.
+
+QA note **21 – Handwriting Transcription** embeds two files from `tests/fixtures/transcription-oversize/` that are over the cap: stacked writing (sliced after the full SVG is refused) and a stacked drawing (one JPEG retry). They are not live-eval samples. `npx tsx tests/fixtures/transcription-oversize/build-oversized-fixtures.ts` rebuilds them from the smaller fixtures.
 
 Eval matrix and live tests remain in the repo for model comparison — not exposed in the UI. See [Eval and live tests](#eval-and-live-tests). Per-model dollar cost is not available; see [Cost evaluation (currently unavailable)](#cost-evaluation-currently-unavailable).
 
@@ -493,10 +537,10 @@ flowchart LR
 
 | Order | Item | When |
 |-------|------|------|
-| 1 | Update transcript, or Transcribe | Always. Transcribe when the file has no transcript yet |
+| 1 | Update transcript, or Transcribe. On a drawing: Update description/transcript, or Describe/transcribe | Always. The first-run label is used when the file has no saved text yet |
 | 2 | Open writing, or Open drawing | Always. Opens the dedicated view without full screen, then reveals the file in the explorer |
 | — | separator | |
-| 3 | Copy transcript | Ink view and transcript view, when a transcript exists. Copies the SVG markdown |
+| 3 | Copy transcript. On a drawing: Copy description/transcript | Ink view and transcript view, when saved text exists. Copies the SVG markdown |
 | 4 | Copy embed | Always |
 | 5 | Delete embed | Always |
 
@@ -572,7 +616,12 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Do not put the job queue in `data.json`.** Device-local only — avoids multi-device double billing.
 - **Tldraw saves and `xml-formatter`.** If `<transcript>` is inside the block passed to the formatter, indent whitespace can corrupt markdown. The tldraw path inserts the compact element after formatting.
 - **Send visual SVG with opaque page to the portal.** Raw metadata JSON wastes tokens; transparent SVG backgrounds caused Gemini to return numbered-list junk instead of transcribing. Theme-aware page contrast matches eval findings.
-- **Production uses SVG only.** PNG rasterization exists for eval variants, not the shipped Transcribe menu.
+- **Send the full visual SVG first.** Slice handwriting only after a size or complexity refusal, and only on line gaps. JPEG the whole file only when it cannot be sliced (a drawing, one row, or rows that still pack into one slice). A credits or sign-in refusal must not slice or rasterise. The refused full-page request does not start the transcription job, so it does not spend credits.
+- **Do not decide to slice from the raw Ink file size.** That file includes snapshot metadata the portal never receives. The portal’s refusal of the prepared visual SVG is the size check.
+- **Live `account.almostuseful.xyz` still rejects `image/jpeg`.** Acceptance is only on portal branch `feat/handwriting-jpeg`, which is not on `main`. A drawing JPEG retry, a slice JPEG retry, and a photo-import JPEG all post to `POST /api/jobs/handwriting-transcription` and get `mediaType must be image/svg+xml or image/png` on production.
+- **Slice on vertical overlap, never through a line.** A band is every stroke whose world-Y box overlaps the band above it. Cutting a line in half produces text that cannot be stitched.
+- **A failed slice fails the whole page.** JPEG is per slice, but a second failure throws. Do not save a partial stitch — the SVG would claim a transcript for strokes that were not read.
+- **The 1.5MB cap is hardcoded on purpose.** Slicing and JPEG both aim under `HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES`. Leaving the cap only on the portal meant every long page failed after the upload.
 - **Threshold 0% re-transcribes on every auto path**, including after transcript-only `vault.modify` from apply.
 - **Occupancy is bbox cells, not Hamming.** SimHash understated large handwriting edits (similar bit patterns while cells changed a lot). The slider is Jaccard of 32px cells relative to stroke min X/Y.
 - **Do not fingerprint SVG markup.** Grid lines and `<ink>` attribute churn would dominate.

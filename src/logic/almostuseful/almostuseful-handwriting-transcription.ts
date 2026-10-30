@@ -46,8 +46,12 @@ export interface HandwritingTranscriptionJobResponse {
 /** Portal code for an SVG/PNG the route will not accept. */
 export const HANDWRITING_TRANSCRIPTION_MEDIA_TOO_LARGE_CODE = 'media_too_large';
 
+/**
+ * Shown only when even the JPEG retry was refused, so this is a genuine dead end
+ * (a single line taller than the portal cap), not the long-page case that slicing covers.
+ */
 export const HANDWRITING_TRANSCRIPTION_TOO_LONG_NOTICE =
-	'This file can\'t be transcribed currently because it is too long. This will be fixed in a future update to Ink.';
+	'This file is too large to transcribe or describe. Try splitting it into separate writing or drawing files.';
 
 /**
  * Portal job failure. `retryable` is the signal for the queue, not the English message.

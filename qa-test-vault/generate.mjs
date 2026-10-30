@@ -23,6 +23,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const INK_PLUGIN_DIST_DIR = path.join(REPO_ROOT, 'dist');
 const FIXTURES = path.resolve(__dirname, 'fixtures');
 const HANDWRITING_TRANSCRIPTION_FIXTURES = path.resolve(__dirname, '../tests/fixtures/handwriting-transcription');
+const OVERSIZED_TRANSCRIPTION_FIXTURES = path.resolve(__dirname, '../tests/fixtures/transcription-oversize');
 const INK_BASE_URL = 'https://youtu.be/2arL1jh8ihA';
 const PLUGIN_VERSION = '0.4.0';
 const TLDRAW_VERSION = '2.1.0';
@@ -469,6 +470,55 @@ function generateAllNotes() {
   writeFile('11 - CodeMirror and Editor Behavior/Native Print Export.md', `# Print\n\n${w('hello-world.svg')}\n${d('simple-shape.svg')}`);
 }
 
+/** viewBox of an SVG, for a drawing embed that should show the whole page. */
+function readSvgViewBox(svgPath) {
+  const svg = fs.readFileSync(svgPath, 'utf8');
+  const match = svg.match(/viewBox\s*=\s*["']([^"']+)["']/i);
+  if (!match) return { x: 0, y: 0, w: 500, h: 500 };
+  const parts = match[1].trim().split(/[\s,]+/).map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
+    return { x: 0, y: 0, w: 500, h: 500 };
+  }
+  return { x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
+}
+
+/**
+ * Copies the over-cap writing and drawing fixtures into the vault.
+ * Eval samples stay under the portal cap, so this is the pair that exercises slicing and the JPEG retry.
+ */
+function copyOversizedTranscriptionFixtures() {
+  const writingName = 'oversized - stacked writing.svg';
+  const drawingName = 'oversized - stacked drawing.svg';
+  const writingSource = path.join(OVERSIZED_TRANSCRIPTION_FIXTURES, writingName);
+  const drawingSource = path.join(OVERSIZED_TRANSCRIPTION_FIXTURES, drawingName);
+  if (!fs.existsSync(writingSource) || !fs.existsSync(drawingSource)) {
+    console.warn('Warning: oversized transcription fixtures missing — run tests/fixtures/transcription-oversize/build-oversized-fixtures.ts');
+    return '';
+  }
+
+  const writingDir = path.join(VAULT_ROOT, 'Ink/Writing/transcription');
+  const drawingDir = path.join(VAULT_ROOT, 'Ink/Drawing/transcription');
+  ensureDir(writingDir);
+  ensureDir(drawingDir);
+  fs.copyFileSync(writingSource, path.join(writingDir, writingName));
+  fs.copyFileSync(drawingSource, path.join(drawingDir, drawingName));
+
+  const viewBox = readSvgViewBox(drawingSource);
+  const aspectRatio = viewBox.h === 0 ? 1 : viewBox.w / viewBox.h;
+  return `## oversized - stacked writing
+
+Over the portal media cap. Transcribe sends the whole page, then slices it on the gaps between lines. Each slice spends credits.
+
+${buildWritingEmbed(`Ink/Writing/transcription/${writingName}`)}
+
+## oversized - stacked drawing
+
+Over the portal media cap. Describe/transcribe sends the whole page, then retries once as a JPEG. The result describes the drawing and transcribes any writing in it. The JPEG spends credits. It is not sliced.
+
+${buildDrawingEmbed(`Ink/Drawing/transcription/${drawingName}`, 500, aspectRatio, viewBox)}
+`;
+}
+
 /** Copies eval handwriting SVGs into the vault and embeds each one in one note. */
 function generateHandwritingTranscriptionNote() {
   const svgNames = fs.readdirSync(HANDWRITING_TRANSCRIPTION_FIXTURES)
@@ -483,13 +533,18 @@ function generateHandwritingTranscriptionNote() {
     const title = name.replace(/\.svg$/, '');
     return `## ${title}\n${buildWritingEmbed(`Ink/Writing/transcription/${name}`)}`;
   }).join('\n');
+  const oversizedSections = copyOversizedTranscriptionFixtures();
   writeFile(
     '21 - Handwriting Transcription/Transcript fixtures.md',
     `# Handwriting transcription fixtures
 
 These SVGs are copied from \`tests/fixtures/handwriting-transcription/\` when the vault is generated. Expected transcripts, when a fixture has one, are the matching \`.expected.txt\` files in that same folder.
 
-${sections}`,
+The two oversized files are copied from \`tests/fixtures/transcription-oversize/\`. They are the samples that exceed the portal media cap.
+
+${sections}
+
+${oversizedSections}`,
   );
 }
 
@@ -543,7 +598,7 @@ All Ink files (SVGs and legacy .writing/.drawing) are copied from real captured 
 - **18 – Captured Legacy Migration**: Real v1 .writing/.drawing captures from production vaults
 - **19 – Migration Progress Density**: Many unique legacy files so scan/migrate progress bars visibly update
 - **20 – Insert Existing Picker**: ~50 writing + ~50 drawing ink-canvas files for lazy-preview / large-vault picker QA
-- **21 – Handwriting Transcription**: Eval SVGs from \`tests/fixtures/handwriting-transcription/\`, embedded for manual transcribe checks
+- **21 – Handwriting Transcription**: Eval SVGs from \`tests/fixtures/handwriting-transcription/\`, plus the oversized writing and drawing from \`tests/fixtures/transcription-oversize/\`, embedded for manual transcribe checks
 `);
   generateConversionTestAssets();
   generateMigrationTestAssets();

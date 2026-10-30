@@ -67,7 +67,7 @@ export function renderWritingStrokesToSvg(
 }
 
 
-function buildStrokePathMarkup(d: string, offsetX: number, offsetY: number): string {
+export function buildStrokePathMarkup(d: string, offsetX: number, offsetY: number): string {
 	const pathAttrs = `d="${d}" fill="${DEFAULT_CONTENT_COLOUR_PRIMARY_STROKE}" class="${INK_SVG_STROKE_PATH_CLASS}"`;
 	const hasOffset = offsetX !== 0 || offsetY !== 0;
 	if (hasOffset) {

@@ -699,19 +699,27 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 
 /** Auto-transcribe toggle copy; account requirement is shown only when not linked. */
 function autoTranscribeOnCloseSettingDesc(fileType: HandwritingTranscriptionFileType): DocumentFragment {
-	const embedKind = fileType === 'inkWriting' ? 'writing' : 'drawing';
-
 	const frag = createFragment();
 
 	const intro = createEl('p');
-	intro.textContent =
-		`When you lock a ${embedKind} embed or close a dedicated ${embedKind} view, queue the ${embedKind} file to be transcribed automatically. Manual Transcribing in the ink file's menu always stays available.`;
+	if (fileType === 'inkDrawing') {
+		// A drawing job describes the picture and transcribes writing inside it, so the toggle does not say "transcribe" alone.
+		intro.textContent =
+			'When you lock a drawing embed or close a dedicated drawing view, queue it automatically. The AI describes what is in the drawing and transcribes any writing in it. Describe/transcribe in the drawing\'s menu always stays available.';
+	} else {
+		intro.textContent =
+			'When you lock a writing embed or close a dedicated writing view, queue the writing file to be transcribed automatically. Manual Transcribing in the ink file\'s menu always stays available.';
+	}
 	frag.appendChild(intro);
 
 	if (!readAlmostUsefulSession()) {
 		const accountParagraph = createEl('p');
 		const accountLine = createEl('strong');
-		accountLine.textContent = 'Transcription requires an Almost Useful account. Link your account above.';
+		if (fileType === 'inkDrawing') {
+			accountLine.textContent = 'Describing and transcribing a drawing requires an Almost Useful account. Link your account above.';
+		} else {
+			accountLine.textContent = 'Transcription requires an Almost Useful account. Link your account above.';
+		}
 		accountParagraph.appendChild(accountLine);
 		frag.appendChild(accountParagraph);
 	}
@@ -793,7 +801,7 @@ function insertDrawingSettings(
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
-		.setName('Automatically transcribe drawings')
+		.setName('Automatically describe/transcribe drawings')
 		.setDesc(autoTranscribeOnCloseSettingDesc('inkDrawing'))
 		.addToggle((toggle) => {
 			toggle.setValue(plugin.settings.drawingAutoTranscribeOnClose);
@@ -1018,10 +1026,16 @@ function insertAutoTranscribeChangeThresholdSetting(
 		: 'drawingAutoTranscribeChangeThresholdPercent';
 
 	let percentTextComponent: TextComponent;
+	let thresholdName = 'Re-transcribe when ink file changes significantly';
+	let thresholdDesc = '0% always transcribes on close or sync; 95% only when ink is almost entirely different. Manual triggered  transcriptions ignore this.';
+	if (fileType === 'inkDrawing') {
+		thresholdName = 'Re-describe/transcribe when the drawing changes significantly';
+		thresholdDesc = '0% always describes the drawing and transcribes writing in it on close or sync; 95% only when the drawing is almost entirely different. Describe/transcribe from the menu ignores this.';
+	}
 	const thresholdSetting = new Setting(containerEl)
 		.setClass('ddc_ink_setting')
-		.setName('Re-transcribe when ink file changes significantly')
-		.setDesc('0% always transcribes on close or sync; 95% only when ink is almost entirely different. Manual triggered  transcriptions ignore this.')
+		.setName(thresholdName)
+		.setDesc(thresholdDesc)
 		.addSlider((slider) => {
 			const currentValue = clampAutoTranscribeChangeThresholdPercent(plugin.settings[settingsKey]);
 			slider

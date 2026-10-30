@@ -52,9 +52,11 @@ import { setDominantHand } from 'src/stores/dominant-hand-store';
 import {
 	getBooxConnectionEnabled,
 	migrateBooxConnectionFromVaultToDevice,
+	readLowCreditNoticeState,
 	resetBooxConnectionToDefault,
 	resetExperimentalDeviceSettingsToDefault,
 	resetFingerDrawingToDefault,
+	resetLowCreditNoticeStateForTests,
 	setBooxConnectionEnabled,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
@@ -69,6 +71,13 @@ import {
 	initHandwritingTranscriptionQueue,
 	shutdownHandwritingTranscriptionQueue,
 } from 'src/logic/handwriting-transcription-queue';
+import { maybeShowLowCreditNotice, resetLowCreditNoticeShowingForTests } from './components/dom-components/low-credit-notice';
+import {
+	clearAlmostUsefulSession,
+	readAlmostUsefulSession,
+	writeAlmostUsefulSession,
+} from 'src/logic/almostuseful/almostuseful-session';
+import { writeAlmostUsefulUsageCache } from 'src/logic/almostuseful/almostuseful-usage-cache';
 
 ////////
 ////////
@@ -122,6 +131,18 @@ export default class InkPlugin extends Plugin {
 	/** Lets e2e resolve Ink's destination path without creating folders (#126). */
 	readonly getNewTimestampedWritingSvgFilepath = getNewTimestampedWritingSvgFilepath;
 	readonly getNewTimestampedDrawingSvgFilepath = getNewTimestampedDrawingSvgFilepath;
+	/**
+	 * Lets e2e raise the low-credit notice without a portal transcription.
+	 * The real path calls this after a successful transcript; the spec seeds the usage cache first.
+	 */
+	readonly maybeShowLowCreditNotice = maybeShowLowCreditNotice;
+	readonly readAlmostUsefulSession = readAlmostUsefulSession;
+	readonly writeAlmostUsefulSession = writeAlmostUsefulSession;
+	readonly clearAlmostUsefulSession = clearAlmostUsefulSession;
+	readonly writeAlmostUsefulUsageCache = writeAlmostUsefulUsageCache;
+	readonly readLowCreditNoticeState = readLowCreditNoticeState;
+	readonly resetLowCreditNoticeStateForTests = resetLowCreditNoticeStateForTests;
+	readonly resetLowCreditNoticeShowingForTests = resetLowCreditNoticeShowingForTests;
 
 	openMigrationModal(onPermanentMigrationFinished?: () => void) {
 		new MigrationModal(this, onPermanentMigrationFinished).open();

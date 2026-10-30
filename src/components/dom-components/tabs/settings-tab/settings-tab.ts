@@ -30,6 +30,7 @@ import {
 import { applyHighContrastUserInterfaceBodyClass } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import {
+	destroyAlmostUsefulProcessingFlowTooltips,
 	insertAlmostUsefulAccountSection,
 	stopAlmostUsefulAccountSectionDevicePolling,
 } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
@@ -38,6 +39,7 @@ import {
 	subscribeAlmostUsefulSessionChanged,
 } from 'src/logic/almostuseful/almostuseful-session';
 import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
+import { beginTranscriptionBatchFromSettings } from 'src/logic/transcription-batch-settings-entry';
 import { describeInkSubfolderPathChange, sanitiseInkSubfolderPath } from 'src/logic/utils/ink-subfolder-path';
 import {
 	AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT,
@@ -104,6 +106,8 @@ export class MySettingsTab extends PluginSettingTab {
 		containerEl.createEl('hr');
 		insertAlmostUsefulAccountSection(containerEl, this.plugin, () => {
 			this.renderSettingsTab();
+		}, (fileType) => {
+			void beginTranscriptionBatchFromSettings(this.plugin, fileType);
 		});
 		this.unsubscribeAlmostUsefulSession = subscribeAlmostUsefulSessionChanged(() => {
 			this.renderSettingsTab();
@@ -202,6 +206,7 @@ export class MySettingsTab extends PluginSettingTab {
 	hide(): void {
 		this.legacyMigrateScanGeneration++;
 		stopAlmostUsefulAccountSectionDevicePolling();
+		destroyAlmostUsefulProcessingFlowTooltips();
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
 		this.unsubscribeAlmostUsefulSession?.();

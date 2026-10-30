@@ -106,9 +106,11 @@ When an ink SVG changes outside an open editor (Obsidian Sync, external edit, an
 
 Transcript-only writes from a successful job preserve stroke geometry → at default **1%**, the modify event after apply does **not** re-enqueue. At **0%**, it may.
 
-### Completion (silent)
+### Completion (silent, except low credits)
 
 Successful jobs write the SVG transcript and patch note embed alts **without** an Obsidian completion notice. Portal failures show one notice. Whether the job is tried again depends on the portal `retryable` flag, not the English sentence. A missing network does not fail the job — see [Offline and unreachable network](#offline-and-unreachable-network).
+
+After a successful apply, Ink may show a persistent **low credits** notice. That is not a completion toast for the transcript. See [Low credit notice](#low-credit-notice).
 
 **Not auto-enqueued:** expand embed → dedicated view (save on expand, dequeue when dedicated editor opens), empty canvas, or when ink change is **below** the per-type occupancy threshold. Sync/modify while the file is open in an embed or dedicated view is also skipped.
 
@@ -288,6 +290,88 @@ flowchart TD
 | `clearHandwritingTranscriptionQueue()` | Empty `pending` and cancel inflight the same way |
 
 No confirmation modals. Removing or clearing does not cancel the HTTP request; it only prevents apply on completion and suppresses error re-queue for cancelled paths.
+
+### Batch transcribe (settings)
+
+Signed-in settings show a **Batch transcribe** card under the account usage charts ([`insertTranscriptionBatchSection`](../src/components/dom-components/tabs/settings-tab/almostuseful-account-section.ts)). Unsigned settings do not. The card has two buttons: **Transcribe all writing** and **Transcribe all drawings**.
+
+A click does not start portal jobs immediately. Ink counts files of that type first, then asks how much of the vault to send, because re-transcribing spends credits again and those credits are not refunded.
+
+```mermaid
+flowchart TD
+  click[Transcribe all writing or drawings]
+  signed{Signed in?}
+  click --> signed
+  signed -->|no| notice[Notice: link an account]
+  signed -->|yes| count[planTranscriptionBatch missing-only]
+  count --> empty{Any files of this type?}
+  empty -->|no| none[Notice: none found]
+  empty -->|yes| modal[Scope modal]
+  modal --> missing[Untranscribed Only]
+  modal --> all[Re-transcribe All]
+  modal --> cancel[Cancel]
+  missing --> queue[runTranscriptionBatch]
+  all --> queue
+  queue --> worker[Existing serial worker]
+```
+
+| Choice | What is queued |
+|--------|----------------|
+| **Untranscribed Only** | Files of that type whose SVG `<transcript>` is empty. Disabled when every file already has one. |
+| **Re-transcribe All** | Every file of that type, including ones that already have a transcript. |
+| **Cancel** | Nothing. |
+
+The writing modal is titled **Transcribe Writing**. The drawing modal is titled **Transcribe Drawing**. The title does not say “all”, because that choice is the buttons. The only body sentence is the count of files with no transcript and files that already have one. There is no second paragraph about credits. **Cancel** is a plain button on the far left of the same row. **Untranscribed Only** and **Re-transcribe All** are both filled primary buttons (`mod-cta`) on the right.
+
+Counts in the modal come from one vault pass: SVG files are sniffed with [`sniffInkSvgFileType`](../src/logic/utils/extractInkJsonFromSvg.ts) (eight reads at a time), then parsed. A file counts as already transcribed when `meta.transcript` has non-whitespace text. Drawings are not included in a writing run, and the reverse. A plain SVG that is not an Ink file is skipped.
+
+Each chosen file is enqueued with [`enqueueManualTranscription`](../src/logic/handwriting-transcription-queue.ts) in path order. That is the same manual path as the overflow menu: it jumps the waiting list, ignores the auto-transcribe toggle and the change threshold, and still refuses empty canvases and strokes the portal already rejected. The SVG string read during the count is passed through, so the file is not read again just to enqueue.
+
+The progress modal (**Transcribing all writing** / **Transcribing all drawings**) counts queued files. It does not wait for the portal. Closing it or pressing **Cancel** does not stop the enqueue loop and does not remove jobs already added. If the user cancelled before the loop returned, the closing notice says how many files were queued before cancelling. Otherwise Ink says how many were queued and that transcription continues in the background.
+
+Manual enqueue can still show its own notices (nothing to transcribe, already in progress, a stored portal refusal). A batch does not suppress those.
+
+## Low credit notice
+
+**Why it exists:** Transcription debits the Almost Useful credit pool. A user can keep transcribing until a job fails with insufficient credits. The notice warns while credits are still usable.
+
+It is not a settings chart and not the one-time account notice after 20 ink closes. It appears only after a transcription **succeeds**, because that is when the balance has just changed and the user is looking at Ink.
+
+```mermaid
+flowchart TD
+  done[Job applied transcript]
+  session{Signed in?}
+  done --> session
+  session -->|no| stop[Stay silent]
+  session -->|yes| cache[Cached burndown, else portal]
+  cache --> known{Remaining percent known?}
+  known -->|no| stop
+  known -->|yes| level{At or below 5% or 2%?}
+  level -->|no| stop
+  level -->|yes| shown{Already shown for this user and period?}
+  shown -->|yes| stop
+  shown -->|no| notice[Persistent Ink notice]
+```
+
+| Remaining | Which warning | Sentence |
+|-----------|----------------|----------|
+| Above 5% (including 5.01%) | None | |
+| Exactly 5% | 5%, once | You have less than 6% left. |
+| Just under 5% (4%) | 5%, once | You have less than 5% left. |
+| 5% band, not a whole number (2.9%) | 5%, once | You have less than 3% left. |
+| Exactly 2% | 2%, once, and it replaces a 5% notice still on screen | You have less than 3% left. |
+| Just under 2% (1%) | 2%, once, and it replaces a 5% notice still on screen | You have less than 2% left. |
+| Under 1% (0.5%, 0.2%, or 0%) | 2%, once, and it replaces a 5% notice still on screen | You have less than 1% left. |
+
+5% and 2% only decide **when** to warn. The sentence never prints those thresholds. It names the next whole percent the balance is under: round up, and when the balance is already a whole number, use the next one so “less than” stays true. Anything under 1% says “less than 1%”. A jump from 6% to 4% with nothing shown yet still raises the 5% warning, because the check reads the balance after the job, not the size of the drop.
+
+The notice title is **AI credits are running low**. The body is that one sentence. **View account** opens `<portal origin>/account` in the system browser (Electron `shell.openExternal` on desktop, `window.open` on mobile) and hides the notice. **Dismiss** only hides it. The body click does not dismiss it; the notice is persistent (`Notice` timeout `0`) with the same Ink template as the account notice.
+
+The latch lives in device-local `deviceSettings_v1.lowCreditNoticeState`: `{ userId, periodKey, shownThresholdsPercent }`. `periodKey` is the cached pool's `periodStartDay..periodLastDay`, so a new billing period warns again even when the cycle does not start on the first of the month. A different linked account starts clean. The field is not in `data.json`.
+
+Unknown balance stays silent. That includes no cached series and a portal read that throws or returns unauthorized. A warning for a full pool would be worse than no warning. Failures of the transcription job itself do not raise this notice; 402 still uses the existing insufficient-credits notice and is not stored against the strokes.
+
+Implementation: [`maybeShowLowCreditNotice`](../src/components/dom-components/low-credit-notice.ts), called from the worker after `saveWriteFileTranscript` and the alt patch. Thresholds are [`LOW_CREDIT_NOTICE_THRESHOLDS_PERCENT`](../src/logic/almostuseful/low-credit-thresholds.ts) (`5`, then `2`). The lowest reached threshold wins, so one job that falls from 6% to 1% shows the 2% notice only. The sentence uses [`nearestWholePercentAboveRemaining`](../src/logic/almostuseful/low-credit-thresholds.ts). The notice body is only that sentence; the title and **View account** already say what to do.
 
 ## Occupancy fingerprint (`bboxCellsAtLastTranscription`)
 
@@ -504,7 +588,14 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Do not put full markdown in the embed alt** — locked embeds can show the SVG `<transcript>` via **Ink / Text** toggle ([Locked embed transcript view](#locked-embed-transcript-view-ink--text)); the alt stays a one-line plain summary.
 - **Drawing text mode is not full-bleed.** Reuse `ddc_ink_drawing-text-layout` and `data-ink-display-mode="text"` together — toggling only inline width without neutralising `.cm-embed-block` / reading-host margins leaves the transcript wider than writing embeds.
 - **Sign-in required to enqueue.** Transcription debits Pool A credits through the portal; unsigned devices do not accumulate pending jobs.
-- **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates.
+- **Silent success.** Do not re-add completion notices — users rely on alt text and SVG transcript updates. The low-credit notice is a balance warning after a successful apply, not a “transcript finished” toast.
+- **Batch runs enqueue; they do not transcribe inline.** A vault of many files must stay on the one serial worker. Do not POST from the settings button.
+- **Batch cancel does not unwind the queue.** The enqueue loop ignores the cancel flag. Jobs already added keep running. Do not delete them on cancel — the user asked for those files.
+- **“Missing” means an empty `<transcript>`.** A file the portal refused, or a file transcribed then edited below the auto threshold, still counts as already transcribed if the element has text.
+- **Do not put “all” in the batch modal title.** **Transcribe Writing** and **Transcribe Drawing** only name the file type. “All” is **Re-transcribe All**. Do not restore the credits paragraph; the count sentence is the whole body.
+- **Do not warn about low credits when the percent is unknown.** Cache miss plus a failed burndown must stay silent. Do not treat a throw as 0%.
+- **A 2% warning replaces a 5% notice still on screen.** The 5% threshold stays recorded for that period so it does not reappear after dismiss of the 2% notice. Blocking all later warnings while one is visible would hide the more urgent level.
+- **Do not print 5% or 2% in the notice sentence.** Those numbers only choose when to warn. The sentence is the only body paragraph; do not add copy about transcription stopping or about opening the account. **View account** is the action.
 - **Transcript spacing comes from `white-space`, not margins.** Removing `white-space: normal` from `.ddc_ink_transcript-view` brings back a blank line between every paragraph and bullet. A flex container with `gap: 0` hides it too, but only because flex drops whitespace text nodes.
 - **Do not fix list layout by rewriting blank lines.** The renderer cannot know what the user wrote; list grouping and paragraph breaks belong in the portal prompt. The normalizer only maps flourish glyphs to `- `.
 - **Capture the live SVG before locking on manual Transcribe.** `closeEditor` unmounts the editor; build the SVG string first, then await the lock, then enqueue.

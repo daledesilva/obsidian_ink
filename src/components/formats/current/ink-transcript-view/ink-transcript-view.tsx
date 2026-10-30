@@ -129,8 +129,13 @@ export function InkEmbedTranscriptControls(props: InkEmbedTranscriptControlsProp
 
 	if (!queueStatus && !props.hasTranscript && !props.hasSourcePhoto) return null;
 
+	const isDrawing = props.inkIconKind === 'drawing';
 	let statusTooltip = 'Transcription queued';
-	if (queueStatus === 'processing') statusTooltip = 'Transcribing…';
+	if (isDrawing) statusTooltip = 'Description/transcription queued';
+	if (queueStatus === 'processing') {
+		statusTooltip = 'Transcribing…';
+		if (isDrawing) statusTooltip = 'Describing/transcribing…';
+	}
 
 	return (
 		<div className='ddc_ink_display-mode-controls'>

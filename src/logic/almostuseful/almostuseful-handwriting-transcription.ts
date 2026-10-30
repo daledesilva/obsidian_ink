@@ -51,7 +51,7 @@ export const HANDWRITING_TRANSCRIPTION_MEDIA_TOO_LARGE_CODE = 'media_too_large';
  * (a single line taller than the portal cap), not the long-page case that slicing covers.
  */
 export const HANDWRITING_TRANSCRIPTION_TOO_LONG_NOTICE =
-	'This file is too large to transcribe. Try splitting it into separate writing or drawing files.';
+	'This file is too large to transcribe or describe. Try splitting it into separate writing or drawing files.';
 
 /**
  * Portal job failure. `retryable` is the signal for the queue, not the English message.

@@ -120,10 +120,12 @@ function buildBandSliceSvg(band: StrokeVerticalBand, snapshot: InkCanvasSnapshot
 }
 
 /**
- * Splits an over-long handwriting SVG into ordered slices that each fit the portal cap.
+ * Splits handwriting into ordered slices that each fit the portal cap.
  *
- * Returns null when the file is small enough to send as one request (including every
- * drawing, which the ticket retries as JPEG instead of slicing).
+ * Called only after the full visual SVG was refused. The raw Ink file is not used as a
+ * size check: it includes snapshot metadata the portal never receives. Returns null when
+ * slicing would not produce a second request — drawings, a single visual row, or rows
+ * that still pack into one slice — so the caller can JPEG that one image instead.
  */
 export function planWritingTranscriptionSlices(
 	writingSvgFileContent: string,
@@ -139,7 +141,6 @@ export function planWritingTranscriptionSlices(
 
 	const maxMediaBytes =
 		(options?.maxMediaBytes ?? HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES) - SLICE_BYTE_SAFETY_MARGIN;
-	if (estimateSliceMediaBytes(writingSvgFileContent) <= maxMediaBytes) return null;
 
 	const bands = groupStrokesIntoVerticalBands(writingData.strokes);
 	if (bands.length <= 1) return null;
@@ -170,7 +171,7 @@ export function planWritingTranscriptionSlices(
 		slices.push(toSlice(mergeBands(bands, currentBandIndexes), writingData.snapshot));
 	}
 
-	// One slice is no better than the original file; let the caller use the short path.
+	// One slice is the same request the portal already refused. The caller JPEGs that image.
 	return slices.length > 1 ? slices : null;
 }
 

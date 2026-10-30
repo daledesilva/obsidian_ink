@@ -335,8 +335,13 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 export async function enqueueManualTranscription(
 	options: EnqueueManualTranscriptionOptions,
 ): Promise<void> {
+	const isDrawing = options.fileType === 'inkDrawing';
 	if (!hasLinkedAlmostUsefulAccount()) {
-		new Notice('Transcription requires an Almost Useful account. Link your account in Ink\'s settings.');
+		if (isDrawing) {
+			new Notice('Describing and transcribing a drawing requires an Almost Useful account. Link your account in Ink\'s settings.');
+		} else {
+			new Notice('Transcription requires an Almost Useful account. Link your account in Ink\'s settings.');
+		}
 		return;
 	}
 	const pageData = extractInkJsonFromSvg(options.svgFileContent);
@@ -345,7 +350,11 @@ export async function enqueueManualTranscription(
 		return;
 	}
 	if (!inkFileHasStrokes(pageData) && !pageDataUsesPhotoTranscription(pageData)) {
-		new Notice('Nothing to transcribe');
+		if (isDrawing) {
+			new Notice('Nothing to describe or transcribe');
+		} else {
+			new Notice('Nothing to transcribe');
+		}
 		return;
 	}
 	const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);

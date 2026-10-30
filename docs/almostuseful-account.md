@@ -104,9 +104,9 @@ Full-height day hit rects (and per-segment hits on the stack) drive vanilla **ti
 
 Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
-**Handwriting transcription** (writing or drawing editor overflow → Transcribe, plus optional auto on close) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. Unsigned devices do not add jobs to the queue; manual **Transcribe** shows a notice instead. See [writing-transcription.md](writing-transcription.md).
+**Handwriting transcription** (writing overflow → Transcribe; drawing overflow → Describe/transcribe, which describes the picture and transcribes any writing in it; plus auto on close, on by default for new vaults) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. Unsigned devices do not add jobs to the queue; manual **Transcribe** shows a notice instead. See [writing-transcription.md](writing-transcription.md).
 
-After **20 saved ink closes** without a linked account, Ink may show a one-time notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) explaining auto-transcription and offering **Open Ink settings** or **Dismiss** (device-local; never shown again after either action, or after linking).
+After **20 saved ink closes** without a linked account, Ink may show a one-time notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) explaining that writing can be auto-transcribed and drawings can be automatically described, including any writing in the drawing. It offers **Open Ink settings** or **Dismiss** (device-local; never shown again after either action, or after linking).
 
 ### Settings cards
 

@@ -202,7 +202,7 @@ function handwritingTranscriptionProcessingDataSettingDesc(): DocumentFragment {
 	const descEl = createDiv();
 
 	descEl.appendText(
-		"When Ink transcribes handwriting, your Ink SVG is sent over ",
+		"When Ink transcribes handwriting, or describes a drawing and transcribes any writing in it, your Ink SVG is sent over ",
 	);
 	descEl.createEl('strong').setText('HTTPS');
 	descEl.appendText(' from your app to ');

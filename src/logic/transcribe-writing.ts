@@ -21,11 +21,11 @@ import {
 //////////
 
 /**
- * True for the two portal refusals that a JPEG re-send can actually fix.
+ * True for portal refusals that a smaller image can still fix.
  *
  * Size is obvious. Complexity refusals arrive as a 4xx whose message mentions the media
  * rather than the account, so `retryable === false` alone is too broad — a credits or
- * sign-in refusal must not trigger an expensive rasterisation.
+ * sign-in refusal must not trigger slicing or an expensive rasterisation.
  */
 function isMediaRefusalThatJpegCanFix(error: unknown): boolean {
 	if (!(error instanceof HandwritingTranscriptionJobError)) return false;
@@ -73,40 +73,61 @@ async function transcribeSvgViaJpegFallback(
 }
 
 /**
- * Transcribes handwriting or a drawing from a full Ink SVG file string via the
- * Almost Useful portal (`POST /api/jobs/handwriting-transcription`).
- *
- * Over-long handwriting is split on line gaps and stitched back together, because the
- * portal caps decoded media size and a page too long to send cannot otherwise be read.
- * Drawings keep a single request so stroke geometry is never re-cut, with a JPEG retry
- * for the dense cases the portal refuses.
+ * Posts one visual SVG. Size and complexity refusals are left for the caller so
+ * handwriting can slice before anyone rasterises the whole page.
  */
-export async function transcribeWriting(writingSvgFileContent: string): Promise<string> {
-	const slices = planWritingTranscriptionSlices(writingSvgFileContent);
-	if (slices) {
-		verbose(`Handwriting transcription: splitting long writing into ${slices.length} slices`);
-		const sliceTranscripts: string[] = [];
-		for (const slice of slices) {
-			const media = await prepareProductionHandwritingTranscriptionMedia(slice.svg);
-			try {
-				sliceTranscripts.push(await postPreparedMedia(media.mediaType, media.mediaBase64));
-			} catch (error) {
-				// Any refusal of this slice is retried as JPEG before the page is abandoned.
-				// A second failure throws the original error, so earlier slice text is not
-				// saved — the stitch only returns when every slice produced text.
-				sliceTranscripts.push(await transcribeSvgViaJpegFallback(slice.svg, error));
-			}
-		}
-		return stitchWritingSliceTranscripts(sliceTranscripts);
-	}
+async function postVisualSvg(svgFileContent: string): Promise<string> {
+	const media = await prepareProductionHandwritingTranscriptionMedia(svgFileContent);
+	return postPreparedMedia(media.mediaType, media.mediaBase64);
+}
 
-	verbose('Handwriting transcription: posting visual SVG to Almost Useful portal');
-	const media = await prepareProductionHandwritingTranscriptionMedia(writingSvgFileContent);
+/**
+ * Posts one slice, and rasterises only that slice when the portal refuses it.
+ *
+ * A credits or sign-in failure is rethrown so a long page does not fan out into more
+ * requests. A second failure throws the original error, so earlier slice text is not
+ * saved — the stitch only returns when every slice produced text.
+ */
+async function transcribeWritingSlice(sliceSvg: string): Promise<string> {
 	try {
-		return await postPreparedMedia(media.mediaType, media.mediaBase64);
+		return await postVisualSvg(sliceSvg);
 	} catch (error) {
 		const canRetryAsJpeg = isMediaRefusalThatJpegCanFix(error);
 		if (!canRetryAsJpeg) throw error;
+		return transcribeSvgViaJpegFallback(sliceSvg, error);
+	}
+}
+
+/**
+ * Transcribes handwriting or a drawing from a full Ink SVG file string via the
+ * Almost Useful portal (`POST /api/jobs/handwriting-transcription`).
+ *
+ * The full visual SVG is always sent first. The portal rejects an oversized payload
+ * before the transcription job starts, so that attempt does not spend credits, and a
+ * page that fits is read once without a stitched seam. Handwriting that is refused for
+ * size or complexity is then split on line gaps. Drawings, and handwriting that cannot
+ * be split, are re-sent as one JPEG. Credits and sign-in failures stop immediately.
+ */
+export async function transcribeWriting(writingSvgFileContent: string): Promise<string> {
+	verbose('Handwriting transcription: posting visual SVG to Almost Useful portal');
+	try {
+		return await postVisualSvg(writingSvgFileContent);
+	} catch (error) {
+		const canRecoverFromMediaRefusal = isMediaRefusalThatJpegCanFix(error);
+		if (!canRecoverFromMediaRefusal) throw error;
+
+		const slices = planWritingTranscriptionSlices(writingSvgFileContent);
+		if (slices) {
+			// Slice only after the full page was refused. JPEG the whole page only when
+			// there are no line gaps to cut on, so a long page is not shrunk into one image.
+			verbose(`Handwriting transcription: splitting refused writing into ${slices.length} slices`);
+			const sliceTranscripts: string[] = [];
+			for (const slice of slices) {
+				sliceTranscripts.push(await transcribeWritingSlice(slice.svg));
+			}
+			return stitchWritingSliceTranscripts(sliceTranscripts);
+		}
+
 		return transcribeSvgViaJpegFallback(writingSvgFileContent, error);
 	}
 }

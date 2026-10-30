@@ -299,11 +299,11 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function handleCopyTranscript() {
 		const text = transcript?.trim() ?? '';
 		if (!text) {
-			new Notice('No transcript to copy');
+			new Notice('No description or transcript to copy');
 			return;
 		}
 		void navigator.clipboard.writeText(text).then(() => {
-			new Notice('Transcript copied to clipboard');
+			new Notice('Description/transcript copied to clipboard');
 		}).catch(() => {
 			new Notice('Failed to copy transcript to clipboard');
 		});
@@ -324,7 +324,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 	function lockedEmbedMenuOptions(includeCopyTranscript: boolean): MenuOption[] {
 		const options: MenuOption[] = [
 			{
-				text: hasTranscript ? 'Update transcript' : 'Transcribe',
+				text: hasTranscript ? 'Update description/transcript' : 'Describe/transcribe',
 				action: () => { void updateTranscriptFromLockedEmbed(); },
 			},
 			{
@@ -335,7 +335,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		];
 		if (includeCopyTranscript) {
 			options.push({
-				text: 'Copy transcript',
+				text: 'Copy description/transcript',
 				action: () => { handleCopyTranscript(); },
 			});
 		}

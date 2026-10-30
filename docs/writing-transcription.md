@@ -351,19 +351,25 @@ flowchart TD
   shown -->|no| notice[Persistent Ink notice]
 ```
 
-| Remaining | Notice |
-|-----------|--------|
-| Above 5% | None |
-| 5% down to just above 2% | Once: about **5%** remain |
-| 2% or below | Once: about **2%** remain. If the 5% notice is still on screen, it is replaced rather than stacked. |
+| Remaining | Which warning | Sentence |
+|-----------|----------------|----------|
+| Above 5% (including 5.01%) | None | |
+| Exactly 5% | 5%, once | You have less than 6% left. |
+| Just under 5% (4%) | 5%, once | You have less than 5% left. |
+| 5% band, not a whole number (2.9%) | 5%, once | You have less than 3% left. |
+| Exactly 2% | 2%, once, and it replaces a 5% notice still on screen | You have less than 3% left. |
+| Just under 2% (1%) | 2%, once, and it replaces a 5% notice still on screen | You have less than 2% left. |
+| Under 1% (0.5%, 0.2%, or 0%) | 2%, once, and it replaces a 5% notice still on screen | You have less than 1% left. |
 
-**View account** opens `<portal origin>/account` in the system browser (Electron `shell.openExternal` on desktop, `window.open` on mobile) and hides the notice. **Dismiss** only hides it. The body click does not dismiss it; the notice is persistent (`Notice` timeout `0`) with the same Ink template as the account notice.
+5% and 2% only decide **when** to warn. The sentence never prints those thresholds. It names the next whole percent the balance is under: round up, and when the balance is already a whole number, use the next one so “less than” stays true. Anything under 1% says “less than 1%”. A jump from 6% to 4% with nothing shown yet still raises the 5% warning, because the check reads the balance after the job, not the size of the drop.
+
+The notice title is **AI credits are running low**. The body is that one sentence. **View account** opens `<portal origin>/account` in the system browser (Electron `shell.openExternal` on desktop, `window.open` on mobile) and hides the notice. **Dismiss** only hides it. The body click does not dismiss it; the notice is persistent (`Notice` timeout `0`) with the same Ink template as the account notice.
 
 The latch lives in device-local `deviceSettings_v1.lowCreditNoticeState`: `{ userId, periodKey, shownThresholdsPercent }`. `periodKey` is the cached pool's `periodStartDay..periodLastDay`, so a new billing period warns again even when the cycle does not start on the first of the month. A different linked account starts clean. The field is not in `data.json`.
 
 Unknown balance stays silent. That includes no cached series and a portal read that throws or returns unauthorized. A warning for a full pool would be worse than no warning. Failures of the transcription job itself do not raise this notice; 402 still uses the existing insufficient-credits notice and is not stored against the strokes.
 
-Implementation: [`maybeShowLowCreditNotice`](../src/components/dom-components/low-credit-notice.ts), called from the worker after `saveWriteFileTranscript` and the alt patch. Thresholds are [`LOW_CREDIT_NOTICE_THRESHOLDS_PERCENT`](../src/logic/almostuseful/low-credit-thresholds.ts) (`5`, then `2`). The lowest reached threshold wins, so one job that falls from 6% to 1% shows the 2% notice only.
+Implementation: [`maybeShowLowCreditNotice`](../src/components/dom-components/low-credit-notice.ts), called from the worker after `saveWriteFileTranscript` and the alt patch. Thresholds are [`LOW_CREDIT_NOTICE_THRESHOLDS_PERCENT`](../src/logic/almostuseful/low-credit-thresholds.ts) (`5`, then `2`). The lowest reached threshold wins, so one job that falls from 6% to 1% shows the 2% notice only. The sentence uses [`nearestWholePercentAboveRemaining`](../src/logic/almostuseful/low-credit-thresholds.ts). The notice body is only that sentence; the title and **View account** already say what to do.
 
 ## Occupancy fingerprint (`bboxCellsAtLastTranscription`)
 
@@ -586,6 +592,7 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **“Missing” means an empty `<transcript>`.** A file the portal refused, or a file transcribed then edited below the auto threshold, still counts as already transcribed if the element has text.
 - **Do not warn about low credits when the percent is unknown.** Cache miss plus a failed burndown must stay silent. Do not treat a throw as 0%.
 - **A 2% warning replaces a 5% notice still on screen.** The 5% threshold stays recorded for that period so it does not reappear after dismiss of the 2% notice. Blocking all later warnings while one is visible would hide the more urgent level.
+- **Do not print 5% or 2% in the notice sentence.** Those numbers only choose when to warn. The sentence is the only body paragraph; do not add copy about transcription stopping or about opening the account. **View account** is the action.
 - **Transcript spacing comes from `white-space`, not margins.** Removing `white-space: normal` from `.ddc_ink_transcript-view` brings back a blank line between every paragraph and bullet. A flex container with `gap: 0` hides it too, but only because flex drops whitespace text nodes.
 - **Do not fix list layout by rewriting blank lines.** The renderer cannot know what the user wrote; list grouping and paragraph breaks belong in the portal prompt. The normalizer only maps flourish glyphs to `- `.
 - **Capture the live SVG before locking on manual Transcribe.** `closeEditor` unmounts the editor; build the SVG string first, then await the lock, then enqueue.

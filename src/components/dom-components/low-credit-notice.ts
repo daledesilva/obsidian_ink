@@ -14,6 +14,7 @@ import {
 	markLowCreditThresholdShown,
 } from 'src/logic/device-settings/device-settings';
 import {
+	nearestWholePercentAboveRemaining,
 	resolveRemainingCreditPercent,
 	selectReachedLowCreditThreshold,
 } from 'src/logic/almostuseful/low-credit-thresholds';
@@ -80,7 +81,10 @@ export async function maybeShowLowCreditNotice(
 		periodKey,
 		thresholdPercent: reachedThreshold,
 	});
-	showLowCreditNotice(reachedThreshold, options?.openAccountPage);
+	showLowCreditNotice({
+		thresholdPercent: reachedThreshold,
+		remainingPercent,
+	}, options?.openAccountPage);
 }
 
 /**
@@ -95,26 +99,31 @@ function resolveLowCreditNoticePeriodKey(session: AlmostUsefulSession): string {
 	return `${series.periodStartDay}..${series.periodLastDay}`;
 }
 
+interface LowCreditNoticeContent {
+	/** 5 or 2. Decides which warning this is, and whether a later one may replace it. */
+	thresholdPercent: number;
+	/** Actual pool remaining. The sentence rounds this up; it does not print the threshold. */
+	remainingPercent: number;
+}
+
 /**
  * Persistent Ink-styled warning with a Dismiss and a primary View account action.
  *
  * Persistent rather than timed because running out of credits silently blocks a paid
  * feature the user just tried to use; a disappearing toast would hide that.
+ * The balance sentence uses the real remaining percent, so a 5% warning at 2.9% says
+ * "less than 3%" rather than repeating the threshold. The body is that sentence only:
+ * the title and View account already tell the user what the warning means and what to do.
  */
 function showLowCreditNotice(
-	thresholdPercent: number,
+	content: LowCreditNoticeContent,
 	openAccountPage?: (url: string) => void,
 ): void {
+	const lessThanPercent = nearestWholePercentAboveRemaining(content.remainingPercent);
 	const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
 	scrollAreaEl.createEl('h1').setText('AI credits are running low');
-	scrollAreaEl
-		.createEl('p')
-		.setText(
-			`About ${thresholdPercent}% of this period's AI credits remain. Transcribing handwriting and drawings will stop working when they run out.`,
-		);
-	scrollAreaEl
-		.createEl('p')
-		.setText('View your account to see usage or add more credits.');
+	// One sentence is enough. The title and the View account button already say what to do.
+	scrollAreaEl.createEl('p').setText(`You have less than ${lessThanPercent}% left.`);
 
 	const { primaryBtnEl, tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
 		primaryLabel: 'View account',
@@ -124,8 +133,12 @@ function showLowCreditNotice(
 	const notice = launchPersistentNotice(noticeBody);
 	// Replace any less urgent warning still on screen; its threshold stays recorded so it
 	// does not re-fire, but the user only ever reads one warning at a time.
-	activeLowCreditNotice?.notice.hide();
-	activeLowCreditNotice = { notice, thresholdPercent };
+	// Notice.hide() only starts Obsidian's dismiss animation, so the previous warning
+	// stays readable beside the new one. Removing the element finishes the replacement.
+	const previousNotice = activeLowCreditNotice?.notice;
+	previousNotice?.hide();
+	previousNotice?.noticeEl?.remove();
+	activeLowCreditNotice = { notice, thresholdPercent: content.thresholdPercent };
 
 	const dismissNotice = (): void => {
 		if (activeLowCreditNotice?.notice === notice) activeLowCreditNotice = null;

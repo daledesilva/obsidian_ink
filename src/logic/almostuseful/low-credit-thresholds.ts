@@ -76,11 +76,26 @@ async function defaultLoadRemainingPercent(session: AlmostUsefulSession): Promis
 }
 
 /**
+ * Whole percent the notice can say the balance is under.
+ *
+ * 2.9 is under 3, and 0.2 is under 1. An exact whole number is under the next one,
+ * so 4 remaining is "less than 5", not "less than 4". Anything under 1% is "less than 1".
+ * This is the displayed figure. It is not the 5% or 2% threshold that decided to warn.
+ */
+export function nearestWholePercentAboveRemaining(remainingPercent: number): number {
+	if (!Number.isFinite(remainingPercent) || remainingPercent < 1) return 1;
+	const nearestWholePercent = Math.ceil(remainingPercent);
+	if (nearestWholePercent === remainingPercent) return nearestWholePercent + 1;
+	return nearestWholePercent;
+}
+
+/**
  * The most urgent threshold this remaining percent has reached, or null when credits are fine.
  *
  * Crossed thresholds are compared with `<=` so a job that lands the user at exactly 5% or 2%
  * still warns. The lowest reached threshold wins: a single job that drops from 6% to 1% has
  * crossed both, and showing only the most urgent one avoids two stacked notices for one job.
+ * The returned 5 or 2 is the latch key. The notice sentence uses the real balance instead.
  */
 export function selectReachedLowCreditThreshold(
 	remainingPercent: number,

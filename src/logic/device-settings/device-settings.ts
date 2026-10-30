@@ -314,6 +314,22 @@ export function readLowCreditNoticeState(): LowCreditNoticeState {
 }
 
 /**
+ * Clears only the low-credit latch so e2e cases can share one Obsidian profile.
+ *
+ * Wiping all device settings would also reset Boox and handwriting preferences the
+ * other specs rely on. An empty latch is what a device looks like before any warning.
+ */
+export function resetLowCreditNoticeStateForTests(): void {
+	patchDeviceSettings({
+		lowCreditNoticeState: {
+			userId: '',
+			periodKey: '',
+			shownThresholdsPercent: [],
+		},
+	});
+}
+
+/**
  * Records that a low-credit warning has been shown, resetting when the user or period changes.
  *
  * Matching on both user and period means a new linked account or a refilled pool starts

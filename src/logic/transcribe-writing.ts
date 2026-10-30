@@ -91,8 +91,9 @@ export async function transcribeWriting(writingSvgFileContent: string): Promise<
 			try {
 				sliceTranscripts.push(await postPreparedMedia(media.mediaType, media.mediaBase64));
 			} catch (error) {
-				// One unusually dense band must not throw away the slices that already
-				// succeeded — retry just this band as a JPEG before giving up on the page.
+				// Any refusal of this slice is retried as JPEG before the page is abandoned.
+				// A second failure throws the original error, so earlier slice text is not
+				// saved — the stitch only returns when every slice produced text.
 				sliceTranscripts.push(await transcribeSvgViaJpegFallback(slice.svg, error));
 			}
 		}

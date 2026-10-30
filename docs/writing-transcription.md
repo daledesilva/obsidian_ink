@@ -187,7 +187,7 @@ sequenceDiagram
 | Route | `POST /api/jobs/handwriting-transcription` |
 | Auth | Almost Useful app token (`ink` / `Ink` attribution) |
 | Model | `google/gemini-2.5-flash-lite` |
-| Media | Visual-only SVG (`<metadata>` stripped) |
+| Media | Visual-only SVG (`<metadata>` stripped). Over-long writing is sliced first. A size or complexity refusal is retried once as JPEG. |
 | Page background | Theme-aware opaque rect — white for dark ink, black for light ink (inferred from `ink-color-primary` stroke fills) |
 
 Implementation:
@@ -202,7 +202,7 @@ Implementation:
 | Outcome | Queue |
 |---------|--------|
 | `retryable: false` | One notice. The job is not put back. |
-| `code: media_too_large` or status 413 | Notice: “This file can't be transcribed currently because it is too long. This will be fixed in a future update to Ink.” |
+| `code: media_too_large` or status 413, after the JPEG retry also fails | Notice: “This file is too large to transcribe. Try splitting it into separate writing or drawing files.” |
 | 402 | Notice: “Insufficient Almost Useful credits”. Not stored against the strokes, so a later close can try again after credits are added. |
 | 401 / not signed in | One notice. Not stored against the strokes. |
 | `navigator.onLine === false` | No POST. No notice. The job stays pending. If it was already taken off the list, it goes back to the front with no `retryAfter`. The window `online` event kicks the worker. |
@@ -228,7 +228,48 @@ flowchart TD
 
 `networkFailureCount` lives on the pending job. A fresh enqueue clears it. A successful transcription removes the job, so the count goes with it.
 
-A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds. Ink does not hardcode the 1.5MB portal cap.
+A file-shaped refusal (`media_too_large`, `invalid_request`, and other terminal codes that are not credits or sign-in) is stored on the device-local queue as `terminalRejections`, keyed by `filePath` plus `bboxCellsAtLastTranscription`. `enqueueAuto` does not queue those same strokes again. Manual Transcribe shows the stored notice and does not enqueue. The block clears when the strokes change or a transcription succeeds.
+
+The plugin does hardcode the portal’s decoded-media cap as [`HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES`](../src/logic/almostuseful/handwriting-transcription-media-limit.ts) (1,500,000 bytes). That constant is what slicing and the JPEG retry aim under. A refusal that still arrives after those retries is what the queue stores.
+
+### Long writing and dense drawings
+
+**Why it exists:** The portal rejects media above about 1.5MB decoded, and it can also refuse a dense SVG as `invalid_request`. A long handwriting page used to fail with a “future update” notice. Drawings have no lines to cut, so they stay one image and are re-sent as JPEG when the SVG is refused.
+
+```mermaid
+flowchart TD
+  start[transcribeWriting]
+  plan{Writing slices?}
+  start --> plan
+  plan -->|yes| each[Each slice: visual SVG]
+  each --> ok{Portal accepts?}
+  ok -->|yes| keep[Keep slice text]
+  ok -->|no| jpegSlice[Retry that slice as JPEG]
+  jpegSlice --> keep
+  keep --> stitch[Stitch in reading order]
+  plan -->|no| one[One visual SVG]
+  one --> okOne{Portal accepts?}
+  okOne -->|yes| done[Return text]
+  okOne -->|media refusal| jpeg[Retry whole file as JPEG]
+  jpeg --> done
+  okOne -->|credits or sign-in| throw[Throw, no JPEG]
+```
+
+Slicing ([`planWritingTranscriptionSlices`](../src/logic/writing-transcription-slicing.ts)) runs only for `inkWriting`. Drawings, files that already fit, and a page that is one vertical band all return null and use the single request.
+
+Strokes are grouped into bands by overlapping world-Y bounds, sorted from the top. A band is a visual row: overlapping boxes stay together, so a line is never split across requests. Whole bands are packed until the next band would pass the cap minus a 4,096-byte margin. The estimate is the UTF-8 length of the visual-only slice SVG (metadata already stripped), because that is the decoded document the portal receives. A single band that is already over the cap is its own slice so the JPEG retry can still run. If packing produces only one slice, the planner returns null and the short path is used.
+
+Each slice is a self-contained visual SVG. Strokes are shifted so the band sits at a local origin with 24px of padding, and the viewBox hugs those strokes. The model then sees a short page rather than a thin strip of a very tall one.
+
+Slice transcripts are joined in order. If the text so far ends with `.` `!` `?` `:` or `;` (optional closing quote or bracket), the next slice follows after a blank line. Otherwise they are joined with a space, so a sentence that crossed the seam is not turned into two paragraphs. Empty slice texts are dropped.
+
+If a slice POST throws, that slice alone is rasterised to JPEG and posted again. A second failure throws the original error. Earlier slice text is not written: the stitch returns only when every slice produced text.
+
+The single-request path (short writing, drawings, one over-long line) retries as JPEG only for `media_too_large`, HTTP 413, or `invalid_request` with a 4xx status. Insufficient credits (402) and sign-in (401) are not rasterised.
+
+JPEG ([`writingSvgToJpegBase64`](../src/logic/utils/writing-svg-to-png-base64.ts)) uses the same Canvg canvas as PNG eval. Quality starts at 0.85 and steps down by 0.1 to 0.35. If the image is still over the cap, the canvas is scaled by 0.7 and quality is swept again, up to three scale attempts. The last attempt returns the smallest JPEG even when it is still over the cap. No canvas returns null, and the original portal error is thrown. The media type on the retry is `image/jpeg`.
+
+The “too large” notice is shown only when that retry also fails. It tells the user to split the file. It no longer promises a future Ink update.
 
 Eval matrix and live tests remain in the repo for model comparison — not exposed in the UI. See [Eval and live tests](#eval-and-live-tests). Per-model dollar cost is not available; see [Cost evaluation (currently unavailable)](#cost-evaluation-currently-unavailable).
 
@@ -488,7 +529,10 @@ PNG raster eval uses `@napi-rs/canvas` in Node (dev dependency only — not bund
 - **Do not put the job queue in `data.json`.** Device-local only — avoids multi-device double billing.
 - **Tldraw saves and `xml-formatter`.** If `<transcript>` is inside the block passed to the formatter, indent whitespace can corrupt markdown. The tldraw path inserts the compact element after formatting.
 - **Send visual SVG with opaque page to the portal.** Raw metadata JSON wastes tokens; transparent SVG backgrounds caused Gemini to return numbered-list junk instead of transcribing. Theme-aware page contrast matches eval findings.
-- **Production uses SVG only.** PNG rasterization exists for eval variants, not the shipped Transcribe menu.
+- **Production sends SVG first, then JPEG only after a media refusal.** PNG rasterization remains an eval variant. Do not send JPEG on the first try: SVG is cheaper and sharper when the portal accepts it. Do not JPEG-retry 402 or 401 on the single-request path.
+- **Slice on vertical overlap, never through a line.** A band is every stroke whose world-Y box overlaps the band above it. Cutting a line in half produces text that cannot be stitched.
+- **A failed slice fails the whole page.** JPEG is per slice, but a second failure throws. Do not save a partial stitch — the SVG would claim a transcript for strokes that were not read.
+- **The 1.5MB cap is hardcoded on purpose.** Slicing and JPEG both aim under `HANDWRITING_TRANSCRIPTION_MAX_MEDIA_BYTES`. Leaving the cap only on the portal meant every long page failed after the upload.
 - **Threshold 0% re-transcribes on every auto path**, including after transcript-only `vault.modify` from apply.
 - **Occupancy is bbox cells, not Hamming.** SimHash understated large handwriting edits (similar bit patterns while cells changed a lot). The slider is Jaccard of 32px cells relative to stroke min X/Y.
 - **Do not fingerprint SVG markup.** Grid lines and `<ink>` attribute churn would dominate.

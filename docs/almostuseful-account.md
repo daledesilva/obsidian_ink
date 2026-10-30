@@ -104,7 +104,9 @@ Full-height day hit rects (and per-segment hits on the stack) drive vanilla **ti
 
 Last successful pools are cached in device-local storage (`au_ink_almostuseful_usage_cache`, keyed by `userId`). Reopening settings paints the cache immediately, then refetches. Cache is **not** cleared on Log out so the same user sees charts instantly after signing in again; a different `userId` ignores the blob.
 
-**Handwriting transcription** (writing or drawing editor overflow → Transcribe, plus optional auto on close) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. Unsigned devices do not add jobs to the queue; manual **Transcribe** shows a notice instead. See [writing-transcription.md](writing-transcription.md).
+**Handwriting transcription** (writing or drawing editor overflow → Transcribe, plus optional auto on close, plus **Batch transcribe** in this section) calls `POST /api/jobs/handwriting-transcription` with the app token and debits Pool A. Requires the same signed-in session as the charts. Unsigned devices do not add jobs to the queue; manual **Transcribe** shows a notice instead. The batch card is not rendered while signed out. See [writing-transcription.md](writing-transcription.md).
+
+After a successful transcription, if cached (or freshly loaded) remaining credits are at or below **5%**, and again at **2%**, Ink shows a persistent notice with **View account** and **Dismiss**. Each level shows once per linked user and billing period on this device. **View account** opens `{portal}/account`. See [Low credit notice](writing-transcription.md#low-credit-notice).
 
 After **20 saved ink closes** without a linked account, Ink may show a one-time notice ([`auto-transcribe-account-notice.ts`](../src/components/dom-components/auto-transcribe-account-notice.ts)) explaining auto-transcription and offering **Open Ink settings** or **Dismiss** (device-local; never shown again after either action, or after linking).
 
@@ -116,6 +118,7 @@ Signed-in content below the action row uses nested **settings cards** (`ddc_ink_
 |------|------------|----------|
 | **AI Credit Pool** | Signed in only | Pool title row + refresh; period subtitle; burndown SVG; **Usage distribution** subtitle + stacked spend SVG; Ink / Other apps legend at `font-ui-small` muted size |
 | **Transcription Queue** | When `readHandwritingTranscriptionQueueSnapshot()` is non-empty | Title row with **Clear** (no confirmation); file rows in run order with basename label, full path on hover, spinner on the in-flight job, per-row **×** remove |
+| **Batch transcribe** | Signed in only | **Transcribe all writing** and **Transcribe all drawings**. Each opens a scope modal (missing transcripts only, or everything) then enqueues onto the serial worker. |
 
 **Clear** and per-row **×** call `clearHandwritingTranscriptionQueue` / `removeHandwritingTranscriptionFromQueue`. Waiting jobs are deleted from `pending`; an in-flight POST is not aborted but its result is discarded when it returns. The card is removed from the DOM when the queue empties (no empty-state copy). Live updates use `subscribeHandwritingTranscriptionQueueChanged` while settings stay open.
 
@@ -162,5 +165,7 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 - **Create account is a tertiary link, not a second CTA.** Settings right-aligns it under Link account; the version notice centres the same stack. Both use `ddc_ink_tertiary-text-link` (underline plus hover). Do not restyle one copy on its own, and do not bring back the early-access invite card.
 - **Do not poll faster than the stored interval.** The portal answers `slow_down` and Ink adds 5 seconds for the rest of that code. A return from the background is one immediate poll, then the interval. Polling on every click inside Settings would trip that cap.
 - **Do not add a remaining-dollar line** above the burndown. Remaining is the chart.
+- **Batch transcribe is signed-in only.** Do not show the card on the link-account state. A batch spends the same credits as overflow **Transcribe**, so it belongs under the usage charts.
+- **Low-credit warnings read the usage cache first.** Do not require a burndown round trip before every transcription when the cache already has a series. A failed load must not invent a low balance.
 - **Plan 2 sessions are discarded.** Users who signed in with a user JWT must Link account again so they can Authorize Ink.
 - **Do not send the computer hostname as `device_label`.** Bonjour names such as `MacBook-Pro.local` or a personal computer name appear on Connected Apps. Desktop Mac sends the product line (`MacBook Pro`, `MacBook Air`). Re-login refreshes a row that still shows an old hostname.

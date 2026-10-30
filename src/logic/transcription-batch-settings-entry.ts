@@ -48,11 +48,12 @@ export async function beginTranscriptionBatchFromSettings(
 }
 
 /**
- * Runs the batch behind the existing progress modal so a long queue is cancellable.
+ * Runs the batch behind the progress modal while files are added to the serial queue.
  *
- * Cancel stops enqueueing further files but deliberately leaves already-queued work
- * running: those jobs are real portal requests the user has not been charged for yet,
- * and dropping them silently would lose the choice they already made.
+ * Cancel does not interrupt the enqueue loop. The loop is short (vault reads already
+ * happened) and stopping halfway would leave the user with a partial batch they cannot
+ * see. The flag only changes the closing notice. Jobs already on the queue keep running
+ * either way — the worker owns them, and dropping them would discard work the user asked for.
  */
 async function queueTranscriptionBatchWithProgress(
 	plugin: InkPlugin,

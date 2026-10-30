@@ -41,6 +41,8 @@ sequenceDiagram
 
 Signed-in settings show credit **charts** that match Project Post (allotment-scaled burndown + ideal line, Ink vs other apps spend). There is **no** “Remaining this period: $…” line — remaining is the burndown bars only. Hover or tap a day for **Credits remaining** (% of monthly pool) on burndown, or **% of day’s use** plus **% of monthly credits** on the stack. Styling uses Obsidian CSS variables. Charts are hand-built SVG from burndown JSON — not TanStack, not an iframe of `/account`.
 
+Handwriting transcription's path is **How your data flows**, shown before and after sign-in. It is a wrapping row of cards, not a paragraph. The SVG leaves this device, passes through Almost Useful, and is read by OpenRouter and the AI model provider. The transcript comes back through Almost Useful to this device. Almost Useful does not keep the SVG or the transcript. Hover or click a card for a short description of that hop. The OpenRouter card says the route matches the backend from the installed plugin version, and a newer plugin may differ slightly.
+
 The production portal URL shipped in the plugin is a public client identifier. It is not a company secret. Never add a service role, OpenRouter, Stripe key, or Supabase anon key here.
 
 ---
@@ -77,12 +79,40 @@ Inserted at the top of the plugin settings tab (`almostuseful-account-section.ts
 
 | State | Header | Content |
 |-------|--------|---------|
-| Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description explains handwriting transcription and that Almost Useful is Dale de Silva’s accounts portal for Ink. There is no early-access card. The control is the shared Link account CTA (`applyAlmostUsefulLinkAccountButtonChrome`: outline head-and-shoulders icon `ddc_ink_link_account_user`, plus `ddc_ink_primary-btn` so notice high contrast can invert it). Under it, a right-aligned tertiary **Create account** link (`ddc_ink_tertiary-text-link`) opens `{portalOrigin}/auth/sign-up` in the system browser. Both sit in `ddc_ink_almostuseful-link-account-cta-stack` (`gap: 0.825em`) so the gap matches the version notice. Below that (signed out and signed in): **Processing your data** — info-only row describing HTTPS → Almost Useful → OpenRouter → AI model provider (plain text after OpenRouter; only **HTTPS**, **Almost Useful**, and **OpenRouter** are emphasised in the UI) and that SVG/transcript are not stored on portal servers after processing |
+| Signed out | Almost Useful account | Standard two-column setting: name **Link account**, description explains handwriting transcription and that Almost Useful is Dale de Silva’s accounts portal for Ink. There is no early-access card. The control is the shared Link account CTA (`applyAlmostUsefulLinkAccountButtonChrome`: outline head-and-shoulders icon `ddc_ink_link_account_user`, plus `ddc_ink_primary-btn` so notice high contrast can invert it). Under it, a right-aligned tertiary **Create account** link (`ddc_ink_tertiary-text-link`) opens `{portalOrigin}/auth/sign-up` in the system browser. Both sit in `ddc_ink_almostuseful-link-account-cta-stack` (`gap: 0.825em`) so the gap matches the version notice. Below the link row, and still while a device code is pending: **How your data flows** (see [How your data flows](#how-your-data-flows)) |
 | Requesting code | Almost Useful account | **Same signed-out row**. The label becomes **Getting code…**. The button is disabled and non-interactive (`pointer-events: none`, muted fill) so the pointer does not change. If the portal does not answer within 20 seconds, or the request fails, the label returns to **Link account** and a notice appears |
 | Pending | Almost Useful account | Centred card: instruction **Enter this code on the Almost Useful website to authorise Ink.**, the user code in a box that hugs the text (`XXXX-XXXX`, display-only, not an input), then **Copy code** under it with a small gap. **Code expires in m:ss** sits close under Copy code. While the code is valid, the next lines are **Waiting for your authorisation on the website.** and **This screen will update automatically a few seconds after that's given.** A larger gap sits before **Open website** and **Cancel** on one row. **Copy code** writes the code (hyphen included) and then opens `verification_uri`; the label shows **Copied** for 1.5s. There is **no** **I've approved it** and **no paste field**. When the code expires it turns red with a strikethrough, **Copy code**, **Open website**, and the waiting lines hide, and **Code expired** shares a line with **Renew the code**. **Cancel** stays |
-| Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); **AI Credit Pool** settings card (burndown + usage distribution, or empty-pool products CTA); **Transcription Queue** card when the device-local queue is non-empty |
+| Signed in | Almost Useful account: linked (email when known) | **Manage account** / **Log out** (left-aligned); **AI Credit Pool** settings card (burndown + usage distribution, or empty-pool products CTA); **How your data flows** under that card; **Transcription Queue** card when the device-local queue is non-empty |
 | Signed out | — | **Transcription Queue** card hidden — unsigned devices do not enqueue jobs |
 | 401 | Treated as signed out | Local session cleared |
+
+#### How your data flows
+
+The setting is an info-only row (`ddc_ink_almostuseful-processing-data-setting`). The control column is hidden and the info column is `width: 100%` with `min-width: 0`, so the row can shrink inside the clipped settings body instead of widening it.
+
+The diagram is HTML, not an SVG. `.ddc_ink_controls-content` and the section use `overflow: hidden`, which cuts off a drawing that is wider than the pane. An ordered list (`ddc_ink_almostuseful-processing-flow`) is a wrapping flex row. Each list item owns its card **and** the arrow that leaves it (`flex: 0 0 auto`), so a wrap breaks before the next card and never starts a line with a stranded arrow. Arrow glyphs are `aria-hidden`; a screen reader reads the cards in order.
+
+```mermaid
+flowchart LR
+  DeviceOut["Your device"] --> AlmostOut["Almost Useful"]
+  AlmostOut --> Model["OpenRouter and AI model provider"]
+  Model --> AlmostBack["Almost Useful"]
+  AlmostBack --> DeviceBack["Your device"]
+```
+
+Each card is two forced lines (`white-space: nowrap`), the same height, normal weight, and a `--text-faint` outline. There is no HTTPS label on the arrows.
+
+| Card | Tooltip |
+|------|---------|
+| Your / device | This device, where Ink sends the handwriting SVG from. |
+| Almost / Useful | Almost Useful's servers. The SVG passes through here and is not kept. |
+| OpenRouter and / AI model provider | OpenRouter passes the SVG to the AI model provider to read the handwriting. This is based on the backend setup at the time this version of the plugin was released. Setup may be slightly different in newer versions. |
+| Almost / Useful | The transcript passes back through Almost Useful's servers and is not kept there. |
+| Your / device | The transcript returns here and is saved in the SVG file and in Markdown notes it is embedded in. |
+
+The last line uses normal weight: “Almost Useful does not store the SVG or transcript on its servers after processing.”
+
+Card tooltips use the same tippy theme as the credit charts (`ddc_ink_almostuseful-chart`). Hover shows the tip and leaving the card hides it. Click or tap keeps it open until another press on that card or outside it. Keyboard focus shows it while the card is focused. The tip mounts on the card's `ownerDocument.body` when it opens (`strategy: 'fixed'`), so a popped-out Settings window does not pin it to the main window. Instances are destroyed when the account section rebuilds and in settings `hide()`.
 
 Obsidian often closes Settings when the app backgrounds for the browser. The device code survives in device-local storage, so reopening Ink settings shows the same card and starts the 10-second wait again. If sign-in finished while Settings was closed, that next poll completes it. While Settings stays open, leaving Obsidian cancels the timer, and bringing it back polls immediately.
 
@@ -161,6 +191,10 @@ Staging host overrides can still exist under suffix `almostuseful_debug` if set 
 - **Popped-out Settings:** tippy `appendTo` and pointer listeners must use `svg.ownerDocument`, not the module `document`, or tooltips mount on the wrong Electron window.
 - **Keep tippy `hideOnClick: false`.** Tippy's default (`true`) adds a document `touchend` listener when the tooltip shows. The tooltip is anchored to a zero-size element, so the finger lifting off the bar counts as an outside tap and hides the tooltip straight away on iPad. `onDocumentPointerDown` handles outside dismiss instead.
 - **Only `touch` pointerdowns may touch the latch.** iPadOS follows a quick tap (not a long press, which cancels click emulation) with an emulated `mouse` pointerdown. If that press resets touch mode, hover-style hide rules apply again and the tooltip flashes closed on tap-and-release while hold still works. Leave touch mode only from a real mouse move after the suppress window.
+- **Flow-card tips are not the chart tips.** Do not open **How your data flows** with `show()` from `pointerdown`, and do not copy the chart's `hideOnClick: false` onto those cards. Tippy's default hide listener is a capture-phase `mousedown`. `pointerdown` runs first, so the same press opens the tip and closes it. `trigger: 'mouseenter focus click'` shows on `click`, which is after that `mousedown`, so the tip stays. The chart anchor is a zero-size element, so its tap looks like an outside press and still needs `hideOnClick: false`.
+- **Leave Popper's `hide` modifier off on the flow cards.** The settings pane is `overflow: hidden`. That modifier treats the card as clipped and the tip never appears, even when the card is on screen.
+- **Read `ownerDocument` when the flow tip opens.** The description is built in a fragment. A function `appendTo` sees the document the card was moved into, including a popped-out Settings window. A document captured at build time, or the module `document`, mounts the tip on the wrong window.
+- **Do not turn the flow back into a paragraph.** No lead sentence, no HTTPS label, no separate SVG/Markdown storage row, and no bold on the cards or the retention sentence. The return trip is the last two cards. Where the transcript is saved is the last card's tooltip. The OpenRouter tooltip must keep the installed-version caveat and must not name a specific model.
 - **Link account does not open the browser.** **Open website** always opens the stored `verificationUri`. **Copy code** opens it only after a successful clipboard write so the user has the code before the browser takes focus; a failed copy shows a notice and leaves the browser closed.
 - **Create account is a tertiary link, not a second CTA.** Settings right-aligns it under Link account; the version notice centres the same stack. Both use `ddc_ink_tertiary-text-link` (underline plus hover). Do not restyle one copy on its own, and do not bring back the early-access invite card.
 - **Do not poll faster than the stored interval.** The portal answers `slow_down` and Ink adds 5 seconds for the rest of that code. A return from the background is one immediate poll, then the interval. Polling on every click inside Settings would trip that cap.

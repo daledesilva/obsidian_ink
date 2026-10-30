@@ -1,4 +1,5 @@
 import { Notice, setIcon, Setting, type ButtonComponent } from 'obsidian';
+import tippy, { type Instance } from 'tippy.js';
 import { decorateAlmostUsefulLinkAccountButton } from 'src/components/dom-components/almostuseful-link-account-button';
 import InkPlugin from 'src/main';
 import { fetchAlmostUsefulBurndown } from 'src/logic/almostuseful/almostuseful-usage';
@@ -64,6 +65,7 @@ export function insertAlmostUsefulAccountSection(
 	onOpenBatch: (fileType: HandwritingTranscriptionFileType) => void,
 ): void {
 	stopAlmostUsefulAccountSectionDevicePolling();
+	destroyAlmostUsefulProcessingFlowTooltips();
 	const session = readAlmostUsefulSession();
 	const pending = readAlmostUsefulHandoffPending();
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
@@ -190,35 +192,153 @@ function appendAlmostUsefulCreateAccountLink(
 	});
 }
 
-/** Transcription data-flow and retention disclosure; shown signed out and under usage when linked. */
+/**
+ * Transcription data-flow and retention disclosure; shown signed out and under usage when linked.
+ * DOM cards, not an SVG: the settings body clips overflow, so a drawing wider than the pane is cut off.
+ */
 function insertHandwritingTranscriptionPrivacyDisclosure(contentEl: HTMLElement): void {
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
 		.setClass('ddc_ink_almostuseful-processing-data-setting')
-		.setName('Processing your data')
+		.setName('How your data flows')
 		.setDesc(handwritingTranscriptionProcessingDataSettingDesc());
 }
 
+interface AlmostUsefulProcessingFlowTooltipSession {
+	instance: Instance;
+}
+
+const processingFlowTooltipSessions: AlmostUsefulProcessingFlowTooltipSession[] = [];
+
+/** Removes flow tooltips before settings rebuild or close, including body poppers. */
+export function destroyAlmostUsefulProcessingFlowTooltips(): void {
+	for (const session of processingFlowTooltipSessions) {
+		session.instance.destroy();
+	}
+	processingFlowTooltipSessions.length = 0;
+}
+
+export interface BindAlmostUsefulProcessingFlowTooltipProps {
+	nodeEl: HTMLElement;
+	tooltipText: string;
+}
+
+/**
+ * Hover shows the tip. A click or tap keeps it open until another press outside the card.
+ * Same tippy theme as the credit charts.
+ *
+ * Do not open these with a manual show() from pointerdown. Tippy's hideOnClick listener
+ * is a capture-phase mousedown, and pointerdown runs before that mousedown, so the same
+ * press opens the tip and immediately closes it. mouseenter and click run in an order
+ * that leaves the tip open. appendTo is read when the tip opens so a popped-out settings
+ * window mounts it on that window, not the one that built the fragment.
+ */
+function bindAlmostUsefulProcessingFlowTooltip(props: BindAlmostUsefulProcessingFlowTooltipProps): void {
+	const instance = tippy(props.nodeEl, {
+		content: props.tooltipText,
+		trigger: 'mouseenter focus click',
+		touch: true,
+		placement: 'top',
+		offset: [0, 8],
+		animation: false,
+		delay: 0,
+		maxWidth: 320,
+		theme: 'ddc_ink_almostuseful-chart',
+		appendTo: () => props.nodeEl.ownerDocument.body,
+		interactive: false,
+		popperOptions: {
+			strategy: 'fixed',
+			modifiers: [
+				// Settings panes use overflow:hidden. Popper's hide modifier treats that
+				// as the card being clipped and marks the tip hidden even when the card is on screen.
+				{ name: 'hide', enabled: false },
+				{
+					name: 'flip',
+					options: {
+						fallbackPlacements: ['bottom', 'right', 'left'],
+					},
+				},
+			],
+		},
+	});
+	processingFlowTooltipSessions.push({ instance });
+}
+
+export interface AlmostUsefulProcessingFlowHopProps {
+	listEl: HTMLOListElement;
+	hopLines: string[];
+	tooltipText: string;
+	/** False on the last card so the row does not end with an arrow. */
+	hasLeavingArrow: boolean;
+}
+
+/** Adds one route card and the arrow that leaves it. */
+function appendAlmostUsefulProcessingFlowHop(props: AlmostUsefulProcessingFlowHopProps): void {
+	const stepEl = props.listEl.createEl('li', { cls: 'ddc_ink_almostuseful-processing-flow-step' });
+	const chipEl = stepEl.createSpan({ cls: 'ddc_ink_almostuseful-processing-flow-chip' });
+	chipEl.setAttr('tabindex', '0');
+	const nameEl = chipEl.createSpan({ cls: 'ddc_ink_almostuseful-processing-flow-name' });
+	for (const hopLine of props.hopLines) {
+		// Each phrase is its own line so every card is two lines tall.
+		nameEl.createSpan({
+			cls: 'ddc_ink_almostuseful-processing-flow-line',
+			text: hopLine,
+		});
+	}
+	bindAlmostUsefulProcessingFlowTooltip({
+		nodeEl: chipEl,
+		tooltipText: props.tooltipText,
+	});
+
+	if (!props.hasLeavingArrow) return;
+	// The arrow stays inside this flex item so a wrap breaks before the next card, not before the arrow.
+	const connectorEl = stepEl.createSpan({ cls: 'ddc_ink_almostuseful-processing-flow-connector' });
+	const arrowEl = connectorEl.createSpan({
+		cls: 'ddc_ink_almostuseful-processing-flow-arrow',
+		text: '→',
+	});
+	arrowEl.setAttr('aria-hidden', 'true');
+}
+
+/** Round-trip diagram of a handwriting SVG, plus the retention line. */
 function handwritingTranscriptionProcessingDataSettingDesc(): DocumentFragment {
 	const frag = createFragment();
-	// Plain flow in .setting-item-description (no <p>) so colour/spacing match Link account setDesc text.
 	const descEl = createDiv();
+	const routeEl = descEl.createEl('ol', { cls: 'ddc_ink_almostuseful-processing-flow' });
 
-	descEl.appendText(
-		"When Ink transcribes handwriting, your Ink SVG is sent over ",
-	);
-	descEl.createEl('strong').setText('HTTPS');
-	descEl.appendText(' from your app to ');
-	descEl.createEl('strong').setText('Almost Useful');
-	descEl.appendText("'s servers, then to ");
-	descEl.createEl('strong').setText('OpenRouter');
-	// Downstream model is named generically — portal routing may change; emphasise route hops only, not a specific vendor model.
-	descEl.appendText(
-		', which passes it to the AI model provider to read it. The transcript is returned to your app via the same route and stored in the SVG file as metadata and in all Markdown notes it is embedded in.',
-	);
+	appendAlmostUsefulProcessingFlowHop({
+		listEl: routeEl,
+		hopLines: ['Your', 'device'],
+		tooltipText: 'This device, where Ink sends the handwriting SVG from.',
+		hasLeavingArrow: true,
+	});
+	appendAlmostUsefulProcessingFlowHop({
+		listEl: routeEl,
+		hopLines: ['Almost', 'Useful'],
+		tooltipText: 'Almost Useful\'s servers. The SVG passes through here and is not kept.',
+		hasLeavingArrow: true,
+	});
+	appendAlmostUsefulProcessingFlowHop({
+		listEl: routeEl,
+		hopLines: ['OpenRouter and', 'AI model provider'],
+		tooltipText: 'OpenRouter passes the SVG to the AI model provider to read the handwriting. This is based on the backend setup at the time this version of the plugin was released. Setup may be slightly different in newer versions.',
+		hasLeavingArrow: true,
+	});
+	appendAlmostUsefulProcessingFlowHop({
+		listEl: routeEl,
+		hopLines: ['Almost', 'Useful'],
+		tooltipText: 'The transcript passes back through Almost Useful\'s servers and is not kept there.',
+		hasLeavingArrow: true,
+	});
+	appendAlmostUsefulProcessingFlowHop({
+		listEl: routeEl,
+		hopLines: ['Your', 'device'],
+		tooltipText: 'The transcript returns here and is saved in the SVG file and in Markdown notes it is embedded in.',
+		hasLeavingArrow: false,
+	});
+
 	const retentionEl = descEl.createSpan({ cls: 'ddc_ink_almostuseful-processing-data-retention' });
-	retentionEl.createEl('strong').setText('Almost Useful does not store the SVG or transcript');
-	retentionEl.appendText(' on its servers after processing.');
+	retentionEl.setText('Almost Useful does not store the SVG or transcript on its servers after processing.');
 
 	frag.appendChild(descEl);
 	return frag;

@@ -30,6 +30,7 @@ import {
 import { applyHighContrastUserInterfaceBodyClass } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import {
+	destroyAlmostUsefulProcessingFlowTooltips,
 	insertAlmostUsefulAccountSection,
 	stopAlmostUsefulAccountSectionDevicePolling,
 } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
@@ -205,6 +206,7 @@ export class MySettingsTab extends PluginSettingTab {
 	hide(): void {
 		this.legacyMigrateScanGeneration++;
 		stopAlmostUsefulAccountSectionDevicePolling();
+		destroyAlmostUsefulProcessingFlowTooltips();
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
 		this.unsubscribeAlmostUsefulSession?.();

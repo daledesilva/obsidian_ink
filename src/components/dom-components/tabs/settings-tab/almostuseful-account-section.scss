@@ -50,9 +50,13 @@
 
 		.setting-item-info {
 			width: 100%;
+			// Let the wrapping diagram shrink to the pane. Without this, chip min-content widens the row and the clipped section cuts it off.
+			min-width: 0;
 		}
 
 		.setting-item-description {
+			min-width: 0;
+
 			strong {
 				color: var(--text-normal);
 			}
@@ -60,8 +64,77 @@
 			.ddc_ink_almostuseful-processing-data-retention {
 				display: block;
 				margin-top: 0.75em;
+				color: var(--text-normal);
+				font-weight: var(--font-normal);
 			}
 		}
+	}
+
+	// Horizontal route that wraps between cards. Each card owns the arrow that leaves it.
+	.ddc_ink_almostuseful-processing-flow {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		width: 100%;
+		max-width: 100%;
+		column-gap: 0.35em;
+		row-gap: 0.45em;
+		list-style: none;
+		margin: 0.45em 0 0;
+		padding: 0;
+	}
+
+	.ddc_ink_almostuseful-processing-flow-arrow {
+		color: var(--text-muted);
+		line-height: 1;
+	}
+
+	.ddc_ink_almostuseful-processing-flow-step {
+		// Keep each card intact and wrap the row between cards.
+		display: inline-flex;
+		align-items: center;
+		flex: 0 0 auto;
+		gap: 0.35em;
+		max-width: 100%;
+	}
+
+	.ddc_ink_almostuseful-processing-flow-chip {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		cursor: pointer;
+		// Two lines of the smaller label, plus the extra padding, so every card stays the same height.
+		min-height: calc(2.4em * 0.8 + 1.1em);
+		max-width: 100%;
+		border: 1px solid var(--text-faint);
+		border-radius: var(--radius-s);
+		padding: 0.55em 0.8em;
+		font-weight: var(--font-normal);
+		text-align: center;
+	}
+
+	.ddc_ink_almostuseful-processing-flow-name {
+		color: var(--text-normal);
+		font-weight: var(--font-normal);
+	}
+
+	.ddc_ink_almostuseful-processing-flow-line {
+		display: block;
+		font-size: 0.8em;
+		font-weight: var(--font-normal);
+		line-height: 1.2;
+		white-space: nowrap;
+	}
+
+	.ddc_ink_almostuseful-processing-flow-connector {
+		display: inline-flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.1em;
+		white-space: nowrap;
 	}
 
 	// Match section padding top/bottom; no extra Obsidian setting-item chrome on the action row.

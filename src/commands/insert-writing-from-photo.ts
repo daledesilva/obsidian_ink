@@ -116,9 +116,12 @@ async function importWritingFromPhoto(
 			quarterTurnsClockwise = crop.quarterTurnsClockwise;
 			// Warp the turned photo so the pins match the pixels the user just saw.
 			const orientedPhoto = rotateImageDataQuarterTurns(photoImage, quarterTurnsClockwise);
-			const straightenProgress = openWritingPhotoProgressModal(plugin, () => {
-				cancelled = true;
-				worker.cancel();
+			const straightenProgress = openWritingPhotoProgressModal({
+				plugin,
+				onCancel: () => {
+					cancelled = true;
+					worker.cancel();
+				},
 			});
 			straightenProgress.setStage('Straightening the page…');
 			try {
@@ -171,9 +174,12 @@ async function importWritingFromPhoto(
 		// Flatten before the trace. The worker skips this when the page is already warped.
 		flattenPageIlluminationCanvasInPlace(pageCanvas);
 
-		const convertProgress = openWritingPhotoProgressModal(plugin, () => {
-			cancelled = true;
-			worker.cancel();
+		const convertProgress = openWritingPhotoProgressModal({
+			plugin,
+			onCancel: () => {
+				cancelled = true;
+				worker.cancel();
+			},
 		});
 		let traceResult: PhotoTraceResult | null = null;
 		try {

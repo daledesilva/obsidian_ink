@@ -224,8 +224,8 @@ async function runPhotoQueue(
 		let navigation: PhotoQueueNavigation;
 
 		if (item.convertedTarget) {
-			// The neighbours decode while this note is on screen, so the next click
-			// does not have to close the dialog and wait.
+			// Neighbours start once this step is opening, not while an earlier photo is
+			// still decoding. A click can then close and open in one turn.
 			decodeCache.prefetchAround(batch, index);
 			navigation = await openConvertedStep(
 				plugin,
@@ -350,9 +350,9 @@ async function runPhotoItemSteps(
 	}
 	const sourceImage = photoImage;
 
-	// Neighbours start decoding once this photo is on screen, so stepping is usually
-	// ready before the click. Doing it earlier would decode this photo and the next
-	// one at the same time.
+	// Neighbours start only after this bitmap is ready, in the same turn the dialog
+	// opens. Starting them earlier would decode this photo and the next one together,
+	// which is the wait the handoff is trying to hide.
 	decodeCache.prefetchAround(batch, index);
 
 	const pageChoice = await openWritingPhotoPageModal({

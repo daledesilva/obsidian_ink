@@ -1,27 +1,48 @@
 import InkPlugin from 'src/main';
 import { Editor, Notice } from 'obsidian';
-import { activateNextEmbed, recordRecentFileSelection } from 'src/logic/utils/storage';
-import { buildDrawingEmbed, buildWritingEmbed } from 'src/components/formats/current/utils/build-embeds';
-import { buildDrawingEmbedSettingsFromStrokes } from 'src/logic/utils/build-drawing-embed-settings-from-file';
-import { readWritingFileAspectRatio } from 'src/logic/utils/writing-embed-aspect-ratio';
-import { WritingPhotoPickerModal } from 'src/components/dom-components/modals/writing-photo-picker-modal/writing-photo-picker-modal';
-import { openWritingPhotoCropModal } from 'src/components/dom-components/modals/writing-photo-crop-modal/writing-photo-crop-modal';
 import {
-	openWritingPhotoAdjustModal,
-	type WritingPhotoConvertTarget,
-} from 'src/components/dom-components/modals/writing-photo-adjust-modal/writing-photo-adjust-modal';
+	countPendingPhotos,
+	createPhotoBatch,
+	disposePhotoBatch,
+	findNextPendingPhotoIndex,
+	markPhotoBatchItemConverted,
+	photoBatchPositionLabel,
+	photoBatchStepLabel,
+	pinPhotoBatchPage,
+	setPhotoBatchPreviewUrl,
+	setPhotoBatchTarget,
+	setPhotoBatchThumbnailPage,
+	type PhotoBatch,
+	type PhotoBatchItem,
+	type PhotoCornerQuad,
+	type PhotoStepSettings,
+} from 'src/logic/photo-trace/photo-batch-session';
+import { renderPhotoBatchThumbnail } from 'src/logic/photo-trace/photo-batch-thumbnail-preview';
+import {
+	openWritingPhotoBatchModal,
+	type WritingPhotoBatchChoice,
+} from 'src/components/dom-components/modals/writing-photo-batch-modal/writing-photo-batch-modal';
+import { openWritingPhotoPageModal } from 'src/components/dom-components/modals/writing-photo-page-modal/writing-photo-page-modal';
+import { openWritingPhotoConvertedStep } from 'src/components/dom-components/modals/writing-photo-converted-step-modal/writing-photo-converted-step-modal';
 import { openWritingPhotoProgressModal } from 'src/components/dom-components/modals/writing-photo-progress-modal/writing-photo-progress-modal';
-import { encodeWritingPhotoJpeg } from 'src/logic/photo-trace/encode-writing-photo-jpeg';
 import {
-	getNewTimestampedDrawingSvgFilepath,
-	getNewTimestampedWritingSvgFilepath,
-} from 'src/logic/utils/file-manipulation';
-import { createFoldersForFilepath } from 'src/logic/utils/createFoldersForFilepath';
-import { parseFilepath } from 'src/logic/utils/parseFilepath';
+	assessPagePhoto,
+	autoTuneAdjustmentAndSensitivity,
+} from 'src/logic/photo-trace/adjust-page-photo';
 import {
-	buildWritingPhotoJpegVaultPath,
-	buildWritingPhotoSourceImageRelativePath,
-} from 'src/logic/photo-trace/writing-photo-paths';
+	flattenPageIlluminationCanvasInPlace,
+	flattenPageIlluminationImageData,
+} from 'src/logic/photo-trace/flatten-page-illumination';
+import { findPageQuad, fullFrameCorners } from 'src/logic/photo-trace/find-page-quad';
+import type {
+	InkPhotoConvertTarget,
+	PhotoStepNav,
+} from 'src/logic/photo-trace/photo-convert-target';
+import {
+	PhotoTraceCancelledError,
+	PhotoTraceWorkerClient,
+} from 'src/logic/photo-trace/photo-trace-worker-client';
+import { rotateImageDataQuarterTurns } from 'src/logic/photo-trace/rotate-image-data';
 import {
 	canvasFromRgba,
 	decodePhotoToCanvas,
@@ -36,278 +57,482 @@ import {
 	photoTraceMinPolylineLength,
 	photoTraceSauvolaK,
 	photoTraceSimplifyEpsilon,
+	type PhotoTraceResult,
 } from 'src/logic/photo-trace/trace-from-raster';
-import {
-	findPageQuad,
-	fullFrameCorners,
-} from 'src/logic/photo-trace/find-page-quad';
-import { flattenPageIlluminationCanvasInPlace } from 'src/logic/photo-trace/flatten-page-illumination';
-import {
-	buildInkCanvasDrawingFileData,
-	buildInkCanvasWritingFileData,
-} from 'src/components/formats/current/utils/build-file-data';
-import { buildFileStr } from 'src/components/formats/current/utils/buildFileStr';
-import { renderStrokesToSvg, renderWritingStrokesToSvg } from 'src/ink-canvas/svg-export';
-import type { InkCanvasSnapshot } from 'src/ink-canvas/types';
-import { WRITING_PAGE_WIDTH } from 'src/constants';
-import { DEFAULT_SETTINGS } from 'src/types/plugin-settings';
-import {
-	enqueueTranscriptionAfterPhotoImport,
-	suppressAutoTranscribeOnNextVaultModify,
-} from 'src/logic/handwriting-transcription-queue';
-import { setInkEmbedDisplayMode } from 'src/logic/ink-embed-display-mode';
-import {
-	PhotoTraceCancelledError,
-	PhotoTraceWorkerClient,
-} from 'src/logic/photo-trace/photo-trace-worker-client';
-import type { PagePhotoAdjustment } from 'src/logic/photo-trace/adjust-page-photo';
-import { rotateImageDataQuarterTurns } from 'src/logic/photo-trace/rotate-image-data';
-import type { PhotoTraceResult } from 'src/logic/photo-trace/trace-from-raster';
+import { createInkFileFromPhotoTrace } from 'src/logic/photo-trace/write-ink-file-from-photo';
+
+////////
+////////
+
+/** Mutable state shared by every step of one batch run. */
+interface PhotoBatchRunState {
+	/** Only the first created file may claim the activate-next-embed flag. */
+	hasActivatedFirstEmbed: boolean;
+	createdCount: number;
+}
+
+/** Where a step wants the queue to go next. */
+type PhotoQueueNavigation = PhotoStepNav;
 
 ////////
 ////////
 
 /**
- * Command entry: pick a photo, fit the page, trace that crop, and queue transcription.
+ * Command entry: collect one or more photos, then trace them in the chosen order.
  */
 export const insertWritingFromPhoto = (plugin: InkPlugin, editor: Editor): void => {
-	const modal = new WritingPhotoPickerModal(plugin, (file) => {
-		void importWritingFromPhoto(plugin, editor, file);
-	});
-	modal.open();
+	const batch = createPhotoBatch();
+	void runPhotoBatchWizard(plugin, editor, batch);
 };
 
-async function importWritingFromPhoto(
+/**
+ * Grid, then ordered photo steps, for as long as the user keeps asking for it.
+ * Returning to the grid is deliberate: photos can be added or reordered between
+ * passes, and Convert all is available from the grid at any time.
+ */
+async function runPhotoBatchWizard(
 	plugin: InkPlugin,
 	editor: Editor,
-	photoFile: File,
+	batch: PhotoBatch,
 ): Promise<void> {
-	const activeFile = plugin.app.workspace.getActiveFile();
+	const state: PhotoBatchRunState = { hasActivatedFirstEmbed: false, createdCount: 0 };
 	const worker = new PhotoTraceWorkerClient(plugin);
-	let cancelled = false;
 	try {
-		const photoCanvas = await decodePhotoToCanvas(photoFile, PHOTO_TRACE_DEFAULT_EDGE_PX);
-		const photoImage = imageDataFromCanvas(photoCanvas);
-		const photoGray = luminanceFromCanvas(photoCanvas);
-		const detectedQuad = findPageQuad(photoGray, photoCanvas.width, photoCanvas.height, photoImage.data);
-		const defaultCorners = detectedQuad?.corners ?? fullFrameCorners(photoCanvas.width, photoCanvas.height);
-		let corners = defaultCorners;
-		let quarterTurnsClockwise = 0;
-		let convertChoice: {
-			target: WritingPhotoConvertTarget;
-			adjustment: PagePhotoAdjustment;
-			inkSensitivity: number;
-			noiseCleanup: boolean;
-		} | null = null;
-		let pageCanvas: HTMLCanvasElement | null = null;
-
-		while (!convertChoice) {
-			const crop = await openWritingPhotoCropModal(
-				plugin,
-				photoImage,
-				corners,
-				quarterTurnsClockwise,
-			);
-			if (!crop || cancelled) {
-				worker.cancel();
-				return;
+		let isRunning = true;
+		while (isRunning) {
+			// A cancelled conversion kills the worker for good. Every pass through the
+			// grid starts with no request in flight, so it is the safe place to revive it.
+			worker.reset();
+			const gridChoice = await openGridModal(plugin, batch);
+			if (gridChoice.action === 'cancel') return;
+			if (gridChoice.action === 'convert-all') {
+				await convertAllPendingPhotos(plugin, editor, batch, state, worker);
+				// Cancelling the progress dialog leaves the remaining photos queued, so the
+				// grid comes back instead of silently dropping them.
+				if (countPendingPhotos(batch) === 0) isRunning = false;
+				continue;
 			}
-			corners = crop.corners;
-			quarterTurnsClockwise = crop.quarterTurnsClockwise;
-			// Warp the turned photo so the pins match the pixels the user just saw.
-			const orientedPhoto = rotateImageDataQuarterTurns(photoImage, quarterTurnsClockwise);
-			const straightenProgress = openWritingPhotoProgressModal({
-				plugin,
-				onCancel: () => {
-					cancelled = true;
-					worker.cancel();
-				},
-			});
-			straightenProgress.setStage('Straightening the page…');
-			try {
-				const warped = await worker.warp({
-					rgba: orientedPhoto.data,
-					width: orientedPhoto.width,
-					height: orientedPhoto.height,
-					corners,
-					maxEdgePx: PHOTO_TRACE_DEFAULT_EDGE_PX,
-					onProgress: (stage, percent) => straightenProgress.setStage(stage, percent),
-				});
-				if (cancelled) {
-					straightenProgress.close();
-					return;
-				}
-				pageCanvas = canvasFromRgba(warped.rgba, warped.width, warped.height);
-				const previewImage = scaleImageDataToMaxEdge(
-					new ImageData(warped.rgba, warped.width, warped.height),
-					PHOTO_TRACE_PREVIEW_MAX_EDGE_PX,
-				);
-				straightenProgress.close();
-				const adjustChoice = await openWritingPhotoAdjustModal(plugin, previewImage);
-				if (adjustChoice.action === 'back') continue;
-				if (adjustChoice.action === 'cancel') {
-					worker.cancel();
-					return;
-				}
-				convertChoice = {
-					target: adjustChoice.target,
-					adjustment: adjustChoice.adjustment,
-					inkSensitivity: adjustChoice.inkSensitivity,
-					noiseCleanup: adjustChoice.noiseCleanup,
-				};
-			} catch (error) {
-				if (error instanceof PhotoTraceCancelledError || cancelled) {
-					straightenProgress.close();
-					return;
-				}
-				straightenProgress.setStage(
-					error instanceof Error ? error.message : 'Could not straighten the page.',
-				);
-				return;
+			// Read from this grid pass only. Carrying it across passes made every later run
+			// look like a pencil edit, so the batch footer never reappeared.
+			const editFromItemId = gridChoice.action === 'edit' ? gridChoice.itemId : null;
+			const outcome = await runPhotoQueue(plugin, editor, batch, state, worker, editFromItemId);
+			if (outcome === 'finished') isRunning = false;
+			if (outcome === 'convert-all') {
+				// Convert all from a step screen finishes everything still pending and then
+				// closes the batch; the grid only returns when a conversion is cancelled.
+				await convertAllPendingPhotos(plugin, editor, batch, state, worker);
+				if (countPendingPhotos(batch) === 0) isRunning = false;
 			}
 		}
+	} finally {
+		disposePhotoBatch(batch);
+		worker.cancel();
+		if (state.createdCount > 0) new Notice(buildBatchSummary(state.createdCount));
+	}
+}
 
-		if (!pageCanvas) {
-			worker.cancel();
-			return;
-		}
-		// Flatten before the trace. The worker skips this when the page is already warped.
-		flattenPageIlluminationCanvasInPlace(pageCanvas);
-
-		const convertProgress = openWritingPhotoProgressModal({
+/** Opens the thumbnail grid and resolves once the user leaves it. */
+function openGridModal(plugin: InkPlugin, batch: PhotoBatch): Promise<WritingPhotoBatchChoice> {
+	return new Promise((resolve) => {
+		openWritingPhotoBatchModal({
 			plugin,
-			onCancel: () => {
-				cancelled = true;
-				worker.cancel();
+			batch,
+			onChoice: (choice) => resolve(choice),
+		});
+	});
+}
+
+/**
+ * Walks the photos in grid order. Thumbnails returns to the grid. Prev is disabled
+ * on the first photo, and stepping past the last photo finishes the batch.
+ *
+ * `startItemId` is set by a thumbnail's pencil. That opens the same adjust page as
+ * Refine images, already on that photo, with Thumbnails, Prev, Next, and Convert all.
+ */
+async function runPhotoQueue(
+	plugin: InkPlugin,
+	editor: Editor,
+	batch: PhotoBatch,
+	state: PhotoBatchRunState,
+	worker: PhotoTraceWorkerClient,
+	startItemId: string | null,
+): Promise<'back-to-grid' | 'convert-all' | 'finished'> {
+	let index = 0;
+	if (startItemId) {
+		const requestedIndex = batch.items.findIndex((item) => item.id === startItemId);
+		if (requestedIndex >= 0) index = requestedIndex;
+	} else {
+		const firstPendingIndex = findNextPendingPhotoIndex(batch, 0);
+		if (firstPendingIndex >= 0) index = firstPendingIndex;
+	}
+	const itemCount = batch.items.length;
+
+	while (index >= 0 && index < itemCount) {
+		const item = batch.items[index];
+		const positionLabel = photoBatchPositionLabel(batch, item.id);
+		const canGoPrevious = index > 0;
+		const canGoNext = index < itemCount - 1;
+		let navigation: PhotoQueueNavigation;
+
+		if (item.convertedTarget) {
+			navigation = await openConvertedStep(
+				plugin,
+				item,
+				positionLabel,
+				canGoPrevious,
+				canGoNext,
+			);
+		} else {
+			const itemOutcome = await runPhotoItemSteps(
+				plugin,
+				editor,
+				batch,
+				item,
+				positionLabel,
+				canGoPrevious,
+				canGoNext,
+				state,
+				worker,
+			);
+			navigation = itemOutcome.navigation;
+		}
+
+		if (navigation === 'cancel') return 'finished';
+		if (navigation === 'photos') return 'back-to-grid';
+		if (navigation === 'convert-all') return 'convert-all';
+		if (navigation === 'previous') {
+			// Stepping back into a cancelled worker would fail on the next request, so
+			// revive it here where nothing is in flight.
+			worker.reset();
+			index -= 1;
+			if (index < 0) return 'back-to-grid';
+			continue;
+		}
+		worker.reset();
+		index += 1;
+	}
+	return 'finished';
+}
+
+/** Resolves the read-only step for a photo that is already in the note. */
+function openConvertedStep(
+	plugin: InkPlugin,
+	item: PhotoBatchItem,
+	positionLabel: string,
+	canGoPrevious: boolean,
+	canGoNext: boolean,
+): Promise<PhotoQueueNavigation> {
+	return new Promise((resolve) => {
+		openWritingPhotoConvertedStep({
+			plugin,
+			target: item.convertedTarget ?? item.target,
+			positionLabel,
+			canGoPrevious,
+			canGoNext,
+			onChoice: (choice) => {
+				if (choice.action === 'next') {
+					resolve('next');
+					return;
+				}
+				resolve(choice.action);
 			},
 		});
-		let traceResult: PhotoTraceResult | null = null;
-		try {
-			const maxEdgePx = PHOTO_TRACE_DEFAULT_EDGE_PX;
-			const sauvolaK = photoTraceSauvolaK(convertChoice.inkSensitivity);
-			const pageImage = imageDataFromCanvas(pageCanvas);
-			convertProgress.setStage('Tracing locally…');
-			// The adjust step already warped and flattened at 1600px; reuse that page directly.
-			const converted = await worker.convert({
-				rgba: pageImage.data,
-				width: pageImage.width,
-				height: pageImage.height,
-				corners,
-				maxEdgePx,
-				adjustment: convertChoice.adjustment,
-				dropLargeBorderComponents: true,
-				simplifyEpsilon: photoTraceSimplifyEpsilon(PHOTO_TRACE_DEFAULT_DETAIL),
-				minPolylineLengthPx: photoTraceMinPolylineLength(PHOTO_TRACE_DEFAULT_DETAIL),
-				sauvolaK,
-				noiseCleanup: convertChoice.noiseCleanup,
-				alreadyWarped: true,
-				onProgress: (stage: string, percent?: number) => convertProgress.setStage(stage, percent),
-			});
-			if (cancelled) return;
-			traceResult = converted;
-		} catch (error) {
-			if (error instanceof PhotoTraceCancelledError || cancelled) {
-				convertProgress.close();
-				return;
-			}
-			convertProgress.setStage(error instanceof Error ? error.message : 'Could not trace the page.');
-			return;
-		} finally {
-			if (traceResult) convertProgress.close();
-			worker.cancel();
-		}
+	});
+}
 
-		if (!traceResult || cancelled) return;
+interface PhotoItemOutcome {
+	navigation: PhotoQueueNavigation;
+}
 
-		const isDrawingTarget = convertChoice.target === 'drawing';
-		const svgPath = isDrawingTarget
-			? await getNewTimestampedDrawingSvgFilepath(plugin, activeFile)
-			: await getNewTimestampedWritingSvgFilepath(plugin, activeFile);
-		const { basename } = parseFilepath(svgPath);
-		const jpegFileName = `${basename.replace(/\.svg$/i, '')}.jpg`;
-		const jpegVaultPath = buildWritingPhotoJpegVaultPath(svgPath, jpegFileName);
-		const sourceImageRelative = buildWritingPhotoSourceImageRelativePath(jpegFileName);
-
-		await createFoldersForFilepath(plugin, jpegVaultPath);
-		await createFoldersForFilepath(plugin, svgPath);
-		// The saved photo matches the turn chosen with the corners. The crop itself stays in memory.
-		const jpegBuffer = await encodeWritingPhotoJpeg(photoFile, quarterTurnsClockwise);
-		await plugin.app.vault.createBinary(jpegVaultPath, jpegBuffer);
-
-		let pageDataStr: string;
-		if (isDrawingTarget) {
-			const inkCanvasSnapshot: InkCanvasSnapshot = {
-				version: 1,
-				strokes: traceResult.strokes,
-				gridEnabled: plugin.settings.drawingGridEnabledByDefault ?? DEFAULT_SETTINGS.drawingGridEnabledByDefault,
-			};
-			const svgString = renderStrokesToSvg(traceResult.strokes, inkCanvasSnapshot);
-			const pageData = buildInkCanvasDrawingFileData({
-				inkCanvasSnapshot,
-				svgString,
-				sourceImage: sourceImageRelative,
-				transcriptFrom: 'photo',
-			});
-			pageDataStr = buildFileStr(pageData);
-		} else {
-			const inkCanvasSnapshot: InkCanvasSnapshot = {
-				version: 1,
-				strokes: traceResult.strokes,
-				gridEnabled: false,
-				writingLineHeight: traceResult.writingLineHeight,
-			};
-			const svgString = renderWritingStrokesToSvg(
-				traceResult.strokes,
-				inkCanvasSnapshot,
-				WRITING_PAGE_WIDTH,
-			);
-			const pageData = buildInkCanvasWritingFileData({
-				inkCanvasSnapshot,
-				svgString,
-				sourceImage: sourceImageRelative,
-				transcriptFrom: 'photo',
-				writingLineHeight: traceResult.writingLineHeight,
-			});
-			pageDataStr = buildFileStr(pageData);
-		}
-
-		suppressAutoTranscribeOnNextVaultModify(svgPath);
-		const fileRef = await plugin.app.vault.create(svgPath, pageDataStr);
-
-		recordRecentFileSelection(isDrawingTarget ? 'inkDrawing' : 'inkWriting', fileRef.path);
-		// Display mode is session memory, separate from lock. Starting on photo
-		// made the first lock jump back to the photo pane.
-		setInkEmbedDisplayMode(fileRef.path, 'ink');
-
-		let embedStr: string;
-		if (isDrawingTarget) {
-			const embedSettings = buildDrawingEmbedSettingsFromStrokes(traceResult.strokes) ?? undefined;
-			embedStr = buildDrawingEmbed(
-				fileRef.path,
-				embedSettings ? { embedSettings } : { writingAlignedViewBox: true },
-			);
-		} else {
-			const aspectRatio = await readWritingFileAspectRatio(plugin, fileRef);
-			embedStr = buildWritingEmbed(
-				fileRef.path,
-				aspectRatio != null ? { aspectRatio } : undefined,
-			);
-		}
-		activateNextEmbed();
-		const positionForEmbed = editor.getCursor();
-		editor.replaceRange(embedStr, positionForEmbed);
-		const positionForCursor = { ...positionForEmbed };
-		const embedLines = embedStr.split(/\r\n|\r|\n/);
-		positionForCursor.line += embedLines.length;
-		editor.setCursor(positionForCursor);
-
-		await enqueueTranscriptionAfterPhotoImport(fileRef.path);
-		new Notice(isDrawingTarget ? 'Drawing from the photo is ready.' : 'Handwriting from the photo is ready.');
+/**
+ * Everything about one photo's page, in a single step: turn it, move the pins, and tune
+ * the detection. Corners and detection used to be two dialogs, which is why the
+ * thumbnail's pencil behaved differently from Refine images: one skipped the pins entirely.
+ *
+ * Nothing is warped or cropped here. The corner quad is drawn over the whole photo, and
+ * the warp happens at convert time.
+ */
+async function runPhotoItemSteps(
+	plugin: InkPlugin,
+	editor: Editor,
+	batch: PhotoBatch,
+	item: PhotoBatchItem,
+	positionLabel: string,
+	canGoPrevious: boolean,
+	canGoNext: boolean,
+	state: PhotoBatchRunState,
+	worker: PhotoTraceWorkerClient,
+): Promise<PhotoItemOutcome> {
+	let photoImage: ImageData;
+	try {
+		photoImage = (await decodePhotoForTracing(item)).photoImage;
 	} catch (error) {
-		worker.cancel();
-		if (error instanceof PhotoTraceCancelledError || (error instanceof Error && error.message.includes('cancelled'))) {
-			return;
-		}
-		new Notice(`Could not import handwriting photo: ${String(error)}`);
+		new Notice(`Could not read a photo: ${String(error)}`);
+		return { navigation: 'next' };
 	}
+
+	const pageChoice = await openWritingPhotoPageModal({
+		plugin,
+		sourceImage: photoImage,
+		defaultCorners: findStartingCorners(item, photoImage),
+		quarterTurnsClockwise: findStartingQuarterTurns(item),
+		initialSettings: item.settings,
+		currentTarget: item.target,
+		onTargetChange: (target) => setPhotoBatchTarget(batch, item.id, target),
+		positionLabel,
+		canGoPrevious,
+		canGoNext,
+	});
+
+	if (pageChoice.action === 'cancel') {
+		return { navigation: 'cancel' };
+	}
+
+	// Every exit remembers the page shape and detection settings, so coming back to this
+	// photo resumes from here instead of from the automatic guess.
+	const settings: PhotoStepSettings = {
+		corners: pageChoice.corners,
+		quarterTurnsClockwise: pageChoice.quarterTurnsClockwise,
+		adjustment: pageChoice.adjustment,
+		inkSensitivity: pageChoice.inkSensitivity,
+		noiseCleanup: pageChoice.noiseCleanup,
+	};
+	item.settings = settings;
+	pinPhotoBatchPage(item, settings.corners, settings.quarterTurnsClockwise);
+	// The thumbnail shows the same page shape, so it agrees with what was just pinned.
+	// Corners are in the turned photo's space, so the stored ratio must match that too.
+	const turnedIsSideways = settings.quarterTurnsClockwise % 2 !== 0;
+	setPhotoBatchThumbnailPage(
+		item,
+		turnedIsSideways ? photoImage.height : photoImage.width,
+		turnedIsSideways ? photoImage.width : photoImage.height,
+		settings.corners,
+	);
+	await refreshPhotoBatchThumbnail(batch, item, settings);
+
+	if (pageChoice.action !== 'convert-all') {
+		return { navigation: pageChoice.action };
+	}
+
+	// Convert all converts this photo first, using these settings, then finishes the rest.
+	void state;
+	void worker;
+	return { navigation: 'convert-all' };
+}
+
+/**
+ * Rebuilds a photo's grid preview from its current settings.
+ *
+ * A rotation or a detection change is applied here, otherwise the card would keep showing
+ * the raw file the user opened it from. A preview failure is not fatal: the grid falls back
+ * to the raw thumbnail and the conversion still works.
+ */
+async function refreshPhotoBatchThumbnail(
+	batch: PhotoBatch,
+	item: PhotoBatchItem,
+	settings: PhotoStepSettings,
+): Promise<void> {
+	try {
+		const previewUrl = await renderPhotoBatchThumbnail(item, settings);
+		setPhotoBatchPreviewUrl(batch, item.id, previewUrl);
+	} catch {
+		// Leave the existing preview in place.
+	}
+}
+
+/**
+ * Converts every photo that is still waiting, with detected corners and auto-tuned
+ * detection. Photos the user already set up keep their saved corners and settings.
+ */
+async function convertAllPendingPhotos(
+	plugin: InkPlugin,
+	editor: Editor,
+	batch: PhotoBatch,
+	state: PhotoBatchRunState,
+	worker: PhotoTraceWorkerClient,
+): Promise<void> {
+	if (countPendingPhotos(batch) === 0) return;
+	let isCancelled = false;
+	const progress = openWritingPhotoProgressModal({
+		plugin,
+		title: 'Converting photos',
+		initialStage: 'Preparing the photos…',
+		onCancel: () => {
+			isCancelled = true;
+			worker.cancel();
+		},
+	});
+
+	try {
+		for (const item of batch.items) {
+			if (isCancelled) break;
+			if (item.convertedTarget) continue;
+			const stepLabel = photoBatchStepLabel(batch, item.id);
+			try {
+				await convertOnePhotoWithoutSteps(plugin, editor, item, stepLabel, state, worker, progress.setStage);
+			} catch (error) {
+				if (error instanceof PhotoTraceCancelledError || isCancelled) break;
+				// One bad photo must not throw away the rest of the batch.
+				progress.setStage(`${stepLabel} — could not convert this photo.`);
+			}
+		}
+	} finally {
+		progress.close();
+	}
+}
+
+/**
+ * Decode, detect, warp, auto-tune, trace, and write one photo with no dialogs other
+ * than the shared progress log.
+ */
+async function convertOnePhotoWithoutSteps(
+	plugin: InkPlugin,
+	editor: Editor,
+	item: PhotoBatchItem,
+	stepLabel: string,
+	state: PhotoBatchRunState,
+	worker: PhotoTraceWorkerClient,
+	setStage: (stage: string, percent?: number) => void,
+): Promise<void> {
+	setStage(`${stepLabel} — reading the photo…`);
+	const photoImage = (await decodePhotoForTracing(item)).photoImage;
+	// A photo already set up in the corners step keeps those pins; the rest use the
+	// detected page, which is the same default the corners step would have shown.
+	const quarterTurnsClockwise = findStartingQuarterTurns(item);
+	const corners = findStartingCorners(item, photoImage);
+
+	const orientedPhoto = rotateImageDataQuarterTurns(photoImage, quarterTurnsClockwise);
+	const warped = await worker.warp({
+		rgba: orientedPhoto.data,
+		width: orientedPhoto.width,
+		height: orientedPhoto.height,
+		corners,
+		maxEdgePx: PHOTO_TRACE_DEFAULT_EDGE_PX,
+		onProgress: (stage, percent) => setStage(`${stepLabel} — ${stage}`, percent),
+	});
+	const pageCanvas = canvasFromRgba(warped.rgba, warped.width, warped.height);
+
+	let settings = item.settings;
+	if (!settings) {
+		setStage(`${stepLabel} — measuring the page…`);
+		const previewImage = scaleImageDataToMaxEdge(
+			imageDataFromCanvas(pageCanvas),
+			PHOTO_TRACE_PREVIEW_MAX_EDGE_PX,
+		);
+		const flattenedPreview = flattenPageIlluminationImageData(previewImage);
+		const assessment = assessPagePhoto(flattenedPreview);
+		const tuned = autoTuneAdjustmentAndSensitivity(
+			flattenedPreview,
+			assessment,
+			assessment.lightInk,
+		);
+		settings = {
+			corners,
+			quarterTurnsClockwise,
+			adjustment: tuned.adjustment,
+			inkSensitivity: tuned.inkSensitivity,
+			noiseCleanup: true,
+		};
+		item.settings = settings;
+	}
+
+	// The trace always reads a flattened page. Convert reuses this raster, so the
+	// mask is measured on the same pixels the preview used.
+	flattenPageIlluminationCanvasInPlace(pageCanvas);
+	setStage(`${stepLabel} — tracing locally…`);
+	const traceResult = await worker.convert({
+		rgba: imageDataFromCanvas(pageCanvas).data,
+		width: pageCanvas.width,
+		height: pageCanvas.height,
+		corners: settings.corners,
+		maxEdgePx: PHOTO_TRACE_DEFAULT_EDGE_PX,
+		adjustment: settings.adjustment,
+		dropLargeBorderComponents: true,
+		simplifyEpsilon: photoTraceSimplifyEpsilon(PHOTO_TRACE_DEFAULT_DETAIL),
+		minPolylineLengthPx: photoTraceMinPolylineLength(PHOTO_TRACE_DEFAULT_DETAIL),
+		sauvolaK: photoTraceSauvolaK(settings.inkSensitivity),
+		noiseCleanup: settings.noiseCleanup,
+		alreadyWarped: true,
+		onProgress: (stage, percent) => setStage(`${stepLabel} — ${stage}`, percent),
+	});
+	setStage(`${stepLabel} — saving the ink file…`);
+	await writeTracedPhoto(plugin, editor, item, settings, traceResult, state);
+}
+
+/**
+ * Where the corners step should start for this photo: the pins the user confirmed,
+ * then the cached detection, then the whole frame.
+ */
+function findStartingCorners(item: PhotoBatchItem, photoImage: ImageData): PhotoCornerQuad {
+	if (item.pinnedPage) return item.pinnedPage.corners;
+	if (item.settings) return item.settings.corners;
+	return item.detectedCorners ?? fullFrameCorners(photoImage.width, photoImage.height);
+}
+
+/** The quarter turns already chosen for this photo, or the unrotated photo. */
+function findStartingQuarterTurns(item: PhotoBatchItem): number {
+	if (item.pinnedPage) return item.pinnedPage.quarterTurnsClockwise;
+	if (item.settings) return item.settings.quarterTurnsClockwise;
+	return 0;
+}
+
+/**
+ * Decodes the photo, caches the detected page corners, and records the thumbnail's
+ * shape and pin positions so the grid can show them without decoding again.
+ */
+async function decodePhotoForTracing(
+	item: PhotoBatchItem,
+): Promise<{ photoImage: ImageData }> {
+	const photoCanvas = await decodePhotoToCanvas(item.file, PHOTO_TRACE_DEFAULT_EDGE_PX);
+	const photoImage = imageDataFromCanvas(photoCanvas);
+	if (!item.detectedCorners) {
+		const photoGray = luminanceFromCanvas(photoCanvas);
+		const detectedQuad = findPageQuad(photoGray, photoCanvas.width, photoCanvas.height, photoImage.data);
+		item.detectedCorners = detectedQuad?.corners
+			?? fullFrameCorners(photoCanvas.width, photoCanvas.height);
+	}
+	// The thumbnail shows the page shape the corners step would open with.
+	if (!item.thumbnailCorners) {
+		const startingTurns = findStartingQuarterTurns(item);
+		const startingIsSideways = startingTurns % 2 !== 0;
+		setPhotoBatchThumbnailPage(
+			item,
+			startingIsSideways ? photoImage.height : photoImage.width,
+			startingIsSideways ? photoImage.width : photoImage.height,
+			findStartingCorners(item, photoImage),
+		);
+	}
+	return { photoImage };
+}
+
+/** Writes the ink file and embed, then records the photo as converted. */
+async function writeTracedPhoto(
+	plugin: InkPlugin,
+	editor: Editor,
+	item: PhotoBatchItem,
+	settings: PhotoStepSettings,
+	traceResult: PhotoTraceResult,
+	state: PhotoBatchRunState,
+): Promise<void> {
+	const activeFile = plugin.app.workspace.getActiveFile();
+	const target: InkPhotoConvertTarget = item.target;
+	await createInkFileFromPhotoTrace({
+		plugin,
+		editor,
+		photoFile: item.file,
+		quarterTurnsClockwise: settings.quarterTurnsClockwise,
+		traceResult,
+		target,
+		activeFile,
+		activateImmediately: !state.hasActivatedFirstEmbed,
+	});
+	state.hasActivatedFirstEmbed = true;
+	state.createdCount += 1;
+	markPhotoBatchItemConverted(item, target);
+}
+
+/** One closing line for the whole batch, replacing the per-file notices. */
+function buildBatchSummary(createdCount: number): string {
+	const fileLabel = createdCount === 1 ? 'ink file' : 'ink files';
+	return `${createdCount} ${fileLabel} created from photos.`;
 }

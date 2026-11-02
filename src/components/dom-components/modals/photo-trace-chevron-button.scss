@@ -1,0 +1,55 @@
+.modal button.ddc_ink_photo-trace-chevron-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35em;
+	line-height: 1;
+}
+
+/*
+ * The icon span otherwise keeps a text line box, which parks the chevron above
+ * the words. Collapsing that box lets the button's flex alignment centre it
+ * on the label, including Thumbnails.
+ */
+.ddc_ink_photo-trace-chevron-btn__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 0;
+}
+
+.ddc_ink_photo-trace-chevron-btn__label {
+	line-height: 1;
+}
+
+.ddc_ink_photo-trace-chevron-btn .svg-icon {
+	display: block;
+	width: var(--icon-s);
+	height: var(--icon-s);
+	flex: 0 0 auto;
+}
+
+/*
+ * A disabled step stays in the row at its resting colour. Hover still matches a
+ * disabled button, and the dialog hover token then lights it up. Dropping pointer
+ * events keeps that highlight, the press state, and the click off the control.
+ * The pointer stays the ordinary arrow rather than the not-allowed cursor.
+ */
+.modal button.ddc_ink_photo-trace-chevron-btn:disabled,
+.modal button.ddc_ink_photo-trace-chevron-btn:disabled *,
+.modal button.ddc_ink_photo-trace-chevron-btn[disabled],
+.modal button.ddc_ink_photo-trace-chevron-btn[disabled] * {
+	cursor: default;
+	pointer-events: none;
+}
+
+.modal button.ddc_ink_photo-trace-chevron-btn:disabled:hover,
+.modal button.ddc_ink_photo-trace-chevron-btn:disabled:active,
+.modal button.ddc_ink_photo-trace-chevron-btn:disabled:focus,
+.modal button.ddc_ink_photo-trace-chevron-btn[disabled]:hover,
+.modal button.ddc_ink_photo-trace-chevron-btn[disabled]:active,
+.modal button.ddc_ink_photo-trace-chevron-btn[disabled]:focus {
+	background-color: var(--interactive-normal);
+	box-shadow: none;
+	cursor: default;
+}

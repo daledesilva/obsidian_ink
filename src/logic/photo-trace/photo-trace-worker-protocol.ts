@@ -41,6 +41,22 @@ export type PhotoTraceWorkerRequest =
 		 * Skips a second homography and a second lighting flatten.
 		 */
 		alreadyWarped?: boolean;
+	}
+	| {
+		/**
+		 * Renders the adjusted ink preview for the page step: flatten, pick the detection
+		 * settings, then apply them. Runs here so the dialog can appear immediately with
+		 * the plain photo instead of freezing while the whole image is processed.
+		 */
+		type: 'preview';
+		id: string;
+		rgba: Uint8ClampedArray;
+		width: number;
+		height: number;
+		/** When set, these are used as-is and auto-tune is skipped. */
+		adjustment?: PagePhotoAdjustment;
+		inkSensitivity?: number;
+		noiseCleanup?: boolean;
 	};
 
 export type PhotoTraceWorkerResponse =
@@ -69,6 +85,17 @@ export type PhotoTraceWorkerResponse =
 		pageRgba: Uint8ClampedArray;
 		pageWidth: number;
 		pageHeight: number;
+	}
+	| {
+		type: 'preview-done';
+		id: string;
+		/** Black-and-white ink mask for the adjusted photo, at the source size. */
+		maskRgba: Uint8ClampedArray;
+		width: number;
+		height: number;
+		/** The detection settings that produced the mask, so sliders can show them. */
+		adjustment: PagePhotoAdjustment;
+		inkSensitivity: number;
 	}
 	| {
 		type: 'error';

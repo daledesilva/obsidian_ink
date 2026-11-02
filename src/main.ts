@@ -398,8 +398,9 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 	});
 	plugin.addCommand({
 		id: 'create-handwriting-from-photo',
-		// The palette name covers both destinations. The id stays so an existing hotkey still runs this command.
-		name: 'Insert handwriting/drawing from photo',
+		// The palette name covers both destinations and the batch. The id stays so an
+		// existing hotkey still runs this command.
+		name: 'Insert handwriting/drawing from photos',
 		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertWritingFromPhoto(plugin, editor),
 	});

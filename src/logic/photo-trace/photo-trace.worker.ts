@@ -1,12 +1,17 @@
 import {
 	assessPagePhoto,
+	autoTuneAdjustmentAndSensitivity,
 	pagePhotoToneForAdjustment,
 	renderAdjustedPagePhoto,
+	type PagePhotoAdjustment,
 } from './adjust-page-photo';
 import { flattenPageIlluminationImageDataInto } from './flatten-page-illumination';
 import { instantiateZhangSuenWasm } from './load-skeleton-wasm';
 import type { PhotoTraceWorkerRequest, PhotoTraceWorkerResponse } from './photo-trace-worker-protocol';
 import {
+	buildPhotoInkMask,
+	PHOTO_TRACE_DEFAULT_INK_SENSITIVITY,
+	photoTraceSauvolaK,
 	setZhangSuenThinImpl,
 	traceHandwritingFromRaster,
 } from './trace-from-raster';
@@ -61,6 +66,11 @@ async function handleRequest(payload: PhotoTraceWorkerRequest): Promise<void> {
 		return;
 	}
 
+	if (payload.type === 'preview') {
+		post({ type: 'preview-done', id: payload.id, ...buildPreview(payload) });
+		return;
+	}
+
 	let pageRgba = payload.rgba;
 	let pageWidth = payload.width;
 	let pageHeight = payload.height;
@@ -110,6 +120,70 @@ async function handleRequest(payload: PhotoTraceWorkerRequest): Promise<void> {
 		pageWidth,
 		pageHeight,
 	});
+}
+
+/**
+ * Builds the black-and-white ink preview for the page step, and reports the detection
+ * settings it used so the sliders start in the right place.
+ *
+ * This is the same pipeline the modal used to run on the UI thread: flatten the lighting,
+ * assess the page, auto-tune (unless settings were supplied), apply them, then mask. Moving
+ * it here is what lets the dialog open instantly with the plain photo.
+ */
+function buildPreview(payload: Extract<PhotoTraceWorkerRequest, { type: 'preview' }>): {
+	maskRgba: Uint8ClampedArray;
+	width: number;
+	height: number;
+	adjustment: PagePhotoAdjustment;
+	inkSensitivity: number;
+} {
+	const source = new ImageData(payload.rgba, payload.width, payload.height);
+	flattenPageIlluminationImageDataInto(source, source);
+	const assessment = assessPagePhoto(source);
+
+	let adjustment: PagePhotoAdjustment;
+	let inkSensitivity: number;
+	if (payload.adjustment) {
+		adjustment = payload.adjustment;
+		inkSensitivity = payload.inkSensitivity ?? PHOTO_TRACE_DEFAULT_INK_SENSITIVITY;
+	} else {
+		const tuned = autoTuneAdjustmentAndSensitivity(source, assessment, assessment.lightInk);
+		adjustment = tuned.adjustment;
+		inkSensitivity = tuned.inkSensitivity;
+	}
+
+	const adjusted = new ImageData(payload.width, payload.height);
+	renderAdjustedPagePhoto(
+		source,
+		pagePhotoToneForAdjustment(assessment, adjustment.lightInk),
+		adjustment,
+		adjusted,
+	);
+	const gray = luminanceFromRgba(adjusted.data, payload.width * payload.height);
+	const mask = buildPhotoInkMask(
+		gray,
+		payload.width,
+		payload.height,
+		photoTraceSauvolaK(inkSensitivity),
+		true,
+		payload.noiseCleanup ?? true,
+	);
+	const maskRgba = new Uint8ClampedArray(payload.width * payload.height * 4);
+	for (let index = 0; index < mask.length; index++) {
+		const ink = mask[index] === 1 ? 0 : 255;
+		const offset = index * 4;
+		maskRgba[offset] = ink;
+		maskRgba[offset + 1] = ink;
+		maskRgba[offset + 2] = ink;
+		maskRgba[offset + 3] = 255;
+	}
+	return {
+		maskRgba,
+		width: payload.width,
+		height: payload.height,
+		adjustment,
+		inkSensitivity,
+	};
 }
 
 function luminanceFromRgba(data: Uint8ClampedArray, pixelCount: number): Uint8Array {

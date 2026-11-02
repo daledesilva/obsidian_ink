@@ -1,3 +1,5 @@
+import { autoSelectPhotoInkSensitivity } from './trace-from-raster';
+
 //////////
 //////////
 
@@ -124,6 +126,71 @@ export function adjustedPageCanvas(
 	);
 	destContext.putImageData(destImage, 0, 0);
 	return destCanvas;
+}
+
+/**
+ * Evaluates whether the assessed Colour/Contrast stretch introduces more pepper noise
+ * than the raw illumination-flattened image, and picks the cleanest combination along
+ * with the matching Ink sensitivity. Lives here rather than in the adjust modal so
+ * Convert all can pick the same settings without opening a dialog.
+ */
+export function autoTuneAdjustmentAndSensitivity(
+	sourceImage: ImageData,
+	assessment: PagePhotoAssessment,
+	lightInk: boolean,
+): { adjustment: PagePhotoAdjustment; inkSensitivity: number } {
+	const tone = pagePhotoToneForAdjustment(assessment, lightInk);
+	const zeroAdjustment: PagePhotoAdjustment = {
+		colourStrength: 0,
+		contrastStrength: 0,
+		lightInk,
+	};
+	const scratch = new ImageData(sourceImage.width, sourceImage.height);
+	renderAdjustedPagePhoto(sourceImage, tone, zeroAdjustment, scratch);
+	const zeroGray = grayscaleFromImageData(scratch);
+	const zeroSensitivity = autoSelectPhotoInkSensitivity(
+		zeroGray,
+		sourceImage.width,
+		sourceImage.height,
+	);
+
+	if (tone.colourStrength === 0 && tone.contrastStrength === 0) {
+		return { adjustment: zeroAdjustment, inkSensitivity: zeroSensitivity };
+	}
+
+	const toneAdjustment: PagePhotoAdjustment = {
+		colourStrength: tone.colourStrength,
+		contrastStrength: tone.contrastStrength,
+		lightInk,
+	};
+	renderAdjustedPagePhoto(sourceImage, tone, toneAdjustment, scratch);
+	const toneGray = grayscaleFromImageData(scratch);
+	const toneSensitivity = autoSelectPhotoInkSensitivity(
+		toneGray,
+		sourceImage.width,
+		sourceImage.height,
+	);
+
+	// Prefer 0/0 unless the tone stretch actually needs a higher sensitivity (meaning
+	// the raw image was too flat for Sauvola to separate strokes without stretching).
+	if (zeroSensitivity >= 50) {
+		return { adjustment: zeroAdjustment, inkSensitivity: zeroSensitivity };
+	}
+	return { adjustment: toneAdjustment, inkSensitivity: toneSensitivity };
+}
+
+/** Rec. 601 luminance bytes for the trace mask and the auto-tune pass. */
+export function grayscaleFromImageData(image: ImageData): Uint8Array {
+	const pixelCount = image.width * image.height;
+	const gray = new Uint8Array(pixelCount);
+	const pixels = image.data;
+	for (let index = 0; index < pixelCount; index++) {
+		const offset = index * 4;
+		gray[index] = Math.round(
+			0.299 * pixels[offset] + 0.587 * pixels[offset + 1] + 0.114 * pixels[offset + 2],
+		);
+	}
+	return gray;
 }
 
 function measurePageTone(

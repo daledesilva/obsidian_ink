@@ -27,6 +27,16 @@ export interface PhotoTraceConvertResult extends PhotoTraceResult {
 	pageHeight: number;
 }
 
+export interface PhotoTracePreviewResult {
+	/** Black-and-white ink mask for the adjusted photo, at the source size. */
+	maskRgba: Uint8ClampedArray;
+	width: number;
+	height: number;
+	/** The detection settings the worker used, so sliders can show them. */
+	adjustment: PagePhotoAdjustment;
+	inkSensitivity: number;
+}
+
 /**
  * One dedicated worker for warp and convert. Terminate on cancel. There is no
  * UI-thread thinning fallback — a missing worker or WASM is an error.
@@ -35,6 +45,12 @@ export class PhotoTraceWorkerClient {
 	private worker: Worker | null = null;
 	private workerObjectUrl: string | null = null;
 	private cancelled = false;
+	/**
+	 * Rejects the request that is in flight. Terminating a worker does not settle its
+	 * pending promise, and a batch waits on that promise before showing the next photo,
+	 * so cancel must fail the request explicitly or the wizard would stall.
+	 */
+	private pendingReject: ((error: Error) => void) | null = null;
 
 	constructor(_plugin: unknown) {}
 
@@ -48,6 +64,18 @@ export class PhotoTraceWorkerClient {
 			URL.revokeObjectURL(this.workerObjectUrl);
 			this.workerObjectUrl = null;
 		}
+		const pendingReject = this.pendingReject;
+		this.pendingReject = null;
+		pendingReject?.(new PhotoTraceCancelledError());
+	}
+
+	/**
+	 * Undoes cancel() so the next request starts a fresh worker. A photo batch cancels
+	 * one conversion and then keeps going, which the old terminate-for-good cancel could
+	 * not express. Only call this once the cancelled request has settled.
+	 */
+	reset(): void {
+		this.cancelled = false;
 	}
 
 	async warp(params: {
@@ -116,6 +144,42 @@ export class PhotoTraceWorkerClient {
 		};
 	}
 
+	/**
+	 * Renders the adjusted ink preview for the page step, off the UI thread.
+	 *
+	 * The dialog opens with the plain photo first and swaps to this when it lands, which is
+	 * what stops a multi-second freeze before the modal appears.
+	 */
+	async preview(params: {
+		rgba: Uint8ClampedArray;
+		width: number;
+		height: number;
+		adjustment?: PagePhotoAdjustment;
+		inkSensitivity?: number;
+		noiseCleanup?: boolean;
+	}): Promise<PhotoTracePreviewResult> {
+		const response = await this.request({
+			type: 'preview',
+			id: crypto.randomUUID(),
+			rgba: params.rgba,
+			width: params.width,
+			height: params.height,
+			adjustment: params.adjustment,
+			inkSensitivity: params.inkSensitivity,
+			noiseCleanup: params.noiseCleanup,
+		});
+		if (response.type !== 'preview-done') {
+			throw new Error('Photo worker did not return a preview');
+		}
+		return {
+			maskRgba: response.maskRgba,
+			width: response.width,
+			height: response.height,
+			adjustment: response.adjustment,
+			inkSensitivity: response.inkSensitivity,
+		};
+	}
+
 	private async ensureWorker(): Promise<Worker> {
 		if (this.cancelled) throw new PhotoTraceCancelledError();
 		if (this.worker) return this.worker;
@@ -156,6 +220,7 @@ export class PhotoTraceWorkerClient {
 				reject(new PhotoTraceCancelledError());
 				return;
 			}
+			this.pendingReject = reject;
 			const timeoutId = self.setTimeout(() => {
 				this.cancel();
 				reject(new Error('Photo trace timed out'));
@@ -175,10 +240,16 @@ export class PhotoTraceWorkerClient {
 			};
 			const onError = (error: ErrorEvent) => {
 				cleanup();
-				reject(error.error ?? new Error(error.message || 'Photo worker failed'));
+				const workerError: unknown = error.error;
+				if (workerError instanceof Error) {
+					reject(workerError);
+					return;
+				}
+				reject(new Error(error.message || 'Photo worker failed'));
 			};
 			const cleanup = () => {
 				self.clearTimeout(timeoutId);
+				this.pendingReject = null;
 				worker.removeEventListener('message', onMessage);
 				worker.removeEventListener('error', onError);
 			};

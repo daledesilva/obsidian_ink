@@ -43,6 +43,35 @@
 	pointer-events: none;
 }
 
+/*
+ * Shown on the button that was clicked while the next dialog is still being prepared.
+ * The dialog stays open underneath it, so this replaces the empty gap that used to
+ * appear between Prev, Next, and Refine.
+ */
+.ddc_ink_modal button.is-busy,
+.ddc_ink_writing-photo-batch-card button.is-busy {
+	pointer-events: none;
+}
+
+.ddc_ink_photo-trace-btn__spinner {
+	display: inline-flex;
+	align-items: center;
+	margin-inline-end: 0.35em;
+	line-height: 0;
+}
+
+.ddc_ink_modal button.is-busy .ddc_ink_photo-trace-chevron-btn__icon,
+.ddc_ink_modal button.is-busy .ddc_ink_photo-trace-btn__spinner,
+.ddc_ink_writing-photo-batch-card button.is-busy .ddc_ink_writing-photo-batch-icon {
+	animation: ddc_ink_photo-trace-spin 0.8s linear infinite;
+}
+
+@keyframes ddc_ink_photo-trace-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .modal button.ddc_ink_photo-trace-chevron-btn:disabled:hover,
 .modal button.ddc_ink_photo-trace-chevron-btn:disabled:active,
 .modal button.ddc_ink_photo-trace-chevron-btn:disabled:focus,

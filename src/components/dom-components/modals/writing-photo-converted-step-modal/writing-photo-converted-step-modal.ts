@@ -1,6 +1,7 @@
 import { Modal, Setting } from 'obsidian';
 import InkPlugin from 'src/main';
 import { setPhotoTraceChevronLabel } from 'src/components/dom-components/modals/photo-trace-chevron-button';
+import { leavePhotoTraceModal } from 'src/components/dom-components/modals/photo-trace-modal-leave';
 import type { InkPhotoConvertTarget } from 'src/logic/photo-trace/photo-convert-target';
 import './writing-photo-converted-step-modal.scss';
 
@@ -24,6 +25,13 @@ export interface OpenWritingPhotoConvertedStepOptions {
 	canGoPrevious?: boolean;
 	/** True when there is a later photo to step to. */
 	canGoNext?: boolean;
+	/**
+	 * Runs before the dialog closes, while it is still on screen.
+	 *
+	 * Return void when the next dialog is already ready. Return a promise when the
+	 * next photo is still decoding so the clicked button spins until it resolves.
+	 */
+	beforeLeave?: (choice: WritingPhotoConvertedStepChoice) => void | Promise<void>;
 	onChoice: (choice: WritingPhotoConvertedStepChoice) => void;
 }
 
@@ -42,6 +50,8 @@ export function openWritingPhotoConvertedStep(options: OpenWritingPhotoConverted
 class WritingPhotoConvertedStepModal extends Modal {
 	private readonly options: OpenWritingPhotoConvertedStepOptions;
 	private settled = false;
+	/** True from the click until the dialog closes, so a second footer button is ignored. */
+	private isLeaving = false;
 
 	constructor(options: OpenWritingPhotoConvertedStepOptions) {
 		super(options.plugin.app);
@@ -72,26 +82,26 @@ class WritingPhotoConvertedStepModal extends Modal {
 		footerRow.addButton((button) => {
 			button.buttonEl.addClass('ddc_ink_photo-converted__thumbnails-btn');
 			setPhotoTraceChevronLabel(button.buttonEl, 'Thumbnails', 'start');
-			button.onClick(() => this.finish({ action: 'photos' }));
+			button.onClick(() => this.requestLeave(button.buttonEl, { action: 'photos' }));
 		});
 		footerRow.addButton((button) => {
 			setPhotoTraceChevronLabel(button.buttonEl, 'Prev image', 'start');
 			// The first photo has nothing earlier. The label stays put so Thumbnails
 			// remains the only way back to the grid.
 			button.setDisabled(!canGoPrevious);
-			button.onClick(() => this.finish({ action: 'previous' }));
+			button.onClick(() => this.requestLeave(button.buttonEl, { action: 'previous' }));
 		});
 		footerRow.addButton((button) => {
 			setPhotoTraceChevronLabel(button.buttonEl, 'Next image', 'end');
 			button.setDisabled(!this.options.canGoNext);
-			button.onClick(() => this.finish({ action: 'next' }));
+			button.onClick(() => this.requestLeave(button.buttonEl, { action: 'next' }));
 		});
 		footerRow.addButton((button) => {
 			button.buttonEl.addClass('ddc_ink_photo-converted__convert-all-btn');
 			// This photo is already in the note, so Convert all only handles the rest.
 			button.setButtonText('Convert all');
 			button.setCta();
-			button.onClick(() => this.finish({ action: 'convert-all' }));
+			button.onClick(() => this.requestLeave(button.buttonEl, { action: 'convert-all' }));
 		});
 	}
 
@@ -106,5 +116,22 @@ class WritingPhotoConvertedStepModal extends Modal {
 		this.settled = true;
 		this.close();
 		this.options.onChoice(choice);
+	}
+
+	/**
+	 * Prepares the next screen before closing, so the note never shows between dialogs.
+	 * A second click is ignored until this one finishes or the dialog closes.
+	 */
+	private requestLeave(buttonEl: HTMLElement, choice: WritingPhotoConvertedStepChoice): void {
+		if (this.settled || this.isLeaving) return;
+		this.isLeaving = true;
+		void leavePhotoTraceModal(
+			buttonEl,
+			() => this.options.beforeLeave?.(choice),
+			() => !this.settled,
+			() => this.finish(choice),
+		).finally(() => {
+			if (!this.settled) this.isLeaving = false;
+		});
 	}
 }

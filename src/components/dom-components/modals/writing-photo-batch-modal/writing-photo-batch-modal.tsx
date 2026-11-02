@@ -19,6 +19,7 @@ import {
 import type { InkPhotoConvertTarget } from 'src/logic/photo-trace/photo-convert-target';
 import { preparePhotoBatchThumbnails } from 'src/logic/photo-trace/photo-batch-thumbnail-prep';
 import { setPhotoTraceChevronLabel } from 'src/components/dom-components/modals/photo-trace-chevron-button';
+import { leavePhotoTraceModal } from 'src/components/dom-components/modals/photo-trace-modal-leave';
 import './writing-photo-batch-modal.scss';
 
 ////////
@@ -35,6 +36,16 @@ export type WritingPhotoBatchChoice =
 export interface WritingPhotoBatchModalOptions {
 	plugin: InkPlugin;
 	batch: PhotoBatch;
+	/**
+	 * Decodes the photo Refine or a pencil is about to open, while this grid is still up.
+	 * Called when the grid opens and whenever the queue changes, so that click is usually instant.
+	 */
+	warmUpcomingPhoto?: () => void;
+	/**
+	 * Runs before the grid closes. Return a promise when the next photo is still decoding
+	 * so the clicked button spins and the grid stays up until the adjust dialog can open.
+	 */
+	beforeLeave?: (choice: WritingPhotoBatchChoice) => void | Promise<void>;
 	onChoice: (choice: WritingPhotoBatchChoice) => void;
 }
 
@@ -57,7 +68,7 @@ interface PhotoBatchGridProps {
 	onTargetChange: (itemId: string, target: InkPhotoConvertTarget) => void;
 	onRemove: (itemId: string) => void;
 	/** Opens the edit screen for one photo straight from its pencil button. */
-	onEdit: (itemId: string) => void;
+	onEdit: (itemId: string, buttonEl: HTMLElement) => void;
 }
 
 /**
@@ -104,7 +115,7 @@ interface PhotoBatchCardProps {
 	'data-id'?: string;
 	onTargetChange: (itemId: string, target: InkPhotoConvertTarget) => void;
 	onRemove: (itemId: string) => void;
-	onEdit: (itemId: string) => void;
+	onEdit: (itemId: string, buttonEl: HTMLElement) => void;
 }
 
 interface PhotoCardIconButtonProps {
@@ -112,7 +123,7 @@ interface PhotoCardIconButtonProps {
 	/** Accessible name, rendered as visually hidden text rather than a tooltip. */
 	label: string;
 	iconName: string;
-	onClick: () => void;
+	onClick: (buttonEl: HTMLElement) => void;
 }
 
 /**
@@ -133,9 +144,18 @@ const PhotoCardIconButton: React.FC<PhotoCardIconButtonProps> = (props) => {
 		<button
 			type='button'
 			className={`${props.className} clickable-icon`}
-			onClick={props.onClick}
+			onClick={(event) => {
+				const buttonEl = event.currentTarget;
+				if (!(buttonEl instanceof HTMLElement)) return;
+				props.onClick(buttonEl);
+			}}
 		>
-			<span ref={iconElRef} className='ddc_ink_writing-photo-batch-icon' aria-hidden='true' />
+			<span
+				ref={iconElRef}
+				className='ddc_ink_writing-photo-batch-icon'
+				data-resting-icon={props.iconName}
+				aria-hidden='true'
+			/>
 			<span className='ddc_ink_visually-hidden'>{props.label}</span>
 		</button>
 	);
@@ -198,7 +218,7 @@ const PhotoBatchCard: React.FC<PhotoBatchCardProps> = (props) => {
 					className='ddc_ink_writing-photo-batch-edit'
 					label={`Edit ${photoLabel.toLowerCase()}`}
 					iconName='pencil'
-					onClick={() => props.onEdit(props.item.id)}
+					onClick={(buttonEl) => props.onEdit(props.item.id, buttonEl)}
 				/>
 			</div>
 			<div className='ddc_ink_writing-photo-batch-target'>
@@ -273,6 +293,8 @@ class WritingPhotoBatchModal extends Modal {
 	private assignDrawingButtonEl: HTMLButtonElement | null = null;
 	private gridRoot: Root | null = null;
 	private settled = false;
+	/** True from a Refine, pencil, or Convert all click until the grid closes. */
+	private isLeaving = false;
 	private onPaste = (event: ClipboardEvent) => {
 		const files = imageFilesFromClipboardEvent(event);
 		if (files.length === 0) return;
@@ -377,17 +399,19 @@ class WritingPhotoBatchModal extends Modal {
 				button.buttonEl.addClass('ddc_ink_writing-photo-batch-footer__refine');
 				setPhotoTraceChevronLabel(button.buttonEl, 'Refine images', 'end');
 				this.refineButtonEl = button.buttonEl;
-				button.onClick(() => this.finish({ action: 'next' }));
+				button.onClick(() => this.requestLeave(button.buttonEl, { action: 'next' }));
 			})
 			.addButton((button) => {
 				button.setButtonText('Convert all');
 				button.setCta();
 				button.buttonEl.addClass('ddc_ink_writing-photo-batch-footer__convert');
 				this.convertAllButtonEl = button.buttonEl;
-				button.onClick(() => this.finish({ action: 'convert-all' }));
+				button.onClick(() => this.requestLeave(button.buttonEl, { action: 'convert-all' }));
 			});
 
 		this.refreshFooter();
+		// The photo Refine opens can decode while the user is still looking at the grid.
+		this.options.warmUpcomingPhoto?.();
 		// Obsidian focuses the first visible control after onOpen. That is Take photo,
 		// which makes one equal choice look selected. Focus the dialog instead so a
 		// keyboard user is still inside it, and Tab still reaches the buttons.
@@ -452,6 +476,7 @@ class WritingPhotoBatchModal extends Modal {
 	private addFiles(files: File[]): void {
 		addPhotosToBatch(this.options.batch, files);
 		this.renderGrid();
+		this.options.warmUpcomingPhoto?.();
 		void this.prepareNewThumbnails();
 	}
 
@@ -484,6 +509,7 @@ class WritingPhotoBatchModal extends Modal {
 		// SortableJS also reports the current order on mount, which is not a change.
 		if (!didReorder) return;
 		this.renderGrid();
+		this.options.warmUpcomingPhoto?.();
 	}
 
 	private handleTargetChange(itemId: string, target: InkPhotoConvertTarget): void {
@@ -496,11 +522,12 @@ class WritingPhotoBatchModal extends Modal {
 	private handleRemove(itemId: string): void {
 		removePhotoFromBatch(this.options.batch, itemId);
 		this.renderGrid();
+		this.options.warmUpcomingPhoto?.();
 	}
 
-	/** The pencil closes the grid and reports which photo the wizard should open. */
-	private handleEdit(itemId: string): void {
-		this.finish({ action: 'edit', itemId });
+	/** The pencil opens that photo's adjust screen once its bitmap is ready. */
+	private handleEdit(itemId: string, buttonEl: HTMLElement): void {
+		this.requestLeave(buttonEl, { action: 'edit', itemId });
 	}
 
 	/** Re-renders the grid from the mutated batch and updates the footer. */
@@ -513,7 +540,7 @@ class WritingPhotoBatchModal extends Modal {
 				onReorder={(orderedItemIds) => this.handleReorder(orderedItemIds)}
 				onTargetChange={(itemId, target) => this.handleTargetChange(itemId, target)}
 				onRemove={(itemId) => this.handleRemove(itemId)}
-				onEdit={(itemId) => this.handleEdit(itemId)}
+				onEdit={(itemId, buttonEl) => this.handleEdit(itemId, buttonEl)}
 			/>,
 		);
 		this.refreshFooter();
@@ -565,6 +592,23 @@ class WritingPhotoBatchModal extends Modal {
 		this.settled = true;
 		this.close();
 		this.options.onChoice(choice);
+	}
+
+	/**
+	 * Prepares the next screen before closing, so the note never shows between dialogs.
+	 * A second click is ignored until this one finishes or the grid closes.
+	 */
+	private requestLeave(buttonEl: HTMLElement, choice: WritingPhotoBatchChoice): void {
+		if (this.settled || this.isLeaving) return;
+		this.isLeaving = true;
+		void leavePhotoTraceModal(
+			buttonEl,
+			() => this.options.beforeLeave?.(choice),
+			() => !this.settled,
+			() => this.finish(choice),
+		).finally(() => {
+			if (!this.settled) this.isLeaving = false;
+		});
 	}
 }
 

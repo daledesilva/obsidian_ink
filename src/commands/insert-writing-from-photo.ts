@@ -22,8 +22,15 @@ import {
 	openWritingPhotoBatchModal,
 	type WritingPhotoBatchChoice,
 } from 'src/components/dom-components/modals/writing-photo-batch-modal/writing-photo-batch-modal';
-import { openWritingPhotoPageModal } from 'src/components/dom-components/modals/writing-photo-page-modal/writing-photo-page-modal';
-import { openWritingPhotoConvertedStep } from 'src/components/dom-components/modals/writing-photo-converted-step-modal/writing-photo-converted-step-modal';
+import {
+	openWritingPhotoPageModal,
+	type WritingPhotoPageChoice,
+} from 'src/components/dom-components/modals/writing-photo-page-modal/writing-photo-page-modal';
+import {
+	openWritingPhotoConvertedStep,
+	type WritingPhotoConvertedStepChoice,
+} from 'src/components/dom-components/modals/writing-photo-converted-step-modal/writing-photo-converted-step-modal';
+import { PhotoDecodeCache } from 'src/logic/photo-trace/photo-decode-cache';
 import { openWritingPhotoProgressModal } from 'src/components/dom-components/modals/writing-photo-progress-modal/writing-photo-progress-modal';
 import {
 	assessPagePhoto,
@@ -97,13 +104,19 @@ async function runPhotoBatchWizard(
 ): Promise<void> {
 	const state: PhotoBatchRunState = { hasActivatedFirstEmbed: false, createdCount: 0 };
 	const worker = new PhotoTraceWorkerClient(plugin);
+	// Neighbour photos are decoded while a dialog is open, so Next and Prev can swap
+	// dialogs in the same turn instead of closing first and leaving a blank gap.
+	const decodeCache = new PhotoDecodeCache(async (item) => {
+		const decoded = await decodePhotoForTracing(item);
+		return decoded.photoImage;
+	});
 	try {
 		let isRunning = true;
 		while (isRunning) {
 			// A cancelled conversion kills the worker for good. Every pass through the
 			// grid starts with no request in flight, so it is the safe place to revive it.
 			worker.reset();
-			const gridChoice = await openGridModal(plugin, batch);
+			const gridChoice = await openGridModal(plugin, batch, decodeCache);
 			if (gridChoice.action === 'cancel') return;
 			if (gridChoice.action === 'convert-all') {
 				await convertAllPendingPhotos(plugin, editor, batch, state, worker);
@@ -115,7 +128,7 @@ async function runPhotoBatchWizard(
 			// Read from this grid pass only. Carrying it across passes made every later run
 			// look like a pencil edit, so the batch footer never reappeared.
 			const editFromItemId = gridChoice.action === 'edit' ? gridChoice.itemId : null;
-			const outcome = await runPhotoQueue(plugin, editor, batch, state, worker, editFromItemId);
+			const outcome = await runPhotoQueue(plugin, batch, worker, decodeCache, editFromItemId);
 			if (outcome === 'finished') isRunning = false;
 			if (outcome === 'convert-all') {
 				// Convert all from a step screen finishes everything still pending and then
@@ -132,14 +145,51 @@ async function runPhotoBatchWizard(
 }
 
 /** Opens the thumbnail grid and resolves once the user leaves it. */
-function openGridModal(plugin: InkPlugin, batch: PhotoBatch): Promise<WritingPhotoBatchChoice> {
+function openGridModal(
+	plugin: InkPlugin,
+	batch: PhotoBatch,
+	decodeCache: PhotoDecodeCache,
+): Promise<WritingPhotoBatchChoice> {
 	return new Promise((resolve) => {
 		openWritingPhotoBatchModal({
 			plugin,
 			batch,
+			warmUpcomingPhoto: () => warmRefineTarget(batch, decodeCache),
+			beforeLeave: (choice) => prepareGridHandoff(batch, choice, decodeCache),
 			onChoice: (choice) => resolve(choice),
 		});
 	});
+}
+
+/**
+ * Decodes the photo Refine images would open, while the grid is still up.
+ * That click then closes the grid and opens the adjust dialog in one turn.
+ */
+function warmRefineTarget(batch: PhotoBatch, decodeCache: PhotoDecodeCache): void {
+	const index = findNextPendingPhotoIndex(batch, 0);
+	if (index < 0) return;
+	decodeCache.warmItem(batch.items[index]);
+}
+
+/**
+ * Makes the photo the grid is about to open ready before the grid closes.
+ * Convert all opens the progress dialog immediately, so it does not wait on a decode.
+ */
+function prepareGridHandoff(
+	batch: PhotoBatch,
+	choice: WritingPhotoBatchChoice,
+	decodeCache: PhotoDecodeCache,
+): void | Promise<void> {
+	if (choice.action === 'cancel' || choice.action === 'convert-all') return;
+	let index = 0;
+	if (choice.action === 'edit') {
+		const requestedIndex = batch.items.findIndex((item) => item.id === choice.itemId);
+		if (requestedIndex >= 0) index = requestedIndex;
+	} else {
+		const pendingIndex = findNextPendingPhotoIndex(batch, 0);
+		if (pendingIndex >= 0) index = pendingIndex;
+	}
+	return decodeCache.prepare(batch.items[index]);
 }
 
 /**
@@ -151,10 +201,9 @@ function openGridModal(plugin: InkPlugin, batch: PhotoBatch): Promise<WritingPho
  */
 async function runPhotoQueue(
 	plugin: InkPlugin,
-	editor: Editor,
 	batch: PhotoBatch,
-	state: PhotoBatchRunState,
 	worker: PhotoTraceWorkerClient,
+	decodeCache: PhotoDecodeCache,
 	startItemId: string | null,
 ): Promise<'back-to-grid' | 'convert-all' | 'finished'> {
 	let index = 0;
@@ -175,24 +224,29 @@ async function runPhotoQueue(
 		let navigation: PhotoQueueNavigation;
 
 		if (item.convertedTarget) {
+			// The neighbours decode while this note is on screen, so the next click
+			// does not have to close the dialog and wait.
+			decodeCache.prefetchAround(batch, index);
 			navigation = await openConvertedStep(
 				plugin,
+				batch,
+				index,
 				item,
 				positionLabel,
 				canGoPrevious,
 				canGoNext,
+				decodeCache,
 			);
 		} else {
 			const itemOutcome = await runPhotoItemSteps(
 				plugin,
-				editor,
 				batch,
+				index,
 				item,
 				positionLabel,
 				canGoPrevious,
 				canGoNext,
-				state,
-				worker,
+				decodeCache,
 			);
 			navigation = itemOutcome.navigation;
 		}
@@ -217,10 +271,13 @@ async function runPhotoQueue(
 /** Resolves the read-only step for a photo that is already in the note. */
 function openConvertedStep(
 	plugin: InkPlugin,
+	batch: PhotoBatch,
+	index: number,
 	item: PhotoBatchItem,
 	positionLabel: string,
 	canGoPrevious: boolean,
 	canGoNext: boolean,
+	decodeCache: PhotoDecodeCache,
 ): Promise<PhotoQueueNavigation> {
 	return new Promise((resolve) => {
 		openWritingPhotoConvertedStep({
@@ -229,6 +286,7 @@ function openConvertedStep(
 			positionLabel,
 			canGoPrevious,
 			canGoNext,
+			beforeLeave: (choice) => prepareStepHandoff(batch, index, choice, decodeCache),
 			onChoice: (choice) => {
 				if (choice.action === 'next') {
 					resolve('next');
@@ -238,6 +296,23 @@ function openConvertedStep(
 			},
 		});
 	});
+}
+
+/**
+ * Decodes the photo a Prev or Next click is about to open.
+ *
+ * Thumbnails and Convert all do not need that bitmap before their own dialog opens,
+ * so they return immediately and the current dialog can close in the click.
+ */
+function prepareStepHandoff(
+	batch: PhotoBatch,
+	index: number,
+	choice: WritingPhotoConvertedStepChoice,
+	decodeCache: PhotoDecodeCache,
+): void | Promise<void> {
+	if (choice.action !== 'next' && choice.action !== 'previous') return;
+	const destinationIndex = choice.action === 'next' ? index + 1 : index - 1;
+	return decodeCache.prepare(batch.items[destinationIndex]);
 }
 
 interface PhotoItemOutcome {
@@ -254,27 +329,36 @@ interface PhotoItemOutcome {
  */
 async function runPhotoItemSteps(
 	plugin: InkPlugin,
-	editor: Editor,
 	batch: PhotoBatch,
+	index: number,
 	item: PhotoBatchItem,
 	positionLabel: string,
 	canGoPrevious: boolean,
 	canGoNext: boolean,
-	state: PhotoBatchRunState,
-	worker: PhotoTraceWorkerClient,
+	decodeCache: PhotoDecodeCache,
 ): Promise<PhotoItemOutcome> {
-	let photoImage: ImageData;
-	try {
-		photoImage = (await decodePhotoForTracing(item)).photoImage;
-	} catch (error) {
-		new Notice(`Could not read a photo: ${String(error)}`);
+	const cachedError = decodeCache.errorFor(item.id);
+	if (cachedError) {
+		new Notice(`Could not read a photo: ${cachedError}`);
 		return { navigation: 'next' };
 	}
+	let photoImage = decodeCache.peek(item.id);
+	if (!photoImage) photoImage = await decodeCache.load(item);
+	if (!photoImage) {
+		new Notice(`Could not read a photo: ${decodeCache.errorFor(item.id) ?? 'unknown error'}`);
+		return { navigation: 'next' };
+	}
+	const sourceImage = photoImage;
+
+	// Neighbours start decoding once this photo is on screen, so stepping is usually
+	// ready before the click. Doing it earlier would decode this photo and the next
+	// one at the same time.
+	decodeCache.prefetchAround(batch, index);
 
 	const pageChoice = await openWritingPhotoPageModal({
 		plugin,
-		sourceImage: photoImage,
-		defaultCorners: findStartingCorners(item, photoImage),
+		sourceImage,
+		defaultCorners: findStartingCorners(item, sourceImage),
 		quarterTurnsClockwise: findStartingQuarterTurns(item),
 		initialSettings: item.settings,
 		currentTarget: item.target,
@@ -282,20 +366,40 @@ async function runPhotoItemSteps(
 		positionLabel,
 		canGoPrevious,
 		canGoNext,
+		beforeLeave: (choice) => {
+			if (choice.action === 'cancel') {
+				// Closing drops this page. There is no next dialog that needs a bitmap.
+				return;
+			}
+			return rememberPageChoice(batch, index, item, sourceImage, choice, decodeCache);
+		},
 	});
 
-	if (pageChoice.action === 'cancel') {
-		return { navigation: 'cancel' };
-	}
+	if (pageChoice.action === 'cancel') return { navigation: 'cancel' };
+	return { navigation: pageChoice.action };
+}
 
-	// Every exit remembers the page shape and detection settings, so coming back to this
-	// photo resumes from here instead of from the automatic guess.
+/**
+ * Stores the page the user just left, then makes the next dialog ready to open.
+ *
+ * The grid preview is rebuilt in the background for Prev and Next. Waiting on it
+ * used to close this dialog and leave the note showing until the jpeg finished.
+ * Thumbnails is the one exit that shows that preview immediately, so it does wait.
+ */
+function rememberPageChoice(
+	batch: PhotoBatch,
+	index: number,
+	item: PhotoBatchItem,
+	photoImage: ImageData,
+	choice: Exclude<WritingPhotoPageChoice, { action: 'cancel' }>,
+	decodeCache: PhotoDecodeCache,
+): void | Promise<void> {
 	const settings: PhotoStepSettings = {
-		corners: pageChoice.corners,
-		quarterTurnsClockwise: pageChoice.quarterTurnsClockwise,
-		adjustment: pageChoice.adjustment,
-		inkSensitivity: pageChoice.inkSensitivity,
-		noiseCleanup: pageChoice.noiseCleanup,
+		corners: choice.corners,
+		quarterTurnsClockwise: choice.quarterTurnsClockwise,
+		adjustment: choice.adjustment,
+		inkSensitivity: choice.inkSensitivity,
+		noiseCleanup: choice.noiseCleanup,
 	};
 	item.settings = settings;
 	pinPhotoBatchPage(item, settings.corners, settings.quarterTurnsClockwise);
@@ -308,16 +412,13 @@ async function runPhotoItemSteps(
 		turnedIsSideways ? photoImage.width : photoImage.height,
 		settings.corners,
 	);
-	await refreshPhotoBatchThumbnail(batch, item, settings);
-
-	if (pageChoice.action !== 'convert-all') {
-		return { navigation: pageChoice.action };
+	const thumbnailReady = refreshPhotoBatchThumbnail(batch, item, settings);
+	if (choice.action === 'photos') {
+		// The grid is about to show this preview, so the dialog waits until the jpeg exists.
+		return thumbnailReady;
 	}
-
-	// Convert all converts this photo first, using these settings, then finishes the rest.
-	void state;
-	void worker;
-	return { navigation: 'convert-all' };
+	void thumbnailReady;
+	return prepareStepHandoff(batch, index, choice, decodeCache);
 }
 
 /**

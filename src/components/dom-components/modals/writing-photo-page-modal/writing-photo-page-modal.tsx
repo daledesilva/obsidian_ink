@@ -24,6 +24,7 @@ import { PhotoTraceWorkerClient } from 'src/logic/photo-trace/photo-trace-worker
 import { PHOTO_TRACE_DEFAULT_INK_SENSITIVITY } from 'src/logic/photo-trace/trace-from-raster';
 import { PhotoTargetToggle } from 'src/components/dom-components/photo-target-toggle/photo-target-toggle';
 import { setPhotoTraceChevronLabel } from 'src/components/dom-components/modals/photo-trace-chevron-button';
+import { leavePhotoTraceModal } from 'src/components/dom-components/modals/photo-trace-modal-leave';
 import './writing-photo-page-modal.scss';
 
 ////////
@@ -69,6 +70,14 @@ export interface OpenWritingPhotoPageModalOptions {
 	canGoPrevious?: boolean;
 	/** False on the last photo. Next is disabled rather than replaced. */
 	canGoNext?: boolean;
+	/**
+	 * Runs before the dialog closes, while it is still on screen.
+	 *
+	 * Return void when the next dialog is already ready, so this one closes in the
+	 * click and the next opens before the screen paints a gap. Return a promise when
+	 * the next photo is still decoding: the clicked button spins until it resolves.
+	 */
+	beforeLeave?: (choice: WritingPhotoPageChoice) => void | Promise<void>;
 }
 
 interface PageTargetRowProps {
@@ -117,6 +126,8 @@ class WritingPhotoPageModal extends Modal {
 	private options: OpenWritingPhotoPageModalOptions;
 	private onChoice: (choice: WritingPhotoPageChoice) => void;
 	private settled = false;
+	/** True from the click until the dialog closes, so a second footer button is ignored. */
+	private isLeaving = false;
 
 	// Photo state
 	private baseImage: ImageData;
@@ -411,7 +422,7 @@ class WritingPhotoPageModal extends Modal {
 		footerRow.addButton((button) => {
 			button.buttonEl.addClass('ddc_ink_photo-page__thumbnails-btn');
 			setPhotoTraceChevronLabel(button.buttonEl, 'Thumbnails', 'start');
-			button.onClick(() => this.finishNavigation('photos'));
+			button.onClick(() => this.leaveNavigation(button.buttonEl, 'photos'));
 		});
 
 		// The centred pair: auto margins on Thumbnails and Convert all split the free
@@ -424,13 +435,13 @@ class WritingPhotoPageModal extends Modal {
 			// The first photo has nothing earlier. The label stays put so Thumbnails
 			// remains the only way back to the grid.
 			button.setDisabled(!canGoPrevious);
-			button.onClick(() => this.finishNavigation('previous'));
+			button.onClick(() => this.leaveNavigation(button.buttonEl, 'previous'));
 		});
 		footerRow.addButton((button) => {
 			setPhotoTraceChevronLabel(button.buttonEl, 'Next image', 'end');
 			// The last photo has nowhere further to go. Its own convert still works.
 			button.setDisabled(!this.options.canGoNext);
-			button.onClick(() => this.finishNavigation('next'));
+			button.onClick(() => this.leaveNavigation(button.buttonEl, 'next'));
 		});
 
 		footerRow.addButton((button) => {
@@ -440,7 +451,7 @@ class WritingPhotoPageModal extends Modal {
 			button.setButtonText('Convert all');
 			button.buttonEl.addClass('ddc_ink_photo-page__convert-all-btn');
 			button.setCta();
-			button.onClick(() => this.finishConvertAll());
+			button.onClick(() => this.leaveConvertAll(button.buttonEl));
 		});
 	}
 
@@ -850,16 +861,32 @@ class WritingPhotoPageModal extends Modal {
 	 * Finishes the batch, starting with this photo on its current settings.
 	 *
 	 * Every other exit carries the settings too, so a page pinned here is remembered when
-	 * the user navigates away and comes back.
+	 * the user navigates away and comes back. The dialog stays up until that next step
+	 * is ready to show.
 	 */
-	private finishConvertAll(): void {
-		this.finish({ action: 'convert-all', ...this.currentPageSettings() });
+	private leaveConvertAll(buttonEl: HTMLElement): void {
+		this.requestLeave(buttonEl, { action: 'convert-all', ...this.currentPageSettings() });
 	}
 
 	/** Leaves for the grid or another image, keeping what was just set up. */
-	private finishNavigation(
-		action: 'photos' | 'previous' | 'next',
-	): void {
-		this.finish({ action, ...this.currentPageSettings() });
+	private leaveNavigation(buttonEl: HTMLElement, action: 'photos' | 'previous' | 'next'): void {
+		this.requestLeave(buttonEl, { action, ...this.currentPageSettings() });
+	}
+
+	/**
+	 * Prepares the next screen before closing, so the note never shows between dialogs.
+	 * A second click is ignored until this one finishes or the dialog closes.
+	 */
+	private requestLeave(buttonEl: HTMLElement, choice: WritingPhotoPageChoice): void {
+		if (this.settled || this.isLeaving) return;
+		this.isLeaving = true;
+		void leavePhotoTraceModal(
+			buttonEl,
+			() => this.options.beforeLeave?.(choice),
+			() => !this.settled,
+			() => this.finish(choice),
+		).finally(() => {
+			if (!this.settled) this.isLeaving = false;
+		});
 	}
 }

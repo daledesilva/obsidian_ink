@@ -18,6 +18,8 @@ The command **Insert handwriting/drawing from photo** (`create-handwriting-from-
 
 Writing embeds use the standard guide spacing `WRITING_LINE_HEIGHT` (150px). A new handwriting section created from the command palette can still follow the line height in Settings. A photo trace does not copy that setting, because guessed gaps between stroke centres are not baselines.
 
+The batch wizard moves between the thumbnail grid, a photo’s page dialog, and the read-only step for a photo already in the note. The note underneath must not appear in that gap. The current dialog stays up until the next one can open, and the clicked button spins only when that wait is still running.
+
 ```mermaid
 flowchart TD
   Pick[Pick photo]
@@ -91,6 +93,45 @@ The adjust step already warped the turned photo to a 1600px long edge. Convert r
 
 The tracer builds a Sauvola mask, optionally removes tiny specks and isolated noise dots, bridges small gaps, drops long printed rules, thins with WASM Zhang–Suen, and turns the skeleton into ink strokes on a page `WRITING_PAGE_WIDTH` wide (2000). Noise cleanup keeps a small dot when it sits on a real stroke, so i-dots and full stops stay.
 
+**Switching dialogs**
+
+Prev, Next, Refine images, a thumbnail pencil, and Thumbnails all go through the same leave. The click asks for the next screen first. Two results are different on purpose:
+
+- A void return means the next screen is already ready. This dialog closes inside the click, and the next one opens before the browser paints the note.
+- A promise means something is still loading. The clicked button spins, further footer clicks are ignored, and this dialog stays until the promise finishes. Then the same close-and-open runs.
+
+Refine images opens the first photo that is not yet in the note. While the grid is up, only that photo is decoded ahead. Adding, removing, or reordering photos warms the new first pending photo and drops the others. A pencil on a different photo still waits on that photo’s own decode, with the pencil spinning.
+
+On a page dialog, neighbours start decoding only after this photo is on screen. Prev and Next are then usually instant. Thumbnails is the exception that waits on the grid preview: the grid is about to show the page that was just pinned, so the dialog stays until that JPEG exists. Prev and Next rebuild the same preview in the background and only wait when the destination photo itself is not decoded yet. Convert all and the title-bar close do not wait on a decode. Convert all opens the progress dialog immediately.
+
+A photo that is already in the note has no bitmap to decode. Stepping onto its read-only step returns immediately.
+
+```mermaid
+flowchart TD
+  Click[Click Prev, Next, Refine, pencil, or Thumbnails]
+  Busy{Already leaving?}
+  Prepare[Prepare the next screen]
+  Waiting{Did prepare return a promise?}
+  Spin[Spin the clicked button and keep this dialog]
+  Settled{Did prepare finish?}
+  Swap[Close this dialog and open the next]
+  Stay[Clear the spinner and stay]
+  Ignore[Ignore the click]
+  Click --> Busy
+  Busy -->|Yes| Ignore
+  Busy -->|No| Prepare
+  Prepare --> Waiting
+  Waiting -->|Already ready| Swap
+  Waiting -->|Still loading| Spin
+  Spin --> Settled
+  Settled -->|Yes| Swap
+  Settled -->|Threw| Stay
+```
+
+A second click does nothing until the first leave finishes or the dialog closes. If prepare throws, the spinner comes off and the dialog stays, so the same button can be tried again. The title-bar close during a wait cancels the batch. The button’s choice is not applied as well.
+
+A photo that failed to decode is remembered. The leave treats that as ready, the dialog closes, and the queue skips the photo with a notice instead of decoding it again.
+
 **After convert**
 
 - The picked photo is saved as a JPEG beside the SVG, under `Images/`, turned by the same 90° steps chosen on the corner step. A photo that was not turned is saved in the orientation it was picked. Older imports may still store a lowercase `images/` path. Those notes keep the path already written on the file.
@@ -114,6 +155,9 @@ The tracer builds a Sauvola mask, optionally removes tiny specks and isolated no
 | `photoTraceSauvolaK` | Sensitivity 0 → k 0.5, 75 → k 0.20, 100 → k 0.1. Higher keeps fainter ink. |
 | `photoTraceSimplifyEpsilon` | Detail 90 → about 0.48px. Convert always passes `PHOTO_TRACE_DEFAULT_DETAIL`. |
 | `rotate-image-data.ts` | 90° pixel remap, and the matching reorder of the page quad. |
+| `photo-decode-cache.ts` | The photo on screen and its two neighbours. One in-flight decode per photo. The grid keeps only the next Refine target. |
+| `photo-trace-modal-leave.ts` | Closes a photo dialog only after `beforeLeave` returns. A promise spins the clicked button first. |
+| `photo-trace-chevron-button.ts` | Chevron labels, and the loader swapped onto the button that is waiting. |
 | `writing-photo-crop-modal.ts` | Rotate left/right, corner pins, side slides, tap-to-nearest-pin, preview of the turned photo. |
 | `encode-writing-photo-jpeg.ts` | Resize, apply the same quarter turns, then JPEG under the transcription size cap. |
 | `writing-photo-adjust-modal.ts` | Live mask, auto-tune, collapsed detection controls, writing or drawing convert. |
@@ -146,3 +190,7 @@ Portal handwriting transcription is unchanged. The old centreline job is retired
 - **The inlined worker is minified only in production.** `npm run build:wasm` writes a readable bundle. `npm run build` rewrites it minified before it is stored as a string in `main.js`. The outer minify pass cannot shrink that string by itself.
 - **Do not let the photo picker focus Take photo on open.** Obsidian focuses the first visible control after `onOpen` when a keyboard is attached. That control is **Take photo**, so one equal choice looks selected. `hasInitialInputFocus` is real on `Modal` in Obsidian 1.14 and missing from the typings. It must stay false, and focus must stay on the dialog, or the ring comes back. Tab still reaches the buttons.
 - **A side drag must move both pins by one shared delta.** Moving the ends independently turns or stretches the side. Presses within about 24 screen pixels of a circle are not side hits, or a near-miss slides the side instead of grabbing that circle. A very short side can sit entirely inside that exclusion, and the tap still grabs the nearest circle.
+- **Do not close a photo dialog before the next one can open.** Closing first shows the note for the whole decode. `beforeLeave` returns void when the work is done, and a promise when the button should spin. Thumbnails waits on the preview JPEG because the grid shows it immediately. Prev and Next must not wait on that JPEG.
+- **Do not decode the neighbour until the current photo is on screen.** Starting both together makes the photo the user is waiting for share the decode with the one after it.
+- **Do not keep the whole batch decoded.** Thumbnail prep already drops each bitmap after it reads the page corners. The step cache keeps the current photo and its neighbours. On the grid, only the photo Refine images would open stays warm. A pencil on another card can still have to wait.
+- **A failed decode is skipped, not retried.** The cache remembers the error. The leave treats it as ready so the dialog can close, and the queue shows the notice.

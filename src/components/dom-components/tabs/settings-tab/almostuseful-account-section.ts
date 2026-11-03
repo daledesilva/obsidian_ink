@@ -1,6 +1,9 @@
 import { Notice, setIcon, Setting, type ButtonComponent } from 'obsidian';
 import tippy, { type Instance } from 'tippy.js';
-import { decorateAlmostUsefulLinkAccountButton } from 'src/components/dom-components/almostuseful-link-account-button';
+import {
+	almostUsefulLinkAccountDescription,
+	decorateAlmostUsefulLinkAccountButton,
+} from 'src/components/dom-components/almostuseful-link-account-button';
 import InkPlugin from 'src/main';
 import { fetchAlmostUsefulBurndown } from 'src/logic/almostuseful/almostuseful-usage';
 import {
@@ -101,9 +104,7 @@ export function insertAlmostUsefulAccountSection(
 				.setClass('ddc_ink_setting')
 				.setClass('ddc_ink_almostuseful-link-account-setting')
 				.setName('Link account')
-				.setDesc(
-					'Create and link an Almost Useful account to utilise handwriting transcription. Almost Useful is an accounts portal created by Dale de Silva, the developer of Ink.',
-				)
+				.setDesc(almostUsefulLinkAccountDescription)
 				.addButton((button) => {
 					decorateAlmostUsefulLinkAccountButton(button);
 					button.onClick(() => {

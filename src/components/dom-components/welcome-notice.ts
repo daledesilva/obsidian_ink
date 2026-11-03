@@ -1,6 +1,8 @@
+import { appendAlmostUsefulNoticeAccountCta } from 'src/components/dom-components/almostuseful-link-account-button';
 import { createNoticeTemplate, createNoticeCtaBar, launchPersistentNotice } from 'src/components/dom-components/notice-components';
 import { isIpad } from 'src/logic/utils/isIpad';
 import InkPlugin from "src/main";
+import { openInkSettingsTab } from './tabs/settings-tab/settings-tab';
 
 ///////////
 ///////////
@@ -66,18 +68,27 @@ function showHandwritingWelcomeTip(plugin: InkPlugin) {
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
             notice.hide();
-            showDrawingWelcomeTip(plugin);
+            showOtherSectionsWelcomeTip(plugin);
         });
     }
     
 }
 
-function showDrawingWelcomeTip(plugin: InkPlugin) {
+/**
+ * Drawings and photo tracing after handwriting.
+ * The photo chip is the palette name of create-handwriting-from-photo, not a shorter label.
+ */
+function showOtherSectionsWelcomeTip(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
-    scrollAreaEl.createEl('h1').setText(`Drawing sections...`);
-    scrollAreaEl.createEl('p').setText(`These can be added too and can be resized right in your Markdown file. Use the purple lock icon to save framing, or the standard lock icon to save the drawing but revert the framing.`);
+    scrollAreaEl.createEl('h1').setText(`Other sections...`);
+
+    scrollAreaEl.createEl('p').setText(`Drawings:`);
     // Keep command-name casing as shown in the command palette.
     scrollAreaEl.createEl('blockquote').setText(`"Ink: new drawing"`);
+
+    scrollAreaEl.createEl('p').setText(`Trace photos:`);
+    // Palette name from create-handwriting-from-photo.
+    scrollAreaEl.createEl('blockquote').setText(`"Ink: Insert handwriting/drawing from photos"`);
 
     const {
         primaryBtnEl,
@@ -91,11 +102,7 @@ function showDrawingWelcomeTip(plugin: InkPlugin) {
     if(primaryBtnEl) {
         primaryBtnEl.addEventListener('click', () => {
             notice.hide();
-            // if(isIpad()) {
-            //     showiPadWelcomeTip(plugin);
-            // } else {
-                showSyncingWelcomeTip(plugin);
-            // }
+            showAlmostUsefulAccountWelcomeTip(plugin);
         });
     }
     
@@ -177,11 +184,62 @@ function showDevelopmentWelcomeTip(plugin: InkPlugin) {
     if(tertiaryBtnEl) {
         tertiaryBtnEl.addEventListener('click', () => {
             notice.hide();
-            tipsShowingOrDismissed = false;
-            plugin.settings.onboardingTips.welcomeTipRead = true;
-            plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
-            void plugin.saveSettings();
+            completeWelcomeTips(plugin);
         });
     }
     
+}
+
+/** Account tip sits after Other sections, then the series continues with syncing. */
+function showAlmostUsefulAccountWelcomeTip(plugin: InkPlugin) {
+    const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
+    scrollAreaEl.createEl('h1').setText(`Handwriting transcription...`);
+    scrollAreaEl.createEl('p').setText(
+        `An optional Almost Useful account provides a subscription service for transcribing your handwriting into searchable text.`,
+    );
+    const linkAccountBtnEl = appendAlmostUsefulNoticeAccountCta(scrollAreaEl);
+
+    const {
+        primaryBtnEl,
+        tertiaryBtnEl,
+    } = createNoticeCtaBar(footerEl, {
+        primaryLabel: 'Continue',
+        tertiaryLabel: 'Dismiss',
+    })
+
+    const notice = launchPersistentNotice(noticeBody);
+
+    /** Replaces this tip with syncing. Does not mark the welcome series finished. */
+    const continueWelcomeSeries = () => {
+        notice.hide();
+        showSyncingWelcomeTip(plugin);
+    };
+
+    // Unlike the version notice, Link account does not end the series. It opens Settings and moves on.
+    linkAccountBtnEl.addEventListener('click', () => {
+        openInkSettingsTab(plugin);
+        continueWelcomeSeries();
+    });
+
+    if(primaryBtnEl) {
+        primaryBtnEl.addEventListener('click', () => {
+            continueWelcomeSeries();
+        });
+    }
+
+    if(tertiaryBtnEl) {
+        tertiaryBtnEl.addEventListener('click', () => {
+            // Early exit: syncing and Get involved are skipped, and the series does not show again.
+            notice.hide();
+            completeWelcomeTips(plugin);
+        });
+    }
+}
+
+/** Marks first-run tips finished so a later launch shows version tips instead of welcome again. */
+function completeWelcomeTips(plugin: InkPlugin) {
+    tipsShowingOrDismissed = false;
+    plugin.settings.onboardingTips.welcomeTipRead = true;
+    plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
+    void plugin.saveSettings();
 }

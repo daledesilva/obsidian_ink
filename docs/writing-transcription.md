@@ -149,7 +149,7 @@ Drawing files and v1 code-block embeds remain out of scope for the **enqueue** p
 
 ### v0.6 version notice (upgrade tip)
 
-When `manifest.version` is newer than `onboardingTips.lastVersionTipRead`, Ink shows a single-page **Changes in Ink v0.6** notice promoting handwriting OCR and Almost Useful sign-in. **Link account** opens Ink settings; **Create account** opens portal sign-up. Those body actions do not dismiss the notice — only **Dismiss** marks the tip read. See [version-and-welcome-notices.md](version-and-welcome-notices.md).
+When `manifest.version` is newer than `onboardingTips.lastVersionTipRead`, and the welcome series is not showing, Ink shows a single-page **Changes in Ink v0.6.1** notice. **Link account** hides that notice, marks the tip read, and opens Ink settings. **Create account** opens portal sign-up and leaves the notice up. A first install skips this notice and gets the account controls on the welcome series, after **Other sections**. See [version-and-welcome-notices.md](version-and-welcome-notices.md).
 
 ### Auto-transcribe account notice (20 ink closes)
 

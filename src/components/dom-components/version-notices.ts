@@ -1,13 +1,10 @@
 import * as semVer from 'semver';
-import { applyAlmostUsefulLinkAccountButtonChrome } from 'src/components/dom-components/almostuseful-link-account-button';
+import { appendAlmostUsefulNoticeAccountCta } from 'src/components/dom-components/almostuseful-link-account-button';
 import {
-    createNoticeBodyCtaRow,
     createNoticeCtaBar,
     createNoticeTemplate,
     launchPersistentNotice,
 } from 'src/components/dom-components/notice-components';
-import { openAlmostUsefulBrowserUrl } from 'src/logic/almostuseful/almostuseful-login';
-import { resolveAlmostUsefulPortalOrigin } from 'src/logic/almostuseful/almostuseful-session';
 import InkPlugin from "src/main";
 import { openInkSettingsTab } from './tabs/settings-tab/settings-tab';
 
@@ -48,19 +45,7 @@ function showChanges(plugin: InkPlugin) {
     changesListEl.createEl('li').setText('Better selections and transformations.');
     changesListEl.createEl('li').setText('High contrast mode.');
 
-    const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
-    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--stacked');
-    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--centered');
-    const linkAccountCtaStackEl = bodyCtaRowEl.createDiv(
-        'ddc_ink_almostuseful-link-account-cta-stack ddc_ink_almostuseful-link-account-cta-stack--centered',
-    );
-    const linkAccountBtnEl = linkAccountCtaStackEl.createEl('button', { type: 'button' });
-    applyAlmostUsefulLinkAccountButtonChrome(linkAccountBtnEl);
-    const createAccountLinkEl = linkAccountCtaStackEl.createEl('a', {
-        cls: 'ddc_ink_tertiary-text-link',
-        text: 'Create account',
-        href: '#',
-    });
+    const linkAccountBtnEl = appendAlmostUsefulNoticeAccountCta(scrollAreaEl);
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
@@ -71,12 +56,6 @@ function showChanges(plugin: InkPlugin) {
     });
 
     const notice = launchPersistentNotice(noticeBody);
-
-    // Create account stays open: the browser overlays Obsidian and the invite copy should still be there.
-    createAccountLinkEl.addEventListener('click', (event) => {
-        event.preventDefault();
-        openAlmostUsefulBrowserUrl(`${resolveAlmostUsefulPortalOrigin()}/auth/sign-up`);
-    });
 
     // Link account opens Settings; hide so it does not sit over the account section.
     linkAccountBtnEl.addEventListener('click', () => {

@@ -1,3 +1,5 @@
+@use '../../../../styles/ink-control-ink' as inkControlInk;
+
 // Match drawing locked-frame chrome (always on in transcript mode).
 .ddc_ink_transcript-view {
 	box-sizing: border-box;
@@ -53,8 +55,8 @@
 	padding: 0 !important;
 	pointer-events: auto;
 	border: none;
-	color: var(--color-base-60);
-	fill: var(--color-base-60);
+	color: inkControlInk.$ink-control-icon-ink;
+	fill: inkControlInk.$ink-control-icon-ink;
 
 	svg {
 		width: 1.5em !important;

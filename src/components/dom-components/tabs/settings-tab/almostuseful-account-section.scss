@@ -3,12 +3,18 @@
 // Match Obsidian accent CTAs/links (--interactive-accent) for this featured settings block.
 .ddc_ink_almostuseful-account-section {
 	.ddc_ink_controls-section {
-		box-shadow: 0 0 0 2px var(--interactive-accent) inset;
+		// Same accent as the header fill, so the outline matches and disappears under it.
+		--ddc-ink-section-outline: var(--interactive-accent);
 	}
 
 	.ddc_ink_controls-header--clickable {
 		color: var(--text-on-accent);
+		// Solid accent covers the outline. No gray wash layer on this header.
 		background-color: var(--interactive-accent);
+
+		&::before {
+			content: none;
+		}
 
 		.setting-item-name {
 			color: var(--text-on-accent);

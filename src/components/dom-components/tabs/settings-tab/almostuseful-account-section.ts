@@ -36,6 +36,7 @@ import {
 } from 'src/logic/handwriting-transcription-queue';
 import type { HandwritingTranscriptionFileType } from 'src/logic/handwriting-transcription-queue-store';
 import './almostuseful-account-section.scss';
+import { createCollapsibleSectionContent } from 'src/components/dom-components/tabs/settings-tab/collapsible-section-content';
 
 /////////
 /////////
@@ -94,7 +95,7 @@ export function insertAlmostUsefulAccountSection(
 		arrowEl.classList.toggle('ddc_ink_expanded', isAlmostUsefulAccountSectionExpanded);
 	});
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content ddc_ink_almostuseful-account');
+	const contentEl = createCollapsibleSectionContent(sectionEl, 'ddc_ink_almostuseful-account');
 
 	if (!session) {
 		if (pending) {

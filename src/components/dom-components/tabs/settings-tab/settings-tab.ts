@@ -47,6 +47,7 @@ import {
 } from 'src/logic/stroke-bbox-cells';
 import type { HandwritingTranscriptionFileType } from 'src/logic/handwriting-transcription-queue-store';
 import { isInkDevelopmentBuild } from 'src/logic/utils/ink-build-mode';
+import { createCollapsibleSectionContent } from 'src/components/dom-components/tabs/settings-tab/collapsible-section-content';
 
 /////////
 /////////
@@ -256,7 +257,7 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		void plugin.saveSettings();
 	});
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	// Information (tips) first
 	const tipsSectionEl = contentEl.createDiv('ddc_ink_tips-section');
@@ -281,16 +282,16 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "sync all other types" in the Obsidian Sync settings.`);
 
-	// Rewatch button
+	// Short labels so both buttons fit the card width on iPad.
 	new Setting(contentEl)
 		.setClass('ddc_ink_bare-setting')
 		.setClass('ddc_ink_bare-setting--no-bottom-margin')
 		.addButton((btn) => {
-			btn.setButtonText('View recent changes');
+			btn.setButtonText('Recent changes...');
 			btn.onClick(() => showRecentChanges(plugin));
 		})
 		.addButton((btn) => {
-			btn.setButtonText('Rewatch welcome tips');
+			btn.setButtonText('Welcome tips...');
 			btn.setCta();
 			btn.onClick(() => showWelcomeTips(plugin));
 		});
@@ -352,7 +353,7 @@ function insertPluginDevelopmentSection(containerEl: HTMLElement) {
 		.setName('Plugin development')
 		.setDesc('For information on this plugin\'s development, visit the links below.');
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	const tipsGridEl = contentEl.createDiv('ddc_ink_tips-grid');
 	const addLinkRow = (parent: HTMLElement, href: string, label: string, description: string) => {
@@ -468,7 +469,7 @@ function insertExperimentalChangesSection(
 		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
 	});
 
-	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(controlsEl);
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
@@ -758,7 +759,7 @@ function insertDrawingSettings(
 		.setName('Drawing')
 		.setDesc(`While editing a Markdown file, run the action 'insert new hand drawn section' to embed a drawing canvas.`);
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkDrawing'));
 
@@ -858,7 +859,7 @@ function insertWritingSettings(
 		// Keep command-name casing as shown in the command palette.
 		.setDesc(`While editing a Markdown file, run the action 'new handwriting section' to embed a section for writing with a pen.`);
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkWriting'));
 
@@ -996,7 +997,7 @@ function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
 	});
 
-	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(controlsEl);
 	contentEl.createEl('p', { text: `Beta means the plugin is still evolving. Changes to embed formats and file-handling features, even when thoroughly tested, may occasionally introduce issues that affect your vault. Always keep backups of your data.` });
 
 	new Setting(contentEl)

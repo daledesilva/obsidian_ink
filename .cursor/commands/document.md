@@ -23,12 +23,10 @@ Any text after `/document` is optional context — e.g. a feature name, task ID,
    - Create a new focused doc page only when no existing page fits.
    - Do not combine unrelated concepts into one doc page.
 
-3. Update docs:
-   - Explain why the feature exists before implementation details.
-   - Describe the user's mental model and the key flows.
-   - Include technical details that future maintainers need to avoid regressions.
-   - Use Mermaid diagrams for flows when they clarify the behavior.
-   - Add or update a "Technical Gotchas" section for non-obvious constraints.
+3. Update docs (follow `.cursor/rules/documentation-standards.mdc`):
+   - Choose **conceptual** vs **functional / playbook** mode from the page’s job.
+   - Conceptual: Conceptual understanding → Technical details → Technical Gotchas; Mermaid for non-trivial flows.
+   - Playbook: short intro → Setup → Procedures (`###` cases with Validating / steps / Confirm); `---` between major sections, `· · ·` between cases.
 
 4. Add context comments:
    - Add brief comments for feature intent, interaction rules, lifecycle ordering, persistence contracts, constraints, edge cases, and regression-sensitive decisions.

@@ -1,5 +1,9 @@
 ## Development
 
+### Agent tooling
+
+Cursor, Devin, and Antigravity commands and rules are copied from the shared IDE setup. How to refresh them, and which Ink-specific files must stay, is in [Agent tooling](agent-tooling.md).
+
 ### Linting (Obsidian conventions)
 
 This repo uses `eslint-plugin-obsidianmd` so Obsidian directory / popout guidelines are checked locally. See **[ESLint and Obsidian plugin conventions](eslint-obsidian-conventions.md)** for why it exists, what to use instead of `document` / `instanceof` / `Vault.delete`, and how Jest polyfills Obsidian globals. For community manifest validation (`minAppVersion`, `versions.json`), see **[Manifest minAppVersion and versions.json](manifest-and-versions.md)**.

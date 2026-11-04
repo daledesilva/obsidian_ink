@@ -35,21 +35,20 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6.1`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6.2`);
 
     const changesListEl = scrollAreaEl.createEl('ul');
-    changesListEl.createEl('li').setText(
-        'Handwriting transcriptions available to all (requires an Almost Useful account).',
-    );
-    changesListEl.createEl('li').setText('Fuller full screen mode.');
-    changesListEl.createEl('li').setText('Better selections and transformations.');
-    changesListEl.createEl('li').setText('High contrast mode.');
+    changesListEl.createEl('li').setText('Trace handwriting and drawings from photos.');
+    changesListEl.createEl('li').setText('Batch transcribe ink files.');
+    changesListEl.createEl('li').setText('Very long handwriting can now be transcribed.');
+    changesListEl.createEl('li').setText('Enhanced writing selections.');
+    changesListEl.createEl('li').setText('Bugfixes.');
 
     const linkAccountBtnEl = appendAlmostUsefulNoticeAccountCta(scrollAreaEl);
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/oyKH5mgfGFY',
+            href: '??????',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',

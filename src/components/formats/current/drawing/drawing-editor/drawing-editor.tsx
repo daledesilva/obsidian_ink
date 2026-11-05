@@ -611,7 +611,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	const customExtendedMenu = [
 		{
-			text: hasTranscript ? 'Update transcript' : 'Transcribe',
+			text: hasTranscript ? 'Update description/transcript' : 'Describe/transcribe',
 			action: () => { void handleTranscribe(); },
 		},
 		{

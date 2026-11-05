@@ -9,7 +9,7 @@ alwaysApply: true
 
 Store documentation in a `docs/` folder. Organise into separate pages per concept or feature — do not combine unrelated topics in one file.
 
-**Plugin ↔ companion app connection:** Any documentation that describes how this plugin connects to a companion app (WebSocket protocol, stroke streaming, drawing-area lifecycle, etc.) must be created or updated under the **companion app's docs only** (e.g. `eink-bridge/docs/`). Do not add or maintain that cross-component documentation under this repo's `docs/`.
+**Cross-repo integrations:** Protocol and connection documentation for a companion repository lives in **one designated repo's `docs/`**. For Obsidian Ink, WebSocket protocol, stroke streaming, and drawing-area lifecycle docs live in the **eink-bridge** repo only. Do not add or maintain that cross-component documentation under this repo's `docs/`.
 
 ## Docs Are Not a Source of Truth for Code Behavior
 
@@ -19,21 +19,54 @@ Use:
 - The code itself, when the question is about implementation/behavior
 - External APIs/services the code relies on, when the question is about an integration or third-party behavior
 
-## Structure
+## Choose a documentation mode
 
-Every documentation page should follow this order:
+Pick the structure from the page’s job:
 
-1. **Why it exists** — the motivation and problem being solved
-2. **Conceptual understanding** — mental model before implementation details
-3. **Flows** — how data or control moves through the system
-4. **Technical details** — implementation specifics
-5. **Technical Gotchas** — a dedicated section for non-obvious pitfalls
+| If the page mainly… | Use |
+|---|---|
+| Explains how a system works, why a decision was made, or feature behavior | **Conceptual** |
+| Walks a human through a repeatable checklist or playbook (tests, smoke, operator steps) | **Functional / playbook** |
 
-## Format
+Do not force playbook pages into conceptual sections, and do not turn conceptual pages into bare checklists.
 
-- Use Mermaid diagrams for flows and architecture — prefer over ASCII art or prose descriptions
+## Conceptual documentation
+
+For architecture, integrations, environments, provision narratives, and feature behavior.
+
+Every conceptual page should follow this order:
+
+1. **Conceptual understanding** — mental model before implementation details
+2. **Technical details** — implementation specifics
+3. **Technical Gotchas** — a dedicated section for non-obvious pitfalls
+
+**Format:**
+
+- Prefer Mermaid diagrams for flows and architecture over ASCII art
+- Prefer bullet points over mermaid diagrams for simple steps
 - Lead with context before specifics
-- Keep a "Technical Gotchas" section in any page covering complex or surprising behaviour
+
+## Functional / playbook documentation
+
+For manual test playbooks, smoke checklists, and other strict “do this, then check that” pages.
+
+Every playbook page should follow this order:
+
+1. **Short intro** — one or two sentences on what the playbook is for and when to use it
+2. **Setup** — prerequisites only
+3. **Procedures** — discrete cases under a clear heading (e.g. `## Tests`), each as an `###` case
+
+Within each procedure:
+
+- **Validating:** one line stating the intended outcome
+- Steps nested by place (e.g. “From …”, “In your email …”)
+- **Confirm:** pass criteria (`#### Confirm:`)
+
+**Format:**
+
+- Use a full horizontal rule (`---`) between major sections (intro / Setup / Procedures)
+- Use a lighter divider (`· · ·`) between individual procedures so the Procedures heading stays visually grouped with its cases
+- Prefer bullets for steps; avoid Mermaid, Conceptual understanding tables, Troubleshooting, and Technical Gotchas on playbook pages — put that material in conceptual docs or link out
 
 ## Planning
 

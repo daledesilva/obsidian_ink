@@ -1,4 +1,4 @@
-// TODO: Can use .theme-dark and .theme-light on the body element to adjust colors - Or use the CSS variables
+@use '../../../styles/ink-control-ink' as inkControlInk;
 
 // TODO: This also applies to drawing menus, so should be abstract to common components like ink_menu-bar and button
 
@@ -12,12 +12,12 @@
 
         pointer-events: auto;
         background-color: var(--interactive-normal);
-        color: var(--color-base-60);
-        fill: var(--color-base-60); // for svg icon elements
+        color: inkControlInk.$ink-control-icon-ink;
+        fill: inkControlInk.$ink-control-icon-ink; // for svg icon elements
         &:hover {
             background-color: var(--interactive-hover);
-            color: var(--color-base-100);
-            fill: var(--color-base-100);
+            color: var(--text-normal);
+            fill: var(--text-normal);
         }
         &:disabled {
             animation: menu-button_scale-up 0.3s ease-out;
@@ -70,14 +70,20 @@
         }
 
         &.ink_menu-toggle--active {
-            background-color: var(--color-base-60);
-            color: var(--interactive-normal);
-            fill: var(--interactive-normal);
+            // Active toggle = inverted chip, so it must stay readable rather than
+            // de-emphasised. The chip is --text-muted (the theme's own softened
+            // text surface, which tracks --color-base-60 closely in Obsidian and
+            // Minimal) and the glyph is knocked out to --background-primary.
+            // The old pair used --interactive-normal for the glyph, which Minimal
+            // resolves to a 12% wash and made the icon vanish. See ink-control-ink.scss.
+            background-color: var(--text-muted);
+            color: var(--background-primary);
+            fill: var(--background-primary);
 
             &:hover {
-                background-color: var(--color-base-60);
-                color: var(--interactive-normal);
-                fill: var(--interactive-normal);
+                background-color: var(--text-muted);
+                color: var(--background-primary);
+                fill: var(--background-primary);
             }
         }
     }
@@ -106,14 +112,17 @@
         }
 
         &:disabled {
-            background-color: var(--color-base-60);
-            color: var(--interactive-normal);
-            fill: var(--interactive-normal);
+            // The selected tool is rendered as a disabled button, so this rule is
+            // the active-tool state, not a dimmed one. Keep it an inverted chip
+            // (see the note above on --text-muted / --background-primary).
+            background-color: var(--text-muted);
+            color: var(--background-primary);
+            fill: var(--background-primary);
 
             &:hover {
-                background-color: var(--color-base-60);
-                color: var(--interactive-normal);
-                fill: var(--interactive-normal);
+                background-color: var(--text-muted);
+                color: var(--background-primary);
+                fill: var(--background-primary);
             }
         }
     }

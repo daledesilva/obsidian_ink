@@ -19,9 +19,21 @@ export async function preserveBboxCellsOnStrokeSave(
 	try {
 		const existingSvg = await plugin.app.vault.read(inkFile);
 		const existingPageData = extractInkJsonFromSvg(existingSvg);
-		if (existingPageData?.meta.bboxCellsAtLastTranscription) {
-			pageData.meta.bboxCellsAtLastTranscription = existingPageData.meta.bboxCellsAtLastTranscription;
-			pageData.meta.lastTranscriptionAt = existingPageData.meta.lastTranscriptionAt;
+		if (existingPageData) {
+			if (existingPageData.meta.bboxCellsAtLastTranscription) {
+				pageData.meta.bboxCellsAtLastTranscription = existingPageData.meta.bboxCellsAtLastTranscription;
+				pageData.meta.lastTranscriptionAt = existingPageData.meta.lastTranscriptionAt;
+			}
+			if (existingPageData.meta.sourceImage) {
+				pageData.meta.sourceImage = existingPageData.meta.sourceImage;
+			}
+			if (existingPageData.meta.transcriptImage) {
+				pageData.meta.transcriptImage = existingPageData.meta.transcriptImage;
+			}
+			// Edited strokes should transcribe from ink SVG, not the original photo.
+			if (existingPageData.meta.transcriptFrom === 'photo') {
+				delete pageData.meta.transcriptFrom;
+			}
 			return;
 		}
 	} catch {

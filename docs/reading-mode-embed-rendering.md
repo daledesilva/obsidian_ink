@@ -105,7 +105,7 @@ If Ink only accepted section roots, the post-processor would return immediately 
 - Show the **full SVG canvas** (no `viewBox` crop from the Edit link)
 - Ignore saved **width** and **aspect ratio** (often filling the page)
 
-Drawing reframing is stored in the Edit link URL (`viewBoxX`, `viewBoxY`, `viewBoxWidth`, `viewBoxHeight`, plus `width` and `aspectRatio`). Only `DrawingEmbedPreview` applies that crop after inlining the SVG — native image embeds cannot. In Live Preview **edit mode**, users save framing via the purple lock in the drawing toolbar; see [drawing-embed-framing.md](drawing-embed-framing.md).
+Drawing reframing is stored in the Edit link URL (`viewBoxX`, `viewBoxY`, `viewBoxW`, `viewBoxH`, plus `width` and `aspectRatio`). Only `DrawingEmbedPreview` applies that crop after inlining the SVG — native image embeds cannot. In Live Preview **edit mode**, users save framing via the purple lock in the drawing toolbar; see [drawing-embed-framing.md](drawing-embed-framing.md).
 
 ### Lifecycle constraints on full-page export
 
@@ -121,6 +121,24 @@ Implementation: `FULL_PAGE_PREVIEW_ROOT_SELECTOR` and the deferred remount block
 
 PDF export often requires rules under `@media print { .print … }`. Frontmatter `cssclass` values may not appear on the print DOM. Ink does not ship print-specific CSS today; embed layout comes from the same preview components and inline dimensions as Reading mode. If custom export styling is added later, test against a real PDF export, not just Reading mode.
 
+## Resolving the drawing preview viewBox
+
+An embed URL may carry no `viewBox*` params at all — embeds saved before framing existed, or a URL whose query was lost. Applying the *default* `0 0 500 281` box in that case shifts and crops the drawing away from its real content, which users reported as "the drawing render drifts" (#180).
+
+`DrawingEmbedPreview` therefore decides which crop to show in this order:
+
+| Priority | Source | When it applies |
+|---|---|---|
+| 1 | Edit link URL `viewBox*` params | The URL carried explicit viewBox params |
+| 2 | The SVG file's own `viewBox` attribute | The URL had no viewBox params |
+| 3 | `DEFAULT_EMBED_SETTINGS.viewBox` | Neither the URL nor the file had one |
+
+`parseSettingsFromUrl` sets `hasExplicitViewBox` only when a **size** param is present (`viewBoxW`/`viewBoxWidth` or `viewBoxH`/`viewBoxHeight`). An origin-only URL (`viewBoxX`/`viewBoxY` without a size) does not count — a partial box would still misplace the content.
+
+The flag is threaded from the embed extension through `DrawingEmbedWidget` and `DrawingEmbed` into the preview, because the preview only receives `embedSettings`, which cannot distinguish "URL said `0 0 500 281`" from "URL said nothing and we defaulted to `0 0 500 281`".
+
+`resolveDrawingPreviewViewBox()`, `parseSvgViewBoxRect()`, `svgViewBoxesMatch()` and `viewBoxAspectRatio()` live in `logic/utils/svg-viewbox.ts`.
+
 ## Technical gotchas
 
 1. Obsidian may render a `span.internal-embed` rather than `img` — the detector handles both.
@@ -132,6 +150,7 @@ PDF export often requires rules under `@media print { .print … }`. Frontmatter
 7. **Do not run stale-host remount synchronously after mounting on full-page roots** — Causes a React race and can hang the export progress bar; see [PDF export § Lifecycle constraints](#lifecycle-constraints-on-full-page-export).
 8. **Drawing embed centering is CSS, not inline literals** — `.ddc_ink_drawing-embed .ddc_ink_resize-container` owns `position` / `left: 50%` / `translate: -50%`. `applyReadingModeEmbedDimensions` only sets dynamic width/height/maxWidth (Obsidian `no-static-styles-assignment`). Writing width `100%` comes from writing-embed SCSS.
 9. **Dark native `img` before inline mount** — See [Ink colours and theming](ink-colours-and-theming.md#dark-mode-native-image-fallback-reading-mode). Do not remove the global theme import from `main.ts` without another path for that fallback.
+10. **Never apply the default viewBox when the URL had none** — See [Resolving the drawing preview viewBox](#resolving-the-drawing-preview-viewbox). The default `0 0 500 281` crops drawings whose real content sits elsewhere.
 
 ## See also
 

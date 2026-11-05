@@ -1,10 +1,30 @@
 import { EmbedSettings, DEFAULT_EMBED_SETTINGS } from 'src/types/embed-settings';
 
-export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: string; embedSettings: EmbedSettings; isPendingPaste: boolean; } {
+////////
+////////
+
+/** Result of reading embed settings out of an Edit link URL. */
+export interface ParsedEmbedUrlSettings {
+    infoUrl: string;
+    embedSettings: EmbedSettings;
+    isPendingPaste: boolean;
+    /**
+     * True when the URL carried explicit viewBox params.
+     *
+     * Why this matters: a drawing SVG stores its own authoritative viewBox. When the embed URL has
+     * no viewBox (older embeds, or embeds whose params were lost), applying the default
+     * `0 0 500 281` crops or offsets the drawing relative to its real content. The preview uses this
+     * flag to fall back to the file's own viewBox instead (#180).
+     */
+    hasExplicitViewBox: boolean;
+}
+
+export function parseSettingsFromUrl(urlAndEmbedSettings: string): ParsedEmbedUrlSettings {
 
     let infoUrl = urlAndEmbedSettings;
     let embedSettings: EmbedSettings = structuredClone(DEFAULT_EMBED_SETTINGS);
     let isPendingPaste = false;
+    let hasExplicitViewBox = false;
 
     const questionMarkIndex = urlAndEmbedSettings.indexOf('?');
     if (questionMarkIndex !== -1) {
@@ -47,6 +67,9 @@ export function parseSettingsFromUrl(urlAndEmbedSettings: string): { infoUrl: st
         if (urlParams.pendingPaste === 'true') {
             isPendingPaste = true;
         }
+
+        const hasViewBoxSizeParam = !!(urlParams.viewBoxW || urlParams.viewBoxWidth || urlParams.viewBoxH || urlParams.viewBoxHeight);
+        hasExplicitViewBox = hasViewBoxSizeParam;
     }
-    return { infoUrl, embedSettings, isPendingPaste };
+    return { infoUrl, embedSettings, isPendingPaste, hasExplicitViewBox };
 }

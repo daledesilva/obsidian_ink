@@ -49,6 +49,10 @@ Our previous implementation relied on `pointerenter` (hover) to lock scrolling b
 *   **Timing:** `pointerenter` often doesn't fire before `pointerdown`, especially on quick taps without hovering.
 *   **Gesture Latching:** Even when it does fire, the browser's gesture recognition logic is faster than the React state update or DOM reflow. The browser "latches" onto the scroll gesture before the CSS lock (`overflow: hidden`) can take effect.
 
+## On-screen keyboard
+
+A touch pointer entering the finger blocker blurs the active element only when that element is a text field (`contenteditable`, `input`, `textarea`, or `select`). That dismisses the on-screen keyboard. Mouse and pen hover do not blur, including when the blocker reappears after a pointer up. A click, drag, or selection change focuses the ink canvas so keyboard shortcuts stay with the embed. See [Ink canvas: stroke selection and transform](ink-canvas-selection.md).
+
 ## Not Pursued
 
 ### Hover Detection

@@ -41,6 +41,11 @@ jest.mock('src/logic/almostuseful/almostuseful-refresh', () => ({
 	stopAlmostUsefulSessionRefresh: jest.fn(),
 }));
 
+jest.mock('src/logic/utils/ink-build-mode', () => ({
+	__esModule: true,
+	isInkDevelopmentBuild: () => false,
+}));
+
 jest.mock('src/logic/almostuseful/almostuseful-device', () => ({
 	__esModule: true,
 	almostUsefulDeviceLabel: jest.fn(() => 'Test MacBook Pro'),

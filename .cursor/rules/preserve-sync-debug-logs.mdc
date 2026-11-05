@@ -1,0 +1,38 @@
+---
+description: Never delete sync or debug session logs mid-investigation — preserve runtime evidence until the user is finished committing or documenting
+alwaysApply: true
+---
+
+# Preserve Sync And Debug Logs
+
+Sync and debug logs are runtime evidence. Do **not** delete or truncate them while investigating, verifying, or answering questions about a sync the user already ran.
+
+## Covered files
+
+- `.cursor/debug-<sessionId>.log` (Cursor Debug ingest)
+- Vault `sync-debug-*.log`
+- Vault `sync-logs/` (manual sync markdown reports)
+- Any other plugin/host log the user or agent is relying on for the current debug thread
+
+## Do not delete when
+
+- The user says they just synced / reproduced and asks you to check results
+- You are about to read logs to analyze an already-completed run
+- Debug mode or ingest setup is still in progress
+- You are mid-fix or comparing before/after evidence
+
+**Wrong:** Clear the session log at the start of an analysis turn after the user already reproduced.
+
+**Right:** Read the existing log first; only clear when preparing a *new* reproduction you are about to ask for.
+
+## When clearing is allowed
+
+Clear **only** the current session’s Cursor Debug log (`.cursor/debug-<sessionId>.log`) when **all** of these are true:
+
+1. You are about to ask the user to run a **new** reproduction (not analyze one they already finished)
+2. You need a clean NDJSON file so old cycles do not mix with the new run
+3. You do **not** delete vault `sync-debug-*.log`, `sync-logs/`, or other sessions’ `debug-*.log` files as part of that prep
+
+## Full cleanup
+
+Delete or wipe sync/debug logs only when the user has made it clear they are **finished** with the investigation and are **committing**, **documenting**, or otherwise closing out the debug work — or they explicitly ask to clear logs.

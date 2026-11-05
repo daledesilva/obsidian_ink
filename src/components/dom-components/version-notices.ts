@@ -1,13 +1,10 @@
 import * as semVer from 'semver';
-import { applyAlmostUsefulLinkAccountButtonChrome } from 'src/components/dom-components/almostuseful-link-account-button';
+import { appendAlmostUsefulNoticeAccountCta } from 'src/components/dom-components/almostuseful-link-account-button';
 import {
-    createNoticeBodyCtaRow,
     createNoticeCtaBar,
     createNoticeTemplate,
     launchPersistentNotice,
 } from 'src/components/dom-components/notice-components';
-import { ALMOSTUSEFUL_PORTAL_ORIGIN } from 'src/logic/almostuseful/almostuseful-constants';
-import { openAlmostUsefulBrowserUrl } from 'src/logic/almostuseful/almostuseful-login';
 import InkPlugin from "src/main";
 import { openInkSettingsTab } from './tabs/settings-tab/settings-tab';
 
@@ -38,33 +35,20 @@ export function showRecentChanges(plugin: InkPlugin) {
 function showChanges(plugin: InkPlugin) {
     const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate(1, 2);
 
-    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6.1`);
+    scrollAreaEl.createEl('h1').setText(`Changes in Ink v0.6.2`);
 
     const changesListEl = scrollAreaEl.createEl('ul');
-    changesListEl.createEl('li').setText(
-        'Handwriting transcriptions available to all (requires an Almost Useful account).',
-    );
-    changesListEl.createEl('li').setText('Fuller full screen mode.');
-    changesListEl.createEl('li').setText('Better selections and transformations.');
-    changesListEl.createEl('li').setText('High contrast mode.');
+    changesListEl.createEl('li').setText('Trace handwriting and drawings from photos.');
+    changesListEl.createEl('li').setText('Batch transcribe ink files.');
+    changesListEl.createEl('li').setText('Very long handwriting can now be transcribed.');
+    changesListEl.createEl('li').setText('Enhanced writing selections.');
+    changesListEl.createEl('li').setText('Bugfixes.');
 
-    const bodyCtaRowEl = createNoticeBodyCtaRow(scrollAreaEl);
-    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--stacked');
-    bodyCtaRowEl.classList.add('ddc_ink_notice-body-cta-row--centered');
-    const linkAccountCtaStackEl = bodyCtaRowEl.createDiv(
-        'ddc_ink_almostuseful-link-account-cta-stack ddc_ink_almostuseful-link-account-cta-stack--centered',
-    );
-    const linkAccountBtnEl = linkAccountCtaStackEl.createEl('button', { type: 'button' });
-    applyAlmostUsefulLinkAccountButtonChrome(linkAccountBtnEl);
-    const createAccountLinkEl = linkAccountCtaStackEl.createEl('a', {
-        cls: 'ddc_ink_tertiary-text-link',
-        text: 'Create account',
-        href: '#',
-    });
+    const linkAccountBtnEl = appendAlmostUsefulNoticeAccountCta(scrollAreaEl);
 
     const { tertiaryBtnEl } = createNoticeCtaBar(footerEl, {
         footerLink: {
-            href: 'https://youtu.be/oyKH5mgfGFY',
+            href: 'https://youtu.be/MgsmSK4ybqU',
             label: 'View feature demos',
         },
         tertiaryLabel: 'Dismiss',
@@ -72,13 +56,11 @@ function showChanges(plugin: InkPlugin) {
 
     const notice = launchPersistentNotice(noticeBody);
 
-    // Body CTAs stay open so invite copy remains after the browser or Settings backgrounds Obsidian.
-    createAccountLinkEl.addEventListener('click', (event) => {
-        event.preventDefault();
-        openAlmostUsefulBrowserUrl(`${ALMOSTUSEFUL_PORTAL_ORIGIN}/auth/sign-up`);
-    });
-
+    // Link account opens Settings; hide so it does not sit over the account section.
     linkAccountBtnEl.addEventListener('click', () => {
+        notice.hide();
+        plugin.settings.onboardingTips.lastVersionTipRead = plugin.manifest.version;
+        void plugin.saveSettings();
         openInkSettingsTab(plugin);
     });
 

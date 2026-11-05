@@ -10,11 +10,6 @@ import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { showLockedChrome } from 'src/logic/utils/ink-file-has-strokes';
 import { useInkFileHasStrokes } from 'src/logic/utils/use-ink-file-has-strokes';
 import { getGlobals } from 'src/stores/global-store';
-import {
-	parseSvgViewBoxRect,
-	resolveDrawingPreviewViewBox,
-	type SvgViewBoxRect,
-} from 'src/logic/utils/svg-viewbox';
 
 //////////
 //////////
@@ -22,12 +17,7 @@ import {
 interface DrawingEmbedPreviewProps {
     embedId?: string,
     embeddedFile: TFile | null,
-    embedSettings: { viewBox?: SvgViewBoxRect },
-    /**
-     * False when the embed's Edit link carried no viewBox params. The file's own viewBox is then
-     * authoritative; using the default `0 0 500 281` instead shifts and crops the drawing (#180).
-     */
-    hasExplicitViewBox?: boolean,
+    embedSettings: { viewBox?: { x: number; y: number; width: number; height: number } },
     onReady: () => void,
 	onClick: React.MouseEventHandler,
 }
@@ -49,7 +39,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
 
     const containerElRef = React.useRef<HTMLDivElement>(null);
     const [fileSrc, setFileSrc] = React.useState<string | null>(null);
-    const [fileViewBox, setFileViewBox] = React.useState<SvgViewBoxRect | null>(null);
     const hasStrokes = useInkFileHasStrokes(props.embeddedFile, plugin.app.vault);
 
     React.useEffect(() => {
@@ -72,16 +61,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
         }
         // Re-run if the embedded file changes
     }, [props.embeddedFile])
-
-    // Prefer the file's own viewBox whenever the embed URL did not pin one.
-    const resolvedViewBox = resolveDrawingPreviewViewBox(
-        props.embedSettings?.viewBox ?? null,
-        props.hasExplicitViewBox ?? true,
-        fileViewBox,
-    );
-    const svgViewBoxAttribute = resolvedViewBox
-        ? `${resolvedViewBox.x} ${resolvedViewBox.y} ${resolvedViewBox.width} ${resolvedViewBox.height}`
-        : undefined;
 
 	return <>
         <div
@@ -117,7 +96,9 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
                     cacheRequests = {true}
                     key = {fileSrc}
                     onLoad = {onLoad}
-                    viewBox = {svgViewBoxAttribute}
+                    viewBox = {props.embedSettings?.viewBox
+						? `${props.embedSettings.viewBox.x} ${props.embedSettings.viewBox.y} ${props.embedSettings.viewBox.width} ${props.embedSettings.viewBox.height}`
+						: undefined}
                 />
             </>)}
         </div>
@@ -136,7 +117,6 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
     function refreshSrc() {
         if (!props.embeddedFile) {
             setFileSrc(null);
-            setFileViewBox(null);
             return;
         }
         // Prefer vault.read over getResourcePath: react-inlinesvg XHRs app:// URLs, which Electron 39+
@@ -145,15 +125,15 @@ export const DrawingEmbedPreview: React.FC<DrawingEmbedPreviewProps> = (props) =
         void plugin.app.vault.read(props.embeddedFile).then((svgContent) => {
             if (!svgContent) {
                 setFileSrc(null);
-                setFileViewBox(null);
                 return;
             }
-            setFileViewBox(parseSvgViewBoxRect(svgContent));
             setFileSrc(svgContent);
         }).catch(() => {
             setFileSrc(null);
-            setFileViewBox(null);
         });
     }
 
 };
+
+
+

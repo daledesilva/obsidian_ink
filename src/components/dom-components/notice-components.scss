@@ -12,20 +12,13 @@
     // Cap height so footer actions stay on screen; tune inset after visual check
     --ddc_ink_notice-viewport-inset: 5rem;
     --ddc_ink_notice-content-padding: var(--size-4-4);
-    // Page swaps fade the body and ease the card height. JS reads this duration.
-    --ddc_ink_notice-page-ms: 160ms;
     max-height: calc(100dvh - var(--ddc_ink_notice-viewport-inset)) !important;
     height: fit-content !important;
-    transition: height var(--ddc_ink_notice-page-ms) ease;
     overflow: hidden !important;
     padding: 0 !important;
 
     // Forcing explicitly clicking a button to dismiss
     pointer-events: none;
-
-    @media (prefers-reduced-motion: reduce) {
-        transition: none;
-    }
 }
 
 .ddc_ink_notice {
@@ -39,21 +32,6 @@
     width: 100%;
     padding: 0 !important;
     margin: 0 !important;
-
-    .ddc_ink_notice-page,
-    .ddc_ink_notice-footer {
-        transition:
-            opacity var(--ddc_ink_notice-page-ms) ease,
-            transform var(--ddc_ink_notice-page-ms) ease;
-    }
-
-    &.is-paging-out {
-        .ddc_ink_notice-page,
-        .ddc_ink_notice-footer {
-            opacity: 0;
-            transform: translateY(0.35rem);
-        }
-    }
 
     .ddc_ink_notice-scroll {
         flex: 1 1 auto;

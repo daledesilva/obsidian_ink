@@ -10,8 +10,6 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, filePath: stri
     // Remove the filename at the end
     splitPath.pop();
 
-    debug(['Creating Ink folders for', filePath]);
-
     let prevPath: string[] = [];
     for(let i=0; i<splitPath.length; i++) {
         const folderName = splitPath[i];
@@ -23,7 +21,6 @@ export const createFoldersForFilepath = async (plugin: InkPlugin, filePath: stri
                 debug(`Created path: ${cascadePath}`);
             }
         } catch (e: unknown) {
-            // Silent here is what made #64 hard to diagnose: report the path and reason.
             error(`Couldn't create attachment folder for ${cascadePath}: ${e instanceof Error ? e.message : String(e)}`);
         }
 

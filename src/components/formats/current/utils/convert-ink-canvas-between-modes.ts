@@ -13,22 +13,6 @@ import { isInkCanvasFile } from './ink-file-storage-engine';
 ////////
 ////////
 
-/**
- * Ink-canvas conversion rebuilds file data, so the photo link would otherwise be dropped.
- * The Photo tab and transcription resolve these paths beside the SVG.
- */
-function copyPhotoTraceMeta(from: InkFileData, to: InkFileData): void {
-	if (from.meta.sourceImage) {
-		to.meta.sourceImage = from.meta.sourceImage;
-	}
-	if (from.meta.transcriptImage) {
-		to.meta.transcriptImage = from.meta.transcriptImage;
-	}
-	if (from.meta.transcriptFrom) {
-		to.meta.transcriptFrom = from.meta.transcriptFrom;
-	}
-}
-
 function cloneInkCanvasSnapshot(snapshot: InkCanvasSnapshot): InkCanvasSnapshot {
 	return {
 		...snapshot,
@@ -70,7 +54,6 @@ export function convertWriteInkCanvasDataToDraw(
 	if (data.meta.transcript) {
 		fileData.meta.transcript = data.meta.transcript;
 	}
-	copyPhotoTraceMeta(data, fileData);
 	return fileData;
 }
 
@@ -116,7 +99,6 @@ export function convertDrawInkCanvasDataToWrite(
 	if (data.meta.transcript) {
 		fileData.meta.transcript = data.meta.transcript;
 	}
-	copyPhotoTraceMeta(data, fileData);
 	if (inkCanvasSnapshot.writingLineHeight != null) {
 		fileData.meta.writingLineHeight = inkCanvasSnapshot.writingLineHeight;
 	}

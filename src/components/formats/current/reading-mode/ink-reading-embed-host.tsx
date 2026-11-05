@@ -14,10 +14,8 @@ import {
 	readWritingFileAspectRatio,
 } from 'src/logic/utils/writing-embed-aspect-ratio';
 import { useInkFileTranscript } from 'src/logic/use-ink-file-transcript';
-import { useInkEmbedDisplayMode, useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
+import { useLockedInkTranscriptMode } from 'src/logic/use-ink-embed-display-mode';
 import { InkEmbedTranscriptControls, InkTranscriptView } from 'src/components/formats/current/ink-transcript-view/ink-transcript-view';
-import { InkPhotoView } from 'src/components/formats/current/ink-photo-view/ink-photo-view';
-import { useInkFileSourceImageUrl } from 'src/logic/use-ink-file-source-image';
 import { EmbedPreviewContextMenu } from 'src/components/jsx-components/embed-preview-context-menu/embed-preview-context-menu';
 import { type MenuOption } from 'src/components/jsx-components/overflow-menu/overflow-menu';
 import { copyEmbedMarkdownToClipboard } from 'src/logic/utils/copy-embed-to-clipboard';
@@ -168,10 +166,6 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		transcript,
 		false,
 	);
-	const sourceImageUrl = useInkFileSourceImageUrl(props.plugin, props.embeddedFile);
-	const hasSourcePhoto = !!sourceImageUrl;
-	const embedDisplayMode = useInkEmbedDisplayMode(props.embeddedFile?.path);
-	const showPhoto = hasSourcePhoto && embedDisplayMode === 'photo';
 
 	let drawingHeightPx = embedWidth / embedAspectRatio;
 	const transcriptHeightIsReady = showTranscript && transcriptHeightPx > 0;
@@ -181,7 +175,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// Until the markdown has been measured, keep the SVG aspect height so the card
 	// does not collapse. After that, the attribute tells dimension refresh to leave it.
-	// Drawing ink and photo modes use saved pixel width + full-bleed; text mode matches writing column width.
+	// Drawing ink mode uses saved pixel width + full-bleed; text mode matches writing column width.
 	const drawingShowsTranscript = props.embedKind === 'drawing' && showTranscript;
 
 	let resizeStyle: React.CSSProperties = { position: 'relative' };
@@ -221,8 +215,6 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 				if (!transcriptHeightIsReady) {
 					resizeContainerEl.style.height = 'auto';
 				}
-			} else if (showPhoto) {
-				resizeContainerEl.setAttribute('data-ink-display-mode', 'photo');
 			} else {
 				resizeContainerEl.removeAttribute('data-ink-display-mode');
 			}
@@ -236,7 +228,6 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		props.embedSettings.embedDisplay.aspectRatio,
 		props.embeddedFile?.path,
 		showTranscript,
-		showPhoto,
 		drawingShowsTranscript,
 	]);
 
@@ -276,19 +267,11 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 	function handleCopyTranscript() {
 		const text = transcript?.trim() ?? '';
 		if (!text) {
-			if (isDrawing) {
-				new Notice('No description or transcript to copy');
-			} else {
-				new Notice('No transcript to copy');
-			}
+			new Notice('No transcript to copy');
 			return;
 		}
 		void navigator.clipboard.writeText(text).then(() => {
-			if (isDrawing) {
-				new Notice('Description/transcript copied to clipboard');
-			} else {
-				new Notice('Transcript copied to clipboard');
-			}
+			new Notice('Transcript copied to clipboard');
 		}).catch(() => {
 			new Notice('Failed to copy transcript to clipboard');
 		});
@@ -341,15 +324,9 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 
 	// includeCopyTranscript: transcript view always; ink view only once a transcript exists.
 	function lockedEmbedMenuOptions(includeCopyTranscript: boolean): MenuOption[] {
-		let processLabel = 'Transcribe';
-		if (hasTranscript) processLabel = 'Update transcript';
-		if (isDrawing) {
-			processLabel = 'Describe/transcribe';
-			if (hasTranscript) processLabel = 'Update description/transcript';
-		}
 		const options: MenuOption[] = [
 			{
-				text: processLabel,
+				text: hasTranscript ? 'Update transcript' : 'Transcribe',
 				action: () => { void updateTranscriptFromLockedEmbed(); },
 			},
 			{
@@ -360,7 +337,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 		];
 		if (includeCopyTranscript) {
 			options.push({
-				text: isDrawing ? 'Copy description/transcript' : 'Copy transcript',
+				text: 'Copy transcript',
 				action: () => { handleCopyTranscript(); },
 			});
 		}
@@ -390,15 +367,10 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 			<div
 				ref={resizeContainerElRef}
 				className='ddc_ink_resize-container'
-				data-ink-display-mode={showTranscript ? 'text' : showPhoto ? 'photo' : undefined}
+				data-ink-display-mode={showTranscript ? 'text' : undefined}
 				// Static centering/width live in SCSS; only dynamic size stays inline.
 				style={resizeStyle}
 			>
-				{showPhoto && sourceImageUrl && (
-					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
-						<InkPhotoView sourceImageUrl={sourceImageUrl} />
-					</EmbedPreviewContextMenu>
-				)}
 				{showTranscript && transcript && (
 					<EmbedPreviewContextMenu
 						menuOptions={lockedEmbedMenuOptions(true)}
@@ -413,7 +385,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						/>
 					</EmbedPreviewContextMenu>
 				)}
-				{!showTranscript && !showPhoto && props.embedKind === 'drawing' && (
+				{!showTranscript && props.embedKind === 'drawing' && (
 					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 						<DrawingEmbedPreview
 							key={props.embeddedFile.path}
@@ -424,7 +396,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						/>
 					</EmbedPreviewContextMenu>
 				)}
-				{!showTranscript && !showPhoto && props.embedKind !== 'drawing' && (
+				{!showTranscript && props.embedKind !== 'drawing' && (
 					<EmbedPreviewContextMenu menuOptions={lockedEmbedMenuOptions(hasTranscript)}>
 						<WritingEmbedPreview
 							plugin={props.plugin}
@@ -439,7 +411,6 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 						filePath={props.embeddedFile.path}
 						inkIconKind={props.embedKind === 'drawing' ? 'drawing' : 'writing'}
 						hasTranscript={hasTranscript}
-						hasSourcePhoto={props.embedKind !== 'drawing' && hasSourcePhoto}
 					/>
 				)}
 			</div>

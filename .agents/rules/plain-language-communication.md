@@ -1,5 +1,0 @@
-# Plain Language Communication
-
-**Always communicate and format responses in plain language following the ISO 24495-1:2023 standard.**
-
-Apply this to every user-facing message: explanations, plans, summaries, commit and PR text, documentation you write, and error or blocker reports. Use familiar words, short sentences, active voice, and clear structure so a non-expert reader can follow without decoding jargon. Keep technical precision where the task requires it, but say what you mean in the simplest accurate wording.

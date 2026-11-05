@@ -1,7 +1,5 @@
 
 
-@use '../../../styles/ink-control-ink' as inkControlInk;
-
 .ink_transition_menu {
     display: flex;
     width: 100%;
@@ -14,12 +12,12 @@
         width: auto;
         pointer-events: auto;
         background-color: var(--interactive-normal);
-        color: inkControlInk.$ink-control-icon-ink;
-        fill: inkControlInk.$ink-control-icon-ink;
+        color: var(--color-base-60);
+        fill: var(--color-base-60);
         &:hover {
             background-color: var(--interactive-hover);
-            color: var(--text-normal);
-            fill: var(--text-normal);
+            color: var(--color-base-100);
+            fill: var(--color-base-100);
         }
         &:disabled {
             cursor: default;

@@ -7,28 +7,17 @@ alwaysApply: true
 
 This project's tasks are tracked in ClickUp under:
 
-| Level | Name (may change) | ID (source of truth) |
-|---|---|---|
-| **Workspace** | Dale de Silva | `36639212` |
-| **Space** | Ink | `90167671953` |
-| **Folder** | Oi: Obsidian Ink | `90160118195` |
+- **Workspace:** Dale de Silva
+- **Space:** Ob: Ink
+- **Folder:** `Ob: Ink`
 
-When referencing or creating ClickUp tasks, scope all queries and operations to folder ID `90160118195` unless the user specifies otherwise. Prefer IDs over names in MCP calls (`folder_id`, `space_id`, list IDs, etc.) so renames do not break tooling.
+When referencing or creating ClickUp tasks, scope all queries and operations to the **`Ob: Ink`** folder unless the user specifies otherwise.
 
-### Lists within folder `90160118195`
+### Lists within `Ob: Ink`
 
-| Name (may change) | ID | Role |
-|---|---|---|
-| **`Backlog`** | `901600247731` | Reference only; do not action tasks from this list unless explicitly asked. Holding area, not current work. |
-| **`Ink: 0.6`** | `901605055642` | Sprint / version list. |
-| **`Ink: 0.7`** | `901604836901` | Sprint / version list. |
-| **`Ink: 0.8`** | `901605464638` | Sprint / version list. |
-| **`Ink: 0.9`** | `1300320000006651` | Sprint / version list. |
-| **`Ink: 1.0`** | `1300320000006652` | Sprint / version list. |
-| **`Speculative`** | `901600215881` | Other named list. Treat as current or future work unless context suggests otherwise. |
-| **`Similar Products`** | `901605142806` | Other named list. Treat as current or future work unless context suggests otherwise. |
-
-Sprint / version lists are current or future work. The lowest-numbered active sprint list is current work. When a list is created or discovered, record its ID in this table so future agents do not depend on the display name.
+- **`Ink: Backlog`** — reference only; do not action tasks from this list unless explicitly asked. It is a holding area, not current work.
+- **Sprint lists** (e.g. `Ink: 0.5`) — lists with version numbers represent current or future work. The lowest-numbered active sprint list is current work.
+- **Other named lists** — treat as current or future work unless context suggests otherwise.
 
 ### Starting work on a task
 
@@ -56,7 +45,7 @@ When a pull request is opened for one or more ClickUp tickets, after the PR exis
 When the user asks to complete **one or more** ClickUp tickets in a **single request**:
 
 1. Move **each** ticket to **In Progress** before implementation (same rules as above).
-2. Unless the user explicitly says to work **on the current branch** (or equivalent), create **one new branch** from `main` for all the work. Name it per `git-workflow.mdc` with a short description that covers the combined scope (e.g. `feat/writing-embed-toolbar`). Do **not** create one branch per ticket unless the user explicitly asks for separate branches.
+2. Unless the user explicitly says to work **on the current branch** (or equivalent), create **one new branch** from `main` for all the work. Name it per `git-workflow.mdc` with a short description that covers the combined scope. Do **not** create one branch per ticket unless the user explicitly asks for separate branches.
 3. Implement and complete all requested tickets on that branch (new or current, per step 2).
 4. Commit the work on that branch. One commit per ticket is fine when changes are independent; one combined commit is fine when the work is tightly coupled. Include a `Clickup Task:` line for each ticket in the relevant commit message(s).
 5. Push the branch and open a pull request into `main` (use `/pr` or follow `.cursor/commands/pr.md`) when the work is complete, unless the user explicitly asked for separate branches or PRs.
@@ -65,11 +54,3 @@ When the user asks to complete **one or more** ClickUp tickets in a **single req
 When the user **explicitly** asks for separate branches (e.g. "one branch per ticket"), create a branch per ticket, commit each independently, and open one PR per branch into `main`.
 
 When the user **explicitly** asks to work on the **current branch**, skip creating a new branch; implement, commit, and open a PR from the current branch when the work is complete (unless they say otherwise).
-
-### `/build-ready-tasks` PR batching
-
-When running `/build-ready-tasks` (Ready + Build tickets from a ClickUp list or folder of lists), follow the command’s **PR batching bias**: default to fewer PRs by combining small/simple tickets; only complex, risky, simple-but-large, or clear theme clusters get their own PR. Branch feature work from the list-aligned release branch (`release_<version>` derived from the list name, e.g. list `Ink: 0.6` → `release_0.6`) and open independent PRs into that same release branch — not `main`. See `.cursor/commands/build-ready-tasks.md`.
-
-For a **multi-ticket** PR group, create one new In Progress task named for the kind of work in that PR, **move** the existing grouped tickets under it as subtasks (reparent — do not delete and recreate), put a short **Validate on PR** bullet list in the parent description, and after the PR exists move **that parent** to Review and set **its** `PR` field to the PR URL. Do not independently move the nested tickets to In Progress or Review. A **one-ticket** group stays a single ticket with no wrapper.
-
-Official ClickUp MCP cannot set `parent` on an existing task. Reparent with REST Update Task using `CLICKUP_API_TOKEN` from the user environment (`~/.zshenv` on macOS/Linux, Windows User Environment Variables on Windows). Never hardcode a plaintext token in `mcp.json` — use `"Authorization": "Bearer ${env:CLICKUP_API_TOKEN}"` with the OS GUI environment bridge documented in `docs/cursor-mcp-clickup-cloud-agents.md`. **If nesting cannot run, do not create a grouping parent** — move each original ticket to In Progress, then each to Review with the `PR` field (old behaviour). If a parent was already created, delete it. Tell the user the steps in `docs/cursor-mcp-clickup-cloud-agents.md` (**If nesting stops working**). Helper: `scripts/clickup-set-parent.sh`.

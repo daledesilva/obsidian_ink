@@ -4,13 +4,13 @@
  * Same-tab listeners use a custom event because there is no storage write.
  */
 
-export type InkEmbedDisplayMode = 'ink' | 'text' | 'photo';
+export type InkEmbedDisplayMode = 'ink' | 'text';
 
 const DISPLAY_MODE_CHANGED_EVENT = 'ddc-ink-embed-display-mode-changed';
 
 const modesByFilePath = new Map<string, InkEmbedDisplayMode>();
 
-/** Ink unless this session has switched that file to Text or Photo. */
+/** Ink unless this session has switched that file to Text. */
 export function getInkEmbedDisplayMode(filePath: string): InkEmbedDisplayMode {
 	return modesByFilePath.get(filePath) ?? 'ink';
 }

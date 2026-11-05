@@ -1,6 +1,4 @@
 
-@use '../../../styles/ink-control-ink' as inkControlInk;
-
 .ink_expand-lines-button {
     // Positioned at the far right of the SecondaryMenuBar while undo/redo stays centered
     position: absolute;
@@ -20,13 +18,13 @@
 
         // Match .ink_menu-bar button chrome (undo/redo in SecondaryMenuBar)
         background-color: var(--interactive-normal);
-        color: inkControlInk.$ink-control-icon-ink;
-        fill: inkControlInk.$ink-control-icon-ink;
+        color: var(--color-base-60);
+        fill: var(--color-base-60);
 
         &:hover {
             background-color: var(--interactive-hover);
-            color: var(--text-normal);
-            fill: var(--text-normal);
+            color: var(--color-base-100);
+            fill: var(--color-base-100);
         }
 
         svg {

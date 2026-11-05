@@ -127,15 +127,9 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 
 	const closeKeyboard = () => {
 		const active = activeDocument.activeElement as HTMLElement | null;
-		if (!active) return;
-		// Only a text field holds the software keyboard. Blurring the ink embed
-		// here would drop keyboard shortcuts after a tap.
-		const isTextField = active.isContentEditable
-			|| active.tagName === 'INPUT'
-			|| active.tagName === 'TEXTAREA'
-			|| active.tagName === 'SELECT';
-		if (!isTextField) return;
-		active.blur();
+		if (active && !active.classList.contains('tl-canvas')) {
+			active.blur();
+		}
 	};
 
 	// Setup native event listeners to aggressively prevent default behavior for pen/mouse
@@ -750,12 +744,10 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 				MozUserSelect: 'none',
 				msUserSelect: 'none',
 			}}
-			// Touch enter dismisses the on-screen keyboard. Mouse and pen hover must
-			// leave the note caret where it is, including when the blocker reappears.
-			onPointerEnter={(event) => {
-				if (event.pointerType !== 'touch') return;
-				closeKeyboard();
-			}}
+			// Fallback that's useful only if hover is supported
+			// Fires on pointer hover and also pointer up (Because the blocker reappears)
+			onPointerEnter={(e) => {			closeKeyboard();
+		}}
 			// Fallback that's useful only if hover is supported
 			// Fires on pointer leave and also pointer down (Because the blocker dissappears)
 			// onPointerLeave={() => {

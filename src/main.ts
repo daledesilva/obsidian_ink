@@ -4,14 +4,12 @@ import './components/shared/ink-svg-preview-theme.scss';
 import './styles/ink-workspace-chrome.scss';
 import './styles/ink-writing-guide-lines.scss';
 import './styles/ink-grayscale-screen-chrome.scss';
-import './styles/ink-button-hover.scss';
 import { App, Editor, Notice, Platform, Plugin, addIcon } from 'obsidian';
 import { DEFAULT_SETTINGS, PluginSettings } from 'src/types/plugin-settings';
 import { registerSettingsTab } from './components/dom-components/tabs/settings-tab/settings-tab';
 import { registerWritingEmbed_v1 } from './components/formats/v1-code-blocks/drawing/widgets/writing-embed-widget'
 import { insertExistingWritingFile } from './commands/insert-existing-writing-file';
 import { insertNewWritingFile } from './commands/insert-new-writing-file';
-import { insertWritingFromPhoto } from './commands/insert-writing-from-photo';
 import { registerWritingView_v1 } from './components/formats/v1-code-blocks/writing/writing-view/writing-view';
 import { insertExistingDrawingFile } from './commands/insert-existing-drawing-file';
 import { registerDrawingView_v1 } from './components/formats/v1-code-blocks/drawing/drawing-view/drawing-view';
@@ -33,8 +31,6 @@ import { TldrawSvgMigrationModal } from './components/dom-components/modals/tldr
 import { FileConversionModal } from './components/dom-components/modals/file-conversion-modal/file-conversion-modal';
 import { findNotesContainingFileEmbed, executeFileConversion, removeAllEmbedsOfFileFromNote } from './logic/utils/convert-file-embeds';
 import { openRemoveEmbedFlow } from './logic/utils/remove-embed-flow';
-import { findEmbedMarkdownRangeForFile, findEmbedMarkdownRangeInString } from './logic/utils/embed-markdown-range';
-import { getNewTimestampedDrawingSvgFilepath, getNewTimestampedWritingSvgFilepath } from './logic/utils/file-manipulation';
 import { RemoveEmbedModal } from './components/dom-components/modals/remove-embed-modal/remove-embed-modal';
 import { registerUnifiedUndoRedo } from './logic/undo-redo/keyboard-handler';
 import { registerUnifiedUndoRedoCommands } from './logic/undo-redo/unified-commands';
@@ -52,11 +48,9 @@ import { setDominantHand } from 'src/stores/dominant-hand-store';
 import {
 	getBooxConnectionEnabled,
 	migrateBooxConnectionFromVaultToDevice,
-	readLowCreditNoticeState,
 	resetBooxConnectionToDefault,
 	resetExperimentalDeviceSettingsToDefault,
 	resetFingerDrawingToDefault,
-	resetLowCreditNoticeStateForTests,
 	setBooxConnectionEnabled,
 	subscribeDeviceSettingsChanged,
 } from 'src/logic/device-settings/device-settings';
@@ -64,20 +58,11 @@ import {
 	applyHighContrastUserInterfaceBodyClass,
 	releaseHighContrastUserInterfaceBodyClassOnPluginUnload,
 } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
-import { showAlmostUsefulDevPortalNotice_maybe } from './components/dom-components/almostuseful-dev-portal-notice';
-import { applyAlmostUsefulDevelopmentPortalDefault } from 'src/logic/almostuseful/almostuseful-portal-server';
 import { startAlmostUsefulSessionRefresh } from 'src/logic/almostuseful/almostuseful-refresh';
 import {
 	initHandwritingTranscriptionQueue,
 	shutdownHandwritingTranscriptionQueue,
 } from 'src/logic/handwriting-transcription-queue';
-import { maybeShowLowCreditNotice, resetLowCreditNoticeShowingForTests } from './components/dom-components/low-credit-notice';
-import {
-	clearAlmostUsefulSession,
-	readAlmostUsefulSession,
-	writeAlmostUsefulSession,
-} from 'src/logic/almostuseful/almostuseful-session';
-import { writeAlmostUsefulUsageCache } from 'src/logic/almostuseful/almostuseful-usage-cache';
 
 ////////
 ////////
@@ -125,24 +110,6 @@ export default class InkPlugin extends Plugin {
 	readonly RemoveEmbedModal = RemoveEmbedModal;
 	readonly removeAllEmbedsOfFileFromNote = removeAllEmbedsOfFileFromNote;
 	readonly openRemoveEmbedFlow = openRemoveEmbedFlow;
-	/** Lets e2e assert the #69 removal fallback without depending on Obsidian's menu DOM. */
-	readonly findEmbedMarkdownRangeForFile = findEmbedMarkdownRangeForFile;
-	readonly findEmbedMarkdownRangeInString = findEmbedMarkdownRangeInString;
-	/** Lets e2e resolve Ink's destination path without creating folders (#126). */
-	readonly getNewTimestampedWritingSvgFilepath = getNewTimestampedWritingSvgFilepath;
-	readonly getNewTimestampedDrawingSvgFilepath = getNewTimestampedDrawingSvgFilepath;
-	/**
-	 * Lets e2e raise the low-credit notice without a portal transcription.
-	 * The real path calls this after a successful transcript; the spec seeds the usage cache first.
-	 */
-	readonly maybeShowLowCreditNotice = maybeShowLowCreditNotice;
-	readonly readAlmostUsefulSession = readAlmostUsefulSession;
-	readonly writeAlmostUsefulSession = writeAlmostUsefulSession;
-	readonly clearAlmostUsefulSession = clearAlmostUsefulSession;
-	readonly writeAlmostUsefulUsageCache = writeAlmostUsefulUsageCache;
-	readonly readLowCreditNoticeState = readLowCreditNoticeState;
-	readonly resetLowCreditNoticeStateForTests = resetLowCreditNoticeStateForTests;
-	readonly resetLowCreditNoticeShowingForTests = resetLowCreditNoticeShowingForTests;
 
 	openMigrationModal(onPermanentMigrationFinished?: () => void) {
 		new MigrationModal(this, onPermanentMigrationFinished).open();
@@ -294,12 +261,10 @@ export default class InkPlugin extends Plugin {
 			});
 
 			await runInkOnloadStep('almostUsefulAuth', () => {
-				applyAlmostUsefulDevelopmentPortalDefault();
 				void startAlmostUsefulSessionRefresh();
 			});
 
 			await runInkOnloadStep('showOnboardingTips', () => {
-				showAlmostUsefulDevPortalNotice_maybe();
 				showOnboardingTips_maybe(this);
 			});
 
@@ -395,14 +360,6 @@ function implementWritingEmbedCommands(plugin: InkPlugin) {
 		name: 'New handwriting section',
 		icon: 'write_default',
 		editorCallback: (editor: Editor) => insertNewWritingFile(plugin, editor)
-	});
-	plugin.addCommand({
-		id: 'create-handwriting-from-photo',
-		// The palette name covers both destinations and the batch. The id stays so an
-		// existing hotkey still runs this command.
-		name: 'Insert handwriting/drawing from photos',
-		icon: 'write_default',
-		editorCallback: (editor: Editor) => insertWritingFromPhoto(plugin, editor),
 	});
 	plugin.addCommand({
 		id: 'embed-writing-file',

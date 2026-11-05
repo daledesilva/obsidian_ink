@@ -73,8 +73,6 @@ export class FileConversionModal extends Modal {
 	}
 
 	onOpen() {
-		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
-		this.modalEl.addClass('ddc_ink_modal');
 		const label = this.toType === 'inkDrawing' ? 'Drawing' : 'Writing';
 		this.titleEl.setText(`Convert to ${label}`);
 		this.contentEl.addClass('ddc_ink_migration-modal');

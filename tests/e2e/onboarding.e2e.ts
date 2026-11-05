@@ -46,12 +46,10 @@ describe("Onboarding", function () {
       }, selector);
     };
 
-    // Footer Continue only. The account page also has a Link account primary in the body.
-    await clickNoticeButton(".ddc_ink_notice-cta-bar .ddc_ink_primary-btn", 15000);
-    await clickNoticeButton(".ddc_ink_notice-cta-bar .ddc_ink_primary-btn");
-    await clickNoticeButton(".ddc_ink_notice-cta-bar .ddc_ink_primary-btn");
-    await clickNoticeButton(".ddc_ink_notice-cta-bar .ddc_ink_primary-btn");
-    await clickNoticeButton(".ddc_ink_notice-cta-bar .ddc_ink_primary-btn");
+    await clickNoticeButton(".ddc_ink_notice .ddc_ink_primary-btn", 15000);
+    await clickNoticeButton(".ddc_ink_notice .ddc_ink_primary-btn");
+    await clickNoticeButton(".ddc_ink_notice .ddc_ink_primary-btn");
+    await clickNoticeButton(".ddc_ink_notice .ddc_ink_primary-btn");
     await clickNoticeButton(".ddc_ink_notice .ddc_ink_tertiary-btn");
 
     const { welcomeTipRead, lastVersionTipRead, expectedVersion } =

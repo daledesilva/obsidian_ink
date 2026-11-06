@@ -23,7 +23,7 @@ export interface PluginSettings_0_5_0 extends PluginSettings_0_4_0 {
 	writingAutoTranscribeChangeThresholdPercent: number,
 	// Drawing specific (new in 0.5.0)
 	drawingGridEnabledByDefault: boolean,
-	/** Auto-enqueue handwriting transcription when a drawing embed locks or dedicated view closes. */
+	/** Auto-enqueue a drawing description and any writing in it when a drawing embed locks or a dedicated view closes. */
 	drawingAutoTranscribeOnClose: boolean,
 	/** Minimum stroke change (0–95%) before drawing auto-transcribe runs again; 0 = always. */
 	drawingAutoTranscribeChangeThresholdPercent: number,
@@ -60,7 +60,8 @@ export const DEFAULT_PLUGIN_SETTINGS_0_5_0: PluginSettings_0_5_0 = {
 	// Drawing specific
 	drawingEnabled: true,
 	drawingGridEnabledByDefault: true,
-	drawingAutoTranscribeOnClose: false,
+	// On for new vaults. A vault that already saved false keeps that choice; migration only fills a missing key.
+	drawingAutoTranscribeOnClose: true,
 	drawingAutoTranscribeChangeThresholdPercent: 20,
 	drawingFrameWhenLocked: false,
 	drawingBackgroundWhenLocked: false,

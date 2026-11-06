@@ -26,7 +26,6 @@ export interface SelectionOverlayProps {
 	preview: SelectionChromePreview | null;
 	cameraZoom: number;
 	dominantHand: DominantHand;
-	writingMode: boolean;
 }
 
 /** Chrome visuals shared by the underlay fill and the on-top overlay. */
@@ -85,7 +84,7 @@ export const SelectionBoundsFillUnderlay: React.FC<SelectionChromeVisualProps> =
 	);
 };
 
-/** Selection bounding box stroke and drawing-only transform handles (oriented page space). */
+/** Selection bounding box stroke plus resize and rotate handles (oriented page space). */
 export const SelectionOverlay: React.FC<SelectionOverlayProps> = (props) => {
 	const effectiveChrome = getEffectiveChrome(props.chrome, props.preview);
 	const zoom = props.cameraZoom;
@@ -108,30 +107,26 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = (props) => {
 					rx={layout.cornerRadiusPage}
 					ry={layout.cornerRadiusPage}
 				/>
-				{!props.writingMode && (
-					<>
-						<SelectionCornerHandle
-							cx={handlesLocal.resize.x}
-							cy={handlesLocal.resize.y}
-							r={handleRadiusPage}
-							iconSizePage={resizeIconSizePage}
-							iconKind="resize"
-							flipIconX={shouldFlipHandleIcons}
-						/>
-						<SelectionCornerHandle
-							cx={handlesLocal.rotate.x}
-							cy={handlesLocal.rotate.y}
-							r={handleRadiusPage}
-							iconSizePage={rotateIconSizePage}
-							iconKind="rotate"
-							extraRotateDeg={
-								shouldFlipHandleIcons ? -ROTATE_ICON_EXTRA_DEG : ROTATE_ICON_EXTRA_DEG
-							}
-							flipIconX={false}
-							rotateIconDirection={shouldFlipHandleIcons ? 'counterclockwise' : 'clockwise'}
-						/>
-					</>
-				)}
+				<SelectionCornerHandle
+					cx={handlesLocal.resize.x}
+					cy={handlesLocal.resize.y}
+					r={handleRadiusPage}
+					iconSizePage={resizeIconSizePage}
+					iconKind="resize"
+					flipIconX={shouldFlipHandleIcons}
+				/>
+				<SelectionCornerHandle
+					cx={handlesLocal.rotate.x}
+					cy={handlesLocal.rotate.y}
+					r={handleRadiusPage}
+					iconSizePage={rotateIconSizePage}
+					iconKind="rotate"
+					extraRotateDeg={
+						shouldFlipHandleIcons ? -ROTATE_ICON_EXTRA_DEG : ROTATE_ICON_EXTRA_DEG
+					}
+					flipIconX={false}
+					rotateIconDirection={shouldFlipHandleIcons ? 'counterclockwise' : 'clockwise'}
+				/>
 			</g>
 		</g>
 	);

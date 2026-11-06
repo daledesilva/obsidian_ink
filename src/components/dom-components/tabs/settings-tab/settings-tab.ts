@@ -1,6 +1,6 @@
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
-import { App, ButtonComponent, PluginSettingTab, Setting, SliderComponent, TextComponent, ToggleComponent } from "obsidian";
+import { App, ButtonComponent, Notice, PluginSettingTab, Setting, SliderComponent, TextComponent, ToggleComponent } from "obsidian";
 import InkPlugin from "src/main";
 import MyPlugin from "src/main";
 import { ConfirmationModal } from "src/components/dom-components/modals/confirmation-modal/confirmation-modal";
@@ -30,6 +30,7 @@ import {
 import { applyHighContrastUserInterfaceBodyClass } from 'src/logic/device-settings/high-contrast-user-interface-body-class';
 import type { DominantHand } from 'src/types/plugin-settings_0_5_0';
 import {
+	destroyAlmostUsefulProcessingFlowTooltips,
 	insertAlmostUsefulAccountSection,
 	stopAlmostUsefulAccountSectionDevicePolling,
 } from 'src/components/dom-components/tabs/settings-tab/almostuseful-account-section';
@@ -38,11 +39,15 @@ import {
 	subscribeAlmostUsefulSessionChanged,
 } from 'src/logic/almostuseful/almostuseful-session';
 import { dropWaitingAutoTranscriptionJobsForFileType } from 'src/logic/handwriting-transcription-queue';
+import { beginTranscriptionBatchFromSettings } from 'src/logic/transcription-batch-settings-entry';
+import { describeInkSubfolderPathChange, sanitiseInkSubfolderPath } from 'src/logic/utils/ink-subfolder-path';
 import {
 	AUTO_TRANSCRIBE_CHANGE_THRESHOLD_MAX_PERCENT,
 	clampAutoTranscribeChangeThresholdPercent,
 } from 'src/logic/stroke-bbox-cells';
 import type { HandwritingTranscriptionFileType } from 'src/logic/handwriting-transcription-queue-store';
+import { isInkDevelopmentBuild } from 'src/logic/utils/ink-build-mode';
+import { createCollapsibleSectionContent } from 'src/components/dom-components/tabs/settings-tab/collapsible-section-content';
 
 /////////
 /////////
@@ -94,12 +99,16 @@ export class MySettingsTab extends PluginSettingTab {
 		this.unsubscribeAlmostUsefulSession = undefined;
 
 		containerEl.empty();
+		// Hook for ink-button-hover.scss so plain settings buttons hover on macOS.
+		containerEl.addClass('ddc_ink_settings');
 		
 		containerEl.createEl('p').setText('Hand write or draw directly between paragraphs in your notes.');
 		
 		containerEl.createEl('hr');
 		insertAlmostUsefulAccountSection(containerEl, this.plugin, () => {
 			this.renderSettingsTab();
+		}, (fileType) => {
+			void beginTranscriptionBatchFromSettings(this.plugin, fileType);
 		});
 		this.unsubscribeAlmostUsefulSession = subscribeAlmostUsefulSessionChanged(() => {
 			this.renderSettingsTab();
@@ -138,7 +147,9 @@ export class MySettingsTab extends PluginSettingTab {
 			},
 		);
 
-		insertTldrawSvgMigrateSection(containerEl, this.plugin);
+		if (isInkDevelopmentBuild()) {
+			insertTldrawSvgMigrateSection(containerEl, this.plugin);
+		}
 
 		containerEl.createEl('hr');
 		const strokeInputToggles: ThreeWayToggleSetting<StrokeInputTreatAs>[] = [];
@@ -196,6 +207,7 @@ export class MySettingsTab extends PluginSettingTab {
 	hide(): void {
 		this.legacyMigrateScanGeneration++;
 		stopAlmostUsefulAccountSectionDevicePolling();
+		destroyAlmostUsefulProcessingFlowTooltips();
 		this.unsubscribeDeviceSettings?.();
 		this.unsubscribeDeviceSettings = undefined;
 		this.unsubscribeAlmostUsefulSession?.();
@@ -245,7 +257,7 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 		void plugin.saveSettings();
 	});
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	// Information (tips) first
 	const tipsSectionEl = contentEl.createDiv('ddc_ink_tips-section');
@@ -270,16 +282,16 @@ function insertGettingStartedSection(containerEl: HTMLElement, plugin: InkPlugin
 	tipsGridEl.createDiv('ddc_ink_tips-label').setText('Obsidian Sync');
 	tipsGridEl.createDiv('ddc_ink_tips-desc').setText(`If using "Obsidian Sync", turn on "sync all other types" in the Obsidian Sync settings.`);
 
-	// Rewatch button
+	// Short labels so both buttons fit the card width on iPad.
 	new Setting(contentEl)
 		.setClass('ddc_ink_bare-setting')
 		.setClass('ddc_ink_bare-setting--no-bottom-margin')
 		.addButton((btn) => {
-			btn.setButtonText('View recent changes');
+			btn.setButtonText('Recent changes...');
 			btn.onClick(() => showRecentChanges(plugin));
 		})
 		.addButton((btn) => {
-			btn.setButtonText('Rewatch welcome tips');
+			btn.setButtonText('Welcome tips...');
 			btn.setCta();
 			btn.onClick(() => showWelcomeTips(plugin));
 		});
@@ -341,7 +353,7 @@ function insertPluginDevelopmentSection(containerEl: HTMLElement) {
 		.setName('Plugin development')
 		.setDesc('For information on this plugin\'s development, visit the links below.');
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	const tipsGridEl = contentEl.createDiv('ddc_ink_tips-grid');
 	const addLinkRow = (parent: HTMLElement, href: string, label: string, description: string) => {
@@ -457,7 +469,7 @@ function insertExperimentalChangesSection(
 		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
 	});
 
-	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(controlsEl);
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
@@ -489,15 +501,39 @@ function insertExperimentalChangesSection(
 
 function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlugin) {
 
-	const saveWritingFolder = async (enteredValue: string) => {
-		const value = enteredValue || DEFAULT_SETTINGS.writingSubfolder;
-		plugin.settings.writingSubfolder = value.trim();
+	// Obsidian silently refuses folder names that start with a dot, so an unsanitised `.ink/Writing`
+	// saved fine but produced no folder and no ink file (#64). Repair the path, write it back into
+	// the input, and tell the user when the stored value differs from what they typed.
+	const applyFolderValue = async (
+		enteredValue: string,
+		fallbackValue: string,
+		inputEl: HTMLInputElement | null,
+	): Promise<string> => {
+		const rawValue = enteredValue || fallbackValue;
+		const sanitised = sanitiseInkSubfolderPath(rawValue);
+		if (inputEl) inputEl.value = sanitised.path;
+
+		const explanation = describeInkSubfolderPathChange(sanitised);
+		if (explanation) new Notice(explanation);
+
+		return sanitised.path;
+	}
+
+	const saveWritingFolder = async (enteredValue: string, inputEl: HTMLInputElement | null) => {
+		plugin.settings.writingSubfolder = await applyFolderValue(
+			enteredValue,
+			DEFAULT_SETTINGS.writingSubfolder,
+			inputEl,
+		);
 		await plugin.saveSettings();
 	}
 
-	const saveDrawingFolder = async (enteredValue: string) => {
-		const value = enteredValue || DEFAULT_SETTINGS.drawingSubfolder;
-		plugin.settings.drawingSubfolder = value.trim();
+	const saveDrawingFolder = async (enteredValue: string, inputEl: HTMLInputElement | null) => {
+		plugin.settings.drawingSubfolder = await applyFolderValue(
+			enteredValue,
+			DEFAULT_SETTINGS.drawingSubfolder,
+			inputEl,
+		);
 		await plugin.saveSettings();
 	}
 
@@ -606,10 +642,10 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 					textItem.setValue(plugin.settings.writingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.writingSubfolder.toString());
 					textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
-						void saveWritingFolder(textItem.getValue());
+						void saveWritingFolder(textItem.getValue(), textItem.inputEl);
 					})
 					textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') void saveWritingFolder(textItem.getValue());
+						if(ev.key === 'Enter') void saveWritingFolder(textItem.getValue(), textItem.inputEl);
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -621,10 +657,10 @@ function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlug
 					textItem.setValue(plugin.settings.drawingSubfolder.toString());
 					textItem.setPlaceholder(DEFAULT_SETTINGS.drawingSubfolder.toString());
 					textItem.inputEl.addEventListener('blur', (_ev: FocusEvent) => {
-						void saveDrawingFolder(textItem.getValue());
+						void saveDrawingFolder(textItem.getValue(), textItem.inputEl);
 					})
 					textItem.inputEl.addEventListener('keypress', (ev: KeyboardEvent) => {
-						if(ev.key === 'Enter') void saveDrawingFolder(textItem.getValue());
+						if(ev.key === 'Enter') void saveDrawingFolder(textItem.getValue(), textItem.inputEl);
 					})
 				});
 			inputSettingEl.settingEl.classList.add('ddc_ink_input-medium');
@@ -664,19 +700,27 @@ function strokeInputTreatAsSettingDesc(editorKind: StrokeInputEditorKind): Docum
 
 /** Auto-transcribe toggle copy; account requirement is shown only when not linked. */
 function autoTranscribeOnCloseSettingDesc(fileType: HandwritingTranscriptionFileType): DocumentFragment {
-	const embedKind = fileType === 'inkWriting' ? 'writing' : 'drawing';
-
 	const frag = createFragment();
 
 	const intro = createEl('p');
-	intro.textContent =
-		`When you lock a ${embedKind} embed or close a dedicated ${embedKind} view, queue the ${embedKind} file to be transcribed automatically. Manual Transcribing in the ink file's menu always stays available.`;
+	if (fileType === 'inkDrawing') {
+		// A drawing job describes the picture and transcribes writing inside it, so the toggle does not say "transcribe" alone.
+		intro.textContent =
+			'When you lock a drawing embed or close a dedicated drawing view, queue it automatically. The AI describes what is in the drawing and transcribes any writing in it. Describe/transcribe in the drawing\'s menu always stays available.';
+	} else {
+		intro.textContent =
+			'When you lock a writing embed or close a dedicated writing view, queue the writing file to be transcribed automatically. Manual Transcribing in the ink file\'s menu always stays available.';
+	}
 	frag.appendChild(intro);
 
 	if (!readAlmostUsefulSession()) {
 		const accountParagraph = createEl('p');
 		const accountLine = createEl('strong');
-		accountLine.textContent = 'Transcription requires an Almost Useful account. Link your account above.';
+		if (fileType === 'inkDrawing') {
+			accountLine.textContent = 'Describing and transcribing a drawing requires an Almost Useful account. Link your account above.';
+		} else {
+			accountLine.textContent = 'Transcription requires an Almost Useful account. Link your account above.';
+		}
 		accountParagraph.appendChild(accountLine);
 		frag.appendChild(accountParagraph);
 	}
@@ -715,7 +759,7 @@ function insertDrawingSettings(
 		.setName('Drawing')
 		.setDesc(`While editing a Markdown file, run the action 'insert new hand drawn section' to embed a drawing canvas.`);
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkDrawing'));
 
@@ -758,7 +802,7 @@ function insertDrawingSettings(
 
 	new Setting(contentEl)
 		.setClass('ddc_ink_setting')
-		.setName('Automatically transcribe drawings')
+		.setName('Automatically describe/transcribe drawings')
 		.setDesc(autoTranscribeOnCloseSettingDesc('inkDrawing'))
 		.addToggle((toggle) => {
 			toggle.setValue(plugin.settings.drawingAutoTranscribeOnClose);
@@ -815,7 +859,7 @@ function insertWritingSettings(
 		// Keep command-name casing as shown in the command palette.
 		.setDesc(`While editing a Markdown file, run the action 'new handwriting section' to embed a section for writing with a pen.`);
 
-	const contentEl = sectionEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(sectionEl);
 
 	strokeInputToggles.push(insertStrokeInputTreatAsSetting(contentEl, 'inkWriting'));
 
@@ -953,7 +997,7 @@ function insertPrereleaseWarning(containerEl: HTMLElement, plugin: InkPlugin) {
 		arrowEl.classList.toggle('ddc_ink_expanded', expanded);
 	});
 
-	const contentEl = controlsEl.createDiv('ddc_ink_controls-content');
+	const contentEl = createCollapsibleSectionContent(controlsEl);
 	contentEl.createEl('p', { text: `Beta means the plugin is still evolving. Changes to embed formats and file-handling features, even when thoroughly tested, may occasionally introduce issues that affect your vault. Always keep backups of your data.` });
 
 	new Setting(contentEl)
@@ -983,10 +1027,16 @@ function insertAutoTranscribeChangeThresholdSetting(
 		: 'drawingAutoTranscribeChangeThresholdPercent';
 
 	let percentTextComponent: TextComponent;
+	let thresholdName = 'Re-transcribe when ink file changes significantly';
+	let thresholdDesc = '0% always transcribes on close or sync; 95% only when ink is almost entirely different. Manual triggered  transcriptions ignore this.';
+	if (fileType === 'inkDrawing') {
+		thresholdName = 'Re-describe/transcribe when the drawing changes significantly';
+		thresholdDesc = '0% always describes the drawing and transcribes writing in it on close or sync; 95% only when the drawing is almost entirely different. Describe/transcribe from the menu ignores this.';
+	}
 	const thresholdSetting = new Setting(containerEl)
 		.setClass('ddc_ink_setting')
-		.setName('Re-transcribe when ink file changes significantly')
-		.setDesc('0% always transcribes on close or sync; 95% only when ink is almost entirely different. Manual triggered  transcriptions ignore this.')
+		.setName(thresholdName)
+		.setDesc(thresholdDesc)
 		.addSlider((slider) => {
 			const currentValue = clampAutoTranscribeChangeThresholdPercent(plugin.settings[settingsKey]);
 			slider

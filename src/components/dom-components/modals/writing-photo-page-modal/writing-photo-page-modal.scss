@@ -1,0 +1,290 @@
+.modal.ddc_ink_photo-page-modal {
+	width: min(54em, calc(100vw - 2em));
+	max-width: calc(100vw - 2em);
+	max-height: calc(100vh - 2em);
+	min-width: min(22em, calc(100vw - 2em));
+	/* Resizable here, unlike the thumbnail picker, so a large page can be pinned precisely. */
+	resize: both;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+}
+
+.ddc_ink_photo-page-modal .modal-content {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-x: hidden;
+	overflow-y: auto;
+	padding-right: 1.25em;
+	padding-left: 1.25em;
+	box-sizing: border-box;
+}
+
+.ddc_ink_photo-page-modal .setting-item {
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+/* Matches the thumbnail grid's photo count: smaller muted text, centred. */
+.ddc_ink_photo-page__count {
+	margin: 0 0 0.75em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+}
+
+.ddc_ink_photo-page__frame {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 100%;
+	margin: 0.25em auto 0.6em;
+	padding: 0.4em;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.ddc_ink_photo-page__stage {
+	position: relative;
+	width: 100%;
+	margin: 0 auto;
+	touch-action: none;
+	cursor: pointer;
+	background: var(--background-secondary);
+}
+
+/*
+ * While a pin or a bar is held the stage's aspect ratio is pinned, so a change of source
+ * image cannot reflow the crop out from under the pointer.
+ */
+.ddc_ink_photo-page__stage.is-held {
+	aspect-ratio: auto;
+}
+
+.ddc_ink_photo-page__image {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	pointer-events: none;
+	user-select: none;
+}
+
+/*
+ * The processed photo sits directly over the plain one and fades in when the worker
+ * finishes. One second, matching the request: long enough to read as a change rather than
+ * a flicker, short enough not to feel like waiting.
+ */
+.ddc_ink_photo-page__image--processed {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	transition: opacity 1s ease;
+
+	&.is-visible {
+		opacity: 1;
+	}
+}
+
+/*
+ * While a pin or the photo is held, the processed layer fades out over half a second so
+ * the plain photo eases in underneath instead of the image snapping.
+ */
+.ddc_ink_photo-page__stage.is-held .ddc_ink_photo-page__image--processed {
+	opacity: 0;
+	transition: opacity 0.5s ease;
+}
+
+/* Releasing a hold fades the processed layer back in over the same half second. */
+.ddc_ink_photo-page__stage.is-fading-back .ddc_ink_photo-page__image--processed {
+	transition: opacity 0.5s ease;
+}
+
+/*
+ * Instant drop for a rotation. The processed photo of the old orientation would otherwise
+ * fade out slowly over the newly turned plain photo. One frame only; the transition is
+ * restored straight after so the next processed image still fades in.
+ */
+.ddc_ink_photo-page__image--processed.is-instant {
+	opacity: 0;
+	transition: none;
+}
+
+/*
+ * Render spinner, centred over the photo. Hidden by default so it costs nothing when idle,
+ * and shown while the worker is producing a new preview.
+ */
+.ddc_ink_photo-page__busy {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.6em;
+	border-radius: 50%;
+	color: var(--text-muted);
+	background-color: color-mix(in srgb, var(--background-primary) 70%, transparent);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+
+	&.is-visible {
+		opacity: 1;
+	}
+
+	svg {
+		width: 1.6em;
+		height: 1.6em;
+		animation: ddc_ink_photo-page-spin 0.8s linear infinite;
+	}
+}
+
+@keyframes ddc_ink_photo-page-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.ddc_ink_photo-page__overlay {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
+.ddc_ink_photo-page__handle {
+	position: absolute;
+	width: 16px;
+	height: 16px;
+	margin: -8px 0 0 -8px;
+	border-radius: 50%;
+	border: 2px solid var(--background-primary);
+	background: var(--interactive-accent);
+	cursor: grab;
+	touch-action: none;
+}
+
+/* Toggle and rotate share one centred row under the photo. */
+.ddc_ink_photo-page__controls {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: 0.75em;
+	margin: 0 0 0.6em;
+}
+
+.ddc_ink_photo-page__target {
+	display: flex;
+	align-items: center;
+}
+
+.ddc_ink_photo-page__rotate {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.ddc_ink_photo-page__rotate-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+}
+
+.ddc_ink_photo-page__rotate-btn svg {
+	width: var(--icon-size);
+	height: var(--icon-size);
+}
+
+.ddc_ink_photo-page__details {
+	margin: 0.25em 0 0.6em;
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: 0.5em;
+}
+
+.ddc_ink_photo-page__summary {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.65em;
+	width: 100%;
+	cursor: pointer;
+	font-weight: 500;
+	color: var(--text-muted);
+	padding: 0.55em 0;
+	user-select: none;
+	list-style: none;
+}
+
+.ddc_ink_photo-page__summary::-webkit-details-marker {
+	display: none;
+}
+
+.ddc_ink_photo-page__summary::marker {
+	content: '';
+}
+
+.ddc_ink_photo-page__summary-chevron {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 0;
+}
+
+.ddc_ink_photo-page__summary-chevron .svg-icon {
+	display: block;
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+.ddc_ink_photo-page__details[open] .ddc_ink_photo-page__summary-chevron {
+	transform: rotate(90deg);
+}
+
+.ddc_ink_photo-page__details-body {
+	padding-top: 0.25em;
+}
+
+/*
+ * One footer row. Thumbnails sits far left, Convert all far right, and the navigation pair
+ * is centred between them: those two edge buttons carry auto margins that push them apart
+ * and split the leftover space evenly around the pair.
+ */
+.ddc_ink_photo-page__footer .setting-item-info {
+	display: none;
+}
+
+.ddc_ink_photo-page__footer .setting-item-control {
+	width: 100%;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+	justify-content: center;
+}
+
+/*
+ * Footer buttons stay at Obsidian's normal button size. They were shrunk to fit five
+ * controls on one row, but the footer is now a single line of four, so that constraint is
+ * gone and the smaller size just made them look inconsistent with the rest of the dialog.
+ */
+.ddc_ink_photo-page__footer .setting-item-control button {
+	white-space: nowrap;
+}
+
+/*
+ * Thumbnails takes the left end and Convert all the right. Their auto margins claim all
+ * the free space, which leaves the navigation pair centred between them. Each edge button
+ * keeps one auto margin so the space is shared equally rather than collapsing to one side.
+ */
+.ddc_ink_photo-page__footer .setting-item-control .ddc_ink_photo-page__thumbnails-btn {
+	margin-inline-end: auto;
+}
+
+.ddc_ink_photo-page__footer .setting-item-control .ddc_ink_photo-page__convert-all-btn {
+	margin-inline-start: auto;
+}

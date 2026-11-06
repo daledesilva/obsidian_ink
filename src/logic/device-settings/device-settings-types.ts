@@ -29,4 +29,21 @@ export interface DeviceSettingsV1 {
 	inkCloseCount: number;
 	/** User dismissed or opened settings from the auto-transcribe account notice. */
 	autoTranscribeAccountNoticeDismissed: boolean;
+	/**
+	 * Low-credit thresholds already warned for, per billing period and user.
+	 *
+	 * Device-local like the rest of this blob: the warning is about this device's credits
+	 * and must not sync, and the period key lets it reset naturally when the pool refills.
+	 */
+	lowCreditNoticeState: LowCreditNoticeState;
+}
+
+/** One period's worth of already-shown low-credit warnings. */
+export interface LowCreditNoticeState {
+	/** Account the warnings belong to; a different linked account starts clean. */
+	userId: string;
+	/** Billing period the warnings belong to, so a new period warns again. */
+	periodKey: string;
+	/** Thresholds (percent remaining) already shown in this period. */
+	shownThresholdsPercent: number[];
 }

@@ -61,7 +61,6 @@ function buildSelectContext(options: {
 			selectionChrome = chrome;
 		},
 		setSelectionPreview: () => {},
-		writingMode: true,
 		getDominantHand: () => 'right',
 	};
 

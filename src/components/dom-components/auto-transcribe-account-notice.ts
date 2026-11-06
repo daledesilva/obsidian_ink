@@ -34,7 +34,7 @@ function showAutoTranscribeAccountNotice(plugin: InkPlugin): void {
 	const { noticeBody, scrollAreaEl, footerEl } = createNoticeTemplate();
 	scrollAreaEl.createEl('h1').setText('Auto-transcribe your ink');
 	scrollAreaEl.createEl('p').setText(
-		'Writing and drawing embeds can be auto-transcribed through an Almost Useful account at almostuseful.xyz.',
+		'Writing embeds can be auto-transcribed, and drawing embeds can be automatically described — including any writing in the drawing — through an Almost Useful account at almostuseful.xyz.',
 	);
 	scrollAreaEl.createEl('p').setText('You can link your account in Ink\'s settings.');
 

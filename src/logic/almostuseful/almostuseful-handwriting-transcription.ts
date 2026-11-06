@@ -21,7 +21,7 @@ export const HANDWRITING_TRANSCRIPTION_MODELS = {
 export type HandwritingTranscriptionModel =
 	(typeof HANDWRITING_TRANSCRIPTION_MODELS)[keyof typeof HANDWRITING_TRANSCRIPTION_MODELS];
 
-export type HandwritingTranscriptionMediaType = 'image/svg+xml' | 'image/png';
+export type HandwritingTranscriptionMediaType = 'image/svg+xml' | 'image/png' | 'image/jpeg';
 
 export interface HandwritingTranscriptionJobRequest {
 	idempotencyKey: string;
@@ -46,8 +46,12 @@ export interface HandwritingTranscriptionJobResponse {
 /** Portal code for an SVG/PNG the route will not accept. */
 export const HANDWRITING_TRANSCRIPTION_MEDIA_TOO_LARGE_CODE = 'media_too_large';
 
+/**
+ * Shown only when even the JPEG retry was refused, so this is a genuine dead end
+ * (a single line taller than the portal cap), not the long-page case that slicing covers.
+ */
 export const HANDWRITING_TRANSCRIPTION_TOO_LONG_NOTICE =
-	'This file can\'t be transcribed currently because it is too long. This will be fixed in a future update to Ink.';
+	'This file is too large to transcribe or describe. Try splitting it into separate writing or drawing files.';
 
 /**
  * Portal job failure. `retryable` is the signal for the queue, not the English message.
@@ -172,7 +176,11 @@ function parseHandwritingTranscriptionJobResponse(
 	const record = json as Record<string, unknown>;
 	if (typeof record.text !== 'string') return null;
 	if (typeof record.model !== 'string') return null;
-	if (record.mediaType !== 'image/svg+xml' && record.mediaType !== 'image/png') return null;
+	if (
+		record.mediaType !== 'image/svg+xml'
+		&& record.mediaType !== 'image/png'
+		&& record.mediaType !== 'image/jpeg'
+	) return null;
 	const parsed: HandwritingTranscriptionJobResponse = {
 		text: record.text,
 		model: record.model,

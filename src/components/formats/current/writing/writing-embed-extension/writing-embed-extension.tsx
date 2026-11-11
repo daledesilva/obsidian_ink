@@ -470,7 +470,10 @@ const embedStateFieldWriting: StateField<DecorationSet> = StateField.define<Deco
 
         // @ts-expect-error, not typed
         const cmEditorView = activeEditor.cm as EditorView;
-        const isLivePreview = cmEditorView.state.field(editorLivePreviewField);
+        // Non-throwing read: the active editor's CM state can briefly lack the
+        // field during workspace restore (mid-restore states are built without
+        // Obsidian's standard extensions).
+        const isLivePreview = cmEditorView.state.field(editorLivePreviewField, false);
         if (!isLivePreview) return Decoration.none;
 
         const firstRun = prevEmbeds.size === 0;

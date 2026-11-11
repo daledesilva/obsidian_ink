@@ -43,7 +43,11 @@ export function refreshLivePreviewEmbedsWhenReady(plugin: InkPlugin) {
 		const editor = markdownView.editor;
 		// @ts-expect-error not typed by Obsidian
 		const cmView = editor?.cm as EditorView | undefined;
-		const isLivePreview = cmView?.state.field(editorLivePreviewField) ?? false;
+		// Non-throwing read: during workspace restore the CM state can exist without
+		// Obsidian's standard extensions, so the field may be absent. `false` makes
+		// field() return undefined instead of throwing a RangeError that aborts the
+		// workspace restore (uncaught in this rAF poll).
+		const isLivePreview = cmView?.state.field(editorLivePreviewField, false) ?? false;
 
 		if (!cmView || !isLivePreview) {
 			if (attempt < LIVE_PREVIEW_EMBED_REFRESH_MAX_ATTEMPTS) {

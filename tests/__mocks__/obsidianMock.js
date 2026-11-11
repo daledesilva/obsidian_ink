@@ -53,6 +53,10 @@ module.exports = {
     load() {}
     unload() {}
   },
+  // Identity-only sentinel standing in for Obsidian's CM6 editorLivePreviewField
+  // (StateField<boolean>). Unit tests compare identity against their fake CM states.
+  editorLivePreviewField: { __mockObsidianEditorLivePreviewField: true },
+  MarkdownView: class {},
   normalizePath: (path) => path.replace(/\\/g, '/'),
   // Live eval tests call portal jobs through almostUsefulRequestJson.
   requestUrl: async ({ url, method = 'GET', headers = {}, body, throw: shouldThrow }) => {

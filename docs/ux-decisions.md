@@ -14,6 +14,8 @@
 
 The writing and drawing embed extensions must check `editorLivePreviewField` **before** the early-return optimisation that skips updates when there are no document changes and no refresh effect. If the mode check runs after that early return, widgets incorrectly persist when the user switches to Obsidian Source mode. The `isLivePreview` check must run first so that we return `Decoration.none` when in Source mode, regardless of whether the transaction has document changes.
 
+All `editorLivePreviewField` reads use the non-throwing form `state.field(editorLivePreviewField, false)` and treat an absent field as `false`. During workspace (layout) restore, the active markdown editor's CM state can briefly exist without Obsidian's standard extensions, and an unguarded `state.field()` throws `RangeError: Field is not present in this state`. In the live-preview refresh poll this uncaught throw aborted the workspace restore itself — Obsidian discarded the workspace's markdown tabs and showed `Failed to open ""` (see `ink-embed-refresh.ts`).
+
 ### Reading mode embed rendering
 
 Reading mode uses `registerMarkdownPostProcessor` to mount the same preview components as Live Preview (non-interactive). Option B (native image pipe sizing in markdown) was not chosen — see [Reading mode embed rendering](reading-mode-embed-rendering.md).

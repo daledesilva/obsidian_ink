@@ -2,11 +2,17 @@
 /////////
 
 /**
- * Applied to `.cm-scroller` while pen scroll-lock is active (matches prior overflow: hidden behaviour).
+ * Applied to `.cm-scroller` while pen scroll-lock is active.
+ *
+ * `overflow` only. Do not add `scrollbar-color` here: declaring it makes Chromium drop
+ * Obsidian's `::-webkit-scrollbar` styling and fall back to the native scrollbar width.
+ * Because Obsidian sets `scrollbar-gutter: stable` on the note scroller, the reserved
+ * gutter then changes on every pen down/up (12px → 15px), which reflows the note column
+ * and re-zooms every width-fit ink canvas. See docs/embed-scrolling.md — "scroll-lock
+ * must not change layout".
  */
 .ink-cm-scroller--scroll-locked {
 	overflow: hidden;
-	scrollbar-color: transparent transparent;
 }
 
 .ink-finger-blocker--touch-none {

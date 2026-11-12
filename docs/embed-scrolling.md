@@ -92,14 +92,22 @@ stateDiagram-v2
     Idle --> Locked: pen pointerdown\n(record scrollTop/scrollLeft, overflow: hidden)
     Locked --> Locked: scroll event fires while pen is down\n(forcefully restore saved position)
     Locked --> Locked: pointermove — re-assert lock\nif position drifted
-    Locked --> Idle: pen pointerup / pointercancel\n(overflow: auto, clear refs)
+    Locked --> Idle: pen pointerup / pointercancel\n(remove lock class, clear refs)
 ```
 
 On pen down, `lockScroll()` records the current `scrollLeft` / `scrollTop` of `.cm-scroller` and adds the `.ink-cm-scroller--scroll-locked` class (`overflow: hidden` in SCSS). A separate capture-phase `scroll` listener is attached to the scroller element. If a scroll event fires while the pen is held (meaning the browser ignored the CSS lock), the listener immediately calls `scrollTo()` to forcefully restore the saved position, frame by frame.
 
-On pen up, `unlockScroll()` calls `clearInkCmScrollerScrollLock_debounced()` in `src/logic/utils/clear-ink-cm-scroller-scroll-lock.ts`, which removes the lock class, restores `overflow: auto` via Obsidian `setCssProps()`, and restores `scrollbarColor` after 200 ms to avoid a visible flash of the scrollbar reappearing.
+On pen up, `unlockScroll()` calls `clearInkCmScrollerScrollLock()` in `src/logic/utils/clear-ink-cm-scroller-scroll-lock.ts`, which only removes the lock class. The scroller's own CSS restores `overflow`; the lock leaves no inline styles behind.
 
-**Stranded scroll-lock cleanup:** Opening Obsidian panels or backgrounding the app can leave `overflow: hidden` / the scroll-lock class with no matching `pointerup`. `clearAllInkCmScrollerScrollLocks()` clears every `.cm-scroller` lock (overflow-only, no debounced scrollbar restore); it runs on `visibilitychange` / `pagehide` and before Live Preview force-rebuilds in `ink-embed-refresh.ts`.
+**Stranded scroll-lock cleanup:** Opening Obsidian panels or backgrounding the app can leave the scroll-lock class with no matching `pointerup`. `clearAllInkCmScrollerScrollLocks()` removes the class from every `.cm-scroller`; it runs on `visibilitychange` / `pagehide` and before Live Preview force-rebuilds in `ink-embed-refresh.ts`.
+
+### Scroll-lock must not change layout
+
+The lock class carries `overflow: hidden` **only**. Never add `scrollbar-color` to it (or restore it inline): declaring that property at all makes Chromium drop Obsidian's `::-webkit-scrollbar` styling and fall back to the native scrollbar width. Obsidian sets `scrollbar-gutter: stable` on `.cm-scroller` and `.markdown-preview-view`, so the reserved gutter then changes on every pen down and back on every pen up.
+
+Measured on Obsidian 1.15.0 with a writing embed in edit mode (theme Encore, styled scrollbars): `.cm-scroller` `clientWidth` 268 → 265 and the ink canvas width 204 → 201 for the duration of each stroke. The note column shifts sideways and every width-fit `InkSvgCanvas` re-zooms, twice per stroke — visible as the page “breathing” while drawing.
+
+`overflow: hidden` alone does not move anything, because the gutter stays reserved. Teardown must also stay class-only: an inline `overflow: auto` outranks the class rule, so from the second stroke onward the lock silently stops applying (verified: `overflowY` computed `auto` while the pen is down).
 
 ### Layer 4 — Gesture and wheel suppression
 
@@ -276,7 +284,7 @@ sequenceDiagram
     participant TDE as tldraw-drawing-editor legacy
     participant CMS as .cm-scroller
 
-    FB->>CMS: lockScroll() — overflow: hidden, scrollbarColor: transparent
+    FB->>CMS: lockScroll() — add .ink-cm-scroller--scroll-locked (overflow: hidden)
     FB->>FB: setPointerCapture(pointerId)
 
     Note over TDE: gesture starts e.g. mid-mouse pan
@@ -299,7 +307,7 @@ Two complementary fixes work together:
 **2. Embed scroll restore after ink canvas gestures**  
 Legacy tldraw embeds call `restoreEmbedScroll()` from `tldraw-drawing-editor` gesture end handlers. Current-format `InkSvgCanvas` embeds rely on `FingerBlocker` not entering scroll lock for middle/right-button gestures; mod+scroll does not use `pointerup`. If note scrolling becomes stuck after pan/zoom, see [pan-zoom.md](pan-zoom.md) and the non-primary button guard above.
 
-When using legacy tldraw embeds, `restoreEmbedScroll()` delegates to `restoreEmbedCmScrollerScroll()`, which calls the same `clearInkCmScrollerScrollLock_debounced()` helper as `FingerBlocker` (`setCssProps` + 200 ms delayed `scrollbarColor`).
+When using legacy tldraw embeds, `restoreEmbedScroll()` delegates to `restoreEmbedCmScrollerScroll()`, which calls the same `clearInkCmScrollerScrollLock()` helper as `FingerBlocker` (class removal only; no inline styles).
 
 For mod+scroll zoom (which has no `pointerup`), `restoreEmbedScroll()` is called via a debounced timer that fires 150 ms after the last wheel event.
 
@@ -345,7 +353,7 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 - **`destroy` must not unmount after a same-instance `toDOM`.** Typing under an embed redraws `toDOM` then `destroy`. Unmount `this.reactRoot` only when the destroyed node is still `this.rootEl`; otherwise the new embed paints blank until the note is reopened. Tab close still unmounts.
 - **Height cache while unlocked must not accept large shrinks** toward preview aspect — that was a prior scroll-jump source.
 - **Pen scroll-lock can outlive the stroke** across panels / visibility; call `clearAllInkCmScrollerScrollLocks` on those boundaries and before Live Preview rebuilds.
-- **Scroll-lock teardown must use `setCssProps`** — literal `element.style.*` assignments fail `obsidianmd/no-static-styles-assignment`; keep unlock logic in `clear-ink-cm-scroller-scroll-lock.ts`.
+- **Scroll-lock teardown is class removal only** — do not restore `overflow` (inline outranks the lock class, so the lock stops working after the first stroke) and never touch `scrollbar-color` (it changes the reserved gutter, reflowing the note and every width-fit canvas on each stroke). Keep unlock logic in `clear-ink-cm-scroller-scroll-lock.ts`; see [scroll-lock must not change layout](#scroll-lock-must-not-change-layout).
 
 ---
 
@@ -360,7 +368,7 @@ This is primarily a layout mechanism, but it affects how much of the `.cm-scroll
 | Gesture suppression | `FingerBlocker` | Wheel / swipe gestures during pen input |
 | Non-primary button guard | `FingerBlocker` | Scroll-lock activated by middle/right-click embed pan/zoom gestures |
 | `lostpointercapture` scroll unlock | `FingerBlocker` | Safety net: unlock if real pointer capture is transferred elsewhere |
-| Pan/zoom gesture scroll restore | `InkSvgCanvas` + `FingerBlocker`; legacy: `tldraw-drawing-editor` | Overflow/scrollbar styles not restored after embed pan/zoom gestures |
+| Pan/zoom gesture scroll restore | `InkSvgCanvas` + `FingerBlocker`; legacy: `tldraw-drawing-editor` | Scroll-lock class not cleared after embed pan/zoom gestures |
 | No scroll-triggered embed refresh | `ink-embeds-extension.tsx` | Mid-scroll forceRebuild collapsed scrollHeight / jumped scrollTop |
 | Remount `minHeight` + height cache | writing/drawing embed widgets + `ink-embed-height-cache.ts` | CM virtualize remount 0-height flash on up-scroll |
 | After-layout height measure | `inkEmbedScheduleAfterLayout` in writing/drawing `toDOM` | Sync toDOM measure skipped cache update (debug-strip regression) |

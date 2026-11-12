@@ -2,7 +2,7 @@ import * as React from 'react';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
 import {
-	clearInkCmScrollerScrollLock_debounced,
+	clearInkCmScrollerScrollLock,
 	INK_CM_SCROLLER_SCROLL_LOCKED_CLASS,
 } from 'src/logic/utils/clear-ink-cm-scroller-scroll-lock';
 import './finger-blocker.scss';
@@ -115,13 +115,13 @@ export function FingerBlocker({ getTlEditor, wrapperRef, enableTwoFingerGestures
 		if (isPenDownRef.current) {
 			isPenDownRef.current = false;
 			if (activeScrollerRef.current) {
-				clearInkCmScrollerScrollLock_debounced(activeScrollerRef.current);
+				clearInkCmScrollerScrollLock(activeScrollerRef.current);
 				activeScrollerRef.current = null;
 			}
 			lockedScrollPosRef.current = null;
 		} else {
 			const scroller = getScroller();
-			if (scroller) clearInkCmScrollerScrollLock_debounced(scroller);
+			if (scroller) clearInkCmScrollerScrollLock(scroller);
 		}
 	};
 

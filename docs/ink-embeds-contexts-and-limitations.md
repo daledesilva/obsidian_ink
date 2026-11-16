@@ -31,6 +31,7 @@ flowchart TD
 | Source mode | N/A | No | N/A | Live Preview only; extensions return `Decoration.none` |
 | Reading mode | N/A | Yes | No | Preview-only; sizing matches LP — see [Reading mode embed rendering](reading-mode-embed-rendering.md) |
 | PDF export | N/A | Yes | No | Same post-processor path as Reading mode; full-page root — see [PDF export](reading-mode-embed-rendering.md#pdf-export) |
+| Other plugins' editors | Not covered | Yes | Yes | Host adds `InkPlugin.getEmbeddableEditorExtensions(sourcePath)` to its Live Preview editor; links resolve from `sourcePath` |
 
 ## Supported contexts
 

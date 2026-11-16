@@ -111,50 +111,123 @@
 
 .ddc_ink_section-wrapper {
     margin-bottom: 2em;
+    // Shared by the height animation and the closed-corner delay so they finish together.
+    --ddc-ink-section-collapse-duration: 0.5s;
 
-    .ddc_ink_controls-section {
+    // Only the body is in the animated grid. The header used to share those rows,
+    // and the auto header track grew and shrank while 1fr blended toward 0fr.
+    // 0fr blends with 1fr. 0px does not, so iPad jumped the body shut about 200ms late.
+    .ddc_ink_controls-collapse {
         display: grid;
-        grid-template-rows: auto 0px;
+        grid-template-rows: 0fr;
         overflow: hidden;
-        transition: grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: grid-template-rows var(--ddc-ink-section-collapse-duration) cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    &.ddc_ink_expanded .ddc_ink_controls-section {
-        grid-template-rows: auto 1fr;
+    &.ddc_ink_expanded .ddc_ink_controls-collapse {
+        grid-template-rows: 1fr;
     }
 
-    &:not(.ddc_ink_expanded) .ddc_ink_controls-header {
-        border-bottom-left-radius: var(--radius-l);
-        border-bottom-right-radius: var(--radius-l);
-    }
-
-    .ddc_ink_controls-content {
+    .ddc_ink_controls-collapse-inner {
+        // Grid item that clips the body. Padding stays on the content inside.
+        // Padding on this item becomes a minimum height and leaves a gap when shut.
         min-height: 0;
         overflow: hidden;
     }
+
+    // Closed collapsible headers are a full rounded shape. Open headers stay
+    // flat along the bottom (see .ddc_ink_controls-header). Only the clickable
+    // headers collapse; Writing/Drawing stay open and keep the flat bottom.
+    // The delay is the destination timing, so it applies only while closing.
+    // Expanding drops this rule and the flat bottom returns on the same frame.
+    // !important beats Obsidian's iPad .setting-item radius.
+    &:not(.ddc_ink_expanded) > .ddc_ink_controls-section > .ddc_ink_controls-header--clickable.setting-item {
+        border-radius: var(--ddc-ink-section-radius) !important;
+        transition:
+            opacity 0.15s ease,
+            border-radius 0s linear var(--ddc-ink-section-collapse-duration) !important;
+    }
+
 }
 
 .ddc_ink_controls-section {
+    // Default stroke stays the quiet card color. Gray expandable headers override
+    // it to their own wash so the outline is as bright as the header.
+    --ddc-ink-section-outline: var(--setting-items-background);
+    --ddc-ink-section-radius: var(--radius-l);
+
+    &:has(> .ddc_ink_controls-header--clickable) {
+        --ddc-ink-section-outline: rgba(var(--background-modifier-hover-rgb, 128, 128, 128), 0.2);
+    }
+
+    position: relative;
     overflow: hidden;
-    box-shadow: 0 0 0 2px var(--setting-items-background) inset;
-    border-radius: var(--radius-l);
+    border-radius: var(--ddc-ink-section-radius);
     background: transparent;
     padding: 0;
 
+    // Stroke is a real border, not an inset shadow. On iPad the shadow did not
+    // follow the header corner, and it painted in front of the fill. This layer
+    // sits under the header so the header fill covers it along that silhouette.
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        box-sizing: border-box;
+        border: 2px solid var(--ddc-ink-section-outline);
+        border-radius: inherit;
+        pointer-events: none;
+        z-index: 1;
+    }
+
     .ddc_ink_controls-header {
-        margin: 0;
+        // Beat Obsidian's iPad setting-item margin and corner radius so the
+        // header sits flush with the section outline and uses the same curve.
+        margin: 0 !important;
+        border: none !important;
         position: relative;
+        z-index: 2;
+        // Open: rounded top matching the outline, perfectly flat bottom.
+        border-radius: var(--ddc-ink-section-radius) var(--ddc-ink-section-radius) 0 0 !important;
 
         &--clickable {
             cursor: pointer;
             padding-right: 2.8em;
             color: var(--text-normal);
-            background-color: rgba(var(--background-modifier-hover-rgb, 128, 128, 128), 0.2);
-            transition: opacity 0.15s ease, background-color 0.15s ease;
+            // Clip the wash to the flat or fully rounded header shape.
+            overflow: hidden;
+            // Opaque base blocks the outline. The wash sits on top and matches
+            // --ddc-ink-section-outline, so the stroke disappears under the header.
+            background-color: var(--background-primary);
+            transition: opacity 0.15s ease;
+
+            &::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background-color: var(--ddc-ink-section-outline);
+                pointer-events: none;
+                z-index: 0;
+                transition: background-color 0.15s ease;
+            }
 
             &:hover {
                 opacity: 1;
-                background-color: rgba(var(--background-modifier-hover-rgb, 128, 128, 128), 0.5);
+
+                &::before {
+                    background-color: rgba(var(--background-modifier-hover-rgb, 128, 128, 128), 0.5);
+                }
+            }
+
+            .setting-item-info,
+            .setting-item-control {
+                position: relative;
+                z-index: 1;
+            }
+
+            .ddc_ink_collapse-arrow {
+                z-index: 1;
             }
         }
     }

@@ -31,6 +31,8 @@ export class ConfirmationModal extends Modal {
 	}
 
 	onOpen() {
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		this.modalEl.addClass('ddc_ink_modal');
 		const {titleEl, contentEl} = this;
 
 		titleEl.setText(this.title);

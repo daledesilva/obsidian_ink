@@ -1,4 +1,5 @@
 
+@use '../../../styles/ink-control-ink' as inkControlInk;
 
 .ddc_ink_resize-handle {
     position: absolute;
@@ -10,13 +11,13 @@
 
     pointer-events: auto;
     background-color: var(--interactive-normal);
-    color: var(--color-base-60);
-    fill: var(--color-base-60); // for svg icon elements
+    color: inkControlInk.$ink-control-icon-ink;
+    fill: inkControlInk.$ink-control-icon-ink; // for svg icon elements
     &:hover {
         cursor: nwse-resize;
         background-color: var(--interactive-hover);
-        color: var(--color-base-100);
-        fill: var(--color-base-100);
+        color: var(--text-normal);
+        fill: var(--text-normal);
     }
 
     width: 2.5em;

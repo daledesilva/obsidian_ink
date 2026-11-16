@@ -52,6 +52,8 @@ export class RemoveEmbedModal extends Modal {
 	}
 
 	onOpen() {
+		// Hook for ink-button-hover.scss so plain dialog buttons hover on macOS.
+		this.modalEl.addClass('ddc_ink_modal');
 		this.titleEl.setText('Remove embed');
 		this.contentEl.addClass('ddc_ink_migration-modal');
 		this.renderScanPhase();

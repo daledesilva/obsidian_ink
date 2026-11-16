@@ -33,7 +33,11 @@ If any files have changed or gone missing since your last edits, ignore them bec
 
 ```bash
 git commit -m "$(cat <<'EOF'
-<past-tense verb>: <message>
+<past-tense verb>: <at most 20 words total on this line>
+
++ <added>
+- <removed>
+> <modified>
 
 Clickup Task: <id>
 EOF
@@ -46,17 +50,26 @@ EOF
 
 ## Commit message format
 
-**Prefix:** Start with an accurate past-tense verb, lowercase, followed by a colon and space (e.g. `added:`, `updated:`, `fixed:`, `redesigned:`, `removed:`).
+This format replaces the 1–2 sentence body in `committing-changes-with-git.mdc` whenever `/commit` is used.
 
-**Body:** Write 1–2 sentences describing the conceptual what, with emphasis on why. Each sentence after the prefix must start with a past-tense verb and remain entirely in past tense. Use active voice where natural.
+**First line:** One short summary, at most 20 words, counting every word on that line including the prefix. Start with an accurate past-tense verb, lowercase, then a colon and space (e.g. `added:`, `updated:`, `fixed:`, `removed:`). Say what changed and why in that one line. If it does not fit, cut the line — do not spill into a second sentence.
+
+**Detail lines:** Add these only when the first line leaves out something a reader needs. One fact per line. The first character is the marker, then a space:
+
+- `+` something added
+- `-` something removed
+- `>` something modified
+
+Do not use `+`, `-`, or `>` for any other kind of line. Skip detail lines when the first line is enough.
 
 **Avoid:**
+- A first line longer than 20 words
+- A second prose sentence on the first line or immediately under it
 - Passive openings (`was dropped`, `was added`)
 - Imperatives (`Fix`, `Rebound`, `Update`)
-- Present tense (`persists`, `allows`, `fixes`)
 - File lists or line-level diffs unless that is the conceptual what
 
-**ClickUp line (optional):** When a ClickUp task is relevant and known, add a blank line after the body, then:
+**ClickUp line (optional):** When a ClickUp task is relevant and known, add a blank line after the summary and any detail lines, then:
 
 ```
 Clickup Task: <ClickUp-task-ID>
@@ -67,7 +80,9 @@ Use a task ID from: text after `/commit`, the current conversation, or the branc
 **Example:**
 
 ```
-fixed: Dropped hand tracking input during scene transitions because the OVRHand reference was destroyed on load. Rebounded the reference in Awake so input persisted across scenes.
+fixed: Kept hand tracking across scene loads
+
+> Rebounded the OVRHand reference in Awake
 
 Clickup Task: 86abc1234
 ```

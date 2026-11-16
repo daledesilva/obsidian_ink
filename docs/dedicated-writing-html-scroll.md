@@ -42,7 +42,8 @@ flowchart TB
 
 1. First layout calls `syncDedicatedPageCssHeight` with `preservePageScroll: false`, then sets `scrollTop` to `0`.
 2. `0` is the top of the menubar padding. The ruled page starts below that padding, so the first line opens with that gap already visible.
-3. Sidebar collapse on the way into the dedicated view changes the scroller width and therefore width-fit zoom. `rescaleDedicatedWritingScrollTop` leaves any `scrollTop` still inside the padding unchanged.
+3. That pin happens only while dedicated page CSS height is still unset. `syncDedicatedPageCssHeight` writes the applied height into `dedicatedPageCssHeightRef` in the same turn as the React state update.
+4. Sidebar collapse on the way into the dedicated view changes the scroller width and therefore width-fit zoom. `rescaleDedicatedWritingScrollTop` leaves any `scrollTop` still inside the padding unchanged.
 
 Scrolling further down the page, then a later zoom change, rescales only the content past the padding. The padding itself stays a fixed CSS height.
 
@@ -50,9 +51,12 @@ Scrolling further down the page, then a later zoom change, rescales only the con
 
 1. Store notify → approx content maxY → inviting height.
 2. `computeDedicatedWritingPageHeight(scrollTop, viewportHeight, zoom, inviting…)` → grow-only page height.
-3. `setWritingPageHeight` + `syncDedicatedPageCssHeight`.
+3. If that target is taller than the current page, `setWritingPageHeight` + `syncDedicatedPageCssHeight` with `preservePageScroll: true`.
+4. If the target is not taller, the page stays as it is and `scrollTop` stays where the user left it.
 
 **Height growth must not change `scrollTop`.** Extending the page only adds space below; snapping to the bottom jumped ink under the pen. `scrollTop` is rescaled **only** when width-fit **zoom** actually changes, and only for the content portion past the fixed menubar padding. A position still inside that padding stays put.
+
+A stroke in a scrolled area that does not extend the page must not jump back to the top. The ink canvas store subscription calls the mount-time `onPageHeightChange` for the life of the canvas. React state captured in that first call stays `null`, so a check of `dedicatedPageCssHeightPx === null` treated every later non-growing stroke as the opening layout and set `scrollTop` to `0`. The pin reads `dedicatedPageCssHeightRef` instead, which is already set after the first layout.
 
 `scrollbar-gutter: stable` on the scroller reduces clientWidth shrink when a scrollbar appears mid-write (which would change zoom and shift content).
 
@@ -69,6 +73,7 @@ Related: [stroke viewport culling](ink-canvas-stroke-viewport-culling.md), [embe
 | Piece | Location |
 |---|---|
 | Scroller / page DOM + grow sync | `writing-editor.tsx`, `writing-editor.scss` |
+| Applied CSS height for the open-scroll pin | `dedicatedPageCssHeightRef` in `writing-editor.tsx` |
 | Scroll-based grow math | `computeDedicatedWritingPageHeight` in `tldraw-helpers.ts` |
 | Zoom rescale of `scrollTop` | `rescaleDedicatedWritingScrollTop` in `tldraw-helpers.ts` |
 | Camera pin / no writing wheel steal | `ink-svg-canvas.tsx` |
@@ -91,6 +96,7 @@ DOM shape:
 
 1. **Do not reintroduce camera-Y pan for dedicated writing** — it regresses scroll performance on long pages.
 2. **Never snap `scrollTop` to max on grow** — that causes the mid-write jump. Leave `scrollTop` alone for height-only growth.
-3. **Do not snap an in-padding `scrollTop` to the padding height on zoom.** `pad + max(0, scrollTop - pad) * ratio` turns an open at `0` into `scrollTop = pad` and hides the gap above the first line. `rescaleDedicatedWritingScrollTop` returns the previous scroll unchanged while it is still inside the padding.
-4. **Legacy tldraw dedicated writing** may still use camera Y; docs under [camera-repositioning-on-resize](camera-repositioning-on-resize.md) describe that older path. Current-format ink-canvas writing uses HTML scroll.
-5. **Drawing dedicated views** keep camera pan/zoom — do not apply this tall-page layout there without a separate redesign.
+3. **Do not pin `scrollTop` to `0` from React state in the page-height callback.** The canvas keeps the first `onPageHeightChange`, so `dedicatedPageCssHeightPx` in that closure stays `null` after the page has a real height. A stroke that does not grow the page then resets the dedicated scroller to the top. Read `dedicatedPageCssHeightRef`, which `syncDedicatedPageCssHeight` updates immediately.
+4. **Do not snap an in-padding `scrollTop` to the padding height on zoom.** `pad + max(0, scrollTop - pad) * ratio` turns an open at `0` into `scrollTop = pad` and hides the gap above the first line. `rescaleDedicatedWritingScrollTop` returns the previous scroll unchanged while it is still inside the padding.
+5. **Legacy tldraw dedicated writing** may still use camera Y; docs under [camera-repositioning-on-resize](camera-repositioning-on-resize.md) describe that older path. Current-format ink-canvas writing uses HTML scroll.
+6. **Drawing dedicated views** keep camera pan/zoom — do not apply this tall-page layout there without a separate redesign.

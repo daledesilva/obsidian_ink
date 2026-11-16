@@ -6,6 +6,8 @@ import { convertDrawFileToWrite } from "src/components/formats/current/utils/con
 import { duplicateDrawingFile, duplicateWritingFile } from "src/components/formats/current/utils/duplicate-files";
 import { isInkCanvasFile } from "src/components/formats/current/utils/ink-file-storage-engine";
 import { extractInkJsonFromSvg } from "src/logic/utils/extractInkJsonFromSvg";
+import { createFoldersForFilepath } from "src/logic/utils/createFoldersForFilepath";
+import { resolveWritingSourceImageVaultPath } from "src/logic/photo-trace/writing-photo-paths";
 import { buildDrawingEmbedSettingsFromStrokes } from "src/logic/utils/build-drawing-embed-settings-from-file";
 import { parseSvgViewBoxAspectRatio } from "src/logic/utils/writing-embed-aspect-ratio";
 import type { EmbedSettings } from "src/types/embed-settings";
@@ -289,11 +291,68 @@ export type FileConversionRunProgress = {
 };
 
 /**
+ * Moves or copies a photo-trace JPEG so it stays beside the SVG.
+ * Rename and duplicate move only the SVG, so the JPEG is still next to the original path.
+ */
+async function relocatePhotoJpegsForConversion(
+	plugin: InkPlugin,
+	originalSvgPath: string,
+	finalSvgFile: TFile,
+	wasDuplicated: boolean,
+	failed: string[],
+): Promise<void> {
+	const vault = plugin.app.vault;
+	let svgContent: string;
+	try {
+		svgContent = await vault.read(finalSvgFile);
+	} catch (err) {
+		failed.push(`Photo move failed: ${String(err)}`);
+		return;
+	}
+	const pageData = extractInkJsonFromSvg(svgContent);
+	if (!pageData) return;
+
+	const relatives: string[] = [];
+	if (pageData.meta.sourceImage) relatives.push(pageData.meta.sourceImage);
+	const transcriptImage = pageData.meta.transcriptImage;
+	const transcriptImageIsDistinct = !!transcriptImage && transcriptImage !== pageData.meta.sourceImage;
+	if (transcriptImage && transcriptImageIsDistinct) relatives.push(transcriptImage);
+
+	for (const relative of relatives) {
+		const sourcePath = resolveWritingSourceImageVaultPath(originalSvgPath, relative);
+		const destinationPath = resolveWritingSourceImageVaultPath(finalSvgFile.path, relative);
+		if (sourcePath === destinationPath) continue;
+
+		const sourceFile = vault.getAbstractFileByPath(sourcePath);
+		if (!(sourceFile instanceof TFile)) continue;
+
+		const existingDestination = vault.getAbstractFileByPath(destinationPath);
+		if (existingDestination) {
+			failed.push(`Photo already exists at ${destinationPath}`);
+			continue;
+		}
+
+		try {
+			await createFoldersForFilepath(plugin, destinationPath);
+			if (wasDuplicated) {
+				// The original file still needs its photo.
+				await vault.copy(sourceFile, destinationPath);
+			} else {
+				await vault.rename(sourceFile, destinationPath);
+			}
+		} catch (err) {
+			failed.push(`Photo move failed: ${String(err)}`);
+		}
+	}
+}
+
+/**
  * Performs the full file conversion:
  * 1. (Optional) duplicate the file (duplicate scope only).
  * 2. (Optional) Moves the SVG file to moveToPath.
- * 3. Converts the SVG content (write↔draw).
- * 4. Updates note embeds per scope.
+ * 3. Moves or copies a photo-trace JPEG beside the final SVG.
+ * 4. Converts the SVG content (write↔draw).
+ * 5. Updates note embeds per scope.
  *
  * onProgress(done, total, liveStats) is called after each step so the UI can update mid-run.
  */
@@ -375,6 +434,15 @@ export async function executeFileConversion(
 	if (wasDuplicated) {
 		closeLeavesWithFileOpen(plugin, newPath);
 	}
+
+	// JPEGs still sit beside the original SVG. Conversion keeps the same relative path.
+	await relocatePhotoJpegsForConversion(
+		plugin,
+		oldPath,
+		currentFile,
+		wasDuplicated,
+		result.failed,
+	);
 
 	// Step: Convert the SVG file content
 	let svgConversionSucceeded = true;

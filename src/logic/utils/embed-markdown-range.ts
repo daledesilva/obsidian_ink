@@ -124,3 +124,49 @@ export function getEmbedMarkdownFromDecoration(
 	if (!range) return null;
 	return view.state.doc.sliceString(range.from, range.to);
 }
+
+/**
+ * Locates an ink embed's full markdown line by the file it references.
+ *
+ * Why this exists: removing an embed used to rely only on the CodeMirror decoration range. When
+ * that range lookup failed (widget rebuilt, or the line no longer matched the strict embed regex),
+ * the delete silently did nothing — issue #69 "Remove Embed does nothing". This path-based search
+ * gives the removal flow a reliable fallback.
+ */
+export function findEmbedMarkdownRangeInString(
+	content: string,
+	filePath: string,
+	embedType: InkEmbedType,
+): EmbedMarkdownRange | null {
+	const escapedPath = filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const editLabel = embedType === 'inkWriting' ? 'Edit Writing' : 'Edit Drawing';
+	// Tolerant of any alt text (a transcript replaces the InkWriting/InkDrawing placeholder)
+	// and of optional whitespace, but anchored to the Edit link so unrelated images are skipped.
+	const pattern = new RegExp(
+		`!\\[[^\\]]*\\]\\(<${escapedPath}>\\) ?\\[${editLabel}\\]\\([^)]*\\)`,
+	);
+
+	const match = pattern.exec(content);
+	if (!match || match.index === undefined) return null;
+
+	const from = match.index;
+	const to = from + match[0].length;
+
+	// Include the leading space the embed builders write, so the line is fully removed.
+	if (from >= 1 && content.charAt(from - 1) === ' ') {
+		return { from: from - 1, to };
+	}
+	return { from, to };
+}
+
+/**
+ * Locates an ink embed's full markdown line by the file it references, in a CodeMirror document.
+ * Returns `null` when no embed for `filePath` exists in `doc`.
+ */
+export function findEmbedMarkdownRangeForFile(
+	doc: Text,
+	filePath: string,
+	embedType: InkEmbedType,
+): EmbedMarkdownRange | null {
+	return findEmbedMarkdownRangeInString(doc.toString(), filePath, embedType);
+}

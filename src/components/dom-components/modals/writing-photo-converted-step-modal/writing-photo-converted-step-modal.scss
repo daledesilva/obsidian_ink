@@ -1,0 +1,47 @@
+.modal.ddc_ink_photo-converted-step-modal {
+	/* Wide enough that Thumbnails, the two image steps, and Convert all stay on one row. */
+	width: min(48em, calc(100vw - 2em));
+	max-width: calc(100vw - 2em);
+}
+
+/* Matches the thumbnail grid's photo count: smaller muted text, centred. */
+.ddc_ink_photo-converted__count {
+	margin: 0 0 0.75em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+}
+
+.ddc_ink_photo-converted__note {
+	color: var(--text-muted);
+	margin-bottom: 1em;
+}
+
+/*
+ * One footer row, matching the page step. Thumbnails sits far left, Convert all far
+ * right, and Prev image / Next image are centred between them.
+ */
+.ddc_ink_photo-converted__footer .setting-item-info {
+	display: none;
+}
+
+.ddc_ink_photo-converted__footer .setting-item-control {
+	width: 100%;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5em;
+}
+
+/* Footer buttons stay at Obsidian's normal size, matching the page step. */
+.ddc_ink_photo-converted__footer .setting-item-control button {
+	white-space: nowrap;
+}
+
+.ddc_ink_photo-converted__footer .setting-item-control .ddc_ink_photo-converted__thumbnails-btn {
+	margin-inline-end: auto;
+}
+
+.ddc_ink_photo-converted__footer .setting-item-control .ddc_ink_photo-converted__convert-all-btn {
+	margin-inline-start: auto;
+}

@@ -5,10 +5,10 @@ alwaysApply: true
 
 # Cursor Rules Mirroring
 
-When `./_reference_ide-setup/` is present in the workspace and convention or rule changes are made in this project:
+When `_reference_ide-setup/` is in the workspace, or the sibling `_common_ide-setup/` is the checkout you have, and convention or rule changes are made in this project:
 
 1. Map the change to the correct environment subfolder in the reference repo (Obsidian plugin → `obsidian-plugin/`, Android companion → `android-native/`).
 2. Put cross-cutting changes in `shared/` only when they apply to all project types.
-3. **Cursor is the sole supported AI instruction surface** — do not maintain `.github/copilot-instructions.md` or `.github/instructions/`.
+3. Keep Cursor (`.cursor/`), Devin (`.devin/`), and Antigravity (`.agents/` and `AGENTS.md`) in sync. Do not maintain `.github/copilot-instructions.md` or `.github/instructions/`.
 
-See `_reference_ide-setup/.cursor/rules/reference-repo.mdc` for the full mirroring layout.
+See `docs/agent-tooling.md` for how this repo refreshes those surfaces. The reference repo's own layout rule is `_reference_ide-setup/.cursor/rules/reference-repo.mdc` when that folder is present.

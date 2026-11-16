@@ -1,0 +1,17 @@
+.ddc_ink_photo-view {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+/* Match the ink frame height and let width follow the photo, so the note cursor stays below the embed. */
+.ddc_ink_photo-view__image {
+	height: 100%;
+	width: auto;
+	max-width: 100%;
+	object-fit: contain;
+	display: block;
+	border-radius: 20px;
+}

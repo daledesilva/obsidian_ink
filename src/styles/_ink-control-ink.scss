@@ -1,0 +1,18 @@
+// Shared ink tokens for Ink's own toolbar, menu, and floating-button chrome.
+
+// These controls are intentionally de-emphasised. Unselected tools and
+// secondary buttons should recede so the active tool reads as the focus of the
+// toolbar, which is why their ink sits at half strength rather than full text
+// contrast.
+//
+// The ink is derived from --text-normal rather than the theme's --color-base-60
+// scale token. Themes are free to leave the base scale untouched while
+// redefining text tokens, so --color-base-60 can end up unrelated to the
+// surfaces these buttons are painted on (Minimal does exactly this). Every
+// theme must keep --text-normal legible against its own backgrounds, so
+// deriving the soft ink from it stays valid in any theme and any mode.
+//
+// Do not use this token where an icon must be read at a glance. Active/selected
+// states, notices, and anything that has to survive a glance on e-ink need full
+// contrast instead (see the inverted selected-tool rules in writing-menu.scss).
+$ink-control-icon-ink: color-mix(in srgb, var(--text-normal) 50%, transparent);

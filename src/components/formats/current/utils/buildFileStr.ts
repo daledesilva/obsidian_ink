@@ -58,12 +58,24 @@ function buildInkElementAttributes(pageData: InkFileData): string {
     const lastTranscriptionAtAttr = pageData.meta.lastTranscriptionAt
         ? ` last-transcription-at="${escapeXmlAttribute(pageData.meta.lastTranscriptionAt)}"`
         : '';
+    const sourceImageAttr = pageData.meta.sourceImage
+        ? ` source-image="${escapeXmlAttribute(pageData.meta.sourceImage)}"`
+        : '';
+    const transcriptImageAttr = pageData.meta.transcriptImage
+        ? ` transcript-image="${escapeXmlAttribute(pageData.meta.transcriptImage)}"`
+        : '';
+    const transcriptFromAttr = pageData.meta.transcriptFrom === 'photo'
+        ? ` transcript-from="photo"`
+        : '';
     return (
         `plugin-version="${escapeXmlAttribute(String(pageData.meta.pluginVersion))}"` +
         ` file-type="${escapeXmlAttribute(pageData.meta.fileType)}"` +
         writingLineHeightAttr +
         bboxCellsAtLastTranscriptionAttr +
-        lastTranscriptionAtAttr
+        lastTranscriptionAtAttr +
+        sourceImageAttr +
+        transcriptImageAttr +
+        transcriptFromAttr
     );
 }
 

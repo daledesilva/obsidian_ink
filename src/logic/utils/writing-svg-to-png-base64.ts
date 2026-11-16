@@ -1,5 +1,6 @@
 import { DOMParser as XmlDomParser } from '@xmldom/xmldom';
 import { Canvg } from 'canvg';
+import { base64DecodedByteLength } from 'src/logic/utils/utf8-byte-length';
 
 //////////
 //////////
@@ -123,6 +124,61 @@ function defaultCreateCanvas(): HTMLCanvasElement {
 	throw new Error('No DOM canvas available; pass createCanvas for Node rasterization');
 }
 
+export interface RenderVisualSvgToCanvasOptions {
+	createCanvas?: WritingSvgCreateCanvas;
+	/** Multiplier applied after the standard transcription scaling (JPEG retries shrink). */
+	scale?: number;
+}
+
+/**
+ * Rasterises a visual-only writing/drawing SVG onto an opaque page canvas.
+ * Returns null when the canvas has no 2D context.
+ */
+async function renderVisualSvgToCanvas(
+	visualSvg: string,
+	options?: RenderVisualSvgToCanvasOptions,
+): Promise<{ canvas: HTMLCanvasElement; background: string } | null> {
+	const createCanvas = options?.createCanvas ?? defaultCreateCanvas;
+	const scale = options?.scale ?? 1;
+	const parsed = parseWritingSvgDimensions(visualSvg);
+	const scaled = scaleDimensionsForTranscription(parsed.width, parsed.height);
+	const width = Math.max(1, Math.round(scaled.width * scale));
+	const height = Math.max(1, Math.round(scaled.height * scale));
+	const pageTheme = resolveWritingSvgPageTheme(visualSvg);
+	const background = transcriptionBackgroundForTheme(pageTheme);
+	const svgWithPage = bakeOpaqueWritingBackground(visualSvg, background);
+
+	const canvas = createCanvas();
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext('2d');
+	if (!ctx) return null;
+
+	ctx.fillStyle = background;
+	ctx.fillRect(0, 0, width, height);
+
+	// Node has no window.DOMParser; @xmldom matches the plugin's SVG stack.
+	const canvgOptions = {
+		ignoreAnimation: true,
+		ignoreMouse: true,
+		...(typeof DOMParser === 'undefined' ? { DOMParser: XmlDomParser } : {}),
+	};
+	const canvgRenderer = await Canvg.from(ctx, svgWithPage, canvgOptions);
+	canvgRenderer.resize(width, height, 'xMidYMid meet');
+	// One-shot render — start() needs requestAnimationFrame, which Node does not have.
+	await canvgRenderer.render();
+	canvgRenderer.stop();
+
+	return { canvas, background };
+}
+
+/** Releases a rasterisation canvas after the data URL has been captured. */
+function disposeCanvas(canvas: HTMLCanvasElement): void {
+	if (typeof canvas.remove === 'function') {
+		canvas.remove();
+	}
+}
+
 /**
  * Renders a visual writing SVG to an opaque PNG (no data-URI prefix).
  * Page colour follows ink luminance: dark strokes → white, light strokes → black.
@@ -132,38 +188,11 @@ export async function writingSvgToPngBase64(
 	options?: { createCanvas?: WritingSvgCreateCanvas },
 ): Promise<string | null> {
 	try {
-		const createCanvas = options?.createCanvas ?? defaultCreateCanvas;
-		const parsed = parseWritingSvgDimensions(visualSvg);
-		const { width, height } = scaleDimensionsForTranscription(parsed.width, parsed.height);
-		const pageTheme = resolveWritingSvgPageTheme(visualSvg);
-		const background = transcriptionBackgroundForTheme(pageTheme);
-		const svgWithPage = bakeOpaqueWritingBackground(visualSvg, background);
+		const rendered = await renderVisualSvgToCanvas(visualSvg, options);
+		if (!rendered) return null;
 
-		const canvas = createCanvas();
-		canvas.width = width;
-		canvas.height = height;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return null;
-
-		ctx.fillStyle = background;
-		ctx.fillRect(0, 0, width, height);
-
-		// Node has no window.DOMParser; @xmldom matches the plugin's SVG stack.
-		const canvgOptions = {
-			ignoreAnimation: true,
-			ignoreMouse: true,
-			...(typeof DOMParser === 'undefined' ? { DOMParser: XmlDomParser } : {}),
-		};
-		const canvgRenderer = await Canvg.from(ctx, svgWithPage, canvgOptions);
-		canvgRenderer.resize(width, height, 'xMidYMid meet');
-		// One-shot render — start() needs requestAnimationFrame, which Node does not have.
-		await canvgRenderer.render();
-
-		const dataUrl = canvas.toDataURL('image/png');
-		canvgRenderer.stop();
-		if (typeof canvas.remove === 'function') {
-			canvas.remove();
-		}
+		const dataUrl = rendered.canvas.toDataURL('image/png');
+		disposeCanvas(rendered.canvas);
 
 		const commaIndex = dataUrl.indexOf(',');
 		if (commaIndex === -1) return null;
@@ -172,4 +201,64 @@ export async function writingSvgToPngBase64(
 		const message = error instanceof Error ? error.message : String(error);
 		throw new Error(`Failed to rasterize writing SVG to PNG: ${message}`);
 	}
+}
+
+const JPEG_INITIAL_QUALITY = 0.85;
+const JPEG_MIN_QUALITY = 0.35;
+const JPEG_RETRY_SCALE_STEP = 0.7;
+
+export interface WritingSvgToJpegOptions {
+	createCanvas?: WritingSvgCreateCanvas;
+	/** Decoded byte ceiling; quality and scale step down until the JPEG fits. */
+	maxBytes?: number;
+}
+
+function base64DecodedByteLengthOfDataUrl(dataUrl: string): number {
+	const commaIndex = dataUrl.indexOf(',');
+	if (commaIndex === -1) return 0;
+	return base64DecodedByteLength(dataUrl.slice(commaIndex + 1));
+}
+
+/**
+ * Renders a visual writing/drawing SVG to an opaque JPEG (no data-URI prefix).
+ *
+ * Drawings that the portal refuses for SVG size or complexity are re-sent as JPEG,
+ * so this steps quality then scale down until the encoded bytes fit the portal cap.
+ * Returns null when a canvas context or encoder is unavailable.
+ */
+export async function writingSvgToJpegBase64(
+	visualSvg: string,
+	options?: WritingSvgToJpegOptions,
+): Promise<string | null> {
+	const maxBytes = options?.maxBytes ?? Number.POSITIVE_INFINITY;
+	let scale = 1;
+	// Two full quality sweeps at progressively smaller canvas sizes; JPEG of dense
+	// ink loses legibility if scaled much below this, so stop rather than shrink forever.
+	for (let scaleAttempt = 0; scaleAttempt < 3; scaleAttempt += 1) {
+		const rendered = await renderVisualSvgToCanvas(visualSvg, {
+			createCanvas: options?.createCanvas,
+			scale,
+		});
+		if (!rendered) return null;
+
+		let quality = JPEG_INITIAL_QUALITY;
+		let smallestDataUrl: string | null = null;
+		while (quality >= JPEG_MIN_QUALITY) {
+			const dataUrl = rendered.canvas.toDataURL('image/jpeg', quality);
+			smallestDataUrl = dataUrl;
+			if (base64DecodedByteLengthOfDataUrl(dataUrl) <= maxBytes) {
+				disposeCanvas(rendered.canvas);
+				return dataUrl.slice(dataUrl.indexOf(',') + 1);
+			}
+			quality -= 0.1;
+		}
+		disposeCanvas(rendered.canvas);
+		scale *= JPEG_RETRY_SCALE_STEP;
+
+		// Best effort at the smallest quality still counts as a usable answer.
+		if (smallestDataUrl && scaleAttempt === 2) {
+			return smallestDataUrl.slice(smallestDataUrl.indexOf(',') + 1);
+		}
+	}
+	return null;
 }

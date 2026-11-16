@@ -1,3 +1,5 @@
+@use '../../styles/ink-control-ink' as inkControlInk;
+
 .ddc_ink_svg-view-content--anchor {
     position: relative;
 }
@@ -44,7 +46,7 @@
 .ddc_ink_svg-edit-button {
     pointer-events: auto;
     background-color: var(--interactive-normal);
-    color: var(--color-base-60);
+    color: inkControlInk.$ink-control-icon-ink;
     width: auto;
     height: 2.5em;
     border-radius: 0.8em;
@@ -56,7 +58,7 @@
     
     &:hover {
         background-color: var(--interactive-hover);
-        color: var(--color-base-100);
+        color: var(--text-normal);
     }
     
     &:active {

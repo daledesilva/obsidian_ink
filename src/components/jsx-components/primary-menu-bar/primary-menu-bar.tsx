@@ -1,29 +1,47 @@
 import classNames from 'classnames';
 import './primary-menu-bar.scss';
 import * as React from 'react';
+import { computePrimaryMenuBarTop } from 'src/logic/utils/menu-bar-scroll-position';
 
 ///////////
 ///////////
 
-interface PrimaryMenuBarProps {
+export interface PrimaryMenuBarProps {
     children: React.ReactNode,
 }
 
+/** Sticky top menu bar for the ink editors; keeps itself clear of the note scroller. */
 export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
-    const scrollContainerElRef = React.useRef<HTMLDivElement>(null);
 	const primaryMenuBarElRef = React.useRef<HTMLDivElement>(null);
     const [menuActive] = React.useState<boolean>(true);
 
     React.useEffect(() => {
+        // Track the element we actually subscribed to. The previous version stored the scroller in a
+        // different ref that was never assigned, so the listener was never removed, and the effect
+        // had no dependency list, so every render added another one — stale handlers then fought
+        // over `top` and could park the menu inside the canvas (#124).
+        let scrollEl: HTMLElement | null = null;
+
+        function initScrollHandler() {
+            const primaryMenuBar = primaryMenuBarElRef.current;
+            scrollEl = primaryMenuBar?.closest<HTMLElement>('.cm-scroller') ?? null;
+            if (!scrollEl) return;
+            scrollEl.addEventListener('scroll', handleScrolling);
+            // Dispatch immediately in case the embed is already partially scrolled off screen.
+            scrollEl.dispatchEvent(new CustomEvent('scroll'));
+        }
+
+        function cleanUpScrollHandler() {
+            scrollEl?.removeEventListener('scroll', handleScrolling);
+            scrollEl = null;
+        }
+
         initScrollHandler();
-        // initFocusHandlers();
-        
-        // When unmounting
+
         return () => {
             cleanUpScrollHandler();
-            // cleanUpFocusHandlers();
         }
-    })
+    }, []);
 
     ///////////
 
@@ -41,39 +59,6 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
 
     ///////////
 
-    function initScrollHandler() {
-        const primaryMenuBar = primaryMenuBarElRef.current;
-        const scrollEl = primaryMenuBar?.closest(".cm-scroller");
-        if(!scrollEl) return;
-        scrollEl.addEventListener('scroll', handleScrolling);
-        // dispatch event immediately incase it's already partially scrolled off screen
-        scrollEl.dispatchEvent(new CustomEvent('scroll'));
-    }
-    function cleanUpScrollHandler() {
-        const scrollEl = scrollContainerElRef.current;
-        scrollEl?.removeEventListener('scroll', handleScrolling);
-    }
-
-    // function initFocusHandlers() {
-    //     const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
-    //     if(!parentEmbedEl) return;
-    //     parentEmbedEl.addEventListener('focusin', handleFocusIn)
-    //     parentEmbedEl.addEventListener('focusout', handleFocusOut)
-    // }
-    // function cleanUpFocusHandlers() {
-    //     const parentEmbedEl = primaryMenuBarElRef.current?.closest('.ddc_ink_embed');
-    //     if(!parentEmbedEl) return;
-    //     parentEmbedEl.removeEventListener('focusin', handleFocusIn)
-    //     parentEmbedEl.removeEventListener('focusout', handleFocusOut)
-    // }
-
-    // function handleFocusIn(e: Event): void {
-    //     setMenuActive(true);
-    // }
-    // function handleFocusOut(e: Event): void {
-    //     setMenuActive(false);
-    // }
-
     function handleScrolling(e: Event): void {
         const scrollAreaEl = e.target as HTMLDivElement;
 
@@ -82,33 +67,24 @@ export const PrimaryMenuBar = (props: PrimaryMenuBarProps) => {
         if (!primaryMenuBar) return;
         if (!embedEl) return;
 
-        const menuBarHeight = primaryMenuBar.getBoundingClientRect().height;
-        const embedHeight = embedEl.getBoundingClientRect().height;
+        const scrollAreaRect = scrollAreaEl.getBoundingClientRect();
+        const embedRect = embedEl.getBoundingClientRect();
+        const menuBarRect = primaryMenuBar.getBoundingClientRect();
 
-        let embedPosY = embedEl.getBoundingClientRect().top - scrollAreaEl.getBoundingClientRect().top || 0;
-        if(menuActive) {
-            // When the menu bar is translated outside of the container, correct for that by moving it down
-            embedPosY -= Number(menuBarHeight);
-        }
+        const topOffsetPx = computePrimaryMenuBarTop(
+            {
+                menuBarHeightPx: menuBarRect.height,
+                embedHeightPx: embedRect.height,
+                embedOffsetTopPx: embedRect.top - scrollAreaRect.top,
+                scrollAreaHeightPx: scrollAreaRect.height,
+            },
+            menuActive,
+        );
 
-        const embedOffsetY = embedPosY;// - pageScrollY;
-
-        const embedTopScrolledOffTop = embedOffsetY < 0;
-        const embedBottomScrolledOffTop = embedOffsetY+embedHeight < 0;
-        
-        if (embedBottomScrolledOffTop) {
-            // So the menu isn't sticky past the bottom edge of the embed.
-            // And this takes priority.
-            const top = embedHeight + 'px';
-            primaryMenuBar.style.top = top;
-
-        } else if (embedTopScrolledOffTop) {
-            // So the menu is sticky when the top edge is off screen
-            const top = (embedOffsetY * -1) + 'px';
-            primaryMenuBar.style.top = top;
-
-        } else {
+        if (topOffsetPx === null) {
             primaryMenuBar.style.removeProperty('top');
+            return;
         }
+        primaryMenuBar.style.top = `${topOffsetPx}px`;
     }
 }

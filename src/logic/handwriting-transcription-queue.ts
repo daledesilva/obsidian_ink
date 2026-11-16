@@ -1,7 +1,9 @@
 import { Notice, TFile } from 'obsidian';
 import InkPlugin from 'src/main';
+import type { InkFileData } from 'src/components/formats/current/types/file-data';
 import { extractInkJsonFromSvg } from 'src/logic/utils/extractInkJsonFromSvg';
 import { transcribeWriting } from 'src/logic/transcribe-writing';
+import { transcribeWritingSourcePhoto } from 'src/logic/transcribe-writing-source-photo';
 import { saveWriteFileTranscript } from 'src/components/formats/current/utils/needsTranscriptUpdate';
 import {
 	inkChangeMeetsAutoTranscribeThreshold,
@@ -9,7 +11,12 @@ import {
 	serializeBboxCellsAtLastTranscription,
 } from 'src/logic/stroke-bbox-cells';
 import { patchInkEmbedTranscriptAltsInVault } from 'src/logic/handwriting-transcription-apply';
-import { subscribeAlmostUsefulSessionChanged, readAlmostUsefulSession } from 'src/logic/almostuseful/almostuseful-session';
+import { maybeShowLowCreditNotice } from 'src/components/dom-components/low-credit-notice';
+import {
+	hasLinkedAlmostUsefulAccount,
+	readAlmostUsefulSession,
+	subscribeAlmostUsefulSessionChanged,
+} from 'src/logic/almostuseful/almostuseful-session';
 import {
 	HandwritingTranscriptionJobError,
 	handwritingTranscriptionNoticeForError,
@@ -43,6 +50,9 @@ const HANDWRITING_TRANSCRIPTION_QUEUE_CHANGED_EVENT = 'ddc-ink-handwriting-trans
 
 // Plugin-owned serial worker: survives embed unmount and Obsidian quit. React/widgets
 // only register sessions and call enqueueAuto / enqueueManualTranscription.
+
+/** Skips one vault modify auto-enqueue (photo import writes traced SVG without double jobs). */
+const suppressAutoTranscribeOnNextVaultModifyPaths = new Set<string>();
 
 let queuePlugin: InkPlugin | null = null;
 let inflightJob: HandwritingTranscriptionPendingJob | null = null;
@@ -173,6 +183,10 @@ export function initHandwritingTranscriptionQueue(plugin: InkPlugin): void {
 		plugin.app.vault.on('modify', (file) => {
 			if (!(file instanceof TFile)) return;
 			if (!file.path.toLowerCase().endsWith('.svg')) return;
+			if (suppressAutoTranscribeOnNextVaultModifyPaths.has(file.path)) {
+				suppressAutoTranscribeOnNextVaultModifyPaths.delete(file.path);
+				return;
+			}
 			if (isHandwritingTranscriptionSessionOpen(file.path)) return;
 			void enqueueAuto(file.path);
 		}),
@@ -283,7 +297,8 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 	const fileType = pageData.meta.fileType;
 	if (fileType !== 'inkWriting' && fileType !== 'inkDrawing') return;
 	if (!isAutoTranscribeEnabled(plugin, fileType)) return;
-	if (!inkFileHasStrokes(pageData)) return;
+	const usesPhotoTranscription = pageDataUsesPhotoTranscription(pageData);
+	if (!inkFileHasStrokes(pageData) && !usesPhotoTranscription) return;
 	const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
 	dropStaleTerminalRejections(filePath, liveBboxCells);
 	if (matchingTerminalRejection(filePath, liveBboxCells)) {
@@ -292,13 +307,15 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 	}
 	const storedBboxCells = pageData.meta.bboxCellsAtLastTranscription;
 	const thresholdPercent = getAutoTranscribeChangeThresholdPercent(plugin, fileType);
-	const meetsThreshold = inkChangeMeetsAutoTranscribeThreshold(
-		thresholdPercent,
-		storedBboxCells,
-		pageData,
-	);
-	if (!meetsThreshold) {
-		return;
+	if (!usesPhotoTranscription) {
+		const meetsThreshold = inkChangeMeetsAutoTranscribeThreshold(
+			thresholdPercent,
+			storedBboxCells,
+			pageData,
+		);
+		if (!meetsThreshold) {
+			return;
+		}
 	}
 	const pendingJob: HandwritingTranscriptionPendingJob = {
 		filePath,
@@ -320,8 +337,13 @@ export async function enqueueAuto(filePath: string): Promise<void> {
 export async function enqueueManualTranscription(
 	options: EnqueueManualTranscriptionOptions,
 ): Promise<void> {
+	const isDrawing = options.fileType === 'inkDrawing';
 	if (!hasLinkedAlmostUsefulAccount()) {
-		new Notice('Transcription requires an Almost Useful account. Link your account in Ink\'s settings.');
+		if (isDrawing) {
+			new Notice('Describing and transcribing a drawing requires an Almost Useful account. Link your account in Ink\'s settings.');
+		} else {
+			new Notice('Transcription requires an Almost Useful account. Link your account in Ink\'s settings.');
+		}
 		return;
 	}
 	const pageData = extractInkJsonFromSvg(options.svgFileContent);
@@ -329,8 +351,12 @@ export async function enqueueManualTranscription(
 		new Notice('Could not read ink file for transcription');
 		return;
 	}
-	if (!inkFileHasStrokes(pageData)) {
-		new Notice('Nothing to transcribe');
+	if (!inkFileHasStrokes(pageData) && !pageDataUsesPhotoTranscription(pageData)) {
+		if (isDrawing) {
+			new Notice('Nothing to describe or transcribe');
+		} else {
+			new Notice('Nothing to transcribe');
+		}
 		return;
 	}
 	const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
@@ -762,11 +788,6 @@ function shouldSkipEnqueueBecauseInflightUnchanged(
 	return inflightJob.bboxCellsAtLastTranscription === job.bboxCellsAtLastTranscription;
 }
 
-/** Transcription jobs require a linked Almost Useful app-token session on this device. */
-function hasLinkedAlmostUsefulAccount(): boolean {
-	return !!readAlmostUsefulSession()?.accessToken;
-}
-
 function isAutoTranscribeEnabled(
 	plugin: InkPlugin,
 	fileType: HandwritingTranscriptionFileType,
@@ -819,7 +840,7 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		const svgFileContent = queuedSvg ?? await plugin.app.vault.read(file);
 		const pageData = extractInkJsonFromSvg(svgFileContent);
 		if (!pageData) return;
-		if (!inkFileHasStrokes(pageData)) return;
+		if (!inkFileHasStrokes(pageData) && !pageDataUsesPhotoTranscription(pageData)) return;
 		const liveBboxCells = serializeBboxCellsAtLastTranscription(pageData);
 		rejectionBboxCells = liveBboxCells;
 		if (job.bboxCellsAtLastTranscription && job.bboxCellsAtLastTranscription !== liveBboxCells) {
@@ -830,6 +851,7 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 		}
 		if (
 			job.reason === 'auto'
+			&& !pageDataUsesPhotoTranscription(pageData)
 			&& !inkChangeMeetsAutoTranscribeThreshold(
 				getAutoTranscribeChangeThresholdPercent(plugin, job.fileType),
 				pageData.meta.bboxCellsAtLastTranscription,
@@ -843,7 +865,12 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			requeuePendingJob(job, { atFront: true });
 			return;
 		}
-		const transcript = await transcribeWriting(svgFileContent);
+		let transcript: string;
+		if (pageDataUsesPhotoTranscription(pageData)) {
+			transcript = await transcribeWritingSourcePhoto(plugin, job.filePath, pageData);
+		} else {
+			transcript = await transcribeWriting(svgFileContent);
+		}
 		if (userCancelledInflightPaths.has(job.filePath)) return;
 		const lastTranscriptionAt = new Date().toISOString();
 		clearTranscriptionFailureState(job.filePath);
@@ -887,6 +914,9 @@ async function runTranscriptionJob(job: HandwritingTranscriptionPendingJob): Pro
 			bboxCellsAtLastTranscription: liveBboxCells,
 		});
 		await patchInkEmbedTranscriptAltsInVault(plugin, job.filePath, job.fileType, transcript);
+		// Credits just changed, so this is the only moment the warning is both accurate
+		// and relevant. Awaited fire-and-forget: a failed check must not fail the job.
+		void maybeShowLowCreditNotice(readAlmostUsefulSession());
 	} catch (error) {
 		if (!userCancelledInflightPaths.has(job.filePath)) {
 			const jobError = asHandwritingTranscriptionJobError(error);
@@ -993,4 +1023,23 @@ async function publishHeldTranscript(held: HandwritingTranscriptionHeldResult): 
 	});
 	await patchInkEmbedTranscriptAltsInVault(plugin, held.filePath, held.fileType, held.transcript);
 	return true;
+}
+
+/**
+ * Skips the next vault modify auto-enqueue for one SVG path (photo import trace write).
+ */
+export function suppressAutoTranscribeOnNextVaultModify(filePath: string): void {
+	suppressAutoTranscribeOnNextVaultModifyPaths.add(filePath);
+}
+
+/**
+ * Enqueues transcription after a photo writing file is saved (JPEG source when signed in).
+ */
+export async function enqueueTranscriptionAfterPhotoImport(filePath: string): Promise<void> {
+	await enqueueAuto(filePath);
+}
+
+function pageDataUsesPhotoTranscription(pageData: InkFileData): boolean {
+	if (pageData.meta.transcriptFrom !== 'photo') return false;
+	return !!pageData.meta.sourceImage;
 }

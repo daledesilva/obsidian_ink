@@ -194,7 +194,7 @@ Conversion between `inkDrawing` and `inkWriting` changes only the tldraw store (
 ### Flow
 
 1. **Close open ink views.** Any workspace leaves showing this file in the writing or drawing view are detached first. This prevents `getViewData()` from overwriting the converted file when those views save.
-2. (Optional) Move the file to the target subfolder if the user chose "Also move file to …".
+2. (Optional) Move the file to the target subfolder if the user chose "Also move file to …". Before the SVG content is rewritten, a photo JPEG is moved or copied when that folder changed. See [Photo-traced files](#photo-traced-files).
 3. Read full file content from vault (`svgStr`).
 4. Extract metadata via `extractInkJsonFromSvg(svgStr)` → `{ meta, tldraw }`.
 5. Transform data: `convertWriteDataToDraw` or `convertDrawDataToWrite`.
@@ -203,8 +203,31 @@ Conversion between `inkDrawing` and `inkWriting` changes only the tldraw store (
 8. Update all markdown notes that embed the file.
 9. **Open in correct view.** After conversion, the file is opened in the matching view type (drawing view for `inkDrawing`, writing view for `inkWriting`).
 
+### Photo-traced files
+
+A photo-traced file stores its JPEG beside the SVG and records that relative path on the file. Ink-canvas conversion rebuilds the file data, so it copies `sourceImage`, `transcriptImage`, and `transcriptFrom` onto the converted file. The stored relative path stays the same.
+
+```mermaid
+flowchart LR
+  SvgMove[SVG reaches final folder]
+  ReadPhoto[Read photo paths from original SVG location]
+  MoveJpeg[Move or copy JPEGs]
+  Convert[Rewrite SVG]
+  KeepMeta[Keep the same relative paths]
+  SvgMove --> ReadPhoto --> MoveJpeg --> Convert --> KeepMeta
+```
+
+- An in-place move renames each JPEG into the new folder. The old folder does not keep it.
+- A duplicate copies each JPEG. The original file keeps its photo.
+- A conversion that stays in the same folder does nothing to the JPEG. A same-folder duplicate keeps sharing that file, because the relative path still points at it.
+- The lookup uses the original SVG path. Rename does not move the JPEG, and duplicate copies only the SVG, so the bytes are still beside the original until this step.
+- A missing JPEG is skipped. If a file is already at the destination path, it is left in place and the conversion reports that photo step as failed. The SVG conversion still runs.
+- `transcript-from="photo"` stays until the user edits strokes. Later transcription then uses the ink SVG.
+
 ### Technical gotchas
 
+- **Do not drop the photo link when rebuilding an ink-canvas file.** The Photo tab and transcription resolve `source-image` beside the SVG. Moving only the SVG leaves the JPEG in the old folder.
+- **Do not overwrite a JPEG that is already at the destination.** Leave it, report the failure, and still convert the SVG.
 - **`buildFileStr` expects full SVG content.** The `svgString` parameter must be the complete SVG file (including any existing metadata). When re-serializing an existing file (e.g. during conversion), pass the raw file content, not `data.svgString` — `extractInkJsonFromSvg` does not return `svgString`.
 - **`buildFileStr` strips existing metadata before appending.** When the input `svgString` already contains `<metadata>`, both ink-canvas and tldraw builders remove those blocks before adding the new metadata. Ink-canvas uses a **global** string replace so a stale first metadata block cannot win on the next load (`extractInkJsonFromSvg` reads `getElementsByTagName('metadata')[0]`).
 - **Ink-canvas metadata JSON is compact** — no pretty-print indentation. Snapshot text is XML-escaped (`&`, `<`, `>`). Do not reintroduce whole-file `xml-formatter` on the ink-canvas path; it recreates the large-attachment hitch.

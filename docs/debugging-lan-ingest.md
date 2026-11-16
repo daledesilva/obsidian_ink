@@ -119,6 +119,9 @@ esbuild defines `INK_DEBUG_LAN_IPV4` from `ipconfig getifaddr en0` / `en1` (or `
 |--------|---------|
 | `bash scripts/ingest-lan-relay.sh` | `0.0.0.0:7662` → `INGEST_RELAY_TARGET_HOST:INGEST_RELAY_TARGET_PORT` (defaults `127.0.0.1:7662`) |
 | `python3 scripts/ingest-lan-collector.py` | HTTP POST sink + CORS; GET `/` returns `{ ok, session, log }` |
+| `bash scripts/write-debug-ingest-offer.sh` | Writes `.cursor/debug-ingest-offer.json` (host, port, ingest path, session, token) |
+| `python3 scripts/debug-ingest-offer-sidecar.py` | Serves that file at `GET /offer` on port **7663** |
+| `bash scripts/print-debug-ingest-settings.sh` | Prints the LAN host and whether the offer file exists |
 
 ---
 
@@ -131,3 +134,4 @@ esbuild defines `INK_DEBUG_LAN_IPV4` from `ipconfig getifaddr en0` / `en1` (or `
 - **Do not use `fetch`** for ingest on Obsidian mobile; keep **`requestUrl`** for the async path.
 - **Copy local `dist/`** for this instrumentation. **`npm run internal-release`** builds committed code on CI only.
 - **Never log vault contents or secrets** in ingest payloads.
+- **The offer file is not read by Ink.** `src/` has no Connect control and does not call port 7663. A reproduction still needs the baked LAN URL, `scripts/ingest-lan-relay.sh`, and a copy of local `dist/`. The offer scripts only publish the session for a client that knows to request `/offer`. `/debug-ingest` starts them; it does not replace the bake-and-copy steps above.

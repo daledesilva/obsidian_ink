@@ -34,6 +34,7 @@ export default defineConfig([
 			"scripts/**",
 			"qa-test-vault/**",
 			"tests/**",
+			"src/logic/photo-trace/assembly/**",
 			"wdio.conf.mts",
 			"version-bump.mjs",
 		],

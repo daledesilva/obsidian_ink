@@ -231,7 +231,25 @@ flowchart TD
 
 The listener is dispatched immediately on mount with a synthetic `scroll` event to handle the case where the embed is already partially scrolled off-screen when it first renders.
 
+The `PrimaryMenuBar` and `SecondaryMenuBar` positioning maths is extracted into `logic/utils/menu-bar-scroll-position.ts` (`computePrimaryMenuBarTop`, `computeSecondaryMenuBarBottom`) so it can be unit tested. The components only measure rects and apply the returned offset.
+
 **Note:** A focus-based approach (show menu on focusin, hide on focusout) was explored but is currently commented out. The scroll-tracking approach was retained because it does not require the user to interact with the embed to see the menu.
+
+### Listener lifetime is not optional
+
+Both menu bars subscribe inside `useEffect` with an **empty dependency array** and remove the listener on cleanup. Two earlier defects combined to park the toolbar inside the canvas:
+
+1. Cleanup removed the listener from a `useRef` that was **never assigned**, so the handler was never detached.
+2. The effect had **no dependency array**, so every render subscribed another handler.
+
+Multiple live handlers then took turns writing `menuBar.style.top` from stale closures, and the bar could end up positioned inside the drawing area instead of above it.
+
+Rules that keep this correct:
+
+- Store the subscribed element in a local variable (or a ref that is actually assigned) so cleanup targets the same element.
+- Keep the dependency array empty; the component only needs to subscribe once per mount.
+- Measure rects per event; do not cache `getBoundingClientRect()` results in closures.
+- `SecondaryMenuBar` also clears its delayed initial `scroll` dispatch timer on cleanup.
 
 ---
 

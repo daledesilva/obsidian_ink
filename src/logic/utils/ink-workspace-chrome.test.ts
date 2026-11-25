@@ -44,7 +44,7 @@ interface FakeLeaf {
 }
 
 function installWorkspace(activeLeafId: string) {
-	const leafChangeListeners: Array<() => void> = [];
+	const leafChangeListeners: Array<(leaf: { id: string } | null) => void> = [];
 	const leftSplit: FakeSplit = {
 		collapsed: false,
 		collapse() { leftSplit.collapsed = true; },
@@ -60,7 +60,10 @@ function installWorkspace(activeLeafId: string) {
 		leftSplit,
 		rightSplit,
 		activeLeaf: { id: activeLeafId } as { id: string } | null,
-		on(name: string, callback: () => void) {
+		getMostRecentLeaf() {
+			return workspace.activeLeaf;
+		},
+		on(name: string, callback: (leaf: { id: string } | null) => void) {
 			if (name === 'active-leaf-change') leafChangeListeners.push(callback);
 			return { name };
 		},
@@ -69,7 +72,7 @@ function installWorkspace(activeLeafId: string) {
 			return leaves.get(id) ?? null;
 		},
 		emitActiveLeafChange() {
-			for (const callback of leafChangeListeners) callback();
+			for (const callback of leafChangeListeners) callback(workspace.activeLeaf);
 		},
 	};
 	setGlobals({

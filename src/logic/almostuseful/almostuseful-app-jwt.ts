@@ -16,7 +16,7 @@ export function readAlmostUsefulAppJwtClaims(accessToken: string): AlmostUsefulA
 	if (parts.length < 2) return null;
 	try {
 		const padded = padBase64Url(parts[1]);
-		const json = atob(padded);
+		const json = window.atob(padded);
 		const parsedUnknown: unknown = JSON.parse(json);
 		if (!parsedUnknown || typeof parsedUnknown !== 'object') return null;
 		const parsed = parsedUnknown as Record<string, unknown>;

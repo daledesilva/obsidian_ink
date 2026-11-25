@@ -146,7 +146,7 @@ export function WritingEmbed (props: {
 		// and CodeMirror never remeasures until the user toggles away and back.
 		if (showTranscript) {
 			resizeContainer.classList.remove('ddc_ink_smooth-transition');
-			resizeContainer.style.height = 'auto';
+			resizeContainer.setCssProps({ height: 'auto' });
 			resizeContainer.setAttribute('data-ink-display-mode', 'text');
 			previousHeightRef.current = null;
 			return;

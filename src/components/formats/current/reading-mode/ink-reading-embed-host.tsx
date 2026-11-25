@@ -219,7 +219,7 @@ const InkReadingEmbedContent: React.FC<InkReadingEmbedContentProps> = (props) =>
 				resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
 				resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
 				if (!transcriptHeightIsReady) {
-					resizeContainerEl.style.height = 'auto';
+					resizeContainerEl.setCssProps({ height: 'auto' });
 				}
 			} else if (showPhoto) {
 				resizeContainerEl.setAttribute('data-ink-display-mode', 'photo');

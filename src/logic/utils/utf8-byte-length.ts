@@ -9,6 +9,10 @@
  * jsdom environment does not, so this falls back through the other host globals instead
  * of silently comparing character counts against a byte budget.
  */
+declare const Buffer:
+	| { byteLength: (value: string, encoding: 'utf8') => number }
+	| undefined;
+
 export function utf8ByteLength(text: string): number {
 	if (typeof Buffer !== 'undefined') return Buffer.byteLength(text, 'utf8');
 	if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(text).length;

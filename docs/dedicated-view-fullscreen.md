@@ -82,7 +82,7 @@ The hidden class is `ddc_ink_hide-workspace-chrome` on `document.body`. `src/sty
 
 `display: none` is required. Obsidian's own rules set `display: flex` on the ribbon and the view header, so a lower-specificity hide does not win. The status bar is `position: fixed`; removing it from layout is what stops it covering the canvas.
 
-The class is applied only while `workspace.activeLeaf` is the leaf that owns the session (`active-leaf-change`). Unloading the plugin calls `releaseInkWorkspaceChromeOnPluginUnload`.
+The class is applied only while the active leaf (from `active-leaf-change`, falling back to `workspace.getMostRecentLeaf()` on direct sync) is the leaf that owns the session. Unloading the plugin calls `releaseInkWorkspaceChromeOnPluginUnload`.
 
 Writing and drawing both use `InkCanvasDrawingMenu`. Menu order in the left quick menu, when each control applies:
 

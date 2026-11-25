@@ -167,15 +167,17 @@ function ensureActiveLeafListener(): void {
 	if (leafListenerRegistered) return;
 	leafListenerRegistered = true;
 	const plugin = getGlobals().plugin;
-	plugin.registerEvent(plugin.app.workspace.on('active-leaf-change', () => {
-		syncBodyClass();
+	plugin.registerEvent(plugin.app.workspace.on('active-leaf-change', (leaf) => {
+		syncBodyClass(leaf?.id ?? null);
 	}));
 }
 
 /** Body class follows the active leaf so switching notes brings chrome back. */
-function syncBodyClass(): void {
-	const activeLeafId = getGlobals().plugin.app.workspace.activeLeaf?.id ?? null;
-	const shouldHide = chromeHiddenLeafId != null && activeLeafId === chromeHiddenLeafId;
+function syncBodyClass(activeLeafId?: string | null): void {
+	const currentLeafId = activeLeafId !== undefined
+		? activeLeafId
+		: (getGlobals().plugin.app.workspace.getMostRecentLeaf()?.id ?? null);
+	const shouldHide = chromeHiddenLeafId != null && currentLeafId === chromeHiddenLeafId;
 	document.body.classList.toggle(INK_WORKSPACE_CHROME_HIDDEN_CLASS, shouldHide);
 }
 

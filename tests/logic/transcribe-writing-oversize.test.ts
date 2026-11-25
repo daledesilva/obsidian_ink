@@ -34,18 +34,16 @@ jest.mock('src/logic/almostuseful/almostuseful-handwriting-transcription', () =>
 const postJob = jest.mocked(postHandwritingTranscriptionJob);
 
 /**
- * Node has no DOM canvas. The JPEG fallback renders through `document.createElement`.
+ * Node has no DOM canvas. The JPEG fallback renders through Obsidian's global `createEl`.
  */
 function installNodeCanvas(): void {
-	Object.defineProperty(globalThis, 'document', {
+	Object.defineProperty(globalThis, 'createEl', {
 		configurable: true,
-		value: {
-			createElement: (tagName: string) => {
-				if (tagName !== 'canvas') {
-					throw new Error(`Unexpected element ${tagName}`);
-				}
-				return createNodeWritingSvgCanvas();
-			},
+		value: (tagName: string) => {
+			if (tagName !== 'canvas') {
+				throw new Error(`Unexpected element ${tagName}`);
+			}
+			return createNodeWritingSvgCanvas();
 		},
 	});
 }

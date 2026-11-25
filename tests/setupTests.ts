@@ -19,6 +19,26 @@ if (
 	});
 }
 
+// Obsidian adds HTMLElement.setCssProps for dynamic styles; jsdom does not.
+if (
+	typeof HTMLElement !== 'undefined' &&
+	typeof (HTMLElement.prototype as { setCssProps?: unknown }).setCssProps !== 'function'
+) {
+	Object.defineProperty(HTMLElement.prototype, 'setCssProps', {
+		configurable: true,
+		writable: true,
+		value: function setCssProps(this: HTMLElement, props: Record<string, string>): void {
+			for (const [key, value] of Object.entries(props)) {
+				if (key.startsWith('--')) {
+					this.style.setProperty(key, value);
+				} else {
+					(this.style as unknown as Record<string, string>)[key] = value;
+				}
+			}
+		},
+	});
+}
+
 // Obsidian globals for popout-safe DOM access; jsdom only provides `document` / `window`.
 if (
 	typeof document !== 'undefined' &&

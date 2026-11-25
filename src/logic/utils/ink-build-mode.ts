@@ -1,6 +1,8 @@
 //////////
 //////////
 
+declare const process: { env: { NODE_ENV?: string } };
+
 /**
  * esbuild replaces `process.env.NODE_ENV` at compile time.
  * `npm run dev` and `open-qa` bake 'development'. `npm run build` bakes 'production'.

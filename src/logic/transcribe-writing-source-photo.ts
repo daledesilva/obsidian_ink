@@ -1,4 +1,4 @@
-import { TFile } from 'obsidian';
+import { arrayBufferToBase64, TFile } from 'obsidian';
 import type { InkFileData } from 'src/components/formats/current/types/file-data';
 import {
 	buildHandwritingTranscriptionJobRequest,
@@ -12,15 +12,6 @@ import InkPlugin from 'src/main';
 
 //////////
 //////////
-
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-	const bytes = new Uint8Array(buffer);
-	let binary = '';
-	for (let i = 0; i < bytes.length; i++) {
-		binary += String.fromCharCode(bytes[i]);
-	}
-	return btoa(binary);
-}
 
 /**
  * Transcribes handwriting from the source JPEG linked on a photo-imported writing file.

@@ -30,7 +30,7 @@ export function warpQuadToCanvas(
 		corners,
 		maxEdgePx,
 	);
-	const dest = document.createElement('canvas');
+	const dest = createEl('canvas');
 	dest.width = warped.width;
 	dest.height = warped.height;
 	const destContext = dest.getContext('2d');

@@ -21,7 +21,7 @@ export async function encodeWritingPhotoJpeg(
 	const scale = longEdge > PHOTO_LONG_EDGE_PX ? PHOTO_LONG_EDGE_PX / longEdge : 1;
 	const width = Math.max(1, Math.round(bitmap.width * scale));
 	const height = Math.max(1, Math.round(bitmap.height * scale));
-	const canvas = document.createElement('canvas');
+	const canvas = createEl('canvas');
 	canvas.width = width;
 	canvas.height = height;
 	const context = canvas.getContext('2d');

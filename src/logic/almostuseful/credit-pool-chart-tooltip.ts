@@ -67,10 +67,10 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 	// Module `document` is the main vault window — mounting tippy there pins the
 	// tooltip to that window's origin, far from the chart.
 	const ownerDocument = props.svg.ownerDocument;
-	const anchor = ownerDocument.createElement('div');
-	anchor.className = 'ddc_ink_almostuseful-chart-tooltip-anchor';
-	anchor.setAttribute('aria-hidden', 'true');
-	ownerDocument.body.appendChild(anchor);
+	const anchor = ownerDocument.body.createDiv({
+		cls: 'ddc_ink_almostuseful-chart-tooltip-anchor',
+		attr: { 'aria-hidden': 'true' },
+	});
 
 	const pointer = { x: 0, y: 0 };
 	const session: CreditPoolChartTooltipSession = {

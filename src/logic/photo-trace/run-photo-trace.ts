@@ -17,7 +17,7 @@ export async function decodePhotoToCanvas(
 	const scale = longEdge > maxEdgePx ? maxEdgePx / longEdge : 1;
 	const width = Math.max(1, Math.round(bitmap.width * scale));
 	const height = Math.max(1, Math.round(bitmap.height * scale));
-	const canvas = document.createElement('canvas');
+	const canvas = createEl('canvas');
 	canvas.width = width;
 	canvas.height = height;
 	const context = canvas.getContext('2d');
@@ -56,7 +56,7 @@ export function canvasFromRgba(
 	width: number,
 	height: number,
 ): HTMLCanvasElement {
-	const canvas = document.createElement('canvas');
+	const canvas = createEl('canvas');
 	canvas.width = width;
 	canvas.height = height;
 	const context = canvas.getContext('2d');
@@ -75,7 +75,7 @@ export function scaleImageDataToMaxEdge(image: ImageData, maxEdgePx: number): Im
 	const width = Math.max(1, Math.round(image.width * scale));
 	const height = Math.max(1, Math.round(image.height * scale));
 	const source = canvasFromRgba(image.data, image.width, image.height);
-	const scaled = document.createElement('canvas');
+	const scaled = createEl('canvas');
 	scaled.width = width;
 	scaled.height = height;
 	const context = scaled.getContext('2d');

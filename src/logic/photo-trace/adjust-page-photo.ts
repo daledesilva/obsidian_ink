@@ -112,7 +112,7 @@ export function adjustedPageCanvas(
 	const sourceContext = source.getContext('2d');
 	if (!sourceContext) throw new Error('Could not read the page photo');
 	const sourceImage = sourceContext.getImageData(0, 0, source.width, source.height);
-	const destCanvas = document.createElement('canvas');
+	const destCanvas = createEl('canvas');
 	destCanvas.width = source.width;
 	destCanvas.height = source.height;
 	const destContext = destCanvas.getContext('2d');

@@ -118,9 +118,6 @@ function defaultCreateCanvas(): HTMLCanvasElement {
 	if (typeof createEl === 'function') {
 		return createEl('canvas');
 	}
-	if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
-		return document.createElement('canvas');
-	}
 	throw new Error('No DOM canvas available; pass createCanvas for Node rasterization');
 }
 

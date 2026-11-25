@@ -102,6 +102,10 @@ export function getHandwritingTranscriptionVariant(
 	return variant;
 }
 
+declare const Buffer:
+	| { from: (value: string, encoding: 'utf8') => { toString: (encoding: 'base64') => string } }
+	| undefined;
+
 /** UTF-8 SVG string → base64 without a data-URI prefix. */
 export function encodeUtf8TextToBase64(text: string): string {
 	if (typeof Buffer !== 'undefined') {
@@ -112,7 +116,7 @@ export function encodeUtf8TextToBase64(text: string): string {
 	for (const byte of bytes) {
 		binary += String.fromCharCode(byte);
 	}
-	return btoa(binary);
+	return window.btoa(binary);
 }
 
 export interface PrepareHandwritingTranscriptionMediaOptions {

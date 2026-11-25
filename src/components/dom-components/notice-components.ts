@@ -136,7 +136,7 @@ let noticeHeightGeneration = 0;
  */
 function transitionShellHeight(shellEl: HTMLElement, fromHeight: number): void {
     const generation = ++noticeHeightGeneration;
-    shellEl.style.setProperty('height', 'fit-content', 'important');
+    shellEl.style.removeProperty('height');
     const toHeight = shellEl.offsetHeight;
     const motionMs = pageMotionMs(shellEl);
     if (fromHeight === toHeight || motionMs === 0) {

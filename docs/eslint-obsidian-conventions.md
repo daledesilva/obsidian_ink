@@ -79,6 +79,7 @@ Bulk migration is opened from **Settings** (legacy migrate card and developer tl
 jsdom does not ship Obsidian’s extras. `tests/setupTests.ts` polyfills:
 
 - `Node.prototype.instanceOf` → `instanceof`
+- `HTMLElement.prototype.setCssProps` → inline style / CSS custom property setter
 - `activeDocument` / `activeWindow` → `document` / `window`
 
 Unit tests therefore exercise the same call sites as the plugin under Obsidian.

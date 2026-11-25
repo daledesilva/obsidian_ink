@@ -1,4 +1,3 @@
-import { Platform } from 'obsidian';
 import { ALMOSTUSEFUL_CLIENT_DISPLAY_NAME, ALMOSTUSEFUL_CLIENT_ID } from 'src/logic/almostuseful/almostuseful-constants';
 import { readOrCreateAlmostUsefulDeviceInstall } from 'src/logic/almostuseful/almostuseful-device';
 import { persistAlmostUsefulTokenResponse } from 'src/logic/almostuseful/almostuseful-token-persist';
@@ -51,14 +50,7 @@ export interface AlmostUsefulDevicePoller {
 
 /** Opens a portal URL in the system browser. */
 export function openAlmostUsefulBrowserUrl(url: string): void {
-	if (Platform.isDesktop) {
-		const electron = require('electron') as {
-			shell: { openExternal: (target: string) => Promise<void> };
-		};
-		void electron.shell.openExternal(url);
-		return;
-	}
-	window.open(url);
+	window.open(url, '_blank');
 }
 
 /**
@@ -70,7 +62,7 @@ export async function requestAlmostUsefulDeviceCode(): Promise<
 > {
 	const failure = { ok: false as const, error: 'Could not start Almost Useful sign-in. Try again.' };
 	const portalOrigin = resolveAlmostUsefulPortalOrigin();
-	const deviceInstall = readOrCreateAlmostUsefulDeviceInstall();
+	const deviceInstall = await readOrCreateAlmostUsefulDeviceInstall();
 	let response: { status: number; json: unknown };
 	// requestUrl has no abort. Racing a timer lets the button recover if the portal never answers.
 	let timeoutId = 0;

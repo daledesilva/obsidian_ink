@@ -136,33 +136,6 @@ function showOtherSectionsWelcomeTip(plugin: InkPlugin, pagedNotice: PagedNotice
     });
 }
 
-/** Unused placeholder page. Stays on the same notice if a caller wires it in later. */
-function showiPadWelcomeTip(plugin: InkPlugin, pagedNotice: PagedNotice) {
-    pagedNotice.setPage((host) => {
-        host.scrollAreaEl.createEl('h1').setText(`Placeholder...`);
-        host.scrollAreaEl.createEl('p').setText(`Placeholder.`);
-
-        const {
-            primaryBtnEl,
-            tertiaryBtnEl,
-        } = createNoticeCtaBar(host.footerEl, {
-            primaryLabel: 'Continue',
-            tertiaryLabel: 'Remind me later',
-        })
-
-        if(tertiaryBtnEl) {
-            tertiaryBtnEl.addEventListener('click', () => {
-                remindWelcomeLater(pagedNotice);
-            });
-        }
-        if(primaryBtnEl) {
-            primaryBtnEl.addEventListener('click', () => {
-                showSyncingWelcomeTip(plugin, pagedNotice);
-            });
-        }
-    });
-}
-
 /** Vault sync page. Remind me later hides the card and does not mark the series read. */
 function showSyncingWelcomeTip(plugin: InkPlugin, pagedNotice: PagedNotice) {
     pagedNotice.setPage((host) => {

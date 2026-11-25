@@ -156,7 +156,7 @@ export function readAlmostUsefulDebugConfig(): AlmostUsefulDebugConfig {
 	try {
 		const parsedUnknown: unknown = JSON.parse(raw);
 		if (!parsedUnknown || typeof parsedUnknown !== 'object') return {};
-		return parsedUnknown as AlmostUsefulDebugConfig;
+		return parsedUnknown;
 	} catch {
 		return {};
 	}

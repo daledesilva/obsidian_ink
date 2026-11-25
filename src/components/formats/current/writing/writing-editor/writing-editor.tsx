@@ -117,7 +117,7 @@ export function WritingEditor(props: WritingEditorProps) {
 	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
 	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
-	const [booxConnected, setBooxConnected] = React.useState(false);
+	const [, setBooxConnected] = React.useState(false);
 	const resizePostProcessTimeoutRef = useRef<number>();
 	const shortDelayTimerRef = useRef<number>();
 	const canvasInteractionActiveRef = useRef(false);
@@ -1157,7 +1157,7 @@ export function WritingEditor(props: WritingEditorProps) {
 				/>
 				{props.embedded && (
 					<ExtendedWritingMenu
-						onLockClick={() => props.closeEditor?.()}
+						onLockClick={() => { void props.closeEditor?.(); }}
 						menuOptions={overflowMenuOptions}
 					/>
 				)}

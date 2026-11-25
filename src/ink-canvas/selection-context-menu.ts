@@ -46,7 +46,7 @@ export function isKeyboardEventForInkEditor(canvasContainer: HTMLElement | null)
 }
 
 function isTextEditingElement(node: Node): boolean {
-	if (!(node instanceof HTMLElement)) return false;
+	if (!node.instanceOf(HTMLElement)) return false;
 	if (node.isContentEditable) return true;
 	const tag = node.tagName;
 	return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';

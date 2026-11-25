@@ -1,7 +1,7 @@
 /**
  * Runtime WorkspaceLeaf has a stable `id` (Obsidian API); older @types may omit it.
  */
-import 'obsidian';
+import type { EventRef } from 'obsidian';
 
 declare module 'obsidian' {
 	interface WorkspaceLeaf {

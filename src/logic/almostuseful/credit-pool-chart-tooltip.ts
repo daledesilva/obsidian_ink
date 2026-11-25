@@ -1,4 +1,4 @@
-import tippy, { type Instance, type Props } from 'tippy.js';
+import tippy, { type Instance } from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
 
 /////////
@@ -68,13 +68,8 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 	// tooltip to that window's origin, far from the chart.
 	const ownerDocument = props.svg.ownerDocument;
 	const anchor = ownerDocument.createElement('div');
+	anchor.className = 'ddc_ink_almostuseful-chart-tooltip-anchor';
 	anchor.setAttribute('aria-hidden', 'true');
-	anchor.style.position = 'fixed';
-	anchor.style.top = '0';
-	anchor.style.left = '0';
-	anchor.style.width = '0';
-	anchor.style.height = '0';
-	anchor.style.pointerEvents = 'none';
 	ownerDocument.body.appendChild(anchor);
 
 	const pointer = { x: 0, y: 0 };
@@ -121,7 +116,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 				},
 			],
 		},
-	} as Partial<Props>);
+	});
 	session.instance = instance;
 
 	const clearHideTimeout = () => {
@@ -172,7 +167,7 @@ export function bindCreditPoolChartTooltips(props: BindCreditPoolChartTooltipsPr
 			session.shownAt = Date.now();
 			instance.show();
 		}
-		instance.popperInstance?.update();
+		void instance.popperInstance?.update();
 	};
 
 	const targetFromEvent = (event: PointerEvent): CreditPoolChartTooltipTarget | null => {

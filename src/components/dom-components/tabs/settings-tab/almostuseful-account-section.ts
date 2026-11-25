@@ -644,7 +644,7 @@ async function loadUsageInto(
 	usageChartsResizeObserver = null;
 	destroyCreditPoolChartTooltips();
 
-	const refreshButtonEl = document.createElement('button');
+	const refreshButtonEl = createEl('button');
 	refreshButtonEl.type = 'button';
 	refreshButtonEl.className = 'clickable-icon ddc_ink_almostuseful-refresh';
 	refreshButtonEl.setAttribute('aria-label', 'Refresh credit usage');

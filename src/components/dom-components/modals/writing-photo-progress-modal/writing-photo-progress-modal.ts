@@ -71,7 +71,7 @@ class WritingPhotoProgressModal extends Modal {
 		if (!this.barEl || !this.barFillEl) return;
 		if (percent == null || !Number.isFinite(percent)) {
 			this.barEl.addClass('is-indeterminate');
-			this.barFillEl.style.width = '';
+			this.barFillEl.style.removeProperty('width');
 			return;
 		}
 		this.barEl.removeClass('is-indeterminate');
@@ -95,7 +95,7 @@ class WritingPhotoProgressModal extends Modal {
 	private appendLogLine(stage: string): void {
 		if (!this.logEl) return;
 		this.lastLoggedStage = stage;
-		const lineEl = this.logEl.createEl('div', {
+		const lineEl = this.logEl.createDiv({
 			text: stage,
 			cls: 'ddc_ink_photo-progress__log-line',
 		});

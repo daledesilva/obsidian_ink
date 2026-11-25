@@ -248,23 +248,25 @@ class WritingPhotoPageModal extends Modal {
 		setIcon(busyEl, 'loader-2');
 		this.busyEl = busyEl;
 
-		const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		overlay.setAttribute('class', 'ddc_ink_photo-page__overlay');
+		const overlay = stage.createSvg('svg', { cls: 'ddc_ink_photo-page__overlay' });
 		this.overlayEl = overlay;
 		// Even-odd path dims the photo outside the selected quad with the theme background.
-		const outsideMask = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		outsideMask.setAttribute('class', 'ddc_ink_photo-page__outside-mask');
-		outsideMask.setAttribute('fill', 'var(--background-primary)');
-		outsideMask.setAttribute('fill-opacity', '0.5');
-		outsideMask.setAttribute('fill-rule', 'evenodd');
+		const outsideMask = overlay.createSvg('path', {
+			cls: 'ddc_ink_photo-page__outside-mask',
+			attr: {
+				fill: 'var(--background-primary)',
+				'fill-opacity': '0.5',
+				'fill-rule': 'evenodd',
+			},
+		});
 		this.outsideMaskEl = outsideMask;
-		overlay.appendChild(outsideMask);
-		const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-		polygon.setAttribute('fill', 'none');
-		polygon.setAttribute('stroke', 'var(--interactive-accent)');
+		const polygon = overlay.createSvg('polygon', {
+			attr: {
+				fill: 'none',
+				stroke: 'var(--interactive-accent)',
+			},
+		});
 		this.polygonEl = polygon;
-		overlay.appendChild(polygon);
-		stage.appendChild(overlay);
 
 		this.handles = [];
 		for (let index = 0; index < 4; index++) {

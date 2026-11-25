@@ -47,13 +47,13 @@ function installWorkspace(activeLeafId: string) {
 	const leafChangeListeners: Array<() => void> = [];
 	const leftSplit: FakeSplit = {
 		collapsed: false,
-		collapse() { this.collapsed = true; },
-		expand() { this.collapsed = false; },
+		collapse() { leftSplit.collapsed = true; },
+		expand() { leftSplit.collapsed = false; },
 	};
 	const rightSplit: FakeSplit = {
 		collapsed: false,
-		collapse() { this.collapsed = true; },
-		expand() { this.collapsed = false; },
+		collapse() { rightSplit.collapsed = true; },
+		expand() { rightSplit.collapsed = false; },
 	};
 	const leaves = new Map<string, FakeLeaf>();
 	const workspace = {

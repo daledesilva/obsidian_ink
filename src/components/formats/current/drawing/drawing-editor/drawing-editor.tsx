@@ -19,7 +19,6 @@ import { verbose } from 'src/logic/utils/universal-dev-logging';
 import { logToVault } from 'src/logic/utils/log-to-vault';
 import { getBooxConnectionEnabled } from 'src/logic/device-settings/device-settings';
 import { buildBooxCornerMarkers } from 'src/connections/boox/boox-corner-markers';
-import { useBooxConnectionEnabled } from 'src/logic/device-settings/use-boox-connection-enabled';
 import { useFingerDrawingEnabled } from 'src/logic/device-settings/use-finger-drawing-enabled';
 import { restoreEmbedCmScrollerScroll } from 'src/logic/utils/restore-embed-cm-scroller-scroll';
 import { getGlobals } from 'src/stores/global-store';
@@ -144,7 +143,6 @@ export function DrawingEditor(props: DrawingEditorProps) {
 
 	const dominantHand = useDominantHand();
 	const workspaceChrome = useDedicatedInkWorkspaceChrome(props.workspaceLeafId, !props.embedded);
-	const isBooxConnectionEnabled = useBooxConnectionEnabled();
 	const isFingerDrawingGloballyEnabled = useFingerDrawingEnabled();
 	const [isFingerDrawingActive, setIsFingerDrawingActive] = React.useState(false);
 	const [initialSnapshot, setInitialSnapshot] = React.useState<InkCanvasSnapshot>();
@@ -959,7 +957,7 @@ export function DrawingEditor(props: DrawingEditorProps) {
 					<ExtendedDrawingMenu
 						onSaveCameraClick={handleSaveCameraPosition}
 						isSaveCameraEnabled={isSaveCameraEnabled}
-						onLockClick={() => props.closeEditor?.()}
+						onLockClick={() => { void props.closeEditor?.(); }}
 						menuOptions={customExtendedMenu}
 					/>
 				)}

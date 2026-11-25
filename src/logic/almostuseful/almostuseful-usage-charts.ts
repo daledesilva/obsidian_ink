@@ -439,7 +439,7 @@ function resolveTooltipTarget(
 ): CreditPoolChartTooltipTarget | null {
 	let current: Element | null = element;
 	while (current) {
-		if (current instanceof SVGElement) {
+		if (current.instanceOf(SVGElement)) {
 			const target = targets.get(current);
 			if (target) return target;
 		}

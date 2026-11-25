@@ -492,6 +492,16 @@
 	filter: brightness(1.15);
 }
 
+/* Static layout lives in SCSS (eslint no-static-styles-assignment); runtime pointer coords update left/top. */
+.ddc_ink_almostuseful-chart-tooltip-anchor {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 0;
+	height: 0;
+	pointer-events: none;
+}
+
 .tippy-box[data-theme~='ddc_ink_almostuseful-chart'] {
 	background: var(--background-primary);
 	color: var(--text-normal);

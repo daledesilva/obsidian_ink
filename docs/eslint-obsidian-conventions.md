@@ -67,7 +67,7 @@ Config lives in `eslint.config.mjs`:
 | `prefer-window-timers` | Use `window.requestAnimationFrame` (and other window timers) so callbacks run on the correct window. |
 | `prefer-instanceof` | Use `element.instanceOf(HTMLImageElement)` (etc.) instead of `instanceof` for cross-window checks. For `querySelector` results that need layout metrics, use `instanceof HTMLElement` — not `as HTMLElement` casts (see embed height sync below). |
 | `prefer-file-manager-trash-file` | Permanent migrate and “remove and delete file” call `app.fileManager.trashFile`. |
-| `no-static-styles-assignment` | Static layout lives in SCSS. Runtime scroll-lock teardown uses `setCssProps()` (`clearInkCmScrollerScrollLock_debounced` / `clearInkCmScrollerScrollLockOverflowOnly`) — not `element.style.*` literals. |
+| `no-static-styles-assignment` | Static layout lives in SCSS (e.g. `.ddc_ink_almostuseful-chart-tooltip-anchor`). Clearing an inline override uses `style.removeProperty(...)`; runtime scroll-lock teardown uses `setCssProps()` (`clearInkCmScrollerScrollLock_debounced` / `clearInkCmScrollerScrollLockOverflowOnly`) — not `element.style.*` literals. |
 | `ui/sentence-case` | Prefer sentence case (warn). Product names may remain as written; expect warnings rather than blanket disables. |
 
 ### Migration entry points (no palette commands)

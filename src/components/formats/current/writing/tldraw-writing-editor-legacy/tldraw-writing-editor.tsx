@@ -141,7 +141,7 @@ export function TldrawWritingEditor(props: TldrawWritingEditorProps) {
 	const pendingNewOverlayRef = useRef(false);
 	const activateWritingSessionRef = useRef<(() => void) | null>(null);
 	const panZoomCleanupFnsRef = useRef<Array<() => void>>([]);
-	const [booxConnected, setBooxConnected] = React.useState(false);
+	const [, setBooxConnected] = React.useState(false);
 	const pendingBooxStrokeCompletionsRef = useRef(0);
 	const isAndroidDrawingAreaResizingRef = useRef(false);
 	const queuedBooxStrokePayloadsRef = useRef<BooxStrokePayload[]>([]);

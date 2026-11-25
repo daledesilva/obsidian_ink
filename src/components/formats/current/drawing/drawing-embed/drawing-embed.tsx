@@ -184,7 +184,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		if (!resizeContainerEl) return;
 		if (showTranscript) {
 			resizeContainerEl.setAttribute('data-ink-display-mode', 'text');
-			resizeContainerEl.style.maxWidth = '';
+			resizeContainerEl.style.removeProperty('max-width');
 			resizeContainerEl.classList.remove('ddc_ink_smooth-transition');
 		} else if (showPhoto) {
 			// Keep the ink frame size. Photo fills that height and shrinks its width to the image.
@@ -763,7 +763,7 @@ export function DrawingEmbed (props: DrawingEmbed_Props) {
 		const maxWidth = getFullPageWidth(embedContainerElRef.current);
 		if (resizeContainerElRef.current) {
 			if (showTranscriptRef.current) {
-				resizeContainerElRef.current.style.maxWidth = '';
+				resizeContainerElRef.current.style.removeProperty('max-width');
 				return;
 			}
 			resizeContainerElRef.current.style.maxWidth = maxWidth + 'px';

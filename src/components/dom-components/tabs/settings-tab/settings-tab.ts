@@ -1,3 +1,4 @@
+import { insertHandwritingDiagnosticsSettings } from './handwriting-diagnostics-settings';
 import { createSupportButtonSet } from 'src/components/dom-components/support-button-set';
 import './settings-tab.scss';
 import { App, ButtonComponent, Notice, PluginSettingTab, Setting, SliderComponent, TextComponent, ToggleComponent } from "obsidian";
@@ -169,6 +170,7 @@ export class MySettingsTab extends PluginSettingTab {
 			fingerDrawingToggle?.setValue(getFingerDrawingEnabled());
 			stylusSideButtonTemporaryEraseToggle?.setValue(getStylusSideButtonTemporaryEraseEnabled());
 		});
+		insertHandwritingDiagnosticsSettings(containerEl, this.plugin);
 		insertFileOrganisationSection(containerEl, this.plugin);
 
 		new Setting(containerEl)
@@ -497,6 +499,7 @@ function insertExperimentalChangesSection(
 				setStylusSideButtonTemporaryEraseEnabled(value);
 			});
 		});
+
 }
 
 function insertFileOrganisationSection(containerEl: HTMLElement, plugin: InkPlugin) {

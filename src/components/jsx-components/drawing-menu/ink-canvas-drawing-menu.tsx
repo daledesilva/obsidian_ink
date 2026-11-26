@@ -1,6 +1,7 @@
 import './drawing-menu.scss';
 import '../writing-menu/writing-menu.scss';
 import * as React from 'react';
+import { DeleteIcon } from 'src/graphics/icons/delete-icon';
 import { SelectIcon } from 'src/graphics/icons/select-icon';
 import { EraseIcon } from 'src/graphics/icons/erase-icon';
 import { DrawIcon } from 'src/graphics/icons/draw-icon';
@@ -50,10 +51,12 @@ interface InkCanvasDrawingMenuProps {
 export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDrawingMenuProps>((props, ref) => {
 
 	const [curTool, setCurTool] = React.useState<tool>(tool.draw);
+	const [selectedCount, setSelectedCount] = React.useState(0);
 
 	// Sync toolbar highlight when the canvas changes tool (e.g. cmd/ctrl temporary erase).
 	React.useEffect(() => {
 		let unsubscribe: (() => void) | undefined;
+		let unsubscribeSelection: (() => void) | undefined;
 		let pollId: number | undefined;
 
 		const trySubscribe = (): boolean => {
@@ -62,6 +65,7 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 			unsubscribe = editor.subscribeToolChange((inkTool) => {
 				setCurTool(inkToolToMenuTool(inkTool));
 			});
+			unsubscribeSelection = editor.subscribeSelectionChange(setSelectedCount);
 			return true;
 		};
 
@@ -77,6 +81,7 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 		return () => {
 			if (pollId !== undefined) window.clearInterval(pollId);
 			unsubscribe?.();
+			unsubscribeSelection?.();
 		};
 	}, [props.getEditor]);
 
@@ -201,6 +206,14 @@ export const InkCanvasDrawingMenu = React.forwardRef<HTMLDivElement, InkCanvasDr
 				>
 					<EraseIcon />
 				</TooltipButton>
+				{curTool === tool.select && selectedCount > 0 && (
+					<TooltipButton
+						tooltip='Delete selection'
+						onClick={() => props.getEditor()?.deleteSelectedStrokes()}
+					>
+						<DeleteIcon />
+					</TooltipButton>
+				)}
 			</div>
 			<div className='ink_other-menu'>
 			</div>

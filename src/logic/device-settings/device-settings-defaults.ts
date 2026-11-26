@@ -8,6 +8,8 @@ export const DEFAULT_DEVICE_SETTINGS_V1: DeviceSettingsV1 = {
 	booxConnectionEnabled: false,
 	highContrastUserInterface: false,
 	fingerDrawingEnabled: false,
+	eraserTrailEnabled: true,
+	denseEraserDetectionEnabled: true,
 	strokeInputTreatAs: {
 		inkWriting: 'auto',
 		inkDrawing: 'auto',

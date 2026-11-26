@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { inputDiagnostics } from 'src/ink-canvas/input-diagnostics';
 import type { Editor, TLPointerEventInfo } from '@tldraw/tldraw';
 
 import { getPointerSamples } from 'src/ink-canvas/utils/pointer-samples';
@@ -394,6 +395,7 @@ export function FingerBlocker({
 		};
 
 		const handlePointerDown = (e: PointerEvent) => {
+			inputDiagnostics.recordEvent('blocker', e, () => ({ surface: getTlEditor ? 'legacy-tldraw' : 'ink-svg' }));
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				// Let browser back/forward mouse buttons (3 & 4) pass through so
 				// Obsidian's history navigation is not intercepted.
@@ -607,6 +609,7 @@ export function FingerBlocker({
 		};
 
 		const handlePointerMove = (e: PointerEvent) => {
+			inputDiagnostics.recordEvent('blocker', e, () => ({ surface: getTlEditor ? 'legacy-tldraw' : 'ink-svg' }));
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				e.preventDefault();
 				e.stopPropagation();
@@ -827,6 +830,7 @@ export function FingerBlocker({
 		};
 
 		const handlePointerUp = (e: PointerEvent) => {
+			inputDiagnostics.recordEvent('blocker', e, () => ({ surface: getTlEditor ? 'legacy-tldraw' : 'ink-svg' }));
 			if (e.pointerType === 'pen' || e.pointerType === 'mouse') {
 				const penTarget = getPenForwardTarget();
 				if (penTarget && stylusEraserPointerIdsRef.current.has(e.pointerId)) {
@@ -926,6 +930,7 @@ export function FingerBlocker({
 		};
 
 		const handlePointerCancel = (e: PointerEvent) => {
+			inputDiagnostics.recordEvent('blocker', e, () => ({ surface: getTlEditor ? 'legacy-tldraw' : 'ink-svg' }));
 			if (e.pointerType === 'touch' && fingerDrawingPointerIdsRef.current.has(e.pointerId)) {
 				const penTarget = getPenForwardTarget();
 				if (penTarget) {

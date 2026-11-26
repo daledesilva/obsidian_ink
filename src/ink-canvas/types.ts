@@ -145,6 +145,8 @@ export interface InkCanvasEditor {
 
 	// Selection
 	getSelectedStrokeIds(): Set<string>;
+	/** Emits the current selection count immediately, then whenever the selection changes. */
+	subscribeSelectionChange(listener: (count: number) => void): () => void;
 	deleteSelectedStrokes(): void;
 
 	// Data

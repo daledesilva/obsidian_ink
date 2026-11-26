@@ -72,6 +72,14 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		typeof partial.fingerDrawingEnabled === 'boolean'
 			? partial.fingerDrawingEnabled
 			: base.fingerDrawingEnabled;
+	const eraserTrailEnabled =
+		typeof partial.eraserTrailEnabled === 'boolean'
+			? partial.eraserTrailEnabled
+			: base.eraserTrailEnabled;
+	const denseEraserDetectionEnabled =
+		typeof partial.denseEraserDetectionEnabled === 'boolean'
+			? partial.denseEraserDetectionEnabled
+			: base.denseEraserDetectionEnabled;
 	const stylusSideButtonTemporaryErase =
 		typeof partial.stylusSideButtonTemporaryErase === 'boolean'
 			? partial.stylusSideButtonTemporaryErase
@@ -90,6 +98,8 @@ function mergeWithDefaults(partial: unknown): DeviceSettingsV1 {
 		booxConnectionEnabled,
 		highContrastUserInterface,
 		fingerDrawingEnabled,
+		eraserTrailEnabled,
+		denseEraserDetectionEnabled,
 		stylusSideButtonTemporaryErase,
 		strokeInputTreatAs: {
 			inkWriting: partial.strokeInputTreatAs.inkWriting,
@@ -209,6 +219,22 @@ export function setFingerDrawingEnabled(enabled: boolean): void {
 /** Resets finger drawing to default (off). Used by vault "Reset settings". */
 export function resetFingerDrawingToDefault(): void {
 	setFingerDrawingEnabled(DEFAULT_DEVICE_SETTINGS_V1.fingerDrawingEnabled);
+}
+
+export function getEraserTrailEnabled(): boolean {
+	return readDeviceSettings().eraserTrailEnabled;
+}
+
+export function setEraserTrailEnabled(enabled: boolean): void {
+	patchDeviceSettings({ eraserTrailEnabled: enabled });
+}
+
+export function getDenseEraserDetectionEnabled(): boolean {
+	return readDeviceSettings().denseEraserDetectionEnabled;
+}
+
+export function setDenseEraserDetectionEnabled(enabled: boolean): void {
+	patchDeviceSettings({ denseEraserDetectionEnabled: enabled });
 }
 
 export function getStylusSideButtonTemporaryEraseEnabled(): boolean {

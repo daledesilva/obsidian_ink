@@ -1,4 +1,7 @@
+import { BoundedPenPositionFilter } from '../utils/bounded-pen-position-filter';
 import { getStroke } from 'perfect-freehand';
+import { applyHandwritingExperiments, readHandwritingExperiments, type HandwritingExperiments } from 'src/logic/device-settings/handwriting-experiments';
+import { inputDiagnostics } from '../input-diagnostics';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
 import { screenToPage } from '../camera';
@@ -40,6 +43,11 @@ export interface DrawToolContext {
 }
 
 interface ActiveStroke {
+	positionFilter: BoundedPenPositionFilter | null;
+	pointerId: number;
+	experiments: HandwritingExperiments;
+	inputPreference: StrokeInputTreatAs;
+	resolvedInput: ResolvedStrokeInputTreatAs;
 	id: string;
 	/**
 	 * The single source of geometry — persisted on pointer up AND rendered live.
@@ -61,10 +69,13 @@ interface ActiveStroke {
 
 /** When the pen creeps slowly away from the anchor but stays near the tip, append instead of replacing. */
 const SLOW_DRAW_TIP_REPLACE_APPEND_MS = 40;
+// Stabilized points already reject jitter: only collapse effectively identical positions.
+const FILTERED_DUPLICATE_RADIUS_PX = 0.001;
 
 let activeStroke: ActiveStroke | null = null;
 
 interface RawStrokeSample {
+	timeStamp: number;
 	clientX: number;
 	clientY: number;
 	pressure: number;
@@ -87,6 +98,7 @@ function getEffectiveStrokeInputTreatAs(e: PointerEvent, ctx: DrawToolContext): 
 }
 
 export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void {
+	const experiments = readHandwritingExperiments();
 	const treatAs = getEffectiveStrokeInputTreatAs(e, ctx);
 	const treatAsPen = treatAs === 'pen';
 	const camera = ctx.getCamera();
@@ -95,15 +107,23 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 
 	let pressure = e.pressure;
 	if (!treatAsPen && pressure === 0) pressure = 0.5;
-	if (isHardwarePen(e)) {
+	if (isHardwarePen(e) && processesPressure(experiments)) {
 		pressure = normalizePointerPenPressureForCapture(e.pressure, 0, ctx.getStrokeStyle().size);
 	}
 
 	const baseStyle = ctx.getStrokeStyle();
-	const style = buildInkStrokeStyleForTreatAs(baseStyle, treatAs, camera.zoom);
+	pressure = capturePressure(pressure, experiments);
+	const style = buildCapturedStyle(baseStyle, treatAs, camera.zoom, experiments);
 
 	const firstPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 	activeStroke = {
+		positionFilter: experiments.enabled && experiments.positionStabilization && treatAsPen && isHardwarePen(e)
+			? new BoundedPenPositionFilter(e.clientX, e.clientY, e.timeStamp)
+			: null,
+		pointerId: e.pointerId,
+		experiments,
+		inputPreference: ctx.getStrokeInputTreatAsPreference(),
+		resolvedInput: treatAs,
 		id: generateStrokeId(),
 		points: [copyInkPoint(firstPoint)],
 		style: { ...style },
@@ -113,6 +133,7 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 		lastCommittedPointAtMs: e.timeStamp,
 		rawSamples: [
 			{
+				timeStamp: e.timeStamp,
 				clientX: e.clientX,
 				clientY: e.clientY,
 				pressure: e.pressure,
@@ -132,8 +153,12 @@ export function drawToolPointerMove(e: PointerEvent, ctx: DrawToolContext): void
 export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
 
+	recordStrokeDiagnostic(ctx, 'before-pointerup');
+	let detectedInput: ResolvedStrokeInputTreatAs | undefined;
+
 	// Final segment on `pointerup` can include the true lift position.
 	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: true });
+	recordStrokeDiagnostic(ctx, 'after-lift-sample');
 
 	const isFingerStroke = isFingerPointer(e);
 
@@ -143,6 +168,7 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 				.filter((s) => !s.isPointerUpLiftSample)
 				.map((s) => s.pressure),
 		);
+		detectedInput = detected;
 		ctx.onStrokeInputDetected?.(detected);
 
 		const preference = ctx.getStrokeInputTreatAsPreference();
@@ -153,26 +179,30 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 				camera: ctx.getCamera(),
 				containerRect: ctx.getContainerRect(),
 				baseStyle: ctx.getStrokeStyle(),
+				experiments: activeStroke.experiments,
 			});
 			activeStroke.points = recomputed.points;
 			activeStroke.strokePathLength = recomputed.strokePathLength;
 			activeStroke.lastSmoothedPenPressure = recomputed.lastSmoothedPenPressure;
 			activeStroke.style = recomputed.style;
 		} else {
-			activeStroke.style = buildInkStrokeStyleForTreatAs(
+			activeStroke.style = buildCapturedStyle(
 				ctx.getStrokeStyle(),
 				ctx.getResolvedStrokeInputTreatAs(),
 				ctx.getCamera().zoom,
+				activeStroke.experiments,
 			);
 		}
 	} else {
-		activeStroke.style = buildInkStrokeStyleForTreatAs(
+		activeStroke.style = buildCapturedStyle(
 			ctx.getStrokeStyle(),
 			'mouse',
 			ctx.getCamera().zoom,
+			activeStroke.experiments,
 		);
 	}
 
+	recordStrokeDiagnostic(ctx, 'committed', detectedInput);
 	const stroke: InkStroke = {
 		id: activeStroke.id,
 		authoringSource: 'local',
@@ -195,6 +225,7 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 }
 
 export function drawToolPointerCancel(_e: PointerEvent, ctx: DrawToolContext): void {
+	recordStrokeDiagnostic(ctx, 'cancelled');
 	// Discard the in-progress stroke
 	const livePath = ctx.getLiveStrokePath();
 	if (livePath) livePath.setAttribute('d', '');
@@ -220,7 +251,7 @@ function appendDrawSamplesFromPointerEvent(
 	const containerRect = ctx.getContainerRect();
 	const samples = getPointerSamples(e);
 	const treatAsPen = getEffectiveStrokeInputTreatAs(e, ctx) === 'pen';
-	const mergeThresholdPage = 1 / camera.zoom;
+	const mergeThresholdPage = mergesPoints(activeStroke.experiments) ? (activeStroke.positionFilter ? FILTERED_DUPLICATE_RADIUS_PX : 1) / camera.zoom : 0;
 	const hardwarePen = isHardwarePen(e);
 	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;
 
@@ -237,7 +268,8 @@ function appendDrawSamplesFromPointerEvent(
 			continue;
 		}
 
-		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
+		const filtered = activeStroke.positionFilter?.update(sample.clientX, sample.clientY, sample.timeStamp);
+		const pagePoint = screenToPage(camera, containerRect, filtered?.x ?? sample.clientX, filtered?.y ?? sample.clientY);
 		const isLastSample = i === lastSampleIdx;
 
 		// For mice, browsers often report `pressure=0` on the final pointerup sample.
@@ -245,6 +277,7 @@ function appendDrawSamplesFromPointerEvent(
 		// remains classified as mouse.
 		const isPointerUpLiftSample = options.forceCommitFinalPoint && isLastSample;
 		activeStroke.rawSamples.push({
+			timeStamp: sample.timeStamp,
 			clientX: sample.clientX,
 			clientY: sample.clientY,
 			pressure: sample.pressure,
@@ -254,7 +287,7 @@ function appendDrawSamplesFromPointerEvent(
 		let pressure = sample.pressure;
 		if (!treatAsPen && pressure === 0) pressure = 0.5;
 
-		if (sampleIsPen) {
+		if (sampleIsPen && processesPressure(activeStroke.experiments)) {
 			pressure = normalizePointerPenPressureForCapture(
 				sample.pressure,
 				activeStroke.strokePathLength,
@@ -264,7 +297,7 @@ function appendDrawSamplesFromPointerEvent(
 			const dx = pagePoint.x - last[0];
 			const dy = pagePoint.y - last[1];
 			const segmentPageDistance = Math.hypot(dx, dy);
-			const sampleTimeMs = e.timeStamp + i;
+			const sampleTimeMs = activeStroke.positionFilter ? sample.timeStamp : e.timeStamp + i;
 			const willMerge =
 				shouldReplaceTipWithPoint(
 					activeStroke.points,
@@ -294,12 +327,13 @@ function appendDrawSamplesFromPointerEvent(
 			}
 		}
 
+		pressure = capturePressure(pressure, activeStroke.experiments);
 		const nextPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 
 		if (options.forceCommitFinalPoint && isLastSample) {
 			setOrAppendLastPoint(activeStroke, nextPoint);
 		} else {
-			appendOrMergePoint(activeStroke, nextPoint, mergeThresholdPage, e.timeStamp + i);
+			appendOrMergePoint(activeStroke, nextPoint, mergeThresholdPage, activeStroke.positionFilter ? sample.timeStamp : e.timeStamp + i);
 		}
 	}
 
@@ -316,13 +350,14 @@ function recomputeStrokeFromRawSamples(args: {
 	camera: CameraState;
 	containerRect: DOMRect;
 	baseStyle: InkStrokeStyle;
+	experiments: HandwritingExperiments;
 }): { points: InkPoint[]; strokePathLength: number; lastSmoothedPenPressure: number; style: InkStrokeStyle } {
-	const { rawSamples, detected, camera, containerRect, baseStyle } = args;
+	const { rawSamples, detected, camera, containerRect, baseStyle, experiments } = args;
 	const treatAsPen = detected === 'pen';
-	const mergeThresholdPage = 1 / camera.zoom;
+	const mergeThresholdPage = mergesPoints(experiments) ? (experiments.enabled && experiments.positionStabilization && treatAsPen ? FILTERED_DUPLICATE_RADIUS_PX : 1) / camera.zoom : 0;
 	const alpha = PEN_PRESSURE_SMOOTHING_ALPHA;
 
-	const style = buildInkStrokeStyleForTreatAs(baseStyle, detected, camera.zoom);
+	const style = buildCapturedStyle(baseStyle, detected, camera.zoom, experiments);
 
 	const points: InkPoint[] = [];
 	let strokePathLength = 0;
@@ -330,17 +365,23 @@ function recomputeStrokeFromRawSamples(args: {
 	const mergeState = { points, lastCommittedPointAtMs: 0 };
 	const recomputeSampleIntervalMs = 16;
 
+	const firstSample = rawSamples[0];
+	const positionFilter = experiments.enabled && experiments.positionStabilization && treatAsPen && firstSample
+		? new BoundedPenPositionFilter(firstSample.clientX, firstSample.clientY, firstSample.timeStamp)
+		: null;
+
 	const lastSampleIdx = rawSamples.length - 1;
 	for (let i = 0; i < rawSamples.length; i++) {
-		const sampleTimeMs = i * recomputeSampleIntervalMs;
 		const sample = rawSamples[i];
+		const sampleTimeMs = positionFilter ? sample.timeStamp : i * recomputeSampleIntervalMs;
 		const isLastSample = i === lastSampleIdx;
-		const pagePoint = screenToPage(camera, containerRect, sample.clientX, sample.clientY);
+		const filtered = positionFilter?.update(sample.clientX, sample.clientY, sample.timeStamp);
+		const pagePoint = screenToPage(camera, containerRect, filtered?.x ?? sample.clientX, filtered?.y ?? sample.clientY);
 
 		let pressure = sample.pressure;
 		if (!treatAsPen && pressure === 0) pressure = 0.5;
 
-		if (treatAsPen) {
+		if (treatAsPen && processesPressure(experiments)) {
 			pressure = normalizePointerPenPressureForCapture(
 				sample.pressure,
 				strokePathLength,
@@ -379,17 +420,22 @@ function recomputeStrokeFromRawSamples(args: {
 			}
 		}
 
+		pressure = capturePressure(pressure, experiments);
 		const nextPoint: InkPoint = [pagePoint.x, pagePoint.y, pressure];
 		if (isLastSample) {
 			// Mirror pointerup behavior: ensure termination at lift point without growing list.
-			if (points.length === 0) {
+			if (!mergesPoints(experiments)) {
+				const last = points[points.length - 1];
+				if (last) strokePathLength += Math.hypot(nextPoint[0] - last[0], nextPoint[1] - last[1]);
+				points.push(nextPoint);
+			} else if (points.length === 0) {
 				points.push(nextPoint);
 			} else {
 				const last = points[points.length - 1];
 				const dx = nextPoint[0] - last[0];
 				const dy = nextPoint[1] - last[1];
 				const dist = Math.hypot(dx, dy);
-				points[points.length - 1] = [nextPoint[0], nextPoint[1], Math.max(last[2], nextPoint[2])];
+				points[points.length - 1] = [nextPoint[0], nextPoint[1], mergePressure(last[2], nextPoint[2], experiments)];
 				strokePathLength += dist;
 			}
 		} else {
@@ -398,6 +444,7 @@ function recomputeStrokeFromRawSamples(args: {
 				nextPoint,
 				mergeThresholdPage,
 				sampleTimeMs,
+				!experiments.enabled || experiments.pressureProcessing,
 			);
 		}
 	}
@@ -492,6 +539,7 @@ function applyAppendOrMergePoint(
 	next: InkPoint,
 	mergeThresholdPage: number,
 	sampleTimeMs: number,
+	preserveHigherPressure = true,
 ): number {
 	const { points } = mergeState;
 	if (points.length === 0) {
@@ -511,7 +559,7 @@ function applyAppendOrMergePoint(
 	);
 	if (mergeAction === 'replace-tip') {
 		// Preserve the higher pressure when merging; avoids thin “gaps” on quick pen strokes.
-		points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
+		points[points.length - 1] = [next[0], next[1], preserveHigherPressure ? Math.max(last[2], next[2]) : next[2]];
 	} else {
 		points.push(next);
 		mergeState.lastCommittedPointAtMs = sampleTimeMs;
@@ -534,13 +582,16 @@ function appendOrMergePoint(
 		next,
 		mergeThresholdPage,
 		sampleTimeMs,
+		!stroke.experiments.enabled || stroke.experiments.pressureProcessing,
 	);
 	stroke.lastCommittedPointAtMs = mergeState.lastCommittedPointAtMs;
 }
 
 function setOrAppendLastPoint(stroke: ActiveStroke, next: InkPoint): void {
 	const points = stroke.points;
-	if (points.length === 0) {
+	if (!mergesPoints(stroke.experiments) || points.length === 0) {
+		const last = points[points.length - 1];
+		if (last) stroke.strokePathLength += Math.hypot(next[0] - last[0], next[1] - last[1]);
 		points.push(next);
 		return;
 	}
@@ -550,7 +601,7 @@ function setOrAppendLastPoint(stroke: ActiveStroke, next: InkPoint): void {
 	const dx = next[0] - last[0];
 	const dy = next[1] - last[1];
 	const dist = Math.hypot(dx, dy);
-	points[points.length - 1] = [next[0], next[1], Math.max(last[2], next[2])];
+	points[points.length - 1] = [next[0], next[1], mergePressure(last[2], next[2], stroke.experiments)];
 	stroke.strokePathLength += dist;
 }
 
@@ -569,4 +620,37 @@ function updateLiveStrokePath(ctx: DrawToolContext): void {
 	const pathData = getSvgPathFromStroke(outlinePoints);
 	livePath.setAttribute('d', pathData);
 	livePath.setAttribute('fill', activeStroke.style.color);
+}
+
+// Experiments are snapshotted at pointerdown so a stroke is one reproducible trial.
+function mergesPoints(settings: HandwritingExperiments): boolean {
+	return !settings.enabled || settings.mergePoints;
+}
+
+function processesPressure(settings: HandwritingExperiments): boolean {
+	return !settings.enabled || (settings.pressureProcessing && settings.pressureEnabled && !settings.fixedWidth);
+}
+
+function capturePressure(pressure: number, settings: HandwritingExperiments): number {
+	return settings.enabled && (!settings.pressureEnabled || settings.fixedWidth) ? 0.5 : pressure;
+}
+
+function buildCapturedStyle(base: InkStrokeStyle, treatAs: ResolvedStrokeInputTreatAs, zoom: number, experiments: HandwritingExperiments): InkStrokeStyle {
+	return applyHandwritingExperiments(buildInkStrokeStyleForTreatAs(base, treatAs, zoom), experiments);
+}
+
+function recordStrokeDiagnostic(ctx: DrawToolContext, phase: 'before-pointerup' | 'after-lift-sample' | 'committed' | 'cancelled', detectedInput?: string): void {
+	if (!activeStroke || !inputDiagnostics.isRecording()) return;
+	const rect = ctx.getContainerRect();
+	inputDiagnostics.recordStroke({
+		strokeId: activeStroke.id, pointerId: activeStroke.pointerId, phase,
+		points: activeStroke.points, style: activeStroke.style, experiments: activeStroke.experiments,
+		inputPreference: activeStroke.inputPreference, resolvedInput: activeStroke.resolvedInput,
+		detectedInput, camera: ctx.getCamera(),
+		containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+	});
+}
+
+function mergePressure(previous: number, next: number, settings: HandwritingExperiments): number {
+	return settings.enabled && !settings.pressureProcessing ? next : Math.max(previous, next);
 }

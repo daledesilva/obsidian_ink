@@ -1,18 +1,2 @@
-/////////
-/////////
-
-/**
- * Applied to `.cm-scroller` while pen scroll-lock is active (matches prior overflow: hidden behaviour).
- */
-.ink-cm-scroller--scroll-locked {
-	overflow: hidden;
-	scrollbar-color: transparent transparent;
-}
-
-.ink-finger-blocker--touch-none {
-	touch-action: none;
-}
-
-.ink-finger-blocker--touch-pan-xy {
-	touch-action: pan-x pan-y;
-}
+// All editors share these global classes; keep their scroll-lock rules in one source.
+@use '../../../../../jsx-components/finger-blocker/finger-blocker';

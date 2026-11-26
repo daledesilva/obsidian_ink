@@ -2,11 +2,12 @@
 /////////
 
 /**
- * Applied to `.cm-scroller` while pen scroll-lock is active (matches prior overflow: hidden behaviour).
+ * Lock scrolling without changing the host scrollbar style. Chromium switches away
+ * from Obsidian's custom scrollbar when scrollbar-color is overridden, changing
+ * the gutter width and shifting the centered note/canvas on every stroke.
  */
 .ink-cm-scroller--scroll-locked {
 	overflow: hidden;
-	scrollbar-color: transparent transparent;
 }
 
 .ink-finger-blocker--touch-none {

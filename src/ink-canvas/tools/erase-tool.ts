@@ -1,3 +1,6 @@
+import { getDenseEraserDetectionEnabled } from 'src/logic/device-settings/device-settings';
+import type { EraserHitTester } from '../utils/eraser-hit-tester';
+import type { EraserPreview } from '../eraser-preview';
 import { RemoveStrokesCommand } from '../commands';
 import {
 	INK_STROKE_PENDING_ERASE_ANIMATION_MS,
@@ -19,10 +22,14 @@ export interface EraseToolContext {
 	getCamera: () => CameraState;
 	getContainerRect: () => DOMRect;
 	getSvgElement: () => SVGSVGElement | null;
+	preview?: EraserPreview;
+	hitTester?: EraserHitTester;
 	onErase?: () => void;
 }
 
 let erasing = false;
+/** Snapshot once per gesture; no storage reads while the eraser moves. */
+let denseDetectionEnabled = true;
 let touchedStrokeIds: Set<string> = new Set();
 /** When each touched stroke was marked (ms since epoch) for preview animation timing. */
 let strokeMarkedAtMs = new Map<string, number>();
@@ -33,20 +40,27 @@ let pendingRemovalStrokeIds: string[] | null = null;
 export function eraseToolPointerDown(e: PointerEvent, ctx: EraseToolContext): void {
 	flushPendingEraseRemoval(ctx);
 	erasing = true;
+	denseDetectionEnabled = getDenseEraserDetectionEnabled();
 	touchedStrokeIds = new Set();
 	strokeMarkedAtMs = new Map();
 	lastEraseClientPoint = null;
-	hitTestEraserAtClientPoint(e.clientX, e.clientY, null, ctx);
+	const rect = ctx.getContainerRect();
+	ctx.hitTester?.begin();
+	hitTestEraserAtClientPoint(e.clientX, e.clientY, null, ctx, rect);
+	ctx.preview?.start(e.clientX, e.clientY, rect);
 	lastEraseClientPoint = { x: e.clientX, y: e.clientY };
 }
 
 export function eraseToolPointerMove(e: PointerEvent, ctx: EraseToolContext): void {
 	if (!erasing) return;
-	hitTestEraserAtClientPoint(e.clientX, e.clientY, lastEraseClientPoint, ctx);
+	const rect = ctx.getContainerRect();
+	hitTestEraserAtClientPoint(e.clientX, e.clientY, lastEraseClientPoint, ctx, rect);
+	ctx.preview?.move(e.clientX, e.clientY, rect);
 	lastEraseClientPoint = { x: e.clientX, y: e.clientY };
 }
 
 export function eraseToolPointerUp(_e: PointerEvent, ctx: EraseToolContext): void {
+	ctx.preview?.end();
 	if (!erasing) return;
 	erasing = false;
 	lastEraseClientPoint = null;
@@ -61,6 +75,7 @@ export function eraseToolPointerUp(_e: PointerEvent, ctx: EraseToolContext): voi
 }
 
 export function eraseToolPointerCancel(_e: PointerEvent, ctx: EraseToolContext): void {
+	ctx.preview?.clear();
 	clearPendingEraseRemovalTimeout();
 	const svg = ctx.getSvgElement();
 	if (svg && touchedStrokeIds.size > 0) {
@@ -82,14 +97,15 @@ export function isEraseToolActive(): boolean {
 
 /**
  * Hit-test strokes under the eraser footprint (radius + sweep along the drag path).
- * Uses the rendered SVG hit target directly so it respects transforms and works
- * in runtimes where SVGGeometryElement.isPointInFill() is unavailable.
+ * Cached SVG path geometry avoids per-sample browser layout/paint hit queries.
+ * The existing DOM picker remains a fallback for runtimes without Path2D.
  */
 function hitTestEraserAtClientPoint(
 	clientX: number,
 	clientY: number,
 	lastClientPoint: ClientPoint | null,
 	ctx: EraseToolContext,
+	containerRect: DOMRect,
 ): void {
 	const svg = ctx.getSvgElement();
 	if (!svg) return;
@@ -100,12 +116,18 @@ function hitTestEraserAtClientPoint(
 		clientY,
 		lastClientPoint,
 		cameraZoom,
+		denseDetectionEnabled,
 	);
-	for (const sample of samplePoints) {
-		const strokeId = getStrokeIdAtClientPoint(svg, sample.x, sample.y);
-		if (!strokeId) continue;
-		markStrokeForErase(svg, strokeId);
+	let hits = ctx.hitTester?.hitTest(samplePoints, ctx.getCamera(), containerRect) ?? null;
+	if (hits === null) {
+		hits = new Set<string>();
+		for (const sample of samplePoints) {
+			const strokeId = getStrokeIdAtClientPoint(svg, sample.x, sample.y);
+			if (strokeId) hits.add(strokeId);
+		}
 	}
+	// Finish all geometry/DOM reads before adding classes that trigger visual updates.
+	for (const strokeId of hits) markStrokeForErase(svg, strokeId);
 }
 
 function getStrokeGroupElement(svg: SVGSVGElement, strokeId: string): SVGGElement | null {

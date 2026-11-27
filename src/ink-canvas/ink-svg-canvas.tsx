@@ -1,3 +1,5 @@
+import { EraserHitTester } from './utils/eraser-hit-tester';
+import { EraserPreview } from './eraser-preview';
 import './ink-svg-canvas.scss';
 import React, { useEffect, useLayoutEffect, useRef, useCallback, useState, memo } from 'react';
 import { StrokeStore, type StrokeStoreChange } from './stroke-store';
@@ -16,7 +18,7 @@ import { cropWritingStrokeHeightInvitingly } from 'src/components/formats/curren
 import { WRITING_LINE_HEIGHT, WRITING_PAGE_WIDTH } from 'src/constants';
 import { AddStrokeCommand, EraseAllCommand, RemoveStrokesCommand } from './commands';
 import { drawToolPointerDown, drawToolPointerMove, drawToolPointerUp, drawToolPointerCancel } from './tools/draw-tool';
-import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel } from './tools/erase-tool';
+import { eraseToolPointerDown, eraseToolPointerMove, eraseToolPointerUp, eraseToolPointerCancel, isEraseToolActive } from './tools/erase-tool';
 import {
 	selectToolPointerDown,
 	selectToolPointerMove,
@@ -46,7 +48,7 @@ import {
 import { FingerBlocker } from 'src/components/jsx-components/finger-blocker/finger-blocker';
 import { resolveInkTouchGestureMode } from 'src/logic/touch-gesture-policy';
 import type { StrokeInputEditorKind } from 'src/logic/device-settings/device-settings-types';
-import { setLastDetectedStrokeInput } from 'src/logic/device-settings/device-settings';
+import { getEraserTrailEnabled, setLastDetectedStrokeInput, subscribeDeviceSettingsChanged } from 'src/logic/device-settings/device-settings';
 import { useStrokeInputTreatAs } from 'src/logic/device-settings/use-stroke-input-treat-as';
 import { useResolvedStrokeInputTreatAs } from 'src/logic/device-settings/use-resolved-stroke-input-treat-as';
 import { useHighContrastUserInterface } from 'src/logic/device-settings/use-high-contrast-user-interface';
@@ -158,6 +160,9 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const svgRef = useRef<SVGSVGElement>(null);
 	const liveStrokeRef = useRef<SVGPathElement>(null);
+	const eraserPreviewElementRef = useRef<SVGGElement>(null);
+	const eraserPreviewRef = useRef<EraserPreview | null>(null);
+	const eraserHitTesterRef = useRef<EraserHitTester | null>(null);
 	const cameraGroupRef = useRef<SVGGElement>(null);
 
 	function computeInitialPageHeight(): number {
@@ -240,14 +245,17 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	};
 	const toolRef = useRef(tool);
 	toolRef.current = tool;
+	const selectionChangeListenersRef = useRef(new Set<(count: number) => void>());
 	const toolChangeListenersRef = useRef(new Set<(t: InkTool) => void>());
 	const selectCtxRef = useRef<SelectToolContext | null>(null);
 	const onLeaveSelectToolRef = useRef<() => void>(() => {});
+	const onLeaveEraseToolRef = useRef<() => void>(() => {});
 	const applyToolChange = useCallback((nextTool: InkTool) => {
 		// Keep selectedIds but hide chrome/tint on pen/eraser; cancel in-flight lasso/drag DOM previews.
 		if (toolRef.current === 'select' && nextTool !== 'select') {
 			onLeaveSelectToolRef.current();
 		}
+		if (toolRef.current === 'erase' && nextTool !== 'erase') onLeaveEraseToolRef.current();
 		setTool(nextTool);
 		toolChangeListenersRef.current.forEach((listener) => listener(nextTool));
 	}, []);
@@ -270,6 +278,7 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		const signature = [...selectedIds].sort().join(',');
 		if (signature === selectedIdsSignatureRef.current) return;
 		selectedIdsSignatureRef.current = signature;
+		selectionChangeListenersRef.current.forEach((listener) => listener(selectedIds.size));
 		// Making, adding, or removing a selection is an edit, so shortcuts follow it.
 		focusEmbedForKeyboard();
 		setSelectionPreview(null);
@@ -606,6 +615,11 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 			setGridEnabled: (enabled: boolean) => setGridEnabledHandlerRef.current(enabled),
 
 			getSelectedStrokeIds: () => new Set(selectedIdsRef.current),
+			subscribeSelectionChange: (listener) => {
+				selectionChangeListenersRef.current.add(listener);
+				listener(selectedIdsRef.current.size);
+				return () => { selectionChangeListenersRef.current.delete(listener); };
+			},
 			deleteSelectedStrokes: () => deleteSelectedStrokesRef.current(),
 
 			getSnapshot: (): InkCanvasSnapshot => ({
@@ -669,12 +683,37 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 		},
 	};
 
+	if (!eraserPreviewRef.current) {
+		eraserPreviewRef.current = new EraserPreview(
+			() => eraserPreviewElementRef.current, getContainerRect, () => cameraRef.current.zoom,
+		);
+	}
+	useEffect(() => {
+		const refresh = () => eraserPreviewRef.current?.setEnabled(getEraserTrailEnabled());
+		refresh();
+		const unsubscribe = subscribeDeviceSettingsChanged(refresh);
+		return () => {
+			unsubscribe();
+			eraserPreviewRef.current?.clear();
+		};
+	}, []);
+	if (!eraserHitTesterRef.current) {
+		eraserHitTesterRef.current = new EraserHitTester(storeRef.current, () => svgRef.current);
+	}
 	const eraseCtx: EraseToolContext = {
+		hitTester: eraserHitTesterRef.current,
+		preview: eraserPreviewRef.current,
 		store: storeRef.current,
 		undoManager: undoManagerRef.current,
 		getCamera: () => cameraRef.current,
 		getContainerRect,
 		getSvgElement: () => svgRef.current,
+	};
+
+	// Switching tools must not leave an erase gesture active or a trail on screen.
+	onLeaveEraseToolRef.current = () => {
+		if (isEraseToolActive()) eraseToolPointerCancel({} as PointerEvent, eraseCtx);
+		else eraserPreviewRef.current?.clear();
 	};
 
 	const selectCtx: SelectToolContext = {
@@ -1621,6 +1660,8 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 						pointerEvents="none"
 					/>
 				</g>
+				{/* Screen-space eraser footprint uses the same radius as hit testing. */}
+				<g ref={eraserPreviewElementRef} className="ink-canvas-eraser-preview" visibility="hidden" pointerEvents="none" aria-hidden="true" />
 			</svg>
 			</div>
 		</div>

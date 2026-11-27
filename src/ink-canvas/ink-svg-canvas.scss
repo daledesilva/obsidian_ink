@@ -32,3 +32,11 @@
 	/* Ease-in-out cubic: starts and ends slowly, faster in the middle */
 	animation: ink-stroke-pending-erase 0.2s cubic-bezier(0.645, 0.045, 0.355, 1) forwards;
 }
+
+// Excalidraw-style translucent short tail. Group opacity keeps overlapping fills uniform.
+.ink-canvas-eraser-preview {
+	pointer-events: none;
+	opacity: 0.2;
+	fill: var(--text-normal);
+	stroke: none;
+}

@@ -20,6 +20,10 @@ export interface DeviceSettingsV1 {
 	highContrastUserInterface: boolean;
 	/** When true, editors show a toolbar toggle to draw with a finger on touch devices. */
 	fingerDrawingEnabled: boolean;
+	/** Transient eraser footprint and fading trail (per device, not vault-synced). */
+	eraserTrailEnabled: boolean;
+	/** Dense sampling of the eraser area and swept path (per device). */
+	denseEraserDetectionEnabled: boolean;
 	strokeInputTreatAs: Record<StrokeInputEditorKind, StrokeInputTreatAs>;
 	/** Last detected input for this device (shared by writing and drawing). */
 	lastDetectedStrokeInput: ResolvedStrokeInputTreatAs | null;

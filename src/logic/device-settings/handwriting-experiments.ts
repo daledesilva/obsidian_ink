@@ -36,7 +36,7 @@ const LEGACY_HANDWRITING_EXPERIMENTS: Readonly<HandwritingExperiments> = {
 export const HANDWRITING_PRESETS: Record<'appleNotes' | 'balanced' | 'excalidraw' | 'deprecated', Readonly<HandwritingExperiments>> = {
 	appleNotes: {
 		...LEGACY_HANDWRITING_EXPERIMENTS, enabled: true, pressureProcessing: false,
-		positionStabilization: true, thinning: 0.15,
+		positionStabilization: true, thinning: 0.25,
 		overrideSmoothing: true, streamline: 0.4, smoothing: 0.5,
 	},
 	balanced: {

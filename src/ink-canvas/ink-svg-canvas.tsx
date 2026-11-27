@@ -1,6 +1,5 @@
 import { EraserHitTester } from './utils/eraser-hit-tester';
 import { EraserPreview } from './eraser-preview';
-import { inputDiagnostics } from './input-diagnostics';
 import './ink-svg-canvas.scss';
 import React, { useEffect, useLayoutEffect, useRef, useCallback, useState, memo } from 'react';
 import { StrokeStore, type StrokeStoreChange } from './stroke-store';
@@ -937,10 +936,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	};
 
 	const handlePointerDown = useCallback((e: React.PointerEvent) => {
-		inputDiagnostics.recordEvent('canvas', e.nativeEvent, () => {
-			const rect = getContainerRect();
-			return { writingMode, tool: toolRef.current, camera: { ...cameraRef.current }, containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
-		});
 		focusEmbedForKeyboard();
 		// Touch input: two-finger gestures are handled by the native touch listener.
 		// Single-finger touch is ignored unless finger drawing is active — except long-press
@@ -1075,10 +1070,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool, isClientPointOnSelectionChrome, clearSelectionLongPressTimer, showSelectionContextMenuAt, focusEmbedForKeyboard]);  
 
 	const handlePointerMove = useCallback((e: React.PointerEvent) => {
-		inputDiagnostics.recordEvent('canvas', e.nativeEvent, () => {
-			const rect = getContainerRect();
-			return { writingMode, tool: toolRef.current, camera: { ...cameraRef.current }, containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
-		});
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
 			if (isTouchSelectGestureRef.current) {
 				recordCanvasPointer(e);
@@ -1151,10 +1142,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool]);  
 
 	const handlePointerUp = useCallback((e: React.PointerEvent) => {
-		inputDiagnostics.recordEvent('canvas', e.nativeEvent, () => {
-			const rect = getContainerRect();
-			return { writingMode, tool: toolRef.current, camera: { ...cameraRef.current }, containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
-		});
 		// End of a click or drag. Re-assert focus in case the gesture moved it.
 		focusEmbedForKeyboard();
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
@@ -1216,10 +1203,6 @@ export function InkSvgCanvas(props: InkSvgCanvasProps): React.JSX.Element {
 	}, [tool, releasePanMomentum, applyToolChange, clearSelectionLongPressTimer, focusEmbedForKeyboard]);  
 
 	const handlePointerCancel = useCallback((e: React.PointerEvent) => {
-		inputDiagnostics.recordEvent('canvas', e.nativeEvent, () => {
-			const rect = getContainerRect();
-			return { writingMode, tool: toolRef.current, camera: { ...cameraRef.current }, containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } };
-		});
 		if (e.pointerType === 'touch' && !isFingerDrawingActiveRef.current) {
 			if (isTouchSelectGestureRef.current) {
 				isTouchSelectGestureRef.current = false;

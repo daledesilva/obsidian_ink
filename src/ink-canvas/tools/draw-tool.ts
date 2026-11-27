@@ -1,7 +1,6 @@
 import { BoundedPenPositionFilter } from '../utils/bounded-pen-position-filter';
 import { getStroke } from 'perfect-freehand';
 import { applyHandwritingExperiments, readHandwritingExperiments, type HandwritingExperiments } from 'src/logic/device-settings/handwriting-experiments';
-import { inputDiagnostics } from '../input-diagnostics';
 import { getSvgPathFromStroke } from '../utils/svg-path-from-stroke';
 import { getPointerSamples } from '../utils/pointer-samples';
 import { screenToPage } from '../camera';
@@ -44,10 +43,7 @@ export interface DrawToolContext {
 
 interface ActiveStroke {
 	positionFilter: BoundedPenPositionFilter | null;
-	pointerId: number;
 	experiments: HandwritingExperiments;
-	inputPreference: StrokeInputTreatAs;
-	resolvedInput: ResolvedStrokeInputTreatAs;
 	id: string;
 	/**
 	 * The single source of geometry — persisted on pointer up AND rendered live.
@@ -120,10 +116,7 @@ export function drawToolPointerDown(e: PointerEvent, ctx: DrawToolContext): void
 		positionFilter: experiments.enabled && experiments.positionStabilization && treatAsPen && isHardwarePen(e)
 			? new BoundedPenPositionFilter(e.clientX, e.clientY, e.timeStamp)
 			: null,
-		pointerId: e.pointerId,
 		experiments,
-		inputPreference: ctx.getStrokeInputTreatAsPreference(),
-		resolvedInput: treatAs,
 		id: generateStrokeId(),
 		points: [copyInkPoint(firstPoint)],
 		style: { ...style },
@@ -153,12 +146,8 @@ export function drawToolPointerMove(e: PointerEvent, ctx: DrawToolContext): void
 export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 	if (!activeStroke) return;
 
-	recordStrokeDiagnostic(ctx, 'before-pointerup');
-	let detectedInput: ResolvedStrokeInputTreatAs | undefined;
-
 	// Final segment on `pointerup` can include the true lift position.
 	appendDrawSamplesFromPointerEvent(e, ctx, { forceCommitFinalPoint: true });
-	recordStrokeDiagnostic(ctx, 'after-lift-sample');
 
 	const isFingerStroke = isFingerPointer(e);
 
@@ -168,7 +157,6 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 				.filter((s) => !s.isPointerUpLiftSample)
 				.map((s) => s.pressure),
 		);
-		detectedInput = detected;
 		ctx.onStrokeInputDetected?.(detected);
 
 		const preference = ctx.getStrokeInputTreatAsPreference();
@@ -202,7 +190,6 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 		);
 	}
 
-	recordStrokeDiagnostic(ctx, 'committed', detectedInput);
 	const stroke: InkStroke = {
 		id: activeStroke.id,
 		authoringSource: 'local',
@@ -225,7 +212,6 @@ export function drawToolPointerUp(e: PointerEvent, ctx: DrawToolContext): void {
 }
 
 export function drawToolPointerCancel(_e: PointerEvent, ctx: DrawToolContext): void {
-	recordStrokeDiagnostic(ctx, 'cancelled');
 	// Discard the in-progress stroke
 	const livePath = ctx.getLiveStrokePath();
 	if (livePath) livePath.setAttribute('d', '');
@@ -637,18 +623,6 @@ function capturePressure(pressure: number, settings: HandwritingExperiments): nu
 
 function buildCapturedStyle(base: InkStrokeStyle, treatAs: ResolvedStrokeInputTreatAs, zoom: number, experiments: HandwritingExperiments): InkStrokeStyle {
 	return applyHandwritingExperiments(buildInkStrokeStyleForTreatAs(base, treatAs, zoom), experiments);
-}
-
-function recordStrokeDiagnostic(ctx: DrawToolContext, phase: 'before-pointerup' | 'after-lift-sample' | 'committed' | 'cancelled', detectedInput?: string): void {
-	if (!activeStroke || !inputDiagnostics.isRecording()) return;
-	const rect = ctx.getContainerRect();
-	inputDiagnostics.recordStroke({
-		strokeId: activeStroke.id, pointerId: activeStroke.pointerId, phase,
-		points: activeStroke.points, style: activeStroke.style, experiments: activeStroke.experiments,
-		inputPreference: activeStroke.inputPreference, resolvedInput: activeStroke.resolvedInput,
-		detectedInput, camera: ctx.getCamera(),
-		containerRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-	});
 }
 
 function mergePressure(previous: number, next: number, settings: HandwritingExperiments): number {

@@ -1,4 +1,3 @@
-import { inputDiagnostics } from './ink-canvas/input-diagnostics';
 import './ddc-library/settings-styles.scss';
 // Global so dark-mode native Ink img invert applies before embed SCSS chunks load.
 import './components/shared/ink-svg-preview-theme.scss';
@@ -154,7 +153,6 @@ export default class InkPlugin extends Plugin {
 	}
 
 	async onload() {
-		this.register(() => inputDiagnostics.clear());
 		postCursorDebugIngest({
 			hypothesisId: 'H-win-onload-enter',
 			location: 'main.ts:onload:enter',

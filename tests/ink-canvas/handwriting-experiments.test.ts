@@ -12,7 +12,6 @@ import { StrokeStore } from 'src/ink-canvas/stroke-store';
 import { UndoManager } from 'src/ink-canvas/undo-manager';
 import { DEFAULT_STROKE_STYLE, toStrokeOptions } from 'src/ink-canvas/types';
 import { getRenderedStrokeData } from 'src/ink-canvas/rendered-stroke-cache';
-import { inputDiagnostics } from 'src/ink-canvas/input-diagnostics';
 
 function context(preference: 'auto' | 'pen' | 'mouse' = 'pen', zoom = 1) {
 	const store = new StrokeStore();
@@ -42,7 +41,6 @@ function draw(ctx: DrawToolContext) {
 beforeEach(() => {
 	window.activeWindow.localStorage.clear();
 	patchHandwritingExperiments({ ...HANDWRITING_PRESETS.deprecated });
-	inputDiagnostics.clear();
 	drawToolPointerCancel({} as PointerEvent, context().ctx);
 });
 
@@ -140,14 +138,13 @@ describe('handwriting control-variable experiments', () => {
 		expect(store.getAll()[1].style).toMatchObject({ streamline: 0.4, smoothing: 0.7, captureZoom: 3 });
 	});
 
-	test('Apple Notes preset uses the same processed points live, after auto recompute and on JSON reload', () => {
+	test('Apple Notes preserves captured points through auto recompute and JSON reload', () => {
 		patchHandwritingExperiments({ ...HANDWRITING_PRESETS.appleNotes });
-		inputDiagnostics.start({});
 		const { ctx, store } = context('auto');
 		ctx.getResolvedStrokeInputTreatAs = () => 'pen';
 		draw(ctx);
-		const snapshots = JSON.parse(inputDiagnostics.exportJson()!).strokes;
-		expect(snapshots[1].points).toEqual(snapshots[2].points);
+		const pen = context('pen'); draw(pen.ctx);
+		expect(store.getAll()[0].points).toEqual(pen.store.getAll()[0].points);
 		const stroke = store.getAll()[0];
 		expect(stroke.style).toMatchObject({ streamline: 0.4, smoothing: 0.5, thinning: 0.35, simulatePressure: false });
 		patchHandwritingExperiments({ ...HANDWRITING_PRESETS.excalidraw });
@@ -172,18 +169,4 @@ describe('handwriting control-variable experiments', () => {
 		expect(readHandwritingExperiments()).toMatchObject({ positionStabilization: false, thinning: 0.6, streamline: 0.5, smoothing: 0.5, pressureProcessing: false });
 	});
 
-	test('diagnostics capture live and committed points by value and cancel creates no stroke', () => {
-		inputDiagnostics.start({ test: true });
-		const { ctx, store } = context('auto'); draw(ctx);
-		const data = JSON.parse(inputDiagnostics.exportJson()!);
-		expect(data.strokes.map((s: { phase: string }) => s.phase)).toEqual(['before-pointerup', 'after-lift-sample', 'committed']);
-		expect(data.strokes[2].points).toEqual(store.getAll()[0].points);
-		expect(data.strokes[2]).toMatchObject({ resolvedInput: 'mouse', detectedInput: 'pen', inputPreference: 'auto' });
-		store.getAll()[0].points[0][2] = 0.99;
-		expect(JSON.parse(inputDiagnostics.exportJson()!).strokes[2].points).toEqual(data.strokes[2].points);
-		drawToolPointerDown(pointer('pointerdown', 0, 0.2, 0), ctx);
-		drawToolPointerCancel(pointer('pointercancel', 0, 0, 10), ctx);
-		expect(store.count()).toBe(1);
-		expect(JSON.parse(inputDiagnostics.exportJson()!).strokes[3].phase).toBe('cancelled');
-	});
 });

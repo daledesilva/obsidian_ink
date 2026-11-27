@@ -1,13 +1,11 @@
-import { apiVersion, Notice, Setting } from 'obsidian';
-import type InkPlugin from 'src/main';
-import { inputDiagnostics } from 'src/ink-canvas/input-diagnostics';
+import { Notice, Setting } from 'obsidian';
 import {
 	HANDWRITING_PRESETS,
 	patchHandwritingExperiments,
 	readHandwritingExperiments,
 	type HandwritingExperiments,
 } from 'src/logic/device-settings/handwriting-experiments';
-import { getDenseEraserDetectionEnabled, getEraserTrailEnabled, readDeviceSettings, setDenseEraserDetectionEnabled, setEraserTrailEnabled, setStrokeInputTreatAs } from 'src/logic/device-settings/device-settings';
+import { getDenseEraserDetectionEnabled, getEraserTrailEnabled, setDenseEraserDetectionEnabled, setEraserTrailEnabled, setStrokeInputTreatAs } from 'src/logic/device-settings/device-settings';
 
 const PRESET_LABELS: Record<keyof typeof HANDWRITING_PRESETS, string> = {
 	appleNotes: 'Apple Notes',
@@ -16,7 +14,7 @@ const PRESET_LABELS: Record<keyof typeof HANDWRITING_PRESETS, string> = {
 	deprecated: 'Deprecated',
 };
 
-export function insertHandwritingDiagnosticsSettings(containerEl: HTMLElement, plugin: InkPlugin): void {
+export function insertHandwritingSettings(containerEl: HTMLElement): void {
 	const section = containerEl.createDiv();
 	const render = () => {
 		section.empty();
@@ -53,7 +51,7 @@ export function insertHandwritingDiagnosticsSettings(containerEl: HTMLElement, p
 					.onChange((value) => patchHandwritingExperiments({ [key]: value }));
 			});
 		};
-		toggle('enabled', 'Enable advanced handwriting settings', 'Apply the handwriting options below. Input recording works independently.');
+		toggle('enabled', 'Enable advanced handwriting settings', 'Apply the handwriting options below.');
 		toggle('fixedWidth', 'Fixed stroke width', 'Use the diameter below and disable real and simulated pressure width variation.');
 		slider('fixedWidthSize', 'Fixed width diameter', 'Canvas units; active when fixed stroke width is enabled.', 0.5, 20, 0.5);
 		toggle('pressureEnabled', 'Use pressure for width', 'Off sets thinning to zero and disables simulated pressure, while keeping the ordinary brush size. Fixed width takes precedence.');
@@ -66,46 +64,6 @@ export function insertHandwritingDiagnosticsSettings(containerEl: HTMLElement, p
 		slider('smoothing', 'Outline smoothing', 'Controls outline point spacing in perfect-freehand; distinct from trajectory streamline.', 0, 1, 0.01);
 		new Setting(section).setName('Restore handwriting defaults').setDesc('Restore the Balanced preset and Pen input mode.')
 			.addButton((button) => button.setButtonText('Reset').onClick(() => applyPreset('balanced')));
-
-		let label = '';
-		new Setting(section).setName('Recording label').setDesc('For example: iPad Pro 10.5 / Pencil 1 / iPadOS / Obsidian version / baseline. Included in the next recording. The browser cannot reliably identify the Pencil generation.')
-			.addText((text) => text.setPlaceholder('Device, versions, test condition').onChange((value) => { label = value; }));
-		const status = new Setting(section).setName('Input recording').setDesc(inputDiagnostics.status());
-		const refreshStatus = () => status.setDesc(inputDiagnostics.status());
-		status.addButton((button) => button.setButtonText('Start new').onClick(() => {
-			const ownerWindow = section.ownerDocument.defaultView!;
-			inputDiagnostics.start({
-				label, pluginVersion: plugin.manifest.version, obsidianApiVersion: apiVersion,
-				diagnosticsBuild: 'handwriting-presets-v5',
-				userAgent: ownerWindow.navigator.userAgent,
-				maxTouchPoints: ownerWindow.navigator.maxTouchPoints, devicePixelRatio: ownerWindow.devicePixelRatio,
-				viewport: { width: ownerWindow.innerWidth, height: ownerWindow.innerHeight },
-				pointerEventSupported: 'PointerEvent' in ownerWindow,
-				coalescedInputUsedByEngine: false,
-				experiments: readHandwritingExperiments(),
-				inputPreferences: readDeviceSettings().strokeInputTreatAs,
-				lastDetectedInput: readDeviceSettings().lastDetectedStrokeInput,
-			});
-			refreshStatus();
-			new Notice('Ink input recording started. Draw a short sample, then return here to stop and export.');
-		}));
-		status.addButton((button) => button.setButtonText('Stop').onClick(() => { inputDiagnostics.stop(); refreshStatus(); }));
-		new Setting(section).setName('Export input recording')
-			.setDesc('Exports raw blocker/canvas events, available coalesced samples, and stroke points before and after pointerup. Memory is bounded; reaching the limit stops recording. JSON is saved to the vault and may sync with it. Recording is cleared when the plugin unloads.')
-			.addButton((button) => button.setButtonText('Export JSON').onClick(async () => {
-				inputDiagnostics.stop('export');
-				refreshStatus();
-				const json = inputDiagnostics.exportJson();
-				if (!json) { new Notice('Start an input recording first.'); return; }
-				try {
-					const path = `ink-input-diagnostics-${Date.now()}.json`;
-					await plugin.app.vault.create(path, json);
-					new Notice(`Ink diagnostics exported: ${path}`);
-				} catch {
-					new Notice('Export failed. The recording remains in memory; try again.');
-				}
-			}))
-			.addButton((button) => button.setButtonText('Clear').onClick(() => { inputDiagnostics.clear(); refreshStatus(); }));
 
 		new Setting(section).setName('Eraser settings').setHeading();
 		new Setting(section).setName('Show eraser trail')

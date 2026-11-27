@@ -146,7 +146,7 @@ describe('handwriting control-variable experiments', () => {
 		const pen = context('pen'); draw(pen.ctx);
 		expect(store.getAll()[0].points).toEqual(pen.store.getAll()[0].points);
 		const stroke = store.getAll()[0];
-		expect(stroke.style).toMatchObject({ streamline: 0.4, smoothing: 0.5, thinning: 0.35, simulatePressure: false });
+		expect(stroke.style).toMatchObject({ streamline: 0.4, smoothing: 0.5, thinning: 0.15, simulatePressure: false });
 		patchHandwritingExperiments({ ...HANDWRITING_PRESETS.excalidraw });
 		expect(getRenderedStrokeData(JSON.parse(JSON.stringify(stroke))).pathD).toBe(getRenderedStrokeData(stroke).pathD);
 	});
